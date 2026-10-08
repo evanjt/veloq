@@ -234,7 +234,7 @@ describe('fold of ranked sections', () => {
     ['Ride', 'Run'],
     ['Run', 'Ride'],
   ])('keeps both sports in either batch order (%s then %s)', (...order) => {
-    const { insights } = computeInsightsFromData(data(order), t, null);
+    const { insights } = computeInsightsFromData(data(order), t);
     const trends = insights.filter((i) => i.category === 'section_trend');
     expect(trends).toHaveLength(1);
     const bySport = Object.fromEntries(

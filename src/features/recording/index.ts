@@ -75,12 +75,12 @@ export { readRecordingTrack } from './lib/storage/recordingTrack';
 export { startUploadQueue } from './lib/upload/startUploadQueue';
 export { useRecordingLiveStore } from './stores/RecordingLiveStore';
 export {
-  initializeRecordingPreferences,
+  initialiseRecordingPreferences,
   useRecordingPreferences,
 } from './stores/RecordingPreferencesStore';
 export { useRecordingStore } from './stores/RecordingStore';
 export {
-  initializeUploadPermission,
+  initialiseUploadPermission,
   useUploadPermissionStore,
 } from './stores/UploadPermissionStore';
 export type { EntryGpsState } from './lib/recordEntry';

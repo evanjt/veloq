@@ -9,7 +9,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
 import {
   SectionStatsCards,
@@ -48,7 +48,7 @@ const best = (id: string, time: number) => ({
 
 describe('direction Best and Avg', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('shows a Best and an Avg for each direction on the Summary card', () => {

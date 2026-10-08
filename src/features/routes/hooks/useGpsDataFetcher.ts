@@ -13,11 +13,8 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { engine, DownloadPriority, type ActivitySportMapping } from 'veloqrs';
-import { present } from 'veloqrs/src/delegates/optional';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { activityStartEpoch } from '@/shared/activity/streamWindow';
-import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
@@ -89,7 +86,7 @@ async function waitForTilePass(
  * Handles progress tracking, coordinate building, and engine population.
  *
  * **Coordinate Format:**
- * - Input: Activity objects with encoded polylines
+ * - Input: the candidates the engine (or, in demo mode, the fixtures) name
  * - Output: Flat number array [lat1, lng1, lat2, lng2, ...]
  * - Offsets: Index in flat array where each activity starts
  *
@@ -101,10 +98,10 @@ async function waitForTilePass(
  * const { fetchDemoGps, fetchApiGps } = useGpsDataFetcher();
  *
  * // Demo mode
- * const result = await fetchDemoGps(activities, deps);
+ * const result = await fetchDemoGps(candidates, deps);
  *
  * // Real API mode
- * const result = await fetchApiGps(activities, deps);
+ * const result = await fetchApiGps(candidates, deps);
  * ```
  */
 
@@ -116,7 +113,7 @@ export function useGpsDataFetcher() {
    * Useful for testing and offline development.
    */
   const fetchDemoGps = useCallback(
-    async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+    async (candidates: ActivitySportMapping[], deps: FetchDeps): Promise<GpsFetchResult> => {
       const { isMountedRef, abortSignal, updateProgress } = deps;
 
       // Capture sync generation at start - results will be discarded if it changes
@@ -141,7 +138,7 @@ export function useGpsDataFetcher() {
         updateProgress({
           status: 'fetching',
           completed: 0,
-          total: activities.length,
+          total: candidates.length,
           percent: 0,
           message: i18n.t('cache.loadingDemoGps'),
         });
@@ -179,8 +176,8 @@ export function useGpsDataFetcher() {
       const storedTrackLength = new Map<string, number>();
 
       // Build flat coordinate arrays for Rust FFI
-      for (const activity of activities) {
-        const map = getActivityMap(activity.id, false);
+      for (const candidate of candidates) {
+        const map = getActivityMap(candidate.activityId, false);
         if (!map) {
           failedNoMap++;
           continue;
@@ -190,9 +187,9 @@ export function useGpsDataFetcher() {
           continue;
         }
 
-        ids.push(activity.id);
+        ids.push(candidate.activityId);
         offsets.push(allCoords.length / 2);
-        sportTypes.push(activity.type || 'Ride');
+        sportTypes.push(candidate.sportType);
         const startOfTrack = allCoords.length;
 
         // Add coordinates (latlngs are [[lat, lng], ...])
@@ -208,7 +205,7 @@ export function useGpsDataFetcher() {
             }
           }
         }
-        storedTrackLength.set(activity.id, (allCoords.length - startOfTrack) / 2);
+        storedTrackLength.set(candidate.activityId, (allCoords.length - startOfTrack) / 2);
       }
 
       // Log skipped coordinates in development
@@ -305,7 +302,7 @@ export function useGpsDataFetcher() {
           updateProgress({
             status: 'complete',
             completed: ids.length,
-            total: activities.length,
+            total: candidates.length,
             percent: 100,
             message,
             analysingInBackground: demoStillAnalysing,
@@ -314,7 +311,7 @@ export function useGpsDataFetcher() {
 
         return {
           syncedIds: ids,
-          withGpsCount: activities.length,
+          withGpsCount: candidates.length,
           message,
         };
       }
@@ -324,27 +321,27 @@ export function useGpsDataFetcher() {
         updateProgress({
           status: 'idle',
           completed: 0,
-          total: activities.length,
+          total: candidates.length,
           percent: 0,
-          message: i18n.t('cache.noValidGpsChecked', { count: activities.length }),
+          message: i18n.t('cache.noValidGpsChecked', { count: candidates.length }),
         });
       }
 
       // Log diagnostic info in development
       if (__DEV__) {
         console.warn(
-          `[fetchDemoGps] No valid GPS data found. Activities: ${activities.length}, ` +
+          `[fetchDemoGps] No valid GPS data found. Activities: ${candidates.length}, ` +
             `failedNoMap: ${failedNoMap}, failedNoCoords: ${failedNoCoords}, ` +
-            `checked IDs: ${activities
+            `checked IDs: ${candidates
               .slice(0, 3)
-              .map((a) => a.id)
+              .map((c) => c.activityId)
               .join(', ')}...`
         );
       }
 
       return {
         syncedIds: [],
-        withGpsCount: activities.length,
+        withGpsCount: candidates.length,
         message: i18n.t('cache.noValidGpsData'),
       };
     },
@@ -358,13 +355,13 @@ export function useGpsDataFetcher() {
    * Shows progress updates during fetch.
    */
   const fetchApiGps = useCallback(
-    async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
+    async (candidates: ActivitySportMapping[], deps: FetchDeps): Promise<GpsFetchResult> => {
       // Capture sync generation at start - results will be discarded if it changes
       const startGeneration = getSyncGeneration();
 
       if (__DEV__) {
         log.log(
-          `[fetchApiGps] Entered with ${activities.length} activities, generation=${startGeneration}`
+          `[fetchApiGps] Entered with ${candidates.length} activities, generation=${startGeneration}`
         );
       }
 
@@ -374,7 +371,7 @@ export function useGpsDataFetcher() {
         endGpsSync(reason, {
           updateProgress,
           isMounted: isMountedRef.current,
-          withGpsCount: activities.length,
+          withGpsCount: candidates.length,
         });
 
       const nativeModule = getNativeModule();
@@ -394,21 +391,15 @@ export function useGpsDataFetcher() {
         updateProgress({
           status: 'fetching',
           completed: 0,
-          total: activities.length,
+          total: candidates.length,
           percent: 0,
           message: i18n.t('cache.fetchingGpsData'),
         });
       }
 
       // Build sport type mapping for Rust
-      const activityIds = activities.map((a) => a.id);
-      const sportTypes: ActivitySportMapping[] = activities.map((a) =>
-        present({
-          activityId: a.id,
-          sportType: a.type || 'Ride',
-          startDate: activityStartEpoch(a.start_date_local),
-        })
-      );
+      const activityIds = candidates.map((c) => c.activityId);
+      const sportTypes = candidates;
 
       if (__DEV__) {
         log.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);
@@ -668,7 +659,7 @@ export function useGpsDataFetcher() {
         updateProgress({
           status: 'complete',
           completed: result.successCount,
-          total: activities.length,
+          total: candidates.length,
           percent: 100,
           message: synced,
           analysingInBackground: stillAnalysing,
@@ -677,7 +668,7 @@ export function useGpsDataFetcher() {
 
       return {
         syncedIds: result.syncedIds,
-        withGpsCount: activities.length,
+        withGpsCount: candidates.length,
         message: synced,
       };
     },

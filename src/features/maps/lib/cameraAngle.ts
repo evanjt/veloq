@@ -252,7 +252,7 @@ function computeElevationCamera(
 
   // Bearing toward high terrain (atan2 with lng as x, lat as y for compass bearing)
   const bearing = (Math.atan2(gradLng, gradLat) * 180) / Math.PI;
-  const normalizedBearing = (bearing + 360) % 360;
+  const normalisedBearing = (bearing + 360) % 360;
 
   // Adaptive pitch based on elevation range
   // With 1.5x terrain exaggeration, lower pitch for mountainous terrain
@@ -265,7 +265,7 @@ function computeElevationCamera(
     pitch = 52; // Mountainous: more horizontal, dramatic views
   }
 
-  return { bearing: normalizedBearing, pitch, elevationRange };
+  return { bearing: normalisedBearing, pitch, elevationRange };
 }
 
 /**

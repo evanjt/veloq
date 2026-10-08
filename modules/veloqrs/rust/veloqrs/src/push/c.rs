@@ -144,6 +144,26 @@ pub unsafe extern "C" fn veloq_push_activity(
     })
 }
 
+/// The widget snapshot, composed from the context the app last stored and the
+/// device clock, as the JSON the widget extension decodes.
+///
+/// The twin of `nativeWidgetSnapshot` on Android. Null when the engine is not
+/// open or the app has never stored a context, and then the widget keeps the
+/// snapshot file it has. The caller hands the string back to
+/// [`veloq_push_string_free`].
+#[unsafe(no_mangle)]
+pub extern "C" fn veloq_push_widget_snapshot() -> *mut c_char {
+    crate::ffi_refuse_on_panic("push widget snapshot", std::ptr::null_mut(), || {
+        match crate::widget_snapshot::native_snapshot_json() {
+            Some(json) => hand_over(json),
+            None => {
+                log::warn!("[push] no widget snapshot: engine closed or no stored context");
+                std::ptr::null_mut()
+            }
+        }
+    })
+}
+
 /// Record a push that ended before the engine answered, as a `failed` run
 /// with `reason`, in the database at `db_path`.
 ///
@@ -195,6 +215,56 @@ pub unsafe extern "C" fn veloq_push_payload_reason(
         let top: Vec<&str> = top.map(|t| t.lines().collect()).unwrap_or_default();
         let body: Option<Vec<&str>> = body.map(|b| b.lines().collect());
         hand_over(super::payload_refusal_reason(&top, body.as_deref()))
+    })
+}
+
+/// The widget refresh: open the engine at `db_path`, pull the last fortnight of
+/// wellness and compose the widget snapshot, as one JSON object holding the
+/// pull's status and the snapshot.
+///
+/// The three credential arguments are the keychain items as they were read,
+/// null for anything absent, the same as [`veloq_push_prepare`]. A refresh with
+/// no usable credential still answers, from the stored rows, with the status
+/// saying so. Null when the engine will not open or the app has never stored a
+/// widget context, and then the caller keeps the file it has.
+///
+/// The string is the caller's until it hands it back to
+/// [`veloq_push_string_free`].
+///
+/// # Safety
+///
+/// Every argument is a NUL-terminated string or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_widget_refresh(
+    db_path: *const c_char,
+    access_token: *const c_char,
+    api_key: *const c_char,
+    athlete_id: *const c_char,
+) -> *mut c_char {
+    crate::ffi_refuse_on_panic("widget refresh", std::ptr::null_mut(), || {
+        // SAFETY: the caller's contract above.
+        let (db_path, access_token, api_key, athlete_id) = unsafe {
+            (
+                read(db_path),
+                read(access_token),
+                read(api_key),
+                read(athlete_id),
+            )
+        };
+        let Some(db_path) = db_path else {
+            log::warn!("[widget] a refresh was asked for without a database path");
+            return std::ptr::null_mut();
+        };
+
+        let credential = crate::widget_refresh::NativeCredential::Keychain {
+            access_token,
+            api_key,
+            athlete_id,
+        };
+        match crate::widget_refresh::refresh_snapshot(db_path, credential) {
+            Some(refresh) => hand_over(refresh.to_json()),
+            None => std::ptr::null_mut(),
+        }
     })
 }
 

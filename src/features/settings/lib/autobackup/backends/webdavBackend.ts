@@ -82,13 +82,13 @@ async function deleteQuietly(url: string, headers: Record<string, string>): Prom
 }
 
 /**
- * Normalize a WebDAV URL: ensure trailing slash, handle common Nextcloud paths.
+ * Normalise a WebDAV URL: ensure trailing slash, handle common Nextcloud paths.
  * Exported for testing.
  */
-export function normalizeWebdavUrl(url: string): string {
-  let normalized = url.trim();
+export function normaliseWebdavUrl(url: string): string {
+  let normalised = url.trim();
   // Strip trailing whitespace/slashes first for consistent handling
-  normalized = normalized.replace(/\/+$/, '');
+  normalised = normalised.replace(/\/+$/, '');
 
   // Common Nextcloud pattern: user gives base URL without /remote.php/dav/files/USER/
   // If URL ends with /remote.php/dav or similar incomplete path, leave it as-is
@@ -96,9 +96,9 @@ export function normalizeWebdavUrl(url: string): string {
   // But if they just give https://cloud.example.com, don't guess - they need to provide the path.
 
   // Ensure trailing slash (WebDAV collections should end with /)
-  normalized += '/';
+  normalised += '/';
 
-  return normalized;
+  return normalised;
 }
 
 async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>): Promise<void> {
@@ -138,7 +138,7 @@ export async function testWebdavConnection(): Promise<WebdavTestOutcome> {
 
   try {
     const headers = authHeaders(config.username, config.password);
-    const url = normalizeWebdavUrl(config.url);
+    const url = normaliseWebdavUrl(config.url);
     // A person is waiting on this one, so it takes the interactive ceiling.
     const res = await fetchWithDeadline(
       url,

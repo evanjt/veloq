@@ -2,7 +2,7 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import {
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
@@ -36,6 +36,7 @@ import { SportChipRow } from '@/shared/ui/SportChipRow';
 import { ACTIVITY_CATEGORIES, groupTypesByCategory } from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatMonthYear } from '@/shared/format/format';
+import { tapTo } from '@/shared/app/navigation';
 
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
@@ -143,7 +144,6 @@ function MapScreenContent() {
     enabled: isReady,
   });
 
-  const router = useRouter();
   const { activity: selectActivityId, section: selectSectionId } = useLocalSearchParams<{
     activity?: string;
     section?: string;
@@ -360,7 +360,7 @@ function MapScreenContent() {
             label={t('mapScreen.expandRange', 'Expand range')}
             variant="ghost"
             size="sm"
-            onPress={() => router.push('/sync-settings' as never)}
+            onPress={() => tapTo('/sync-settings')}
           />
         </View>
       </View>

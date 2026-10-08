@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Alert, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
@@ -12,7 +12,9 @@ import {
   useSectionLedger,
 } from '@/features/routes';
 import { colors, darkColors, layout, spacing } from '@/theme';
+import { ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 function SectionHistoryScreenContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,7 +57,7 @@ function SectionHistoryScreenContent() {
   const showVersion = useCallback(
     (version: number | null) => {
       if (version === null) return;
-      router.push({ pathname: '/section/[id]', params: { id, previewVersion: String(version) } });
+      tapTo({ pathname: '/section/[id]', params: { id, previewVersion: String(version) } });
     },
     [id]
   );
@@ -75,7 +77,7 @@ function SectionHistoryScreenContent() {
 
   return (
     <View style={[styles.screen, isDark && styles.screenDark]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         <SectionHistoryPanel
           isDark={isDark}
           history={ledger.history}
@@ -87,7 +89,7 @@ function SectionHistoryScreenContent() {
           onUnpin={unpin}
           activityNames={activityNames}
         />
-      </ScrollView>
+      </ScreenScrollView>
     </View>
   );
 }

@@ -15,10 +15,10 @@ import { ControlBar } from '@/features/recording/components/ControlBar';
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
 
 const barProps = {
   mode: 'gps' as never,
@@ -91,7 +91,7 @@ describe('the way back to a session', () => {
     const { getByTestId } = render(<RecordingReturnPill />);
     fireEvent.press(getByTestId('recording-return-pill'));
 
-    expect(navigateTo).toHaveBeenCalledWith('/recording/review');
+    expect(tapTo).toHaveBeenCalledWith('/recording/review');
   });
 
   it('hides the pill after sign-out', () => {

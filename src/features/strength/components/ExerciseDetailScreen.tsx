@@ -1,7 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import Svg, { Circle, Polyline } from 'react-native-svg';
@@ -13,11 +13,12 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Button } from '@/shared/ui';
+import { Button, ScreenScrollView } from '@/shared/ui';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import type { ExerciseDetailData } from 'veloqrs';
 
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
+import { tapTo } from '@/shared/app/navigation';
 
 function Trend({ sessions }: { sessions: ExerciseDetailData['sessions'] }) {
   const points = sessions
@@ -50,7 +51,6 @@ function ExerciseDetailScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
   const exerciseCategory = Number(category);
   const readGeneration = useEngineSubscription(['activities', 'fitParsed']);
-  const router = useRouter();
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -63,7 +63,7 @@ function ExerciseDetailScreen() {
   const sessions = data?.sessions ?? [];
 
   return (
-    <ScrollView
+    <ScreenScrollView
       style={[styles.screen, isDark && styles.screenDark]}
       contentContainerStyle={styles.content}
     >
@@ -89,7 +89,7 @@ function ExerciseDetailScreen() {
               <Button
                 label={`${formatEpochDayUtc(session.date)} · ${session.activityName}`}
                 variant="ghost"
-                onPress={() => router.push(`/activity/${session.activityId}`)}
+                onPress={() => tapTo(`/activity/${session.activityId}`)}
               />
               <Text style={isDark && styles.textDark}>
                 {t('strength.bestSet')}: {formatWeight(session.bestSet.weightKg ?? 0, isMetric)} ·{' '}
@@ -107,7 +107,7 @@ function ExerciseDetailScreen() {
           ))}
         </>
       ) : null}
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 

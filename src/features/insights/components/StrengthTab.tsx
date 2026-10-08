@@ -64,8 +64,8 @@ export const StrengthTab = React.memo(function StrengthTab({
     if (maxWeighted === 0) return [];
 
     return summary.muscleVolumes.map((v) => {
-      const normalized = v.weightedSets / maxWeighted;
-      const intensity = Math.max(1, Math.min(5, Math.ceil(normalized * 5)));
+      const normalised = v.weightedSets / maxWeighted;
+      const intensity = Math.max(1, Math.min(5, Math.ceil(normalised * 5)));
       return {
         slug: v.slug as NonNullable<ExtendedBodyPart['slug']>,
         intensity,

@@ -38,7 +38,7 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   hasTerrainPreview: () => false,
   isTerrainPreviewDowngraded: () => false,
   getTerrainPreviewUri: () => 'file:///nothing.jpg',
-  isTerrainCacheInitialized: () => true,
+  isTerrainCacheInitialised: () => true,
   onTerrainCacheReady: () => () => {},
   deleteSupersededTerrainPreviews: jest.fn(),
 }));

@@ -1,5 +1,5 @@
 export {
-  initializeTheme,
+  initialiseTheme,
   setThemePreference,
   useThemePreferenceStore,
   useResolvedColorScheme,
@@ -7,7 +7,7 @@ export {
 } from './ThemeProvider';
 export {
   useLanguageStore,
-  initializeLanguage,
+  initialiseLanguage,
   resolveLanguageToLocale,
   getAvailableLanguages,
   isEnglishVariant,
@@ -21,7 +21,7 @@ export {
   getIsMetric,
   resolveIsMetric,
   getIntervalsUnitSystem,
-  initializeUnitPreference,
+  initialiseUnitPreference,
   type UnitPreference,
   type IntervalsUnitPreferences,
 } from './UnitPreferenceStore';

@@ -94,7 +94,6 @@
       "yourFitness": "Dini Fitness (CTL)",
       "yourForm": "Dini Form"
     },
-    "tapToClose": "Tipp zum Zuemache",
     "timeInHRZones": "Ziit i de Pulszone",
     "timeInPowerZones": "Ziit i Leistigszone",
     "viewDetails": "Details luege",
@@ -381,7 +380,6 @@
     "confirm": "Passt, lässig!",
     "creating": "Am Erstelle...",
     "delete": "Lösche",
-    "done": "Fertig, tschau!",
     "remove": "Entferne",
     "rename": "Umbenennen",
     "restore": "Widerherstelle",
@@ -1595,6 +1593,14 @@
     "sizeAtLeast": "Mindeschtens {{size}}",
     "recording": "Ufnahm",
     "permissions": "Berächtiguinge",
+    "placeNames": {
+      "title": "Ortsnamen",
+      "attribution": "Ortsnamen © OpenStreetMap-Mitwirkende",
+      "noticeTitle": "Ortsnamen verwenden?",
+      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Bestehende Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
+      "readPolicy": "Nutzungsbedingungen",
+      "accept": "Zustimmen"
+    },
     "cacheAndDatabase": "Cache & Datebank",
     "heatmapGeneration": "Wärmecharte",
     "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare.",
@@ -1813,6 +1819,7 @@
     "tracksDownloaded": "{{completed}} vo {{total}} Streckene abeglade"
   },
   "time": {
+    "asOfLastSync": "Stand vo de letschte Synchronisierig",
     "current": "Jetzt",
     "daysAgo_one": "vor {{count}} Tag",
     "daysAgo_other": "vor {{count}} Täg",
@@ -2202,7 +2209,7 @@
     "toSeeTraining": "um dein Training zu sehen",
     "record": "Aufzeichnen",
     "recordDescription": "Starte die Aufzeichnung einer Aktivität.",
-    "dashboardDescription": "Deine Tagesform, Fitness und letzte Aktivität auf einen Blick.",
+    "summaryDescription": "Dini Zämmefassigskarte us de App uf ei Blick.",
     "latestActivity": "Letzte Aktivität",
     "latestActivityDescription": "Deine neueste Aktivität mit ihrer Strecke.",
     "metric": "Kennzahl",
@@ -2217,6 +2224,33 @@
     "startSportDescription": "Öffnet Veloq bereit zur Aufzeichnung der gewählten Sportart.",
     "recordingControl": "Aufzeichnungssteuerung",
     "action": "Aktion",
+    "insights": "S Wichigschte",
+    "insightsDescription": "D obersti Charte vom Tab «S Wichigschte».",
+    "insightsEmpty": "Nüt Neus zum Wüsse",
+    "insightsMore": "+{{rest}} witeri",
+    "insightKinds": "Arte",
+    "insightKindsDescription": "Wähl, weli Arte vo Erkenntnis s Widget zeigt. Ohni Uswahl zeigt es alli Arte.",
+    "insightKind": {
+      "sectionPr": "Abschnitts-PRs",
+      "sectionTrend": "Abschnittstrends",
+      "route": "Routerekord",
+      "stalePr": "Alti PRs",
+      "fitnessMilestone": "Fitness-Meilestei",
+      "periodComparison": "Periodevergliich",
+      "strengthProgression": "Chraftfortschritt",
+      "strengthBalance": "Chraftbalance",
+      "hrvTrend": "HRV-Trends",
+      "efficiencyTrend": "Effizienztrends",
+      "sectionChanged": "Gänderti Abschnitt"
+    },
+    "latest": {
+      "rank": "{{rank}} von {{total}}",
+      "fastest": "Deine schnellste",
+      "offBest": "{{gap}} hinter deiner Bestzeit",
+      "load": "Belastig",
+      "loadVsTypical": "{{percent}} zur typische Belastig",
+      "sectionPrs": "Abschnitts-PRs {{number}}"
+    },
     "phrases": {
       "startRide": "Starte eine Velofahrt mit {{app}}",
       "startRecording": "Starte die Aufzeichnung mit {{app}}",

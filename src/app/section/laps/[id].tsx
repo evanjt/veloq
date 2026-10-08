@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import {
   useSectionLaps,
 } from '@/features/routes';
 import { colors, darkColors, layout, spacing } from '@/theme';
-import { Button, EngineReadFailure } from '@/shared/ui';
+import { Button, EngineReadFailure, ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function SectionLapsScreenContent() {
@@ -86,7 +86,7 @@ function SectionLapsScreenContent() {
 
   return (
     <View style={[styles.screen, isDark && styles.screenDark]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         {streamsError && (
           <View>
             <EngineReadFailure error={streamsError} testID="section-laps-stream-failure" />
@@ -103,7 +103,7 @@ function SectionLapsScreenContent() {
           onExcludeLap={excludeLap}
           onIncludeLap={includeLap}
         />
-      </ScrollView>
+      </ScreenScrollView>
     </View>
   );
 }

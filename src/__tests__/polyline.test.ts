@@ -1,7 +1,7 @@
 import {
   detectCoordinateFormat,
   convertLatLngTuples,
-  normalizeBounds,
+  normaliseBounds,
   getBounds,
   getBoundsCenter,
 } from '@/shared/geo/polyline';
@@ -60,8 +60,8 @@ describe('convertLatLngTuples', () => {
   });
 });
 
-describe('normalizeBounds', () => {
-  it('should normalize bounds regardless of corner order', () => {
+describe('normaliseBounds', () => {
+  it('should normalise bounds regardless of corner order', () => {
     const corners: [[number, number], [number, number]][] = [
       [
         [-34.0, 150.5], // SW corner first
@@ -73,7 +73,7 @@ describe('normalizeBounds', () => {
       ],
     ];
     for (const bounds of corners) {
-      const result = normalizeBounds(bounds);
+      const result = normaliseBounds(bounds);
       expect(result.minLat).toBe(-34.0);
       expect(result.maxLat).toBe(-33.5);
       expect(result.minLng).toBe(150.5);

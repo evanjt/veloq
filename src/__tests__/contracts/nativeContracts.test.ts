@@ -32,6 +32,7 @@ import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
 import * as stub from '../__shared__/veloqrsStub';
+import { insightCategories } from '../__shared__/insightCategories';
 import {
   BINDING,
   HELPERS,
@@ -100,10 +101,11 @@ const CONTRACTS: Contract[] = [
     'veloq_push_string_free',
     'veloq_push_record_refusal',
     'veloq_push_payload_reason',
+    'veloq_push_widget_snapshot',
   ].map((name) => ({
     agree: `the push extension's ${name} is a symbol Rust exports`,
     a: { file: `${PUSH}/VeloqPushExtension-Bridging-Header.h`, has: `${name}(` },
-    b: { file: `${PUSH_RS}/c.rs`, has: `pub unsafe extern "C" fn ${name}(` },
+    b: { file: `${PUSH_RS}/c.rs`, has: new RegExp(`pub (unsafe )?extern "C" fn ${name}\\(`) },
   })),
   {
     agree: 'iOS and Android push through the one composed entry',
@@ -610,9 +612,134 @@ const CONTRACTS: Contract[] = [
     agree: 'the small iOS widget shows the snapshot age under the sparkline',
     a: {
       file: 'widget/ios/VeloqWidget/WidgetViews.swift',
-      has: /struct SmallWidgetView[\s\S]*?SnapshotAgeLine\(generatedAt: snapshot\?\.generatedAt[\s\S]*?struct MediumWidgetView/,
+      has: /case \.small:[\s\S]*?SummaryChartView[\s\S]*?SnapshotAgeLine\(snapshot: snapshot[\s\S]*?case \.medium, \.large:/,
     },
     b: { file: 'widget/ios/VeloqWidget/WidgetViews.swift', has: 'struct SnapshotAgeLine' },
+  },
+  {
+    agree:
+      'the iOS Summary widget draws no latest activity or impact, which belong to the Last activity widget',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetViews.swift',
+      has: 'struct SummaryWidgetView',
+      lacks: /\.latest\b|\.impact\b|LatestBlock|ImpactView/,
+    },
+    b: { file: 'widget/ios/VeloqWidget/WidgetLatestActivity.swift', has: 'snapshot?.latest' },
+  },
+  {
+    agree: 'a tap on the iOS Summary widget goes to the Fitness tab route',
+    a: { file: 'widget/ios/VeloqWidget/SummaryWidgetModel.swift', has: '"veloq://fitness"' },
+    b: { file: 'src/app/(tabs)/fitness.tsx' },
+  },
+  {
+    agree: 'the iOS Summary widget decodes the metric list the engine writes for a placement',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let summaryMetrics: [WidgetSummaryEntry]?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub summary_metrics: Vec<SummaryEntry>' },
+  },
+  {
+    agree: 'the iOS Summary widget decodes the six weeks of form the engine writes for Large',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let formHistory: WidgetFormHistory?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub form_history: Option<FormHistory>' },
+  },
+  {
+    agree: 'the iOS Insights widget decodes the insight rows the engine writes',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let insights: [WidgetInsight]?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<WidgetInsight>' },
+  },
+  {
+    agree: 'the Android Insights widget reads the insight rows the engine writes',
+    a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'root.optJSONArray("insights")' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<WidgetInsight>' },
+  },
+  {
+    agree:
+      'the iOS Last activity widget decodes the headline the engine writes for the latest activity',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let headline: WidgetHeadline?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub headline: Option<Headline>' },
+  },
+  {
+    agree:
+      'the Android Last activity widget reads the headline the engine writes for the latest activity',
+    a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'latest.optJSONObject("headline")' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub headline: Option<Headline>' },
+  },
+  {
+    agree: 'the iOS Last activity widget decodes the load and section lines the engine words',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: /let loadText: String\?[\s\S]*let sectionPrsText: String\?/,
+    },
+    b: {
+      file: `${RUST}/widget_snapshot.rs`,
+      has: /pub load_text: Option<String>,[\s\S]*pub section_prs_text: Option<String>/,
+    },
+  },
+  ...['veloq_widget_refresh(', 'veloq_push_string_free('].map((name) => ({
+    agree: `the background refresh's ${name.slice(0, -1)} is a symbol Rust exports`,
+    a: { file: 'modules/veloq-widget/ios/VeloqWidgetRefreshEngine.h', has: name },
+    b: {
+      file: `${PUSH_RS}/c.rs`,
+      has: new RegExp(`pub (unsafe )?extern "C" fn ${name.slice(0, -1)}\\(`),
+    },
+  })),
+  {
+    agree: 'the task identifier the refresh submits is one the Info.plist permits',
+    a: { file: 'app.json', has: '"$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh"' },
+    b: { file: 'modules/veloq-widget/ios/VeloqWidgetRefresh.swift', has: '".widget-refresh"' },
+  },
+  {
+    agree: 'the tracked Info.plist permits the same task identifier',
+    a: { file: 'app.json', has: '$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh' },
+    b: { file: 'ios/VeloqDev/Info.plist', has: '$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh' },
+  },
+  {
+    agree: 'the pod registers the subscriber that registers the task before launch finishes',
+    a: {
+      file: 'modules/veloq-widget/expo-module.config.json',
+      has: '"appDelegateSubscribers": ["VeloqWidgetRefreshSubscriber"]',
+    },
+    b: {
+      file: 'modules/veloq-widget/ios/VeloqWidgetRefresh.swift',
+      has: 'public final class VeloqWidgetRefreshSubscriber: ExpoAppDelegateSubscriber',
+    },
+  },
+  {
+    agree: 'the widget decodes the sync time Rust marks a refreshed snapshot with',
+    a: { file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift', has: 'let dataAsOf: Double?' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub data_as_of: Option<i64>' },
+  },
+  {
+    agree: 'the widget decodes the words Rust marks a refreshed snapshot with',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let dataAsOfLabel: String?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub data_as_of_label: Option<String>' },
+  },
+  {
+    agree: 'the widget decodes the label Rust marks a sample library snapshot with',
+    a: {
+      file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+      has: 'let demoLabel: String?',
+    },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub demo_label: Option<String>' },
+  },
+  {
+    agree: 'the Android widget reads the label Rust marks a sample library snapshot with',
+    a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'display.optString("demoLabel"' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub demo_label: Option<String>' },
   },
   {
     agree: 'the dashboard widget gates its record button on the flag the plugin writes',
@@ -646,6 +773,32 @@ const CONTRACTS: Contract[] = [
       has: 'android:id="@+id/large_record"',
     },
   })),
+  ...[0, 1, 2, 3].map((i) => ({
+    agree: `the Summary renderer binds supporting cell ${i} that the shared row layout declares`,
+    a: {
+      file: 'widget/android/java/WidgetRenderer.kt',
+      has: `R.id.sum_cell${i}_value`,
+    },
+    b: {
+      file: 'widget/android/res/layout/widget_summary_cells.xml',
+      has: `android:id="@+id/sum_cell${i}_value"`,
+    },
+  })),
+  ...['small', 'medium', 'large'].map((size) => ({
+    agree: `the Summary renderer opens Fitness from the root the ${size} layout declares, which has no activity or impact view`,
+    a: { file: 'widget/android/java/WidgetRenderer.kt', has: 'R.id.sum_root' },
+    b: {
+      file: `widget/android/res/layout/widget_${size}.xml`,
+      has: 'android:id="@+id/sum_root"',
+      // The latest activity and its impact belong to the Last activity widget.
+      lacks: /@\+id\/\w*(?:activity|impact)\w*/,
+    },
+  })),
+  {
+    agree: 'a tap on the Summary widget goes to the Fitness tab route',
+    a: { file: 'widget/android/java/WidgetRenderer.kt', has: 'FITNESS_URL = "veloq://fitness"' },
+    b: { file: 'src/app/(tabs)/fitness.tsx' },
+  },
   {
     agree: 'the iOS record surfaces fall back to the picker link the snapshot names',
     a: { file: 'widget/ios/shared/RecordDeepLink.swift', has: `"${RECORD_PICKER_URL}"` },
@@ -689,7 +842,7 @@ const CONTRACTS: Contract[] = [
   ...[
     'widget/ios/shared/RecordSportEntity.swift',
     'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
-    'modules/veloq-widget/ios/VeloqWidgetModule.swift',
+    'modules/veloq-widget/ios/WidgetSnapshotFile.swift',
   ].map((file) => ({
     agree: `${path.basename(file)} reads the App Group the plugin entitles`,
     a: { file, has: `"${APP_GROUP}"` },
@@ -698,7 +851,7 @@ const CONTRACTS: Contract[] = [
   {
     agree: 'the widget reads the snapshot file the app module writes',
     a: { file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift', has: '"widget-snapshot.json"' },
-    b: { file: 'modules/veloq-widget/ios/VeloqWidgetModule.swift', has: '"widget-snapshot.json"' },
+    b: { file: 'modules/veloq-widget/ios/WidgetSnapshotFile.swift', has: '"widget-snapshot.json"' },
   },
 
   // The engine observer. The binding lowers an optional through its byte
@@ -882,7 +1035,7 @@ function widgetSwift(): string[] {
  */
 function swiftLocalisedLiterals(): string[] {
   const position =
-    /(?:\bText|\bLabel|\.configurationDisplayName|\.description|\.displayName|IntentDescription|\b(?:title|name|shortTitle):|LocalizedStringResource =)\s*\(?\s*"((?:[^"\\]|\\.)*)"/g;
+    /(?:\bText|\bLabel|\bNSLocalizedString|\.configurationDisplayName|\.description|\.displayName|IntentDescription|\b(?:title|name|shortTitle):|LocalizedStringResource =)\s*\(?\s*"((?:[^"\\]|\\.)*)"/g;
   return widgetSwift()
     .flatMap((swift) => [...swift.matchAll(position)].map((m) => m[1]))
     .filter((text) => !text.includes('\\(') && text !== 'Veloq');
@@ -898,6 +1051,29 @@ function swiftShortcutPhrases(): string[] {
         .replace(/\\\(\\\.\$(\w+)\)/g, '${$1}')
     )
   );
+}
+
+/** The kinds the Android Insights widget offers. */
+function androidInsightKinds(): string[] {
+  const block = /val KINDS =\s*listOf\(([^)]*)\)/.exec(
+    read('widget/android/java/InsightsWidgetModel.kt')
+  );
+  return [...(block?.[1] ?? '').matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+}
+
+/** The kinds the iOS Insights widget offers: its model's list, and the picker's cases. */
+function iosInsightKinds(): { model: string[]; picker: string[] } {
+  const model = /static let kinds = \[([^\]]*)\]/.exec(
+    read('widget/ios/VeloqWidget/InsightsWidgetModel.swift')
+  );
+  return {
+    model: [...(model?.[1] ?? '').matchAll(/"([a-z_]+)"/g)].map((m) => m[1]),
+    picker: [
+      ...read('widget/ios/VeloqWidget/WidgetInsightsIntent.swift').matchAll(
+        /^\s*case \w+ = "([a-z_]+)"/gm
+      ),
+    ].map((m) => m[1]),
+  };
 }
 
 /** Every string resource the widget and the channel poster read, but the app's own name. */
@@ -1050,6 +1226,21 @@ const SETS: SetContract[] = [
     b: snapshotKeys,
   },
   {
+    agree: 'Edit Widget offers each metric the engine writes an entry for, in the picker’s order',
+    mode: 'equal',
+    atLeast: 10,
+    a: () => {
+      const swift = read('widget/ios/VeloqWidget/WidgetMetricIntent.swift');
+      const body = /enum SummaryMetric: String, AppEnum \{([^}]*)\}/.exec(swift)?.[1] ?? '';
+      return [...body.matchAll(/^\s*case (\w+)/gm)].map((m) => m[1]);
+    },
+    b: () => {
+      const rust = read(`${RUST}/widget_snapshot.rs`);
+      const body = /const SUMMARY_METRIC_IDS: \[&str; \d+\] = \[([^\]]*)\]/.exec(rust)?.[1] ?? '';
+      return [...body.matchAll(/"(\w+)"/g)].map((m) => m[1]);
+    },
+  },
+  {
     agree: 'every widget snapshot field Kotlin reads is one the engine writes',
     mode: 'within',
     a: () =>
@@ -1077,6 +1268,35 @@ const SETS: SetContract[] = [
     mode: 'equal',
     atLeast: 5,
     a: androidStringReads,
+    b: () => nativeStrings.ANDROID_STRINGS.map((entry: { name: string }) => entry.name),
+  },
+  {
+    agree: 'the kinds the Android Insights widget offers are the categories the app ranks',
+    mode: 'equal',
+    atLeast: 11,
+    a: androidInsightKinds,
+    b: insightCategories,
+  },
+  {
+    agree: 'the kinds the iOS Insights widget filters on are the categories the app ranks',
+    mode: 'equal',
+    atLeast: 11,
+    a: () => iosInsightKinds().model,
+    b: insightCategories,
+  },
+  {
+    agree:
+      'the kinds the iOS Insights widget offers in Edit Widget are the categories the app ranks',
+    mode: 'equal',
+    atLeast: 11,
+    a: () => iosInsightKinds().picker,
+    b: insightCategories,
+  },
+  {
+    agree: 'every category the app ranks has a name in the Android Insights picker',
+    mode: 'within',
+    atLeast: 11,
+    a: () => insightCategories().map((kind) => `widget_insight_kind_${kind}`),
     b: () => nativeStrings.ANDROID_STRINGS.map((entry: { name: string }) => entry.name),
   },
   {

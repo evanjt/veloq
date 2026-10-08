@@ -23,7 +23,7 @@ interface SensorState {
   knownSensors: KnownSensor[];
   isLoaded: boolean;
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setScanning: (scanning: boolean) => void;
   upsertDiscovered: (sensor: DiscoveredSensor) => void;
   clearDiscovered: () => void;
@@ -43,7 +43,7 @@ export const useSensorStore = create<SensorState>((set) => ({
   knownSensors: [],
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
@@ -139,8 +139,8 @@ async function persistKnownSensors(sensors: KnownSensor[]): Promise<void> {
   }
 }
 
-export async function initializeKnownSensors(): Promise<void> {
-  await useSensorStore.getState().initialize();
+export async function initialiseKnownSensors(): Promise<void> {
+  await useSensorStore.getState().initialise();
 }
 
 /** Empties the paired and discovered sensors, in memory and in the settings. */

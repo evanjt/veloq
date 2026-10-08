@@ -21,7 +21,12 @@ export {
 
 export { feedEmptyState, type FeedEmptyState } from './lib/feedEmptyState';
 export { summaryCardTarget } from './lib/summaryCardTargets';
-export { clearWidgetSnapshot, updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
+export {
+  refreshSampleWidgets,
+  resetWidgetSnapshot,
+  updateWidgetSnapshot,
+  writeWidgetSnapshot,
+} from './lib/widgetBridge';
 export {
   composeWidgetContext,
   gatherWidgetSnapshot,

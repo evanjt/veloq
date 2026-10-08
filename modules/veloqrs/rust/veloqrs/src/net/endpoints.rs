@@ -168,6 +168,10 @@ pub async fn fetch_activity_history_summary(
                     .stream_types
                     .as_ref()
                     .is_some_and(|types| types.iter().any(|t| t == "latlng")),
+                has_series: a
+                    .stream_types
+                    .as_deref()
+                    .is_some_and(crate::net::types::carries_a_storable_series),
             })
             .collect(),
     })
@@ -243,9 +247,9 @@ pub async fn fetch_altitude(
     Ok(Some(parse_streams(raw)))
 }
 
-/// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
-/// `parseStreams` stays the single transform, so what the charts render is
-/// byte-for-byte what it rendered before the read moved.
+/// `GET /activity/{id}/streams.json` as the untyped body. The read parses it
+/// with `parse_streams`, the single transform, so the cache keeps what the
+/// server sent.
 pub async fn fetch_streams_body(
     t: &Transport,
     activity_id: &str,
@@ -814,6 +818,50 @@ mod tests {
         assert_eq!(flag("with"), Some(true));
         assert_eq!(flag("without"), Some(false));
         assert_eq!(flag("silent"), Some(false), "no field is not a track");
+    }
+
+    /// Scenario: an activity recorded without coordinates still carries heart
+    /// rate, and another carries nothing but its clock.
+    ///
+    /// Expected behaviour: the census marks the first as carrying a series the
+    /// stream pass would store and not the second, whatever its track, so the
+    /// pass can take a trackless activity without asking about every one.
+    #[test]
+    fn census_says_which_activities_carry_a_series_beyond_their_track() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([
+                {"id": "strength", "stream_types": ["time", "heartrate"]},
+                {"id": "clock", "stream_types": ["time"]},
+                {"id": "ride", "stream_types": ["time", "latlng", "watts"]},
+                {"id": "line", "stream_types": ["time", "latlng"]},
+                {"id": "empty", "stream_types": []},
+                {"id": "silent"}
+            ]));
+        });
+        let t = fast_transport(server.base_url());
+        let summary = crate::runtime::block_on(fetch_activity_history_summary(
+            &t,
+            "i1",
+            "2026-06-26",
+            Lane::Backfill,
+        ))
+        .unwrap();
+
+        let flag = |id: &str| {
+            summary
+                .entries
+                .iter()
+                .find(|e| e.id == id)
+                .map(|e| e.has_series)
+        };
+        assert_eq!(flag("strength"), Some(true));
+        assert_eq!(flag("clock"), Some(false), "time only indexes the rest");
+        assert_eq!(flag("ride"), Some(true));
+        assert_eq!(flag("line"), Some(false), "the coordinates are the track");
+        assert_eq!(flag("empty"), Some(false));
+        assert_eq!(flag("silent"), Some(false), "no field is no series");
     }
 
     #[test]

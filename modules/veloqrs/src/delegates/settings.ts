@@ -153,6 +153,22 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
   });
 }
 
+/** Whether the athlete has agreed to place names. False before the engine opens. */
+export function getGeocodingEnabled(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  return host.timed('getGeocodingEnabled', () => host.engine.settings().geocodingEnabled());
+}
+
+export function setGeocodingEnabled(host: DelegateHost, enabled: boolean): void {
+  host.write('setGeocodingEnabled', () => {
+    try {
+      host.engine.settings().setGeocodingEnabled(enabled);
+    } catch (e) {
+      console.error('[Engine] setGeocodingEnabled failed:', e);
+    }
+  });
+}
+
 /**
  * Write several settings in one transaction, skipping each pair whose value
  * is already stored. A batch written before the engine opens is held and

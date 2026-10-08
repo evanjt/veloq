@@ -9,6 +9,7 @@
 import {
   buildMap3DHtml,
   buildSetRouteScript,
+  buildStyleOverlayScript,
   buildUpdateLayersScript,
 } from '@/features/maps/lib/htmlBuilders';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
@@ -211,14 +212,22 @@ describe('the 3D page', () => {
 });
 
 describe('the matched route layer in 3D', () => {
-  const script = buildUpdateLayersScript({ routesGeoJSON: collection(1) });
+  type Layer = { id: string; paint: Record<string, number> };
+  const routeOverlay = (): { layers: Layer[] } =>
+    new Function(
+      `${buildStyleOverlayScript()}; return veloqLineOverlay(veloqLine('routes'), arguments[0]);`
+    )(collection(1));
 
   it('is drawn under the activity track, as the flat map draws it', () => {
-    expect(script).toContain("addLayerWithOutline('routes-source', 'routes-layer'");
-    expect(script).toMatch(/routes-layer'[^;]*'route-outline'/s);
+    expect(new Function(`${buildStyleOverlayScript()}; return veloqLine('routes').below;`)()).toBe(
+      'route-outline'
+    );
   });
 
   it('is as wide as the flat map draws it, casing included', () => {
-    expect(script).toMatch(/routes-layer'[^;]*\b9\b[^;]*\b12\b/s);
+    const [casing, line] = routeOverlay().layers;
+
+    expect(casing?.paint['line-width']).toBe(12);
+    expect(line?.paint['line-width']).toBe(9);
   });
 });

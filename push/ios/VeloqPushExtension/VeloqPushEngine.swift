@@ -70,6 +70,13 @@ enum VeloqPushEngine {
     }
   }
 
+  /// The widget snapshot as the widget file holds it, composed from the context
+  /// the app last stored and the device clock. Nil when the engine is not open
+  /// or the app has never stored a context.
+  static func widgetSnapshot() -> String? {
+    take(veloq_push_widget_snapshot())
+  }
+
   /// A string the crate handed out, copied and given straight back. Nothing
   /// else may free it.
   private static func take(_ answer: UnsafeMutablePointer<CChar>?) -> String? {

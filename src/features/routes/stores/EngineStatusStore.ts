@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { FfiQuarantineReport, InitOutcome } from 'veloqrs';
 
 interface EngineStatusState {
-  /** Whether the Rust engine failed to initialize after all retries */
+  /** Whether the Rust engine failed to initialise after all retries */
   initFailed: boolean;
   setInitFailed: (v: boolean) => void;
   /**

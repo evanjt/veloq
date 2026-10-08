@@ -130,7 +130,7 @@ export function getProxyRedirectUri(): string {
  */
 export function buildAuthorizationUrl(scopes: readonly string[] = OAUTH.SCOPES): string {
   if (!oauthState) {
-    throw new Error('OAuth state not initialized. Call startOAuthFlow() instead.');
+    throw new Error('OAuth state not initialised. Call startOAuthFlow() instead.');
   }
 
   // The redirect_uri points to our proxy, not the app directly

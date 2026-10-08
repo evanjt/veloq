@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -11,6 +10,7 @@ import { formatClimbValue } from '../lib/bestEfforts';
 import { SPORT_TEXT_COLORS, SPORT_TEXT_COLORS_DARK, type PrimarySport } from '../stores';
 import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
 import type { ClimbBest } from '@/features/stats';
+import { tapTo } from '@/shared/app/navigation';
 
 interface ClimbingBestRowsProps {
   bests: ClimbBest[];
@@ -65,7 +65,7 @@ export function ClimbingBestRows({ bests, sport }: ClimbingBestRowsProps) {
                   label={`${name} →`}
                   variant="ghost"
                   size="sm"
-                  onPress={() => router.push(`/activity/${best.activityId}`)}
+                  onPress={() => tapTo(`/activity/${best.activityId}`)}
                   style={styles.activityLink}
                 />
               ) : null}

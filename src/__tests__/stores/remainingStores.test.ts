@@ -14,7 +14,7 @@ import { useDebugStore } from '@/features/settings/stores/DebugStore';
 // WhatsNewStore
 import {
   useWhatsNewStore,
-  initializeWhatsNewStore,
+  initialiseWhatsNewStore,
 } from '@/features/settings/stores/WhatsNewStore';
 
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
@@ -47,7 +47,7 @@ const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 
 /**
  * Expected behaviour: every store declares un-loaded, inert defaults so callers gate
- * on isLoaded instead of rendering persisted-looking state before initialize() runs.
+ * on isLoaded instead of rendering persisted-looking state before initialise() runs.
  * Each test dirties the shared singleton first, then reads a store built from a fresh
  * module registry, so what is asserted is the declaration and not leftover state.
  */
@@ -97,9 +97,9 @@ describe('DebugStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('sets isLoaded when no stored data', async () => {
-      await useDebugStore.getState().initialize();
+      await useDebugStore.getState().initialise();
       const state = useDebugStore.getState();
       expect(state.isLoaded).toBe(true);
       expect(state.unlocked).toBe(false);
@@ -108,7 +108,7 @@ describe('DebugStore', () => {
 
     it('restores enabled=true from storage and sets unlocked', async () => {
       await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify({ enabled: true }));
-      await useDebugStore.getState().initialize();
+      await useDebugStore.getState().initialise();
       const state = useDebugStore.getState();
       expect(state.isLoaded).toBe(true);
       expect(state.enabled).toBe(true);
@@ -117,7 +117,7 @@ describe('DebugStore', () => {
 
     it('restores enabled=false from storage', async () => {
       await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify({ enabled: false }));
-      await useDebugStore.getState().initialize();
+      await useDebugStore.getState().initialise();
       const state = useDebugStore.getState();
       expect(state.isLoaded).toBe(true);
       expect(state.enabled).toBe(false);
@@ -126,14 +126,14 @@ describe('DebugStore', () => {
 
     it('handles corrupt JSON gracefully', async () => {
       await AsyncStorage.setItem(DEBUG_MODE_KEY, 'not valid json');
-      await useDebugStore.getState().initialize();
+      await useDebugStore.getState().initialise();
       expect(useDebugStore.getState().isLoaded).toBe(true);
       expect(useDebugStore.getState().enabled).toBe(false);
     });
 
     it('sets isLoaded even when AsyncStorage throws', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      await useDebugStore.getState().initialize();
+      await useDebugStore.getState().initialise();
       expect(useDebugStore.getState().isLoaded).toBe(true);
     });
   });
@@ -185,9 +185,9 @@ describe('WhatsNewStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('sets isLoaded when no stored data', async () => {
-      await initializeWhatsNewStore();
+      await initialiseWhatsNewStore();
       const state = useWhatsNewStore.getState();
       expect(state.isLoaded).toBe(true);
       expect(state.lastSeenVersion).toBeNull();
@@ -195,14 +195,14 @@ describe('WhatsNewStore', () => {
 
     it('restores version from storage', async () => {
       await AsyncStorage.setItem(WHATS_NEW_KEY, '0.3.0');
-      await initializeWhatsNewStore();
+      await initialiseWhatsNewStore();
       expect(useWhatsNewStore.getState().lastSeenVersion).toBe('0.3.0');
       expect(useWhatsNewStore.getState().isLoaded).toBe(true);
     });
 
     it('sets isLoaded even when AsyncStorage throws', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      await initializeWhatsNewStore();
+      await initialiseWhatsNewStore();
       expect(useWhatsNewStore.getState().isLoaded).toBe(true);
     });
   });

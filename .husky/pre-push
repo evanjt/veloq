@@ -26,6 +26,12 @@ done <<EOF
 $refs
 EOF
 
+# A ref pinning the tracematch submodule at a commit no published branch or tag
+# holds breaks every fresh checkout of it, and a release tag's workflow with it.
+./scripts/check-submodule-pin-pushed.sh <<EOF || exit 1
+$refs
+EOF
+
 # Check if we're pushing a tag (version release)
 # Tags look like: refs/tags/v0.0.5
 while read local_ref local_sha remote_ref remote_sha

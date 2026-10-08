@@ -4,7 +4,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';
 import type { SectionWithPolyline } from 'veloqrs';
 
@@ -101,7 +101,7 @@ function renderList() {
 
 describe('the sections tab over its screen read', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(() => {

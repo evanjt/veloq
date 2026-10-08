@@ -47,7 +47,7 @@ export {
 
 export {
   useSportPreference,
-  initializeSportPreference,
+  initialiseSportPreference,
   SPORT_COLORS,
   SPORT_TEXT_COLORS,
   SPORT_TEXT_COLORS_DARK,

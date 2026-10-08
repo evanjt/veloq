@@ -1,10 +1,12 @@
 import SwiftUI
 import WidgetKit
 
-// Latest Activity widget: a native-drawn route outline of the most recent GPS
-// activity with its headline stats. The whole widget deep-links into the activity
-// detail screen. Indoor/no-GPS activities fall back to a text card with a map
-// glyph. All data comes from the shared snapshot; nothing is computed here.
+// Last activity widget: how the most recent activity compared, with a native-drawn route outline
+// of its track. It leads with the rank among the attempts at its route and the gap to the
+// record, every attempt as a dot, or with no route its load against the typical one; below come
+// the section records, the load and the form before and after. The whole widget deep-links into
+// the activity detail screen. What each size draws is decided in LastActivityWidgetModel; all
+// data comes from the shared snapshot and nothing is computed here.
 
 struct LatestActivityProvider: TimelineProvider {
   func placeholder(in context: Context) -> VeloqEntry {
@@ -79,11 +81,15 @@ struct LatestActivityView: View {
   @Environment(\.colorScheme) private var colorScheme
   let entry: VeloqEntry
 
+  private var size: LastActivitySize { family == .systemSmall ? .small : .medium }
+
   var body: some View {
     let palette = WidgetPalette.resolve(entry.snapshot, colorScheme)
     Group {
-      if let latest = entry.snapshot?.latest {
-        content(latest, palette)
+      if let latest = entry.snapshot?.latest,
+        let content = LastActivityWidgetModel.content(entry.snapshot, size: size)
+      {
+        view(latest, content, palette)
           .widgetURL(activityURL(latest))
       } else {
         EmptyWidgetView(palette: palette)
@@ -96,65 +102,167 @@ struct LatestActivityView: View {
   }
 
   @ViewBuilder
-  private func content(_ latest: WidgetLatest, _ palette: WidgetPalette) -> some View {
+  private func view(_ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette)
+    -> some View
+  {
     let tint = Color(hex: latest.tintHex)
-    if family == .systemSmall {
-      VStack(alignment: .leading, spacing: 4) {
-        RoutePreviewView(preview: latest.routePreview, tint: tint)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+    if size == .small {
+      lines(latest, content, palette, tint)
+        .padding(WidgetTheme.Layout.gap + 4)
+    } else {
+      HStack(spacing: WidgetTheme.Layout.gap) {
+        if content.showsRoute {
+          RoutePreviewView(preview: latest.routePreview, tint: tint)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        lines(latest, content, palette, tint)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .padding(.horizontal, WidgetTheme.Layout.padding)
+      .padding(.vertical, WidgetTheme.Layout.gap + 4)
+    }
+  }
+
+  /// The comparison and what it rests on, in the order they are read. A line with nothing to say
+  /// is left out, and none of them truncates: a long one wraps or scales.
+  private func lines(
+    _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      if let name = content.name {
         HStack(spacing: 4) {
-          Text(latest.name)
+          Text(name)
             .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
             .foregroundColor(tint)
-            .lineLimit(1)
+            .lineLimit(2)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
           }
         }
-        Text(subtitle(latest))
+      }
+      if let label = content.heroLabel {
+        Text(label)
           .font(.system(size: WidgetTheme.TypeScale.caption))
           .foregroundColor(palette.textSecondary)
+          .lineLimit(2)
+      }
+      if let hero = content.hero {
+        Text(hero)
+          .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
+          .foregroundColor(palette.textPrimary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+      }
+      if let detail = content.detail {
+        Text(detail)
+          .font(.system(size: WidgetTheme.TypeScale.label))
+          .foregroundColor(palette.textSecondary)
+          .lineLimit(2)
+      }
+      if !content.dots.isEmpty {
+        AttemptDotsView(dots: content.dots, tint: tint, palette: palette)
+          .padding(.top, 2)
+      }
+      if let figures = content.figures {
+        captionLine(figures, palette, lines: 2)
+      }
+      if let prs = content.sectionPrs {
+        captionLine(prs, palette, lines: 1)
+      }
+      if let load = content.load {
+        Text(load)
+          .font(.system(size: WidgetTheme.TypeScale.label))
+          .foregroundColor(palette.textPrimary)
           .lineLimit(1)
       }
-      .padding(WidgetTheme.Layout.padding)
-    } else {
-      HStack(spacing: WidgetTheme.Layout.gap) {
-        RoutePreviewView(preview: latest.routePreview, tint: tint)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 4) {
-            Text(latest.name)
-              .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-              .foregroundColor(tint)
-              .lineLimit(2)
-            if latest.isPr == true {
-              Circle().fill(palette.gold).frame(width: 6, height: 6)
-            }
-          }
-          Text(subtitle(latest))
-            .font(.system(size: WidgetTheme.TypeScale.label))
-            .foregroundColor(palette.textSecondary)
-            .lineLimit(2)
-          if let tss = latest.trainingLoad {
-            Text("\(Int(tss.rounded())) TSS")
-              .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
-              .foregroundColor(palette.textPrimary)
-          }
-          Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+      if let form = content.form {
+        formLine(form, palette)
       }
-      .padding(WidgetTheme.Layout.padding)
+      if let date = content.date {
+        captionLine(date, palette, lines: 2)
+      }
+      DemoLabelLine(snapshot: entry.snapshot, palette: palette)
     }
   }
 
-  private func subtitle(_ l: WidgetLatest) -> String {
-    [l.distanceLabel, l.durationLabel, l.dateLabel].filter { !$0.isEmpty }.joined(separator: " · ")
+  private func captionLine(_ text: String, _ palette: WidgetPalette, lines: Int) -> some View {
+    Text(text)
+      .font(.system(size: WidgetTheme.TypeScale.label))
+      .foregroundColor(palette.textSecondary)
+      .lineLimit(lines)
+  }
+
+  /// Form before and after, each side in the colour of the zone it sits in.
+  private func formLine(_ form: LastActivityForm, _ palette: WidgetPalette) -> some View {
+    HStack(spacing: 4) {
+      Text(form.label).foregroundColor(palette.textSecondary)
+      Text(form.before).fontWeight(.semibold).foregroundColor(palette.formTextColor(form.beforeZone))
+      Text(verbatim: "→").foregroundColor(palette.textSecondary)
+      Text(form.after).fontWeight(.semibold).foregroundColor(palette.formTextColor(form.afterZone))
+    }
+    .font(.system(size: WidgetTheme.TypeScale.label))
+    .lineLimit(1)
   }
 
   private func activityURL(_ latest: WidgetLatest) -> URL? {
     guard let id = latest.activityId, !id.isEmpty else { return URL(string: "veloq://") }
     return URL(string: "veloq://activity/\(id)")
+  }
+}
+
+/// Every attempt at the route as a dot, oldest first. An earlier attempt is a small dot, the record
+/// a gold one and the latest the full size in the activity's colour, ringed when it is also the
+/// record. The row shrinks until all of them fit the width.
+struct AttemptDotsView: View {
+  let dots: [LastActivityDot]
+  let tint: Color
+  let palette: WidgetPalette
+
+  private let rowHeight: CGFloat = 10
+  private let gapRatio: CGFloat = 0.6
+
+  var body: some View {
+    GeometryReader { proxy in
+      let count = CGFloat(max(dots.count, 1))
+      let full = min(rowHeight, proxy.size.width / (count + (count - 1) * gapRatio))
+      HStack(spacing: full * gapRatio) {
+        ForEach(0..<dots.count, id: \.self) { index in
+          dot(dots[index], full: full)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .frame(height: rowHeight)
+  }
+
+  @ViewBuilder
+  private func dot(_ dot: LastActivityDot, full: CGFloat) -> some View {
+    let diameter = dot.current || dot.record ? full : full * 0.7
+    Circle()
+      .fill(dot.record ? palette.gold : dot.current ? tint : palette.textSecondary)
+      .overlay {
+        if dot.current && dot.record {
+          Circle().strokeBorder(tint, lineWidth: full * 0.18)
+        }
+      }
+      .frame(width: diameter, height: diameter)
+      .frame(width: full, height: full)
+  }
+}
+
+/// The words that say the numbers come from the sample library, and nothing at
+/// all for the athlete's own.
+struct DemoLabelLine: View {
+  let snapshot: WidgetSnapshot?
+  let palette: WidgetPalette
+
+  var body: some View {
+    if let label = snapshot?.display.demoLabel {
+      Text(label)
+        .font(.system(size: WidgetTheme.TypeScale.caption))
+        .foregroundColor(palette.textSecondary)
+        .lineLimit(1)
+    }
   }
 }
 

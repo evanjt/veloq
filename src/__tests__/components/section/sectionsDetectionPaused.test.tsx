@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, within } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionsListHeader } from '@/features/routes/components/SectionsListHeader';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
@@ -54,7 +54,7 @@ function renderHeader(detectionHold: DetectionHold, elevation?: ElevationBackfil
 
 describe('SectionsListHeader detection hold', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

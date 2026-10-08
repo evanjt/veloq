@@ -40,6 +40,9 @@ const KNOWN_PACKS = new Set([
 // pack pipeline ever launches its production appId against a dev build.
 const BY_FILE_FLOWS = new Set(['smoke-build.yaml']);
 
+// Flows that sign in to a real library: no suite may pick them up, so they carry no tier tag.
+const REAL_LIBRARY_FLOWS = new Set(['first-sync-section-growth.yaml']);
+
 const flowFiles = fs
   .readdirSync(MAESTRO_DIR)
   .filter((f) => f.endsWith('.yaml') && f !== 'config.yaml')
@@ -94,12 +97,16 @@ describe('maestro flow tags', () => {
       expect(content).toContain('prod-smoke');
       return;
     }
+    if (REAL_LIBRARY_FLOWS.has(file)) {
+      expect(tierTags(content)).toHaveLength(0);
+      return;
+    }
     expect(tierTags(content)).toHaveLength(1);
   });
 
   it.each(flowFiles)('%s pack tagging matches its tier', (file) => {
     const content = readFlow(file);
-    if (BY_FILE_FLOWS.has(file)) {
+    if (BY_FILE_FLOWS.has(file) || REAL_LIBRARY_FLOWS.has(file)) {
       expect(packTags(content)).toHaveLength(0);
       return;
     }

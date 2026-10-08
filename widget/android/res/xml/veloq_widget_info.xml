@@ -10,5 +10,8 @@
   android:maxResizeHeight="500dp"
   android:resizeMode="horizontal|vertical"
   android:widgetCategory="home_screen"
+  android:description="@string/widget_summary_description"
+  android:configure="__PKG__.widget.SummaryWidgetConfigureActivity"
+  android:widgetFeatures="reconfigurable|configuration_optional"
   android:initialLayout="@layout/widget_medium"
   android:previewLayout="@layout/widget_medium" />

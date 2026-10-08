@@ -25,7 +25,7 @@ export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';
 
 export {
   useInsightsStore,
-  initializeInsightsStore,
+  initialiseInsightsStore,
   computeInsightFingerprint,
   diffInsights,
 } from './store';

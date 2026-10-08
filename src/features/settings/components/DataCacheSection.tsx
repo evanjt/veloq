@@ -23,6 +23,7 @@ import {
 } from '@/features/maps';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
+import * as haptics from '@/shared/ui/haptics';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
@@ -152,6 +153,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         text: t('alerts.clearReload'),
         style: 'destructive',
         onPress: async () => {
+          haptics.medium();
           try {
             // 1. Cancel any in-flight queries
             await queryClient.cancelQueries();

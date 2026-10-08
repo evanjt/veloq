@@ -49,6 +49,7 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapBack } from '@/shared/app/navigation';
 
 const PARAM_KEYS = [
   'proximityThreshold',
@@ -193,7 +194,7 @@ function DetectionPreviewScreenContent() {
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
-    router.back();
+    tapBack();
   }, [running, cancel]);
 
   // Leaving by any route cancels a run in flight. The Discard button did this

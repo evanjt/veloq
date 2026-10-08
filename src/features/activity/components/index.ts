@@ -8,7 +8,7 @@ export { HRZonesChart } from './HRZonesChart';
 export { PowerZonesChart } from './PowerZonesChart';
 export { IntervalsTable } from './IntervalsTable';
 export { SkylineBar } from './SkylineBar';
-export { InsightfulStats } from './stats';
+export { InsightfulStats, StatDetailSheet, type StatDetail } from './stats';
 export { ActivityHeader } from './ActivityHeader';
 export { ActivityChartsSection } from './ActivityChartsSection';
 export { ActivityRoutesSection } from './ActivityRoutesSection';

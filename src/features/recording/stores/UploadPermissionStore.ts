@@ -35,7 +35,7 @@ interface UploadPermissionState {
    * because the upload it would be queued for cannot succeed.
    */
   recordingWithoutScope: boolean;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   /** Parse OAuth scope string and persist write permission state */
   setFromOAuthScope: (scope: string) => void;
   setNeedsUpgrade: (v: boolean) => void;
@@ -80,7 +80,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   grantedScopes: null,
   recordingWithoutScope: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
@@ -146,6 +146,6 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   },
 }));
 
-export async function initializeUploadPermission(): Promise<void> {
-  await useUploadPermissionStore.getState().initialize();
+export async function initialiseUploadPermission(): Promise<void> {
+  await useUploadPermissionStore.getState().initialise();
 }

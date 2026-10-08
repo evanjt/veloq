@@ -49,7 +49,7 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
     `file:///previews/${id}-${style}-${is3D}.jpg`,
   isTerrainPreviewDowngraded: () => false,
   onTerrainCacheReady: () => () => {},
-  isTerrainCacheInitialized: () => true,
+  isTerrainCacheInitialised: () => true,
 }));
 
 const METRICS = {

@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
-import { ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
+import { View, Text, Pressable, Linking } from 'react-native';
+import { ScreenSafeAreaView, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity, brand } from '@/theme';
@@ -11,6 +10,7 @@ import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
 import { DIVIDER_INSET } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 const VELOQ_URLS = {
   github: 'https://github.com/evanjt/veloq',
@@ -54,14 +54,14 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
 interface NavRowProps {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  route: Href;
+  route: string;
   isDark: boolean;
   testID?: string;
 }
 
 function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   const handlePress = () => {
-    router.push(route);
+    tapTo(route);
   };
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -90,7 +90,7 @@ function AboutScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader testID="about-screen" style={shared.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         {/* App Info */}
         <View testID="about-app-info" style={styles.section(isDark)}>
           <View style={styles.appInfo}>
@@ -227,7 +227,7 @@ function AboutScreenContent() {
             {t('about.mapAttribution')}
           </Text>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

@@ -33,7 +33,7 @@ interface HeatmapPreferenceState {
   setEnabled: (enabled: boolean) => Promise<void>;
   setRoutesVisible: (visible: boolean) => void;
   setSectionsVisible: (visible: boolean) => void;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
 }
 
 /** The value the routes store persisted, for an install that predates this key. */
@@ -54,7 +54,7 @@ export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
   sectionsVisible: true,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       set({ routesVisible: (await getSetting(ROUTES_VISIBLE_KEY)) === 'true' });
       const own = await getSetting(HEATMAP_KEY);
@@ -95,6 +95,6 @@ export function isHeatmapEnabled(): boolean {
   return useHeatmapPreference.getState().enabled;
 }
 
-export async function initializeHeatmapPreference(): Promise<void> {
-  await useHeatmapPreference.getState().initialize();
+export async function initialiseHeatmapPreference(): Promise<void> {
+  await useHeatmapPreference.getState().initialise();
 }

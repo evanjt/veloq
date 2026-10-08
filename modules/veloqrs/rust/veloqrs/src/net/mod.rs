@@ -14,6 +14,8 @@ pub use transport::{FilePart, NetError, Transport};
 
 pub mod types;
 
+pub mod chart_streams;
+
 pub mod endpoints;
 
 pub mod elevation_backfill;

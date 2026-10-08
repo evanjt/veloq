@@ -65,7 +65,6 @@ function announceSync(nowSyncing: boolean) {
 }
 
 const engine = {
-  setActivityMetrics: jest.fn(),
   triggerRefresh: jest.fn(),
   getAvailableSportTypes: jest.fn((): string[] => []),
   getPaceCurve: jest.fn((): { criticalSpeed: number; endDate: string } | null => null),
@@ -190,26 +189,6 @@ describe('GlobalDataSync', () => {
 
     expect(invalidate).not.toHaveBeenCalled();
     expect(reset).not.toHaveBeenCalled();
-  });
-
-  it('writes no metrics back for a page Rust already stored', () => {
-    mockUseActivities.mockReturnValue({
-      data: [
-        {
-          id: 'a1',
-          name: 'Ride',
-          start_date_local: '2026-01-01T08:00:00',
-          type: 'Ride',
-          icu_training_load: 80,
-          icu_ftp: 250,
-        },
-      ],
-      isFetching: false,
-    } as unknown as ReturnType<typeof useActivities>);
-
-    renderSyncTree();
-
-    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
   });
 
   it('does not write a pace snapshot when the GPS pass completes', () => {

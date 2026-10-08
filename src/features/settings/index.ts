@@ -6,7 +6,7 @@ export {
 } from './stores/MapPreferencesContext';
 export {
   useDashboardPreferences,
-  initializeDashboardPreferences,
+  initialiseDashboardPreferences,
   getMetricDefinition,
   AVAILABLE_METRICS,
   HERO_METRICS,
@@ -27,23 +27,23 @@ export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
 export { excludeLocalBackupsFromDeviceBackup } from './lib/autobackup/backends/localBackend';
 export { applyPlatformRecord } from './lib/platformRecordOffer';
 export { applyHeldImport } from './lib/heldImport';
-export { restorePromptDue, backupIsFound } from './lib/restorePrompt';
+export { offerRestorePrompt } from './lib/restorePrompt';
 export { useLastBackupTimestamp, useAutoBackupEnabled } from './hooks/useLastBackupTimestamp';
 export { resumeRecordImport } from './lib/backup';
 export { sweepIdleBackupFiles } from './lib/backupCache';
 export { DIVIDER_INSET, settingsStyles } from './components/settingsStyles';
 export { StreamConsentCard } from './components/StreamConsentCard';
-export { useDebugStore, initializeDebugStore } from './stores/DebugStore';
+export { useDebugStore, initialiseDebugStore } from './stores/DebugStore';
 export {
   getNotificationPreferences,
-  initializeNotificationPreferences,
+  initialiseNotificationPreferences,
   isPrivacyNoticeOwed,
 } from './stores/NotificationPreferencesStore';
 export {
   useNotificationPrompt,
-  initializeNotificationPrompt,
+  initialiseNotificationPrompt,
 } from './stores/NotificationPromptStore';
-export { initializeWhatsNewStore } from './stores/WhatsNewStore';
+export { initialiseWhatsNewStore } from './stores/WhatsNewStore';
 export { onAppForeground, initWebdavConfig } from './lib/autobackup';
 export { refreshPushTokenRegistration, registerPushToken } from './lib/pushTokenRegistration';
 export { reconcilePushRegistrationOnLaunch } from './lib/reconcilePushRegistration';
@@ -62,6 +62,7 @@ export {
   FooterSection,
   MapsSection,
   NotificationSection,
+  PlaceNamesSwitch,
   ProfileAccountSection,
   RecordingPermissionSection,
   SettingsNavRow,
@@ -70,7 +71,7 @@ export {
   SyncRangePanel,
 } from './components';
 export {
-  initializeNotifications,
+  initialiseNotifications,
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,

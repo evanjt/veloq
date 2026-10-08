@@ -1,6 +1,6 @@
 /**
- * Batch-fetches section indicators (from materialized table), route highlights
- * (computed inline) and new-ground coverage (from its materialized table) for a
+ * Batch-fetches section indicators (from materialised table), route highlights
+ * (computed inline) and new-ground coverage (from its materialised table) for a
  * list of activity IDs.
  *
  * The same read carries the strength cards of the feed, which draw whether or not route
@@ -11,7 +11,7 @@
  * `getActivityHighlightsBundle`.
  * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
  *
- * NOTE: The feed badge counts here are derived from the materialized
+ * NOTE: The feed badge counts here are derived from the materialised
  * `activity_indicators` table populated by `compute_section_indicators()` in
  * Rust. The section detail page's calendar shows trophies at year/month
  * aggregation levels, so the user may see 3 trophy icons in the calendar

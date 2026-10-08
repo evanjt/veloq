@@ -33,7 +33,7 @@ const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
 /**
  * Read notification preferences through the settings reader, so an open
  * engine answers from SQLite and a headless start falls back to the mirror.
- * In background context, Zustand store may not be initialized.
+ * In background context, Zustand store may not be initialised.
  */
 async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
   try {
@@ -127,7 +127,7 @@ async function fetchAndIngestActivity(
     } = require('@/shared/app/AuthStore');
 
     // A headless start mounts no React tree, so nothing has called
-    // `initialize()` and the credential is null however signed in the athlete
+    // `initialise()` and the credential is null however signed in the athlete
     // is. Read it from SecureStore before the guard, or every cold push bails
     // here and no rung below it ever runs.
     await ensureCredentialsHydrated();
@@ -330,7 +330,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // The ladder and the templates are the engine's, so the sentence a
       // native handler builds and the one this builds are the same sentence.
       // The templates are pushed here too: the headless task runs in a process
-      // that may never have been through `initializeApp`, and this is the last
+      // that may never have been through `initialiseApp`, and this is the last
       // point that still has i18next to resolve one.
       pushNotificationTemplates();
       // Lazily required like every other engine reach in this file, to keep

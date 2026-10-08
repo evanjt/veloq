@@ -11,7 +11,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { darkColors, layout } from '@/theme';
 import { SectionCorrelationCard } from '@/features/routes/components/section/SectionCorrelationCard';
 import { SectionEfficiencyCard } from '@/features/routes/components/section/SectionEfficiencyCard';
@@ -122,7 +122,7 @@ const lapRecord = {
 
 describe('the containers below the section chart', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('draws the summary card as the flat dark card', () => {

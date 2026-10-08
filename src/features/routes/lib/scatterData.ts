@@ -2,7 +2,7 @@
  * Pure data-prep helpers for the section scatter chart.
  *
  * Splits the counted performance data points into forward and reverse sets
- * (an excluded attempt is drawn but never counted), normalizes
+ * (an excluded attempt is drawn but never counted), normalises
  * each point's time position to [0, 1], identifies the PR (fastest non-excluded)
  * in each direction, and computes padded Y domain bounds for each direction.
  * Also places the engine's trend curves on the chart's x axis.
@@ -14,7 +14,7 @@
 import type { FfiTrendBandPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 
-/** A performance point as rendered on the chart - base record plus its normalized X. */
+/** A performance point as rendered on the chart - base record plus its normalised X. */
 export type ScatterChartPoint = PerformanceDataPoint & { x: number };
 
 export interface ScatterDomain {
@@ -26,7 +26,7 @@ export interface ScatterDomain {
 
 /** Result of splitting chart data into forward + reverse buckets. */
 export interface ScatterSplitResult {
-  /** All valid points sorted by date and x-normalized, union of both directions,
+  /** All valid points sorted by date and x-normalised, union of both directions,
    *  excluded attempts included so they can be drawn and tapped. */
   allPoints: ScatterChartPoint[];
   /** Forward-direction points (non-reverse) that count, in date order. */
@@ -64,7 +64,7 @@ function domainFor(points: ScatterChartPoint[]): ScatterDomain | null {
 }
 
 /**
- * Split chart data into forward / reverse lists, normalize each point's X
+ * Split chart data into forward / reverse lists, normalise each point's X
  * position to [0.02, 0.98] by time, and compute padded speed bounds. The
  * record mark is each point's `isBest`, which the engine decides.
  *
@@ -88,7 +88,7 @@ export function splitAndPositionChartData(
   const lastTime = sorted[sorted.length - 1].date.getTime();
   const timeRange = lastTime - firstTime || 1;
 
-  // Normalize x to 0-1 (small edge margin so dots aren't clipped)
+  // Normalise x to 0-1 (small edge margin so dots aren't clipped)
   const positioned: ScatterChartPoint[] = sorted.map((p) => ({
     ...p,
     x: 0.02 + ((p.date.getTime() - firstTime) / timeRange) * 0.96,

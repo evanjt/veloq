@@ -18,6 +18,13 @@ import { Button, ToggleButton } from '@/shared/ui/Button';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { MIN_TAP_TARGET } from '@/theme/spacing';
 
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
+
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: mockIsDark }),
@@ -234,4 +241,58 @@ describe('ToggleButton', () => {
 
     expect(onPress).not.toHaveBeenCalled();
   });
+});
+
+describe('destructive press haptic', () => {
+  const haptics = jest.requireMock('@/shared/ui/haptics') as Record<string, jest.Mock>;
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('fires one medium impact and the caller press for a destructive button', () => {
+    const onPress = jest.fn();
+    const { getByTestId } = render(
+      <Button label="Remove" variant="destructive" onPress={onPress} testID="b" />
+    );
+    fireEvent.press(getByTestId('b'));
+    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(haptics.light).not.toHaveBeenCalled();
+    expect(haptics.success).not.toHaveBeenCalled();
+  });
+
+  it('leaves the haptic to the confirm when the press only opens one', () => {
+    const onPress = jest.fn();
+    const { getByTestId } = render(
+      <Button label="Delete" variant="destructive" opensConfirm onPress={onPress} testID="b" />
+    );
+    fireEvent.press(getByTestId('b'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(haptics.medium).not.toHaveBeenCalled();
+  });
+
+  it.each(['primary', 'secondary', 'ghost'] as const)(
+    'fires no haptic for a %s button',
+    (variant) => {
+      const onPress = jest.fn();
+      const { getByTestId } = render(
+        <Button label="Go" variant={variant} onPress={onPress} testID="b" />
+      );
+      fireEvent.press(getByTestId('b'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+      for (const fn of Object.values(haptics)) expect(fn).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([{ disabled: true }, { loading: true }])(
+    'fires neither the haptic nor the press for a destructive button that is %o',
+    (state) => {
+      const onPress = jest.fn();
+      const { getByTestId } = render(
+        <Button label="Remove" variant="destructive" onPress={onPress} testID="b" {...state} />
+      );
+      fireEvent.press(getByTestId('b'));
+      expect(onPress).not.toHaveBeenCalled();
+      expect(haptics.medium).not.toHaveBeenCalled();
+    }
+  );
 });

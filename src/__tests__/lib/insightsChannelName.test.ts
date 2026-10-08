@@ -12,8 +12,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { changeLanguage, i18n, initializeI18n } from '@/i18n';
-import { initializeNotifications } from '@/features/settings/lib/notificationService';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
+import { initialiseNotifications } from '@/features/settings/lib/notificationService';
 
 jest.mock('expo-notifications', () => ({
   ...jest.requireActual('expo-notifications'),
@@ -43,10 +43,10 @@ afterAll(() => {
 describe('the insights channel name', () => {
   it('waits for the bundles, names the channel in their language, and follows a change', async () => {
     expect(i18n.isInitialized).toBeFalsy();
-    initializeNotifications();
+    initialiseNotifications();
     expect(channelNames()).toEqual([]);
 
-    await initializeI18n('de-DE');
+    await initialiseI18n('de-DE');
     expect(channelNames().at(-1)).toBe(i18n.t('notifications.channel.insightsName'));
     expect(channelNames().at(-1)).not.toBe('Activity Insights');
 

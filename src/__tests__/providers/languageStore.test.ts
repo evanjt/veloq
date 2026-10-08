@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import {
   useLanguageStore,
-  initializeLanguage,
+  initialiseLanguage,
   resolveLanguageToLocale,
   getAvailableLanguages,
   getEnglishVariantValue,
@@ -31,7 +31,7 @@ describe('LanguageStore', () => {
     // Reset store to initial state
     useLanguageStore.setState({
       language: null,
-      isInitialized: false,
+      isInitialised: false,
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
@@ -64,18 +64,18 @@ describe('LanguageStore', () => {
   });
 
   // ============================================================
-  // INITIALIZATION
+  // INITIALISATION
   // ============================================================
 
-  describe('initializeLanguage()', () => {
+  describe('initialiseLanguage()', () => {
     it('loads saved preference from AsyncStorage', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, 'de-CH');
 
-      const result = await initializeLanguage();
+      const result = await initialiseLanguage();
 
       expect(result).toBe('de-CH');
       expect(useLanguageStore.getState().language).toBe('de-CH');
-      expect(useLanguageStore.getState().isInitialized).toBe(true);
+      expect(useLanguageStore.getState().isInitialised).toBe(true);
     });
 
     it('detects device locale on first launch and saves it', async () => {
@@ -83,7 +83,7 @@ describe('LanguageStore', () => {
         { languageTag: 'en-AU', languageCode: 'en', regionCode: 'AU' },
       ]);
 
-      const result = await initializeLanguage();
+      const result = await initialiseLanguage();
 
       expect(result).toBe('en-AU');
       expect(useLanguageStore.getState().language).toBe('en-AU');
@@ -96,7 +96,7 @@ describe('LanguageStore', () => {
     it('handles language-only saved values (old format)', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, 'de');
 
-      const result = await initializeLanguage();
+      const result = await initialiseLanguage();
 
       // 'de' is not a full locale - resolves to 'de-DE' via fallback
       expect(result).toBe('de-DE');
@@ -237,10 +237,10 @@ describe('device locales reach a selectable picker entry', () => {
     '%s saves a value the picker can select',
     async (languageTag, languageCode) => {
       (Localization.getLocales as jest.Mock).mockReturnValue([{ languageTag, languageCode }]);
-      useLanguageStore.setState({ language: null, isInitialized: false });
+      useLanguageStore.setState({ language: null, isInitialised: false });
       await AsyncStorage.clear();
 
-      await initializeLanguage();
+      await initialiseLanguage();
 
       expect(selectedEntries(useLanguageStore.getState().language as string)).toBe(1);
     }
@@ -249,9 +249,9 @@ describe('device locales reach a selectable picker entry', () => {
   it('migrates a saved neutral es to the Español default variant', async () => {
     await AsyncStorage.clear();
     await AsyncStorage.setItem(STORAGE_KEY, 'es');
-    useLanguageStore.setState({ language: null, isInitialized: false });
+    useLanguageStore.setState({ language: null, isInitialised: false });
 
-    const locale = await initializeLanguage();
+    const locale = await initialiseLanguage();
 
     expect(locale).toBe('es-419');
     expect(useLanguageStore.getState().language).toBe('es-419');

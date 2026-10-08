@@ -16,20 +16,20 @@ interface MapCameraState {
 }
 
 let state: MapCameraState | null = null;
-let initialized = false;
+let initialised = false;
 let initPromise: Promise<void> | null = null;
 
 export function initMapCameraState(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
-    if (initialized) return;
+    if (initialised) return;
     try {
       const raw = await getSetting(STORAGE_KEY);
       if (raw) state = JSON.parse(raw);
     } catch {
       // Best effort - start without saved state
     }
-    initialized = true;
+    initialised = true;
   })();
   return initPromise;
 }
@@ -64,7 +64,7 @@ export function saveMapCameraState(center: [number, number], zoom: number): void
 }
 
 export async function reloadMapCameraState(): Promise<void> {
-  initialized = false;
+  initialised = false;
   state = null;
   initPromise = null;
   await initMapCameraState();
@@ -73,7 +73,7 @@ export async function reloadMapCameraState(): Promise<void> {
 /** Drops the saved camera from memory and from the settings, for a library wipe. */
 export async function forgetMapCameraState(): Promise<void> {
   state = null;
-  initialized = false;
+  initialised = false;
   initPromise = null;
   await removeSetting(STORAGE_KEY).catch(() => {});
 }

@@ -234,7 +234,9 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  DROP TABLE activity_climb_bests;
                  DROP TABLE activity_new_ground;
                  ALTER TABLE sections DROP COLUMN original_polyline_blob;
-                 ALTER TABLE gps_tracks DROP COLUMN elevation_source;",
+                 ALTER TABLE gps_tracks DROP COLUMN elevation_source;
+                 DROP INDEX idx_activity_census_trackless_series;
+                 ALTER TABLE activity_census DROP COLUMN has_series;",
             )
             .unwrap();
         engine

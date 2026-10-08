@@ -94,7 +94,6 @@
       "yourFitness": "Your Fitness (CTL)",
       "yourForm": "Your Form"
     },
-    "tapToClose": "Tap anywhere to close",
     "timeInHRZones": "Time in HR Zones",
     "timeInPowerZones": "Time in Power Zones",
     "viewDetails": "View Details",
@@ -381,7 +380,6 @@
     "confirm": "Confirm",
     "creating": "Creating...",
     "delete": "Delete",
-    "done": "Done",
     "remove": "Remove",
     "rename": "Rename",
     "restore": "Restore",
@@ -1527,6 +1525,14 @@
     "terrain3DAlways": "Always",
     "noData": "No data",
     "permissions": "Permissions",
+    "placeNames": {
+      "title": "Place names",
+      "attribution": "Place names © OpenStreetMap contributors",
+      "noticeTitle": "Use place names?",
+      "noticeBody": "When a new route or section is found, its start and end point are sent to OpenStreetMap's Nominatim service to look up a place name. No existing route or section is sent, and nothing about you. The service's usage policy applies.",
+      "readPolicy": "Usage policy",
+      "accept": "Accept"
+    },
     "primarySport": "Primary Sport",
     "primarySportHintCycling": "FTP shown in feed header. Performance page shows Power Curve, power zones, eFTP trend, and decoupling.",
     "primarySportHintRunning": "Threshold pace and LTHR shown in feed header. Performance page shows Pace Curve, running power, and HR zones.",
@@ -1827,6 +1833,7 @@
     "tracksDownloaded": "{{completed}} of {{total}} tracks downloaded"
   },
   "time": {
+    "asOfLastSync": "As of last sync",
     "current": "Current",
     "daysAgo_one": "{{count}} day ago",
     "daysAgo_other": "{{count}} days ago",
@@ -2216,7 +2223,7 @@
     "toSeeTraining": "to see your training",
     "record": "Record",
     "recordDescription": "Start recording an activity.",
-    "dashboardDescription": "Your form, fitness, and latest activity at a glance.",
+    "summaryDescription": "Your summary card from the app at a glance.",
     "latestActivity": "Latest Activity",
     "latestActivityDescription": "Your most recent activity with its route.",
     "metric": "Metric",
@@ -2231,6 +2238,33 @@
     "startSportDescription": "Opens Veloq ready to record the chosen sport.",
     "recordingControl": "Recording control",
     "action": "Action",
+    "insights": "Insights",
+    "insightsDescription": "The top cards from your Insights tab.",
+    "insightsEmpty": "No new insights",
+    "insightsMore": "+{{rest}} more",
+    "insightKinds": "Kinds",
+    "insightKindsDescription": "Choose which kinds of insight the widget lists. Choosing none lists every kind.",
+    "insightKind": {
+      "sectionPr": "Section PRs",
+      "sectionTrend": "Section trends",
+      "route": "Route records",
+      "stalePr": "Old PRs",
+      "fitnessMilestone": "Fitness milestones",
+      "periodComparison": "Period comparisons",
+      "strengthProgression": "Strength progression",
+      "strengthBalance": "Strength balance",
+      "hrvTrend": "HRV trends",
+      "efficiencyTrend": "Efficiency trends",
+      "sectionChanged": "Changed sections"
+    },
+    "latest": {
+      "rank": "{{rank}} of {{total}}",
+      "fastest": "Your fastest",
+      "offBest": "{{gap}} off your best",
+      "load": "Load",
+      "loadVsTypical": "{{percent}} vs your typical load",
+      "sectionPrs": "Section PRs {{number}}"
+    },
     "phrases": {
       "startRide": "Start a ride on {{app}}",
       "startRecording": "Start recording on {{app}}",

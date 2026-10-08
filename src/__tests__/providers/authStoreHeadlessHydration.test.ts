@@ -1,6 +1,6 @@
 /**
  * Scenario: a headless start, a push waking the background task with no React
- * tree mounted, so nothing has called `initialize()`.
+ * tree mounted, so nothing has called `initialise()`.
  *
  * Expected behaviour: the credential is read from SecureStore on demand, once,
  * and a caller that asks again gets the hydrated store rather than a second

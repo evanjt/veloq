@@ -58,7 +58,6 @@
     "climbingBests": "Escalada"
   },
   "common": {
-    "done": "Listo",
     "showDetails": "Mostrar detalles para desarrollador"
   },
   "emptyState": {
@@ -233,6 +232,5 @@
     "lastRunSections_many": "{{count}} de secciones"
   },
   "systemSurfaces": {
-    "dashboardDescription": "Tu forma, tu condición física y tu última actividad de un vistazo."
   }
 }

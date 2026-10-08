@@ -14,7 +14,7 @@ import { render } from '@testing-library/react-native';
 import type { ReactTestRendererJSON } from 'react-test-renderer';
 import type { StalePrOpportunity } from 'veloqrs';
 
-import { changeLanguage, i18n, initializeI18n } from '@/i18n';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import type { TFunc } from '@/features/insights/types';
 import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
@@ -87,7 +87,7 @@ const BARE_FTP = /(^|[^e])FTP/;
 
 describe('the stale PR card names eFTP and critical speed', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   afterEach(async () => {

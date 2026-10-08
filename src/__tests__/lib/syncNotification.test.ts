@@ -13,7 +13,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import {
-  initializeNotifications,
+  initialiseNotifications,
   presentActivityNotification,
 } from '@/features/settings/lib/notificationService';
 
@@ -68,7 +68,7 @@ describe('the activity notification names its own channel', () => {
 
 describe('notification handler differentiation', () => {
   it('shows banner and list for insight notifications', () => {
-    initializeNotifications();
+    initialiseNotifications();
 
     const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
     const insightNotification = {

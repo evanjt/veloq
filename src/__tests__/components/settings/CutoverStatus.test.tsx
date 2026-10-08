@@ -11,7 +11,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import {
   CutoverStatus,
   CUTOVER_STATUS_TEST_ID,
@@ -46,7 +46,7 @@ const settled = (phase: CutoverSummary['phase'], sawRun = false): CutoverSummary
 
 describe('the cutover status line', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

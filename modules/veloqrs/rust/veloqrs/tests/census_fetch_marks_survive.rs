@@ -27,6 +27,7 @@ fn entry(id: &str, day: &str, synced: &str) -> ActivityCensusEntry {
         created: Some(format!("{day}T00:00:00Z")),
         icu_sync_date: Some(synced.to_string()),
         has_latlng: true,
+        has_series: false,
     }
 }
 

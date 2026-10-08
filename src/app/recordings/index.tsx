@@ -3,13 +3,17 @@ import { View, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScreenSafeAreaView, EmptyState, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  EmptyState,
+  TAB_BAR_SAFE_PADDING,
+  screenListInsets,
+} from '@/shared/ui';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration, getIntlLocale } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -53,7 +57,6 @@ function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const insets = useSafeAreaInsets();
   const { entries, isLoading, uploadNow, uploadingId } = useRecordingLibrary();
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -76,7 +79,7 @@ function RecordingsLibraryScreenContent() {
           testID={`recording-entry-${item.id}`}
           style={pressable([styles.card, { backgroundColor: surface, borderColor: border }])}
           android_ripple={pressRipple}
-          onPress={() => navigateTo(`/recordings/${item.id}`)}
+          onPress={() => tapTo(`/recordings/${item.id}`)}
         >
           <MaterialCommunityIcons
             name={getActivityIcon(item.activityType)}
@@ -136,6 +139,7 @@ function RecordingsLibraryScreenContent() {
       ) : (
         <FlatList
           testID="recordings-list"
+          {...screenListInsets}
           data={entries}
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
@@ -144,10 +148,7 @@ function RecordingsLibraryScreenContent() {
               <PermissionUpgradeBanner />
             ) : null
           }
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-          ]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
           ListEmptyComponent={
             <EmptyState
               icon="record-circle-outline"

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, brand, spacing, shadows, layout, typography } from '@/theme';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -76,7 +76,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
         testID="recording-return-pill"
         style={pressable([styles.pill, { backgroundColor: bgColor }, shadows.elevated])}
         android_ripple={pressRipple}
-        onPress={() => route && navigateTo(route)}
+        onPress={() => route && tapTo(route)}
         accessibilityRole="button"
         accessibilityLabel={t('recording.returnToRecording', 'Return to recording')}
       >

@@ -39,6 +39,7 @@ import {
   type GroupingRoute,
 } from '@/features/routes';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * How many of today's routes are drawn. They arrive sorted by ride count
@@ -157,7 +158,7 @@ function RouteGroupingPreviewScreenContent() {
     ]);
   }, [t, client, params, rescan]);
 
-  const handleDiscard = useCallback(() => router.back(), []);
+  const handleDiscard = useCallback(() => tapBack(), []);
 
   // A run that timed out has been cancelled and nothing is coming, so the row
   // has to say so: without its own branch the text stayed on "grouping" with

@@ -20,6 +20,7 @@ import {
   toEditorText,
   type ParamEditorSheetInput,
 } from '@/features/routes';
+import { tapBack } from '@/shared/app/navigation';
 
 function ParamEditorSheetContent() {
   const { t } = useTranslation();
@@ -89,7 +90,7 @@ function ParamEditorSheetContent() {
         <Button
           testID={input.kind === 'param' ? 'param-editor-cancel' : 'grouping-editor-cancel'}
           label={t('common.cancel')}
-          onPress={() => router.back()}
+          onPress={() => tapBack()}
           variant="ghost"
         />
         <Button

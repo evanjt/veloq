@@ -165,7 +165,7 @@ function findReinitGaps(src) {
   let m;
   while ((m = importRe.exec(src))) imported.add(m[1]);
 
-  // Registration is the storeInitialisers table, which reinitializeAllStores
+  // Registration is the storeInitialisers table, which reinitialiseAllStores
   // settles over.
   const bodyStart = src.indexOf('storeInitialisers');
   if (bodyStart === -1) {

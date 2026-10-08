@@ -10,7 +10,7 @@ import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor } from '@/shared/activity/activityUtils';
@@ -82,7 +82,7 @@ export function RoutePerformanceSection({
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      navigateTo(`/route/${routeGroup.id}`);
+      tapTo(`/route/${routeGroup.id}`);
     }
   }, [routeGroup]);
 

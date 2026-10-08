@@ -69,7 +69,7 @@ it('holds for the demo athlete on entering demo mode', () => {
 });
 
 it('survives a hold the engine refuses', async () => {
-  mockHold.mockRejectedValueOnce(new Error('Engine not initialized'));
+  mockHold.mockRejectedValueOnce(new Error('Engine not initialised'));
 
   await expect(useAuthStore.getState().setCredentials('key-one', 'i1001')).resolves.toBeUndefined();
 });

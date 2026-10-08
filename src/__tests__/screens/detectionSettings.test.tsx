@@ -72,12 +72,17 @@ function mockElevationStatus() {
   return React.createElement(View, { testID: 'elevation-backfill-status' });
 }
 
+function mockPlaceNamesSwitch() {
+  return React.createElement(View, { testID: 'place-names-switch' });
+}
+
 // The barrel no longer exports `DetectionIllustration`, so a screen that went
 // back to rendering it would render `undefined` and every test here would fail.
 jest.mock('@/features/settings/components', () => ({
   BackgroundJobsActivityBar: mockActivityBar,
   ElevationBackfillStatus: mockElevationStatus,
   CutoverStatus: () => null,
+  PlaceNamesSwitch: mockPlaceNamesSwitch,
 }));
 
 describe('detection settings screen', () => {
@@ -111,6 +116,11 @@ describe('detection settings screen', () => {
     const tree = render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
+  });
+
+  it('offers the place names switch beside route matching', () => {
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.getByTestId('place-names-switch')).toBeTruthy();
   });
 
   it('shows the activity bar on the screen that starts detection', () => {

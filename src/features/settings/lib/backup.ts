@@ -10,26 +10,26 @@ import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { sweepBackupFiles } from './backupCache';
 import { SHARE_COPY_PREFIX } from '@/features/settings/lib/autobackup/backends/localBackend';
-import { initializeSportPreference } from '@/features/fitness';
-import { initializeDashboardPreferences } from '../stores/summaryCardPreferences';
-import { initializeInsightsStore } from '@/features/insights';
+import { initialiseSportPreference } from '@/features/fitness';
+import { initialiseDashboardPreferences } from '../stores/summaryCardPreferences';
+import { initialiseInsightsStore } from '@/features/insights';
 import {
-  initializeHeatmapPreference,
-  initializeTileCacheSettings,
+  initialiseHeatmapPreference,
+  initialiseTileCacheSettings,
   reloadCameraOverrides,
   reloadMapCameraState,
 } from '@/features/maps';
-import { initializeRecordingPreferences, initializeUploadPermission } from '@/features/recording';
-import { initializeKnownSensors } from '@/features/sensors';
-import { initializeRouteSettings } from '@/features/routes';
-import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
-import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
-import { initializeSupportStore } from '@/shared/app/SupportStore';
-import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { initializeLanguage } from '@/shared/app/LanguageStore';
-import { initializeTheme } from '@/shared/app/ThemeProvider';
-import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { initialiseRecordingPreferences, initialiseUploadPermission } from '@/features/recording';
+import { initialiseKnownSensors } from '@/features/sensors';
+import { initialiseRouteSettings } from '@/features/routes';
+import { initialiseDebugStore } from '@/features/settings/stores/DebugStore';
+import { initialiseNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { initialiseNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
+import { initialiseSupportStore } from '@/shared/app/SupportStore';
+import { initialiseWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { initialiseLanguage } from '@/shared/app/LanguageStore';
+import { initialiseTheme } from '@/shared/app/ThemeProvider';
+import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
 import { readLibraryCount } from '@/shared/native/libraryCount';
@@ -79,7 +79,7 @@ async function writeRecordArchive(
 export async function exportRecordBackup(): Promise<RecordExportOutcome> {
   if (pendingExport) return resumePendingRecordExport();
   const engine = getEngine();
-  if (!engine) throw new Error('Engine not initialized');
+  if (!engine) throw new Error('Engine not initialised');
 
   let uri = '';
   let lapsed = false;
@@ -241,7 +241,7 @@ export async function restoreRecordBackup(fileUri: string): Promise<RecordRestor
     const result = await engine.restoreRecordZip(path);
     requestRecordActivities(engine, result);
     await mirrorSignedOutPreferences(engine);
-    await reinitializeAllStores();
+    await reinitialiseAllStores();
     return result;
   } finally {
     await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
@@ -264,7 +264,7 @@ export async function resumeRecordImport(): Promise<RecordRestoreOutcome | null>
   const restored = await engine.restoreRecordJson(JSON.stringify(EMPTY_RECORD));
   requestRecordActivities(engine, restored);
   await mirrorSignedOutPreferences(engine);
-  await reinitializeAllStores();
+  await reinitialiseAllStores();
   return restored;
 }
 
@@ -275,7 +275,7 @@ export async function resumeRecordImport(): Promise<RecordRestoreOutcome | null>
  */
 export async function discardRecordImport(): Promise<void> {
   const engine = getEngine();
-  if (!engine || !isEngineReady()) throw new Error('Engine not initialized');
+  if (!engine || !isEngineReady()) throw new Error('Engine not initialised');
   await engine.discardRecordImport();
 }
 
@@ -289,34 +289,34 @@ export async function discardRecordImport(): Promise<void> {
  * their exports before they exist.
  */
 const storeInitialisers = (): readonly (readonly [string, () => Promise<unknown>])[] => [
-  ['initializeTheme', initializeTheme],
-  ['initializeLanguage', initializeLanguage],
-  ['initializeSportPreference', initializeSportPreference],
-  ['initializeUnitPreference', initializeUnitPreference],
-  ['initializeRouteSettings', initializeRouteSettings],
-  ['initializeHeatmapPreference', initializeHeatmapPreference],
-  ['initializeDashboardPreferences', initializeDashboardPreferences],
-  ['initializeDebugStore', initializeDebugStore],
-  ['initializeTileCacheSettings', initializeTileCacheSettings],
-  ['initializeWhatsNewStore', initializeWhatsNewStore],
-  ['initializeInsightsStore', initializeInsightsStore],
-  ['initializeRecordingPreferences', initializeRecordingPreferences],
-  ['initializeKnownSensors', initializeKnownSensors],
-  ['initializeUploadPermission', initializeUploadPermission],
-  ['initializeNotificationPreferences', initializeNotificationPreferences],
-  ['initializeNotificationPrompt', initializeNotificationPrompt],
-  ['initializeSupportStore', initializeSupportStore],
+  ['initialiseTheme', initialiseTheme],
+  ['initialiseLanguage', initialiseLanguage],
+  ['initialiseSportPreference', initialiseSportPreference],
+  ['initialiseUnitPreference', initialiseUnitPreference],
+  ['initialiseRouteSettings', initialiseRouteSettings],
+  ['initialiseHeatmapPreference', initialiseHeatmapPreference],
+  ['initialiseDashboardPreferences', initialiseDashboardPreferences],
+  ['initialiseDebugStore', initialiseDebugStore],
+  ['initialiseTileCacheSettings', initialiseTileCacheSettings],
+  ['initialiseWhatsNewStore', initialiseWhatsNewStore],
+  ['initialiseInsightsStore', initialiseInsightsStore],
+  ['initialiseRecordingPreferences', initialiseRecordingPreferences],
+  ['initialiseKnownSensors', initialiseKnownSensors],
+  ['initialiseUploadPermission', initialiseUploadPermission],
+  ['initialiseNotificationPreferences', initialiseNotificationPreferences],
+  ['initialiseNotificationPrompt', initialiseNotificationPrompt],
+  ['initialiseSupportStore', initialiseSupportStore],
   ['reloadCameraOverrides', reloadCameraOverrides],
   ['reloadMapCameraState', reloadMapCameraState],
 ];
 
 /**
- * Reinitialize all Zustand stores from storage (SQLite + AsyncStorage).
+ * Reinitialise all Zustand stores from storage (SQLite + AsyncStorage).
  *
  * Settled, not all: one store failing to load must not leave the rest on
  * pre-restore state.
  */
-export async function reinitializeAllStores(): Promise<void> {
+export async function reinitialiseAllStores(): Promise<void> {
   const initialisers = storeInitialisers();
   const results = await Promise.allSettled(initialisers.map(([, init]) => init()));
   results.forEach((result, index) => {
@@ -611,6 +611,6 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   const restored = await engine.restoreRecordJson(JSON.stringify(record));
   requestRecordActivities(engine, restored);
   await mirrorSignedOutPreferences(engine);
-  await reinitializeAllStores();
+  await reinitialiseAllStores();
   return { unplacedCount: restored.unplaced };
 }

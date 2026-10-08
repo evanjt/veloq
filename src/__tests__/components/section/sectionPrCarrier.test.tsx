@@ -10,7 +10,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import {
   SectionStatsCards,
   type CalendarSummary,
@@ -58,7 +58,7 @@ function renderCards() {
 
 describe('the calendar card', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('names the overall personal best in text, not only in gold', () => {

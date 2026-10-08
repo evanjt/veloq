@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Pressable, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
 import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
@@ -241,7 +241,7 @@ export function StorageStatsPanel({
           accessibilityRole="button"
           accessibilityLabel={t('settings.activities')}
           style={styles.statItem}
-          onPress={() => navigateTo('/map')}
+          onPress={() => tapTo('/map')}
           activeOpacity={0.7}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>{totalActivities}</Text>
@@ -260,7 +260,7 @@ export function StorageStatsPanel({
           accessibilityRole="button"
           accessibilityLabel={t('settings.routesCount')}
           style={styles.statItem}
-          onPress={() => navigateTo('/insights?tab=routes')}
+          onPress={() => tapTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >
@@ -283,7 +283,7 @@ export function StorageStatsPanel({
           accessibilityRole="button"
           accessibilityLabel={t('settings.sectionsCount')}
           style={styles.statItem}
-          onPress={() => navigateTo('/insights?tab=sections')}
+          onPress={() => tapTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >

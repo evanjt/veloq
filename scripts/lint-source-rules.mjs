@@ -84,6 +84,107 @@ function styleRegions(source) {
   return regions;
 }
 
+/** Whether a TSX file renders `<ScreenScrollView>`, or a list spreading `screenListInsets`. */
+function rendersInsetScroll(text) {
+  const sf = ts.createSourceFile('x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let found = false;
+  const visit = (node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(sf);
+      if (tag === 'ScreenScrollView') found = true;
+      if (tag === 'FlatList' || tag === 'SectionList') {
+        found ||= node.attributes.properties.some(
+          (a) =>
+            ts.isJsxSpreadAttribute(a) &&
+            ts.isIdentifier(a.expression) &&
+            a.expression.text === 'screenListInsets'
+        );
+      }
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
+/** The tracked file a module specifier written in `from` names, or undefined. */
+function resolveModule(sources, from, specifier) {
+  const base = specifier.startsWith('@/')
+    ? `src/${specifier.slice(2)}`
+    : specifier.startsWith('.')
+      ? posix.join(posix.dirname(from), specifier)
+      : null;
+  if (base === null) return undefined;
+  return [base, `${base}.tsx`, `${base}.ts`, `${base}/index.tsx`, `${base}/index.ts`].find((f) =>
+    sources.has(f)
+  );
+}
+
+/**
+ * The file that defines what `file` exports under `name`, following `export { a as b } from`
+ * through barrels. A file that does not re-export the name defines it.
+ */
+function definingFile(sources, file, name, depth = 0) {
+  if (depth > 4) return undefined;
+  const sf = ts.createSourceFile(
+    file,
+    sources.get(file),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  for (const statement of sf.statements) {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      !statement.moduleSpecifier ||
+      !statement.exportClause ||
+      !ts.isNamedExports(statement.exportClause)
+    ) {
+      continue;
+    }
+    const spec = statement.exportClause.elements.find((e) => e.name.text === name);
+    if (!spec) continue;
+    const target = resolveModule(sources, file, statement.moduleSpecifier.text);
+    return (
+      target && definingFile(sources, target, (spec.propertyName ?? spec.name).text, depth + 1)
+    );
+  }
+  return file;
+}
+
+/**
+ * The file that renders the screen a route file exports by default. A route that renders its own
+ * scroll view is its own file; one that is `export default Screen` of an import is the file that
+ * import resolves to, through any barrel. Undefined when the chain cannot be followed.
+ */
+function screenFile(sources, routeFile) {
+  const sf = ts.createSourceFile(
+    routeFile,
+    sources.get(routeFile),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const exported = sf.statements.find(
+    (st) => ts.isExportAssignment(st) && !st.isExportEquals && ts.isIdentifier(st.expression)
+  )?.expression.text;
+  if (!exported) return undefined;
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue;
+    const { name, namedBindings } = st.importClause;
+    let imported;
+    if (name?.text === exported) imported = 'default';
+    else if (namedBindings && ts.isNamedImports(namedBindings)) {
+      const spec = namedBindings.elements.find((e) => e.name.text === exported);
+      if (spec) imported = (spec.propertyName ?? spec.name).text;
+    }
+    if (!imported) continue;
+    const target = resolveModule(sources, routeFile, st.moduleSpecifier.text);
+    return target && definingFile(sources, target, imported);
+  }
+  return undefined;
+}
+
 /** The files a rule names, each of which has to be tracked. */
 function named(sources, files) {
   const missing = files.filter((file) => !sources.has(file));
@@ -384,6 +485,55 @@ const RULES = {
       return out;
     },
     fix: 'declare the header in SCREEN_HEADERS and let the native stack draw it',
+  },
+
+  // A collapsing large title only works when the screen's scroll view lets the system inset its
+  // content. `ScreenScrollView` sets that on iOS and `screenListInsets` carries it onto a list, so a
+  // route that takes a large title renders one of them. The tags are read from the syntax tree, so
+  // a mention in a comment or a string does not count. A route that only re-exports a feature's
+  // screen is judged by the file that defines that screen.
+  'large-title-scroll': {
+    pathspec: ['src/app', 'src/features', 'src/shared/app/screenHeaders.ts'],
+    check(sources) {
+      const headersFile = 'src/shared/app/screenHeaders.ts';
+      const out = named(sources, [headersFile]);
+      const headers = objectLiteral(sources.get(headersFile) ?? '', 'SCREEN_HEADERS');
+      if (!headers) {
+        if (sources.has(headersFile)) {
+          out.push(`${headersFile}  has no SCREEN_HEADERS object for this rule to read`);
+        }
+        return out;
+      }
+      const flagged = headers.properties
+        .filter((p) => ts.isPropertyAssignment(p) && ts.isObjectLiteralExpression(p.initializer))
+        .filter((p) =>
+          p.initializer.properties.some(
+            (q) =>
+              ts.isPropertyAssignment(q) &&
+              propertyName(q) === 'largeTitle' &&
+              q.initializer.kind === ts.SyntaxKind.TrueKeyword
+          )
+        )
+        .map(propertyName)
+        .filter(Boolean);
+      for (const route of flagged) {
+        const file = [`src/app/${route}.tsx`, `src/app/${route}/index.tsx`].find((f) =>
+          sources.has(f)
+        );
+        if (!file) {
+          out.push(`${headersFile}  sets largeTitle on ${route}, which has no screen file`);
+          continue;
+        }
+        const screen = rendersInsetScroll(sources.get(file)) ? file : screenFile(sources, file);
+        if (!screen || !rendersInsetScroll(sources.get(screen))) {
+          out.push(
+            `${file}  is a large-title route and renders neither ScreenScrollView nor a list spreading screenListInsets`
+          );
+        }
+      }
+      return out;
+    },
+    fix: 'render ScreenScrollView from @/shared/ui, or spread screenListInsets onto the FlatList',
   },
 
   // A label with no `text-font` takes the style spec's default stack, which the

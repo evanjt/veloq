@@ -152,7 +152,7 @@ describe('createAutoPauseDetector', () => {
     });
   });
 
-  describe('debounce behavior', () => {
+  describe('debounce behaviour', () => {
     it('does not pause if speed drops briefly then recovers', () => {
       const detector = moved(defaultConfig);
 

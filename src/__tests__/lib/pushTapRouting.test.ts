@@ -325,7 +325,7 @@ describe('the two tap entry points', () => {
       .calls[0][0];
 
     listener(response('n5', { body: JSON.stringify(TAP) }));
-    await useAuthStore.getState().initialize();
+    await useAuthStore.getState().initialise();
     await settle();
 
     expect(router.push).toHaveBeenCalledWith('/activity/i999');

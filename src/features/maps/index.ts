@@ -88,7 +88,7 @@ export {
 } from './lib/mapPeriod';
 export { offlineMapStyle } from './lib/offlineStyleFallback';
 export { readSnapshotQueueReport } from './lib/snapshotQueueTrace';
-export { sectionCreationMessageKey } from './lib/sectionCreationMessage';
+export { submitSectionCreation } from './hooks/submitSectionCreation';
 export { reloadMapCameraState } from './lib/storage/mapCameraState';
 export {
   deleteCameraOverride,
@@ -106,11 +106,11 @@ export {
   getTerrainPreviewUri,
   hasTerrainPreview,
   initTerrainPreviewCache,
-  isTerrainCacheInitialized,
+  isTerrainCacheInitialised,
   isTerrainPreviewDowngraded,
   onTerrainCacheReady,
 } from './lib/storage/terrainPreviewCache';
-export { initializeTileCacheSettings, useTileCacheSettings } from './lib/storage/tileCacheSettings';
+export { initialiseTileCacheSettings, useTileCacheSettings } from './lib/storage/tileCacheSettings';
 export { subscribeSnapshot, subscribeSnapshotFailure } from './lib/terrainSnapshotEvents';
 export { TILE_CACHE_BUDGET_CHOICES_MB } from './lib/tileCacheBudget';
 export { flushBasemapSidecars } from './lib/basemapFlush';
@@ -130,7 +130,7 @@ export {
 } from './lib/mapControlColumnLayout';
 export { buildSectionTrimCollection } from './lib/sectionTrimCollection';
 export {
-  initializeHeatmapPreference,
+  initialiseHeatmapPreference,
   isHeatmapEnabled,
   useHeatmapPreference,
 } from './stores/HeatmapPreferenceStore';

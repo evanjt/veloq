@@ -6,7 +6,6 @@
     "catalogue_config_digest": "digest read by tests",
     "cutover_diff": "cutover comparison read by tests",
     "elevation_state_of_track": "elevation state read by tests",
-    "estimate_offline_range": "offline range estimate read by tests",
     "evidence_cache_dirty_clusters": "cache state read by tests",
     "get_activity_section_encounters": "encounter query read by tests",
     "get_excluded_activity_ids": "exclusion query read by tests",

@@ -10,7 +10,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import {
   SectionStatsCards,
   type CalendarSummary,
@@ -56,7 +56,7 @@ function renderCards() {
 
 describe('the calendar card reference row', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('names the reference attempt in text on its row only', () => {

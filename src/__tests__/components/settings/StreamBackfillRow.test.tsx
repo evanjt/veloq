@@ -9,7 +9,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { StartOutcome } from 'veloqrs';
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { StreamBackfillRow } from '@/features/settings/components/StreamBackfillRow';
 import type { StreamBackfillState } from '@/features/settings/hooks/useStreamBackfill';
 
@@ -42,7 +42,7 @@ function row() {
 
 describe('StreamBackfillRow', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {
@@ -76,6 +76,45 @@ describe('StreamBackfillRow', () => {
     );
     fireEvent.press(tree.getByTestId('settings-stream-backfill-action'));
     expect(mockStart).toHaveBeenCalled();
+  });
+
+  /**
+   * Scenario: the pass has never been stopped and Settings is opened at rest.
+   * Expected behaviour: the row states the owed queue's size there too, not
+   * only after a stop.
+   */
+  it('states the size at rest, where no stop has happened', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, phase: 'idle', remainingBytes: 12_000_000 })
+    );
+
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '412 activities, 12.0 MB'
+    );
+  });
+
+  it('shows the count alone when the queue has no known moving time', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, phase: 'stopped', remainingBytes: 0 })
+    );
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '412 activities'
+    );
+  });
+
+  it('shows progress, not a size, while the pass runs', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({
+        remaining: null,
+        remainingBytes: 36_400_000,
+        isRunning: true,
+        phase: 'fetching',
+        completed: 3,
+        total: 412,
+      })
+    );
+
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe('3 of 412');
   });
 
   /**

@@ -5,7 +5,7 @@ import {
 } from '@/features/insights/lib/fingerprintStore';
 import {
   useInsightsStore,
-  initializeInsightsStore,
+  initialiseInsightsStore,
   computeInsightFingerprint,
   diffInsights,
 } from '@/features/insights/store';
@@ -50,9 +50,9 @@ describe('InsightsStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('sets isLoaded when no stored data', async () => {
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe('');
     });
@@ -60,14 +60,14 @@ describe('InsightsStore', () => {
     it('restores fingerprint from storage', async () => {
       const fp = 'section_pr-s1|hrv_trend-position';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe(fp);
       expect(useInsightsStore.getState().isLoaded).toBe(true);
     });
 
     it('handles corrupt data gracefully', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, '');
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe('');
     });
@@ -106,13 +106,13 @@ describe('InsightsStore', () => {
   });
 
   describe('idempotency', () => {
-    it('initialize is idempotent', async () => {
+    it('initialise is idempotent', async () => {
       const fp = 'test-insight-id';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
       useInsightsStore.getState().setNewInsights(true);
       expect(useInsightsStore.getState().hasNewInsights).toBe(true);
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe(fp);
     });
@@ -183,7 +183,7 @@ describe('diffInsights', () => {
 
       await writeInsightFingerprint('a|b');
       useInsightsStore.setState({ lastSeenFingerprint: '', isLoaded: false });
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
 
       const seen = useInsightsStore.getState().lastSeenFingerprint;
       expect(seen).toBe('a|b');

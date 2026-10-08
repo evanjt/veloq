@@ -10,10 +10,10 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { ActivityLedgerChange } from 'veloqrs';
 
 import { ActivityLedgerChanges } from '@/features/activity/components/ActivityLedgerChanges';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
 
 function change(overrides: Partial<ActivityLedgerChange>): ActivityLedgerChange {
   return {
@@ -58,7 +58,7 @@ describe('ActivityLedgerChanges', () => {
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
 
     fireEvent.press(getByTestId('activity-ledger-change-2'));
-    expect(navigateTo).toHaveBeenCalledWith('/section/s2');
+    expect(tapTo).toHaveBeenCalledWith('/section/s2');
   });
 
   it('leaves out the kind label of a change that needs a count the row does not carry', () => {

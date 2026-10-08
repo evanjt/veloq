@@ -11,7 +11,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -80,7 +80,7 @@ function renderMap(props: Partial<React.ComponentProps<typeof SectionMapView>> =
 
 describe('the section detail map legend', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

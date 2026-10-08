@@ -10,7 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { changeLanguage, i18n, initializeI18n } from '@/i18n';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import type { TFunc } from '@/features/insights/types';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import {
@@ -88,7 +88,7 @@ describe('muscle and balance-pair names', () => {
 
   describe.each(['de-DE', 'fr', 'ja'] as const)('in %s', (locale) => {
     beforeAll(async () => {
-      await initializeI18n('en-AU');
+      await initialiseI18n('en-AU');
     });
     beforeEach(async () => {
       await changeLanguage(locale);

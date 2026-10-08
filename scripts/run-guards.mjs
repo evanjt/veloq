@@ -9,7 +9,7 @@
 //
 // Sets:
 //   commit       correctness guards, run by pre-commit
-//   land         correctness, style, environment and build, run by the merge gates
+//   land         correctness, style, environment, build and merge, run by the merge gates
 //   all          the same as land, run by CI through `npm run audit`
 //   environment  the worktree checks alone, `npm run doctor`
 //
@@ -30,6 +30,8 @@ const tsx = (script, ...args) => ['npx', 'tsx', `scripts/${script}`, ...args];
 // style: the code works either way, and the guard keeps it consistent.
 // environment: the worktree this runs in is set up wrongly, not the code.
 // build: correctness checks that need the host compiler, run at land and in CI.
+// merge: correctness checks that compare the tree with its merge base, so they have
+// nothing to compare at commit.
 const GUARDS = [
   {
     name: 'check:bindings-fresh',
@@ -121,6 +123,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: tsx('ffi-usage-report.ts', '--check-areas'),
     catches: 'a feature area reaching engine exports beyond its ceiling, or a stale ceiling entry',
+  },
+  {
+    name: 'lint:ratchet-growth',
+    kind: 'merge',
+    cmd: node('lint-ratchet-growth.mjs'),
+    catches:
+      'an engine area list or an engine-surface ceiling raised in the same change that adds the reach it allows',
   },
   {
     name: 'crash:guard',
@@ -711,6 +720,13 @@ const GUARDS = [
       'a screen drawing its own back button or header row, or the root stack turning the native header off',
   },
   {
+    name: 'lint:large-title-scroll',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'large-title-scroll'),
+    catches:
+      'a large-title route whose scroll view does not inset its content, which leaves the content under the title at rest on iOS',
+  },
+  {
     name: 'lint:ground-token-text',
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'ground-token-text'),
@@ -767,8 +783,8 @@ const GUARDS = [
 
 const SETS = {
   commit: ['correctness'],
-  land: ['correctness', 'style', 'environment', 'build'],
-  all: ['correctness', 'style', 'environment', 'build'],
+  land: ['correctness', 'style', 'environment', 'build', 'merge'],
+  all: ['correctness', 'style', 'environment', 'build', 'merge'],
   environment: ['environment'],
 };
 

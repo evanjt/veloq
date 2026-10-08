@@ -11,9 +11,18 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
+import * as ExpoHaptics from 'expo-haptics';
+
 import { useFitnessRefresh } from '@/features/fitness/hooks/useFitnessRefresh';
 
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
+jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+}));
+
+const impact = ExpoHaptics.impactAsync as jest.Mock;
 
 let client: QueryClient;
 
@@ -22,6 +31,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 beforeEach(() => {
+  impact.mockClear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
@@ -46,5 +56,29 @@ describe('pull to refresh on the Fitness screen', () => {
     });
 
     expect(result.current.isRefreshing).toBe(false);
+  });
+
+  it('fires a medium impact before the refetch, once per refresh', async () => {
+    const order: string[] = [];
+    impact.mockImplementation(() => {
+      order.push('haptic');
+      return Promise.resolve();
+    });
+    const refetch = jest.fn(() => {
+      order.push('refetch');
+      return Promise.resolve();
+    });
+    const { result } = renderHook(() => useFitnessRefresh(refetch), { wrapper });
+
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+    expect(order).toEqual(['haptic', 'refetch']);
+    expect(impact).toHaveBeenCalledWith('medium');
+
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+    expect(impact).toHaveBeenCalledTimes(2);
   });
 });

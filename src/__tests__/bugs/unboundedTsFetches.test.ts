@@ -41,7 +41,7 @@ jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
   getWebdavConfig: () => ({ url: 'https://nas.example/dav', username: 'u', password: 'p' }),
   webdavConfigProblem: () => null,
   webdavUrlProblemMessage: () => 'bad url',
-  normalizeWebdavUrl: (url: string) => url,
+  normaliseWebdavUrl: (url: string) => url,
 }));
 
 /** A socket that is open and silent: it answers only the abort. */

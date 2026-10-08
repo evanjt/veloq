@@ -58,7 +58,7 @@ describe('splitAndPositionChartData', () => {
     expect(result.allPoints).toEqual([]);
   });
 
-  it('places a single point with normalized x ~0.02', () => {
+  it('places a single point with normalised x ~0.02', () => {
     const result = splitAndPositionChartData([point({ speed: 3, sectionTime: 300 })]);
     expect(result.allPoints).toHaveLength(1);
     expect(result.forwardPoints).toHaveLength(1);
@@ -134,7 +134,7 @@ describe('splitAndPositionChartData', () => {
     );
   });
 
-  it('normalizes x to the range [0.02, 0.98] across the date span', () => {
+  it('normalises x to the range [0.02, 0.98] across the date span', () => {
     const pts: InputPoint[] = [
       point({ date: new Date('2024-01-01'), speed: 4 }),
       point({ date: new Date('2024-06-01'), speed: 5 }),

@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
@@ -31,7 +31,7 @@ function RecordFABInner() {
         },
       ])}
       android_ripple={pressRipple}
-      onPress={() => navigateTo('/record')}
+      onPress={() => tapTo('/record')}
       accessibilityRole="button"
       accessibilityLabel={t('recording.startActivity', 'Start Activity')}
     >

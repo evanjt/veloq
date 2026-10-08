@@ -16,7 +16,6 @@ const engine = {
   setAthleteProfile: jest.fn(),
   setSportSettings: jest.fn(),
   upsertWellness: jest.fn(),
-  setActivityMetrics: jest.fn(),
   upsertActivityBodies: jest.fn(),
   setSetting: jest.fn(),
   setIntervalBody: jest.fn(),
@@ -75,7 +74,6 @@ describe('seedDemoEngine', () => {
     seedDemoEngine();
 
     expect(engine.upsertActivityBodies).toHaveBeenCalledTimes(1);
-    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
   });
 
   it('passes ride power to the engine in its stored body', () => {

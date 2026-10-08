@@ -66,6 +66,9 @@ mod external_write_reload;
 #[path = "../fit_strength_candidates.rs"]
 mod fit_strength_candidates;
 
+#[path = "../gps_fetch_candidates.rs"]
+mod gps_fetch_candidates;
+
 #[path = "../indicators.rs"]
 mod indicators;
 
@@ -98,9 +101,6 @@ mod mint_avoids_pins_and_archive;
 
 #[path = "../notification_templates.rs"]
 mod notification_templates;
-
-#[path = "../offline_estimate.rs"]
-mod offline_estimate;
 
 #[path = "../per_lap_exclude.rs"]
 mod per_lap_exclude;

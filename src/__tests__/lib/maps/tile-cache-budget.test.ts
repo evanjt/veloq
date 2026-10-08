@@ -79,20 +79,20 @@ describe('the stored setting', () => {
   });
 
   it('defaults when nothing is stored', async () => {
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
   });
 
   it('survives a restart and keeps the cache mode beside it', async () => {
     store['veloq-tile-cache'] = JSON.stringify({ cacheMode: 'ambient' });
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
     await useTileCacheSettings.getState().setBudgetMb(400);
 
     const written = JSON.parse(store['veloq-tile-cache']);
     expect(written).toEqual({ cacheMode: 'ambient', budgetMb: 400 });
 
     useTileCacheSettings.setState({ budgetMb: DEFAULT_TILE_CACHE_BUDGET_MB });
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
     expect(useTileCacheSettings.getState().budgetMb).toBe(400);
   });
 
@@ -100,13 +100,13 @@ describe('the stored setting', () => {
   // of it as the ladder still offers rather than being scrubbed back to 50 MB.
   it('brings a stored ceiling the ladder no longer offers down one rung', async () => {
     store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 800 });
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
     expect(useTileCacheSettings.getState().budgetMb).toBe(400);
   });
 
   it('takes the default for a stored value that was never a ceiling', async () => {
     store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 'lots' });
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
   });
 });

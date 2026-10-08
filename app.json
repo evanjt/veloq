@@ -44,6 +44,9 @@
           "fetch",
           "remote-notification"
         ],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {

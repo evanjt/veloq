@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { i18n, initializeI18n } from '@/i18n';
+import { i18n, initialiseI18n } from '@/i18n';
 import { GlobalErrorBoundary } from '@/shared/ui/GlobalErrorBoundary';
 
 function Broken(): React.ReactElement {
@@ -28,8 +28,8 @@ afterEach(() => {
 });
 
 describe('the global error fallback', () => {
-  it('uses the initialized German translations without a provider', async () => {
-    await initializeI18n('de-DE');
+  it('uses the initialised German translations without a provider', async () => {
+    await initialiseI18n('de-DE');
 
     const { getByText } = renderFallback();
 
@@ -38,7 +38,7 @@ describe('the global error fallback', () => {
     expect(i18n.t('errorState.closeAndReopen')).not.toBe('errorState.closeAndReopen');
   });
 
-  it('uses English before translation initialization', () => {
+  it('uses English before translation initialisation', () => {
     jest.replaceProperty(i18n, 'isInitialized', false);
 
     const { getByText } = renderFallback();

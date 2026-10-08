@@ -11,7 +11,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 
@@ -24,7 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 describe('the missing-tracks notice', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(() => {

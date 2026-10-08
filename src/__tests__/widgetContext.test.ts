@@ -12,6 +12,7 @@ import {
   WIDGET_STRING_KEYS,
   widgetDateWords,
 } from '@/features/home/lib/widgetSnapshot';
+import type { Insight, InsightCategory } from '@/features/insights';
 
 const NO_DATES = {
   weekdays: [],
@@ -101,5 +102,67 @@ describe('the date words', () => {
     const parts = widgetDateWords('en-US').monthDayYear.parts.map((p) => p.type);
 
     expect(parts.filter((t) => t !== 'literal')).toEqual(['month', 'day', 'year']);
+  });
+});
+
+describe('the insights the widget lists', () => {
+  const insight = (id: string, category: InsightCategory, navigationTarget?: string): Insight => ({
+    id,
+    category,
+    priority: 3,
+    title: `title ${id}`,
+    subtitle: `subtitle ${id}`,
+    icon: 'trending-up',
+    iconTone: 'positive',
+    navigationTarget,
+    timestamp: 0,
+    isNew: false,
+  });
+
+  const ranked = [
+    insight('a', 'section_pr', '/section/s1'),
+    insight('b', 'hrv_trend', '/fitness?range=3m'),
+    insight('c', 'route', '/route/r1'),
+    insight('d', 'period_comparison'),
+    insight('e', 'stale_pr', '/section/s2'),
+  ];
+
+  const compose = (insights: Insight[] = ranked) =>
+    composeWidgetContext({ locale: 'en-AU', isMetric: true, dates: NO_DATES, insights }).insights;
+
+  it('keep the order the Insights tab ranks them in, with each deep link', () => {
+    expect(compose().map((i) => [i.id, i.url])).toEqual([
+      ['a', 'veloq://section/s1'],
+      ['b', 'veloq://fitness?range=3m'],
+      ['c', 'veloq://route/r1'],
+      ['d', 'veloq://insights'],
+      ['e', 'veloq://section/s2'],
+    ]);
+  });
+
+  it('are all of the tab list, since each placed widget filters the kinds for itself', () => {
+    expect(compose().map((i) => i.category)).toEqual([
+      'section_pr',
+      'hrv_trend',
+      'route',
+      'period_comparison',
+      'stale_pr',
+    ]);
+  });
+
+  it('carry what a row draws and nothing more', () => {
+    expect(compose()[0]).toEqual({
+      id: 'a',
+      category: 'section_pr',
+      title: 'title a',
+      subtitle: 'subtitle a',
+      icon: 'trending-up',
+      tone: 'positive',
+      url: 'veloq://section/s1',
+    });
+  });
+
+  it('are empty with no ranked insights', () => {
+    expect(compose([])).toEqual([]);
   });
 });

@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { PreviewSectionPopover } from '@/features/routes/components/preview/PreviewSectionPopover';
 import { previewNewNumber } from '@/features/routes/lib/previewNewNumber';
 import type { PreviewSection } from '../../../modules/veloqrs/src/delegates/preview';
@@ -36,7 +36,7 @@ function row(over: Partial<PreviewSection>): PreviewSection {
 
 describe('the preview section card header', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('heads a nameless proposal by its number', () => {

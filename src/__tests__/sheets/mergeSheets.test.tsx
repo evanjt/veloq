@@ -15,7 +15,7 @@ import type { MergeCandidate } from 'veloqrs';
 import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
 import MergeConfirmSheet from '@/app/sheets/merge-confirm';
 import { openSheet } from '@/shared/app/sheetRequest';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import type { MergeCandidatesSheetInput, MergeConfirmSheetInput } from '@/features/routes';
 
 const mockPush = jest.fn();
@@ -92,7 +92,7 @@ const iconNames = () =>
 const count = (names: string[], name: string) => names.filter((n) => n === name).length;
 
 beforeAll(async () => {
-  await initializeI18n('en-AU');
+  await initialiseI18n('en-AU');
 });
 beforeEach(() => {
   mockPush.mockClear();

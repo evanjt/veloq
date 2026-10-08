@@ -67,7 +67,7 @@ describe('sync credential ownership', () => {
       return null;
     });
 
-    await useAuthStore.getState().initialize();
+    await useAuthStore.getState().initialise();
 
     expect(setSyncCredentials).toHaveBeenCalledWith('api_key', 'stored-key', 'i42');
   });

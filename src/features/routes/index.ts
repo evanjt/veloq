@@ -60,7 +60,6 @@ export {
   useRouteChartData,
   useRouteGroupingPreview,
   useRouteGroups,
-  useRouteHighlight,
   useRouteMatch,
   useRoutePerformances,
   useRouteReference,
@@ -88,7 +87,7 @@ export { usePreviewCentres } from './hooks/usePreviewCentres';
 export { usePreviewCurrentSections } from './hooks/usePreviewCurrentSections';
 export { usePreviewDetect } from './hooks/usePreviewDetect';
 export { useRouteDetailData } from './hooks/useRouteDetailData';
-export { useRouteReoptimization } from './hooks/useRouteReoptimization';
+export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
 export { useSectionDetailData, useSectionDetailPerformance } from './hooks/useSectionDetailData';
 export { useSectionDisplayNames } from './hooks/useSectionDisplayNames';
 export { hasPartialExclusion, useSectionLaps } from './hooks/useSectionLaps';
@@ -142,7 +141,7 @@ export { isSportOffered, shouldShowSportChips } from './lib/sectionSport';
 export { loadTrackFetchNotice } from './lib/trackFetchNotice';
 export { useEngineStatus } from './stores/EngineStatusStore';
 export {
-  initializeRouteSettings,
+  initialiseRouteSettings,
   isRouteMatchingEnabled,
   useRouteSettings,
 } from './stores/RouteSettingsStore';

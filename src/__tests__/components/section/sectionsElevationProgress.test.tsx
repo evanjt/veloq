@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionsListHeader } from '@/features/routes/components/SectionsListHeader';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
@@ -51,7 +51,7 @@ function renderHeader(elevation: ElevationBackfillState) {
 
 describe('SectionsListHeader elevation progress', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

@@ -30,6 +30,14 @@ struct WidgetPalette {
   var trendUp: Color
   var trendDown: Color
   var trendFlat: Color
+  var warning: Color
+  var toneNegative: Color
+  var toneCaution: Color
+  var tonePositive: Color
+  var toneNeutral: Color
+  var toneRecord: Color
+  var toneInfo: Color
+  var toneOpportunity: Color
   var border: Color
 
   static func from(_ d: WidgetPaletteData, fallback f: WidgetPalette) -> WidgetPalette {
@@ -58,6 +66,14 @@ struct WidgetPalette {
       trendUp: Color(hex: d.trendUp),
       trendDown: Color(hex: d.trendDown),
       trendFlat: Color(hex: d.trendFlat),
+      warning: d.warning.map { Color(hex: $0) } ?? f.warning,
+      toneNegative: d.toneNegative.map { Color(hex: $0) } ?? f.toneNegative,
+      toneCaution: d.toneCaution.map { Color(hex: $0) } ?? f.toneCaution,
+      tonePositive: d.tonePositive.map { Color(hex: $0) } ?? f.tonePositive,
+      toneNeutral: d.toneNeutral.map { Color(hex: $0) } ?? f.toneNeutral,
+      toneRecord: d.toneRecord.map { Color(hex: $0) } ?? f.toneRecord,
+      toneInfo: d.toneInfo.map { Color(hex: $0) } ?? f.toneInfo,
+      toneOpportunity: d.toneOpportunity.map { Color(hex: $0) } ?? f.toneOpportunity,
       border: Color(hex: d.border)
     )
   }
@@ -109,7 +125,12 @@ struct WidgetPalette {
     formFreshText: WidgetTheme.Light.formFreshText,
     formTransitionText: WidgetTheme.Light.formTransitionText,
     trendUp: WidgetTheme.Light.trendUp, trendDown: WidgetTheme.Light.trendDown,
-    trendFlat: WidgetTheme.Light.trendFlat, border: WidgetTheme.Light.border)
+    trendFlat: WidgetTheme.Light.trendFlat, warning: WidgetTheme.Light.warning,
+    toneNegative: WidgetTheme.Light.toneNegative, toneCaution: WidgetTheme.Light.toneCaution,
+    tonePositive: WidgetTheme.Light.tonePositive, toneNeutral: WidgetTheme.Light.toneNeutral,
+    toneRecord: WidgetTheme.Light.toneRecord, toneInfo: WidgetTheme.Light.toneInfo,
+    toneOpportunity: WidgetTheme.Light.toneOpportunity,
+    border: WidgetTheme.Light.border)
 
   static let darkFallback = WidgetPalette(
     background: WidgetTheme.Dark.background, surface: WidgetTheme.Dark.surface,
@@ -127,22 +148,15 @@ struct WidgetPalette {
     formFreshText: WidgetTheme.Dark.formFreshText,
     formTransitionText: WidgetTheme.Dark.formTransitionText,
     trendUp: WidgetTheme.Dark.trendUp, trendDown: WidgetTheme.Dark.trendDown,
-    trendFlat: WidgetTheme.Dark.trendFlat, border: WidgetTheme.Dark.border)
+    trendFlat: WidgetTheme.Dark.trendFlat, warning: WidgetTheme.Dark.warning,
+    toneNegative: WidgetTheme.Dark.toneNegative, toneCaution: WidgetTheme.Dark.toneCaution,
+    tonePositive: WidgetTheme.Dark.tonePositive, toneNeutral: WidgetTheme.Dark.toneNeutral,
+    toneRecord: WidgetTheme.Dark.toneRecord, toneInfo: WidgetTheme.Dark.toneInfo,
+    toneOpportunity: WidgetTheme.Dark.toneOpportunity,
+    border: WidgetTheme.Dark.border)
 }
 
 // MARK: - formatting helpers
-
-func metricValue(_ v: Double) -> String { String(Int(v.rounded())) }
-
-func signedInt(_ v: Double) -> String {
-  let r = Int(v.rounded())
-  return "\(r >= 0 ? "+" : "")\(r)"
-}
-
-func signedTenths(_ v: Double) -> String {
-  let r = (v * 10).rounded() / 10
-  return "\(r >= 0 ? "+" : "")\(r)"
-}
 
 func trendSymbol(_ dir: String) -> String {
   switch dir {
@@ -159,75 +173,6 @@ func trendColor(_ verdict: String?, _ p: WidgetPalette) -> Color {
   case "improved": return p.trendUp
   case "declined": return p.trendDown
   default: return p.trendFlat
-  }
-}
-
-// MARK: - hero metric resolution
-
-// Everything a small/medium hero block needs for one metric key. Built from the
-// snapshot so views stay dumb; unknown keys fall back to form.
-struct HeroSpec {
-  let label: String
-  let metric: SnapshotMetric?
-  let valueColor: Color
-  let zoneLabel: String?
-}
-
-func heroSpec(_ snapshot: WidgetSnapshot?, key: String, palette: WidgetPalette) -> HeroSpec {
-  let labels = snapshot?.display.metricLabels
-  let m = snapshot?.metrics
-  switch key {
-  case "fitness":
-    return HeroSpec(
-      label: labels?.fitness ?? "Fitness", metric: m?.fitness, valueColor: palette.blue,
-      zoneLabel: nil)
-  case "fatigue":
-    return HeroSpec(
-      label: labels?.fatigue ?? "Fatigue", metric: m?.fatigue, valueColor: palette.fatigue,
-      zoneLabel: nil)
-  case "hrv":
-    return HeroSpec(
-      label: labels?.hrv ?? "HRV", metric: m?.hrv, valueColor: palette.textPrimary,
-      zoneLabel: nil)
-  case "rhr":
-    return HeroSpec(
-      label: labels?.rhr ?? "RHR", metric: m?.rhr, valueColor: palette.textPrimary,
-      zoneLabel: nil)
-  default:
-    let zoneColor = palette.formTextColor(m?.form.zone)
-    return HeroSpec(
-      label: labels?.form ?? "Form", metric: m?.form,
-      valueColor: m?.form.zone != nil ? zoneColor : palette.textPrimary,
-      zoneLabel: snapshot?.display.formZone)
-  }
-}
-
-// MARK: - reusable pieces
-
-struct MetricColumn: View {
-  let label: String
-  let metric: SnapshotMetric
-  let palette: WidgetPalette
-  /// Series colour for the value (form zone, fitness blue, fatigue purple).
-  var valueColor: Color?
-  var showTrend: Bool = false
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text(label.uppercased())
-        .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(palette.textSecondary)
-      HStack(spacing: 4) {
-        Text(metric.text ?? metricValue(metric.value))
-          .font(.system(size: WidgetTheme.TypeScale.metric, weight: .bold))
-          .foregroundColor(valueColor ?? palette.textPrimary)
-        if showTrend {
-          Image(systemName: trendSymbol(metric.trendDir))
-            .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
-            .foregroundColor(trendColor(metric.verdict, palette))
-        }
-      }
-    }
   }
 }
 
@@ -416,122 +361,6 @@ private struct FillPath: View {
   }
 }
 
-// The chart a hero key shows: the TSB heroes and the summary "fitnessForm" mode all
-// render the feed-style chart; HRV renders its own single series. Hidden otherwise.
-struct HeroSparkline: View {
-  let snapshot: WidgetSnapshot?
-  let heroKey: String
-  let palette: WidgetPalette
-
-  private var kind: String {
-    if heroKey == "summary" { return snapshot?.summaryCard?.sparkline ?? "fitnessForm" }
-    switch heroKey {
-    case "form", "fitness", "fatigue": return "fitnessForm"
-    case "hrv": return "hrv"
-    default: return "none"
-    }
-  }
-
-  var body: some View {
-    if kind == "fitnessForm" {
-      FitnessChartView(snapshot: snapshot, palette: palette)
-    } else if kind == "hrv", let hrv = snapshot?.sparklines.hrv, hrv.count >= 2 {
-      SingleTrendChart(values: hrv, color: palette.primary, palette: palette)
-    }
-  }
-}
-
-// Structured before-after form impact, each value tinted by its own zone. Falls
-// back to the flat pre-composed line when the structured fields are absent.
-struct ImpactView: View {
-  let impact: WidgetImpact?
-  let fallbackLine: String?
-  let palette: WidgetPalette
-
-  var body: some View {
-    if let i = impact {
-      HStack(spacing: 3) {
-        Text(i.formBeforeText ?? metricValue(i.formBefore))
-          .fontWeight(.semibold)
-          .foregroundColor(palette.formTextColor(i.formBeforeZone))
-        Image(systemName: "arrow.right")
-          .font(.system(size: WidgetTheme.TypeScale.caption))
-          .foregroundColor(palette.textSecondary)
-        Text(i.formAfterText ?? metricValue(i.formAfter))
-          .fontWeight(.semibold)
-          .foregroundColor(palette.formTextColor(i.formAfterZone))
-        if let tss = i.tssAdded {
-          Text("\(signedInt(tss)) TSS")
-            .foregroundColor(palette.textSecondary)
-        }
-      }
-      .font(.system(size: WidgetTheme.TypeScale.label))
-    } else if let line = fallbackLine, !line.isEmpty {
-      Text(line)
-        .font(.system(size: WidgetTheme.TypeScale.label))
-        .foregroundColor(palette.primary)
-        .lineLimit(2)
-    }
-  }
-}
-
-struct LatestBlock: View {
-  let latest: WidgetLatest?
-  let impact: WidgetImpact?
-  let fallbackLine: String?
-  let palette: WidgetPalette
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      if let l = latest {
-        HStack(spacing: 4) {
-          Text(l.name)
-            .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-            .foregroundColor(Color(hex: l.tintHex))
-            .lineLimit(1)
-          if l.isPr == true {
-            Circle().fill(palette.gold).frame(width: 6, height: 6)
-          }
-        }
-        Text(subtitle(l))
-          .font(.system(size: WidgetTheme.TypeScale.label))
-          .foregroundColor(palette.textSecondary)
-          .lineLimit(1)
-      }
-      ImpactView(impact: impact, fallbackLine: fallbackLine, palette: palette)
-    }
-  }
-
-  private func subtitle(_ l: WidgetLatest) -> String {
-    [l.distanceLabel, l.durationLabel, l.dateLabel].filter { !$0.isEmpty }.joined(separator: " · ")
-  }
-}
-
-// One compact "Label 42 arrow" row used by summary entries and medium metric rows.
-struct CompactMetricRow: View {
-  let label: String
-  let value: String
-  let valueColor: Color
-  let trendDir: String
-  let verdict: String?
-  let palette: WidgetPalette
-
-  var body: some View {
-    HStack(spacing: 4) {
-      Text(label)
-        .font(.system(size: WidgetTheme.TypeScale.label))
-        .foregroundColor(palette.textSecondary)
-        .lineLimit(1)
-      Text(value)
-        .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
-        .foregroundColor(valueColor)
-      Image(systemName: trendSymbol(trendDir))
-        .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(trendColor(verdict, palette))
-    }
-  }
-}
-
 // Shown before the app has ever written a snapshot (fresh install, before the first
 // background write) so medium/large widgets aren't a blank coloured rectangle. The
 // strings are hardcoded English like the metric-label fallbacks above; no snapshot
@@ -557,362 +386,334 @@ struct EmptyWidgetView: View {
   }
 }
 
-// MARK: - per-family layouts
+/**
+ * When the numbers on a snapshot count as old.
+ *
+ * Past this the age line turns amber and names the time instead of counting up
+ * from it, so a widget the app has not refreshed for a day cannot read as
+ * current. The same limit is `SnapshotAge.STALE_AFTER_SECONDS` on Android.
+ */
+enum SnapshotAge {
+  static let staleAfter: TimeInterval = 24 * 60 * 60
 
-// Small: one metric at a glance (configurable hero; default form). Zone-coloured
-// hero for form, series colours otherwise, sparkline when the metric has one,
-// gold award glyph when the latest activity set a PR.
-struct SmallWidgetView: View {
-  let snapshot: WidgetSnapshot?
-  let palette: WidgetPalette
-  var heroKey: String = "form"
-
-  var body: some View {
-    if WidgetSnapshot.isEmpty(snapshot) {
-      EmptyWidgetView(palette: palette)
-    } else {
-      ZStack(alignment: .topTrailing) {
-        if heroKey == "summary", let card = snapshot?.summaryCard {
-          summaryContent(card)
-        } else {
-          metricContent
-        }
-        if snapshot?.latest?.isPr == true {
-          // rosette: award glyph available since iOS 13 (trophy needs iOS 16).
-          Image(systemName: "rosette")
-            .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
-            .foregroundColor(palette.gold)
-        }
-      }
-      .padding(WidgetTheme.Layout.padding)
-    }
+  /// Past the limit, strictly: a snapshot exactly a day old is not yet stale.
+  static func isStale(since seconds: Double, now: Date) -> Bool {
+    seconds > 0 && now.timeIntervalSince1970 - seconds > staleAfter
   }
 
-  private var metricContent: some View {
-    let spec = heroSpec(snapshot, key: heroKey, palette: palette)
-    return VStack(alignment: .leading, spacing: 2) {
-      Text(spec.label.uppercased())
-        .font(.system(size: WidgetTheme.TypeScale.label))
-        .foregroundColor(palette.textSecondary)
-      Text(spec.metric.map { $0.text ?? metricValue($0.value) } ?? "-")
-        .font(.system(size: WidgetTheme.TypeScale.hero, weight: .bold))
-        .foregroundColor(spec.valueColor)
-      HStack(spacing: 4) {
-        if let zoneLabel = spec.zoneLabel, !zoneLabel.isEmpty {
-          Text(zoneLabel)
-            .fontWeight(.semibold)
-            .foregroundColor(spec.valueColor)
-            .lineLimit(1)
-        }
-        if let m = spec.metric {
-          Image(systemName: trendSymbol(m.trendDir))
-            .foregroundColor(trendColor(m.verdict, palette))
-          if let d = m.deltaVsYesterday {
-            Text(signedInt(d)).foregroundColor(palette.textSecondary)
-          }
-        }
-      }
-      .font(.system(size: WidgetTheme.TypeScale.caption))
-      Spacer(minLength: 2)
-      HeroSparkline(snapshot: snapshot, heroKey: heroKey, palette: palette)
-        .frame(height: 40)
-      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
+  /// The instant the age line should be judged from: the sync the numbers came
+  /// from where the snapshot names one, else when the snapshot was written. A
+  /// snapshot with a label and no sync time has no instant, and stays unjudged.
+  static func reference(_ snapshot: WidgetSnapshot?) -> Double? {
+    guard let snapshot = snapshot, snapshot.display.demoLabel == nil else { return nil }
+    if snapshot.display.dataAsOfLabel != nil {
+      return snapshot.dataAsOf.flatMap { $0 > 0 ? $0 : nil }
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    return snapshot.generatedAt > 0 ? snapshot.generatedAt : nil
   }
 
-  private func summaryContent(_ card: WidgetSummaryCard) -> some View {
-    let formZone = snapshot?.metrics.form.zone
-    return VStack(alignment: .leading, spacing: 2) {
-      Text(card.hero.label.uppercased())
-        .font(.system(size: WidgetTheme.TypeScale.label))
-        .foregroundColor(palette.textSecondary)
-      HStack(spacing: 4) {
-        Text(card.hero.value)
-          .font(.system(size: WidgetTheme.TypeScale.hero, weight: .bold))
-          .foregroundColor(palette.summaryColor(card.hero.colorKey, formZone: formZone))
-        Image(systemName: trendSymbol(card.hero.trendDir))
-          .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
-          .foregroundColor(trendColor(card.hero.verdict, palette))
-      }
-      Spacer(minLength: 2)
-      HeroSparkline(snapshot: snapshot, heroKey: "summary", palette: palette)
-        .frame(height: 40)
-      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  /// The moment a fresh snapshot turns stale, so the timeline can redraw the
+  /// line then and not at the next scheduled reload.
+  static func staleDate(_ snapshot: WidgetSnapshot?) -> Date? {
+    reference(snapshot).map { Date(timeIntervalSince1970: $0 + staleAfter + 1) }
   }
 }
 
-// Medium: left hero (configurable) + compact fitness/fatigue rows; right sparkline
-// + latest activity with structured impact. Summary mode swaps in the app-configured
-// entries instead of the fixed rows.
+private struct SnapshotNowKey: EnvironmentKey {
+  static let defaultValue: Date? = nil
+}
+
+extension EnvironmentValues {
+  /// The date of the timeline entry being drawn. WidgetKit draws an entry ahead
+  /// of its date, so the age line is judged against this and not the clock.
+  var snapshotNow: Date? {
+    get { self[SnapshotNowKey.self] }
+    set { self[SnapshotNowKey.self] = newValue }
+  }
+}
+
 /**
- * When the app last wrote the snapshot it is rendering.
+ * How old the numbers on the widget are.
  *
  * The widget is stale exactly for the athlete whose app has not run, and the
  * numbers give no clue how old they are. `.relative` is the system's own
  * phrasing and it ticks on its own, so the line stays honest between refreshes,
- * which a string formatted at save time would not.
+ * which a string formatted at save time would not. Past `SnapshotAge.staleAfter`
+ * the line is amber and names the time.
+ *
+ * A snapshot the app wrote shows when it was written. A snapshot a background
+ * refresh redrew from stored rows, because its pull did not land, carries the
+ * words "as of the last sync" and the time of that sync, since the time of the
+ * redraw would say the numbers are current. With no sync time known, the words
+ * stand alone.
  *
  * A snapshot from before the field carries zero and shows nothing rather than
  * a date in 1970.
  */
 struct SnapshotAgeLine: View {
-  let generatedAt: Double?
+  @Environment(\.snapshotNow) private var snapshotNow
+  let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
 
+  private func when(_ seconds: Double) -> some View {
+    let date = Date(timeIntervalSince1970: seconds)
+    return Group {
+      if SnapshotAge.isStale(since: seconds, now: snapshotNow ?? Date()) {
+        Text(date, format: .dateTime.month(.abbreviated).day().hour().minute())
+          .foregroundColor(palette.warning)
+      } else {
+        Text(date, style: .relative)
+      }
+    }
+  }
+
   var body: some View {
-    if let seconds = generatedAt, seconds > 0 {
-      Text(Date(timeIntervalSince1970: seconds), style: .relative)
-        .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(palette.textSecondary)
-        .lineLimit(1)
+    if let demo = snapshot?.display.demoLabel {
+      // The sample library is composed afresh for every write, so it has no age
+      // to report and the line carries the words that say it is not the
+      // athlete's own.
+      Text(demo).modifier(AgeLineStyle(palette: palette))
+    } else if let label = snapshot?.display.dataAsOfLabel {
+      if let seconds = snapshot?.dataAsOf, seconds > 0 {
+        HStack(spacing: 0) {
+          Text(label)
+          Text(verbatim: " · ")
+          when(seconds)
+        }
+        .modifier(AgeLineStyle(palette: palette))
+      } else {
+        Text(label).modifier(AgeLineStyle(palette: palette))
+      }
+    } else if let seconds = snapshot?.generatedAt, seconds > 0 {
+      when(seconds).modifier(AgeLineStyle(palette: palette))
     }
   }
 }
 
-struct MediumWidgetView: View {
-  let snapshot: WidgetSnapshot?
+private struct AgeLineStyle: ViewModifier {
   let palette: WidgetPalette
-  var heroKey: String = "form"
 
-  var body: some View {
-    if WidgetSnapshot.isEmpty(snapshot) {
-      EmptyWidgetView(palette: palette)
-    } else if heroKey == "summary", let card = snapshot?.summaryCard {
-      summaryContent(card)
-    } else {
-      metricContent
-    }
-  }
-
-  private var metricContent: some View {
-    let labels = snapshot?.display.metricLabels
-    let spec = heroSpec(snapshot, key: heroKey, palette: palette)
-    return HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
-      VStack(alignment: .leading, spacing: 6) {
-        VStack(alignment: .leading, spacing: 2) {
-          if let m = spec.metric {
-            MetricColumn(
-              label: spec.label, metric: m, palette: palette,
-              valueColor: spec.valueColor, showTrend: true)
-          }
-          if let zoneLabel = spec.zoneLabel, !zoneLabel.isEmpty {
-            Text(zoneLabel)
-              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
-              .foregroundColor(spec.valueColor)
-              .lineLimit(1)
-          }
-        }
-        if heroKey != "fitness", let fit = snapshot?.metrics.fitness {
-          CompactMetricRow(
-            label: labels?.fitness ?? "Fitness", value: fit.text ?? metricValue(fit.value),
-            valueColor: palette.blue, trendDir: fit.trendDir, verdict: fit.verdict, palette: palette)
-        }
-        if heroKey != "fatigue", let fat = snapshot?.metrics.fatigue {
-          CompactMetricRow(
-            label: labels?.fatigue ?? "Fatigue", value: fat.text ?? metricValue(fat.value),
-            valueColor: palette.fatigue, trendDir: fat.trendDir, verdict: fat.verdict, palette: palette)
-        }
-        Spacer(minLength: 0)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-
-      VStack(alignment: .leading, spacing: 6) {
-        HeroSparkline(snapshot: snapshot, heroKey: heroKey, palette: palette)
-          .frame(height: 48)
-        LatestBlock(
-          latest: snapshot?.latest,
-          impact: snapshot?.impact,
-          fallbackLine: snapshot?.display.impactLine,
-          palette: palette)
-        Spacer(minLength: 0)
-        SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .padding(WidgetTheme.Layout.padding)
-  }
-
-  private func summaryContent(_ card: WidgetSummaryCard) -> some View {
-    let formZone = snapshot?.metrics.form.zone
-    return HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
-      VStack(alignment: .leading, spacing: 6) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(card.hero.label.uppercased())
-            .font(.system(size: WidgetTheme.TypeScale.caption))
-            .foregroundColor(palette.textSecondary)
-          HStack(spacing: 4) {
-            Text(card.hero.value)
-              .font(.system(size: WidgetTheme.TypeScale.metric, weight: .bold))
-              .foregroundColor(palette.summaryColor(card.hero.colorKey, formZone: formZone))
-            Image(systemName: trendSymbol(card.hero.trendDir))
-              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
-              .foregroundColor(trendColor(card.hero.verdict, palette))
-          }
-        }
-        ForEach(Array(card.entries.prefix(2).enumerated()), id: \.offset) { _, entry in
-          CompactMetricRow(
-            label: entry.label, value: entry.value,
-            valueColor: palette.summaryColor(entry.colorKey, formZone: formZone),
-            trendDir: entry.trendDir, verdict: entry.verdict, palette: palette)
-        }
-        Spacer(minLength: 0)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-
-      VStack(alignment: .leading, spacing: 6) {
-        HeroSparkline(snapshot: snapshot, heroKey: "summary", palette: palette)
-          .frame(height: 48)
-        ForEach(Array(card.entries.dropFirst(2).enumerated()), id: \.offset) { _, entry in
-          CompactMetricRow(
-            label: entry.label, value: entry.value,
-            valueColor: palette.summaryColor(entry.colorKey, formZone: formZone),
-            trendDir: entry.trendDir, verdict: entry.verdict, palette: palette)
-        }
-        Spacer(minLength: 0)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .padding(WidgetTheme.Layout.padding)
+  func body(content: Content) -> some View {
+    content
+      .font(.system(size: WidgetTheme.TypeScale.caption))
+      .foregroundColor(palette.textSecondary)
+      .lineLimit(1)
   }
 }
 
-// Large: full dashboard. Metric columns + ramp chip, dual sparkline, weekly row,
-// latest with impact, HRV/RHR footer with a record deep-link glyph.
-struct LargeWidgetView: View {
+// MARK: - Summary widget
+
+extension WidgetPalette {
+  /// The fill of a form zone's band on the large chart.
+  func formFill(_ zone: String) -> Color {
+    switch zone {
+    case "highRisk": return formHighRisk
+    case "optimal": return formOptimal
+    case "greyZone": return formGreyZone
+    case "fresh": return formFresh
+    default: return formTransition
+    }
+  }
+}
+
+/// The in-app summary card at one size: the hero with its line and chart, the supporting row,
+/// and at Large six weeks of form over its zones. The latest activity and its impact belong to
+/// the Last activity widget and are not drawn here.
+struct SummaryWidgetView: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
+  let size: SummarySize
+  let placement: SummaryPlacement
 
   var body: some View {
-    if WidgetSnapshot.isEmpty(snapshot) {
-      EmptyWidgetView(palette: palette)
-    } else {
-      content
-    }
-  }
-
-  private var content: some View {
-    let m = snapshot?.metrics
-    let labels = snapshot?.display.metricLabels
-    let zoneColor = palette.formTextColor(m?.form.zone)
-    return VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
-      HStack(alignment: .top) {
-        if let f = m?.form {
-          MetricColumn(
-            label: labels?.form ?? "Form", metric: f, palette: palette,
-            valueColor: f.zone != nil ? zoneColor : nil, showTrend: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    if let snapshot, !WidgetSnapshot.isEmpty(snapshot) {
+      let content = SummaryWidgetModel.content(snapshot, placement: placement, size: size)
+      let formZone = snapshot.metrics.form.zone
+      switch size {
+      case .small:
+        VStack(alignment: .leading, spacing: 2) {
+          SummaryHero(
+            content: content, palette: palette, formZone: formZone,
+            valueSize: WidgetTheme.TypeScale.hero)
+          Spacer(minLength: 2)
+          SummaryChartView(kind: content.chart, snapshot: snapshot, palette: palette)
+            .frame(height: 40)
+          SnapshotAgeLine(snapshot: snapshot, palette: palette)
         }
-        if let f = m?.fitness {
-          MetricColumn(
-            label: labels?.fitness ?? "Fitness", metric: f, palette: palette,
-            valueColor: palette.blue, showTrend: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(WidgetTheme.Layout.padding)
+      case .medium, .large:
+        VStack(alignment: .leading, spacing: 6) {
+          HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
+            SummaryHero(
+              content: content, palette: palette, formZone: formZone,
+              valueSize: WidgetTheme.TypeScale.metric)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            SummaryChartView(kind: content.chart, snapshot: snapshot, palette: palette)
+              .frame(maxWidth: .infinity)
+              .frame(height: 48)
+          }
+          Divider().background(palette.border)
+          SummarySupportingRow(
+            entries: content.supporting, palette: palette, formZone: formZone)
+          if let zones = content.formZones {
+            Divider().background(palette.border)
+            FormZoneChartView(chart: zones, palette: palette)
+              .frame(maxHeight: .infinity)
+          } else {
+            Spacer(minLength: 0)
+          }
+          SnapshotAgeLine(snapshot: snapshot, palette: palette)
         }
-        if let f = m?.fatigue {
-          MetricColumn(
-            label: labels?.fatigue ?? "Fatigue", metric: f, palette: palette,
-            valueColor: palette.fatigue, showTrend: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        if let ramp = m?.rampRate {
-          Text("\(labels?.ramp ?? "Ramp") \(signedTenths(ramp.value))\(snapshot?.display.perWeekSuffix ?? "/wk")")
-            .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
-            .foregroundColor(palette.textSecondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-              Capsule().fill(palette.border.opacity(0.5)))
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(WidgetTheme.Layout.padding)
       }
-      FitnessChartView(snapshot: snapshot, palette: palette)
-        .frame(height: 60)
-      weeklyRow
-      Divider().background(palette.border)
-      LatestBlock(
-        latest: snapshot?.latest,
-        impact: snapshot?.impact,
-        fallbackLine: snapshot?.display.impactLine,
-        palette: palette)
-      Spacer(minLength: 0)
-      footer
-      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
+    } else {
+      EmptyWidgetView(palette: palette)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .padding(WidgetTheme.Layout.padding)
   }
+}
 
-  private var weeklyRow: some View {
-    HStack(spacing: 6) {
-      Text(weeklyLine())
+private struct SummaryHero: View {
+  let content: SummaryContent
+  let palette: WidgetPalette
+  let formZone: String?
+  let valueSize: CGFloat
+
+  var body: some View {
+    let hero = content.hero
+    let color = palette.summaryColor(hero.colorKey, formZone: formZone)
+    VStack(alignment: .leading, spacing: 2) {
+      Text(hero.label.uppercased())
         .font(.system(size: WidgetTheme.TypeScale.label))
         .foregroundColor(palette.textSecondary)
         .lineLimit(1)
-      if let d = snapshot?.weekly.deltaPct {
-        Text("\(signedInt(d))%")
+      HStack(spacing: 4) {
+        Text(hero.value)
+          .font(.system(size: valueSize, weight: .bold))
+          .foregroundColor(color)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
+        Image(systemName: trendSymbol(hero.trendDir))
+          .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
+          .foregroundColor(trendColor(hero.verdict, palette))
+      }
+      if let line = content.heroLine, !line.isEmpty {
+        Text(line)
           .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
-          .foregroundColor(d >= 0 ? palette.trendUp : palette.trendDown)
-          .padding(.horizontal, 5)
-          .padding(.vertical, 2)
-          .background(
-            Capsule().fill((d >= 0 ? palette.trendUp : palette.trendDown).opacity(0.15)))
+          .foregroundColor(color)
+          .lineLimit(1)
+      }
+    }
+  }
+}
+
+/// The chart beside the hero: nothing when the placement or the card hides it, or when the
+/// snapshot holds no series for it.
+private struct SummaryChartView: View {
+  let kind: SummaryChartKind
+  let snapshot: WidgetSnapshot
+  let palette: WidgetPalette
+
+  var body: some View {
+    switch kind {
+    case .none:
+      EmptyView()
+    case .fitnessForm:
+      FitnessChartView(snapshot: snapshot, palette: palette)
+    case .hrv:
+      SingleTrendChart(values: snapshot.sparklines.hrv, color: palette.primary, palette: palette)
+    }
+  }
+}
+
+/// Up to four metrics side by side, split by dividers.
+private struct SummarySupportingRow: View {
+  let entries: [WidgetSummaryEntry]
+  let palette: WidgetPalette
+  let formZone: String?
+
+  var body: some View {
+    HStack(spacing: 0) {
+      ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+        if index > 0 {
+          Divider().background(palette.border)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(entry.label)
+            .font(.system(size: WidgetTheme.TypeScale.caption))
+            .foregroundColor(palette.textSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+          HStack(spacing: 3) {
+            Text(entry.value)
+              .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+              .foregroundColor(palette.summaryColor(entry.colorKey, formZone: formZone))
+              .lineLimit(1)
+              .minimumScaleFactor(0.6)
+            Image(systemName: trendSymbol(entry.trendDir))
+              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
+              .foregroundColor(trendColor(entry.verdict, palette))
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 6)
+      }
+    }
+    .frame(height: 40)
+  }
+}
+
+private extension FormZoneChart {
+  func y(_ value: Double, height: CGFloat) -> CGFloat {
+    CGFloat((max - value) / (max - min)) * height
+  }
+}
+
+/// Form over six weeks against its five zone bands. A day with no value breaks the line.
+private struct FormZoneChartView: View {
+  let chart: FormZoneChart
+  let palette: WidgetPalette
+
+  var body: some View {
+    GeometryReader { geo in
+      ZStack(alignment: .topLeading) {
+        ForEach(chart.bands, id: \.zone) { band in
+          Rectangle()
+            .fill(palette.formFill(band.zone).opacity(0.3))
+            .frame(
+              width: geo.size.width,
+              height: chart.y(band.from, height: geo.size.height)
+                - chart.y(band.to, height: geo.size.height)
+            )
+            .offset(y: chart.y(band.to, height: geo.size.height))
+        }
+        line(in: geo.size)
+          .stroke(
+            palette.textPrimary,
+            style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
       }
     }
   }
 
-  private func weeklyLine() -> String {
-    guard let w = snapshot?.weekly else { return "" }
-    let week = snapshot?.display.weekLabel ?? "Week"
-    var parts = ["\(week) \(Int(w.count))"]
-    if !w.durationLabel.isEmpty { parts.append(w.durationLabel) }
-    if !w.distanceLabel.isEmpty { parts.append(w.distanceLabel) }
-    parts.append("\(Int(w.tss.rounded())) TSS")
-    return parts.joined(separator: " · ")
-  }
-
-  private var footer: some View {
-    HStack(spacing: WidgetTheme.Layout.gap) {
-      if let hrv = snapshot?.metrics.hrv {
-        footerMetric(snapshot?.display.metricLabels.hrv ?? "HRV", hrv)
+  private func line(in size: CGSize) -> Path {
+    var path = Path()
+    var open = false
+    let last = max(chart.values.count - 1, 1)
+    for (i, value) in chart.values.enumerated() {
+      guard let value else {
+        open = false
+        continue
       }
-      if let rhr = snapshot?.metrics.rhr {
-        footerMetric(snapshot?.display.metricLabels.rhr ?? "RHR", rhr)
+      let point = CGPoint(
+        x: size.width * CGFloat(i) / CGFloat(last), y: chart.y(value, height: size.height))
+      if open {
+        path.addLine(to: point)
+      } else {
+        path.move(to: point)
+        open = true
       }
-      Spacer()
-      Link(destination: RecordDeepLink.url(for: snapshot)) {
-        Image(systemName: "record.circle")
-          .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-          .foregroundColor(palette.primary)
-          .frame(minWidth: 44, minHeight: 44)
-          .contentShape(Rectangle())
-      }
-      .accessibilityLabel(recordLabel)
     }
-  }
-
-  /// The snapshot's word, or the catalogue's when a snapshot predates it. A
-  /// `String` passed to `accessibilityLabel` is shown verbatim, so the fallback
-  /// goes through `Text` to be looked up.
-  private var recordLabel: Text {
-    if let label = snapshot?.display.recordLabel { return Text(label) }
-    return Text("Record")
-  }
-
-  private func footerMetric(_ label: String, _ m: SnapshotMetric) -> some View {
-    HStack(spacing: 3) {
-      Text(label)
-        .foregroundColor(palette.textSecondary)
-      Text(m.text ?? metricValue(m.value))
-        .fontWeight(.semibold)
-        .foregroundColor(palette.textPrimary)
-      Image(systemName: trendSymbol(m.trendDir))
-        .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(trendColor(m.verdict, palette))
-    }
-    .font(.system(size: WidgetTheme.TypeScale.label))
+    return path
   }
 }

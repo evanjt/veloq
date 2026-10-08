@@ -22,11 +22,11 @@ export function heatmapTilesPath(): string {
 
 /** Enable heatmap tile generation by setting the tiles path. */
 export function enableHeatmapTiles(host: DelegateHost): void {
-  const normalizedTilesPath = heatmapTilesPath();
-  host.heatmapTilesPath = normalizedTilesPath;
+  const normalisedTilesPath = heatmapTilesPath();
+  host.heatmapTilesPath = normalisedTilesPath;
   host.write('enableHeatmapTiles', () => {
     try {
-      host.engine.heatmap().setTilesPath(normalizedTilesPath);
+      host.engine.heatmap().setTilesPath(normalisedTilesPath);
     } catch (e) {
       console.warn('[EngineClient] Failed to set heatmap tiles path:', e);
     }

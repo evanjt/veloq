@@ -111,7 +111,7 @@ function toRow(entry: RecordingEntry): FfiRecordingEntry {
 
 /** Add a recording. False means a row with that id was already there. */
 export function addRecording(host: DelegateHost, entry: RecordingEntry): boolean {
-  if (!host.ready) throw new Error('Engine not initialized');
+  if (!host.ready) throw new Error('Engine not initialised');
   return host.timed('addRecording', () => host.engine.recordings().addRecording(toRow(entry)));
 }
 
@@ -169,11 +169,6 @@ export function attachRecordingEngineActivity(
   host.write('attachRecordingEngineActivity', () =>
     host.engine.recordings().attachEngineActivity(id, engineActivityId)
   );
-}
-
-/** The engine row has taken the id intervals.icu gave the upload. */
-export function markRecordingReconciled(host: DelegateHost, id: string): void {
-  host.write('markRecordingReconciled', () => host.engine.recordings().markReconciled(id));
 }
 
 /**

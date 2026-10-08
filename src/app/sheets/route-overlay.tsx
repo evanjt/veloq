@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View, StyleSheet, FlatList } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +17,7 @@ import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { pressable, pressRipple } from '@/shared/ui';
 import { IconButton } from '@/shared/ui/IconButton';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The saved-route picker for the live recording map, a sheet route opened with `openSheet` and
@@ -102,7 +102,7 @@ function RouteOverlaySheetContent() {
         </Text>
         <IconButton
           testID="route-overlay-close"
-          onPress={() => router.back()}
+          onPress={() => tapBack()}
           accessibilityLabel={t('common.close', 'Close')}
         >
           <MaterialCommunityIcons name="close" size={22} color={textSecondary} />

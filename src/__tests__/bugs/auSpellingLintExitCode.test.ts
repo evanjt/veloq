@@ -10,6 +10,9 @@
  * The guard also reads the two English locale files, which is how `Reanalyze
  * sections` shipped to en-AU. Their allowlist is not the crate's: a phase
  * token has no business in a string an athlete reads.
+ *
+ * TypeScript under `src`, `modules/veloqrs/src` and `scripts` is read as well,
+ * with the vendor and UniFFI names that are not ours to spell left alone.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -45,6 +48,16 @@ function crate(contents: string): string {
   const full = join(root, CRATE, 'lib.rs');
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, contents);
+  initFixtureRepo(root);
+  return root;
+}
+
+/** A checkout holding one tracked TypeScript file at `path`. */
+function tsFile(path: string, contents: string): string {
+  const root = mkdtempSync(join(tmpdir(), 'au-spelling-ts-'));
+  roots.push(root);
+  mkdirSync(join(root, path, '..'), { recursive: true });
+  writeFileSync(join(root, path), contents);
   initFixtureRepo(root);
   return root;
 }
@@ -259,5 +272,103 @@ describe('the tracematch submodule is read from its own index', () => {
 
     expect(status).toBe(1);
     expect(output).toContain('tracematch');
+  });
+});
+
+describe('TypeScript is read too', () => {
+  it.each([
+    ['src/shared/app/Store.ts', 'export function initializeFooStore() {}\n', 'initialis'],
+    ['src/features/x/Panel.tsx', 'const normalizeBounds = () => 0;\n', 'normalis'],
+    ['modules/veloqrs/src/delegates/x.ts', '// optimized for reads\n', 'optimis'],
+    ['scripts/lib/x.ts', 'export const analyzer = 1;\n', 'analys'],
+  ])('fails on an American spelling in %s', (path, contents, good) => {
+    const { status, output } = runGuard(tsFile(path, contents));
+
+    expect(status).toBe(1);
+    expect(output).toContain(`${path}:1`);
+    expect(output).toContain(good);
+  });
+
+  it('names the line of the offence and not the clean ones around it', () => {
+    const { output } = runGuard(
+      tsFile('src/a.ts', '// clean\nexport const normalizeTrackPoints = 1;\n// clean\n')
+    );
+
+    expect(output).toContain('src/a.ts:2');
+    expect(output).not.toContain('src/a.ts:1');
+    expect(output).not.toContain('src/a.ts:3');
+  });
+
+  it('fails on behavior in prose', () => {
+    expect(runGuard(tsFile('src/a.ts', '// the existing behavior\n')).status).toBe(1);
+  });
+
+  it('passes the Australian spelling of the same names', () => {
+    expect(
+      runGuard(
+        tsFile(
+          'src/a.ts',
+          'export function initialiseFooStore() {}\nconst normaliseBounds = 1; // behaviour\n'
+        )
+      ).status
+    ).toBe(0);
+  });
+
+  it('does not read generated files', () => {
+    const root = tsFile('src/shared/native/unifiedConfig.generated.ts', 'const normalize = 1;\n');
+    mkdirSync(join(root, 'modules/veloqrs/src/generated'), { recursive: true });
+    writeFileSync(join(root, 'modules/veloqrs/src/generated/veloqrs.ts'), 'initialize();\n');
+    runGit(['add', '-A'], root);
+
+    expect(runGuard(root).status).toBe(0);
+  });
+
+  it('does not read TypeScript outside the three roots', () => {
+    expect(runGuard(tsFile('widget/x.ts', 'const normalize = 1;\n')).status).toBe(0);
+  });
+
+  it('does not ban color, which style keys and component props spell', () => {
+    expect(
+      runGuard(tsFile('src/a.tsx', 'const s = { color: theme.color, backgroundColor: c };\n'))
+        .status
+    ).toBe(0);
+  });
+
+  it.each([
+    ['the UniFFI engine method', 'if (!engine.isInitialized()) return;'],
+    ['the i18next flag', 'if (!i18n.isInitialized) return;'],
+    ['the generated free function', 'generated.default.initialize();'],
+    ['the generated free function in a mock', 'const m = { default: { initialize: jest.fn() } };'],
+    ['the compiler API property', 'const init = node.initializer;'],
+    ['the keyboard avoiding prop', "<KeyboardAvoidingView behavior={'padding'} />"],
+    ['the notification handler type', 'type H = Notifications.NotificationBehavior;'],
+    ['the engine error tag', "const tag = 'NotInitialized';"],
+    ['the phase token', "const phase = 'analyzing';"],
+    ['the phase token as a table key', "  analyzing: 'Analysing activities',"],
+    ['the Android intent action', "'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'"],
+    ['the scale name the engine parses', "const scale = 'optimized';"],
+    ['the locale key', "t('cache.analyzingRoutes');"],
+  ])('passes %s', (_name, line) => {
+    expect(runGuard(tsFile('src/a.tsx', `${line}\n`)).status).toBe(0);
+  });
+
+  it('still fails on our own initialisation beside the exempt name', () => {
+    const { status, output } = runGuard(
+      tsFile('src/a.ts', 'const initializeStore = 1;\nif (!i18n.isInitialized) return;\n')
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/a.ts:1');
+    expect(output).not.toContain('src/a.ts:2');
+  });
+
+  it('fails on a name that begins like the compiler API property', () => {
+    expect(
+      runGuard(tsFile('src/a.ts', 'const r = useStore((s) => s.initializeRange);\n')).status
+    ).toBe(1);
+  });
+
+  it('fails on a store flag spelled the American way', () => {
+    expect(runGuard(tsFile('src/a.ts', 'set({ isInitialized: true });\n')).status).toBe(1);
   });
 });

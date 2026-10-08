@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useHeatmapPreference,
   isHeatmapEnabled,
-  initializeHeatmapPreference,
+  initialiseHeatmapPreference,
 } from '@/features/maps/stores/HeatmapPreferenceStore';
 
 const HEATMAP_KEY = 'veloq-heatmap-enabled';
@@ -28,7 +28,7 @@ beforeEach(async () => {
 
 describe('the heatmap preference', () => {
   it('is on by default, which is what the routes store defaulted to', async () => {
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(true);
     expect(useHeatmapPreference.getState().isLoaded).toBe(true);
@@ -40,7 +40,7 @@ describe('the heatmap preference', () => {
       JSON.stringify({ enabled: true, heatmapEnabled: false })
     );
 
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(false);
     // Adopted once and written under its own key, so the routes store is no
@@ -55,13 +55,13 @@ describe('the heatmap preference', () => {
       JSON.stringify({ enabled: true, heatmapEnabled: false })
     );
 
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(true);
   });
 
   it('persists a change and answers it synchronously', async () => {
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     await useHeatmapPreference.getState().setEnabled(false);
 
@@ -72,7 +72,7 @@ describe('the heatmap preference', () => {
   it('stays usable when storage throws, rather than blocking the map', async () => {
     (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
 
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     expect(useHeatmapPreference.getState().isLoaded).toBe(true);
     expect(isHeatmapEnabled()).toBe(true);
@@ -81,7 +81,7 @@ describe('the heatmap preference', () => {
   it('reads an unparseable routes payload as the default rather than throwing', async () => {
     await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, '{not json');
 
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(true);
   });
@@ -89,14 +89,14 @@ describe('the heatmap preference', () => {
 
 describe('the routes visibility', () => {
   it('is off by default and survives a relaunch once turned on', async () => {
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
     expect(useHeatmapPreference.getState().routesVisible).toBe(false);
 
     useHeatmapPreference.getState().setRoutesVisible(true);
     await Promise.resolve();
     useHeatmapPreference.setState({ routesVisible: false, isLoaded: false });
 
-    await initializeHeatmapPreference();
+    await initialiseHeatmapPreference();
     expect(useHeatmapPreference.getState().routesVisible).toBe(true);
   });
 });

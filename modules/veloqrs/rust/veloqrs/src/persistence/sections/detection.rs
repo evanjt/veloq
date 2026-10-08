@@ -1,9 +1,10 @@
 //! Background section detection and application.
 
+#[cfg(test)]
+use crate::GpsPoint;
 use crate::objects::observer::Announcement;
 use crate::persistence::codec;
-use crate::persistence::codec::TrackRead;
-use crate::{ActivityMatchInfo, FrequentSection, GpsPoint, SectionEvidenceCache};
+use crate::{FrequentSection, SectionEvidenceCache};
 
 /// How often a running fold checkpoints its progress at most; the last
 /// cluster always does.
@@ -37,12 +38,15 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
+#[cfg(test)]
+use tracematch::{Bounds, RouteSignature};
+use tracematch::{MatchConfig, RouteGroup};
 
-use super::super::route_identity::{
-    RouteIdentity, advance_group_generation, load_identity, note_group_commit_off_engine,
-    read_group_generation, write_identity,
-};
+use super::super::regroup::{GroupSave, recompute_and_save_groups};
+#[cfg(test)]
+use super::super::regroup::{pause_next_group_write, save_groups_to_db};
+#[cfg(test)]
+use super::super::route_identity::{RouteIdentity, load_identity, read_group_generation};
 use super::super::routes::load_groups_from_db;
 use super::super::{
     CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
@@ -252,7 +256,7 @@ fn clear_abandoned_pool(conn: &Connection, install: u64) {
 
 /// Name every excluded track and its reason, capped so a corpus-wide read
 /// failure cannot flood the log.
-fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) {
+pub(crate) fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) {
     if corrupt.is_empty() {
         return;
     }
@@ -325,69 +329,6 @@ fn record_pool_integrity(
     }
 }
 
-/// Load all route signatures from the DB (standalone, no engine needed).
-/// Returns the signatures that decoded and the ones that did not, so the
-/// caller decides whether a reduced pool may be grouped over.
-fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTrack>) {
-    let mut stmt = match conn.prepare(
-        "SELECT activity_id, points, start_point_lat, start_point_lng,
-                end_point_lat, end_point_lng, total_distance
-         FROM signatures",
-    ) {
-        Ok(s) => s,
-        Err(_) => return (Vec::new(), Vec::new()),
-    };
-
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Vec<u8>>(1)?,
-            GpsPoint::new(row.get(2)?, row.get(3)?),
-            GpsPoint::new(row.get(4)?, row.get(5)?),
-            row.get::<_, f64>(6)?,
-        ))
-    });
-    let rows = match rows {
-        Ok(r) => r,
-        Err(_) => return (Vec::new(), Vec::new()),
-    };
-
-    let mut signatures: Vec<RouteSignature> = Vec::new();
-    let mut corrupt: Vec<CorruptTrack> = Vec::new();
-
-    for (id, blob, start_point, end_point, total_distance) in rows.flatten() {
-        let points: Vec<GpsPoint> = match TrackRead::from_blob(&blob) {
-            TrackRead::Present(points) => points,
-            TrackRead::Missing => Vec::new(),
-            TrackRead::Corrupt(reason) => {
-                corrupt.push(CorruptTrack {
-                    activity_id: id,
-                    reason,
-                });
-                continue;
-            }
-        };
-        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-            min_lat: 0.0,
-            max_lat: 0.0,
-            min_lng: 0.0,
-            max_lng: 0.0,
-        });
-        let center = bounds.center();
-        signatures.push(RouteSignature {
-            activity_id: id,
-            points,
-            total_distance,
-            start_point,
-            end_point,
-            bounds,
-            center,
-        });
-    }
-
-    (signatures, corrupt)
-}
-
 /// The worker's regroup. A self-applying run has the engine adopt what it
 /// committed straight away, not at the apply, and the engine lock does that as
 /// this run takes it. A run that is cancelled, finds its pool unusable or fails
@@ -416,298 +357,7 @@ fn regroup_on_worker(
     (groups, save)
 }
 
-/// Compute route groups from DB signatures and save them back, and say what
-/// became of the save. Runs on the background thread so it doesn't block the
-/// JS thread.
-///
-/// `existing_groups` is the catalogue the engine held at `generation`. When a
-/// group write has committed since, the save is refused and the committed
-/// catalogue is what the run goes on with: it is newer than this grouping, and
-/// the next foreground regroup starts from it.
-fn recompute_and_save_groups(
-    conn: &Connection,
-    install: u64,
-    match_config: &MatchConfig,
-    existing_groups: &[RouteGroup],
-    generation: u64,
-) -> (Vec<RouteGroup>, GroupSave) {
-    let start = std::time::Instant::now();
-
-    let (signatures, corrupt) = load_all_signatures(conn);
-    let sig_ms = start.elapsed().as_millis();
-
-    if !corrupt.is_empty() {
-        log_corrupt_tracks("BG Groups", signatures.len(), &corrupt);
-        if !pool_is_usable(signatures.len(), corrupt.len()) {
-            log::error!(
-                "veloqrs: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
-            );
-            return (existing_groups.to_vec(), GroupSave::Kept);
-        }
-    }
-
-    if signatures.is_empty() {
-        return (existing_groups.to_vec(), GroupSave::Kept);
-    }
-
-    let already_grouped: HashSet<&str> = existing_groups
-        .iter()
-        .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
-        .collect();
-    let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
-        .iter()
-        .cloned()
-        .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
-
-    let total = signatures.len();
-    let chosen = crate::persistence::routes::routes_keeping_representative(conn, existing_groups);
-    let use_incremental = !existing_groups.is_empty()
-        && !new_sigs.is_empty()
-        && (new_sigs.len() as f64) < (total as f64 * 0.9)
-        && !crate::persistence::routes::groups_match_rule_changed(conn, match_config);
-
-    let group_start = std::time::Instant::now();
-    let result = if use_incremental {
-        log::info!(
-            "[BG Groups] INCREMENTAL: {} new vs {} existing",
-            new_sigs.len(),
-            existing_sigs.len()
-        );
-        tracematch::group_incremental_with_matches(
-            &new_sigs,
-            &crate::persistence::routes::groups_keeping_chosen_representatives(
-                existing_groups,
-                &chosen,
-            ),
-            &existing_sigs,
-            match_config,
-        )
-    } else {
-        log::info!("[BG Groups] FULL: {} signatures", signatures.len());
-        tracematch::group_signatures_parallel_with_matches(&signatures, match_config)
-    };
-    let group_ms = group_start.elapsed().as_millis();
-
-    // The same assign-once remap the foreground writer runs. Without it this
-    // path persists the raw Union-Find roots, re-keying the catalogue behind the
-    // stable ids `route_names` and `activity_matches` are keyed on, and the user's
-    // route names are orphaned by whichever writer happened to run last.
-    let mut identity = load_identity(conn, existing_groups);
-    let (mut groups, id_map) = identity.remap(existing_groups.to_vec(), result.groups, &chosen);
-
-    for group in &mut groups {
-        group.sport_type.clear();
-    }
-
-    // Measured here, before the write lock is taken: the percentages read every
-    // member's stored track, and the lock is held only for the rows.
-    let matches = measure_group_matches(
-        conn,
-        &groups,
-        result.activity_matches,
-        &id_map,
-        match_config,
-    );
-
-    let save = match save_groups_to_db(
-        conn,
-        install,
-        &groups,
-        &identity,
-        &matches,
-        match_config,
-        generation,
-    ) {
-        Ok(GroupSave::Superseded) => {
-            log::info!(
-                "[BG Groups] A newer catalogue committed during the run, keeping it over this grouping"
-            );
-            return (load_groups_from_db(conn), GroupSave::Superseded);
-        }
-        Ok(save) => save,
-        Err(e) => {
-            log::error!("[BG Groups] Save failed: {}", e);
-            GroupSave::Kept
-        }
-    };
-
-    let total_ms = start.elapsed().as_millis();
-    log::info!(
-        "[BG Groups] Done: {} groups in {}ms (sigs={}ms, grouping={}ms)",
-        groups.len(),
-        total_ms,
-        sig_ms,
-        group_ms
-    );
-
-    (groups, save)
-}
-
-/// The match rows the worker's grouping owes: each member's direction from the
-/// grouping, re-keyed through the id map onto the stable route ids, over the
-/// rows already stored, then every percentage measured from the stored tracks.
-/// The incremental arm reports only the routes that took a new member, so the
-/// stored rows carry the rest.
-fn measure_group_matches(
-    conn: &Connection,
-    groups: &[RouteGroup],
-    reported: HashMap<String, Vec<ActivityMatchInfo>>,
-    id_map: &HashMap<String, String>,
-    match_config: &MatchConfig,
-) -> HashMap<String, Vec<ActivityMatchInfo>> {
-    let mut held: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
-    if let Ok(mut stmt) = conn
-        .prepare("SELECT route_id, activity_id, match_percentage, direction FROM activity_matches")
-    {
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, f64>(2)?,
-                row.get::<_, String>(3)?,
-            ))
-        });
-        for (route_id, activity_id, match_percentage, direction) in
-            rows.into_iter().flatten().flatten()
-        {
-            if let Ok(direction) = direction.parse() {
-                held.entry(route_id).or_default().push(ActivityMatchInfo {
-                    activity_id,
-                    match_percentage,
-                    direction,
-                });
-            }
-        }
-    }
-    for (old_id, matches) in reported {
-        let entry = held
-            .entry(id_map.get(&old_id).cloned().unwrap_or(old_id))
-            .or_default();
-        for info in matches {
-            entry.retain(|m| m.activity_id != info.activity_id);
-            entry.push(info);
-        }
-    }
-    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
-    held.retain(|id, _| live.contains(id.as_str()));
-    for group in groups {
-        if let Some(entry) = held.get_mut(&group.group_id) {
-            let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
-            entry.retain(|m| members.contains(m.activity_id.as_str()));
-        }
-    }
-    super::super::routes::measure_match_percentages(
-        groups,
-        &held,
-        match_config,
-        |id| match conn
-            .query_row(
-                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-                [id],
-                |row| row.get::<_, Vec<u8>>(0),
-            )
-            .map(|blob| TrackRead::from_blob(&blob))
-        {
-            Ok(TrackRead::Present(points)) => Some(points),
-            _ => None,
-        },
-        None,
-        None,
-    )
-}
-
-/// What became of a background group write.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum GroupSave {
-    Committed,
-    /// A group write committed after the run's snapshot, so nothing was written.
-    /// That write need not have regrouped: a representative choice does not, so
-    /// the regroup this run was for is still owed.
-    Superseded,
-    /// Nothing was written: the pool was empty or unusable, or the save failed.
-    Kept,
-}
-
-/// Save route groups and the registry that keyed them to DB (standalone, no
-/// engine needed). One transaction: a failure mid-way would otherwise leave the
-/// catalogue half-written, or the groups committed under ids the registry does
-/// not know, which is the crash window the registry reconcile exists to heal.
-///
-/// The generation is compared inside that transaction, so no group write can
-/// commit between the comparison and this one.
-fn save_groups_to_db(
-    conn: &Connection,
-    install: u64,
-    groups: &[RouteGroup],
-    identity: &RouteIdentity,
-    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
-    match_config: &MatchConfig,
-    generation: u64,
-) -> SqlResult<GroupSave> {
-    #[cfg(test)]
-    hold_group_write(conn, install, groups.len());
-    let mut superseded = false;
-    let written = worker_write(conn, install, || {
-        if read_group_generation(conn)? != generation {
-            superseded = true;
-            return Err(rusqlite::Error::InvalidQuery);
-        }
-        save_groups_txn(conn, groups, identity, matches)?;
-        crate::persistence::routes::stamp_groups_match_rule(conn, match_config)?;
-        advance_group_generation(conn)?;
-        crate::persistence::route_lines::rebuild(conn).map(|_| ())
-    });
-    match written {
-        Err(_) if superseded => Ok(GroupSave::Superseded),
-        Err(e) => Err(e),
-        Ok(()) => {
-            note_group_commit_off_engine();
-            Ok(GroupSave::Committed)
-        }
-    }
-}
-
-#[cfg(test)]
-type GroupWriteHold = (String, u64, mpsc::Sender<usize>, mpsc::Receiver<()>);
-
-#[cfg(test)]
-static GROUP_WRITE_HOLD: std::sync::Mutex<Option<GroupWriteHold>> = std::sync::Mutex::new(None);
-
-#[cfg(test)]
-pub(crate) fn pause_next_group_write(
-    path: &std::path::Path,
-    install: u64,
-) -> (mpsc::Receiver<usize>, mpsc::Sender<()>) {
-    let (entered_tx, entered_rx) = mpsc::channel();
-    let (resume_tx, resume_rx) = mpsc::channel();
-    *GROUP_WRITE_HOLD.lock().unwrap() = Some((
-        path.to_string_lossy().into_owned(),
-        install,
-        entered_tx,
-        resume_rx,
-    ));
-    (entered_rx, resume_tx)
-}
-
-#[cfg(test)]
-fn hold_group_write(conn: &Connection, install: u64, group_count: usize) {
-    let hold = {
-        let mut slot = GROUP_WRITE_HOLD.lock().unwrap();
-        if slot.as_ref().is_some_and(|(path, held_install, _, _)| {
-            conn.path() == Some(path.as_str()) && *held_install == install
-        }) {
-            slot.take()
-        } else {
-            None
-        }
-    };
-    if let Some((_, _, entered, resume)) = hold {
-        let _ = entered.send(group_count);
-        let _ = resume.recv();
-    }
-}
-
-fn worker_write(
+pub(crate) fn worker_write(
     conn: &Connection,
     install: u64,
     write: impl FnOnce() -> SqlResult<()>,
@@ -725,105 +375,6 @@ fn worker_write(
         let _ = conn.execute_batch("ROLLBACK");
     }
     result
-}
-
-fn save_groups_txn(
-    conn: &Connection,
-    groups: &[RouteGroup],
-    identity: &RouteIdentity,
-    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
-) -> SqlResult<()> {
-    let chosen = crate::persistence::routes::chosen_representatives(conn)?;
-    conn.execute("DELETE FROM route_groups", [])?;
-    let mut stmt = conn.prepare(
-        "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-            activity_ids_blob)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    )?;
-    for group in groups {
-        let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
-        let activity_ids_blob = super::codec::serialize(&group.activity_ids).ok();
-        let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
-            Some(b) => (
-                Some(b.min_lat),
-                Some(b.max_lat),
-                Some(b.min_lng),
-                Some(b.max_lng),
-            ),
-            None => (None, None, None, None),
-        };
-        stmt.execute(params![
-            group.group_id,
-            group.representative_id,
-            activity_ids_json,
-            "",
-            min_lat,
-            max_lat,
-            min_lng,
-            max_lng,
-            activity_ids_blob,
-        ])?;
-    }
-    drop(stmt);
-    crate::persistence::routes::mark_chosen_representatives(conn, &chosen)?;
-
-    // A name outlives its route only while the id survives. The remap keeps that
-    // id, so this drops only the names of routes the regroup actually dissolved.
-    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
-    let named: Vec<String> = {
-        let mut stmt = conn.prepare("SELECT route_id FROM route_names")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        rows.filter_map(|r| r.ok()).collect()
-    };
-    let mut delete_name = conn.prepare("DELETE FROM route_names WHERE route_id = ?")?;
-    for id in named.iter().filter(|id| !live.contains(id.as_str())) {
-        delete_name.execute(params![id])?;
-    }
-    drop(delete_name);
-    crate::persistence::routes::mint_route_numbers(conn, groups)?;
-
-    // The match rows are rewritten whole, as the foreground writer does, so a
-    // member that left a route leaves no row naming it. The athlete's exclusions
-    // are the one record in them and ride across for every pair that survives.
-    let excluded: Vec<(String, String)> = {
-        let mut stmt =
-            conn.prepare("SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1")?;
-        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        rows.filter_map(|r| r.ok()).collect()
-    };
-    conn.execute("DELETE FROM activity_matches", [])?;
-    let mut insert = conn.prepare(
-        "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
-         VALUES (?, ?, ?, ?)",
-    )?;
-    for group in groups {
-        let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
-        for m in matches.get(&group.group_id).into_iter().flatten() {
-            if members.contains(m.activity_id.as_str()) {
-                insert.execute(params![
-                    group.group_id,
-                    m.activity_id,
-                    m.match_percentage,
-                    m.direction.to_string(),
-                ])?;
-            }
-        }
-        // A member the grouping reported no pair for, or whose track is unreadable.
-        for id in &group.activity_ids {
-            insert.execute(params![group.group_id, id, 0.0f64, "same"])?;
-        }
-    }
-    drop(insert);
-    let mut exclude = conn.prepare(
-        "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
-    )?;
-    for (route_id, activity_id) in &excluded {
-        exclude.execute(params![route_id, activity_id])?;
-    }
-    drop(exclude);
-
-    write_identity(conn, identity)
 }
 
 #[cfg(test)]
@@ -1464,6 +1015,14 @@ impl PersistentEngine {
         let cancel_worker = Arc::clone(&cancel);
 
         let completion_slot = applied_flag.as_ref().map(|_| Arc::clone(&checkpoint_slot));
+        // Taken here, under the engine lock that captured the flag, and held
+        // until the run ends, so a regroup scheduled meanwhile leaves the
+        // question of what is still owed to this run's apply.
+        let regroup_claim = if needs_group_recompute {
+            super::super::regroup::claim_regroup()
+        } else {
+            None
+        };
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         #[cfg(test)]
         let worker_guard = crate::test_globals::detection_worker_started();
@@ -1515,7 +1074,7 @@ impl PersistentEngine {
                 return;
             }
 
-            let (groups, regroup_owed) = if needs_group_recompute {
+            let (groups, regroup_owed) = if regroup_claim.is_some() {
                 log::info!(
                     "veloqrs: [SectionDetection] Recomputing route groups on background thread..."
                 );
@@ -1528,6 +1087,11 @@ impl PersistentEngine {
                     apply_on,
                 );
                 (groups, save == GroupSave::Superseded)
+            } else if needs_group_recompute {
+                log::info!(
+                    "veloqrs: [SectionDetection] A regroup is already in flight, leaving the grouping owed"
+                );
+                (load_groups_from_db(&conn), true)
             } else {
                 (load_groups_from_db(&conn), false)
             };
@@ -2905,6 +2469,7 @@ mod tests {
         fn gps_track_stored(&self, _activity_id: String) {}
         fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
         fn fit_parsed(&self, _activity_id: String) {}
+        fn groups_changed(&self) {}
         fn tiles_generated(&self) {}
         fn backfill_phase(&self, _phase: String) {}
         fn stream_backfill_phase(&self, _phase: String) {}

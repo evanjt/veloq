@@ -9,7 +9,7 @@
  */
 
 import { localesToLoad, loadLocale, loadableLocales, ROOT_LOCALE } from '@/i18n/localeBundles';
-import { initializeI18n, changeLanguage, i18n } from '@/i18n';
+import { initialiseI18n, changeLanguage, i18n } from '@/i18n';
 
 describe('which locales a launch has to load', () => {
   it('inherits an unchanged regional string from the base bundle', () => {
@@ -63,7 +63,7 @@ describe('loading one bundle', () => {
 
 describe('the store a launch leaves behind', () => {
   it('holds the launch locale and its chain and not the other fourteen', async () => {
-    await initializeI18n('de-CH');
+    await initialiseI18n('de-CH');
 
     for (const needed of localesToLoad('de-CH')) {
       expect(i18n.hasResourceBundle(needed, 'translation')).toBe(true);
@@ -73,7 +73,7 @@ describe('the store a launch leaves behind', () => {
   });
 
   it('translates into a locale it did not launch with, after the switch', async () => {
-    await initializeI18n('en-GB');
+    await initialiseI18n('en-GB');
     expect(i18n.hasResourceBundle('ja', 'translation')).toBe(false);
 
     await changeLanguage('ja');
@@ -87,7 +87,7 @@ describe('the store a launch leaves behind', () => {
   });
 
   it('keeps the previous locale loaded, so switching back costs nothing', async () => {
-    await initializeI18n('en-GB');
+    await initialiseI18n('en-GB');
     await changeLanguage('ja');
     await changeLanguage('en-GB');
 

@@ -15,7 +15,7 @@ interface WhatsNewState {
   isLoaded: boolean;
   tourState: TourState | null;
 
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   markSeen: (version: string) => Promise<void>;
 
   startTour: (mode: 'whatsNew' | 'tutorial') => void;
@@ -30,7 +30,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   isLoaded: false,
   tourState: null,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(WHATS_NEW_KEY);
       if (stored) {
@@ -87,6 +87,6 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   },
 }));
 
-export async function initializeWhatsNewStore(): Promise<void> {
-  await useWhatsNewStore.getState().initialize();
+export async function initialiseWhatsNewStore(): Promise<void> {
+  await useWhatsNewStore.getState().initialise();
 }

@@ -109,7 +109,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Track last notified index to avoid redundant updates
   const lastNotifiedIdx = useRef<number | null>(null);
 
-  // Build normalized data for all selected series (+ preview if unselected)
+  // Build normalised data for all selected series (+ preview if unselected)
   const { chartData, seriesInfo, indexMap, maxX } = useMemo(
     () =>
       buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
@@ -192,7 +192,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         haptics.light();
       }
 
-      // Build metric values with actual data (not normalized)
+      // Build metric values with actual data (not normalised)
       const originalIdx = indexMap[idx];
       const values = seriesInfo.map((s) => ({
         id: s.id,
@@ -295,13 +295,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Always show color accent when any metric is displayed (helps identify the data type)
   const showYAxisAccent = seriesInfo.length > 0;
 
-  // Calculate normalized average position and raw value for the Y-axis series (for average line + label)
+  // Calculate normalised average position and raw value for the Y-axis series (for average line + label)
   const yAxisAvgInfo = useMemo(() => {
     if (!yAxisSeries) return null;
     const rawAvg = seriesAverage(yAxisSeries.config, yAxisSeries.rawData);
     if (rawAvg == null) return null;
     const { min, range } = yAxisSeries.range;
-    return { normalized: (rawAvg - min) / range, raw: rawAvg };
+    return { normalised: (rawAvg - min) / range, raw: rawAvg };
   }, [yAxisSeries]);
 
   // Compute interval bands when interval data is provided
@@ -471,8 +471,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         />
                         {yAxisAvgInfo != null && (
                           <SkiaLine
-                            p1={vec(bounds.left, yFor(yAxisAvgInfo.normalized))}
-                            p2={vec(bounds.right, yFor(yAxisAvgInfo.normalized))}
+                            p1={vec(bounds.left, yFor(yAxisAvgInfo.normalised))}
+                            p2={vec(bounds.right, yFor(yAxisAvgInfo.normalised))}
                             color={yAxisSeries.config.color}
                             strokeWidth={1}
                             opacity={0.4}

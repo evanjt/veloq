@@ -66,6 +66,7 @@ impl EngineObserver for Recorder {
     fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
     fn fit_parsed(&self, _activity_id: String) {}
     fn detection_applied(&self) {}
+    fn groups_changed(&self) {}
     fn tiles_generated(&self) {
         self.events
             .lock()

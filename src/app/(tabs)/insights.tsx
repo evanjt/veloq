@@ -12,6 +12,7 @@ import {
   pressRipple,
   type SwipeableTab,
 } from '@/shared/ui';
+import { onPullRefresh } from '@/shared/ui/haptics';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import {
   DateRangeSummary,
@@ -275,9 +276,7 @@ function InsightsScreenContent() {
     [requestPermission, userLocation]
   );
 
-  const handleRefresh = useCallback(() => {
-    requestRefresh();
-  }, [requestRefresh]);
+  const handleRefresh = useMemo(() => onPullRefresh(requestRefresh), [requestRefresh]);
 
   const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
     const count = routesData?.activityCount ?? 0;

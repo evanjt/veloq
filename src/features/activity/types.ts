@@ -156,14 +156,6 @@ export interface ActivityDetail extends Activity {
   icu_hr_zones?: number[];
 }
 
-// Raw stream object from API
-export interface RawStreamItem {
-  type: string;
-  name: string | null;
-  data: number[];
-  data2?: number[]; // Only for latlng - contains longitude values
-}
-
 // Processed streams in a usable format
 export interface ActivityStreams {
   time?: number[];

@@ -46,7 +46,7 @@ describe('RecordingStore', () => {
   });
 
   describe('startRecording()', () => {
-    it('transitions to recording with startTime and initialized streams', () => {
+    it('transitions to recording with startTime and initialised streams', () => {
       const before = Date.now();
       useRecordingStore.getState().startRecording('Ride', 'gps');
       const after = Date.now();

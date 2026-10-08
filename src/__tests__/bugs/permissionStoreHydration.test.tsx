@@ -143,23 +143,23 @@ describe('an answer that has not arrived is not an answer of no', () => {
 });
 
 describe('the store says when it has an answer', () => {
-  it('is loaded once initialize has run, with nothing stored', async () => {
+  it('is loaded once initialise has run, with nothing stored', async () => {
     mockGetSetting.mockResolvedValue(null);
-    await useUploadPermissionStore.getState().initialize();
+    await useUploadPermissionStore.getState().initialise();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
     expect(useUploadPermissionStore.getState().hasWritePermission).toBeNull();
   });
 
-  it('is loaded once initialize has run, with something stored', async () => {
+  it('is loaded once initialise has run, with something stored', async () => {
     mockGetSetting.mockResolvedValue(JSON.stringify({ hasWritePermission: true }));
-    await useUploadPermissionStore.getState().initialize();
+    await useUploadPermissionStore.getState().initialise();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
     expect(useUploadPermissionStore.getState().hasWritePermission).toBe(true);
   });
 
   it('is loaded even when the read throws, or the screen waits forever', async () => {
     mockGetSetting.mockRejectedValue(new Error('no'));
-    await useUploadPermissionStore.getState().initialize();
+    await useUploadPermissionStore.getState().initialise();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
   });
 

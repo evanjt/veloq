@@ -245,6 +245,26 @@ describe('form zone text clears AA on every surface it is drawn on', () => {
 });
 
 /**
+ * Scenario: the widget's age line turns amber past 24 hours and is the only thing that says the
+ * numbers are old, drawn at caption size on the widget surface.
+ *
+ * Expected behaviour: the amber clears 4.5:1 on the widget surface of its own scheme.
+ */
+describe('the widget stale age line clears AA on its surface', () => {
+  it('light', () => {
+    expect(
+      contrastRatio(widgetPalette.light.warning, widgetPalette.light.surface)
+    ).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it('dark', () => {
+    expect(
+      contrastRatio(widgetPalette.dark.warning, widgetPalette.dark.surface)
+    ).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+});
+
+/**
  * Scenario: a mark is the only thing that says an effort is the personal best
  * or is the activity being looked at. WCAG 1.4.11 exempts a mark whose meaning
  * is carried some other way; where nothing else carries it, the mark is a

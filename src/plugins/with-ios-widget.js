@@ -20,7 +20,8 @@ const path = require('path');
  * build time, the same way the existing iCloud capability is.
  */
 
-const { INCLUDE_RECORD_WIDGET } = require('./widgetFlags');
+const { INCLUDE_MEMORY_PROBE, INCLUDE_RECORD_WIDGET } = require('./widgetFlags');
+const { linkEngine } = require('./xcodeEngineLink');
 const { ensureTargetDependencySections } = require('./xcodeTargetDependency');
 const {
   APP_SHORTCUTS_FILE,
@@ -32,6 +33,32 @@ const {
 const PbxFile = require('xcode/lib/pbxFile');
 
 const TARGET = 'VeloqWidget';
+
+/**
+ * The engine's C entries are declared once, in the push extension's bridging
+ * header, and the widget compiles against a copy of it written at prebuild. The
+ * extension calls the same library through the same symbols, so a second
+ * declaration would be a second place for a signature to drift.
+ */
+const BRIDGING_HEADER = `${TARGET}-Bridging-Header.h`;
+const ENGINE_HEADER = path.join(
+  'push',
+  'ios',
+  'VeloqPushExtension',
+  'VeloqPushExtension-Bridging-Header.h'
+);
+
+/**
+ * The memory probe, compiled only while `INCLUDE_MEMORY_PROBE` is on: the probe
+ * itself and the two push-extension files that wrap the engine's C entries and
+ * read the keychain, which it calls the way the push extension does.
+ */
+const PROBE_SOURCES = [
+  path.join('widget', 'ios', 'probe', 'MemoryProbe.swift'),
+  path.join('push', 'ios', 'VeloqPushExtension', 'VeloqCredentials.swift'),
+  path.join('push', 'ios', 'VeloqPushExtension', 'VeloqPushEngine.swift'),
+];
+const PROBE_SWIFT_FILES = PROBE_SOURCES.map((source) => path.basename(source));
 
 /**
  * The Live Activity contract. ActivityKit matches a card to its attributes by type
@@ -86,17 +113,21 @@ const BUNDLES_FILE = 'WidgetBundles.swift';
  * so a list read from `widget/ios/` alone leaves the target without the two
  * bundles `VeloqWidgetLauncher` calls `main()` on.
  */
-function widgetSwiftFiles(projectRoot) {
+function widgetSwiftFiles(projectRoot, includeProbe = INCLUDE_MEMORY_PROBE) {
   const tracked = fs
     .readdirSync(path.join(projectRoot, 'widget', 'ios', TARGET))
     .filter((f) => f.endsWith('.swift'));
   const withBundles = tracked.includes(BUNDLES_FILE) ? tracked : [...tracked, BUNDLES_FILE];
   // The extension needs the shared link rule; it does not need the App Shortcut,
   // whose provider only counts in the app target.
-  return [...withBundles, ...SHARED_WIDGET_FILES];
+  return [...withBundles, ...SHARED_WIDGET_FILES, ...(includeProbe ? PROBE_SWIFT_FILES : [])];
 }
 
-function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
+function writeWidgetBundles(
+  destDir,
+  includeRecord = INCLUDE_RECORD_WIDGET,
+  includeProbe = INCLUDE_MEMORY_PROBE
+) {
   // The Control rides the same gate as the widget: one record surface off means
   // every record surface off. It is iOS 18 and the bundle body is not, so it is
   // gated inside the result builder, the way the Live Activity is gated at 16.2.
@@ -114,6 +145,12 @@ function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
     ? `
     VeloqConfigurableRecordWidget()${control}`
     : '';
+  // The probe's widget is iOS 17 for its button intent, so it joins the
+  // configurable bundle alone.
+  const probe = includeProbe
+    ? `
+    VeloqMemoryProbeWidget()`
+    : '';
   const liveActivity = `
     if #available(iOS 16.2, *) {
       VeloqRecordingLiveActivity()
@@ -128,7 +165,8 @@ import WidgetKit
 struct VeloqWidgets: WidgetBundle {
   var body: some Widget {
     VeloqWidget()
-    VeloqLatestActivityWidget()${record}${liveActivity}
+    VeloqLatestActivityWidget()
+    VeloqInsightsWidget()${record}${liveActivity}
   }
 }
 
@@ -136,7 +174,8 @@ struct VeloqWidgets: WidgetBundle {
 struct VeloqWidgetsConfigurable: WidgetBundle {
   var body: some Widget {
     VeloqConfigurableWidget()
-    VeloqLatestActivityWidget()${configurableRecord}${liveActivity}
+    VeloqLatestActivityWidget()
+    VeloqConfigurableInsightsWidget()${configurableRecord}${liveActivity}${probe}
   }
 }
 `
@@ -181,7 +220,12 @@ function pruneRemoved(src, dest) {
  * generated bundles, the shared sources in both target directories and the
  * string catalogues each target reads.
  */
-function writeWidgetFiles(projectRoot, platformProjectRoot, projectName) {
+function writeWidgetFiles(
+  projectRoot,
+  platformProjectRoot,
+  projectName,
+  includeProbe = INCLUDE_MEMORY_PROBE
+) {
   const src = path.join(projectRoot, 'widget', 'ios', TARGET);
   const dest = path.join(platformProjectRoot, TARGET);
   copyDir(src, dest);
@@ -198,6 +242,12 @@ function writeWidgetFiles(projectRoot, platformProjectRoot, projectName) {
   }
   for (const name of SHARED_WIDGET_FILES) {
     fs.copyFileSync(path.join(shared, name), path.join(dest, name));
+  }
+  fs.copyFileSync(path.join(projectRoot, ENGINE_HEADER), path.join(dest, BRIDGING_HEADER));
+  if (includeProbe) {
+    for (const source of PROBE_SOURCES) {
+      fs.copyFileSync(path.join(projectRoot, source), path.join(dest, path.basename(source)));
+    }
   }
   writeIosCatalogues({ widgetDir: dest, appDir });
 }
@@ -517,6 +567,9 @@ function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, versi
   // own shared-source fallback, and a source the app claimed first is dropped
   // without it.
   addMissingSourceFiles(proj, targetUuid, swiftFiles);
+  // On both paths: the build settings are written once, when the target is
+  // created, so a link added later has to reach a target that already exists.
+  linkEngine(proj, targetUuid, TARGET, `${TARGET}/${BRIDGING_HEADER}`);
   addMissingStringCatalogues(proj, targetUuid, [LOCALIZABLE_FILE], TARGET);
   addCatalogueRegions(proj);
 }
@@ -583,6 +636,8 @@ module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
 module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;
 module.exports.widgetSwiftFiles = widgetSwiftFiles;
 module.exports.BUNDLES_FILE = BUNDLES_FILE;
+module.exports.BRIDGING_HEADER = BRIDGING_HEADER;
+module.exports.PROBE_SWIFT_FILES = PROBE_SWIFT_FILES;
 module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
 module.exports.SHARED_DIR = SHARED_DIR;
 module.exports.addMissingSourceFiles = addMissingSourceFiles;

@@ -496,19 +496,12 @@ fn after_landing(install: u64, ride: &FfiRecordingEntry, intervals_id: &str, upl
         .unwrap_or_else(|| ride.clone());
 
     // The provisional row keeps its key and gains the server's id. Without it
-    // the next sync stores the ride again under the server's own key. False
-    // from the engine is settled too: the row already carries an id or is gone.
-    if let Some(engine_id) = ride.engine_activity_id.as_deref() {
-        let reconciled = under(install, |e| {
-            e.record_upload(engine_id, intervals_id)?;
-            e.set_recording_reconciled(&ride.id)
-        });
-        if let Some(Err(err)) = reconciled {
-            log::warn!(
-                "veloqrs: [upload] could not record the upload of {}: {err}",
-                ride.id
-            );
-        }
+    // the next sync stores the ride again under the server's own key.
+    if let Some(Err(err)) = under(install, |e| e.reconcile_recording_upload(&ride.id)) {
+        log::warn!(
+            "veloqrs: [upload] could not record the upload of {}: {err}",
+            ride.id
+        );
     }
 
     // intervals.icu keeps the sets in the file it was handed, so nothing comes
@@ -627,25 +620,12 @@ fn settled_by(ride: &FfiRecordingEntry, athlete: &str) -> bool {
 
 /// Write the server's id onto every provisional row a landed upload could not
 /// reach, an engine closed at the moment of the upload being the case this is
-/// for. False from the engine is settled too: the row already carries an id
-/// or has gone.
+/// for.
 fn reconcile_landed(install: u64) -> bool {
     let mut changed = false;
     for ride in rows(install) {
-        let (Some(engine_id), Some(intervals_id)) = (
-            ride.engine_activity_id.as_deref(),
-            ride.intervals_activity_id.as_deref(),
-        ) else {
-            continue;
-        };
-        if ride.engine_reconciled {
-            continue;
-        }
-        match under(install, |e| {
-            e.record_upload(engine_id, intervals_id)?;
-            e.set_recording_reconciled(&ride.id)
-        }) {
-            Some(Ok(())) => changed = true,
+        match under(install, |e| e.reconcile_recording_upload(&ride.id)) {
+            Some(Ok(reconciled)) => changed |= reconciled,
             Some(Err(err)) => log::warn!(
                 "veloqrs: [upload] could not record the upload of {}: {err}",
                 ride.id

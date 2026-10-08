@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ import {
   RouteDetailChart,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
-  useRouteHighlight,
+  createMapHighlightStore,
   useSportTypeFilter,
   useRouteChartData,
   useRouteReference,
@@ -67,11 +67,12 @@ function RouteDetailScreenContent() {
 
   // One engine call covering the route, its ranking list, every attempt, the
   // representative polyline, names, exclusions and signatures.
-  const [detailRetryTick, setDetailRetryTick] = useState(0);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+  const refreshDetail = useCallback(() => setDetailRefreshKey((k) => k + 1), []);
   const { data: detail, status: detailStatus } = useRouteDetailData(
     id,
     navActivityId,
-    detailRetryTick
+    detailRefreshKey
   );
 
   // Get cached date range from sync store (consolidated calculation)
@@ -80,8 +81,9 @@ function RouteDetailScreenContent() {
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
-  const { highlightedActivityId, highlightedActivityPoints, handleActivitySelect } =
-    useRouteHighlight();
+  // The chart's scrub lives outside this component, so a new index renders the
+  // map and not the screen. Nothing here reads it.
+  const [highlight] = useState(createMapHighlightStore);
 
   const engineGroup = detail?.group;
 
@@ -164,7 +166,7 @@ function RouteDetailScreenContent() {
     handleToggleShowExcluded,
     excludedChartData,
     excludedReadError,
-  } = useExcludedActivities(id, sportFilter, detail?.excludedActivityIds);
+  } = useExcludedActivities(id, sportFilter, detail?.excludedActivityIds, refreshDetail);
 
   const directionBests = useMemo(
     () => ({ forward: bestForwardRecord, reverse: bestReverseRecord }),
@@ -192,7 +194,7 @@ function RouteDetailScreenContent() {
         insetTop={insets.top}
         status={detailStatus}
         loading={!isEngineReady()}
-        onRetry={() => setDetailRetryTick((k) => k + 1)}
+        onRetry={refreshDetail}
         notFoundMessage={t('routeDetail.routeNotFound')}
       />
     );
@@ -253,8 +255,7 @@ function RouteDetailScreenContent() {
         >
           <RouteDetailMap
             routeGroup={routeGroup}
-            highlightedActivityId={highlightedActivityId}
-            highlightedActivityPoints={highlightedActivityPoints}
+            highlight={highlight}
             signatures={signatures}
             hasMapData={hasMapData}
             activityColor={activityColor}
@@ -288,7 +289,7 @@ function RouteDetailScreenContent() {
               bestReverseIsRecord={bestReverseIsRecord}
               forwardStats={forwardStats}
               reverseStats={reverseStats}
-              onActivitySelect={handleActivitySelect}
+              onActivitySelect={highlight.set}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
               onSetAsReference={handleSetAsReference}

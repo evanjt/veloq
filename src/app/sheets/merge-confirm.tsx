@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -17,6 +16,7 @@ import {
   type MergeConfirmSheetResult,
   type MergeSectionInfo,
 } from '@/features/routes';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The merge confirmation, a sheet route opened with `openSheet` and answered with the section to
@@ -140,7 +140,7 @@ function MergeConfirmSheetContent() {
           <Button
             testID="merge-confirm-cancel"
             label={t('common.cancel')}
-            onPress={() => router.back()}
+            onPress={() => tapBack()}
             variant="ghost"
           />
           <Button

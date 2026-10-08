@@ -96,10 +96,10 @@ it('reads nothing when asked for no keys', async () => {
   });
 });
 
-describe('AuthStore.initialize', () => {
+describe('AuthStore.initialise', () => {
   beforeEach(() => jest.resetModules());
 
-  async function initializeWith(refused: string) {
+  async function initialiseWith(refused: string) {
     jest.doMock('expo-secure-store', () => ({
       ...jest.requireActual('expo-secure-store'),
       getItemAsync: jest.fn(async (key: string) => {
@@ -115,12 +115,12 @@ describe('AuthStore.initialize', () => {
     jest.doMock('@/shared/native/engine', () => ({ getEngine: () => null }));
     jest.doMock('@/shared/app/seedDemoEngine', () => ({ seedDemoEngine: () => {} }));
     const { useAuthStore } = require('@/shared/app/AuthStore');
-    await useAuthStore.getState().initialize();
+    await useAuthStore.getState().initialise();
     return useAuthStore.getState();
   }
 
   it('keeps the API-key session when the unused OAuth key will not read', async () => {
-    const state = await initializeWith('intervals_access_token');
+    const state = await initialiseWith('intervals_access_token');
 
     expect(state.isAuthenticated).toBe(true);
     expect(state.authMethod).toBe('apiKey');
@@ -128,7 +128,7 @@ describe('AuthStore.initialize', () => {
   });
 
   it('still leaves no session when the athlete id itself will not read', async () => {
-    const state = await initializeWith('intervals_athlete_id');
+    const state = await initialiseWith('intervals_athlete_id');
 
     expect(state.isAuthenticated).toBe(false);
     expect(state.isLoading).toBe(false);

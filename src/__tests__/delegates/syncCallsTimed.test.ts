@@ -75,7 +75,7 @@ const clientCases: [string, (c: EngineClient) => unknown][] = [
   [
     'takeQuarantineReport',
     (c) => {
-      (c as unknown as { initialized: boolean }).initialized = true;
+      (c as unknown as { initialised: boolean }).initialised = true;
       return c.takeQuarantineReport();
     },
   ],

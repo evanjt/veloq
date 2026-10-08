@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { router } from 'expo-router';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getActivityColor, sortByDateId } from '@/shared/activity/activityUtils';
@@ -19,6 +18,7 @@ import { pressable, pressRipple } from '@/shared/ui';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { DayActivitiesInput } from '@/app/sheets/day-activities';
+import { tapTo } from '@/shared/app/navigation';
 
 interface ActivityDotsChartProps {
   /** Wellness data for date alignment */
@@ -267,7 +267,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
     if (displayActivities.length === 1) {
       // Single activity - navigate directly
-      router.push(`/activity/${displayActivities[0].id}`);
+      tapTo(`/activity/${displayActivities[0].id}`);
       setPersisted(null);
       return;
     }
@@ -277,7 +277,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     });
     if (result.kind !== 'selected') return;
     setPersisted(null);
-    router.push(`/activity/${result.value}`);
+    tapTo(`/activity/${result.value}`);
   }, [displayActivities, openSheet]);
 
   // Below every hook, so the hook count stays fixed across renders.

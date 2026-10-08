@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 9).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 14).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
@@ -34,6 +34,21 @@ data class Metric(
 /** Normalised 0..1 route outline (y grows downward) of the latest GPS activity. */
 data class RoutePreview(val points: List<Pair<Float, Float>>, val aspect: Float)
 
+/** One attempt on the matched route, in date order; the latest is last and the fastest is the record. */
+data class AttemptDot(val current: Boolean, val record: Boolean)
+
+/**
+ * What the Last activity widget leads with, worded by the engine: `route` for the rank among the
+ * attempts and the gap to the record, `load` for the load against the typical one.
+ */
+data class Headline(
+  val kind: String,
+  val label: String,
+  val hero: String,
+  val detail: String?,
+  val dots: List<AttemptDot>,
+)
+
 data class Latest(
   val activityId: String?,
   val name: String,
@@ -44,6 +59,10 @@ data class Latest(
   val isPr: Boolean,
   val trainingLoad: Int?,
   val routePreview: RoutePreview?,
+  /** Null on a snapshot written before the field, or when the app handed the engine no words. */
+  val headline: Headline? = null,
+  val loadText: String? = null,
+  val sectionPrsText: String? = null,
 ) {
   /**
    * The line under the name: distance and time, then the date on its own line so a long
@@ -89,7 +108,15 @@ data class SummaryCard(
   val entries: List<SummaryEntry>,
   /** Which snapshot sparkline to draw: "fitnessForm" | "hrv" | "none". */
   val sparkline: String,
+  /** The hero's own daily series, oldest first; empty when it has none or the card hides it. */
+  val heroSparkline: List<Float> = emptyList(),
 )
+
+/**
+ * Form per day, oldest first, in the unit the athlete reads it in; a day with no value is null.
+ * zoneBounds are where the first four zones end, in the same unit as the values.
+ */
+data class FormHistory(val values: List<Float?>, val asPercent: Boolean, val zoneBounds: List<Int>)
 
 /** One recent sport: the id a deep link needs and the name a surface shows. */
 data class RecordShortcut(val type: String, val label: String, val url: String)
@@ -105,6 +132,7 @@ data class WidgetSnapshot(
   val latest: Latest?,
   val impact: Impact?,
   val summaryCard: SummaryCard?,
+  val formHistory: FormHistory?,
   val impactLine: String?,
   val metricLabels: Map<String, String>,
   val weekLabel: String,
@@ -137,6 +165,17 @@ data class WidgetSnapshot(
    * surfaces start its first entry; empty sends them to the picker instead.
    */
   val launcherShortcuts: List<RecordShortcut>,
+  /**
+   * The small label every widget draws when the numbers come from the sample
+   * library, in demo mode and while nobody is signed in. Null on a real library
+   * and on a snapshot written before the field.
+   */
+  val demoLabel: String? = null,
+  /**
+   * The Insights tab's ranked list, in its order and of every kind. Empty on a snapshot written
+   * before schema 11, with no account, or when the ranking could not run.
+   */
+  val insights: List<WidgetInsight> = emptyList(),
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
@@ -183,6 +222,7 @@ data class WidgetSnapshot(
         latest = parseLatest(root),
         impact = parseImpact(root),
         summaryCard = parseSummaryCard(root),
+        formHistory = parseFormHistory(root),
         impactLine = if (display.isNull("impactLine")) null else display.optString("impactLine"),
         metricLabels =
           mapOf(
@@ -203,7 +243,31 @@ data class WidgetSnapshot(
         hrvSparkline = floatArray(sparklines?.optJSONArray("hrv")),
         recordShortcuts = parseShortcuts(root, "recordShortcuts"),
         launcherShortcuts = parseShortcuts(root, "launcherShortcuts"),
+        demoLabel = display.optString("demoLabel", "").takeIf { it.isNotEmpty() },
+        insights = parseInsights(root),
       )
+    }
+
+    private fun parseInsights(root: JSONObject): List<WidgetInsight> {
+      val arr = root.optJSONArray("insights") ?: return emptyList()
+      val out = ArrayList<WidgetInsight>(arr.length())
+      for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        val title = o.optString("title", "")
+        val url = o.optString("url", "")
+        if (title.isEmpty() || url.isEmpty()) continue
+        out.add(
+          WidgetInsight(
+            id = o.optString("id", ""),
+            category = o.optString("category", ""),
+            title = title,
+            subtitle = o.optString("subtitle", ""),
+            icon = o.optString("icon", ""),
+            tone = o.optString("tone", "info"),
+            url = url,
+          ))
+      }
+      return out
     }
 
     private fun parseShortcuts(root: JSONObject, key: String): List<RecordShortcut> {
@@ -244,6 +308,30 @@ data class WidgetSnapshot(
         isPr = l.optBoolean("isPr", false),
         trainingLoad = if (l.isNull("trainingLoad")) null else l.optInt("trainingLoad"),
         routePreview = parseRoutePreview(l),
+        headline = parseHeadline(l),
+        loadText = l.optString("loadText", "").takeIf { it.isNotEmpty() },
+        sectionPrsText = l.optString("sectionPrsText", "").takeIf { it.isNotEmpty() },
+      )
+    }
+
+    private fun parseHeadline(latest: JSONObject): Headline? {
+      val h = latest.optJSONObject("headline") ?: return null
+      val hero = h.optString("hero", "")
+      if (hero.isEmpty()) return null
+      val dotsArr = h.optJSONArray("dots")
+      val dots = ArrayList<AttemptDot>()
+      if (dotsArr != null) {
+        for (i in 0 until dotsArr.length()) {
+          val d = dotsArr.optJSONObject(i) ?: continue
+          dots.add(AttemptDot(current = d.optBoolean("current", false), record = d.optBoolean("record", false)))
+        }
+      }
+      return Headline(
+        kind = h.optString("kind", ""),
+        label = h.optString("label", ""),
+        hero = hero,
+        detail = h.optString("detail", "").takeIf { it.isNotEmpty() },
+        dots = dots,
       )
     }
 
@@ -294,6 +382,22 @@ data class WidgetSnapshot(
         hero = hero,
         entries = entries,
         sparkline = s.optString("sparkline", "none"),
+        heroSparkline = floatArray(s.optJSONArray("heroSparkline")),
+      )
+    }
+
+    private fun parseFormHistory(root: JSONObject): FormHistory? {
+      val h = root.optJSONObject("formHistory") ?: return null
+      val values = h.optJSONArray("values") ?: return null
+      val bounds = h.optJSONArray("zoneBounds") ?: return null
+      if (bounds.length() != 4) return null
+      return FormHistory(
+        values =
+          List(values.length()) { i ->
+            if (values.isNull(i)) null else values.optDouble(i, Double.NaN).takeIf { !it.isNaN() }?.toFloat()
+          },
+        asPercent = h.optBoolean("asPercent", false),
+        zoneBounds = List(4) { i -> bounds.optInt(i) },
       )
     }
 

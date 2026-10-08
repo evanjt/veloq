@@ -16,7 +16,7 @@ import { StyleSheet } from 'react-native';
 import { RangeCoverage } from 'veloqrs';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
-import { changeLanguage, initializeI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
@@ -46,7 +46,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 beforeAll(async () => {
-  await initializeI18n();
+  await initialiseI18n();
 });
 
 beforeEach(() => {
@@ -255,7 +255,7 @@ describe('ActivityHeatmap year in view', () => {
 
 describe('ActivityHeatmap in the app language', () => {
   beforeAll(async () => {
-    await initializeI18n();
+    await initialiseI18n();
     await changeLanguage('de-DE');
   });
   afterAll(async () => {

@@ -12,7 +12,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import {
   CutoverStatus,
   CUTOVER_CANCEL_TEST_ID,
@@ -52,7 +52,7 @@ const settled = (phase: CutoverSummary['phase'], sawRun = false): CutoverSummary
 
 describe('stopping the cutover from its status line', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

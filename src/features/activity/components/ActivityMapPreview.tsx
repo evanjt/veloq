@@ -13,7 +13,7 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
   resolveTerrain3D,
-  isTerrainCacheInitialized,
+  isTerrainCacheInitialised,
   isTerrainPreviewDowngraded,
   onTerrainCacheReady,
   subscribeSnapshot,
@@ -64,7 +64,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   const activityColor = getActivityColor(activity.type);
   const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
 
-  const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialized());
+  const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialised());
   useEffect(() => {
     if (cacheReady) return undefined;
     return onTerrainCacheReady(() => setCacheReady(true));

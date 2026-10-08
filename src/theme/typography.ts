@@ -8,7 +8,7 @@ const fontFamily = Platform.select({
   default: 'System',
 });
 
-// SF Pro Display for large headlines (optimized for 20pt+)
+// SF Pro Display for large headlines (optimised for 20pt+)
 const displayFamily = Platform.select({
   ios: '-apple-system',
   android: 'Roboto',

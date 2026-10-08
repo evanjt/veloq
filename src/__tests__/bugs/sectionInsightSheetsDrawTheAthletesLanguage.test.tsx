@@ -12,7 +12,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
-import { changeLanguage, initializeI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { SectionPRContent } from '@/features/insights/components/content/SectionPRContent';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
@@ -106,7 +106,7 @@ function sheets(): string[] {
 
 describe('the section insight sheets', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   afterAll(async () => {

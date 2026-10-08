@@ -43,6 +43,55 @@ export const LAYER_KEYS = [
 
 export type LayerKey = (typeof LAYER_KEYS)[number];
 
+// The line collections the page draws over the base style, each a source with
+// a casing layer under a line layer. One table feeds the update script and the
+// style swap, so a collection listed here is carried across a swap. Defines
+// `veloqLine(key)` for an entry and `veloqLineOverlay(line, data)`, which gives
+// the `{ source, layers }` that draw `data` with it.
+//
+// The matched route runs under the activity track, as on the flat map, with the
+// same widths so it reads when the two lines nearly coincide. Sections are the
+// consensus polylines RegionalMapView draws (ActivityMapView passes none), thin
+// and dashed so long sections do not dominate; their colour is per feature.
+// Traces are the activity portions cut along its own GPS trace, PR in gold and
+// the rest from the section palette, dashed so overlapping sections let the
+// colour underneath bleed through. The selected activity or lap draws over them.
+function lineOverlayTableScript(): string {
+  const sectionColorsJson = JSON.stringify(sectionPaletteExpression());
+  return `
+    var VELOQ_LINES = [
+      { key: 'routes', sourceId: 'routes-source', layerId: 'routes-layer',
+        color: ${jsLiteral(mapLayerColors.routeOverlay)}, width: 9, opacity: 0.95, casing: 12, below: 'route-outline' },
+      { key: 'sections', sourceId: 'sections-source', layerId: 'sections-layer',
+        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)}, ['get', 'color']],
+        width: 2.4, opacity: 0.95, dash: [2, 1.2] },
+      { key: 'traces', sourceId: 'traces-source', layerId: 'traces-layer',
+        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)}, ${sectionColorsJson}],
+        width: 4, opacity: 1, dash: [2, 1.2] },
+      { key: 'highlightedTrace', sourceId: 'highlighted-trace-source', layerId: 'highlighted-trace-layer',
+        color: ${jsLiteral(colors.chartCyan)}, width: 4, opacity: 1 },
+    ];
+    function veloqLine(key) {
+      return VELOQ_LINES.filter(function(line) { return line.key === key; })[0];
+    }
+    function veloqLineOverlay(line, data) {
+      var main = { 'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity };
+      if (line.dash) main['line-dasharray'] = line.dash;
+      return {
+        source: { type: 'geojson', data: data },
+        layers: [
+          { id: line.layerId + '-outline', type: 'line', source: line.sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': line.casing || line.width + 2, 'line-opacity': line.opacity * 0.6 } },
+          { id: line.layerId, type: 'line', source: line.sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: main },
+        ],
+      };
+    }
+  `;
+}
+
 // Builds the injected JS that adds or updates the 3D map's GeoJSON layers
 // without reloading the WebView. Retries while the style finishes loading.
 //
@@ -73,6 +122,18 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
         (function() {
           var retryCount = 0;
           var maxRetries = 5;
+
+          ${lineOverlayTableScript()}
+
+          // The line collections as last sent, kept on the page so a style swap
+          // can build them into the style it applies. Recorded before the style
+          // is ready, so a swap that lands while this waits still carries them.
+          window._veloq3d = window._veloq3d || {};
+          window._veloq3d.lines = window._veloq3d.lines || {};
+          [['routes', ${routesJSON}], ['sections', ${sectionsJSON}], ['traces', ${tracesJSON}],
+           ['highlightedTrace', ${highlightedTraceJSON}]].forEach(function(entry) {
+            if (entry[1] !== undefined) window._veloq3d.lines[entry[0]] = entry[1];
+          });
 
           function addOrUpdateLayers() {
             if (!window.map) return;
@@ -124,79 +185,43 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
               }
             }
 
-            // Helper to add layer with outline for visibility on all map styles
-            function addLayerWithOutline(sourceId, layerId, data, lineColor, lineWidth, lineOpacity, beforeId, casingWidth) {
+            // Add a line collection with its casing, or update it in place. A
+            // collection with no features hides its layers rather than removing them.
+            function addLine(line, data) {
               if (data === undefined) return;
-              const sourceExists = !!window.map.getSource(sourceId);
-              const hasData = data && data.features && data.features.length > 0;
-              const outlineId = layerId + '-outline';
+              var sourceExists = !!window.map.getSource(line.sourceId);
+              var hasData = data && data.features && data.features.length > 0;
+              var outlineId = line.layerId + '-outline';
 
               try {
                 if (sourceExists) {
                   if (hasData) {
-                    window.map.getSource(sourceId).setData(data);
+                    window.map.getSource(line.sourceId).setData(data);
                     window.map.setLayoutProperty(outlineId, 'visibility', 'visible');
-                    window.map.setLayoutProperty(layerId, 'visibility', 'visible');
+                    window.map.setLayoutProperty(line.layerId, 'visibility', 'visible');
                   } else {
                     window.map.setLayoutProperty(outlineId, 'visibility', 'none');
-                    window.map.setLayoutProperty(layerId, 'visibility', 'none');
+                    window.map.setLayoutProperty(line.layerId, 'visibility', 'none');
                   }
                 } else if (hasData) {
-                  window.map.addSource(sourceId, { type: 'geojson', data: data });
-                  // Add outline first (renders behind). A beforeId slots the pair
-                  // under that layer, and only when the page has it.
-                  var below = beforeId && window.map.getLayer(beforeId) ? beforeId : undefined;
-                  window.map.addLayer({
-                    id: outlineId,
-                    type: 'line',
-                    source: sourceId,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': casingWidth || lineWidth + 2, 'line-opacity': lineOpacity * 0.6 },
-                  }, below);
-                  // Add main line on top
-                  window.map.addLayer({
-                    id: layerId,
-                    type: 'line',
-                    source: sourceId,
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': lineColor, 'line-width': lineWidth, 'line-opacity': lineOpacity },
-                  }, below);
+                  var spec = veloqLineOverlay(line, data);
+                  window.map.addSource(line.sourceId, spec.source);
+                  // A line with a layer to sit under goes there, and only when the page has it.
+                  var below = line.below && window.map.getLayer(line.below) ? line.below : undefined;
+                  spec.layers.forEach(function(layer) { window.map.addLayer(layer, below); });
                 }
               } catch (e) {
-                console.warn('Layer error:', sourceId, e);
+                console.warn('Layer error:', line.sourceId, e);
               }
             }
 
-            // The matched route runs under the activity track, as on the flat map,
-            // with the same widths so it reads when the two lines nearly coincide.
-            addLayerWithOutline('routes-source', 'routes-layer', routesData, ${jsLiteral(mapLayerColors.routeOverlay)}, 9, 0.95, 'route-outline', 12);
+            addLine(veloqLine('routes'), routesData);
 
-            // Update sections layer - section consensus polylines (used by RegionalMapView
-            // where there is no activity trace to overlay onto). ActivityMapView does not
-            // pass sectionsGeoJSON, so this layer is hidden there.
-            // Match 2D: per-feature color from the section palette (color property),
-            // thin dashed line so long sections do not dominate the 3D view.
-            addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
-              ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)}, ['get', 'color']], 2.4, 0.95);
-            try {
-              if (window.map.getLayer('sections-layer')) {
-                window.map.setPaintProperty('sections-layer', 'line-dasharray', [2, 1.2]);
-              }
-            } catch (e) { /* noop */ }
+            addLine(veloqLine('sections'), sectionsData);
 
-            // Update traces layer - activity portion cutouts along the activity's own GPS trace.
-            // PR = gold; non-PR = section palette indexed by colorIndex (matches 2D).
-            var baseTracesColor = ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)},
-              ${sectionColorsJson}];
-            addLayerWithOutline('traces-source', 'traces-layer', tracesData,
-              baseTracesColor, 4, 1);
-            // Dashed pattern - overlapping sections let the colour underneath bleed through.
-            try {
-              if (window.map.getLayer('traces-layer')) {
-                window.map.setPaintProperty('traces-layer', 'line-dasharray', [2, 1.2]);
-              }
-            } catch (e) { /* noop */ }
-            // Apply highlight state by re-setting paint props (addLayerWithOutline only
+            var baseTracesColor = veloqLine('traces').color;
+            addLine(veloqLine('traces'), tracesData);
+            // Apply highlight state by re-setting paint props (addLine only
             // calls setData on subsequent calls, so paint updates go through here).
             try {
               if (highlightedSectionId !== undefined && window.map.getLayer('traces-layer')) {
@@ -218,10 +243,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
               }
             } catch (e) { console.warn('traces-layer paint update failed:', e); }
 
-            // The activity or lap the athlete selected, drawn over the section
-            // traces in the colour 2D uses for the same selection.
-            addLayerWithOutline('highlighted-trace-source', 'highlighted-trace-layer', highlightedTraceData,
-              ${jsLiteral(colors.chartCyan)}, 4, 1);
+            addLine(veloqLine('highlightedTrace'), highlightedTraceData);
 
             // Section boundary ticks - perpendicular marks at each portion's start/end.
             // Drawn above traces so boundaries are visible through any overlap.
@@ -516,13 +538,14 @@ export function buildSetRouteGradientScript(expression: object | null): string {
 }
 
 // The sources and layers the page mounts once and always keeps: the route and
-// its start/end markers, empty and hidden when there is no route, and the
-// scrub marker. A setStyle drops every source the new style does not name, so
+// its start/end markers, empty and hidden when there is no route, the scrub
+// marker, and the matched-route, section and trace lines the page last drew. A setStyle drops every source the new style does not name, so
 // the style swap splices these into the style it builds. The returned script
 // defines `veloqOverlays(coords, routeColor)`, which gives
 // `{ sources, layers }` for the caller to merge into a style object.
 export function buildStyleOverlayScript(): string {
   return `
+    ${lineOverlayTableScript()}
     function veloqOverlays(coords, routeColor) {
       var on = coords.length > 0;
       var vis = { visibility: on ? 'visible' : 'none' };
@@ -530,8 +553,23 @@ export function buildStyleOverlayScript(): string {
         { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: coords[0] } },
         { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: coords[coords.length - 1] } },
       ] : [];
+      // The line collections the page last drew, carried into the new style.
+      // The matched route goes under the activity's route layers and the rest
+      // over the scrub marker, where the update script would have added them.
+      var sent = (window._veloq3d && window._veloq3d.lines) || {};
+      var lineSources = {};
+      var below = [];
+      var above = [];
+      VELOQ_LINES.forEach(function(line) {
+        var data = sent[line.key];
+        if (!data || !data.features || data.features.length === 0) return;
+        var overlay = veloqLineOverlay(line, data);
+        lineSources[line.sourceId] = overlay.source;
+        var group = line.below ? below : above;
+        overlay.layers.forEach(function(layer) { group.push(layer); });
+      });
       return {
-        sources: {
+        sources: Object.assign({
           'route': {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: on ? [
@@ -542,8 +580,8 @@ export function buildStyleOverlayScript(): string {
           },
           'start-end-markers': { type: 'geojson', data: { type: 'FeatureCollection', features: points } },
           'highlight-point': { type: 'geojson', data: { type: 'Point', coordinates: [0, 0] } },
-        },
-        layers: [
+        }, lineSources),
+        layers: below.concat([
           { id: 'route-outline', type: 'line', source: 'route',
             layout: { 'line-join': 'round', 'line-cap': 'round', visibility: vis.visibility },
             paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 } },
@@ -564,7 +602,7 @@ export function buildStyleOverlayScript(): string {
           { id: 'highlight-fill', type: 'circle', source: 'highlight-point',
             layout: { visibility: 'none' },
             paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(sectionPalette[0])} } },
-        ],
+        ]).concat(above),
       };
     }
   `;

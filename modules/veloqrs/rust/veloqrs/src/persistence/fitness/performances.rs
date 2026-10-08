@@ -1256,6 +1256,20 @@ pub(crate) fn portion_coverage(
     Some((last - first).abs().clamp(0.0, 1.0))
 }
 
+/// Whether an attempt is ranked against the current activity: timed, over
+/// ground, inside the route's distance band, not a partial overlap, and in the
+/// current activity's direction when it has one.
+pub(crate) fn is_comparable_attempt(
+    attempt: &RoutePerformance,
+    current_direction: Option<&str>,
+) -> bool {
+    attempt.direction != "partial"
+        && (current_direction.is_none() || Some(attempt.direction.as_str()) == current_direction)
+        && attempt.moving_time > 0
+        && attempt.distance > 0.0
+        && !attempt.outside_distance_band
+}
+
 /// The route performance result, from a group's membership and its members'
 /// metrics, whichever side loaded them.
 ///
@@ -1433,13 +1447,7 @@ where
     });
     let comparable: Vec<RoutePerformance> = performances
         .iter()
-        .filter(|p| {
-            p.direction != "partial"
-                && (current_direction.is_none() || Some(p.direction.as_str()) == current_direction)
-                && p.moving_time > 0
-                && p.distance > 0.0
-                && !p.outside_distance_band
-        })
+        .filter(|p| is_comparable_attempt(p, current_direction))
         .cloned()
         .collect();
 

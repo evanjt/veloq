@@ -404,7 +404,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   );
 
   // A native gesture must be per-instance: it carries a handler tag the native
-  // side mutates on initialize, so a shared one collides across mounts.
+  // side mutates on initialise, so a shared one collides across mounts.
   const nativeGesture = useMemo(() => Gesture.Native(), []);
   const wantsTap = resolveTapIndex !== undefined || onTap !== undefined;
 

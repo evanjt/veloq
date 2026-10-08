@@ -31,15 +31,18 @@ internal object WidgetSnapshotFile {
   /**
    * Ask every widget provider this app declares to redraw. Found by package
    * rather than by class, because the provider's class name follows the
-   * variant's application id.
+   * variant's application id. Returns how many widgets were asked, so a caller can tell that none
+   * is placed.
    */
-  fun redraw(context: Context) {
+  fun redraw(context: Context): Int {
     val app = context.applicationContext
     val manager = AppWidgetManager.getInstance(app)
+    var asked = 0
     for (info in manager.installedProviders) {
       if (info.provider.packageName != app.packageName) continue
       val ids = manager.getAppWidgetIds(info.provider)
       if (ids.isEmpty()) continue
+      asked += ids.size
       app.sendBroadcast(
         Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
           component = info.provider
@@ -47,5 +50,6 @@ internal object WidgetSnapshotFile {
         }
       )
     }
+    return asked
   }
 }

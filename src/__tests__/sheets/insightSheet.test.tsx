@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 
 import InsightSheet from '@/app/sheets/insight';
 import { InsightsPanel } from '@/features/insights/components/InsightsPanel';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import type { Insight } from '@/types';
 
 const mockPush = jest.fn();
@@ -24,7 +24,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app/navigation', () => ({
-  navigateTo: (target: unknown) => {
+  tapTo: (target: unknown) => {
     mockOrder.push('navigate');
     mockNavigate(target);
   },
@@ -68,7 +68,7 @@ const insight = (id: string, title: string): Insight =>
     navigationTarget: `/section/${id}`,
   }) as Insight;
 
-beforeAll(async () => initializeI18n('en-GB'));
+beforeAll(async () => initialiseI18n('en-GB'));
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();

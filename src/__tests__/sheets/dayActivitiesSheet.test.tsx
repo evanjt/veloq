@@ -10,7 +10,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import DayActivitiesSheet, { type DayActivitiesInput } from '@/app/sheets/day-activities';
 import { openSheet } from '@/shared/app/sheetRequest';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -39,7 +39,7 @@ function open() {
 }
 
 beforeAll(async () => {
-  await initializeI18n();
+  await initialiseI18n();
 });
 beforeEach(() => {
   mockPush.mockClear();

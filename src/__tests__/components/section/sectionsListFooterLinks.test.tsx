@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import { initializeI18n, i18n } from '@/i18n';
+import { initialiseI18n, i18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';
 import type { SectionWithPolyline } from 'veloqrs';
 
@@ -80,7 +80,7 @@ function renderList() {
 
 describe('SectionsList footer links', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(() => {

@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
-    // Platform-optimized shadow
+    // Platform-optimised shadow
     ...shadows.pill,
   },
   distanceIndicatorButton: {

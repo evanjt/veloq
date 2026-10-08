@@ -122,7 +122,7 @@ function cacheKey(
 
 /** In-memory index of cached compound keys, least recently served first. */
 let cachedKeys: string[] = [];
-let initialized = false;
+let initialised = false;
 /** Keys whose save has taken a slot under the cap but not yet indexed. */
 const slotsInFlight = new Set<string>();
 
@@ -143,7 +143,7 @@ export async function initTerrainPreviewCache(): Promise<void> {
     if (!dirInfo.exists) {
       await makeDir();
       cachedKeys = [];
-      initialized = true;
+      initialised = true;
       for (const cb of cacheReadyListeners) cb();
       return;
     }
@@ -171,11 +171,11 @@ export async function initTerrainPreviewCache(): Promise<void> {
       );
     }
     writeStoredOrder();
-    initialized = true;
+    initialised = true;
     for (const cb of cacheReadyListeners) cb();
   } catch {
     cachedKeys = [];
-    initialized = true;
+    initialised = true;
     for (const cb of cacheReadyListeners) cb();
   }
 }
@@ -260,8 +260,8 @@ export function onTerrainCacheReady(cb: CacheReadyListener): () => void {
   };
 }
 
-export function isTerrainCacheInitialized(): boolean {
-  return initialized;
+export function isTerrainCacheInitialised(): boolean {
+  return initialised;
 }
 
 /** Ensure directory exists */
@@ -527,7 +527,7 @@ export async function clearTerrainPreviews(): Promise<void> {
     // Best effort cleanup
   }
   cachedKeys = [];
-  initialized = false;
+  initialised = false;
   // A coalesced serve write still holding the old order would land after the
   // removal and put it back.
   flushOrderWrite();

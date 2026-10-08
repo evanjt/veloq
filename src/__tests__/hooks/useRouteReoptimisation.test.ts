@@ -7,7 +7,7 @@
 
 import { renderHook } from '@testing-library/react-native';
 
-import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
+import { useRouteReoptimisation } from '@/features/routes/hooks/useRouteReoptimisation';
 
 const mockMark = jest.fn();
 const mockProcessed = jest.fn();
@@ -20,18 +20,18 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
     select({ hasExpanded: true, markExpansionProcessed: mockProcessed }),
 }));
 
-describe('useRouteReoptimization', () => {
+describe('useRouteReoptimisation', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('marks the expansion processed when the engine took the request', () => {
     mockMark.mockReturnValue(true);
-    renderHook(() => useRouteReoptimization());
+    renderHook(() => useRouteReoptimisation());
     expect(mockProcessed).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the expansion unprocessed when the engine refused it', () => {
     mockMark.mockReturnValue(false);
-    renderHook(() => useRouteReoptimization());
+    renderHook(() => useRouteReoptimisation());
     expect(mockMark).toHaveBeenCalledTimes(1);
     expect(mockProcessed).not.toHaveBeenCalled();
   });

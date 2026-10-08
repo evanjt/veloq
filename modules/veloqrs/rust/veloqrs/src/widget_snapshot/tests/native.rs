@@ -14,6 +14,15 @@ fn context() -> WidgetContext {
             label: "Vélo".to_string(),
             url: "veloq://recording/Ride?from=quickstart".to_string(),
         }],
+        insights: vec![WidgetInsight {
+            id: "pr-1".to_string(),
+            category: "section_pr".to_string(),
+            title: "Nouveau record".to_string(),
+            subtitle: "Col du Pas".to_string(),
+            icon: "trophy".to_string(),
+            tone: "positive".to_string(),
+            url: "veloq://section/s1".to_string(),
+        }],
         ..WidgetContext::default()
     }
 }
@@ -73,6 +82,9 @@ fn a_pushed_ride_is_on_the_snapshot_composed_from_the_stored_context() {
     assert_eq!(snapshot["locale"], "fr");
     assert_eq!(snapshot["display"]["metricLabels"]["form"], "Forme");
     assert_eq!(snapshot["recordShortcuts"][0]["label"], "Vélo");
+    assert_eq!(snapshot["insights"][0]["title"], "Nouveau record");
+    assert_eq!(snapshot["insights"][0]["url"], "veloq://section/s1");
+    assert_eq!(snapshot["insights"].as_array().map(Vec::len), Some(1));
     assert_eq!(snapshot["schemaVersion"], SCHEMA_VERSION);
     crate::persistence::clear_persistent_engine();
 }
@@ -137,8 +149,8 @@ fn storing_the_same_context_twice_writes_once() {
 /// The natives read this version to decide what a snapshot carries, so a change
 /// here is a change to what they decode.
 #[test]
-fn the_schema_is_the_one_without_a_per_day_form_zone() {
-    assert_eq!(SCHEMA_VERSION, 9);
+fn the_schema_is_the_one_carrying_the_summary_metrics() {
+    assert_eq!(SCHEMA_VERSION, 14);
 }
 
 /// Scenario: the library is wiped for the next athlete, then a push for them

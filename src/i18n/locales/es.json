@@ -94,7 +94,6 @@
       "yourFitness": "Tu forma física (CTL)",
       "yourForm": "Tu forma"
     },
-    "tapToClose": "Toca en cualquier lugar para cerrar",
     "timeInHRZones": "Tiempo en zonas de FC",
     "timeInPowerZones": "Tiempo en zonas de potencia",
     "viewDetails": "Ver detalles",
@@ -386,7 +385,6 @@
     "confirm": "Confirmar",
     "creating": "Creando...",
     "delete": "Eliminar",
-    "done": "Hecho",
     "remove": "Eliminar",
     "rename": "Renombrar",
     "restore": "Restaurar",
@@ -1638,6 +1636,14 @@
     "sizeAtLeast": "Al menos {{size}}",
     "recording": "Grabación",
     "permissions": "Permisos",
+    "placeNames": {
+      "title": "Nombres de lugares",
+      "attribution": "Nombres de lugares © colaboradores de OpenStreetMap",
+      "noticeTitle": "¿Usar nombres de lugares?",
+      "noticeBody": "Cuando se encuentra una ruta o sección nueva, su punto de inicio y de fin se envían al servicio Nominatim de OpenStreetMap para buscar el nombre de un lugar. No se envía ninguna ruta ni sección existente, ni nada sobre ti. Se aplica la política de uso del servicio.",
+      "readPolicy": "Política de uso",
+      "accept": "Aceptar"
+    },
     "cacheAndDatabase": "Caché y base de datos",
     "heatmapGeneration": "Mapa de calor",
     "heatmapDescription": "Usa almacenamiento del dispositivo. Desactiva para ahorrar espacio.",
@@ -1878,6 +1884,7 @@
     "tracksDownloaded": "{{completed}} de {{total}} rutas descargadas"
   },
   "time": {
+    "asOfLastSync": "Datos de la última sincronización",
     "current": "Actual",
     "daysAgo_one": "Hace {{count}} día",
     "daysAgo_other": "Hace {{count}} días",
@@ -2280,7 +2287,7 @@
     "toSeeTraining": "para ver tu entrenamiento",
     "record": "Grabar",
     "recordDescription": "Empieza a grabar una actividad.",
-    "dashboardDescription": "Tu forma, tu forma física y tu última actividad de un vistazo.",
+    "summaryDescription": "Tu tarjeta de resumen de la app de un vistazo.",
     "latestActivity": "Última actividad",
     "latestActivityDescription": "Tu actividad más reciente con su ruta.",
     "metric": "Métrica",
@@ -2295,6 +2302,33 @@
     "startSportDescription": "Abre Veloq listo para grabar el deporte elegido.",
     "recordingControl": "Control de grabación",
     "action": "Acción",
+    "insights": "Perspectivas",
+    "insightsDescription": "Las tarjetas principales de la pestaña Perspectivas.",
+    "insightsEmpty": "Sin perspectivas nuevas",
+    "insightsMore": "+{{rest}} más",
+    "insightKinds": "Tipos",
+    "insightKindsDescription": "Elige qué tipos de perspectivas muestra el widget. Si no eliges ninguno, muestra todos.",
+    "insightKind": {
+      "sectionPr": "PR de secciones",
+      "sectionTrend": "Tendencias de secciones",
+      "route": "Récords de rutas",
+      "stalePr": "PR antiguos",
+      "fitnessMilestone": "Hitos de forma física",
+      "periodComparison": "Comparaciones de períodos",
+      "strengthProgression": "Progresión de fuerza",
+      "strengthBalance": "Equilibrio de fuerza",
+      "hrvTrend": "Tendencias de VFC",
+      "efficiencyTrend": "Tendencias de eficiencia",
+      "sectionChanged": "Secciones modificadas"
+    },
+    "latest": {
+      "rank": "{{rank}} de {{total}}",
+      "fastest": "Tu más rápido",
+      "offBest": "{{gap}} de tu mejor marca",
+      "load": "Carga",
+      "loadVsTypical": "{{percent}} respecto a tu carga habitual",
+      "sectionPrs": "PR de secciones {{number}}"
+    },
     "phrases": {
       "startRide": "Empezar una salida en {{app}}",
       "startRecording": "Empezar a grabar en {{app}}",

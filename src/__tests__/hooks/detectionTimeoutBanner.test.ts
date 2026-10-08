@@ -34,7 +34,6 @@ jest.mock('veloqrs', () =>
         total: 2,
         percent: 50,
       }),
-      setActivityMetrics: jest.fn(),
       setTimeStreams: jest.fn(),
       addActivities: jest.fn(),
       getStats: () => ({ sectionsDirty: true }),
@@ -69,8 +68,7 @@ jest.mock('@/features/routes/lib/tilePass', () => ({
   awaitTilePass: jest.fn(async () => undefined),
 }));
 
-const activity = (id: string) =>
-  ({ id, type: 'Ride', start_date_local: '2026-01-01T08:00:00' }) as never;
+const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 async function sync() {
   const written: SyncProgress[] = [];

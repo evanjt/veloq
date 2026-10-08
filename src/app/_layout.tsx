@@ -20,9 +20,10 @@ import { reportFeedOpened } from '@/shared/native/feedSeen';
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { handleAppBackground } from '@/shared/app/appBackground';
+import { refreshSampleWidgets } from '@/features/home';
 import { useInteractionPacing } from '@/shared/app/useInteractionPacing';
 import { isHeatmapEnabled, registerMapSurfaceReclaimer } from '@/features/maps';
-import { useEngineStatus, useRouteReoptimization } from '@/features/routes';
+import { useEngineStatus, useRouteReoptimisation } from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
@@ -64,6 +65,7 @@ import {
   GlobalErrorBoundary,
 } from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
+import { navigateTo } from '@/shared/app/navigation';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import {
@@ -71,9 +73,7 @@ import {
   LibraryRebuiltNotice,
   applyHeldImport,
   applyPlatformRecord,
-  restorePromptDue,
-  backupIsFound,
-  RestorePromptSheet,
+  offerRestorePrompt,
   onAppForeground,
   initWebdavConfig,
   MapPreferencesProvider,
@@ -83,7 +83,7 @@ import {
   reconcilePushRegistrationOnLaunch,
   WhatsNewModal,
   TourReturnPill,
-  initializeNotifications,
+  initialiseNotifications,
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
@@ -114,7 +114,7 @@ import {
 // Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights';
 import { debug } from '@/shared/debug/debug';
-import { initializeApp } from '@/shared/app/launch';
+import { initialiseApp } from '@/shared/app/launch';
 import { releaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
@@ -129,7 +129,7 @@ if (!__DEV__) {
 installGlobalCrashHandler();
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
-// These occur because Victory uses shared values during render (known library behavior)
+// These occur because Victory uses shared values during render (known library behaviour)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -144,8 +144,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const launchIdentityRef = useRef<'pending' | 'settled' | 'unopened'>('pending');
   const [identitySettledRun, setIdentitySettledRun] = useState(0);
   const athleteId = useAuthStore((s) => s.athleteId);
+  const authMethod = useAuthStore((s) => s.authMethod);
   const heldRideChecked = useRef<string | null>(null);
-  const initializeRange = useSyncDateRange((s) => s.initializeRange);
+  const initialiseRange = useSyncDateRange((s) => s.initialiseRange);
+
+  // The widgets draw the sample library while nobody is signed in, so a sign-out
+  // and demo entry write it, and a sign-in replaces it at the first sync after.
+  // Held until the credentials are read: before that the athlete may be signed in.
+  useEffect(() => {
+    if (isLoading) return;
+    refreshSampleWidgets();
+  }, [isLoading, authMethod]);
 
   useEffect(() => {
     setCrashScreen(routeParts.join('/') || 'root');
@@ -165,15 +174,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Trigger route re-detection when sync date range expands
-  useRouteReoptimization();
+  useRouteReoptimisation();
 
-  // Initialize Rust route engine with persistent storage when authenticated
+  // Initialise Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
   const setEngineInitFailureReason = useEngineStatus((s) => s.setInitFailureReason);
   const engineRetryNonce = useEngineStatus((s) => s.retryNonce);
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
-  const [restorePromptVisible, setRestorePromptVisible] = useState(false);
   useEffect(() => {
     const run = startEngineInitRun();
     launchIdentityRef.current = 'pending';
@@ -189,7 +197,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
           if (__DEV__) {
-            console.warn('[Engine] Cannot initialize - document directory not available.');
+            console.warn('[Engine] Cannot initialise - document directory not available.');
           }
           settleLaunchIdentity('unopened');
           return () => run.cancel();
@@ -236,7 +244,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           if (stats) rememberStoredActivityCount(stats.libraryCount).catch(() => {});
           if (__DEV__) {
             log.log(
-              `[Engine] Initialized with persistent storage: ${stats?.activityCount ?? 0} cached activities`
+              `[Engine] Initialised with persistent storage: ${stats?.activityCount ?? 0} cached activities`
             );
           }
           // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
@@ -251,9 +259,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // whose data is on disk once the engine is down.
             rememberCachedAthleteId(cachedAthleteId).catch(() => {});
           }
-          // AuthStore.initialize() usually runs before the engine exists, so
+          // AuthStore.initialise() usually runs before the engine exists, so
           // its credential push was a no-op. Repeat it now the engine is up.
           pushCredentialsToEngine();
+          // A launch that finds nobody signed in writes the sample the engine
+          // could not compose while it was closed.
+          refreshSampleWidgets();
           // The engine uploads and sweeps the recording queue itself; it is
           // started behind the credential so its first sweep can read back.
           void startUploadQueue();
@@ -270,17 +281,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             const launchCount = stats?.activityCount ?? 0;
             applyHeldImport(i18n.t)
               .then(() => applyPlatformRecord(launchCount, i18n.t))
-              .then(async () => {
-                if (launchCount > 0 || !run.live) return;
-                const found = await backupIsFound();
-                if (run.live && restorePromptDue(launchCount, found)) setRestorePromptVisible(true);
-              })
+              .then(() =>
+                offerRestorePrompt(
+                  launchCount,
+                  () => run.live,
+                  () => navigateTo('/sheets/restore-prompt')
+                )
+              )
               .catch(() => {});
           }
-          // Initialize SyncDateRangeStore from engine's actual cached data
-          if (seedSyncRange(stats, initializeRange) && __DEV__) {
+          // Initialise SyncDateRangeStore from engine's actual cached data
+          if (seedSyncRange(stats, initialiseRange) && __DEV__) {
             log.log(
-              `[SyncDateRange] Initialized from engine window: ${stats?.activityWindowOldest}`
+              `[SyncDateRange] Initialised from engine window: ${stats?.activityWindowOldest}`
             );
           }
         };
@@ -376,7 +389,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return () => run.cancel();
   }, [
     isAuthenticated,
-    initializeRange,
+    initialiseRange,
     setEngineInitFailed,
     setEngineInitFailureReason,
     engineRetryNonce,
@@ -516,10 +529,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <View style={{ flex: 1 }} {...interactionTouch}>
       {children}
-      <RestorePromptSheet
-        visible={restorePromptVisible}
-        onClose={() => setRestorePromptVisible(false)}
-      />
     </View>
   );
 }
@@ -543,9 +552,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     let mounted = true;
-    const initialize = async () => {
+    const initialise = async () => {
       try {
-        const areas = await initializeApp().catch((error: unknown): StartupArea[] => {
+        const areas = await initialiseApp().catch((error: unknown): StartupArea[] => {
           console.warn('[AppInit] launch rejected:', error);
           return ['other'];
         });
@@ -555,7 +564,7 @@ export default function RootLayout() {
         if (mounted) setAppReady(true);
       }
     };
-    void initialize();
+    void initialise();
     return () => {
       mounted = false;
     };
@@ -568,7 +577,7 @@ export default function RootLayout() {
 
   // Set up notification handlers once on mount
   useEffect(() => {
-    initializeNotifications();
+    initialiseNotifications();
     registerBackgroundNotificationTask();
     const receivedSub = setupNotificationReceivedHandler();
     const responseSub = setupNotificationResponseHandler();
@@ -598,7 +607,7 @@ export default function RootLayout() {
     reconcilePushRegistrationOnLaunch();
   }, [appReady]);
 
-  // Show minimal loading while initializing
+  // Show minimal loading while initialising
   if (!appReady) return null;
 
   return (

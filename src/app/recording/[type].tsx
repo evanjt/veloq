@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import {
   screenRecordingMode,
@@ -156,8 +156,8 @@ function RecordingContent() {
 
   // Stable handles and styles let memoised children hold when store updates
   // do not change the values they draw.
-  const openReview = useCallback(() => navigateTo('/recording/review'), []);
-  const openSensorPairing = useCallback(() => navigateTo('/sensor-settings'), []);
+  const openReview = useCallback(() => tapTo('/recording/review'), []);
+  const openSensorPairing = useCallback(() => tapTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
   const bottomPadding = insets.bottom + TAB_BAR_SAFE_PADDING;
   const unlockTrackStyle = useMemo(

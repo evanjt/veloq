@@ -84,14 +84,14 @@ describe('AuthStore', () => {
     expect(holdRecordingOnSignOut).toHaveBeenCalledWith('i1');
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('restores the rejected-key notice after relaunch without signing in', async () => {
       mockGetItemAsync.mockImplementation(async (key) => {
         if (key === API_KEY_STORAGE_KEY) return 'rejected-key';
         if (key === API_KEY_ATHLETE_STORAGE_KEY) return 'i12345';
         return null;
       });
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
       expect(useAuthStore.getState().sessionExpired).toBe('key_rejected');
     });
@@ -102,7 +102,7 @@ describe('AuthStore', () => {
         if (key === ATHLETE_ID_STORAGE_KEY) throw new Error('keychain locked');
         return null;
       });
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
       expect(useAuthStore.getState().sessionExpired).toBeNull();
     });
@@ -114,7 +114,7 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       const state = useAuthStore.getState();
       expect(state.apiKey).toBe('test-api-key');
@@ -133,7 +133,7 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       const state = useAuthStore.getState();
       expect(state.accessToken).toBe('oauth-token-xyz');
@@ -152,7 +152,7 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       const state = useAuthStore.getState();
       expect(state.authMethod).toBe('oauth');
@@ -162,7 +162,7 @@ describe('AuthStore', () => {
     it('sets unauthenticated state when no credentials found', async () => {
       mockGetItemAsync.mockResolvedValue(null);
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       const state = useAuthStore.getState();
       expect(state.isAuthenticated).toBe(false);
@@ -177,9 +177,9 @@ describe('AuthStore', () => {
    * so the store has no reason to wipe the database, and every signed-out
    * launch takes this path.
    *
-   * Expected behaviour: initialize never calls clear() on the engine.
+   * Expected behaviour: initialise never calls clear() on the engine.
    */
-  describe('initialize() and the database', () => {
+  describe('initialise() and the database', () => {
     const clear = jest.fn();
     const setSyncCredentials = jest.fn();
     const clearSyncCredentials = jest.fn();
@@ -199,7 +199,7 @@ describe('AuthStore', () => {
     it('keeps the database when no credentials are stored', async () => {
       mockGetItemAsync.mockResolvedValue(null);
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       expect(clear).not.toHaveBeenCalled();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
@@ -208,7 +208,7 @@ describe('AuthStore', () => {
     it('keeps the database when the stored credentials are whitespace only', async () => {
       mockGetItemAsync.mockResolvedValue('   ');
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       expect(clear).not.toHaveBeenCalled();
     });
@@ -219,7 +219,7 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       expect(clear).not.toHaveBeenCalled();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
@@ -228,8 +228,8 @@ describe('AuthStore', () => {
     it('keeps the database across repeated credential-free launches', async () => {
       mockGetItemAsync.mockResolvedValue(null);
 
-      await useAuthStore.getState().initialize();
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
+      await useAuthStore.getState().initialise();
 
       expect(clear).not.toHaveBeenCalled();
     });
@@ -237,7 +237,7 @@ describe('AuthStore', () => {
     it('keeps the database when SecureStore throws', async () => {
       mockGetItemAsync.mockRejectedValue(new Error('keychain unavailable'));
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       expect(clear).not.toHaveBeenCalled();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
@@ -511,7 +511,7 @@ describe('AuthStore', () => {
       await waitFor(async () =>
         expect(await AsyncStorage.getItem('veloq-upload-permission')).toBeNull()
       );
-      await useUploadPermissionStore.getState().initialize();
+      await useUploadPermissionStore.getState().initialise();
       expect(useUploadPermissionStore.getState().hasWritePermission).toBeNull();
     });
     it('clears OAuth credentials and sets session expired', async () => {
@@ -570,7 +570,7 @@ describe('AuthStore', () => {
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY, expect.anything());
     });
 
-    // Both halves have to go or `initialize()` reads the pair back and signs
+    // Both halves have to go or `initialise()` reads the pair back and signs
     // the same rejected key straight in again on the next launch.
     it('leaves a relaunch unauthenticated', async () => {
       useAuthStore.setState({
@@ -589,7 +589,7 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
@@ -684,12 +684,12 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       /**
        * BUG: Empty strings ARE accepted as valid credentials
        *
-       * CORRECT behavior: Empty strings should NOT be valid credentials.
+       * CORRECT behaviour: Empty strings should NOT be valid credentials.
        * The store should treat empty strings as "no credential" and
        * NOT set isAuthenticated to true.
        *
@@ -709,12 +709,12 @@ describe('AuthStore', () => {
         return null;
       });
 
-      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialise();
 
       /**
        * BUG: Whitespace-only API key is accepted as valid
        *
-       * CORRECT behavior:
+       * CORRECT behaviour:
        * - Whitespace-only apiKey should be treated as null (invalid)
        * - athleteId with surrounding whitespace should be trimmed OR rejected
        *

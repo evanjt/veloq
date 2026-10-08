@@ -17,13 +17,13 @@ const MAX_OVERRIDES = 100;
 
 /** In-memory cache for sync lookups */
 const overrides = new Map<string, TerrainCamera>();
-let initialized = false;
+let initialised = false;
 
 /**
  * Load overrides from AsyncStorage on app start.
  */
 export async function initCameraOverrides(): Promise<void> {
-  if (initialized) return;
+  if (initialised) return;
   try {
     const raw = await getSetting(STORAGE_KEY);
     if (raw) {
@@ -38,7 +38,7 @@ export async function initCameraOverrides(): Promise<void> {
   } catch {
     // Best effort - start with empty overrides
   }
-  initialized = true;
+  initialised = true;
 }
 
 /**
@@ -81,11 +81,11 @@ export async function deleteCameraOverride(activityId: string): Promise<void> {
 }
 
 /**
- * Force reload overrides from AsyncStorage, bypassing the initialization guard.
+ * Force reload overrides from AsyncStorage, bypassing the initialisation guard.
  * Used after backup restore to pick up freshly-written values.
  */
 export async function reloadCameraOverrides(): Promise<void> {
-  initialized = false;
+  initialised = false;
   overrides.clear();
   await initCameraOverrides();
 }

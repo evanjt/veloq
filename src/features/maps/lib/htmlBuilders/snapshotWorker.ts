@@ -106,7 +106,7 @@ ${dropRetiredTileCachesScript()}
 
 ${terrainVisibilityScript()}
 
-    window._rn_log('Initializing MapLibre (worker ${workerId})...');
+    window._rn_log('Initialising MapLibre (worker ${workerId})...');
 
     // An empty style, so the boot fetches nothing. Every render calls setStyle
     // with the style it actually wants, and _currentBaseStyle is null above,

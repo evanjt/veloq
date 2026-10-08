@@ -78,12 +78,13 @@ describe('useStreamBackfill', () => {
     expect(result.current.total).toBe(10);
   });
 
-  it('carries the owed queue size at rest and none while a pass runs', () => {
+  it('carries the owed queue size with the count, and withholds both while running', () => {
     const { result } = renderHook(() => useStreamBackfill());
     expect(result.current.remainingBytes).toBe(5_145_000);
 
     announce('streamBackfillPhase', 'fetching');
 
+    expect(result.current.remaining).toBeNull();
     expect(result.current.remainingBytes).toBeNull();
   });
 

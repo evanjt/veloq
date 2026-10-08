@@ -8,13 +8,14 @@
  */
 
 import type {
+  ActivitySportMapping,
   FfiActivityBody,
   FfiActivityDetailData,
   FfiActivityIndicator,
-  FfiActivityMetrics,
   FfiActivityNewGround,
   FfiActivityNotification,
   FfiActivityRouteHighlight,
+  FfiActivityStreams,
   FfiActivityBodiesPage,
   FfiActivityBodiesQuery,
   FfiPreviewTrack,
@@ -65,28 +66,25 @@ export function provisionalActivityId(host: DelegateHost, recordingId: string): 
   );
 }
 
-/** Record the id intervals.icu gave a locally keyed ride. */
-export function recordActivityUpload(
-  host: DelegateHost,
-  activityId: string,
-  intervalsId: string
-): boolean {
-  if (!host.ready) return false;
-  validateId(activityId, 'activity ID');
-  return host.timed('recordActivityUpload', () =>
-    host.engine.activities().recordUpload(activityId, intervalsId)
-  );
-}
-
 export function getActivityIds(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getActivityIds', () => host.engine.activities().getIds());
 }
 
-/** The activities whose track the engine refused for good, so none is requested again. */
-export function getRefusedTrackIds(host: DelegateHost): string[] {
+/**
+ * The tracks a GPS pass still owes between two local days (`YYYY-MM-DD`,
+ * inclusive), newest first, in the shape the download takes. Tracks the engine
+ * holds, refused for good or gave up on are left out.
+ */
+export function getGpsFetchCandidates(
+  host: DelegateHost,
+  oldest: string,
+  newest: string
+): ActivitySportMapping[] {
   if (!host.ready) return [];
-  return host.timed('getRefusedTrackIds', () => host.engine.activities().getRefusedTrackIds());
+  return host.timed('getGpsFetchCandidates', () =>
+    host.engine.activities().getGpsFetchCandidates(oldest, newest)
+  );
 }
 
 /**
@@ -131,15 +129,6 @@ export function getPreviewTrack(
   if (!host.ready) return undefined;
   validateId(activityId, 'activity ID');
   return host.timed('getPreviewTrack', () => host.engine.activities().getPreviewTrack(activityId));
-}
-
-/** Store a batch of computed metrics. Held until the engine opens. */
-export function setActivityMetrics(host: DelegateHost, metrics: FfiActivityMetrics[]): void {
-  if (metrics.length === 0) return;
-  host.write('setActivityMetrics', () => {
-    host.engine.activities().setMetrics(metrics);
-    host.notify('activities');
-  });
 }
 
 export function setTimeStreams(
@@ -364,19 +353,20 @@ export function getActivityNames(host: DelegateHost, activityIds: string[]): Act
 }
 
 /**
- * A stored stream payload for an activity and series selection, or null when
- * it has not been fetched or has aged out of the bounded cache.
+ * An activity's chart series for a series selection, as float buffers, or null
+ * when it has not been fetched or has aged out of the bounded cache. The
+ * engine has parsed the stored body, so nothing here parses text.
  */
-export function getStreamBody(
+export function getActivityStreams(
   host: DelegateHost,
   activityId: string,
   types: string
-): string | null {
+): FfiActivityStreams | null {
   if (!host.ready) return null;
   return (
-    (host.timed('getStreamBody', () =>
-      host.engine.activities().getStreamBody(activityId, types)
-    ) as string | undefined) ?? null
+    host.timed('getActivityStreams', () =>
+      host.engine.activities().getActivityStreams(activityId, types)
+    ) ?? null
   );
 }
 

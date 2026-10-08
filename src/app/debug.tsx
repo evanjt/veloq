@@ -1,16 +1,13 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  RefreshControl,
-  Platform,
-  Share,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, Platform, Share } from 'react-native';
 import Constants from 'expo-constants';
-import { Button, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import {
+  Button,
+  ScreenScrollView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -402,7 +399,7 @@ function DebugScreenContent() {
       testID="debug-screen"
       style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}
     >
-      <ScrollView
+      <ScreenScrollView
         style={[styles.container, isDark && styles.containerDark]}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -441,7 +438,7 @@ function DebugScreenContent() {
               {`Could not read engine stats: ${engineErrorTag(statsRead.error) ?? String(statsRead.error)}`}
             </Text>
           ) : (
-            <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
+            <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>
           )}
         </CollapsibleSection>
 
@@ -477,7 +474,7 @@ function DebugScreenContent() {
               )}
             </>
           ) : (
-            <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
+            <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>
           )}
         </CollapsibleSection>
 
@@ -671,7 +668,7 @@ function DebugScreenContent() {
         />
 
         <View style={{ height: spacing.xl }} />
-      </ScrollView>
+      </ScreenScrollView>
     </View>
   );
 }

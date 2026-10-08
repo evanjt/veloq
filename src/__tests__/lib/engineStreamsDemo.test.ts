@@ -13,13 +13,14 @@ import {
 } from '@/features/activity/lib/engineStreams';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
+import { streamBuffers } from '../__shared__/streamBuffers';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
 
 const engine = {
-  getStreamBody: jest.fn(),
+  getActivityStreams: jest.fn(),
   syncActivityStreams: jest.fn(),
 };
 
@@ -40,7 +41,7 @@ describe('readStreams in demo mode', () => {
   });
 
   it('answers a store miss from the demo generator', () => {
-    engine.getStreamBody.mockReturnValue(null);
+    engine.getActivityStreams.mockReturnValue(null);
     setDemoMode(true);
 
     const streams = readStreams('demo-test-0', DETAIL_STREAM_TYPES);
@@ -51,7 +52,7 @@ describe('readStreams in demo mode', () => {
   });
 
   it('still reads a stored body before falling back', () => {
-    engine.getStreamBody.mockReturnValue(JSON.stringify({ time: [0, 5, 10] }));
+    engine.getActivityStreams.mockReturnValue(streamBuffers({ time: [0, 5, 10] }));
     setDemoMode(true);
 
     const streams = readStreams('demo-test-0', DETAIL_STREAM_TYPES);
@@ -60,7 +61,7 @@ describe('readStreams in demo mode', () => {
   });
 
   it('returns null on a miss outside demo mode', () => {
-    engine.getStreamBody.mockReturnValue(null);
+    engine.getActivityStreams.mockReturnValue(null);
     setDemoMode(false);
 
     expect(readStreams('some-live-id', DETAIL_STREAM_TYPES)).toBeNull();

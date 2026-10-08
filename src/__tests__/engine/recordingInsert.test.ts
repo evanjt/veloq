@@ -7,7 +7,7 @@ import type { DelegateHost } from '../../../modules/veloqrs/src/delegates/host';
 it('throws instead of reporting an existing recording when closed', () => {
   const host = { ready: false } as DelegateHost;
   expect(() => addRecording(host, { id: 'closed' } as RecordingEntry)).toThrow(
-    'Engine not initialized'
+    'Engine not initialised'
   );
 });
 

@@ -94,7 +94,6 @@
       "yourFitness": "Twoja kondycja (CTL)",
       "yourForm": "Twoja forma"
     },
-    "tapToClose": "Dotknij gdziekolwiek, aby zamknąć",
     "timeInHRZones": "Czas w strefach HR",
     "timeInPowerZones": "Czas w strefach mocy",
     "viewDetails": "Zobacz szczegóły",
@@ -397,7 +396,6 @@
     "confirm": "Potwierdź",
     "creating": "Tworzenie...",
     "delete": "Usuń",
-    "done": "Gotowe",
     "remove": "Usuń",
     "rename": "Zmień nazwę",
     "restore": "Przywróć",
@@ -1720,6 +1718,14 @@
     "sizeAtLeast": "Co najmniej {{size}}",
     "recording": "Nagrywanie",
     "permissions": "Uprawnienia",
+    "placeNames": {
+      "title": "Nazwy miejsc",
+      "attribution": "Nazwy miejsc © współtwórcy OpenStreetMap",
+      "noticeTitle": "Używać nazw miejsc?",
+      "noticeBody": "Gdy zostanie znaleziona nowa trasa lub nowy odcinek, jego punkt początkowy i końcowy są wysyłane do usługi Nominatim OpenStreetMap, aby wyszukać nazwę miejsca. Nie są wysyłane żadne istniejące trasy ani odcinki ani nic o Tobie. Obowiązuje polityka użytkowania usługi.",
+      "readPolicy": "Polityka użytkowania",
+      "accept": "Zaakceptuj"
+    },
     "cacheAndDatabase": "Pamięć podręczna i baza danych",
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce.",
@@ -1983,6 +1989,7 @@
     "tracksDownloaded": "Pobrano {{completed}} z {{total}} sladow"
   },
   "time": {
+    "asOfLastSync": "Dane z ostatniej synchronizacji",
     "current": "Bieżący",
     "daysAgo_few": "{{count}} dni temu",
     "daysAgo_many": "{{count}} dni temu",
@@ -2414,7 +2421,7 @@
     "toSeeTraining": "aby zobaczyć swój trening",
     "record": "Nagrywaj",
     "recordDescription": "Rozpocznij nagrywanie aktywności.",
-    "dashboardDescription": "Twoja forma, kondycja i ostatnia aktywność w skrócie.",
+    "summaryDescription": "Karta podsumowania z aplikacji w skrócie.",
     "latestActivity": "Ostatnia aktywność",
     "latestActivityDescription": "Twoja najnowsza aktywność z trasą.",
     "metric": "Wskaźnik",
@@ -2429,6 +2436,33 @@
     "startSportDescription": "Otwiera Veloq w gotowości do nagrywania wybranej dyscypliny.",
     "recordingControl": "Sterowanie nagrywaniem",
     "action": "Akcja",
+    "insights": "Analizy",
+    "insightsDescription": "Najwyższe karty z zakładki Analizy.",
+    "insightsEmpty": "Brak nowych analiz",
+    "insightsMore": "+{{rest}} więcej",
+    "insightKinds": "Rodzaje",
+    "insightKindsDescription": "Wybierz rodzaje analiz wyświetlanych w widżecie. Bez wyboru wyświetla wszystkie rodzaje.",
+    "insightKind": {
+      "sectionPr": "Rekordy odcinków",
+      "sectionTrend": "Trendy odcinków",
+      "route": "Rekordy tras",
+      "stalePr": "Stare rekordy",
+      "fitnessMilestone": "Kamienie milowe formy",
+      "periodComparison": "Porównania okresów",
+      "strengthProgression": "Postęp siły",
+      "strengthBalance": "Równowaga siły",
+      "hrvTrend": "Trendy HRV",
+      "efficiencyTrend": "Trendy efektywności",
+      "sectionChanged": "Zmienione odcinki"
+    },
+    "latest": {
+      "rank": "{{rank}} z {{total}}",
+      "fastest": "Twój najszybszy",
+      "offBest": "{{gap}} do najlepszego",
+      "load": "Obciążenie",
+      "loadVsTypical": "{{percent}} względem typowego obciążenia",
+      "sectionPrs": "Rekordy odcinków {{number}}"
+    },
     "phrases": {
       "startRide": "Rozpocznij jazdę w {{app}}",
       "startRecording": "Zacznij nagrywanie w {{app}}",

@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Last activity, narrow: the comparison the session raised, its gap, every attempt as a dot, the
+     section records and the date. A snapshot without the comparison shows the name and figures
+     instead. The padding is the gap token all round because a 2x2 placement is barely taller than
+     its lines. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/act_root"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="vertical"
-  android:padding="@dimen/widget_padding"
+  android:gravity="center_vertical"
+  android:padding="@dimen/widget_gap"
   android:background="@drawable/widget_background">
 
   <ImageView
@@ -12,13 +17,13 @@
     android:layout_width="match_parent"
     android:layout_height="0dp"
     android:layout_weight="1"
+    android:visibility="gone"
     android:scaleType="fitCenter"
     android:contentDescription="@null" />
 
   <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="4dp"
     android:orientation="horizontal"
     android:gravity="center_vertical">
 
@@ -26,7 +31,7 @@
       android:id="@+id/act_name"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_label"
       android:textStyle="bold"
@@ -38,8 +43,48 @@
       android:layout_height="6dp"
       android:layout_marginStart="4dp"
       android:src="@drawable/widget_pr_dot"
+      android:visibility="gone"
       android:contentDescription="@null" />
   </LinearLayout>
+
+  <TextView
+    android:id="@+id/act_label"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+
+  <TextView
+    android:id="@+id/act_hero"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="1"
+    android:textSize="@dimen/widget_text_metric"
+    android:textStyle="bold"
+    android:textColor="@color/widget_text_primary" />
+
+  <TextView
+    android:id="@+id/act_detail"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="2"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+
+  <ImageView
+    android:id="@+id/act_dots"
+    android:layout_width="match_parent"
+    android:layout_height="10dp"
+    android:layout_marginTop="2dp"
+    android:visibility="gone"
+    android:scaleType="fitStart"
+    android:contentDescription="@null" />
 
   <TextView
     android:id="@+id/act_sub"
@@ -51,11 +96,31 @@
     android:textColor="@color/widget_text_secondary" />
 
   <TextView
-    android:id="@+id/act_tss"
+    android:id="@+id/act_prs"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+
+  <TextView
+    android:id="@+id/act_date"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+
+  <TextView
+    android:id="@+id/act_demo"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:visibility="gone"
+    android:maxLines="1"
     android:textSize="@dimen/widget_text_caption"
-    android:textStyle="bold"
-    android:textColor="@color/widget_text_primary" />
+    android:textColor="@color/widget_text_secondary" />
 </LinearLayout>

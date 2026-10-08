@@ -8,9 +8,16 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useRouteRenaming } from '@/features/routes/hooks/useRouteRenaming';
+import * as haptics from '@/shared/ui/haptics';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
 
 const getAllRouteNames = jest.fn();
 const getGroupSummaries = jest.fn();
@@ -104,4 +111,35 @@ it('saves when there is no engine name map at all', () => {
   rename(hook, 'First');
 
   expect(setRouteName).toHaveBeenCalledWith('route-1', 'First');
+});
+
+describe('route rename haptics', () => {
+  it('fires one success when a new name is saved', () => {
+    getAllRouteNames.mockReturnValue({ 'route-1': 'Old' });
+    const hook = renderHook(() => useRouteRenaming('route-1', 'Old', t));
+    rename(hook, 'Hill Climb');
+    expect(haptics.success).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires nothing for a blank name', () => {
+    getAllRouteNames.mockReturnValue({ 'route-1': 'Old' });
+    const hook = renderHook(() => useRouteRenaming('route-1', 'Old', t));
+    rename(hook, '   ');
+    expect(haptics.success).not.toHaveBeenCalled();
+  });
+
+  it('fires nothing for an unchanged name', () => {
+    getAllRouteNames.mockReturnValue({ 'route-1': 'Route 3' });
+    const hook = renderHook(() => useRouteRenaming('route-1', 'Route 3', t));
+    act(() => (hook.result.current as ReturnType<typeof useRouteRenaming>).handleStartEditing());
+    act(() => (hook.result.current as ReturnType<typeof useRouteRenaming>).handleSaveName());
+    expect(haptics.success).not.toHaveBeenCalled();
+  });
+
+  it('fires nothing for a duplicate name', () => {
+    getAllRouteNames.mockReturnValue({ 'route-1': 'Old', 'route-2': 'River Loop' });
+    const hook = renderHook(() => useRouteRenaming('route-1', 'Old', t));
+    rename(hook, 'River Loop');
+    expect(haptics.success).not.toHaveBeenCalled();
+  });
 });

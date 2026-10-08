@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
@@ -34,6 +33,7 @@ import { formatWeightRounded } from '@/shared/format/weight';
 import { pressable, pressRipple } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { tapTo } from '@/shared/app/navigation';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -71,7 +71,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const handlePressOut = useCallback(() => setIsPressed(false), []);
 
   const handlePress = useCallback(() => {
-    router.push(`/activity/${activity.id}`);
+    tapTo(`/activity/${activity.id}`);
   }, [activity.id]);
 
   const handleLongPress = useCallback(() => {

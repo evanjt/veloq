@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
+import * as haptics from '@/shared/ui/haptics';
 
 /**
  * Leaves the recording screen while nothing is recording. The screen has no
@@ -13,6 +14,7 @@ import { Button } from '@/shared/ui';
 export function RecordingCloseButton(): React.JSX.Element {
   const { t } = useTranslation();
   const close = useCallback(() => {
+    haptics.light();
     if (router.canGoBack()) router.back();
     else router.replace('/');
   }, []);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, TextInput } from 'react-native';
 import type { TFunction } from 'i18next';
 import { getEngine } from '@/shared/native/engine';
+import * as haptics from '@/shared/ui/haptics';
 
 /**
  * `preComputedNames` lets a caller that already read the name map as part of a
@@ -38,7 +39,7 @@ export function useRouteRenaming(
   const renameRoute = useCallback((routeId: string, name: string) => {
     const engine = getEngine();
     if (!engine) {
-      throw new Error('Route engine not initialized');
+      throw new Error('Route engine not initialised');
     }
     engine.setRouteName(routeId, name);
     // Engine fires 'groups' event which triggers subscribers to refresh
@@ -85,6 +86,8 @@ export function useRouteRenaming(
       Alert.alert(t('routes.duplicateNameTitle'), t('routes.duplicateNameMessage'));
       return;
     }
+
+    haptics.success();
 
     // Update local state immediately for instant feedback
     setCustomName(trimmedName);

@@ -9,7 +9,7 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { ElevationBackfillStatus } from '@/features/settings/components/ElevationBackfillStatus';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
@@ -69,7 +69,7 @@ function statusText(): string {
 }
 
 it('reports a switched off download as stopped even when an earlier pass was fetching', async () => {
-  await initializeI18n('en-AU');
+  await initialiseI18n('en-AU');
   mockRouteMatching.enabled = false;
   mockUseElevationBackfill.mockReturnValue({ ...partialRun(0), phase: 'fetching' });
   try {
@@ -85,7 +85,7 @@ it('reports a switched off download as stopped even when an earlier pass was fet
 
 describe('ElevationBackfillStatus retry line', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {
@@ -130,7 +130,7 @@ describe('ElevationBackfillStatus retry line', () => {
  */
 describe('ElevationBackfillStatus explanation', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {
@@ -229,7 +229,7 @@ describe('ElevationBackfillStatus explanation', () => {
  */
 describe('ElevationBackfillStatus at rest', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {
@@ -279,7 +279,7 @@ describe('ElevationBackfillStatus at rest', () => {
  */
 describe('ElevationBackfillStatus pause', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

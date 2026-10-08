@@ -109,7 +109,7 @@ function migrateBooleanTerrain(obj: Record<string, unknown>): {
 }
 
 /**
- * Validate and normalize stored preferences, handling migration from legacy booleans.
+ * Validate and normalise stored preferences, handling migration from legacy booleans.
  */
 function parseStoredPreferences(value: unknown): MapPreferences | null {
   if (typeof value !== 'object' || value === null) return null;

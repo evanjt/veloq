@@ -27,6 +27,8 @@ describe('the Android Record widget is configured per instance', () => {
     const on = activities(true);
     const record = on.find((a) => a.$['android:name'] === '.widget.RecordWidgetConfigureActivity');
     expect(record).toBeDefined();
-    expect(activities(false)).toHaveLength(0);
+    expect(activities(false).map((a) => a.$['android:name'])).not.toContain(
+      '.widget.RecordWidgetConfigureActivity'
+    );
   });
 });

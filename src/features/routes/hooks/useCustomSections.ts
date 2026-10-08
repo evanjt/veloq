@@ -94,7 +94,7 @@ export function useSectionCommands(): SectionCommands {
     async (params: CreateSectionParams): Promise<Section> => {
       const engine = getEngine();
       if (!engine) {
-        throw new Error('Route engine not initialized');
+        throw new Error('Route engine not initialised');
       }
 
       // No name leaves the section unnamed, shown under the number the engine
@@ -151,7 +151,7 @@ export function useSectionCommands(): SectionCommands {
     async (sectionId: string): Promise<void> => {
       const engine = getEngine();
       if (!engine) {
-        throw new Error('Route engine not initialized');
+        throw new Error('Route engine not initialised');
       }
 
       const deleted = engine.deleteSection(sectionId);
@@ -175,7 +175,7 @@ export function useSectionCommands(): SectionCommands {
     async (sectionId: string, name: string): Promise<void> => {
       const engine = getEngine();
       if (!engine) {
-        throw new Error('Route engine not initialized');
+        throw new Error('Route engine not initialised');
       }
 
       const outcome = engine.setSectionName(sectionId, name);

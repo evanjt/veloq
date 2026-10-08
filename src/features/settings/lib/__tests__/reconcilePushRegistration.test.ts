@@ -19,7 +19,7 @@ jest.mock('../../stores/NotificationPreferencesStore', () => ({
   getNotificationPreferences: () => mockPrefs(),
   resolvePendingUnregisterAthleteId: () => mockPendingFor(),
   retryPendingUnregister: (id: string) => mockRetry(id),
-  initializeNotificationPreferences: jest.fn(),
+  initialiseNotificationPreferences: jest.fn(),
   isPrivacyNoticeOwed: jest.fn(),
 }));
 

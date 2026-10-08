@@ -94,7 +94,6 @@
       "yourFitness": "Din fitness (CTL)",
       "yourForm": "Din form"
     },
-    "tapToClose": "Tryk hvor som helst for at lukke",
     "timeInHRZones": "Tid i pulszoner",
     "timeInPowerZones": "Tid i effektzoner",
     "viewDetails": "Vis detaljer",
@@ -381,7 +380,6 @@
     "confirm": "Bekræft",
     "creating": "Opretter...",
     "delete": "Slet",
-    "done": "Færdig",
     "remove": "Fjern",
     "rename": "Omdøb",
     "restore": "Gendan",
@@ -1527,6 +1525,14 @@
     "terrain3DAlways": "Altid",
     "noData": "Ingen data",
     "permissions": "Tilladelser",
+    "placeNames": {
+      "title": "Stednavne",
+      "attribution": "Stednavne © OpenStreetMap-bidragydere",
+      "noticeTitle": "Brug stednavne?",
+      "noticeBody": "Når en ny rute eller strækning bliver fundet, sendes dens start- og slutpunkt til OpenStreetMaps Nominatim-tjeneste for at slå et stednavn op. Ingen eksisterende rute eller strækning sendes, og intet om dig. Tjenestens brugspolitik gælder.",
+      "readPolicy": "Brugspolitik",
+      "accept": "Accepter"
+    },
     "primarySport": "Primær sport",
     "primarySportHintCycling": "FTP vises i feed-headeren. Performance-siden viser Power Curve, power zones, eFTP trend og decoupling.",
     "primarySportHintRunning": "Threshold pace og LTHR vises i feed-headeren. Performance-siden viser Pace Curve, running power og HR zones.",
@@ -1827,6 +1833,7 @@
     "tracksDownloaded": "{{completed}} af {{total}} spor hentet"
   },
   "time": {
+    "asOfLastSync": "Data fra seneste synkronisering",
     "current": "Nuværende",
     "daysAgo_one": "{{count}} dag siden",
     "daysAgo_other": "{{count}} dage siden",
@@ -2216,7 +2223,7 @@
     "toSeeTraining": "for at se din træning",
     "record": "Optag",
     "recordDescription": "Start optagelsen af en aktivitet.",
-    "dashboardDescription": "Din formstatus, kondition og seneste aktivitet med ét blik.",
+    "summaryDescription": "Dit oversigtskort fra appen med ét blik.",
     "latestActivity": "Seneste aktivitet",
     "latestActivityDescription": "Din nyeste aktivitet med ruten.",
     "metric": "Måling",
@@ -2231,6 +2238,33 @@
     "startSportDescription": "Åbner Veloq klar til at optage den valgte sportsgren.",
     "recordingControl": "Optagestyring",
     "action": "Handling",
+    "insights": "Indsigt",
+    "insightsDescription": "De øverste kort fra fanen Indsigt.",
+    "insightsEmpty": "Ingen nye indsigter",
+    "insightsMore": "+{{rest}} flere",
+    "insightKinds": "Typer",
+    "insightKindsDescription": "Vælg hvilke typer indsigt widgetten viser. Vælges ingen, vises alle typer.",
+    "insightKind": {
+      "sectionPr": "Strækningsrekorder",
+      "sectionTrend": "Strækningstendenser",
+      "route": "Rute-rekorder",
+      "stalePr": "Gamle rekorder",
+      "fitnessMilestone": "Fitnessmilepæle",
+      "periodComparison": "Periodesammenligninger",
+      "strengthProgression": "Styrkeprogression",
+      "strengthBalance": "Styrkebalance",
+      "hrvTrend": "HRV-tendenser",
+      "efficiencyTrend": "Effektivitetstendenser",
+      "sectionChanged": "Ændrede strækninger"
+    },
+    "latest": {
+      "rank": "{{rank}} af {{total}}",
+      "fastest": "Din hurtigste",
+      "offBest": "{{gap}} fra din bedste",
+      "load": "Belastning",
+      "loadVsTypical": "{{percent}} ift. din typiske belastning",
+      "sectionPrs": "Strækningsrekorder {{number}}"
+    },
     "phrases": {
       "startRide": "Start en tur i {{app}}",
       "startRecording": "Start optagelse i {{app}}",

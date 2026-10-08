@@ -13,7 +13,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import type { EfficiencyTrend } from 'veloqrs';
 
-import { changeLanguage, i18n, initializeI18n } from '@/i18n';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import type { TFunc } from '@/features/insights/types';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
@@ -74,7 +74,7 @@ const EFFICIENCY = {
 
 describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (locale) => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

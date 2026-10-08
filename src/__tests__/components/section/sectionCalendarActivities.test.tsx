@@ -10,7 +10,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import {
   SectionStatsCards,
   type CalendarSummary,
@@ -60,7 +60,7 @@ function renderCards(calendar: CalendarSummary) {
 
 describe('the calendar year line', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('names the one activity three laps came from', () => {

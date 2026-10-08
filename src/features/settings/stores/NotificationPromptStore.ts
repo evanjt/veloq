@@ -9,7 +9,7 @@ interface NotificationPromptState {
   /** Briefly shows "You can enable in Settings" after dismissal */
   showingSettingsHint: boolean;
   isLoaded: boolean;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   dismiss: () => void;
   clearHint: () => void;
   reset: () => void;
@@ -20,7 +20,7 @@ export const useNotificationPrompt = create<NotificationPromptState>((set, get) 
   showingSettingsHint: false,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored === 'true') {
@@ -54,6 +54,6 @@ export const useNotificationPrompt = create<NotificationPromptState>((set, get) 
   },
 }));
 
-export async function initializeNotificationPrompt(): Promise<void> {
-  await useNotificationPrompt.getState().initialize();
+export async function initialiseNotificationPrompt(): Promise<void> {
+  await useNotificationPrompt.getState().initialise();
 }

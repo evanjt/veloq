@@ -135,10 +135,6 @@ const mockEngine = {
     const row = rows.get(id);
     if (row) row.engineActivityId = engineActivityId;
   },
-  markRecordingReconciled: (id: string) => {
-    const row = rows.get(id);
-    if (row) row.engineReconciled = true;
-  },
   engineInstall: () => INSTALL,
   transitionRecording: (id: string, transition: RecordingTransition, nowMs: number) => {
     const row = rows.get(id);

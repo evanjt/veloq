@@ -10,7 +10,7 @@
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
-  initializeRouteSettings,
+  initialiseRouteSettings,
 } from '@/features/routes/stores/RouteSettingsStore';
 
 import { getSetting } from '@/shared/storage';
@@ -90,7 +90,7 @@ describe('loading the saved detection switch', () => {
     jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled }));
     mockEngine.getSetting.mockReturnValue(stored);
 
-    await initializeRouteSettings();
+    await initialiseRouteSettings();
 
     expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, expected);
     expect(isRouteMatchingEnabled()).toBe(enabled);
@@ -101,8 +101,8 @@ describe('loading the saved detection switch', () => {
     jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled: false }));
     mockEngine.getSetting.mockReturnValue('0');
 
-    await initializeRouteSettings();
-    await initializeRouteSettings();
+    await initialiseRouteSettings();
+    await initialiseRouteSettings();
 
     expect(mockEngine.setSetting).not.toHaveBeenCalled();
   });
@@ -110,7 +110,7 @@ describe('loading the saved detection switch', () => {
   it.each([null, '{}', 'invalid json'])('seeds the default for %s', async (stored) => {
     jest.mocked(getSetting).mockResolvedValue(stored);
 
-    await initializeRouteSettings();
+    await initialiseRouteSettings();
 
     expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, '1');
   });
@@ -121,7 +121,7 @@ describe('loading the saved detection switch', () => {
       throw new Error('unavailable');
     });
 
-    await initializeRouteSettings();
+    await initialiseRouteSettings();
 
     expect(isRouteMatchingEnabled()).toBe(false);
     expect(useRouteSettings.getState().isLoaded).toBe(true);

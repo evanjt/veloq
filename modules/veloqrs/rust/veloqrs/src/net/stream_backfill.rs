@@ -14,6 +14,13 @@
 //! the activities in flight and nothing else, because the stored rows of the
 //! ones that landed take them out of the queue on their own.
 //!
+//! An activity with no track joins the same queue when the census says
+//! upstream holds a series for it: a strength session with heart rate, say.
+//! The sync downloads only tracks, so this pass, which a settled sync starts,
+//! is how such an activity's series reach the device. With no coordinates
+//! there is no mask and no track to match, so its series are stored in the
+//! server's own sample index with the `time` series that addresses it.
+//!
 //! The ask is the whole [`DEFAULT_STREAM_TYPES`] set, coordinates included,
 //! even though the coordinates are already on the device. `storable_series`
 //! reduces every series to the index space `latlng` defines, dropping the
@@ -48,7 +55,7 @@
 use crate::governor::Lane;
 use crate::net::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::{StreamDto, storable_series};
+use crate::net::types::{StreamDto, storable_series, trackless_series};
 use crate::objects::FfiStartOutcome;
 use crate::persistence::attempts::now_ms;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
@@ -391,6 +398,9 @@ enum Stopped {
 enum Fetched {
     /// Series reduced to the track's index space, ready to store.
     Series(Vec<StreamDto>),
+    /// Series of an activity with no track, in the server's own sample index
+    /// with the `time` series that addresses it, ready to store.
+    Samples(Vec<StreamDto>),
     /// Upstream answered and there is nothing to store: no sensors on the
     /// ride, a body that will not parse, or a track that has since moved.
     Nothing,
@@ -420,8 +430,9 @@ fn says_something_about_the_activity(e: &NetError) -> bool {
     !is_connectivity(e) && !matches!(e, NetError::Unauthorized)
 }
 
-/// One activity's series, reduced to the index space its stored track is in.
-async fn fetch_one(transport: &Transport, upstream: &str, points: usize) -> Fetched {
+/// One activity's series, reduced to the index space its stored track is in,
+/// or kept in the server's own when it has no track.
+async fn fetch_one(transport: &Transport, upstream: &str, points: Option<usize>) -> Fetched {
     let bytes = match transport
         .get_bytes(
             &format!("/activity/{}/streams.json", upstream),
@@ -437,14 +448,26 @@ async fn fetch_one(transport: &Transport, upstream: &str, points: usize) -> Fetc
 }
 
 /// What a response body comes to for an activity whose stored track holds
-/// `points` samples. The whole decision, with no transport in it.
-fn reduce(body: &[u8], points: usize, named: &str) -> Fetched {
+/// `points` samples, or that has no track when `points` is `None`. The whole
+/// decision, with no transport in it.
+fn reduce(body: &[u8], points: Option<usize>, named: &str) -> Fetched {
     let raw: Vec<StreamDto> = match serde_json::from_slice(body) {
         Ok(d) => d,
         Err(e) => {
             log::warn!("[Streams] {} did not parse: {}", named, e);
             return Fetched::Nothing;
         }
+    };
+    let Some(points) = points else {
+        // Coordinates in the answer mean upstream now holds a track this device
+        // has not stored, which is the track fetch's to take, so this reads as
+        // an answer with nothing to store.
+        let series = trackless_series(&raw);
+        return if series.is_empty() {
+            Fetched::Nothing
+        } else {
+            Fetched::Samples(series)
+        };
     };
     let series = storable_series(&raw);
     if series.is_empty() {
@@ -499,6 +522,10 @@ impl PersistentEngine {
         for (id, result) in results {
             match result {
                 Fetched::Series(series) => match self.store_activity_streams(id, series) {
+                    Ok(()) => stored += 1,
+                    Err(e) => log::warn!("[Streams] storing {} failed: {}", id, e),
+                },
+                Fetched::Samples(series) => match self.store_trackless_streams(id, series) {
                     Ok(()) => stored += 1,
                     Err(e) => log::warn!("[Streams] storing {} failed: {}", id, e),
                 },
@@ -815,7 +842,7 @@ mod tests {
         (0..n)
             .map(|i| StreamGap {
                 activity_id: format!("a{i}"),
-                point_count: 3,
+                point_count: Some(3),
             })
             .collect()
     }
@@ -1215,9 +1242,9 @@ mod tests {
     fn a_track_that_moved_upstream_stores_nothing() {
         let body = body(&[("latlng", &latlng(4)), ("watts", "[100,110,120,130]")]);
 
-        assert!(matches!(reduce(&body, 4, "a1"), Fetched::Series(_)));
+        assert!(matches!(reduce(&body, Some(4), "a1"), Fetched::Series(_)));
         assert!(
-            matches!(reduce(&body, 3, "a1"), Fetched::Nothing),
+            matches!(reduce(&body, Some(3), "a1"), Fetched::Nothing),
             "the stored track holds three samples, the answer covers four"
         );
     }
@@ -1230,7 +1257,49 @@ mod tests {
     fn a_response_without_coordinates_has_no_index_space_to_store_in() {
         let body = body(&[("watts", "[100,110,120]")]);
 
-        assert!(matches!(reduce(&body, 3, "a1"), Fetched::Nothing));
+        assert!(matches!(reduce(&body, Some(3), "a1"), Fetched::Nothing));
+    }
+
+    /// An activity with no track has no mask and no track length to match, so
+    /// its series are kept in the server's own sample index, with the `time`
+    /// series that addresses them.
+    #[test]
+    fn a_trackless_answer_keeps_its_series_in_the_servers_sample_index() {
+        let body = body(&[("time", "[0,1,2]"), ("heartrate", "[90,null,95]")]);
+
+        let Fetched::Samples(series) = reduce(&body, None, "a1") else {
+            panic!("a trackless answer with heart rate is something to store");
+        };
+        assert_eq!(
+            series.iter().map(|s| s.kind.as_str()).collect::<Vec<_>>(),
+            vec!["time", "heartrate"]
+        );
+        assert_eq!(series[1].data, vec![Some(90.0), None, Some(95.0)]);
+    }
+
+    /// A trackless answer holding only its clock, or nothing at all, is
+    /// upstream answering with nothing to store, so the ask is counted. So is
+    /// one that now carries coordinates: that track is the track fetch's.
+    #[test]
+    fn a_trackless_answer_with_nothing_beyond_its_clock_stores_nothing() {
+        for series in [
+            vec![("time", "[0,1,2]")],
+            vec![],
+            vec![("heartrate", "[90,91,92]")],
+        ] {
+            let body = body(&series);
+            assert!(
+                matches!(reduce(&body, None, "a1"), Fetched::Nothing),
+                "{series:?}"
+            );
+        }
+        let gained = latlng(3);
+        let body = body(&[
+            ("time", "[0,1,2]"),
+            ("latlng", &gained),
+            ("heartrate", "[90,91,92]"),
+        ]);
+        assert!(matches!(reduce(&body, None, "a1"), Fetched::Nothing));
     }
 
     /// A ride recorded with no sensors carries nothing beyond the track. It
@@ -1240,7 +1309,7 @@ mod tests {
     fn a_ride_with_no_sensors_reads_as_an_answer_not_a_failure() {
         let body = body(&[("latlng", &latlng(3))]);
 
-        assert!(matches!(reduce(&body, 3, "a1"), Fetched::Nothing));
+        assert!(matches!(reduce(&body, Some(3), "a1"), Fetched::Nothing));
     }
 
     /// An empty queue is finished, not stalled at zero per cent.
@@ -1414,6 +1483,90 @@ mod tests {
             assert_eq!((progress.completed, progress.total), (4, 4));
             assert_eq!((progress.stored, progress.failed), (2, 1));
             assert_eq!(progress.percent(), 100);
+        }
+
+        /// Scenario: a strength session recorded with heart rate and no
+        /// coordinates sits inside the window beside a ride with a track, and
+        /// the census says upstream holds a series for it.
+        ///
+        /// Expected behaviour: one pass asks about both and stores both, the
+        /// session's heart rate with the clock that indexes it, and the detail
+        /// selection is then answered from the device with no track and no
+        /// cached body.
+        #[test]
+        fn a_pass_stores_a_trackless_activitys_series_for_the_detail_screen() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1"]);
+            with_persistent_engine(|e| {
+                e.db.execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES ('i9', 'WeightTraining', 0, 0, 0, 0, strftime('%s', 'now') - 86400)",
+                    [],
+                )
+                .expect("trackless activity");
+                e.record_activity_census(
+                    "1",
+                    &[crate::net::types::ActivityCensusEntry {
+                        id: "i9".to_string(),
+                        start_date_local: Some("2026-09-01T08:00:00".to_string()),
+                        has_series: true,
+                        ..Default::default()
+                    }],
+                )
+                .expect("census");
+            })
+            .expect("engine");
+
+            let server = MockServer::start();
+            let ride = serves(
+                &server,
+                "i1",
+                &[("latlng", &latlng(POINTS)), ("watts", &watts())],
+            );
+            let gym = serves(
+                &server,
+                "i9",
+                &[("time", "[0,1,2,3]"), ("heartrate", "[90,95,100,104]")],
+            );
+
+            let run = run_stream_backfill(&transport(&server), "1");
+
+            assert_eq!(
+                run,
+                StreamBackfillRun::Finished(StreamBackfillOutcome {
+                    queued: 2,
+                    stored: 2,
+                    empty: 0,
+                    failed: 0,
+                })
+            );
+            ride.assert_hits(1);
+            gym.assert_hits(1);
+            assert!(queue().is_empty());
+
+            let detail = "altitude,cadence,distance,fixed_altitude,ga_velocity,grade_smooth,\
+                          heartrate,latlng,temp,time,velocity_smooth,w_bal,watts";
+            let raw = with_persistent_engine(|e| e.read_stream_body("i9", detail))
+                .expect("engine")
+                .expect("read")
+                .expect("the session's chart is on the device");
+            let items: Vec<StreamDto> = serde_json::from_str(&raw).expect("a stream array");
+            let of = |kind: &str| {
+                items
+                    .iter()
+                    .find(|s| s.kind == kind)
+                    .map(|s| s.data.clone())
+            };
+            assert_eq!(
+                of("heartrate"),
+                Some(vec![Some(90.0), Some(95.0), Some(100.0), Some(104.0)])
+            );
+            assert_eq!(
+                of("time"),
+                Some(vec![Some(0.0), Some(1.0), Some(2.0), Some(3.0)])
+            );
+            assert_eq!(of("latlng"), None);
         }
 
         fn recorded_run() -> crate::FfiJobRun {

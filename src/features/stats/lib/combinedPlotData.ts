@@ -1,7 +1,7 @@
 /**
  * Pure data-prep helpers for the combined activity chart.
  *
- * Extracts normalization, averages, and interval band math out of
+ * Extracts normalisation, averages, and interval band math out of
  * `CombinedPlot.tsx` so the component focuses on rendering. No React,
  * no Victory, no Skia - pure TypeScript so these can be unit tested in
  * isolation.
@@ -139,7 +139,7 @@ export interface IntervalBand {
   endX: number;
   bandColour: BandColourToken;
   bandOpacity: number;
-  /** Normalized Y (0..1) of the interval's average value, or null for non-WORK intervals. */
+  /** Normalised Y (0..1) of the interval's average value, or null for non-WORK intervals. */
   avgNormY: number | null;
   isWork: boolean;
 }
@@ -152,10 +152,10 @@ const EMPTY_RESULT: ChartDataResult = {
 };
 
 /**
- * Downsample + normalize stream data across all selected series.
+ * Downsample + normalise stream data across all selected series.
  *
  * For each selected chart, reads the raw stream via `config.getStream`,
- * computes its min/max, then emits normalized [0,1] values alongside an
+ * computes its min/max, then emits normalised [0,1] values alongside an
  * x-axis value (distance in km/mi or time in seconds).
  *
  * If `previewMetricId` is provided and not already in `selectedCharts`, it
@@ -197,13 +197,13 @@ export function buildChartData(
 
   if (series.length === 0) return EMPTY_RESULT;
 
-  // Downsample and normalize
+  // Downsample and normalise
   const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
   const step = Math.max(1, Math.floor(xSource.length / maxPoints));
   const points: Record<string, number>[] = [];
   const indices: number[] = [];
 
-  // Calculate min/max for each series for normalization
+  // Calculate min/max for each series for normalisation
   const seriesRanges = series.map((s) => {
     // A stream with no finite sample normalises against a flat range. Its points
     // are non-finite anyway, so the chart draws a gap rather than a floor line.
@@ -226,7 +226,7 @@ export function buildChartData(
 
     const point: Record<string, number> = { x: xValue };
 
-    // Add normalized value for each series (0-1 range)
+    // Add normalised value for each series (0-1 range)
     series.forEach((s, idx) => {
       const rawVal = s.rawData[i] ?? 0;
       if (isStoppedSample(s.config, rawVal)) {
@@ -234,8 +234,8 @@ export function buildChartData(
         return;
       }
       const { min, range } = seriesRanges[idx];
-      const normalized = (rawVal - min) / range;
-      point[s.id] = Math.max(0, Math.min(1, normalized));
+      const normalised = (rawVal - min) / range;
+      point[s.id] = Math.max(0, Math.min(1, normalised));
     });
 
     points.push(point);
@@ -364,7 +364,7 @@ function intervalIndices(
 /**
  * Compute the interval bands behind the chart.
  *
- * Each interval becomes a colour token plus an opacity and a normalized Y
+ * Each interval becomes a colour token plus an opacity and a normalised Y
  * position for the dashed-line indicator (WORK only). A WORK interval inside
  * a zone carries the zone number and which scale it indexes, so the chart
  * layer can pick the swatch for the current theme.
@@ -434,7 +434,7 @@ export function computeIntervalBands(
       bandOpacity = 0.08;
     }
 
-    // Normalized avg Y for dashed line (only for WORK intervals)
+    // Normalised avg Y for dashed line (only for WORK intervals)
     let avgNormY: number | null = null;
     if (isWork && primarySeries) {
       // Pick the avg value that matches the primary series type

@@ -160,7 +160,7 @@ describe('the regional map opening camera', () => {
 describe('the regional map opening camera walk', () => {
   it('reads each activity bounds twice at most: once to find centres, once to bound the cluster', () => {
     const polyline = require('@/shared/geo/polyline');
-    const spy = jest.spyOn(polyline, 'normalizeBounds');
+    const spy = jest.spyOn(polyline, 'normaliseBounds');
     try {
       render(PLUS_ONE);
       expect(spy.mock.calls.length).toBeLessThanOrEqual(PLUS_ONE.length * 2);

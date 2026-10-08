@@ -16,19 +16,34 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FfiGpsPoint, FfiWidgetSnapshotData, WidgetWellnessSummary};
+use crate::{
+    FfiGpsPoint, FfiWidgetSnapshotData, WidgetLatestComparison, WidgetRouteStanding,
+    WidgetWellnessSummary,
+};
 
 #[cfg(test)]
 mod tests;
 
 /// Bumped when the shape changes, so a native can tell a snapshot it cannot read.
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 14;
 
 /// Trailing wellness window the sparklines cover.
 pub const SPARKLINE_DAYS: u32 = 30;
 
+/// Trailing days of form the large widget draws, which is also how much
+/// wellness one read takes.
+pub const FORM_HISTORY_DAYS: u32 = 42;
+
+/// Where the form zones change, on the intervals.icu TSB boundaries: below the
+/// first is high risk, then optimal, grey zone, fresh, and from the last
+/// transition. Natives draw the bands from these and never hold a copy.
+const FORM_ZONE_BOUNDS: [i32; 4] = [-30, -10, 5, 25];
+
 /// The most points a route outline carries, which keeps the file small.
 pub const ROUTE_OUTLINE_MAX_POINTS: usize = 150;
+
+/// The most prior attempts the latest activity carries, which keeps the file small.
+pub const LATEST_ATTEMPTS_MAX: usize = 20;
 
 /// Only attribute impact to a genuinely recent activity.
 const IMPACT_MAX_AGE_DAYS: f64 = 2.0;
@@ -38,6 +53,7 @@ const TEXT_NONE: &str = "-";
 
 const SECONDS_PER_DAY: i64 = 86_400;
 const KM_TO_MI: f64 = 0.621371;
+const KG_TO_LB: f64 = 2.20462;
 const M_TO_FT: f64 = 3.28084;
 const YARDS_100_IN_METRES: f64 = 91.44;
 const MAX_PACE_SECONDS: f64 = 100.0 * 3600.0;
@@ -69,6 +85,30 @@ pub struct WidgetContext {
     pub record_shortcuts: Vec<RecordShortcut>,
     /// The head of `record_shortcuts`, capped at what a launcher shows.
     pub launcher_shortcuts: Vec<RecordShortcut>,
+    /// The top-ranked insights the athlete's picked kinds allow, in the order
+    /// the Insights tab ranks them, already worded and linked.
+    pub insights: Vec<WidgetInsight>,
+    /// The library behind the snapshot is the sample one, so every widget wears
+    /// the demo label: demo mode, and the sample shown while signed out.
+    pub demo: bool,
+    /// The app composed the file from a sample library it supplied, and the
+    /// rows the engine holds are not what the widgets show. A native refresh
+    /// reads this context as none, so it leaves that file standing rather than
+    /// redrawing the stored rows over it.
+    pub sample: bool,
+}
+
+/// One insight row of the widget: its copy, its icon and tone, and the link it opens.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WidgetInsight {
+    pub id: String,
+    pub category: String,
+    pub title: String,
+    pub subtitle: String,
+    pub icon: String,
+    pub tone: String,
+    pub url: String,
 }
 
 /// The locale's own names for days and months, and the order a short date is
@@ -149,21 +189,39 @@ impl Clock {
 pub struct WidgetSnapshot {
     pub schema_version: u32,
     pub generated_at: i64,
+    /// When the sync the rows came from finished, in seconds. Present only on a
+    /// snapshot composed by a refresh whose pull did not land, and absent when
+    /// the library has recorded no clean sync. `generated_at` is then the time
+    /// of the redraw, which says nothing about how old the numbers are.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_as_of: Option<i64>,
     pub locale: String,
     /// No latest activity, no wellness series and no wellness reading. The
     /// metrics then read zero, which is not a measurement, so a widget shows its
     /// prompt to open the app.
     pub empty_library: bool,
+    /// Composed from the sample library because no account is signed in. Absent
+    /// otherwise, so a stored library's file is unchanged.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub demo: bool,
     pub metrics: Metrics,
     pub sparklines: Sparklines,
+    /// Six weeks of form for the large size, absent with no form series.
+    pub form_history: Option<FormHistory>,
     pub weekly: Weekly,
     pub latest: Option<Latest>,
     pub impact: Option<Impact>,
     pub summary_card: Option<SummaryCard>,
+    /// One entry for every metric the summary card can show, so a placement
+    /// that picks its own hero and supporting row composes from them without a
+    /// second read. Independent of the card's own choice and of whether it is
+    /// enabled; a weight with no reading is left out, as on the card.
+    pub summary_metrics: Vec<SummaryEntry>,
     pub display: Display,
     pub theme: serde_json::Value,
     pub record_shortcuts: Vec<RecordShortcut>,
     pub launcher_shortcuts: Vec<RecordShortcut>,
+    pub insights: Vec<WidgetInsight>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -211,6 +269,18 @@ pub struct Sparklines {
     pub hrv: Vec<i32>,
 }
 
+/// Form per day, oldest first, in the unit the athlete reads it in.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FormHistory {
+    /// The TSB, or its percentage of that day's fitness under `as_percent`,
+    /// where a day with no fitness has no value.
+    pub values: Vec<Option<i32>>,
+    pub as_percent: bool,
+    /// Where each zone ends, in the same unit as `values`.
+    pub zone_bounds: [i32; 4],
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Weekly {
@@ -243,6 +313,83 @@ pub struct Latest {
     pub is_pr: bool,
     /// Absent for an activity with no track; the widget then draws text only.
     pub route_preview: Option<RouteOutline>,
+    /// Where it stands among the attempts at its route, absent when it has no
+    /// route or no other attempt at it.
+    pub route: Option<RouteStanding>,
+    /// How many sections it holds the record on.
+    pub section_prs: u32,
+    /// With no route, its load against the load the sport usually carries.
+    pub load_vs_typical: Option<LoadVsTypical>,
+    /// The figures that matter for its sport, in the order they are read.
+    pub stats: Vec<SportStat>,
+    /// What the Last activity widget leads with, worded for the athlete. Absent
+    /// when the activity has neither a ranking nor a load, or the app handed
+    /// over none of the words.
+    pub headline: Option<Headline>,
+    /// "Load 62", absent when no load was recorded.
+    pub load_text: Option<String>,
+    /// "Section PRs 3", absent when it holds none.
+    pub section_prs_text: Option<String>,
+}
+
+/// The comparison a widget leads with: the rank among attempts on the route,
+/// or with no ranking the load against the typical one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Headline {
+    /// `route` or `load`.
+    pub kind: &'static str,
+    /// The route's name, or the word for load.
+    pub label: String,
+    /// "2 of 14", or the load itself.
+    pub hero: String,
+    /// The gap to the route record, or the load against the typical one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// Every comparable attempt in date order, the latest last. Empty without a route.
+    pub dots: Vec<AttemptDot>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct AttemptDot {
+    /// The activity the widget is about.
+    pub current: bool,
+    /// The fastest attempt on the route.
+    pub record: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteStanding {
+    pub name: String,
+    /// One a strict record; absent when the attempt is not ranked on the route.
+    pub rank: Option<u32>,
+    /// Comparable attempts, the latest activity included.
+    pub attempt_count: u32,
+    /// Seconds behind the route record, zero for the record itself.
+    pub gap_seconds: Option<i32>,
+    /// The gap as a duration, with no sign and no words.
+    pub gap_label: Option<String>,
+    /// Moving time of up to twenty other comparable attempts, oldest first.
+    pub attempt_seconds: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadVsTypical {
+    /// The median load of the sport's activities in the four weeks before.
+    pub typical: f64,
+    /// How far the latest load sits above (positive) or below the typical one.
+    pub delta_pct: i64,
+}
+
+/// One figure of the latest activity, labelled and formatted.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SportStat {
+    pub id: &'static str,
+    pub label: String,
+    pub value: String,
 }
 
 /// A track normalised to a 0..1 box, y growing downward like screen pixels.
@@ -285,12 +432,16 @@ pub struct SummaryEntry {
 
 /// The in-app summary card as the athlete configured it, ready to draw.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SummaryCard {
     pub hero: SummaryEntry,
     /// Up to four, in the configured order.
     pub entries: Vec<SummaryEntry>,
     /// `fitnessForm`, `hrv` or `none`.
     pub sparkline: &'static str,
+    /// The hero's own daily series, oldest first. Empty when the card hides its
+    /// sparkline or the hero has no daily series.
+    pub hero_sparkline: Vec<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -303,6 +454,13 @@ pub struct Display {
     pub per_week_suffix: String,
     pub form_zone: String,
     pub impact_line: Option<String>,
+    /// The words that say the numbers are as of the last sync. Present on the
+    /// same snapshots as `data_as_of`, and also when no sync time is known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_as_of_label: Option<String>,
+    /// The small label every widget draws on a sample library's snapshot.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub demo_label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -322,13 +480,15 @@ pub struct MetricLabels {
 /// Raw engine data to the widget snapshot. No I/O and no clock: the time is
 /// handed in, so the same data and context always compose the same file.
 pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) -> WidgetSnapshot {
-    let empty = Vec::new();
     let sp = data.sparklines.as_ref();
-    let fitness = sp.map_or(&empty, |s| &s.fitness);
-    let fatigue = sp.map_or(&empty, |s| &s.fatigue);
-    let form = sp.map_or(&empty, |s| &s.form);
-    let hrv = sp.map_or(&empty, |s| &s.hrv);
-    let rhr = sp.map_or(&empty, |s| &s.rhr);
+    let recent = |pick: fn(&crate::FfiWellnessSparklines) -> &Vec<i32>| {
+        sp.map_or(&[][..], |s| tail(pick(s), SPARKLINE_DAYS))
+    };
+    let fitness = recent(|s| &s.fitness);
+    let fatigue = recent(|s| &s.fatigue);
+    let form = recent(|s| &s.form);
+    let hrv = recent(|s| &s.hrv);
+    let rhr = recent(|s| &s.rhr);
 
     let as_percent = ctx.form_as_percent;
     let summary = &data.summary;
@@ -365,8 +525,10 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
     WidgetSnapshot {
         schema_version: SCHEMA_VERSION,
         generated_at: clock.now_seconds,
+        data_as_of: None,
         locale: ctx.locale.clone(),
         empty_library,
+        demo: ctx.demo,
         metrics: Metrics {
             form: form_metric(as_percent, w),
             fitness: wellness_metric(
@@ -394,11 +556,12 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             ),
         },
         sparklines: Sparklines {
-            form: form.clone(),
-            fitness: fitness.clone(),
-            fatigue: fatigue.clone(),
-            hrv: hrv.clone(),
+            form: form.to_vec(),
+            fitness: fitness.to_vec(),
+            fatigue: fatigue.to_vec(),
+            hrv: hrv.to_vec(),
         },
+        form_history: form_history(sp, as_percent),
         weekly: Weekly {
             tss: js_round(cur_tss) as i64,
             distance_m: weekly_distance,
@@ -408,13 +571,22 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             distance_label: format_distance(weekly_distance, ctx.is_metric),
             duration_label: format_duration(weekly_duration),
         },
-        summary_card: compose_summary_card(data, ctx),
+        summary_card: ctx
+            .summary_card
+            .as_ref()
+            .filter(|p| p.enabled)
+            .and_then(|prefs| summary_card(data, ctx, prefs)),
+        summary_metrics: SUMMARY_METRIC_IDS
+            .iter()
+            .filter_map(|id| summary_entry(data, ctx, id, false))
+            .collect(),
         display: display(ctx, impact.as_ref(), today_zone),
         latest,
         impact,
         theme: ctx.theme.clone(),
         record_shortcuts: ctx.record_shortcuts.clone(),
         launcher_shortcuts: ctx.launcher_shortcuts.clone(),
+        insights: ctx.insights.clone(),
     }
 }
 
@@ -426,6 +598,11 @@ fn wellness_of(w: &WidgetWellnessSummary) -> Option<&WidgetWellnessSummary> {
         .iter()
         .any(Option::is_some);
     any.then_some(w)
+}
+
+/// The newest `days` of a series that runs oldest first.
+fn tail(series: &[i32], days: u32) -> &[i32] {
+    &series[series.len().saturating_sub(days as usize)..]
 }
 
 fn finite(v: f64) -> f64 {
@@ -561,16 +738,47 @@ fn form_zone(tsb: f64, fitness: Option<f64>, as_percent: bool) -> Option<&'stati
         (true, Some(f)) => tsb / f * 100.0,
         _ => tsb,
     };
-    Some(if value < -30.0 {
+    let [high_risk, optimal, grey, fresh] = FORM_ZONE_BOUNDS.map(f64::from);
+    Some(if value < high_risk {
         "highRisk"
-    } else if value < -10.0 {
+    } else if value < optimal {
         "optimal"
-    } else if value < 5.0 {
+    } else if value < grey {
         "greyZone"
-    } else if value < 25.0 {
+    } else if value < fresh {
         "fresh"
     } else {
         "transition"
+    })
+}
+
+/// Six weeks of form in the unit the athlete reads it in. The series runs
+/// beside fitness, so under the percentage setting each day is read against its
+/// own fitness and a day with none has no value.
+fn form_history(
+    sp: Option<&crate::FfiWellnessSparklines>,
+    as_percent: bool,
+) -> Option<FormHistory> {
+    let sp = sp.filter(|s| !s.form.is_empty())?;
+    let form = tail(&sp.form, FORM_HISTORY_DAYS);
+    let fitness = tail(&sp.fitness, FORM_HISTORY_DAYS);
+    // Both series end today; a shorter fitness series starts later than form does.
+    let lead = form.len().saturating_sub(fitness.len());
+    let values = form
+        .iter()
+        .enumerate()
+        .map(|(i, tsb)| {
+            if !as_percent {
+                return Some(*tsb);
+            }
+            let fitness = f64::from(*i.checked_sub(lead).and_then(|j| fitness.get(j))?);
+            (fitness != 0.0).then(|| js_round(f64::from(*tsb) / fitness * 100.0) as i32)
+        })
+        .collect();
+    Some(FormHistory {
+        values,
+        as_percent,
+        zone_bounds: FORM_ZONE_BOUNDS,
     })
 }
 
@@ -635,36 +843,78 @@ fn form_metric(as_percent: bool, w: Option<&WidgetWellnessSummary>) -> MetricVal
 // Summary card
 // ---------------------------------------------------------------------------
 
-/// The widget mirror of the in-app summary card, built from the settings the
-/// app's summary card reads. Weight is left out: the widget read has no source for it.
-fn compose_summary_card(data: &FfiWidgetSnapshotData, ctx: &WidgetContext) -> Option<SummaryCard> {
-    let prefs = ctx.summary_card.as_ref().filter(|p| p.enabled)?;
-    let hero = summary_entry(data, ctx, &prefs.hero_metric)
-        .or_else(|| summary_entry(data, ctx, "fitness"))?;
+/// The metrics the in-app summary card offers, in the order its picker lists them.
+const SUMMARY_METRIC_IDS: [&str; 10] = [
+    "hrv",
+    "rhr",
+    "weekHours",
+    "weekCount",
+    "ftp",
+    "thresholdPace",
+    "css",
+    "fitness",
+    "form",
+    "weight",
+];
+
+/// The widget mirror of the in-app summary card for `prefs`: the card's own
+/// settings by default, or a placement's override of them. Whether the card is
+/// enabled is the caller's to decide; this composes what it is given.
+pub fn summary_card(
+    data: &FfiWidgetSnapshotData,
+    ctx: &WidgetContext,
+    prefs: &SummaryPrefs,
+) -> Option<SummaryCard> {
+    let hero = summary_entry(data, ctx, &prefs.hero_metric, true)
+        .or_else(|| summary_entry(data, ctx, "fitness", true))?;
     let entries = prefs
         .supporting_metrics
         .iter()
-        .filter_map(|id| summary_entry(data, ctx, id))
+        .filter_map(|id| summary_entry(data, ctx, id, false))
         .take(4)
         .collect();
-    let sparkline = if !prefs.show_sparkline {
-        "none"
-    } else if prefs.hero_metric == "hrv" {
-        "hrv"
+    let (sparkline, hero_sparkline) = if prefs.show_sparkline {
+        (
+            if hero.id == "hrv" {
+                "hrv"
+            } else {
+                "fitnessForm"
+            },
+            hero_series(data, &hero.id),
+        )
     } else {
-        "fitnessForm"
+        ("none", Vec::new())
     };
     Some(SummaryCard {
         hero,
         entries,
         sparkline,
+        hero_sparkline,
     })
 }
 
+/// The daily series behind a metric, where it has one.
+fn hero_series(data: &FfiWidgetSnapshotData, id: &str) -> Vec<i32> {
+    let Some(sp) = data.sparklines.as_ref() else {
+        return Vec::new();
+    };
+    let series = match id {
+        "fitness" => &sp.fitness,
+        "form" => &sp.form,
+        "hrv" => &sp.hrv,
+        "rhr" => &sp.rhr,
+        _ => return Vec::new(),
+    };
+    tail(series, SPARKLINE_DAYS).to_vec()
+}
+
+/// One metric of the card. A supporting weight with no reading is left out, as
+/// the app card does, but a hero always prints, as a dash where it has none.
 fn summary_entry(
     data: &FfiWidgetSnapshotData,
     ctx: &WidgetContext,
     id: &str,
+    hero: bool,
 ) -> Option<SummaryEntry> {
     let summary = &data.summary;
     let w = wellness_of(&summary.wellness);
@@ -747,6 +997,18 @@ fn summary_entry(
                 "default",
             )
         }
+        "weight" => {
+            let kg = w.and_then(|w| w.weight).filter(|kg| kg.is_finite());
+            if kg.is_none() && !hero {
+                return None;
+            }
+            entry(
+                translate(ctx, "metrics.weight"),
+                kg.map_or(TEXT_NONE.to_string(), |kg| weight_text(kg, ctx.is_metric)),
+                from_glyph(w.and_then(|w| w.weight_trend.as_deref()), false),
+                "default",
+            )
+        }
         "ftp" => {
             let latest = summary.ftp_trend.latest_ftp.map(f64::from);
             entry(
@@ -782,6 +1044,16 @@ fn summary_entry(
     }
 }
 
+/// Weight as the app card prints it: one decimal at most, the unit with no space.
+fn weight_text(kg: f64, is_metric: bool) -> String {
+    let (value, unit) = if is_metric {
+        (kg, "kg")
+    } else {
+        (kg * KG_TO_LB, "lbs")
+    };
+    format!("{}{unit}", js_round(value * 10.0) / 10.0)
+}
+
 fn int_text(v: f64) -> String {
     let n = js_round(v);
     if n == 0.0 {
@@ -799,6 +1071,8 @@ fn display(ctx: &WidgetContext, impact: Option<&Impact>, zone: Option<&'static s
     let form_label = translate(ctx, "metrics.form").to_string();
     Display {
         impact_line: impact.map(|i| impact_line(&form_label, i)),
+        data_as_of_label: None,
+        demo_label: ctx.demo.then(|| translate(ctx, "demo.banner").to_string()),
         metric_labels: MetricLabels {
             fitness: translate(ctx, "metrics.fitness").to_string(),
             fatigue: translate(ctx, "metrics.fatigue").to_string(),
@@ -865,7 +1139,255 @@ fn compose_latest(
             .unwrap_or_default(),
         is_pr: data.latest_is_pr,
         route_preview: route_outline(&data.latest_gps, ROUTE_OUTLINE_MAX_POINTS),
+        route: route_standing(&data.latest_comparison),
+        section_prs: data.latest_comparison.section_pr_count,
+        load_vs_typical: load_vs_typical(a.training_load, &data.latest_comparison),
+        stats: sport_stats(a, ctx),
+        headline: headline(a, &data.latest_comparison, ctx),
+        load_text: positive(a.training_load).and_then(|load| {
+            phrase(ctx, "systemSurfaces.latest.load")
+                .map(|word| format!("{word} {}", int_text(load)))
+        }),
+        section_prs_text: section_prs_text(data.latest_comparison.section_pr_count, ctx),
     })
+}
+
+fn section_prs_text(count: u32, ctx: &WidgetContext) -> Option<String> {
+    if count == 0 {
+        return None;
+    }
+    fill(
+        ctx,
+        "systemSurfaces.latest.sectionPrs",
+        &[("number", count.to_string())],
+    )
+}
+
+/// A recorded load: zero is how an activity without one is stored.
+fn positive(load: Option<f64>) -> Option<f64> {
+    load.map(finite).filter(|load| *load > 0.0)
+}
+
+/// A word the app handed over, or nothing: a key that comes back as itself is
+/// not copy, and an older stored context lacks the newer keys.
+fn phrase(ctx: &WidgetContext, key: &str) -> Option<String> {
+    ctx.strings
+        .get(key)
+        .filter(|text| !text.is_empty() && text.as_str() != key)
+        .cloned()
+}
+
+/// A phrase with its `{{name}}` slots filled.
+fn fill(ctx: &WidgetContext, key: &str, slots: &[(&str, String)]) -> Option<String> {
+    let mut text = phrase(ctx, key)?;
+    for (name, value) in slots {
+        text = text.replace(&format!("{{{{{name}}}}}"), value);
+    }
+    Some(text)
+}
+
+/// What the Last activity widget leads with: its rank among the attempts at its
+/// route and the gap to the record, else its load against the typical one.
+fn headline(
+    a: &crate::FfiActivityMetrics,
+    comparison: &WidgetLatestComparison,
+    ctx: &WidgetContext,
+) -> Option<Headline> {
+    route_headline(a, comparison, ctx).or_else(|| load_headline(a, comparison, ctx))
+}
+
+fn route_headline(
+    a: &crate::FfiActivityMetrics,
+    comparison: &WidgetLatestComparison,
+    ctx: &WidgetContext,
+) -> Option<Headline> {
+    let standing = comparison.route.as_ref()?;
+    let rank = standing.rank?;
+    let hero = fill(
+        ctx,
+        "systemSurfaces.latest.rank",
+        &[
+            ("rank", rank.to_string()),
+            ("total", standing.attempt_count.to_string()),
+        ],
+    )?;
+    let detail = if rank == 1 {
+        phrase(ctx, "systemSurfaces.latest.fastest")
+    } else {
+        standing.time_delta_seconds.and_then(|gap| {
+            fill(
+                ctx,
+                "systemSurfaces.latest.offBest",
+                &[("gap", format_duration(f64::from(gap.unsigned_abs())))],
+            )
+        })
+    };
+    let skipped = standing
+        .prior_attempt_seconds
+        .len()
+        .saturating_sub(LATEST_ATTEMPTS_MAX);
+    let prior = &standing.prior_attempt_seconds[skipped..];
+    let own = a.moving_time;
+    let fastest = prior.iter().copied().chain(Some(own)).min().unwrap_or(own);
+    let mut dots: Vec<AttemptDot> = prior
+        .iter()
+        .map(|seconds| AttemptDot {
+            current: false,
+            record: *seconds == fastest,
+        })
+        .collect();
+    // The latest is told apart from an earlier time of the same length by position alone.
+    dots.push(AttemptDot {
+        current: true,
+        record: own == fastest && !prior.contains(&fastest),
+    });
+    Some(Headline {
+        kind: "route",
+        label: standing.route_name.clone(),
+        hero,
+        detail,
+        dots,
+    })
+}
+
+fn load_headline(
+    a: &crate::FfiActivityMetrics,
+    comparison: &WidgetLatestComparison,
+    ctx: &WidgetContext,
+) -> Option<Headline> {
+    let load = positive(a.training_load)?;
+    let label = phrase(ctx, "systemSurfaces.latest.load")?;
+    let detail = load_against_typical(a.training_load, comparison).and_then(|typical| {
+        fill(
+            ctx,
+            "systemSurfaces.latest.loadVsTypical",
+            &[(
+                "percent",
+                format!(
+                    "{}{}%",
+                    if typical.delta_pct > 0 { "+" } else { "" },
+                    typical.delta_pct
+                ),
+            )],
+        )
+    });
+    Some(Headline {
+        kind: "load",
+        label,
+        hero: int_text(load),
+        detail,
+        dots: Vec::new(),
+    })
+}
+
+fn route_standing(comparison: &WidgetLatestComparison) -> Option<RouteStanding> {
+    let WidgetRouteStanding {
+        route_name,
+        rank,
+        attempt_count,
+        time_delta_seconds,
+        prior_attempt_seconds,
+    } = comparison.route.as_ref()?;
+    let skipped = prior_attempt_seconds
+        .len()
+        .saturating_sub(LATEST_ATTEMPTS_MAX);
+    Some(RouteStanding {
+        name: route_name.clone(),
+        rank: *rank,
+        attempt_count: *attempt_count,
+        gap_seconds: *time_delta_seconds,
+        gap_label: time_delta_seconds.map(|gap| format_duration(f64::from(gap.unsigned_abs()))),
+        attempt_seconds: prior_attempt_seconds[skipped..].to_vec(),
+    })
+}
+
+/// The fallback for an activity with no route standing: its own load against
+/// the typical one. Absent when either load is missing, so a zero is never
+/// divided by and an unrecorded load is never read as a measured one.
+fn load_vs_typical(
+    load: Option<f64>,
+    comparison: &WidgetLatestComparison,
+) -> Option<LoadVsTypical> {
+    if comparison.route.is_some() {
+        return None;
+    }
+    load_against_typical(load, comparison)
+}
+
+/// The load against the typical one, whether or not the activity has a route.
+fn load_against_typical(
+    load: Option<f64>,
+    comparison: &WidgetLatestComparison,
+) -> Option<LoadVsTypical> {
+    let load = finite(load?);
+    let typical = finite(comparison.typical_load?);
+    (load > 0.0 && typical > 0.0).then(|| LoadVsTypical {
+        typical: js_round(typical * 10.0) / 10.0,
+        delta_pct: js_round((load - typical) / typical * 100.0) as i64,
+    })
+}
+
+/// What a sport is read by: a ride by its climbing and power, a run or a swim
+/// by its pace, the rest by distance and time alone. A figure the activity has
+/// no reading for is left out, never printed as zero.
+fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportStat> {
+    let distance = finite(a.distance);
+    let moving = f64::from(a.moving_time);
+    let stat = |id, key, value| SportStat {
+        id,
+        label: translate(ctx, key).to_string(),
+        value,
+    };
+    let mut stats = vec![
+        stat(
+            "distance",
+            "activity.distance",
+            format_distance(distance, ctx.is_metric),
+        ),
+        stat(
+            "movingTime",
+            "recording.fields.movingTime",
+            format_duration(moving),
+        ),
+    ];
+    let speed = (moving > 0.0 && distance > 0.0).then(|| distance / moving);
+    if crate::sport::is_cycling(&a.sport_type) {
+        let climb = finite(a.elevation_gain);
+        if climb > 0.0 {
+            let value = if ctx.is_metric {
+                format!("{} m", int_text(climb))
+            } else {
+                format!("{} ft", int_text(climb * M_TO_FT))
+            };
+            stats.push(stat(
+                "elevationGain",
+                "recording.fields.elevationGain",
+                value,
+            ));
+        }
+        if let Some(watts) = a.avg_power.filter(|w| *w > 0) {
+            stats.push(stat("avgPower", "activity.power", format!("{watts} W")));
+        }
+    } else if crate::sport::is_swimming(&a.sport_type) {
+        if let Some(speed) = speed {
+            let unit = if ctx.is_metric { "/100 m" } else { "/100 yd" };
+            stats.push(stat(
+                "pace",
+                "metrics.pace",
+                format!("{} {unit}", format_swim_pace(speed, ctx.is_metric)),
+            ));
+        }
+    } else if crate::sport::shows_pace(&a.sport_type)
+        && let Some(speed) = speed
+    {
+        let unit = if ctx.is_metric { "/km" } else { "/mi" };
+        stats.push(stat(
+            "pace",
+            "metrics.pace",
+            format!("{} {unit}", format_pace_compact(speed, ctx.is_metric)),
+        ));
+    }
+    stats
 }
 
 fn compose_impact(
@@ -1166,26 +1688,94 @@ pub fn data_from(conn: &rusqlite::Connection, clock: Clock) -> FfiWidgetSnapshot
         current_end,
         prev_start,
         prev_end,
-        SPARKLINE_DAYS,
+        FORM_HISTORY_DAYS,
         ROUTE_OUTLINE_MAX_POINTS as u32,
     )
 }
 
 /// The snapshot as the file holds it.
 pub fn snapshot_json(conn: &rusqlite::Connection, ctx: &WidgetContext, clock: Clock) -> String {
-    let snapshot = compose(&data_from(conn, clock), ctx, clock);
-    serde_json::to_string(&snapshot).unwrap_or_default()
+    serialise(&compose(&data_from(conn, clock), ctx, clock))
+}
+
+/// The snapshot as the file holds it, marked as being from the last sync: for
+/// a refresh that redrew the widget from stored rows because its pull did not
+/// land. The mark carries the time that sync finished, so the widget shows the
+/// age of the numbers and not the age of the redraw.
+pub fn snapshot_json_as_of_last_sync(
+    conn: &rusqlite::Connection,
+    ctx: &WidgetContext,
+    clock: Clock,
+) -> String {
+    let mut snapshot = compose(&data_from(conn, clock), ctx, clock);
+    snapshot.data_as_of = last_sync_seconds(conn);
+    snapshot.display.data_as_of_label = Some(translate(ctx, "time.asOfLastSync").to_string());
+    serialise(&snapshot)
+}
+
+/// The rows of a sample library, in the shapes the stores take them: what the
+/// widgets draw while no account is signed in.
+pub struct SampleLibrary {
+    pub athlete_json: String,
+    pub sport_settings_json: String,
+    pub wellness: Vec<crate::persistence::wellness::WellnessRow>,
+    /// Activity id, start time in seconds and the untyped body.
+    pub activities: Vec<(String, i64, String)>,
+}
+
+/// The snapshot of a sample library, marked as one. The rows go into a scratch
+/// database that is dropped with the call, so the athlete's own database is
+/// neither read nor written and a later sign-in meets nothing left behind.
+pub fn sample_snapshot_json(
+    library: &SampleLibrary,
+    ctx: &WidgetContext,
+    clock: Clock,
+) -> rusqlite::Result<String> {
+    let mut scratch = crate::persistence::PersistentEngine::in_memory()?;
+    scratch.set_athlete_profile(&library.athlete_json)?;
+    scratch.set_sport_settings(&library.sport_settings_json)?;
+    scratch.upsert_wellness(&library.wellness)?;
+    scratch.upsert_activity_bodies_with_metrics(&library.activities)?;
+    let ctx = WidgetContext {
+        demo: true,
+        ..ctx.clone()
+    };
+    Ok(serialise(&compose(
+        &data_from(&scratch.db, clock),
+        &ctx,
+        clock,
+    )))
+}
+
+fn serialise(snapshot: &WidgetSnapshot) -> String {
+    serde_json::to_string(snapshot).unwrap_or_default()
+}
+
+/// When the last clean sync finished, in seconds, or none when the library has
+/// recorded none or the row does not parse.
+fn last_sync_seconds(conn: &rusqlite::Connection) -> Option<i64> {
+    let stamp = crate::persistence::settings::setting_from(
+        conn,
+        crate::persistence::settings::settings_keys::SYNC_LAST_SUCCESS_AT,
+    )
+    .ok()??;
+    chrono::DateTime::parse_from_rfc3339(&stamp)
+        .ok()
+        .map(|at| at.timestamp())
 }
 
 /// The context the app last stored, or none before it has stored one. A row
-/// that no longer parses reads as none, so a caller leaves the file it has.
+/// that no longer parses reads as none, so a caller leaves the file it has, and
+/// so does a context for a sample library, whose file is the app's to write.
 pub fn stored_context(conn: &rusqlite::Connection) -> Option<WidgetContext> {
     let json = crate::persistence::settings::setting_from(
         conn,
         crate::persistence::settings::settings_keys::WIDGET_CONTEXT,
     )
     .ok()??;
-    serde_json::from_str(&json).ok()
+    serde_json::from_str::<WidgetContext>(&json)
+        .ok()
+        .filter(|ctx| !ctx.sample)
 }
 
 /// The snapshot for a caller with no JavaScript, from the stored context and
@@ -1195,6 +1785,15 @@ pub fn native_snapshot_json() -> Option<String> {
     crate::persistence::read_pool::with_read_conn(|conn| {
         let ctx = stored_context(conn)?;
         Some(snapshot_json(conn, &ctx, Clock::now()))
+    })
+    .flatten()
+}
+
+/// [`native_snapshot_json`], marked as being from the last sync.
+pub fn native_snapshot_json_as_of_last_sync() -> Option<String> {
+    crate::persistence::read_pool::with_read_conn(|conn| {
+        let ctx = stored_context(conn)?;
+        Some(snapshot_json_as_of_last_sync(conn, &ctx, Clock::now()))
     })
     .flatten()
 }

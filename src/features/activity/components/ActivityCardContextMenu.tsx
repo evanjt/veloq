@@ -4,7 +4,6 @@ import { Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings';
 import { getCameraOverride, type MapStyleType, resolveTerrain3D } from '@/features/maps';
@@ -25,6 +24,7 @@ import {
 } from '@/theme';
 import type { Activity } from '@/types';
 import { IconButton, pressable, pressRipple } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 interface ActivityCardContextMenuProps {
   visible: boolean;
@@ -144,7 +144,7 @@ export function ActivityCardContextMenu({
 
   const handleViewDetails = useCallback(() => {
     onDismiss();
-    router.push(`/activity/${activity.id}`);
+    tapTo(`/activity/${activity.id}`);
   }, [activity.id, onDismiss]);
 
   const iconName = getActivityIcon(activity.type);

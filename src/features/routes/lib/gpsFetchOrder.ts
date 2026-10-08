@@ -9,13 +9,14 @@
  */
 
 /** Put `headIds` first, in their own order, and keep the rest as they came. */
-export function headFirst<T extends { id: string }>(
+export function headFirst<T>(
   activities: readonly T[],
-  headIds: readonly string[]
+  headIds: readonly string[],
+  idOf: (activity: T) => string
 ): T[] {
   if (headIds.length === 0) return [...activities];
 
-  const byId = new Map(activities.map((activity) => [activity.id, activity]));
+  const byId = new Map(activities.map((activity) => [idOf(activity), activity]));
   const head: T[] = [];
   const taken = new Set<string>();
   for (const id of headIds) {
@@ -27,5 +28,5 @@ export function headFirst<T extends { id: string }>(
     taken.add(id);
   }
 
-  return [...head, ...activities.filter((activity) => !taken.has(activity.id))];
+  return [...head, ...activities.filter((activity) => !taken.has(idOf(activity)))];
 }

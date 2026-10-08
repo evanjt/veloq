@@ -1,23 +1,23 @@
-import { initializeSportPreference } from '@/features/fitness/stores';
-import { initializeDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
-import { initializeInsightsStore } from '@/features/insights/store';
+import { initialiseSportPreference } from '@/features/fitness/stores';
+import { initialiseDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
+import { initialiseInsightsStore } from '@/features/insights/store';
 import {
   handOverGroundTemplates,
-  initializeHeatmapPreference,
-  initializeTileCacheSettings,
+  initialiseHeatmapPreference,
+  initialiseTileCacheSettings,
 } from '@/features/maps';
-import { initializeRecordingPreferences, initializeUploadPermission } from '@/features/recording';
-import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
-import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
-import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { initialiseRecordingPreferences, initialiseUploadPermission } from '@/features/recording';
+import { initialiseRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initialiseDebugStore } from '@/features/settings/stores/DebugStore';
+import { initialiseNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { initialiseNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
+import { initialiseWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { initializeLanguage } from '@/shared/app/LanguageStore';
-import { initializeSupportStore } from '@/shared/app/SupportStore';
+import { initialiseLanguage } from '@/shared/app/LanguageStore';
+import { initialiseSupportStore } from '@/shared/app/SupportStore';
 import { loadTrackFetchNotice } from '@/features/routes';
-import { initializeTheme } from '@/shared/app/ThemeProvider';
-import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { initialiseTheme } from '@/shared/app/ThemeProvider';
+import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { basemapStore } from 'veloqrs';
@@ -36,7 +36,7 @@ import {
   resumeRecordImport,
   sweepIdleBackupFiles,
 } from '@/features/settings';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { StartupArea } from '@/shared/ui/StartupErrorBanner';
 
@@ -151,9 +151,9 @@ function errorMessage(reason: unknown): string {
  * settled. The engine's message is logged and never returned: it is English and
  * in the engine's vocabulary, and the banner reads a translated line per area.
  */
-export async function initializeApp(): Promise<StartupArea[] | null> {
+export async function initialiseApp(): Promise<StartupArea[] | null> {
   markLaunch('auth');
-  await useAuthStore.getState().initialize();
+  await useAuthStore.getState().initialise();
   markLaunch('engine');
   // Before the engine, never after: the move is only a consistent snapshot of
   // the database and its journal while no connection is open.
@@ -170,22 +170,22 @@ export async function initializeApp(): Promise<StartupArea[] | null> {
   });
   markLaunch('stores');
   const initialisers: [StartupArea, Promise<unknown>][] = [
-    ['language', initializeLanguage().then(initializeI18n).then(pushNotificationTemplates)],
-    ['preferences', initializeTheme()],
-    ['preferences', initializeSportPreference()],
-    ['preferences', initializeUnitPreference()],
-    ['routes', initializeRouteSettings()],
-    ['preferences', initializeHeatmapPreference()],
-    ['preferences', initializeDashboardPreferences()],
-    ['other', initializeDebugStore()],
-    ['maps', initializeTileCacheSettings()],
-    ['other', initializeWhatsNewStore()],
-    ['insights', initializeInsightsStore()],
-    ['recording', initializeRecordingPreferences()],
-    ['recording', initializeUploadPermission()],
-    ['notifications', initializeNotificationPreferences()],
-    ['notifications', initializeNotificationPrompt()],
-    ['other', initializeSupportStore()],
+    ['language', initialiseLanguage().then(initialiseI18n).then(pushNotificationTemplates)],
+    ['preferences', initialiseTheme()],
+    ['preferences', initialiseSportPreference()],
+    ['preferences', initialiseUnitPreference()],
+    ['routes', initialiseRouteSettings()],
+    ['preferences', initialiseHeatmapPreference()],
+    ['preferences', initialiseDashboardPreferences()],
+    ['other', initialiseDebugStore()],
+    ['maps', initialiseTileCacheSettings()],
+    ['other', initialiseWhatsNewStore()],
+    ['insights', initialiseInsightsStore()],
+    ['recording', initialiseRecordingPreferences()],
+    ['recording', initialiseUploadPermission()],
+    ['notifications', initialiseNotificationPreferences()],
+    ['notifications', initialiseNotificationPrompt()],
+    ['other', initialiseSupportStore()],
     ['other', loadTrackFetchNotice()],
   ];
   const results = await Promise.allSettled(initialisers.map(([, started]) => started));

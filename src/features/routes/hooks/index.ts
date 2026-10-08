@@ -23,7 +23,6 @@ export { useSectionUIState } from './useSectionUIState';
 export { useRevealMapOnDraw, useRevealMapOnHighlight } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
-export { useRouteHighlight } from './useRouteHighlight';
 export { useSportTypeFilter } from './useSportTypeFilter';
 export { useRouteChartData } from './useRouteChartData';
 export { useRouteReference } from './useRouteReference';

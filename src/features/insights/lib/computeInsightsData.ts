@@ -1,6 +1,6 @@
 import { ledgerDate, isRouteMatchingEnabled } from '@/features/routes';
 import type { SectionChangeInput } from '../generators/sectionChanged';
-import { normalizeStrengthProgression, normalizeStrengthSummary } from '@/features/strength';
+import { normaliseStrengthProgression, normaliseStrengthSummary } from '@/features/strength';
 import { getEngine } from '@/shared/native/engine';
 
 import { LoadMetric, decodeCoords } from 'veloqrs';
@@ -9,7 +9,6 @@ import type {
   PeriodComparison as EnginePeriodComparison,
   PeriodStats,
   SectionChange,
-  SummaryCardData,
 } from 'veloqrs';
 
 import type { Insight, PeriodComparison, SectionRankingScores, SeriesPoint } from '../types';
@@ -69,7 +68,6 @@ function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeIn
 
 interface InsightsEnginePayload {
   insightsData: InsightsData;
-  summaryCardData: SummaryCardData | null;
 }
 
 function isSectionStoryInsight(insight: Insight): boolean {
@@ -180,7 +178,6 @@ export interface InsightsComputation {
 export function computeInsightsFromData(
   ffiData: InsightsData | null,
   t: TFunc,
-  summaryCardData?: SummaryCardData | null,
   isMetric = true
 ): InsightsComputation {
   if (!ffiData) return { insights: [], failed: false };
@@ -315,7 +312,7 @@ export function computeInsightsFromData(
         previousPeriod: toPeriod(ffiData.previousWeek),
         ftpTrend: ffiData.ftpTrend ?? null,
         paceTrend: ffiData.runPaceTrend ?? null,
-        swimPaceTrend: summaryCardData?.swimPaceTrend ?? null,
+        swimPaceTrend: ffiData.swimPaceTrend ?? null,
         isMetric,
         recentPRs,
         sectionTrends,
@@ -339,9 +336,9 @@ export function computeInsightsFromData(
           faster: ffiData.routeFasterCount ?? 0,
           slower: ffiData.routeSlowerCount ?? 0,
         },
-        strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
-        strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
-        strengthProgressions: strengthSeries?.progressions.map(normalizeStrengthProgression) ?? [],
+        strengthMonthly: strengthSeries ? normaliseStrengthSummary(strengthSeries.monthly) : null,
+        strengthWeekly: strengthSeries?.weekly.map(normaliseStrengthSummary) ?? [],
+        strengthProgressions: strengthSeries?.progressions.map(normaliseStrengthProgression) ?? [],
       },
       t
     );
@@ -382,13 +379,5 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
   const insightsData = engine.getInsightsData(params) ?? null;
   if (!insightsData) return null;
 
-  return {
-    insightsData,
-    summaryCardData: engine.getSummaryCardData(
-      Number(params.currentStart),
-      Number(params.currentEnd),
-      Number(params.prevStart),
-      Number(params.prevEnd)
-    ),
-  };
+  return { insightsData };
 }

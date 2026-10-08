@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import { View, Modal, Pressable, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { tapTo } from '@/shared/app/navigation';
 import {
   colors,
   darkColors,
@@ -15,8 +16,6 @@ import {
   verdictColor,
   verdictFill,
   typography,
-  colorWithOpacity,
-  ink,
 } from '@/theme';
 import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
@@ -27,8 +26,7 @@ import {
   formatBalanceRatio,
   type BalanceCopyKey,
 } from '../lib/formatting';
-import { listBalancePairNames } from '../lib/analysis';
-import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
@@ -55,9 +53,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const balanceCopy = (key: BalanceCopyKey) => t(key);
-  const [infoOpen, setInfoOpen] = useState(false);
-  const openInfo = useCallback(() => setInfoOpen(true), []);
-  const closeInfo = useCallback(() => setInfoOpen(false), []);
+  const openInfo = useCallback(() => tapTo('/sheets/strength-pairs-info'), []);
 
   if (visibleBalancePairs.length === 0) return null;
 
@@ -180,55 +176,6 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
       <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
         {t('strength.balanceFootnote')}
       </Text>
-
-      <Modal
-        visible={infoOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closeInfo}
-        statusBarTranslucent
-      >
-        <Pressable
-          style={pressable(styles.modalBackdrop)}
-          android_ripple={pressRipple}
-          onPress={closeInfo}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-        >
-          <Pressable
-            style={pressable([styles.modalCard, isDark && styles.modalCardDark])}
-            android_ripple={pressRipple}
-            onPress={(e) => e.stopPropagation()}
-            accessible={false}
-            accessibilityRole="none"
-          >
-            <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-              {t('strength.pairsInfoTitle')}
-            </Text>
-            <Text style={[styles.modalIntro, isDark && styles.modalIntroDark]}>
-              {t('strength.pairsInfoIntro')}
-            </Text>
-            {listBalancePairNames(t).map(({ id, label }) => (
-              <Text key={id} style={[styles.modalPair, isDark && styles.modalPairDark]}>
-                • {label}
-              </Text>
-            ))}
-            <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
-              {t('strength.pairsInfoThresholds')}
-            </Text>
-            <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
-              {t('strength.pairsInfoMinSignal')}
-            </Text>
-            <Button
-              label={t('common.done')}
-              variant="ghost"
-              size="sm"
-              onPress={closeInfo}
-              style={styles.modalCloseButton}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 });
@@ -384,61 +331,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xsPlus,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.55),
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  modalCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  modalTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  modalTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  modalIntro: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  modalIntroDark: {
-    color: darkColors.textSecondary,
-  },
-  modalPair: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xxs,
-  },
-  modalPairDark: {
-    color: darkColors.textPrimary,
-  },
-  modalThresholds: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    lineHeight: 17,
-  },
-  modalThresholdsDark: {
-    color: darkColors.textSecondary,
-  },
-  modalCloseButton: {
-    marginTop: spacing.sm,
-    alignSelf: 'flex-end',
   },
 });

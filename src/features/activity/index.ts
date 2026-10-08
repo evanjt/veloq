@@ -29,7 +29,9 @@ export {
   ActivityDetailSkeleton,
   ActivitySectionsSection,
   SkylineBar,
+  StatDetailSheet,
 } from './components';
+export type { StatDetail } from './components';
 
 export { fixtures } from '@/shared/demo/activity/activities';
 export type { ApiWellness } from '@/shared/demo/activity/types';

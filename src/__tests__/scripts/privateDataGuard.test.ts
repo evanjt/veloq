@@ -240,6 +240,10 @@ describe('pre-push', () => {
     mkdirSync(join(root, 'scripts'), { recursive: true });
     copyFileSync(join(ROOT, '.husky/pre-push'), join(root, '.husky/pre-push'));
     copyFileSync(GUARD, join(root, 'scripts/check-no-private-data.sh'));
+    copyFileSync(
+      join(ROOT, 'scripts/check-submodule-pin-pushed.sh'),
+      join(root, 'scripts/check-submodule-pin-pushed.sh')
+    );
     commit(root, 'hook');
     return root;
   }

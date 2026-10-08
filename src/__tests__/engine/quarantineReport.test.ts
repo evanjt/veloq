@@ -34,7 +34,7 @@ const REPORT = { history: 4, geometry: 3, pins: 2, sections: 1, intents: 5 };
 function closedClient() {
   const client = EngineClient.getInstance();
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  (client as any).initialized = false;
+  (client as any).initialised = false;
   (client as any).dbPath = null;
   (client as any).engine = null;
   (client as any).bindingInitialised = false;

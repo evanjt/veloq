@@ -18,7 +18,7 @@ import type {
   FfiBulkExportResult,
   VeloqEngineLike,
   FfiActivityDetailData,
-  FfiActivityMetrics,
+  FfiActivityStreams,
   FfiActivityNotification,
   FfiUploadResult,
   FfiExerciseActivities,
@@ -144,6 +144,7 @@ export type EngineEvent =
   | 'gpsTracksMutated'
   | 'fitParsed'
   | 'detectionApplied'
+  | 'groupsChanged'
   | 'tilesGenerated'
   | 'backfillPhase'
   | 'streamBackfillPhase'
@@ -193,7 +194,7 @@ class EngineClient implements DelegateHost {
   private listeners: Map<string, Set<EngineListener>> = new Map();
   private pendingNotifications: Set<string> = new Set();
   private notifyScheduled = false;
-  private initialized = false;
+  private initialised = false;
   private dbPath: string | null = null;
   /** The generated binding installs its vtables once per process. */
   private bindingInitialised = false;
@@ -247,13 +248,13 @@ class EngineClient implements DelegateHost {
    * than reading it is what stops a notice outliving its own dismissal.
    */
   takeQuarantineReport(): FfiQuarantineReport | null {
-    if (!this.initialized) return null;
+    if (!this.initialised) return null;
     return this.timed('takeQuarantineReport', () => generated.takeQuarantineReport()) ?? null;
   }
 
   /** The engine handle. Throws before `initWithPath` succeeds; guard on `ready` first. */
   get engine(): VeloqEngineLike {
-    if (this.handle === null) throw new Error('Engine not initialized');
+    if (this.handle === null) throw new Error('Engine not initialised');
     return this.handle;
   }
 
@@ -321,7 +322,7 @@ class EngineClient implements DelegateHost {
   }
 
   initWithPath(dbPath: string): boolean {
-    if (this.initialized && this.dbPath === dbPath) return true;
+    if (this.initialised && this.dbPath === dbPath) return true;
     const result = this.timed(
       'initWithPath',
       () => {
@@ -351,7 +352,7 @@ class EngineClient implements DelegateHost {
       'launch'
     );
     if (result) {
-      this.initialized = true;
+      this.initialised = true;
       this.dbPath = dbPath;
       // Registered here and not in create(): before this point there is no
       // engine to announce anything, and a failed init must leave Rust with no
@@ -439,7 +440,7 @@ class EngineClient implements DelegateHost {
   }
 
   isInitialized(): boolean {
-    return this.initialized;
+    return this.initialised;
   }
 
   /** Wipe everything the engine can re-derive, resolving with what went. */
@@ -482,7 +483,7 @@ class EngineClient implements DelegateHost {
     } catch {
       // Best-effort destroy
     }
-    this.initialized = false;
+    this.initialised = false;
     this.dbPath = null;
     this.engine = null;
     this.observerRegistered = false;
@@ -529,7 +530,7 @@ class EngineClient implements DelegateHost {
       wipeError = e;
     }
     try {
-      // Drop the Rust PERSISTENT_ENGINE global so the next create() re-initializes
+      // Drop the Rust PERSISTENT_ENGINE global so the next create() re-initialises
       // from scratch. Without this, the global retains stale data (e.g., from demo mode)
       // because create() skips init when the global is already Some.
       if (this.observerRegistered) this.handle?.clearObserver?.();
@@ -537,7 +538,7 @@ class EngineClient implements DelegateHost {
     } catch {
       // Best-effort destroy
     }
-    this.initialized = false;
+    this.initialised = false;
     this.dbPath = null;
     this.engine = null;
     this.observerRegistered = false;
@@ -578,12 +579,10 @@ class EngineClient implements DelegateHost {
       announceMilestones
     );
 
-  recordActivityUpload = (activityId: string, intervalsId: string): boolean =>
-    activityDelegates.recordActivityUpload(this, activityId, intervalsId);
-
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 
-  getRefusedTrackIds = (): string[] => activityDelegates.getRefusedTrackIds(this);
+  getGpsFetchCandidates = (oldest: string, newest: string): generated.ActivitySportMapping[] =>
+    activityDelegates.getGpsFetchCandidates(this, oldest, newest);
   hasActivity = (activityId: string): boolean => activityDelegates.hasActivity(this, activityId);
 
   getActivityCount = (): number => activityDelegates.getActivityCount(this);
@@ -726,9 +725,6 @@ class EngineClient implements DelegateHost {
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
   syncNow = (): FfiStartOutcome => syncDelegates.syncNow(this);
-
-  offlineEstimate = (oldest: number, newest: number): syncDelegates.OfflineEstimate | null =>
-    syncDelegates.offlineEstimate(this, oldest, newest);
 
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
@@ -952,9 +948,6 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
-  setActivityMetrics = (metrics: FfiActivityMetrics[]): void =>
-    activityDelegates.setActivityMetrics(this, metrics);
-
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
 
@@ -1022,9 +1015,10 @@ class EngineClient implements DelegateHost {
   composeWidgetSnapshot = (
     contextJson: string,
     nowSeconds: number,
-    nowWallSeconds: number
+    nowWallSeconds: number,
+    sample?: fitnessDelegates.SampleWidgetLibrary
   ): string | undefined =>
-    fitnessDelegates.composeWidgetSnapshot(this, contextJson, nowSeconds, nowWallSeconds);
+    fitnessDelegates.composeWidgetSnapshot(this, contextJson, nowSeconds, nowWallSeconds, sample);
 
   setWidgetContext = (contextJson: string): boolean =>
     fitnessDelegates.setWidgetContext(this, contextJson);
@@ -1148,10 +1142,6 @@ class EngineClient implements DelegateHost {
   attachRecordingEngineActivity = (id: string, engineActivityId: string): void =>
     recordingDelegates.attachRecordingEngineActivity(this, id, engineActivityId);
 
-  /** The engine row has taken the id intervals.icu gave the upload. */
-  markRecordingReconciled = (id: string): void =>
-    recordingDelegates.markRecordingReconciled(this, id);
-
   /** Move one recording's upload by a named transition. */
   transitionRecording = (
     id: string,
@@ -1229,8 +1219,8 @@ class EngineClient implements DelegateHost {
     rows: activityDelegates.CalendarEventBodyInput[]
   ): void => activityDelegates.replaceCalendarEvents(this, oldestTs, newestTs, rows);
 
-  getStreamBody = (activityId: string, types: string): string | null =>
-    activityDelegates.getStreamBody(this, activityId, types);
+  getActivityStreams = (activityId: string, types: string): FfiActivityStreams | null =>
+    activityDelegates.getActivityStreams(this, activityId, types);
 
   getPowerCurve = (sport: string, days: number): fitnessDelegates.PowerCurveRow | null =>
     fitnessDelegates.getPowerCurve(this, sport, days);
@@ -1306,6 +1296,11 @@ class EngineClient implements DelegateHost {
 
   setSettings = (pairs: SettingPair[]): void => settingsDelegates.setSettings(this, pairs);
 
+  getGeocodingEnabled = (): boolean => settingsDelegates.getGeocodingEnabled(this);
+
+  setGeocodingEnabled = (enabled: boolean): void =>
+    settingsDelegates.setGeocodingEnabled(this, enabled);
+
   setNotificationTemplates = (locale: string, templates: SettingPair[]): boolean =>
     settingsDelegates.setNotificationTemplates(this, locale, templates);
 
@@ -1334,39 +1329,39 @@ class EngineClient implements DelegateHost {
    * carrying the Rust message.
    */
   async writeClearSnapshot(destPath: string): Promise<void> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     await this.engine.writeClearSnapshot(destPath);
   }
 
   async runRecordBackup(destPath: string): Promise<void> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     await this.engine.runRecordBackup(destPath);
   }
 
   /** Rejects with the restore's own refusal, without restoring anything. */
   async checkRecordZip(path: string): Promise<void> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     await this.engine.checkRecordZip(path);
   }
 
   async restoreRecordZip(path: string): Promise<FfiRecordRestoreResult> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     return this.engine.restoreRecordZip(path);
   }
 
   async restoreRecordJson(json: string): Promise<FfiRecordRestoreResult> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     return this.engine.restoreRecordJson(json);
   }
 
   /** Drops the paused import, leaving the library and the waiting records. */
   async discardRecordImport(): Promise<void> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     await this.engine.discardRecordImport();
   }
 
   async getUnplacedBackupRecords(): Promise<FfiUnplacedRecord[]> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     return this.engine.getUnplacedBackupRecords();
   }
 
@@ -1398,7 +1393,7 @@ class EngineClient implements DelegateHost {
     failed: number;
     totalBytes: number;
   }> {
-    if (!this.ready) throw new Error('Engine not initialized');
+    if (!this.ready) throw new Error('Engine not initialised');
     const result: FfiBulkExportResult = await this.engine.runBulkExport(format, destPath);
     return {
       exported: result.exported,
@@ -1694,6 +1689,12 @@ class EngineClient implements DelegateHost {
       detectionApplied: () => {
         post('detectionApplied');
         this.triggerRefresh('sections');
+      },
+      // A regroup swapped in on a worker after the sync had settled, so no call
+      // from this side caused it and the groups channel is otherwise silent.
+      groupsChanged: () => {
+        post('groupsChanged');
+        this.triggerRefresh('groups');
       },
       tilesGenerated: () => post('tilesGenerated'),
       backfillPhase: (phase) => post('backfillPhase', { phase }),

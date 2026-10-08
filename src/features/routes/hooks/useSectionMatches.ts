@@ -2,7 +2,7 @@
  * Hook for getting sections that an activity belongs to.
  * Used to display matched sections in the activity detail view.
  *
- * OPTIMIZED: Uses getSectionsForActivity() FFI function with junction table
+ * OPTIMISED: Uses getSectionsForActivity() FFI function with junction table
  * for O(1) lookup instead of loading all sections (~250-570ms → ~10-20ms).
  */
 
@@ -51,7 +51,7 @@ export interface PreComputedSectionMatches {
 /**
  * Get all sections that contain a given activity.
  *
- * OPTIMIZED: Uses junction table lookup instead of loading all sections.
+ * OPTIMISED: Uses junction table lookup instead of loading all sections.
  * Previous: ~250-570ms (load ALL sections, filter in JS)
  * Now: ~10-20ms (query only sections for this activity)
  */

@@ -140,7 +140,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Chart state
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
   const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
-  const [chartsInitialized, setChartsInitialized] = useState(false);
+  const [chartsInitialised, setChartsInitialised] = useState(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
   const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
@@ -162,16 +162,16 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const effectiveXAxisMode = !hasDistance ? 'time' : xAxisMode;
   const canToggleXAxis = hasDistance && hasTime;
 
-  // Initialize with single default chart when data loads
+  // Initialise with single default chart when data loads
   React.useEffect(() => {
-    if (!chartsInitialized && availableCharts.length > 0 && activity) {
+    if (!chartsInitialised && availableCharts.length > 0 && activity) {
       const defaultChart = defaultChartFor(activity.type);
       const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
       const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
       setSelectedCharts([initialChart]);
-      setChartsInitialized(true);
+      setChartsInitialised(true);
     }
-  }, [availableCharts, chartsInitialized, activity]);
+  }, [availableCharts, chartsInitialised, activity]);
 
   // Toggle a chart type on/off
   const handleChartToggle = useCallback((chartId: string) => {

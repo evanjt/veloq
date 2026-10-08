@@ -8,14 +8,14 @@
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 describe('the preview run cost sentences', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('reads one analysed activity in the singular', () => {

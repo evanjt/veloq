@@ -103,6 +103,10 @@ pub mod notifications;
 
 // The home-screen widget snapshot, one composer for the app and the push worker alike
 pub mod widget_snapshot;
+
+// The refresh a native caller makes with the app closed: a targeted wellness
+// pull, then the widget snapshot composed from what is stored
+pub mod widget_refresh;
 pub use notifications::FfiActivityNotification;
 
 /// Captured log lines, for the tests that assert a path says something rather
@@ -277,6 +281,15 @@ pub(crate) mod test_globals {
         crate::objects::observer::flush();
     }
 
+    /// Wait until no regroup worker is in flight, so none outlives the test
+    /// that scheduled it and swaps into the next one's engine.
+    pub(crate) fn wait_for_regroup_workers() {
+        assert!(
+            crate::persistence::regroup::wait_for_regroup(Duration::from_secs(120)),
+            "a regroup worker did not finish"
+        );
+    }
+
     /// The crate lock plus the record of who holds it.
     pub(crate) struct SerialGuard(
         #[allow(dead_code)] MutexGuard<'static, ()>,
@@ -319,6 +332,7 @@ pub(crate) mod test_globals {
         fn drop(&mut self) {
             PAUSES_RECORDED.store(false, Ordering::SeqCst);
             wait_for_detection_workers();
+            wait_for_regroup_workers();
             crate::persistence::tiles::finish_test_tile_pass();
             crate::http::reset_download_queue();
             crate::net::connectivity::reset();
@@ -340,6 +354,7 @@ pub(crate) mod test_globals {
         PAUSES_RECORDED.store(true, Ordering::SeqCst);
         drain_backfill();
         wait_for_detection_workers();
+        wait_for_regroup_workers();
         crate::persistence::tiles::finish_test_tile_pass();
         clear_detection_handle();
         crate::http::reset_download_queue();

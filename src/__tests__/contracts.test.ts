@@ -21,15 +21,10 @@ import {
   formatCalories,
   formatTSS,
 } from '@/shared/format/format';
-import { parseStreams } from '@/features/activity/lib/streams';
 import { getFormZone } from '@/features/fitness/lib/fitness';
-import type { RawStreamItem } from '@/types';
 
-// Mock veloqrs native module - toActivityMetrics imports the type
+// Mock veloqrs native module
 jest.mock('veloqrs', () => require('__shared__/veloqrsStub'));
-
-// Import after mock is set up
-const { toActivityMetrics } = require('@/shared/activity/activityMetrics');
 
 // ============================================================================
 // FIXTURES - stable test activities from demo data
@@ -103,47 +98,6 @@ const SWIM = {
   icu_ftp: 250,
 };
 
-/** Activity with all nullable fields null */
-const NULL_ACTIVITY = {
-  id: 'contract-null',
-  name: 'Null Test',
-  type: 'Ride',
-  start_date_local: '2026-01-10T10:00:00',
-  distance: 10000,
-  moving_time: 3600,
-  elapsed_time: 3600,
-  total_elevation_gain: 100,
-  average_speed: 2.78,
-  max_speed: 5.0,
-  average_heartrate: null,
-  max_heartrate: null,
-  icu_average_watts: null,
-  average_cadence: null,
-  calories: null,
-  icu_training_load: null,
-  icu_ftp: null,
-};
-
-/** Activity with zero distance */
-const ZERO_DIST = {
-  id: 'contract-zero',
-  name: 'Zero Distance',
-  type: 'Ride',
-  start_date_local: '2026-01-09T10:00:00',
-  distance: 0,
-  moving_time: 3600,
-  elapsed_time: 3600,
-  total_elevation_gain: 0,
-  average_speed: 0,
-  max_speed: 0,
-  average_heartrate: 120,
-  max_heartrate: 145,
-  icu_average_watts: 150,
-  calories: 200,
-  icu_training_load: 30,
-  icu_ftp: 250,
-};
-
 // ============================================================================
 // GROUP 1: DATA PIPELINE (12 tests)
 // ============================================================================
@@ -182,53 +136,6 @@ describe('Data Pipeline', () => {
     // Imperial: 91.44 / 0.83 = 110.17 s ≈ 1:50
     const imperialPace = formatSwimPace(SWIM.average_speed, false);
     expect(imperialPace).toBe('1:50');
-  });
-
-  // Test 7: parseStreams with full stream set
-  it('parseStreams with full stream set → correct ActivityStreams shape', () => {
-    const raw: RawStreamItem[] = [
-      { type: 'time', name: null, data: [0, 5, 10, 15] },
-      { type: 'heartrate', name: null, data: [120, 130, 140, 135] },
-      { type: 'watts', name: null, data: [200, 210, 220, 215] },
-      { type: 'altitude', name: null, data: [100, 110, 120, 115] },
-      { type: 'cadence', name: null, data: [85, 90, 88, 86] },
-      { type: 'velocity_smooth', name: null, data: [8.0, 8.5, 9.0, 8.8] },
-      { type: 'distance', name: null, data: [0, 40, 85, 129] },
-      { type: 'latlng', name: null, data: [46.0, 46.1, 46.2, 46.3], data2: [7.0, 7.1, 7.2, 7.3] },
-    ];
-
-    const streams = parseStreams(raw);
-
-    expect(streams.time).toEqual([0, 5, 10, 15]);
-    expect(streams.heartrate).toEqual([120, 130, 140, 135]);
-    expect(streams.watts).toEqual([200, 210, 220, 215]);
-    expect(streams.altitude).toEqual([100, 110, 120, 115]);
-    expect(streams.cadence).toEqual([85, 90, 88, 86]);
-    expect(streams.velocity_smooth).toEqual([8.0, 8.5, 9.0, 8.8]);
-    expect(streams.distance).toEqual([0, 40, 85, 129]);
-    expect(streams.latlng).toEqual([
-      [46.0, 7.0],
-      [46.1, 7.1],
-      [46.2, 7.2],
-      [46.3, 7.3],
-    ]);
-  });
-
-  // Test 10: toActivityMetrics date
-  it('toActivityMetrics → date is a correct unix second, and no zone seconds are carried', () => {
-    const metrics = toActivityMetrics(RIDE);
-
-    // The zoneless wall clock is stamped as UTC, so this holds in any device zone.
-    expect(metrics.date).toBe(Date.UTC(2026, 0, 15, 8, 30, 0) / 1000);
-
-    expect(metrics).not.toHaveProperty('powerZoneTimes');
-    expect(metrics).not.toHaveProperty('hrZoneTimes');
-
-    // Core fields
-    expect(metrics.activityId).toBe('contract-ride');
-    expect(metrics.distance).toBe(45000);
-    expect(metrics.movingTime).toBe(5400);
-    expect(metrics.sportType).toBe('Ride');
   });
 
   // Test 12: TSB → form zones at boundaries
@@ -273,31 +180,6 @@ describe('Resilience', () => {
     expect(formatTemperature(null, false)).toBe('--°F');
     expect(formatTemperature(undefined, false)).toBe('--°F');
   });
-
-  // Test 26: toActivityMetrics with minimal activity
-  it('toActivityMetrics with minimal activity → valid output', () => {
-    const minimal = {
-      id: 'minimal-1',
-      name: 'Test',
-      start_date_local: '2026-01-01T00:00:00',
-      distance: 0,
-      moving_time: 0,
-      elapsed_time: 0,
-      total_elevation_gain: 0,
-      average_speed: 0,
-      max_speed: 0,
-    };
-
-    const metrics = toActivityMetrics(minimal);
-
-    expect(metrics.activityId).toBe('minimal-1');
-    expect(metrics.name).toBe('Test');
-    expect(typeof metrics.date).toBe('number');
-    expect(metrics.distance).toBe(0);
-    expect(metrics.movingTime).toBe(0);
-    expect(metrics.elevationGain).toBe(0);
-    expect(metrics.sportType).toBe('Ride'); // default when type is undefined
-  });
 });
 
 // ============================================================================
@@ -332,26 +214,9 @@ describe('Zero-distance activity contract', () => {
       expect(r).not.toContain('Infinity');
     }
   });
-
-  it('toActivityMetrics handles ZERO_DIST fixture without error', () => {
-    const metrics = toActivityMetrics(ZERO_DIST);
-    expect(metrics.activityId).toBe('contract-zero');
-    expect(metrics.distance).toBe(0);
-    expect(metrics.movingTime).toBe(3600);
-    expect(typeof metrics.date).toBe('number');
-  });
 });
 
 describe('All-null activity fields', () => {
-  it('toActivityMetrics handles NULL_ACTIVITY without crashing', () => {
-    const metrics = toActivityMetrics(NULL_ACTIVITY);
-    expect(metrics.activityId).toBe('contract-null');
-    expect(metrics.avgHr).toBeNull();
-    expect(metrics.avgPower).toBeNull();
-    expect(metrics.trainingLoad).toBeNull();
-    expect(metrics.ftp).toBeNull();
-  });
-
   it('format functions handle null/undefined without NaN', () => {
     // These accept null/undefined
     expect(formatElevation(null)).not.toContain('NaN');

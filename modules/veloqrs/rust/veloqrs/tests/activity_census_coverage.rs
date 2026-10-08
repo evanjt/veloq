@@ -26,6 +26,7 @@ fn entry(id: &str, created: &str, synced: &str) -> ActivityCensusEntry {
         created: Some(created.to_string()),
         icu_sync_date: Some(synced.to_string()),
         has_latlng: false,
+        has_series: false,
     }
 }
 

@@ -320,7 +320,7 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 6 October 2026
+          Last updated: 8 October 2026
         </p>
 
         <div class="highlight-box">
@@ -396,6 +396,13 @@
           <li data-i18n="thirdParty.maps.terrain">3D terrain: AWS Terrain Tiles (s3.amazonaws.com)</li>
         </ul>
 
+        <h3 data-i18n="thirdParty.geocoder.title">Place Names (Nominatim, optional)</h3>
+        <ul>
+          <li data-i18n="thirdParty.geocoder.item1">Only when Place names is turned on. It is off until you turn it on</li>
+          <li data-i18n="thirdParty.geocoder.item2">The start and end point of each new route or section, or of one you ask to name, are sent to OpenStreetMap's Nominatim (nominatim.openstreetmap.org, or the endpoint the app is told to use) to get a place name</li>
+          <li data-i18n="thirdParty.geocoder.item3">No account, athlete ID or activity is sent with them. The names that come back are kept on your device</li>
+        </ul>
+
         <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers (OAuth mode only)</h3>
         <ul>
           <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
@@ -403,6 +410,7 @@
           <li data-i18n="thirdParty.cloudflare.item3">Stores your IP address as a rate-limit counter for 60 seconds</li>
           <li data-i18n="thirdParty.cloudflare.item4">Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice</li>
           <li data-i18n="thirdParty.cloudflare.item5">Does not store access tokens</li>
+          <li data-i18n="thirdParty.cloudflare.item6">Tells the app which geocoding endpoint to use. It receives nothing about you for this and keeps nothing</li>
         </ul>
 
         <h3 data-i18n="thirdParty.expo.title">Expo Push Service (notifications only)</h3>
@@ -526,7 +534,7 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 6 October 2026",
+          lastUpdated: "Last updated: 8 October 2026",
           overview:
             "Veloq keeps your data on your device and the developer never receives it. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access. A copy leaves the device only when you turn on Automatic backup, tap Back Up Now, or export a backup yourself.",
           "authMethods.title": "Authentication Methods",
@@ -569,12 +577,17 @@
           "thirdParty.maps.base": "Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "3D terrain: AWS Terrain Tiles (s3.amazonaws.com)",
+          "thirdParty.geocoder.title": "Place Names (Nominatim, optional)",
+          "thirdParty.geocoder.item1": "Only when Place names is turned on. It is off until you turn it on",
+          "thirdParty.geocoder.item2": "The start and end point of each new route or section, or of one you ask to name, are sent to OpenStreetMap's Nominatim (nominatim.openstreetmap.org, or the endpoint the app is told to use) to get a place name",
+          "thirdParty.geocoder.item3": "No account, athlete ID or activity is sent with them. The names that come back are kept on your device",
           "thirdParty.cloudflare.title": "Cloudflare Workers (OAuth mode only)",
           "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
           "thirdParty.cloudflare.item2": "If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)",
           "thirdParty.cloudflare.item3": "Stores your IP address as a rate-limit counter for 60 seconds",
           "thirdParty.cloudflare.item4": "Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice",
           "thirdParty.cloudflare.item5": "Does not store access tokens",
+          "thirdParty.cloudflare.item6": "Tells the app which geocoding endpoint to use. It receives nothing about you for this and keeps nothing",
           "thirdParty.expo.title": "Expo Push Service (notifications only)",
           "thirdParty.expo.item1": "Routes push notifications from our server to Apple (APNs) or Google (FCM) on your behalf",
           "thirdParty.expo.item2": "Sees only the push token and a minimal payload (event type, activity ID and your intervals.icu athlete ID, which the app uses to check the push is for the signed-in athlete)",
@@ -620,7 +633,7 @@
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 6 de octubre de 2026",
+          lastUpdated: "Última actualización: 8 de octubre de 2026",
           overview:
             "Veloq guarda tus datos en tu dispositivo y el desarrollador nunca los recibe. La app obtiene tus datos de entrenamiento directamente de Intervals.icu y los almacena localmente para acceso sin conexión. Una copia sale del dispositivo solo cuando activas la copia de seguridad automática, tocas Respaldar ahora o exportas una copia tú mismo.",
           "authMethods.title": "Métodos de Autenticación",
@@ -663,12 +676,17 @@
           "thirdParty.maps.base": "Mapa base y oscuro: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Imágenes satelitales: EOX Sentinel-2 (tiles.maps.eox.at), y según la región " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "Terreno 3D: AWS Terrain Tiles (s3.amazonaws.com)",
+          "thirdParty.geocoder.title": "Nombres de lugares (Nominatim, opcional)",
+          "thirdParty.geocoder.item1": "Solo cuando Nombres de lugares está activado. Está desactivado hasta que lo actives",
+          "thirdParty.geocoder.item2": "El punto de inicio y el de fin de cada ruta o sección nueva, o de una que pides nombrar, se envían a Nominatim de OpenStreetMap (nominatim.openstreetmap.org, o el punto de acceso que la app reciba) para obtener el nombre del lugar",
+          "thirdParty.geocoder.item3": "No se envía con ellos ninguna cuenta, ID de atleta ni actividad. Los nombres recibidos se guardan en tu dispositivo",
           "thirdParty.cloudflare.title": "Cloudflare Workers (solo modo OAuth)",
           "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
           "thirdParty.cloudflare.item2": "Si activas las notificaciones push: almacena tu ID de atleta y un token push de Expo (TTL de 30 días)",
           "thirdParty.cloudflare.item3": "Almacena tu dirección IP como contador de límite de solicitudes durante 60 segundos",
           "thirdParty.cloudflare.item4": "Registra cada evento de webhook procesado (ID de atleta, tipo de evento, ID de actividad) durante 5 minutos, para no enviar dos veces un evento reenviado",
           "thirdParty.cloudflare.item5": "No almacena tokens de acceso",
+          "thirdParty.cloudflare.item6": "Indica a la app qué punto de acceso de geocodificación usar. No recibe nada sobre ti por esto y no guarda nada",
           "thirdParty.expo.title": "Servicio Push de Expo (solo notificaciones)",
           "thirdParty.expo.item1": "Enruta notificaciones push desde nuestro servidor a Apple (APNs) o Google (FCM) en tu nombre",
           "thirdParty.expo.item2": "Solo ve el token push y un payload mínimo (tipo de evento, ID de actividad e ID de atleta de intervals.icu, que la app usa para comprobar que la notificación es para el atleta con sesión iniciada)",
@@ -714,7 +732,7 @@
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 6 octobre 2026",
+          lastUpdated: "Dernière mise à jour : 8 octobre 2026",
           overview:
             "Veloq garde vos données sur votre appareil et le développeur ne les reçoit jamais. L'app récupère vos données d'entraînement directement depuis Intervals.icu et les stocke localement pour un accès hors ligne. Une copie ne quitte l'appareil que si vous activez la sauvegarde automatique, touchez Sauvegarder maintenant ou exportez vous-même une sauvegarde.",
           "authMethods.title": "Méthodes d'Authentification",
@@ -757,12 +775,17 @@
           "thirdParty.maps.base": "Carte de base et sombre: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Imagerie satellite: EOX Sentinel-2 (tiles.maps.eox.at), et selon la région " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "Terrain 3D: AWS Terrain Tiles (s3.amazonaws.com)",
+          "thirdParty.geocoder.title": "Noms de lieux (Nominatim, facultatif)",
+          "thirdParty.geocoder.item1": "Uniquement lorsque Noms de lieux est activé. Il est désactivé tant que vous ne l'activez pas",
+          "thirdParty.geocoder.item2": "Le point de départ et le point d'arrivée de chaque nouvel itinéraire ou de chaque nouvelle section, ou de ceux que vous demandez de nommer, sont envoyés à Nominatim d'OpenStreetMap (nominatim.openstreetmap.org, ou le point d'accès indiqué à l'app) pour obtenir un nom de lieu",
+          "thirdParty.geocoder.item3": "Aucun compte, ID d'athlète ni activité n'est envoyé avec eux. Les noms reçus sont conservés sur votre appareil",
           "thirdParty.cloudflare.title": "Cloudflare Workers (mode OAuth uniquement)",
           "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
           "thirdParty.cloudflare.item2": "Si vous activez les notifications push : stocke votre ID d'athlète et un jeton push Expo (TTL de 30 jours)",
           "thirdParty.cloudflare.item3": "Stocke votre adresse IP comme compteur de limitation de débit pendant 60 secondes",
           "thirdParty.cloudflare.item4": "Enregistre chaque événement webhook traité (ID d'athlète, type d'événement, ID d'activité) pendant 5 minutes, pour qu'un événement renvoyé ne soit pas notifié deux fois",
           "thirdParty.cloudflare.item5": "Ne stocke pas les jetons d'accès",
+          "thirdParty.cloudflare.item6": "Indique à l'app quel point d'accès de géocodage utiliser. Il ne reçoit rien à votre sujet pour cela et ne conserve rien",
           "thirdParty.expo.title": "Service Push Expo (notifications uniquement)",
           "thirdParty.expo.item1": "Achemine les notifications push de notre serveur vers Apple (APNs) ou Google (FCM) en votre nom",
           "thirdParty.expo.item2": "Ne voit que le jeton push et un payload minimal (type d'événement, ID d'activité et ID d'athlète intervals.icu, que l'app utilise pour vérifier que la notification est destinée à l'athlète connecté)",

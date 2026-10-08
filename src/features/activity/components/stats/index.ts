@@ -4,6 +4,6 @@
 
 export { InsightfulStats } from './InsightfulStats';
 export { StatCard } from './StatCard';
-export { StatDetailModal } from './StatDetailModal';
+export { StatDetailSheet } from './StatDetailSheet';
 export { useActivityStats } from './useActivityStats';
 export type { StatDetail } from './types';

@@ -16,7 +16,6 @@ jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
-      setActivityMetrics: jest.fn(),
       triggerRefresh: jest.fn(),
       getStats: jest.fn(() => ({ sectionsDirty: false })),
       pollTileGeneration: jest.fn(() => 'idle'),
@@ -39,8 +38,7 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
 
 const { engine, startFetchAndStore, takeFetchAndStoreResult } = require('veloqrs');
 
-const activity = (id: string) =>
-  ({ id, type: 'Ride', start_date_local: '2026-01-01T08:00:00' }) as never;
+const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 const resultFor = (ids: string[]) => ({
   successCount: ids.length,
@@ -59,7 +57,6 @@ describe('the foreground sync reading a download result', () => {
   beforeEach(() => {
     startFetchAndStore.mockReset();
     takeFetchAndStoreResult.mockReset();
-    engine.setActivityMetrics.mockClear();
     engine.triggerRefresh.mockClear();
   });
 
@@ -106,7 +103,6 @@ describe('the foreground sync reading a download result', () => {
 
     await result.current.fetchApiGps([activity('a1')], deps());
 
-    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
     expect(engine.triggerRefresh).toHaveBeenCalledWith('activities');
     expect(engine.triggerRefresh).toHaveBeenCalledWith('groups');
   });

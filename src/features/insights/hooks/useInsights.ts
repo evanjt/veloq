@@ -139,7 +139,6 @@ export function useInsights(): {
           return;
         }
         const data = fetched?.insightsData ?? null;
-        const summaryData = fetched?.summaryCardData ?? null;
 
         if (!data || !isMountedRef.current) return;
 
@@ -147,7 +146,6 @@ export function useInsights(): {
         const result = computeInsightsFromData(
           data,
           t as (key: string, params?: Record<string, string | number>) => string,
-          summaryData,
           isMetric
         );
 

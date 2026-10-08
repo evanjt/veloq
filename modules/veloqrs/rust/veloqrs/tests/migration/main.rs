@@ -9,6 +9,9 @@ fn serial_state() -> MutexGuard<'static, ()> {
     SERIAL.lock().unwrap_or_else(|error| error.into_inner())
 }
 
+#[path = "../migration_activity_census_has_series.rs"]
+mod migration_activity_census_has_series;
+
 #[path = "../migration_catalogue_archive.rs"]
 mod migration_catalogue_archive;
 

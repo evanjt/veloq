@@ -177,7 +177,7 @@ describe('a re-entry after a rejected key', () => {
   it('restores the notice and prefill after a relaunch', async () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
-    await useAuthStore.getState().initialize();
+    await useAuthStore.getState().initialise();
     render(<LoginScreen />);
     await settle();
     expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);

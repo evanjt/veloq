@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
@@ -102,7 +102,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
   const displayed = activities.slice(0, 5);
 
   const handlePress = useCallback((activityId: string) => {
-    navigateTo(`/activity/${activityId}`);
+    tapTo(`/activity/${activityId}`);
   }, []);
 
   return (

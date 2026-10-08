@@ -12,6 +12,7 @@ import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
+import * as haptics from '@/shared/ui/haptics';
 import { pressable, pressRipple } from '@/shared/ui';
 import { signOutMessage } from '../lib/signOutCopy';
 
@@ -73,7 +74,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         {
           text: t('alerts.disconnect'),
           style: 'destructive',
-          onPress: () => finishLogout(false),
+          onPress: () => {
+            haptics.medium();
+            finishLogout(false);
+          },
         },
       ]
     );
@@ -101,7 +105,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             defaultValue: 'Delete and sign out',
           }),
           style: 'destructive',
-          onPress: () => finishLogout(true),
+          onPress: () => {
+            haptics.medium();
+            finishLogout(true);
+          },
         },
       ]
     );

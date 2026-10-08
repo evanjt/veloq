@@ -67,8 +67,8 @@ describe('the route sync recovery follow', () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     (getNativeModule as jest.Mock).mockReturnValue({
       engine: {
-        getActivityIds: () => [],
-        getRefusedTrackIds: () => [],
+        getActivityCount: () => 0,
+        getGpsFetchCandidates: () => [],
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: () => 'idle',

@@ -44,7 +44,7 @@ interface InsightsState {
   lastSeenFingerprint: string;
   hasNewInsights: boolean;
   isLoaded: boolean;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   markSeen: (insights: Insight[]) => void;
   setNewInsights: (hasNew: boolean) => void;
   reset: () => void;
@@ -55,7 +55,7 @@ export const useInsightsStore = create<InsightsState>((set) => ({
   hasNewInsights: false,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await readInsightFingerprint();
       if (stored) {
@@ -81,6 +81,6 @@ export const useInsightsStore = create<InsightsState>((set) => ({
   reset: () => set({ lastSeenFingerprint: '', hasNewInsights: false }),
 }));
 
-export async function initializeInsightsStore(): Promise<void> {
-  await useInsightsStore.getState().initialize();
+export async function initialiseInsightsStore(): Promise<void> {
+  await useInsightsStore.getState().initialise();
 }

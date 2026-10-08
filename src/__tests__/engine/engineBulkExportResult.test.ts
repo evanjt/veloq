@@ -28,7 +28,7 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
 function openClient() {
   const client = EngineClient.getInstance();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).initialized = false;
+  (client as any).initialised = false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (client as any).dbPath = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

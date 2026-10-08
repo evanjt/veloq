@@ -13,7 +13,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { routesStatus } from '../../__shared__/routesStatusStub';
 import { BackgroundJobsActivityBar } from '@/features/settings/components/BackgroundJobsActivityBar';
 import { getEngine } from '@/shared/native/engine';
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -75,7 +75,7 @@ function emit(event: string) {
 
 describe('background jobs last run', () => {
   beforeAll(async () => {
-    await initializeI18n('en-GB');
+    await initialiseI18n('en-GB');
   });
 
   beforeEach(async () => {

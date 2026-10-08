@@ -75,8 +75,9 @@ impl RecordingManager {
         })?
     }
 
-    /// Remember the engine key the recording was written under, so a
-    /// background retry can still reconcile the upload.
+    /// Remember the engine key the recording was written under. A ride whose
+    /// upload already landed has the server's id written onto that row and is
+    /// marked reconciled in the same call.
     fn attach_engine_activity(
         &self,
         id: String,
@@ -86,12 +87,6 @@ impl RecordingManager {
             e.set_recording_engine_activity(&id, &engine_activity_id)
                 .map_err(db)
         })?
-    }
-
-    /// The engine row has taken the id intervals.icu gave the upload, so the
-    /// reconcile sweep can stop replaying this one.
-    fn mark_reconciled(&self, id: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_reconciled(&id).map_err(db))?
     }
 
     /// Move one recording's upload by a named transition, refused when the row

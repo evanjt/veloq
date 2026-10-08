@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -40,6 +39,7 @@ import {
 import { colors, darkColors, layout, spacing, typography, colorWithOpacity, ink } from '@/theme';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 const SPORTS: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
 const CLIMBING_SPORTS: PrimarySport[] = ['Cycling', 'Running'];
@@ -164,7 +164,7 @@ function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) 
                   !isLast && styles.rowBorder,
                   !isLast && isDark && styles.rowBorderDark,
                 ])}
-                onPress={() => router.push(`/activity/${effort.activityId}`)}
+                onPress={() => tapTo(`/activity/${effort.activityId}`)}
               >
                 {rowBody}
               </Pressable>

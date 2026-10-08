@@ -14,7 +14,6 @@ const mockAddActivities = jest.fn(async () => undefined);
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
-      setActivityMetrics: jest.fn(),
       setTimeStreams: jest.fn(),
       triggerRefresh: jest.fn(),
     },
@@ -46,8 +45,7 @@ jest.mock('@/features/routes/lib/tilePass', () => ({
 
 const { engine } = require('veloqrs');
 
-const activity = (id: string) =>
-  ({ id, type: 'Ride', start_date_local: '2026-01-01T08:00:00' }) as never;
+const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 describe('the demo GPS fetch', () => {
   it('writes no metrics row from TypeScript and still refreshes the lists', async () => {
@@ -61,7 +59,6 @@ describe('the demo GPS fetch', () => {
 
     expect(outcome.syncedIds).toEqual(['d1', 'd2']);
     expect(mockAddActivities).toHaveBeenCalledTimes(1);
-    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
     expect(engine.triggerRefresh).toHaveBeenCalledWith('activities');
   });
 });

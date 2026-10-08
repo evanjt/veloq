@@ -3,7 +3,7 @@
  * Expected behaviour: one store listener stays wired however often it is initialised,
  * so a toggle reaches the engine once.
  */
-import { initializeDebugStore, useDebugStore } from '@/features/settings/stores/DebugStore';
+import { initialiseDebugStore, useDebugStore } from '@/features/settings/stores/DebugStore';
 
 const mockSetDebugEnabled = jest.fn();
 
@@ -16,15 +16,15 @@ jest.mock('veloqrs', () =>
   })
 );
 
-describe('initializeDebugStore', () => {
+describe('initialiseDebugStore', () => {
   beforeEach(() => {
     mockSetDebugEnabled.mockClear();
   });
 
   it('forwards a toggle once after repeated initialisation', async () => {
-    await initializeDebugStore();
-    await initializeDebugStore();
-    await initializeDebugStore();
+    await initialiseDebugStore();
+    await initialiseDebugStore();
+    await initialiseDebugStore();
     mockSetDebugEnabled.mockClear();
 
     await useDebugStore.getState().setEnabled(true);

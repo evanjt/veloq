@@ -27,6 +27,7 @@ use tempfile::TempDir;
 use veloqrs::persistence::settings::settings_keys::NOTIFICATION_PREFERENCES;
 use veloqrs::push::native_auth_choice;
 use veloqrs::sections::CreateSectionParams;
+use veloqrs::widget_snapshot::WidgetContext;
 use veloqrs::{ActivityMetrics, Direction, GpsPoint, PersistentEngine, SectionPortion};
 
 unsafe extern "C" {
@@ -38,7 +39,14 @@ unsafe extern "C" {
         refusal: *mut *mut c_char,
     ) -> bool;
     fn veloq_push_activity(activity_id: *const c_char, athlete_id: *const c_char) -> *mut c_char;
+    fn veloq_push_widget_snapshot() -> *mut c_char;
     fn veloq_push_string_free(text: *mut c_char);
+    fn veloq_widget_refresh(
+        db_path: *const c_char,
+        access_token: *const c_char,
+        api_key: *const c_char,
+        athlete_id: *const c_char,
+    ) -> *mut c_char;
     fn veloq_push_payload_reason(
         top_level_keys: *const c_char,
         body_keys: *const c_char,
@@ -112,7 +120,8 @@ fn activity_push(activity_id: &str) -> Option<String> {
 /// and the answer is nothing to post, reached without a network round trip
 /// because the composed entry reads the gate before it fetches anything. This
 /// is the only test here that opens an engine, because the process only gets
-/// one.
+/// one. The widget snapshot entry is asserted on the same engine for that
+/// reason.
 #[test]
 fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
     let tmp = TempDir::new().unwrap();
@@ -131,6 +140,12 @@ fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
     assert!(db.exists(), "the file the extension named");
 
     assert_eq!(activity_push("a1"), None);
+
+    // The widget extension composes its snapshot from the same engine and
+    // the context the app stored, with no JavaScript.
+    let snapshot = take(unsafe { veloq_push_widget_snapshot() }).expect("a snapshot");
+    let parsed: serde_json::Value = serde_json::from_str(&snapshot).expect("JSON a widget reads");
+    assert_eq!(parsed["locale"], "fr");
 }
 
 /// A null id is a push whose payload the extension could not read, and the
@@ -141,6 +156,20 @@ fn an_activity_push_with_no_id_is_null() {
         take(unsafe { veloq_push_activity(std::ptr::null(), std::ptr::null()) }),
         None
     );
+}
+
+#[test]
+fn a_widget_refresh_with_no_database_path_is_null() {
+    let answer = unsafe {
+        veloq_widget_refresh(
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+        )
+    };
+
+    assert_eq!(take(answer), None);
 }
 
 /// Scenario: the phone has been rebooted and not unlocked, so
@@ -206,6 +235,13 @@ fn freeing_a_null_answer_is_a_no_op() {
 /// the connection.
 fn seed_a_section_pr(db_path: &str, preferences: &str) {
     let mut engine = PersistentEngine::new(db_path).expect("the engine");
+    let context = WidgetContext {
+        locale: "fr".to_string(),
+        ..WidgetContext::default()
+    };
+    engine
+        .set_widget_context(&serde_json::to_string(&context).expect("the context"))
+        .expect("the widget context");
     engine
         .set_notification_templates("en-AU", &bundle())
         .expect("the templates");

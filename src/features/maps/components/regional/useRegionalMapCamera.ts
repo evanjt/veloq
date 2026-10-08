@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { normalizeBounds } from '@/shared/geo/polyline';
+import { normaliseBounds } from '@/shared/geo/polyline';
 import { startCenterFor } from '../../lib/markerCentre';
 import type { ActivityBoundsItem } from '@/types';
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
@@ -54,7 +54,7 @@ export function useRegionalMapCamera({
   const currentCenterRef = useRef<[number, number] | null>(null);
 
   // ===========================================
-  // 120HZ OPTIMIZATION: Pre-compute and cache activity start positions
+  // 120HZ OPTIMISATION: Pre-compute and cache activity start positions
   // ===========================================
   // The start point rides in on the map screen read, so this no longer depends
   // on the signatures load. It used to: every marker was uploaded once on its
@@ -93,7 +93,7 @@ export function useRegionalMapCamera({
       const framed = openingClusterActivities(activityList);
       const centers: LatLngShort[] = [];
       for (const activity of framed) {
-        const n = normalizeBounds(activity.bounds);
+        const n = normaliseBounds(activity.bounds);
         centers.push({
           lat: (n.minLat + n.maxLat) / 2,
           lng: (n.minLng + n.maxLng) / 2,
@@ -113,7 +113,7 @@ export function useRegionalMapCamera({
       let minLng = Infinity,
         maxLng = -Infinity;
       for (const activity of clusterActivities) {
-        const n = normalizeBounds(activity.bounds);
+        const n = normaliseBounds(activity.bounds);
         minLat = Math.min(minLat, n.minLat);
         maxLat = Math.max(maxLat, n.maxLat);
         minLng = Math.min(minLng, n.minLng);
@@ -171,7 +171,7 @@ export function useRegionalMapCamera({
   // it once, while it is still the first one.
   const mapCenter = initialBounds?.center ?? null;
 
-  // Initialize currentCenterRef from mapCenter (no re-render needed)
+  // Initialise currentCenterRef from mapCenter (no re-render needed)
   useEffect(() => {
     if (mapCenter !== null && currentCenterRef.current === null) {
       currentCenterRef.current = mapCenter;

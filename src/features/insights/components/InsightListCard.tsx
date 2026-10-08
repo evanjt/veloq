@@ -20,7 +20,7 @@ import { ChartErrorBoundary } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import type { Insight } from '@/types';
 import { getInlineMetric } from '../lib/inlineMetric';
-import { TrackPreview, normalizeTrackPoints, type NormalisedPoint } from '@/shared/ui/TrackPreview';
+import { TrackPreview, normaliseTrackPoints, type NormalisedPoint } from '@/shared/ui/TrackPreview';
 
 interface InsightListCardProps {
   insight: Insight;
@@ -53,7 +53,7 @@ function getSectionPreview(
   if (insight.category !== 'section_pr') return null;
   const section = insight.supportingData?.sections?.[0];
   if (!section?.previewPoints) return null;
-  const points = normalizeTrackPoints(section.previewPoints);
+  const points = normaliseTrackPoints(section.previewPoints);
   return points.length >= 2 ? { sectionId: section.sectionId, points } : null;
 }
 

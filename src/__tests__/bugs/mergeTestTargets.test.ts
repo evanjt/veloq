@@ -203,6 +203,59 @@ describe('which suites a merge runs', () => {
     expect(heatmap.rustTests).toContain('heatmap_synthetic');
   });
 
+  // A crate source reads a fixture through `include_str!`, so its unit tests are
+  // the reader and no integration suite names the file.
+  it('plans the crate lib tests for a fixture a crate source includes', () => {
+    const fit = mergeTestTargets([`${CRATE}/tests/fixtures/recorded_ride_fit.hex`]);
+
+    expect(fit.rustLib).toBe(true);
+  });
+
+  it('plans the suite that builds a fixture path from a bare file name', () => {
+    for (const name of ['heatmap_tile_set_A_v1.txt', 'heatmap_tile_set_E_v1.txt']) {
+      const targets = mergeTestTargets([`${CRATE}/tests/fixtures/${name}`]);
+
+      expect(targets.rustTests).toContain('heatmap_synthetic');
+      expect(targets.rustLib).toBe(false);
+    }
+  });
+
+  it('plans every suite that reads the fixture directory for a fixture nothing names', () => {
+    const targets = mergeTestTargets([`${CRATE}/tests/fixtures/a_file_no_source_names.bin`]);
+
+    expect(targets.rustTests).toContain('heatmap_synthetic');
+    expect(targets.rustTests).toContain('migration');
+  });
+
+  it('plans the crate lib tests and the Jest reader for a fixture both languages read', () => {
+    const targets = mergeTestTargets([`${CRATE}/tests/fixtures/track_codec_vectors.json`]);
+    const commands = mergeTestCommands(targets, NO_CORPORA);
+
+    expect(targets.rustLib).toBe(true);
+    expect(targets.related).toContain('src/__tests__/bindings/trackCodecVectors.test.ts');
+    expect(commands.some((line) => line.includes('trackCodecVectors.test.ts'))).toBe(true);
+  });
+
+  it('hands a locale file to jest, which finds the suites that import or scan it', () => {
+    const targets = mergeTestTargets(['src/i18n/locales/da.json']);
+    const commands = mergeTestCommands(targets, NO_CORPORA);
+
+    expect(targets.related).toContain('src/i18n/locales/da.json');
+    expect(targets.related).toContain('src/__tests__/i18n/deChRegister.test.ts');
+    expect(commands).toEqual([expect.stringContaining('--findRelatedTests')]);
+    expect(commands[0]).toContain('src/i18n/locales/da.json');
+  });
+
+  it('plans the whole app project for an app data file no test names', () => {
+    // Built from pieces so this file does not name it and become its reader.
+    const targets = mergeTestTargets([
+      ['src/', 'nobody_', 'reads_here/', 'unread_', 'data.csv'].join(''),
+    ]);
+    const commands = mergeTestCommands(targets, NO_CORPORA);
+
+    expect(commands).toEqual(['npx jest --config config/jest.config.js --selectProjects app']);
+  });
+
   it('hands the changed TypeScript to jest and nothing generated', () => {
     const targets = mergeTestTargets([
       'src/features/home/lib/widgetSnapshot.ts',
@@ -220,7 +273,33 @@ describe('which suites a merge runs', () => {
     const targets = mergeTestTargets(['modules/veloqrs/rust/tracematch']);
 
     expect(targets.tracematchLib).toBe(true);
-    expect(targets.rustLib).toBe(false);
+  });
+
+  // Every veloqrs module can reach the detector, and its detection and section
+  // suites read what the detector returns.
+  it('runs the crate lib and every runnable crate suite when tracematch moves', () => {
+    const pointer = mergeTestTargets(['modules/veloqrs/rust/tracematch']);
+    const inside = mergeTestTargets(['modules/veloqrs/rust/tracematch/src/sections/unified.rs']);
+
+    for (const targets of [pointer, inside]) {
+      expect(targets.rustLib).toBe(true);
+      expect(targets.rustTests).toEqual(expect.arrayContaining(['detection_global', 'migration']));
+    }
+    expect(pointer.rustTests).toEqual(inside.rustTests);
+  });
+
+  it('leaves the suites that need a corpus on disk out of a tracematch plan', () => {
+    const manifest = readFileSync(join(ROOT, CRATE, 'Cargo.toml'), 'utf8');
+    const corpusSuites = manifest
+      .split('[[test]]')
+      .slice(1)
+      .filter((stanza) => /required-features\s*=\s*\[[^\]]*"real-corpus"/.test(stanza))
+      .map((stanza) => stanza.match(/^name = "([^"]+)"/m)?.[1]);
+
+    const targets = mergeTestTargets(['modules/veloqrs/rust/tracematch']);
+
+    expect(corpusSuites.length).toBeGreaterThan(0);
+    for (const name of corpusSuites) expect(targets.rustTests).not.toContain(name);
   });
 
   it('runs the tracematch suite for a path inside the submodule', () => {
@@ -243,7 +322,7 @@ describe('which suites a merge runs', () => {
   });
 
   it('has nothing to run for a merge of documents alone', () => {
-    const targets = mergeTestTargets(['README.md', 'fastlane/metadata/en-AU/changelogs/29.txt']);
+    const targets = mergeTestTargets(['README.md', 'docs/overview.md']);
 
     expect(hasTargets(targets)).toBe(false);
   });
@@ -309,6 +388,9 @@ describe('the commands a merge runs', () => {
     'cargo clippy --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --all-targets --all-features -- -D warnings';
   const DETECTOR_LINT =
     'cargo clippy --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -- -D clippy::iter_over_hash_type';
+  const CRATE_SUITES = expect.stringMatching(
+    /^cargo nextest run --manifest-path modules\/veloqrs\/rust\/Cargo.toml -p veloqrs --features synthetic --lib --test .*--test detection_global .*--profile ci$/
+  );
   const LAYOUT_ONLY =
     'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --test feature_gates --profile ci';
 
@@ -324,6 +406,7 @@ describe('the commands a merge runs', () => {
     expect(commands).toEqual([
       RUST_LINT,
       DETECTOR_LINT,
+      CRATE_SUITES,
       'cargo nextest run --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic --profile ci',
       expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
       expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
@@ -342,7 +425,14 @@ describe('the commands a merge runs', () => {
         private: '/data/private',
       });
 
-      expect(commands).toEqual([RUST_LINT, DETECTOR_LINT, SYNTHETIC, GEOLIFE, PRIVATE]);
+      expect(commands).toEqual([
+        RUST_LINT,
+        DETECTOR_LINT,
+        CRATE_SUITES,
+        SYNTHETIC,
+        GEOLIFE,
+        PRIVATE,
+      ]);
     });
 
     it('prints one skip line per absent corpus and never a failing command', () => {
@@ -351,6 +441,7 @@ describe('the commands a merge runs', () => {
       expect(commands).toEqual([
         RUST_LINT,
         DETECTOR_LINT,
+        CRATE_SUITES,
         SYNTHETIC,
         expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
         expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
@@ -365,6 +456,7 @@ describe('the commands a merge runs', () => {
       expect(commands).toEqual([
         RUST_LINT,
         DETECTOR_LINT,
+        CRATE_SUITES,
         SYNTHETIC,
         GEOLIFE,
         expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),

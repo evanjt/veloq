@@ -2,7 +2,7 @@
  * Preference Stores Tests
  *
  * Consolidated tests for preference-related stores.
- * Each section tests unique behaviors; shared patterns (init, corrupt JSON, persist)
+ * Each section tests unique behaviours; shared patterns (init, corrupt JSON, persist)
  * are tested once thoroughly in RouteSettingsStore as the representative.
  *
  * - UnitPreferenceStore (three-tier metric/imperial resolution)
@@ -22,26 +22,26 @@ import {
   useUnitPreference,
   resolveIsMetric,
   getIntervalsUnitSystem,
-  initializeUnitPreference,
+  initialiseUnitPreference,
 } from '@/shared/app/UnitPreferenceStore';
 
 // RouteSettingsStore
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
-  initializeRouteSettings,
+  initialiseRouteSettings,
 } from '@/features/routes/stores/RouteSettingsStore';
 
 // SportPreferenceStore
 import {
   useSportPreference,
-  initializeSportPreference,
+  initialiseSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
 
 // summaryCardPreferences
 import {
   useDashboardPreferences,
-  initializeDashboardPreferences,
+  initialiseDashboardPreferences,
   getMetricDefinition,
   AVAILABLE_METRICS,
   type MetricId,
@@ -88,15 +88,15 @@ describe('UnitPreferenceStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('defaults to auto when nothing stored', async () => {
-      await initializeUnitPreference();
+      await initialiseUnitPreference();
       expect(useUnitPreference.getState().unitPreference).toBe('auto');
     });
 
     it('restores valid values from storage', async () => {
       await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, 'imperial');
-      await useUnitPreference.getState().initialize();
+      await useUnitPreference.getState().initialise();
       expect(useUnitPreference.getState().unitPreference).toBe('imperial');
     });
   });
@@ -171,7 +171,7 @@ describe('RouteSettingsStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize() - Corruption Recovery', () => {
+  describe('initialise() - Corruption Recovery', () => {
     it('loads valid settings', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
@@ -179,7 +179,7 @@ describe('RouteSettingsStore', () => {
           enabled: false,
         })
       );
-      await initializeRouteSettings();
+      await initialiseRouteSettings();
       const state = useRouteSettings.getState();
       expect(state.settings.enabled).toBe(false);
       expect(state.isLoaded).toBe(true);
@@ -189,7 +189,7 @@ describe('RouteSettingsStore', () => {
     it('falls back to defaults for invalid JSON, wrong types, and arrays', async () => {
       await eachCorruptPayloadRecovers(
         ROUTE_SETTINGS_KEY,
-        initializeRouteSettings,
+        initialiseRouteSettings,
         ['not valid json', JSON.stringify({ enabled: 'not a boolean' }), '[1, 2, 3]'],
         () => {
           expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
@@ -202,7 +202,7 @@ describe('RouteSettingsStore', () => {
 
     it('merges partial settings with defaults', async () => {
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: false }));
-      await initializeRouteSettings();
+      await initialiseRouteSettings();
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
     });
 
@@ -216,7 +216,7 @@ describe('RouteSettingsStore', () => {
           detectionStrictness: 90,
         })
       );
-      await initializeRouteSettings();
+      await initialiseRouteSettings();
       expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
 
       await useRouteSettings.getState().setEnabled(false);
@@ -227,7 +227,7 @@ describe('RouteSettingsStore', () => {
 
     it('sets isLoaded even when AsyncStorage throws', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      await initializeRouteSettings();
+      await initialiseRouteSettings();
       expect(useRouteSettings.getState().isLoaded).toBe(true);
     });
   });
@@ -256,7 +256,7 @@ describe('RouteSettingsStore', () => {
       expect(isRouteMatchingEnabled()).toBe(false);
     });
 
-    it('helpers work before initialization', () => {
+    it('helpers work before initialisation', () => {
       useRouteSettings.setState({
         settings: DEFAULT_ROUTE_SETTINGS,
         isLoaded: false,
@@ -277,10 +277,10 @@ describe('SportPreferenceStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initialize()', () => {
+  describe('initialise()', () => {
     it('rejects invalid sport - falls back to default', async () => {
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
-      await useSportPreference.getState().initialize();
+      await useSportPreference.getState().initialise();
       expect(useSportPreference.getState().primarySport).toBe('Cycling');
     });
   });
@@ -293,8 +293,8 @@ describe('SportPreferenceStore', () => {
     });
   });
 
-  it('initializeSportPreference() delegates to store', async () => {
-    await initializeSportPreference();
+  it('initialiseSportPreference() delegates to store', async () => {
+    await initialiseSportPreference();
     expect(useSportPreference.getState().isLoaded).toBe(true);
   });
 });
@@ -307,7 +307,7 @@ describe('summaryCardPreferences', () => {
   beforeEach(async () => {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULT_SUMMARY_CARD },
-      isInitialized: false,
+      isInitialised: false,
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
@@ -331,13 +331,13 @@ describe('summaryCardPreferences', () => {
     });
   });
 
-  describe('initialization', () => {
+  describe('initialisation', () => {
     it('reads only the summary card key', async () => {
-      await initializeDashboardPreferences();
+      await initialiseDashboardPreferences();
       const reads = (AsyncStorage.getItem as jest.Mock).mock.calls.map(([key]) => key);
       expect(reads).not.toContain('dashboard_preferences');
       expect(reads).toContain(SUMMARY_CARD_STORAGE_KEY);
-      expect(useDashboardPreferences.getState().isInitialized).toBe(true);
+      expect(useDashboardPreferences.getState().isInitialised).toBe(true);
     });
 
     it('falls back to summary card defaults on a mismatched stored value', async () => {
@@ -351,8 +351,8 @@ describe('summaryCardPreferences', () => {
       for (const payload of payloads) {
         await AsyncStorage.clear();
         await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, payload);
-        useDashboardPreferences.setState({ isInitialized: false });
-        await initializeDashboardPreferences();
+        useDashboardPreferences.setState({ isInitialised: false });
+        await initialiseDashboardPreferences();
         expect(useDashboardPreferences.getState().summaryCard).toEqual(DEFAULT_SUMMARY_CARD);
       }
     });
@@ -365,7 +365,7 @@ describe('summaryCardPreferences', () => {
         supportingMetrics: ['hrv', 'rhr'],
       };
       await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(stored));
-      await initializeDashboardPreferences();
+      await initialiseDashboardPreferences();
       expect(useDashboardPreferences.getState().summaryCard).toEqual(stored);
     });
     it.each(['rhr', 'form', 'weekHours', 'weight'])(
@@ -381,8 +381,8 @@ describe('summaryCardPreferences', () => {
             supportingMetrics,
           })
         );
-        useDashboardPreferences.setState({ isInitialized: false });
-        await initializeDashboardPreferences();
+        useDashboardPreferences.setState({ isInitialised: false });
+        await initialiseDashboardPreferences();
 
         const expected = {
           enabled: true,

@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';
 import type { SectionWithPolyline } from 'veloqrs';
 
@@ -99,7 +99,7 @@ function renderList(over: Record<string, unknown> = {}) {
 
 describe('SectionsList over an engine-ordered page', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('renders the page in the order the engine gave it', () => {
@@ -164,7 +164,7 @@ describe('SectionsList over an engine-ordered page', () => {
  */
 describe('the filter chips count the catalogue, not the page', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('shows the custom and retired figures it was given', () => {
@@ -188,7 +188,7 @@ describe('the filter chips count the catalogue, not the page', () => {
 
 describe('SectionsList over a failed page read', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('shows the failure with a retry, not the empty library copy', () => {

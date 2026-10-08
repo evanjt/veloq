@@ -137,7 +137,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   // The loupe renders the body at a larger scale directly (no CSS transform)
   const loupeScale = scale * LOUPE_SCALE;
 
-  // Convert touch coordinates to normalized SVG space (0-1) and find muscle
+  // Convert touch coordinates to normalised SVG space (0-1) and find muscle
   const touchToMuscle = useCallback(
     (x: number, y: number): string | null => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0) return null;
@@ -147,7 +147,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       const localX = side === 'front' ? x : x - bodyW - totalGap;
       // SVG centering within flex container
       const padX = (bodyW - bodyPixelW) / 2;
-      // Normalized 0-1 coordinates within the SVG viewBox
+      // Normalised 0-1 coordinates within the SVG viewBox
       const nx = (localX - padX) / bodyPixelW;
       const ny = y / bodyPixelH;
       return findMuscleAtPoint(nx, ny, side, tappableSlugs, gender);

@@ -6,7 +6,7 @@ use serde::de::{Deserializer, MapAccess, SeqAccess, Visitor};
 
 use crate::{
     FfiActivityMetrics, FfiClaimBasis, FfiFtpTrend, FfiPaceTrend, FfiPeriodStats,
-    FfiWellnessSparklines, WidgetSummaryCardData,
+    FfiWellnessSparklines, WidgetLatestComparison, WidgetRouteStanding, WidgetSummaryCardData,
 };
 
 // Midnight plus 53 minutes on the wall clock, so a ride 3000 s earlier is today
@@ -32,6 +32,7 @@ const LABELS: &[(&str, &str)] = &[
     ("metrics.ftp", "FTP"),
     ("metrics.pace", "Pace"),
     ("metrics.css", "CSS"),
+    ("metrics.weight", "Weight"),
     ("formZones.highRisk", "High Risk"),
     ("formZones.optimal", "Optimal"),
     ("formZones.greyZone", "Grey Zone"),
@@ -39,6 +40,15 @@ const LABELS: &[(&str, &str)] = &[
     ("formZones.transition", "Transition"),
     ("time.today", "Today"),
     ("time.yesterday", "Yesterday"),
+    ("systemSurfaces.latest.rank", "{{rank}} of {{total}}"),
+    ("systemSurfaces.latest.fastest", "Your fastest"),
+    ("systemSurfaces.latest.offBest", "{{gap}} off your best"),
+    ("systemSurfaces.latest.load", "Load"),
+    (
+        "systemSurfaces.latest.loadVsTypical",
+        "{{percent}} vs your typical load",
+    ),
+    ("systemSurfaces.latest.sectionPrs", "Section PRs {{number}}"),
 ];
 
 /// The engine data and app settings one snapshot is composed from.
@@ -48,9 +58,12 @@ struct Raw {
     summary: Option<WidgetSummaryCardData>,
     latest: Option<FfiActivityMetrics>,
     latest_is_pr: bool,
+    comparison: WidgetLatestComparison,
     ramp_rate: Option<f64>,
     summary_prefs: Option<SummaryPrefs>,
     form_as_percent: bool,
+    is_metric: bool,
+    weight_kg: Option<f64>,
 }
 
 fn series(
@@ -129,6 +142,7 @@ fn make_raw() -> Raw {
             ..Default::default()
         }),
         latest_is_pr: false,
+        comparison: WidgetLatestComparison::default(),
         ramp_rate: None,
         summary_prefs: Some(SummaryPrefs {
             enabled: true,
@@ -139,6 +153,8 @@ fn make_raw() -> Raw {
                 .to_vec(),
         }),
         form_as_percent: false,
+        is_metric: true,
+        weight_kg: None,
     }
 }
 
@@ -178,7 +194,7 @@ fn english_dates() -> DateWords {
 fn context(raw: &Raw) -> WidgetContext {
     WidgetContext {
         locale: "en-AU".to_string(),
-        is_metric: true,
+        is_metric: raw.is_metric,
         form_as_percent: raw.form_as_percent,
         strings: LABELS
             .iter()
@@ -250,20 +266,26 @@ fn earlier(s: &[i32]) -> Option<FfiClaimBasis> {
 }
 
 fn compose_raw(raw: &Raw) -> WidgetSnapshot {
+    compose(&data_of(raw), &context(raw), CLOCK)
+}
+
+fn data_of(raw: &Raw) -> FfiWidgetSnapshotData {
     let mut summary = raw.summary.clone().unwrap_or_default();
     // The engine has no wellness summary to give without a summary or a series.
     if let (Some(sp), Some(_)) = (&raw.sparklines, &raw.summary) {
         summary.wellness = engine_wellness(sp);
+        summary.wellness.weight = raw.weight_kg;
+        summary.wellness.weight_trend = raw.weight_kg.map(|_| "↓".to_string());
     }
-    let data = FfiWidgetSnapshotData {
+    FfiWidgetSnapshotData {
         sparklines: raw.sparklines.clone(),
         summary,
         latest: raw.latest.clone(),
         latest_is_pr: raw.latest_is_pr,
+        latest_comparison: raw.comparison.clone(),
         latest_gps: Vec::new(),
         ramp_rate: raw.ramp_rate,
-    };
-    compose(&data, &context(raw), CLOCK)
+    }
 }
 
 fn snapshot() -> WidgetSnapshot {
@@ -966,4 +988,702 @@ fn clears_the_empty_library_flag_when_wellness_exists_without_an_activity() {
     let mut raw = make_raw();
     raw.latest = None;
     assert!(!compose_raw(&raw).empty_library);
+}
+
+// ---------------------------------------------------------------------------
+// The summary card's chosen hero, its sparkline and its supporting metrics
+// ---------------------------------------------------------------------------
+
+fn prefs(hero: &str, supporting: &[&str]) -> SummaryPrefs {
+    SummaryPrefs {
+        enabled: true,
+        hero_metric: hero.to_string(),
+        show_sparkline: true,
+        supporting_metrics: supporting.iter().map(|id| id.to_string()).collect(),
+    }
+}
+
+fn card_of(raw: &Raw) -> SummaryCard {
+    compose_raw(raw).summary_card.expect("a summary card")
+}
+
+#[test]
+fn composes_exactly_the_chosen_supporting_metrics_in_the_chosen_order() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("hrv", &["rhr", "weekHours", "ftp", "weight"]));
+    raw.weight_kg = Some(72.4);
+    let card = card_of(&raw);
+
+    assert_eq!(card.hero.id, "hrv");
+    let ids: Vec<&str> = card.entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, ["rhr", "weekHours", "ftp", "weight"]);
+    let weight = &card.entries[3];
+    assert_eq!(weight.label, "Weight");
+    assert_eq!(weight.value, "72.4kg");
+    assert_eq!(weight.trend_dir, "down");
+    assert_eq!(weight.verdict, "moved");
+}
+
+#[test]
+fn prints_weight_in_pounds_for_an_imperial_athlete() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("fitness", &["weight"]));
+    raw.weight_kg = Some(72.4);
+    raw.is_metric = false;
+    assert_eq!(card_of(&raw).entries[0].value, "159.6lbs");
+}
+
+#[test]
+fn leaves_weight_out_with_no_reading_as_the_app_card_does_never_a_zero() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("hrv", &["rhr", "weight", "ftp"]));
+    raw.weight_kg = None;
+    let card = card_of(&raw);
+    let ids: Vec<&str> = card.entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, ["rhr", "ftp"]);
+    assert!(card.entries.iter().all(|e| e.value != "0"));
+}
+
+#[test]
+fn takes_at_most_four_supporting_metrics_after_skipping_the_absent_ones() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs(
+        "fitness",
+        &["weight", "rhr", "hrv", "ftp", "weekHours", "weekCount"],
+    ));
+    let card = card_of(&raw);
+    let ids: Vec<&str> = card.entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, ["rhr", "hrv", "ftp", "weekHours"]);
+}
+
+#[test]
+fn a_form_hero_leads_with_its_zone_colour_and_draws_the_form_series() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("form", &["fitness"]));
+    let card = card_of(&raw);
+    assert_eq!(card.hero.id, "form");
+    assert_eq!(card.hero.value, "-8");
+    assert_eq!(card.hero.colour_key, "formZone");
+    assert_eq!(card.hero_sparkline, [0, -1, -2, -3, -4, -5, -8]);
+}
+
+#[test]
+fn carries_the_series_of_whichever_metric_is_the_hero() {
+    let series_of = |hero: &str| {
+        let mut raw = make_raw();
+        raw.summary_prefs = Some(prefs(hero, &[]));
+        card_of(&raw).hero_sparkline
+    };
+    assert_eq!(series_of("fitness"), [66, 67, 68, 69, 70, 71, 72]);
+    assert_eq!(series_of("hrv"), [62, 63, 67, 64, 66, 65, 68]);
+    assert_eq!(series_of("rhr"), [47, 48, 49, 50, 48, 49, 48]);
+}
+
+#[test]
+fn a_hero_with_no_daily_series_carries_no_sparkline() {
+    for hero in ["ftp", "weekHours", "weight", "thresholdPace"] {
+        let mut raw = make_raw();
+        raw.weight_kg = Some(72.4);
+        raw.summary_prefs = Some(prefs(hero, &[]));
+        assert!(card_of(&raw).hero_sparkline.is_empty(), "{hero}");
+    }
+}
+
+#[test]
+fn carries_no_hero_sparkline_when_the_card_hides_it() {
+    let mut raw = make_raw();
+    raw.summary_prefs.as_mut().unwrap().show_sparkline = false;
+    let card = card_of(&raw);
+    assert_eq!(card.sparkline, "none");
+    assert!(card.hero_sparkline.is_empty());
+}
+
+#[test]
+fn an_unknown_hero_falls_back_to_fitness_and_its_series() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("bogus", &[]));
+    let card = card_of(&raw);
+    assert_eq!(card.hero.id, "fitness");
+    assert_eq!(card.hero_sparkline, [66, 67, 68, 69, 70, 71, 72]);
+}
+
+#[test]
+fn a_placement_override_composes_its_own_card_and_the_default_stays_the_cards() {
+    let raw = make_raw();
+    let data = data_of(&raw);
+    let ctx = context(&raw);
+
+    let overridden = summary_card(&data, &ctx, &prefs("hrv", &["rhr"])).expect("a card");
+    assert_eq!(overridden.hero.id, "hrv");
+    assert_eq!(overridden.entries.len(), 1);
+    assert_eq!(overridden.entries[0].id, "rhr");
+
+    let default = compose(&data, &ctx, CLOCK).summary_card.expect("a card");
+    assert_eq!(default.hero.id, "fitness");
+}
+
+#[test]
+fn carries_six_weeks_of_form_with_the_zone_bounds_and_leaves_the_other_series_at_thirty_days() {
+    let mut raw = make_raw();
+    let form: Vec<i32> = (0..42).map(|d| d - 30).collect();
+    *sparklines_mut(&mut raw) = series(&[60; 42], &[30; 42], &form, &[60; 42], &[50; 42]);
+    let s = compose_raw(&raw);
+
+    let history = s.form_history.expect("form history");
+    assert_eq!(history.values.len(), 42);
+    assert_eq!(history.values[0], Some(-30));
+    assert_eq!(history.values[41], Some(11));
+    assert_eq!(history.zone_bounds, [-30, -10, 5, 25]);
+    assert!(!history.as_percent);
+
+    assert_eq!(s.sparklines.form.len(), SPARKLINE_DAYS as usize);
+    assert_eq!(s.sparklines.fitness.len(), SPARKLINE_DAYS as usize);
+    assert_eq!(s.sparklines.form.last(), Some(&11));
+    assert_eq!(s.sparklines.form[0], form[12]);
+}
+
+#[test]
+fn writes_form_history_in_percent_of_that_days_fitness_with_a_gap_where_there_is_none() {
+    let mut raw = make_raw();
+    raw.form_as_percent = true;
+    *sparklines_mut(&mut raw) = series(
+        &[0, 50, 100],
+        &[0, 40, 90],
+        &[0, 10, 10],
+        &[60, 60, 60],
+        &[50, 50, 50],
+    );
+    let history = compose_raw(&raw).form_history.expect("form history");
+    assert!(history.as_percent);
+    assert_eq!(history.values, [None, Some(20), Some(10)]);
+}
+
+#[test]
+fn has_no_form_history_without_a_form_series() {
+    let mut raw = make_raw();
+    raw.sparklines = None;
+    assert_eq!(compose_raw(&raw).form_history, None);
+    assert!(json(&compose_raw(&raw))["formHistory"].is_null());
+}
+
+#[test]
+fn serialises_the_hero_sparkline_and_the_form_history_for_the_natives() {
+    let value = json(&snapshot());
+    assert_eq!(
+        value["summaryCard"]["heroSparkline"],
+        serde_json::json!([66, 67, 68, 69, 70, 71, 72])
+    );
+    assert_eq!(
+        value["formHistory"]["zoneBounds"],
+        serde_json::json!([-30, -10, 5, 25])
+    );
+    assert_eq!(value["formHistory"]["asPercent"], serde_json::json!(false));
+}
+
+#[test]
+fn a_weight_hero_with_no_reading_prints_a_dash_rather_than_changing_hero() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("weight", &[]));
+    raw.weight_kg = None;
+    let card = card_of(&raw);
+    assert_eq!(card.hero.id, "weight");
+    assert_eq!(card.hero.value, "-");
+}
+
+// ---------------------------------------------------------------------------
+// What the latest activity is compared against
+// ---------------------------------------------------------------------------
+
+/// The 2nd fastest of 14 attempts: 13 other times, one of them the best.
+fn standing_second_of_fourteen() -> WidgetRouteStanding {
+    WidgetRouteStanding {
+        route_name: "Lake loop".to_string(),
+        rank: Some(2),
+        attempt_count: 14,
+        time_delta_seconds: Some(95),
+        prior_attempt_seconds: (0..13).map(|i| 5565 + i * 20).collect(),
+    }
+}
+
+fn latest_of(raw: &Raw) -> Latest {
+    compose_raw(raw).latest.expect("a latest activity")
+}
+
+fn with_sport(sport: &str, edit: impl FnOnce(&mut FfiActivityMetrics)) -> Raw {
+    let mut raw = make_raw();
+    let latest = raw.latest.as_mut().unwrap();
+    latest.sport_type = sport.to_string();
+    edit(latest);
+    raw
+}
+
+#[test]
+fn an_activity_second_fastest_of_fourteen_attempts_composes_rank_two_and_the_gap_to_the_fastest() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(standing_second_of_fourteen());
+    let latest = latest_of(&raw);
+
+    let route = latest.route.expect("a matched route");
+    assert_eq!(route.name, "Lake loop");
+    assert_eq!(route.rank, Some(2));
+    assert_eq!(route.attempt_count, 14);
+    assert_eq!(route.gap_seconds, Some(95));
+    assert_eq!(route.gap_label.as_deref(), Some("1:35"));
+    assert_eq!(
+        latest.load_vs_typical, None,
+        "a matched route needs no fallback"
+    );
+}
+
+#[test]
+fn a_matched_route_carries_at_most_the_twenty_latest_prior_attempts_in_date_order() {
+    let mut raw = make_raw();
+    let mut standing = standing_second_of_fourteen();
+    standing.attempt_count = 31;
+    standing.prior_attempt_seconds = (0..30).map(|i| 5000 + i).collect();
+    raw.comparison.route = Some(standing);
+
+    let route = latest_of(&raw).route.expect("a matched route");
+    let expected: Vec<u32> = (10..30).map(|i| 5000 + i).collect();
+    assert_eq!(route.attempt_seconds, expected);
+
+    let mut few = make_raw();
+    few.comparison.route = Some(standing_second_of_fourteen());
+    let route = latest_of(&few).route.expect("a matched route");
+    assert_eq!(route.attempt_seconds.len(), 13);
+    assert_eq!(route.attempt_seconds[0], 5565, "oldest first");
+}
+
+#[test]
+fn a_route_record_has_no_gap_to_close_and_an_unranked_attempt_has_no_rank() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(WidgetRouteStanding {
+        rank: Some(1),
+        time_delta_seconds: Some(0),
+        ..standing_second_of_fourteen()
+    });
+    let route = latest_of(&raw).route.expect("a matched route");
+    assert_eq!(route.rank, Some(1));
+    assert_eq!(route.gap_seconds, Some(0));
+    assert_eq!(route.gap_label.as_deref(), Some("0:00"));
+
+    raw.comparison.route = Some(WidgetRouteStanding {
+        rank: None,
+        time_delta_seconds: None,
+        ..standing_second_of_fourteen()
+    });
+    let route = latest_of(&raw).route.expect("a matched route");
+    assert_eq!(route.rank, None);
+    assert_eq!(route.gap_seconds, None);
+    assert_eq!(route.gap_label, None);
+}
+
+#[test]
+fn an_unmatched_activity_composes_the_load_against_its_typical_load_and_no_rank() {
+    let mut raw = make_raw();
+    raw.comparison.typical_load = Some(50.0);
+    let latest = latest_of(&raw);
+
+    assert_eq!(latest.route, None);
+    let load = latest.load_vs_typical.expect("the load fallback");
+    assert_eq!(load.typical, 50.0);
+    assert_eq!(load.delta_pct, 24, "62 against 50 is 24 per cent over");
+    let value = json(&compose_raw(&raw));
+    assert!(value["latest"]["route"].is_null());
+}
+
+#[test]
+fn a_load_below_the_typical_load_reads_as_a_negative_percentage() {
+    let mut raw = make_raw();
+    raw.comparison.typical_load = Some(124.0);
+    let load = latest_of(&raw).load_vs_typical.expect("the load fallback");
+    assert_eq!(load.delta_pct, -50);
+}
+
+#[test]
+fn no_fallback_without_a_typical_load_or_without_a_load_of_its_own() {
+    let mut raw = make_raw();
+    assert_eq!(latest_of(&raw).load_vs_typical, None, "no typical load");
+
+    raw.comparison.typical_load = Some(50.0);
+    raw.latest.as_mut().unwrap().training_load = None;
+    assert_eq!(latest_of(&raw).load_vs_typical, None, "no load recorded");
+
+    raw.latest.as_mut().unwrap().training_load = Some(62.0);
+    raw.comparison.typical_load = Some(0.0);
+    assert_eq!(
+        latest_of(&raw).load_vs_typical,
+        None,
+        "a typical of zero divides nothing"
+    );
+}
+
+#[test]
+fn the_section_pr_count_passes_through() {
+    let mut raw = make_raw();
+    assert_eq!(latest_of(&raw).section_prs, 0);
+    raw.comparison.section_pr_count = 3;
+    assert_eq!(latest_of(&raw).section_prs, 3);
+    assert_eq!(json(&compose_raw(&raw))["latest"]["sectionPrs"], 3);
+}
+
+// ---------------------------------------------------------------------------
+// What the Last activity widget leads with
+// ---------------------------------------------------------------------------
+
+fn headline_of(raw: &Raw) -> Headline {
+    latest_of(raw).headline.expect("a headline")
+}
+
+#[test]
+fn a_matched_activity_leads_with_its_rank_and_the_gap_to_the_route_record() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(standing_second_of_fourteen());
+    let headline = headline_of(&raw);
+
+    assert_eq!(headline.kind, "route");
+    assert_eq!(headline.label, "Lake loop");
+    assert_eq!(headline.hero, "2 of 14");
+    assert_eq!(headline.detail.as_deref(), Some("1:35 off your best"));
+}
+
+#[test]
+fn a_route_record_leads_with_its_rank_and_says_it_is_the_fastest() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(WidgetRouteStanding {
+        rank: Some(1),
+        time_delta_seconds: Some(0),
+        ..standing_second_of_fourteen()
+    });
+    let headline = headline_of(&raw);
+    assert_eq!(headline.hero, "1 of 14");
+    assert_eq!(headline.detail.as_deref(), Some("Your fastest"));
+}
+
+#[test]
+fn every_attempt_is_a_dot_in_date_order_with_the_latest_last_and_the_fastest_marked() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(standing_second_of_fourteen());
+    let dots = headline_of(&raw).dots;
+
+    assert_eq!(dots.len(), 14, "thirteen prior attempts and the latest");
+    assert_eq!(
+        dots.iter().filter(|d| d.current).count(),
+        1,
+        "one dot is the latest"
+    );
+    assert!(dots[13].current, "the latest is the last dot");
+    let record: Vec<usize> = (0..dots.len()).filter(|i| dots[*i].record).collect();
+    assert_eq!(record, vec![0], "5565 s is the fastest of them");
+}
+
+#[test]
+fn a_latest_that_is_the_fastest_attempt_marks_its_own_dot_as_the_record() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(WidgetRouteStanding {
+        rank: Some(1),
+        time_delta_seconds: Some(0),
+        prior_attempt_seconds: vec![5900, 5800, 5700],
+        ..standing_second_of_fourteen()
+    });
+    let dots = headline_of(&raw).dots;
+    assert_eq!(dots.len(), 4);
+    assert!(dots[3].current && dots[3].record);
+    assert_eq!(dots.iter().filter(|d| d.record).count(), 1);
+}
+
+#[test]
+fn an_unmatched_activity_leads_with_its_load_against_the_typical_load_and_no_rank() {
+    let mut raw = make_raw();
+    raw.comparison.typical_load = Some(50.0);
+    let headline = headline_of(&raw);
+
+    assert_eq!(headline.kind, "load");
+    assert_eq!(headline.label, "Load");
+    assert_eq!(headline.hero, "62");
+    assert_eq!(
+        headline.detail.as_deref(),
+        Some("+24% vs your typical load")
+    );
+    assert!(headline.dots.is_empty(), "no route, no attempts");
+}
+
+#[test]
+fn a_load_below_the_typical_one_carries_a_minus_sign_in_the_detail() {
+    let mut raw = make_raw();
+    raw.comparison.typical_load = Some(124.0);
+    assert_eq!(
+        headline_of(&raw).detail.as_deref(),
+        Some("-50% vs your typical load")
+    );
+}
+
+#[test]
+fn a_load_with_no_typical_load_leads_with_the_load_alone() {
+    let raw = make_raw();
+    let headline = headline_of(&raw);
+    assert_eq!(headline.kind, "load");
+    assert_eq!(headline.hero, "62");
+    assert_eq!(headline.detail, None);
+}
+
+#[test]
+fn no_route_standing_and_no_load_leads_with_nothing() {
+    let mut raw = make_raw();
+    raw.latest.as_mut().unwrap().training_load = None;
+    assert_eq!(latest_of(&raw).headline, None);
+}
+
+#[test]
+fn an_unranked_attempt_on_a_route_falls_back_to_its_load() {
+    let mut raw = make_raw();
+    raw.comparison.typical_load = Some(50.0);
+    raw.comparison.route = Some(WidgetRouteStanding {
+        rank: None,
+        time_delta_seconds: None,
+        ..standing_second_of_fourteen()
+    });
+    let headline = headline_of(&raw);
+    assert_eq!(headline.kind, "load");
+    assert_eq!(headline.hero, "62");
+}
+
+#[test]
+fn a_context_without_the_words_leads_with_nothing_rather_than_a_key() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(standing_second_of_fourteen());
+    let mut ctx = context(&raw);
+    ctx.strings
+        .retain(|key, _| !key.starts_with("systemSurfaces.latest."));
+    let latest = compose(&data_of(&raw), &ctx, CLOCK)
+        .latest
+        .expect("a latest activity");
+
+    assert_eq!(latest.headline, None);
+    assert_eq!(latest.load_text, None);
+    assert_eq!(latest.section_prs_text, None);
+}
+
+#[test]
+fn the_load_and_the_section_prs_are_worded_for_the_widget_and_absent_when_there_are_none() {
+    let mut raw = make_raw();
+    let latest = latest_of(&raw);
+    assert_eq!(latest.load_text.as_deref(), Some("Load 62"));
+    assert_eq!(latest.section_prs_text, None, "no section record, no line");
+
+    raw.comparison.section_pr_count = 3;
+    raw.latest.as_mut().unwrap().training_load = None;
+    let latest = latest_of(&raw);
+    assert_eq!(latest.section_prs_text.as_deref(), Some("Section PRs 3"));
+    assert_eq!(latest.load_text, None, "an unrecorded load is not a zero");
+}
+
+#[test]
+fn the_headline_reaches_the_natives_under_the_names_they_read() {
+    let mut raw = make_raw();
+    raw.comparison.route = Some(standing_second_of_fourteen());
+    let value = json(&compose_raw(&raw));
+    let headline = &value["latest"]["headline"];
+    assert_eq!(headline["kind"], "route");
+    assert_eq!(headline["hero"], "2 of 14");
+    assert_eq!(headline["dots"].as_array().map(Vec::len), Some(14));
+    assert_eq!(headline["dots"][13]["current"], true);
+    assert_eq!(value["latest"]["loadText"], "Load 62");
+}
+
+fn stat_pairs(latest: &Latest) -> Vec<(&str, &str)> {
+    latest
+        .stats
+        .iter()
+        .map(|s| (s.id, s.value.as_str()))
+        .collect()
+}
+
+#[test]
+fn a_ride_carries_distance_moving_time_elevation_gain_and_average_power() {
+    let raw = with_sport("Ride", |a| {
+        a.elevation_gain = 612.4;
+        a.avg_power = Some(231);
+    });
+    let latest = latest_of(&raw);
+    assert_eq!(
+        stat_pairs(&latest),
+        [
+            ("distance", "42.1 km"),
+            ("movingTime", "1:34:20"),
+            ("elevationGain", "612 m"),
+            ("avgPower", "231 W"),
+        ]
+    );
+    assert_eq!(latest.stats[0].label, "activity.distance");
+    assert_eq!(latest.stats[3].label, "activity.power");
+}
+
+#[test]
+fn a_ride_without_power_or_climbing_leaves_those_stats_out_rather_than_printing_zero() {
+    let raw = with_sport("Ride", |a| {
+        a.elevation_gain = 0.0;
+        a.avg_power = None;
+    });
+    assert_eq!(
+        stat_pairs(&latest_of(&raw)),
+        [("distance", "42.1 km"), ("movingTime", "1:34:20")]
+    );
+}
+
+#[test]
+fn imperial_athletes_read_elevation_in_feet() {
+    let mut raw = with_sport("Ride", |a| a.elevation_gain = 300.0);
+    raw.is_metric = false;
+    let latest = latest_of(&raw);
+    let (_, climb) = stat_pairs(&latest)[2];
+    assert_eq!(climb, "984 ft");
+}
+
+#[test]
+fn a_run_carries_distance_moving_time_and_pace_per_kilometre() {
+    let raw = with_sport("Run", |a| {
+        a.distance = 10_000.0;
+        a.moving_time = 3000;
+    });
+    let latest = latest_of(&raw);
+    assert_eq!(
+        stat_pairs(&latest),
+        [
+            ("distance", "10.0 km"),
+            ("movingTime", "50:00"),
+            ("pace", "5:00 /km"),
+        ]
+    );
+    assert_eq!(latest.stats[2].label, "Pace", "the app's own word for it");
+}
+
+#[test]
+fn a_run_reads_its_pace_per_mile_for_an_imperial_athlete() {
+    let mut raw = with_sport("TrailRun", |a| {
+        a.distance = 10_000.0;
+        a.moving_time = 3000;
+    });
+    raw.is_metric = false;
+    let latest = latest_of(&raw);
+    assert_eq!(stat_pairs(&latest)[2], ("pace", "8:03 /mi"));
+}
+
+#[test]
+fn a_swim_carries_distance_moving_time_and_pace_per_hundred_metres() {
+    let raw = with_sport("Swim", |a| {
+        a.distance = 1500.0;
+        a.moving_time = 1800;
+    });
+    let latest = latest_of(&raw);
+    assert_eq!(
+        stat_pairs(&latest),
+        [
+            ("distance", "1.5 km"),
+            ("movingTime", "30:00"),
+            ("pace", "2:00 /100 m"),
+        ]
+    );
+}
+
+#[test]
+fn a_swim_reads_its_pace_per_hundred_yards_for_an_imperial_athlete() {
+    let mut raw = with_sport("OpenWaterSwim", |a| {
+        a.distance = 1500.0;
+        a.moving_time = 1800;
+    });
+    raw.is_metric = false;
+    let latest = latest_of(&raw);
+    assert_eq!(stat_pairs(&latest)[2], ("pace", "1:50 /100 yd"));
+}
+
+#[test]
+fn a_run_with_no_distance_or_time_has_no_pace_to_print() {
+    let raw = with_sport("Run", |a| {
+        a.distance = 0.0;
+        a.moving_time = 0;
+    });
+    let latest = latest_of(&raw);
+    assert!(latest.stats.iter().all(|s| s.id != "pace"));
+}
+
+#[test]
+fn any_other_sport_carries_distance_and_moving_time_only() {
+    let raw = with_sport("Kayaking", |a| {
+        a.elevation_gain = 40.0;
+        a.avg_power = Some(120);
+    });
+    assert_eq!(
+        stat_pairs(&latest_of(&raw)),
+        [("distance", "42.1 km"), ("movingTime", "1:34:20")]
+    );
+}
+
+#[test]
+fn lists_the_insights_the_context_carries_in_order_and_an_empty_list_without() {
+    let raw = make_raw();
+    assert_eq!(json(&compose_raw(&raw))["insights"], serde_json::json!([]));
+
+    let mut ctx = context(&raw);
+    ctx.insights = ["first", "second"]
+        .iter()
+        .map(|id| WidgetInsight {
+            id: id.to_string(),
+            category: "route".to_string(),
+            title: format!("{id} title"),
+            subtitle: String::new(),
+            icon: "map".to_string(),
+            tone: "info".to_string(),
+            url: format!("veloq://route/{id}"),
+        })
+        .collect();
+    let s = compose(&data_of(&raw), &ctx, CLOCK);
+
+    let rows = json(&s)["insights"].clone();
+    assert_eq!(rows[0]["id"], "first");
+    assert_eq!(rows[1]["url"], "veloq://route/second");
+    assert_eq!(rows[1]["tone"], "info");
+    assert_eq!(rows.as_array().map(Vec::len), Some(2));
+}
+
+#[test]
+fn carries_an_entry_for_every_metric_a_placement_may_pick_whatever_the_card_shows() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("hrv", &["rhr"]));
+    raw.weight_kg = Some(72.4);
+    let s = compose_raw(&raw);
+
+    let ids: Vec<&str> = s.summary_metrics.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "hrv",
+            "rhr",
+            "weekHours",
+            "weekCount",
+            "ftp",
+            "thresholdPace",
+            "css",
+            "fitness",
+            "form",
+            "weight"
+        ]
+    );
+    let weight = s.summary_metrics.iter().find(|e| e.id == "weight").unwrap();
+    assert_eq!(weight.value, "72.4kg");
+    let ftp = s.summary_metrics.iter().find(|e| e.id == "ftp").unwrap();
+    assert_eq!(ftp.label, "FTP");
+}
+
+#[test]
+fn the_metric_list_is_carried_with_the_card_disabled_and_leaves_out_a_weight_with_no_reading() {
+    let mut raw = make_raw();
+    let mut off = prefs("fitness", &[]);
+    off.enabled = false;
+    raw.summary_prefs = Some(off);
+    let s = compose_raw(&raw);
+
+    assert!(s.summary_card.is_none());
+    assert!(s.summary_metrics.iter().any(|e| e.id == "fitness"));
+    assert!(!s.summary_metrics.iter().any(|e| e.id == "weight"));
 }

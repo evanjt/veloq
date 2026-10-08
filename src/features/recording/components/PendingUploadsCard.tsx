@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, colorWithOpacity, typography } from '@/theme';
@@ -38,7 +38,7 @@ function PendingUploadsCardInner() {
       testID="pending-uploads-card"
       style={pressable([styles.card, { backgroundColor: colorWithOpacity(tint, 0.1) }])}
       android_ripple={pressRipple}
-      onPress={() => navigateTo('/recordings')}
+      onPress={() => tapTo('/recordings')}
       accessibilityRole="button"
     >
       <MaterialCommunityIcons name="cloud-upload-outline" size={18} color={tint} />

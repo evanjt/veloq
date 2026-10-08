@@ -17,7 +17,7 @@ interface SupportState {
   neverShowAgain: () => void;
   recordAction: () => void;
   _debugOverride: (partial: Partial<PersistedData>) => void;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
 }
 
 export function daysSince(isoDate: string): number {
@@ -117,7 +117,7 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     });
   },
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
@@ -163,6 +163,6 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   },
 }));
 
-export async function initializeSupportStore(): Promise<void> {
-  await useSupportStore.getState().initialize();
+export async function initialiseSupportStore(): Promise<void> {
+  await useSupportStore.getState().initialise();
 }

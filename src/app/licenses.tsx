@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
+import { Pressable, View, Text, StyleSheet, Linking, LayoutAnimation } from 'react-native';
 import {
-  Pressable,
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Linking,
-  LayoutAnimation,
-} from 'react-native';
-import { IconButton, ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
+  IconButton,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -379,6 +377,12 @@ const LICENSE_DATA: LicenseSection[] = [
         description: 'Map data © OpenStreetMap contributors.',
       },
       {
+        name: 'Nominatim',
+        license: 'ODbL',
+        repository: 'https://operations.osmfoundation.org/policies/nominatim/',
+        description: 'Place names © OpenStreetMap contributors.',
+      },
+      {
         name: 'OpenFreeMap',
         license: 'ODbL',
         repository: 'https://openfreemap.org',
@@ -587,7 +591,7 @@ function LicensesScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader testID="licenses-screen" style={shared.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         {/* Intro text */}
         <View style={styles.introContainer}>
           <Text style={[styles.introText, { color: themeColors.textSecondary }]}>
@@ -611,7 +615,7 @@ function LicensesScreenContent() {
             {t('licenses.footer')}
           </Text>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

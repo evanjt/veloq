@@ -98,7 +98,7 @@ it('wakes the schedule even when the adoption fails, and does not throw', async 
 
 it('does not throw when the engine refuses the wake', async () => {
   jest.mocked(wakeUploadSchedule).mockImplementationOnce(() => {
-    throw new Error('Engine not initialized');
+    throw new Error('Engine not initialised');
   });
 
   await expect(startUploadQueue()).resolves.toBeUndefined();

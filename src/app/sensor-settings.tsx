@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, EmptyState, signalColor } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  TAB_BAR_SAFE_PADDING,
+  EmptyState,
+  signalColor,
+} from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
@@ -32,7 +37,6 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
 function SensorSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const scanning = useSensorStore((s) => s.scanning);
   const discovered = useSensorStore((s) => s.discovered);
@@ -42,7 +46,7 @@ function SensorSettingsScreenContent() {
 
   useEffect(() => {
     if (!isLoaded) {
-      useSensorStore.getState().initialize();
+      useSensorStore.getState().initialise();
     }
   }, [isLoaded]);
 
@@ -103,11 +107,8 @@ function SensorSettingsScreenContent() {
       testID="sensor-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-        ]}
+      <ScreenScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
       >
         {/* Paired sensors */}
         <View style={styles.section}>
@@ -227,7 +228,7 @@ function SensorSettingsScreenContent() {
             </>
           )}
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

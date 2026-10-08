@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import {
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +32,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -72,7 +78,7 @@ function AccountRow({
         accessibilityLabel={athlete?.name || t('settings.account')}
         testID="settings-account-row"
         style={pressable(styles.accountRow)}
-        onPress={() => navigateTo('/account')}
+        onPress={() => tapTo('/account')}
         android_ripple={pressRipple}
       >
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
@@ -210,7 +216,7 @@ function SettingsScreenContent() {
     getAppStorageSize().then(setTotalCacheSize);
   }, []);
 
-  const nav = useCallback((path: string) => () => navigateTo(path), []);
+  const nav = useCallback((path: string) => () => tapTo(path), []);
 
   return (
     <ScreenSafeAreaView
@@ -218,7 +224,7 @@ function SettingsScreenContent() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
+      <ScreenScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
         {/* Account */}
         <AccountRow
           athlete={athlete}
@@ -362,7 +368,7 @@ function SettingsScreenContent() {
         </View>
 
         <FooterSection />
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

@@ -59,6 +59,7 @@ impl EngineObserver for Counter {
     fn detection_applied(&self) {
         self.applied.fetch_add(1, Ordering::SeqCst);
     }
+    fn groups_changed(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
     fn stream_backfill_phase(&self, _phase: String) {}

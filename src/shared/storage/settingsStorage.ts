@@ -4,7 +4,7 @@
  *
  * **The AsyncStorage half is load-bearing, not transitional.** An
  * authenticated launch opens the engine before the store initialisers run
- * (`initializeApp` in `launch.ts`), so SQLite answers there. The fallback
+ * (`initialiseApp` in `launch.ts`), so SQLite answers there. The fallback
  * serves a signed-out launch, a failed open, and a native module that did not
  * load. An unopened handle is not null: `getEngine` returns the singleton
  * early, its `getSetting` answers `undefined` and its `setSettings` drops the

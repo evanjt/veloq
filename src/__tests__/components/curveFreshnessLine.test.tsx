@@ -10,14 +10,14 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { CurveFreshnessLine } from '@/features/stats/components/CurveFreshnessLine';
 
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 
 describe('the curve freshness line', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('dates a stored curve from the fetch behind it', () => {

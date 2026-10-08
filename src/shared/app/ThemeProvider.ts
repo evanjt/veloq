@@ -12,7 +12,7 @@ interface ThemeState {
   setPreference: (preference: ThemePreference) => void;
 }
 
-function normalizePreference(value: string | null): ThemePreference {
+function normalisePreference(value: string | null): ThemePreference {
   if (value === 'light' || value === 'dark' || value === 'system') {
     return value;
   }
@@ -33,12 +33,12 @@ function applyThemePreference(preference: ThemePreference): void {
 }
 
 /**
- * Initialize theme on app start.
+ * Initialise theme on app start.
  * Call this early in _layout.tsx before rendering.
  */
-export async function initializeTheme(): Promise<void> {
+export async function initialiseTheme(): Promise<void> {
   try {
-    const preference = normalizePreference(await getSetting(STORAGE_KEY));
+    const preference = normalisePreference(await getSetting(STORAGE_KEY));
     useThemePreferenceStore.getState().setHydratedPreference(preference);
     applyThemePreference(preference);
   } catch {

@@ -126,7 +126,6 @@ describe('useInsights', () => {
   it('returns no pattern from the insights bundle', () => {
     mockFetch.mockReturnValue({
       insightsData: { sportTypes: [] },
-      summaryCardData: null,
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
 
     const { result } = renderHook(() => useInsights());

@@ -1,62 +1,89 @@
-import { parseStreams } from '@/features/activity/lib/streams';
-import type { RawStreamItem } from '@/types';
+import { streamsFromBuffers } from '@/features/activity/lib/streams';
+import type { ActivityStreamBuffers } from 'veloqrs';
+
+jest.mock('veloqrs', () =>
+  require('@/__tests__/__shared__/veloqrsStub').withOverrides({
+    decodeCoords: jest.requireActual('../../../../../modules/veloqrs/src/coords').decodeCoords,
+  })
+);
+
+function floats(values: number[]): ArrayBuffer {
+  const view = new DataView(new ArrayBuffer(values.length * 8));
+  values.forEach((v, i) => view.setFloat64(i * 8, v, true));
+  return view.buffer as ArrayBuffer;
+}
+
+const NONE = new ArrayBuffer(0);
+
+function buffers(overrides: Partial<ActivityStreamBuffers>): ActivityStreamBuffers {
+  return {
+    latlng: NONE,
+    time: NONE,
+    altitude: NONE,
+    heartrate: NONE,
+    watts: NONE,
+    cadence: NONE,
+    velocitySmooth: NONE,
+    distance: NONE,
+    gradeSmooth: NONE,
+    temp: NONE,
+    wbal: NONE,
+    gap: NONE,
+    ...overrides,
+  };
+}
 
 /**
- * Scenario: an activity with a dropped GPS fix.
- * Expected behaviour: every series comes back in the index space the stored
- * track occupies, the same rule `parse_streams` applies in Rust.
+ * Scenario: the engine hands over each series as little-endian floats.
+ * Expected behaviour: a present series reads as the numbers the engine wrote,
+ * a gap stays NaN, and a series the activity lacks is absent rather than empty.
  */
-describe('parseStreams latlng index space', () => {
-  const raw: RawStreamItem[] = [
-    { type: 'latlng', name: null, data: [46.0, NaN, 46.2], data2: [7.0, 7.1, 7.2] },
-    { type: 'time', name: null, data: [0, 5, 10] },
-    { type: 'heartrate', name: null, data: [120, 130, 140] },
-    { type: 'altitude', name: null, data: [100, 110, 120] },
-  ];
+describe('streamsFromBuffers', () => {
+  it('reads each series under the name the charts use', () => {
+    const streams = streamsFromBuffers(
+      buffers({
+        time: floats([0, 5, 10]),
+        heartrate: floats([120, NaN, 140]),
+        velocitySmooth: floats([3.5, 3.6, 3.7]),
+        gradeSmooth: floats([0.1, 0.2, 0.3]),
+        wbal: floats([20000, 19900, 19800]),
+        gap: floats([5.5, 5.6, 5.7]),
+      })
+    );
 
-  it('drops the masked sample from every series', () => {
-    const streams = parseStreams(raw);
-
-    expect(streams.latlng).toEqual([
-      [46.0, 7.0],
-      [46.2, 7.2],
-    ]);
-    expect(streams.time).toEqual([0, 10]);
-    expect(streams.heartrate).toEqual([120, 140]);
-    expect(streams.altitude).toEqual([100, 120]);
+    expect(streams.time).toEqual([0, 5, 10]);
+    expect(streams.heartrate).toEqual([120, NaN, 140]);
+    expect(streams.velocity_smooth).toEqual([3.5, 3.6, 3.7]);
+    expect(streams.grade_smooth).toEqual([0.1, 0.2, 0.3]);
+    expect(streams.wbal).toEqual([20000, 19900, 19800]);
+    expect(streams.gap).toEqual([5.5, 5.6, 5.7]);
   });
 
-  it('drops an out-of-range coordinate', () => {
-    const streams = parseStreams([
-      { type: 'latlng', name: null, data: [46.0, 200], data2: [7.0, 7.1] },
-      { type: 'watts', name: null, data: [200, 210] },
-    ]);
+  it('reads the coordinates from the engine track encoding as [lat, lng] pairs', () => {
+    const bytes = Uint8Array.from([1, 0, 128, 158, 132, 43, 226, 183, 160, 8]);
 
-    expect(streams.latlng).toEqual([[46.0, 7.0]]);
-    expect(streams.watts).toEqual([200]);
+    const streams = streamsFromBuffers(buffers({ latlng: bytes.buffer as ArrayBuffer }));
+
+    expect(streams.latlng).toEqual([[45.123456, 8.654321]]);
   });
 
-  it('keeps every sample when the response carries no latlng', () => {
-    const streams = parseStreams([{ type: 'heartrate', name: null, data: [120, 130, 140] }]);
+  it('leaves out a series the activity does not have', () => {
+    const streams = streamsFromBuffers(buffers({ watts: floats([200]) }));
 
-    expect(streams.heartrate).toEqual([120, 130, 140]);
+    expect(Object.keys(streams)).toEqual(['watts']);
   });
 
-  it('reads NaN past the end of a short series rather than shifting it', () => {
-    const streams = parseStreams([
-      { type: 'latlng', name: null, data: [46.0, 46.1], data2: [7.0, 7.1] },
-      { type: 'cadence', name: null, data: [85] },
-    ]);
+  it('reads a buffer that is not whole samples as absent', () => {
+    const streams = streamsFromBuffers(buffers({ watts: new ArrayBuffer(12) }));
 
-    expect(streams.cadence).toEqual([85, NaN]);
+    expect(streams.watts).toBeUndefined();
   });
 
-  it('prefers fixed_altitude whichever order it arrives in', () => {
-    const streams = parseStreams([
-      { type: 'fixed_altitude', name: null, data: [101, 111] },
-      { type: 'altitude', name: null, data: [100, 110] },
-    ]);
+  it('keeps every sample of a long series exactly', () => {
+    const values = Array.from({ length: 20_000 }, (_, i) => i * 0.1 + 1e-9);
 
-    expect(streams.altitude).toEqual([101, 111]);
+    const streams = streamsFromBuffers(buffers({ distance: floats(values) }));
+
+    expect(streams.distance).toEqual(values);
   });
 });

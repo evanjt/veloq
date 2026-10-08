@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
@@ -69,7 +69,7 @@ export function RecordingGate({
       {signedOut ? (
         <Button
           testID="recording-gate-signin-action"
-          onPress={() => navigateTo('/login')}
+          onPress={() => tapTo('/login')}
           label={t('recording.signInAction')}
           variant="ghost"
         />

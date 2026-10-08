@@ -116,7 +116,7 @@ describe('the recording preferences publish the sports for the widget path', () 
       setSetting: jest.fn(async () => {}),
     }));
     const { getRecentRecordingTypes } = require('@/shared/recording');
-    await store().getState().initialize();
+    await store().getState().initialise();
     expect(getRecentRecordingTypes()).toEqual(['Swim', 'Hike']);
     jest.dontMock('@/shared/storage');
   });
@@ -127,7 +127,7 @@ describe('the recording preferences publish the sports for the widget path', () 
       setSetting: jest.fn(async () => {}),
     }));
     const { getRecentRecordingTypes } = require('@/shared/recording');
-    await store().getState().initialize();
+    await store().getState().initialise();
     expect(getRecentRecordingTypes()).toEqual([]);
     jest.dontMock('@/shared/storage');
   });

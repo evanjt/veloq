@@ -7,6 +7,14 @@ use crate::test_globals::{
 const BODY: &str = r#"{"id":"a1","name":"Ride"}"#;
 const STREAM_BODY: &str = r#"[{"type":"time","data":[0.0,1.0]}]"#;
 
+/// What `STREAM_BODY` crosses the bridge as: two samples of time, as floats.
+fn stream_record() -> crate::FfiActivityStreams {
+    crate::FfiActivityStreams {
+        time: [0.0f64, 1.0].iter().flat_map(|t| t.to_le_bytes()).collect(),
+        ..Default::default()
+    }
+}
+
 fn seed_body() {
     ActivityManager::new()
         .upsert_activity_bodies(vec![crate::FfiActivityBody {
@@ -148,14 +156,13 @@ fn test_detail_stream_returns_while_engine_writer_holds() {
         let manager = ActivityManager::new();
         assert_eq!(
             manager
-                .get_stream_body("a1".into(), "time".into())
-                .unwrap()
-                .as_deref(),
-            Some(STREAM_BODY)
+                .get_activity_streams("a1".into(), "time".into())
+                .unwrap(),
+            Some(stream_record())
         );
         assert!(
             manager
-                .get_stream_body("missing".into(), "time".into())
+                .get_activity_streams("missing".into(), "time".into())
                 .unwrap()
                 .is_none()
         );
@@ -230,10 +237,10 @@ fn test_stale_stream_body_returns_while_engine_writer_holds() {
     let _dir = init_global_engine("stale_stream_under_writer.db");
     seed_stream(true);
     read_while_writer_holds(|| {
-        let body = ActivityManager::new()
-            .get_stream_body("a1".into(), "time".into())
+        let streams = ActivityManager::new()
+            .get_activity_streams("a1".into(), "time".into())
             .unwrap();
-        assert_eq!(body.as_deref(), Some(STREAM_BODY));
+        assert_eq!(streams, Some(stream_record()));
     });
 }
 
@@ -246,16 +253,15 @@ fn test_busy_stream_touch_returns_cached_body() {
     db.execute_batch("BEGIN IMMEDIATE").unwrap();
     wait_out_any_lock();
     let prompt = returns_while_locked("a stale stream read under a held write lock", || {
-        ActivityManager::new().get_stream_body("a1".into(), "time".into())
+        ActivityManager::new().get_activity_streams("a1".into(), "time".into())
     });
     db.execute_batch("ROLLBACK").unwrap();
-    assert_eq!(prompt.unwrap().as_deref(), Some(STREAM_BODY));
+    assert_eq!(prompt.unwrap(), Some(stream_record()));
     assert_eq!(
         ActivityManager::new()
-            .get_stream_body("a1".into(), "time".into())
-            .unwrap()
-            .as_deref(),
-        Some(STREAM_BODY)
+            .get_activity_streams("a1".into(), "time".into())
+            .unwrap(),
+        Some(stream_record())
     );
     crate::with_persistent_engine(|engine| {
         let stamp: i64 = engine

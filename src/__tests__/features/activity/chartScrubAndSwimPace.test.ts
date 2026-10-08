@@ -14,14 +14,13 @@ import {
   type ChartConfig,
   type ChartTypeId,
 } from '@/features/activity/lib/chartConfig';
-import { parseStreams } from '@/features/activity/lib/streams';
 import {
   buildChartData,
   computeAllAverages,
   formatScrubValue,
   seriesAverage,
 } from '@/features/stats/lib/combinedPlotData';
-import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
+import { paceMinutesFromSample, paceMinutesFromSpeed } from '@/shared/math/kinematics';
 import {
   formatPaceCompact,
   formatSpeed,
@@ -30,16 +29,15 @@ import {
   YARDS_100_IN_METRES,
 } from '@/shared/format/format';
 import { stoppedSpeedMs } from '@/shared/recording';
-import type { RawStreamItem } from '@/types';
 
 function streamsWithGap() {
-  return parseStreams([
-    { type: 'heartrate', data: [150, null, 152] },
-    { type: 'watts', data: [200, null, 210] },
-    { type: 'cadence', data: [90, null, 91] },
-    { type: 'velocity_smooth', data: [3.0, null, 0] },
-    { type: 'ga_velocity', data: [3.1, null, 3.2] },
-  ] as unknown as RawStreamItem[]);
+  return {
+    heartrate: [150, NaN, 152],
+    watts: [200, NaN, 210],
+    cadence: [90, NaN, 91],
+    velocity_smooth: [3.0, NaN, 0],
+    gap: [3.1, NaN, 3.2].map((v) => paceMinutesFromSample(v)),
+  };
 }
 
 function scrub(id: keyof typeof CHART_CONFIGS, index: number, isMetric = true) {
@@ -71,10 +69,10 @@ describe('the scrub chip over a missing sample', () => {
   });
 
   it('reads - over a stop and a crawl, for pace, GAP and swim pace', () => {
-    const streams = parseStreams([
-      { type: 'velocity_smooth', data: [3, 3, 0, 0.05] },
-      { type: 'ga_velocity', data: [3, 3, 0, 0.05] },
-    ] as unknown as RawStreamItem[]);
+    const streams = {
+      velocity_smooth: [3, 3, 0, 0.05],
+      gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)),
+    };
     for (const isMetric of [true, false]) {
       for (const id of ['pace', 'gap'] as const) {
         const config = CHART_CONFIGS[id];
@@ -246,9 +244,7 @@ describe('the idle pace chip over a run with stops', () => {
   });
 
   it('reads the moving grade adjusted pace', () => {
-    const streams = parseStreams([
-      { type: 'ga_velocity', data: [3, 3, 0, 0.05] },
-    ] as unknown as RawStreamItem[]);
+    const streams = { gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)) };
     expect(idleChip(CHART_CONFIGS, streams, 'gap')?.value).toBe('5:33');
   });
 

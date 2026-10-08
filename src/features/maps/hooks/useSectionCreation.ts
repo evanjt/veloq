@@ -11,6 +11,7 @@ import type { SectionCreationResult } from '@/features/maps/components/ActivityM
 import { haversineDistance } from '@/shared/math/geometry';
 import { debug } from '@/shared/debug/debug';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
+import * as haptics from '@/shared/ui/haptics';
 
 const log = debug.create('SectionCreation');
 
@@ -109,6 +110,7 @@ export function useSectionCreation({
         }
         setStartIndex(nearestIndex);
         setCreationState('selectingEnd');
+        haptics.medium();
         return true;
       } else if (creationState === 'selectingEnd') {
         // Ensure end is after start
@@ -125,6 +127,7 @@ export function useSectionCreation({
           setEndIndex(nearestIndex);
         }
         setCreationState('complete');
+        haptics.medium();
         return true;
       }
 

@@ -10,7 +10,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { StatsRow } from '@/features/routes/components/section/StatsRow';
 
 const bestRecord = { bestTime: 240, activityDate: new Date(2026, 8, 1) };
@@ -32,7 +32,7 @@ function row(bestIsRecord: boolean) {
 
 describe('StatsRow best', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('draws the trophy beside a record', () => {

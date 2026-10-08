@@ -9,7 +9,14 @@
  * Derived only from `@/theme/colors` + `@/theme/spacing` (both pure, no react-native
  * import) so the codegen can run outside the RN runtime.
  */
-import { activityTypeColors, brand, colors, darkColors, verdictColor } from '@/theme/colors';
+import {
+  activityTypeColors,
+  brand,
+  colors,
+  darkColors,
+  insightToneColor,
+  verdictColor,
+} from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 
 /** Flat, resolved colour set the native widget renders from. */
@@ -50,6 +57,16 @@ export interface WidgetPalette {
   trendDown: string;
   /** A flat trend, or one with no judgement (faint grey). */
   trendFlat: string;
+  /** Amber text: an age line past the point the numbers can still be called current. */
+  warning: string;
+  /** An insight's tone, the mark beside its row: one field per `InsightTone`. */
+  toneNegative: string;
+  toneCaution: string;
+  tonePositive: string;
+  toneNeutral: string;
+  toneRecord: string;
+  toneInfo: string;
+  toneOpportunity: string;
   border: string;
 }
 
@@ -79,6 +96,14 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     trendUp: verdictColor('positive', false),
     trendDown: verdictColor('negative', false),
     trendFlat: colors.textDisabled,
+    warning: colors.warningAmber,
+    toneNegative: insightToneColor('negative', false),
+    toneCaution: insightToneColor('caution', false),
+    tonePositive: insightToneColor('positive', false),
+    toneNeutral: insightToneColor('neutral', false),
+    toneRecord: insightToneColor('record', false),
+    toneInfo: insightToneColor('info', false),
+    toneOpportunity: insightToneColor('opportunity', false),
     border: colors.border,
   },
   dark: {
@@ -106,17 +131,26 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     trendUp: verdictColor('positive', true),
     trendDown: verdictColor('negative', true),
     trendFlat: darkColors.textDisabled,
+    warning: darkColors.warningAmber,
+    toneNegative: insightToneColor('negative', true),
+    toneCaution: insightToneColor('caution', true),
+    tonePositive: insightToneColor('positive', true),
+    toneNeutral: insightToneColor('neutral', true),
+    toneRecord: insightToneColor('record', true),
+    toneInfo: insightToneColor('info', true),
+    toneOpportunity: insightToneColor('opportunity', true),
     border: darkColors.border,
   },
 };
 
 /**
- * Quick-Record widget chrome. Static (no snapshot behind it), scheme-independent:
- * a teal gradient surface with white glyph/label, same in light and dark.
+ * Quick-Record widget chrome. Static (no snapshot behind it): a teal gradient
+ * surface that steps one shade deeper in the dark scheme, with a white
+ * glyph/label in both.
  */
 export const widgetRecord = {
-  gradientStart: brand.teal,
-  gradientEnd: brand.tealLight,
+  light: { gradientStart: brand.teal, gradientEnd: brand.tealLight },
+  dark: { gradientStart: brand.tealLight, gradientEnd: brand.tealHover },
   foreground: colors.textOnDark,
 } as const;
 

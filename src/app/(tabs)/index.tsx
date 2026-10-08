@@ -24,8 +24,9 @@ import {
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { StreamConsentCard, useDashboardPreferences } from '@/features/settings';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { onPullRefresh } from '@/shared/ui/haptics';
 import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -149,7 +150,7 @@ function FeedScreenContent() {
   const searchOffsetCorrected = useRef(false);
   const wasFeedFocused = useRef(isFeedFocused);
 
-  // Initialize terrain preview cache and camera overrides on mount
+  // Initialise terrain preview cache and camera overrides on mount
   useEffect(() => {
     initTerrainPreviewCache();
     initCameraOverrides();
@@ -285,54 +286,58 @@ function FeedScreenContent() {
   const strengthCards = useStrengthCardData(strengthCardRows);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
-  const handleRefresh = useCallback(async () => {
-    setPullRefreshing(true);
-    try {
-      requestRefresh();
-      // Reset the infinite query if page params are stale (don't cover today),
-      // otherwise invalidate for smooth stale-while-revalidate.
-      const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
-        ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
-        : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+  const handleRefresh = useMemo(
+    () =>
+      onPullRefresh(async () => {
+        setPullRefreshing(true);
+        try {
+          requestRefresh();
+          // Reset the infinite query if page params are stale (don't cover today),
+          // otherwise invalidate for smooth stale-while-revalidate.
+          const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+            ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
+            : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
 
-      await Promise.all([
-        infiniteRefresh,
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.range.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.search.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
-        refetchSummary(),
-      ]);
-      // The card is painted from the startup bundle, which no query invalidation
-      // reaches, so without this a refresh leaves it on whatever the last engine
-      // announcement gave it while the Fitness screen shows the current number.
-      refreshStartupData();
-      // Retry any failed 3D terrain snapshots
-      snapshotRef.current?.retryFailed();
-      // Re-hide search section after refresh (if no active filter)
-      if (!searchQuery && selectedTypeGroups.size === 0) {
-        setTimeout(() => {
-          listRef.current?.scrollToOffset({
-            offset: searchSectionHeight.current,
-            animated: true,
-          });
-        }, 100);
-      }
-    } finally {
-      setPullRefreshing(false);
-    }
-  }, [
-    queryClient,
-    refetchSummary,
-    refreshStartupData,
-    searchQuery,
-    selectedTypeGroups,
-    requestRefresh,
-  ]);
+          await Promise.all([
+            infiniteRefresh,
+            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.activities.range.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.activities.search.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
+            refetchSummary(),
+          ]);
+          // The card is painted from the startup bundle, which no query invalidation
+          // reaches, so without this a refresh leaves it on whatever the last engine
+          // announcement gave it while the Fitness screen shows the current number.
+          refreshStartupData();
+          // Retry any failed 3D terrain snapshots
+          snapshotRef.current?.retryFailed();
+          // Re-hide search section after refresh (if no active filter)
+          if (!searchQuery && selectedTypeGroups.size === 0) {
+            setTimeout(() => {
+              listRef.current?.scrollToOffset({
+                offset: searchSectionHeight.current,
+                animated: true,
+              });
+            }, 100);
+          }
+        } finally {
+          setPullRefreshing(false);
+        }
+      }),
+    [
+      queryClient,
+      refetchSummary,
+      refreshStartupData,
+      searchQuery,
+      selectedTypeGroups,
+      requestRefresh,
+    ]
+  );
 
   // Load more when scrolling to the end, from whichever read the list holds
   const {
@@ -469,11 +474,11 @@ function FeedScreenContent() {
   );
 
   const navigateToSettings = useCallback(() => {
-    navigateTo('/settings');
+    tapTo('/settings');
   }, []);
 
   const navigateToHeroMetric = useCallback(() => {
-    navigateTo(summaryCardTarget(summaryCard.heroMetric));
+    tapTo(summaryCardTarget(summaryCard.heroMetric));
   }, [summaryCard.heroMetric]);
 
   const selectRange = useCallback((preset: FeedRangePreset) => {

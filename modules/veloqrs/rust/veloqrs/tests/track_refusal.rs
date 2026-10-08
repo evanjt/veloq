@@ -20,6 +20,7 @@ fn entry(id: &str, synced: &str, has_latlng: bool) -> ActivityCensusEntry {
         created: Some("2026-03-02T00:00:00Z".to_string()),
         icu_sync_date: Some(synced.to_string()),
         has_latlng,
+        has_series: false,
     }
 }
 
