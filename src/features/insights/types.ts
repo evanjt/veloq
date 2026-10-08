@@ -75,6 +75,11 @@ export interface SupportingSection {
   bestTime?: number | undefined;
   trend?: number | undefined;
   traversalCount?: number | undefined;
+  standingCount?: number | undefined;
+  percentileFaster?: number | undefined;
+  previousBestTime?: number | undefined;
+  previousBestDate?: number | undefined;
+  deltaSeconds?: number | undefined;
   sportType?: string | undefined;
   hasRecentPR?: boolean | undefined;
   daysSinceLast?: number | undefined;
@@ -299,8 +304,14 @@ export interface SectionPR {
   daysAgo: number;
   /** The sport the record was set in, which is not always the section's own. */
   sportType?: string;
-  /** Traversals in that sport, the population the record stands on. */
+  // Traversals in that sport, used for the card's confidence.
   traversalCount: number;
+  // Timed, eligible laps in the record's direction.
+  standingCount?: number;
+  percentileFaster?: number | undefined;
+  previousBestTime?: number | undefined;
+  previousBestDate?: number | undefined;
+  deltaSeconds?: number | undefined;
   /** The last efforts on the section, oldest first, for the card's graphic. */
   recentEfforts?: SeriesPoint[];
   bestActivityId?: string | undefined;

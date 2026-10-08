@@ -16,6 +16,9 @@ module.exports = ({ config }) => ({
     ...config.ios,
     bundleIdentifier: IS_PROD ? config.ios.bundleIdentifier : 'com.veloq.app.dev',
   },
+  plugins: IS_PROD
+    ? config.plugins
+    : [...(config.plugins ?? []), './src/plugins/with-storekit-configuration'],
   extra: {
     ...config.extra,
     buildCommit: buildStamp(__dirname),

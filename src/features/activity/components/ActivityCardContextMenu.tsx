@@ -232,7 +232,9 @@ export function ActivityCardContextMenu({
 
           {/* 3D Toggle */}
           <View style={[styles.toggleRow, { borderColor: dividerColor }]}>
-            <Text style={[styles.toggleLabel, { color: textColor }]}>3D</Text>
+            <Text style={[styles.toggleLabel, { color: textColor }]}>
+              {t('activity.terrainRow')}
+            </Text>
             <Terrain3DSwitch
               activity={activity}
               mode={currentTerrain}

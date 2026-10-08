@@ -26,6 +26,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -251,6 +252,32 @@ describe('record backup export', () => {
 });
 
 describe('record backup import', () => {
+  it('invalidates cached reads after an offline restore', async () => {
+    await restoreRecordBackup('content://picked/backup.zip');
+
+    expect(mockEngine.syncNow).not.toHaveBeenCalled();
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith();
+  });
+
+  it.each([
+    [true, false],
+    [false, true],
+  ])(
+    'replaces stale notification preferences from %s to %s after restoring a record',
+    async (before, after) => {
+      const key = 'veloq-notification-preferences';
+      const restored = JSON.stringify({ enabled: after, privacyAccepted: true });
+      await AsyncStorage.setItem(key, JSON.stringify({ enabled: before, privacyAccepted: true }));
+      mockEngine.getSetting.mockImplementation((setting: string) =>
+        setting === key ? restored : null
+      );
+
+      await restoreRecordBackup('content://picked/backup.zip');
+
+      expect(await AsyncStorage.getItem(key)).toBe(restored);
+    }
+  );
+
   it('mirrors restored preferences for the next signed-out launch', async () => {
     mockEngine.getSetting.mockImplementation((key: string) =>
       key === 'veloq-theme-preference' ? 'dark' : undefined
@@ -325,6 +352,11 @@ describe('record backup import', () => {
 });
 
 describe('legacy database conversion', () => {
+  it('invalidates cached reads after a converted record is placed', async () => {
+    await restoreDatabaseBackup('content://picked/old.veloqdb');
+
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith();
+  });
   it('restores decisions through the record path without replacing the live library', async () => {
     const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
 
@@ -357,6 +389,19 @@ describe('legacy database conversion', () => {
 });
 
 describe('legacy JSON record import', () => {
+  it('mirrors restored notification preferences after converting a legacy record', async () => {
+    const key = 'veloq-notification-preferences';
+    const restored = JSON.stringify({ enabled: false, privacyAccepted: true });
+    await AsyncStorage.setItem(key, JSON.stringify({ enabled: true, privacyAccepted: true }));
+    mockEngine.getSetting.mockImplementation((setting: string) =>
+      setting === key ? restored : null
+    );
+
+    await restoreBackup(makeValidBackup());
+
+    expect(await AsyncStorage.getItem(key)).toBe(restored);
+  });
+
   it('asks a sync for a custom section source outside the sync window', async () => {
     mockEngine.restoreRecordJson.mockResolvedValueOnce({
       placed: 0,
@@ -480,6 +525,27 @@ describe('record zip and .veloqdb signed-out import', () => {
 });
 
 describe('paused record import', () => {
+  it('invalidates cached reads after a paused import is placed', async () => {
+    mockEngine.getUnplacedBackupRecords.mockResolvedValueOnce(PAUSED);
+    await resumeRecordImport();
+
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith();
+  });
+
+  it('mirrors notification preferences when placing a paused import', async () => {
+    const key = 'veloq-notification-preferences';
+    const restored = JSON.stringify({ enabled: false, privacyAccepted: true });
+    await AsyncStorage.setItem(key, JSON.stringify({ enabled: true, privacyAccepted: true }));
+    mockEngine.getSetting.mockImplementation((setting: string) =>
+      setting === key ? restored : null
+    );
+    mockEngine.getUnplacedBackupRecords.mockResolvedValueOnce(PAUSED);
+
+    await resumeRecordImport();
+
+    expect(await AsyncStorage.getItem(key)).toBe(restored);
+  });
+
   it('writes nothing when no import is paused', async () => {
     mockEngine.getUnplacedBackupRecords.mockResolvedValueOnce([
       { kind: 'section_pins', name: 'Hill', reason: 'activity_pending' },

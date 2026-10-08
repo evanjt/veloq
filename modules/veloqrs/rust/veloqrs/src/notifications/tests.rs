@@ -1426,6 +1426,39 @@ mod fitness_milestone {
     }
 
     #[test]
+    fn test_fitness_milestone_imperial_run_notification() {
+        let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
+        engine
+            .set_setting("veloq-resolved-unit-system", "imperial")
+            .unwrap();
+        engine.save_pace_snapshot("Run", 4.00, None, None, RIDE_DATE - 7 * DAY, 42);
+        engine.save_pace_snapshot("Run", 4.10, None, None, RIDE_DATE + 1_800, 42);
+
+        let highlight = fitness_milestone_pooled(&engine.db, "run").unwrap();
+        assert_eq!(
+            crate::notifications::notification_for(&highlight, "Morning Run", &super::english())
+                .body,
+            "Pace improved 10s/mi - Morning Run"
+        );
+    }
+
+    #[test]
+    fn test_fitness_milestone_imperial_swim_notification() {
+        let engine = engine_with_rides(&[("swim", "Swim", RIDE_DATE + 3_600)]);
+        engine
+            .set_setting("veloq-resolved-unit-system", "imperial")
+            .unwrap();
+        engine.save_pace_snapshot("Swim", 1.00, None, None, RIDE_DATE - 7 * DAY, 42);
+        engine.save_pace_snapshot("Swim", 1.05, None, None, RIDE_DATE + 1_800, 42);
+
+        let highlight = fitness_milestone_pooled(&engine.db, "swim").unwrap();
+        assert_eq!(
+            crate::notifications::notification_for(&highlight, "Pool Swim", &super::english()).body,
+            "Pace improved 4s/100yd - Pool Swim"
+        );
+    }
+
+    #[test]
     fn a_slower_snapshot_is_not_a_pace_milestone() {
         let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
         engine.save_pace_snapshot("Run", 4.10, None, None, RIDE_DATE - 7 * DAY, 42);

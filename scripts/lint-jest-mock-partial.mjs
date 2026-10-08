@@ -23,6 +23,7 @@ const ROOT = rootFlag === -1 ? join(HERE, '..') : resolve(process.argv[rootFlag 
 
 // Each of these throws on `jest.requireActual`, so there is nothing to spread.
 const ALLOWLIST = {
+  'expo-router/entry': 'registers the React root on import, which a headless entry test must skip',
   veloqrs: 'registers a TurboModule on import, which throws outside a native runtime',
   'react-native-iap': 'reaches a Nitro module on import, which throws outside a native runtime',
   'react-native-webview': 'reads its native view manager on import',

@@ -91,67 +91,68 @@ const CRC_TABLE = new Uint16Array([
   0x0000, 0xcc01, 0xd801, 0x1400, 0xf001, 0x3c00, 0x2800, 0xe401, 0xa001, 0x6c00, 0x7800, 0xb401,
   0x5000, 0x9c01, 0x8801, 0x4400,
 ]);
+const CRC_BYTE_TABLE = new Uint16Array(256);
+for (let value = 0; value < CRC_BYTE_TABLE.length; value++) {
+  let crc = CRC_TABLE[value & 0x0f] as number;
+  crc = (crc >> 4) ^ (CRC_TABLE[(crc ^ (value >> 4)) & 0x0f] as number);
+  CRC_BYTE_TABLE[value] = crc;
+}
 
-/** Enough for a short ride's header and definitions before the first grow. */
-const INITIAL_CAPACITY = 4096;
+const FIXED_MESSAGE_CAPACITY = 1024;
+const RECORD_MESSAGE_BYTES = 33;
+const LAP_MESSAGE_BYTES = 27;
 
 /**
  * Minimal FIT binary writer.
- * Builds FIT file byte-by-byte with definition and data messages.
+ * Builds FIT definition and data messages in a sized buffer.
  */
 class FitWriter {
-  /**
-   * The file so far. A `number[]` pushed one element at a time cost a boxed
-   * slot per byte, and a five-hour ride is megabytes of them, all built on the
-   * JS thread while the athlete waits on the save.
-   */
-  private bytes = new Uint8Array(INITIAL_CAPACITY);
+  private bytes: Uint8Array;
   private length = 0;
-  private dataSize = 0;
 
-  private push(value: number): void {
-    if (this.length === this.bytes.length) {
-      const grown = new Uint8Array(this.bytes.length * 2);
-      grown.set(this.bytes);
-      this.bytes = grown;
-    }
-    this.bytes[this.length] = value & 0xff;
-    this.length += 1;
+  constructor(recordCount: number, lapCount: number) {
+    this.bytes = new Uint8Array(
+      FIXED_MESSAGE_CAPACITY +
+        recordCount * RECORD_MESSAGE_BYTES +
+        (lapCount + 1) * LAP_MESSAGE_BYTES
+    );
   }
 
   writeUint8(value: number): void {
-    this.push(value);
-    this.dataSize++;
+    this.bytes[this.length] = value & 0xff;
+    this.length++;
   }
 
   writeUint16(value: number): void {
-    this.writeUint8(value & 0xff);
-    this.writeUint8((value >> 8) & 0xff);
+    const offset = this.length;
+    this.bytes[offset] = value & 0xff;
+    this.bytes[offset + 1] = (value >> 8) & 0xff;
+    this.length = offset + 2;
   }
 
   writeUint32(value: number): void {
-    this.writeUint8(value & 0xff);
-    this.writeUint8((value >> 8) & 0xff);
-    this.writeUint8((value >> 16) & 0xff);
-    this.writeUint8((value >> 24) & 0xff);
+    const offset = this.length;
+    this.bytes[offset] = value & 0xff;
+    this.bytes[offset + 1] = (value >> 8) & 0xff;
+    this.bytes[offset + 2] = (value >> 16) & 0xff;
+    this.bytes[offset + 3] = (value >> 24) & 0xff;
+    this.length = offset + 4;
   }
 
   writeSint32(value: number): void {
-    this.writeUint32(value < 0 ? value + 4294967296 : value);
+    this.writeUint32(value);
   }
 
   /** Write a fixed-length string (null-padded to size) */
   writeString(value: string, size: number): void {
     for (let i = 0; i < size; i++) {
-      this.writeUint8(i < value.length ? value.charCodeAt(i) : 0);
+      this.bytes[this.length + i] = i < value.length ? value.charCodeAt(i) & 0xff : 0;
     }
+    this.length += size;
   }
 
   writeHeader(): void {
-    for (let i = 0; i < FIT_HEADER_SIZE; i++) {
-      this.push(0);
-    }
-    this.dataSize = 0;
+    this.length = FIT_HEADER_SIZE;
   }
 
   writeDefinition(
@@ -175,38 +176,41 @@ class FitWriter {
     this.writeUint8(localMesgType & 0x0f);
   }
 
-  computeCrc(data: Uint8Array): number {
+  computeCrc(from: number, to: number): number {
     let crc = 0;
-    for (const byte of data) {
-      crc = (crc >> 4) ^ CRC_TABLE[(crc ^ byte) & 0x0f];
-      crc = (crc >> 4) ^ CRC_TABLE[(crc ^ (byte >> 4)) & 0x0f];
+    for (let i = from; i < to; i++) {
+      const byte = this.bytes[i] as number;
+      crc = (crc >> 8) ^ (CRC_BYTE_TABLE[(crc ^ byte) & 0xff] as number);
     }
     return crc;
   }
 
   toArrayBuffer(): ArrayBuffer {
+    if (this.length + 2 > this.bytes.length) {
+      throw new RangeError('FIT buffer capacity exceeded');
+    }
     const profileVersion = PROFILE_VERSION_MAJOR * 100 + PROFILE_VERSION_MINOR;
+    const dataSize = this.length - FIT_HEADER_SIZE;
 
     this.bytes[0] = FIT_HEADER_SIZE;
     this.bytes[1] = PROTOCOL_VERSION;
     this.bytes[2] = profileVersion & 0xff;
     this.bytes[3] = (profileVersion >> 8) & 0xff;
-    this.bytes[4] = this.dataSize & 0xff;
-    this.bytes[5] = (this.dataSize >> 8) & 0xff;
-    this.bytes[6] = (this.dataSize >> 16) & 0xff;
-    this.bytes[7] = (this.dataSize >> 24) & 0xff;
+    this.bytes[4] = dataSize & 0xff;
+    this.bytes[5] = (dataSize >> 8) & 0xff;
+    this.bytes[6] = (dataSize >> 16) & 0xff;
+    this.bytes[7] = (dataSize >> 24) & 0xff;
     this.bytes[8] = FIT_SIGNATURE[0];
     this.bytes[9] = FIT_SIGNATURE[1];
     this.bytes[10] = FIT_SIGNATURE[2];
     this.bytes[11] = FIT_SIGNATURE[3];
 
-    const headerCrc = this.computeCrc(this.bytes.subarray(0, 12));
+    const headerCrc = this.computeCrc(0, 12);
     this.bytes[12] = headerCrc & 0xff;
     this.bytes[13] = (headerCrc >> 8) & 0xff;
 
-    const dataCrc = this.computeCrc(this.bytes.subarray(FIT_HEADER_SIZE, this.length));
-    this.push(dataCrc & 0xff);
-    this.push((dataCrc >> 8) & 0xff);
+    const dataCrc = this.computeCrc(FIT_HEADER_SIZE, this.length);
+    this.writeUint16(dataCrc);
 
     return this.bytes.slice(0, this.length).buffer;
   }
@@ -235,7 +239,7 @@ export async function generateFitFile(params: {
   pausedTimeSeconds?: number;
 }): Promise<ArrayBuffer> {
   const { activityType, startTime, streams, laps, pausedTimeSeconds = 0 } = params;
-  const writer = new FitWriter();
+  const writer = new FitWriter(streams.time.length, laps.length);
   const [sport, subSport] = getSport(activityType);
   const fitStartTime = dateToFitTimestamp(startTime);
   const productNameLen = APP_NAME.length + 1; // null-terminated

@@ -15,6 +15,7 @@ import type { FfiActivityMetrics } from 'veloqrs';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const committed: (string | undefined)[] = [];
+const filterStates: { availableSportTypes: string[]; sportFilter: string | undefined }[] = [];
 
 function metricsOf(sports: string[]): Map<string, FfiActivityMetrics> {
   const map = new Map<string, FfiActivityMetrics>();
@@ -31,6 +32,10 @@ function Probe({ metrics }: { metrics: Map<string, FfiActivityMetrics> }) {
   const filter = useSportTypeFilter(metrics);
   useEffect(() => {
     committed.push(filter.selectedSportType);
+    filterStates.push({
+      availableSportTypes: filter.availableSportTypes,
+      sportFilter: filter.sportFilter,
+    });
     picker.choose = filter.setSelectedSportType;
   });
   return <Text>{filter.selectedSportType ?? 'none'}</Text>;
@@ -39,6 +44,7 @@ function Probe({ metrics }: { metrics: Map<string, FfiActivityMetrics> }) {
 describe('the sport picker on a cross-sport route group', () => {
   beforeEach(() => {
     committed.length = 0;
+    filterStates.length = 0;
   });
 
   it('starts on the sport most of the group carries, on the first committed frame', () => {
@@ -56,9 +62,10 @@ describe('the sport picker on a cross-sport route group', () => {
     expect(committed).toEqual(['Ride']);
   });
 
-  it('selects nothing when there is only one sport to pick from', () => {
+  it('uses the sole sport without filtering the engine result or showing a picker', () => {
     render(<Probe metrics={metricsOf(['Ride'])} />);
-    expect(committed).toEqual([undefined]);
+    expect(committed).toEqual(['Ride']);
+    expect(filterStates).toEqual([{ availableSportTypes: ['Ride'], sportFilter: undefined }]);
   });
 
   it("keeps the athlete's own choice over the sport it started on", () => {

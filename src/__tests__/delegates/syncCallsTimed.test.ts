@@ -14,6 +14,7 @@ import * as history from '../../../modules/veloqrs/src/delegates/sections/histor
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   ...jest.requireActual('../../../modules/veloqrs/src/generated/veloqrs'),
+  setEngineLogLevel: jest.fn(),
   isElevationBackfillPaused: () => false,
   getChangeCardSupport: () => ({}),
   startFetchAndStore: () => 1,

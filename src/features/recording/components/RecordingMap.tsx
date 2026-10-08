@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import {
   boundsOfLngLat,
@@ -57,7 +58,12 @@ export function __resetRecordingMapStyle(): void {
 }
 
 /** Room around the finished track in review mode, in pixels. */
-const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const;
+const REVIEW_FIT_PADDING = {
+  top: 40,
+  right: 40,
+  bottom: 60,
+  left: 40,
+} as const;
 
 const NO_LINE = { points: [] as LngLat[], indices: [] as number[] };
 
@@ -228,7 +234,11 @@ function RecordingMapInner({
         type: 'line',
         source: 'route-overlay',
         layout: roundLine,
-        paint: { 'line-color': OVERLAY_COLOR, 'line-opacity': 0.75, 'line-width': 5 },
+        paint: {
+          'line-color': OVERLAY_COLOR,
+          'line-opacity': 0.75,
+          'line-width': 5,
+        },
       },
       {
         id: 'excluded-route-line',
@@ -261,13 +271,21 @@ function RecordingMapInner({
         id: 'current-accuracy-outline',
         type: 'line',
         source: 'current-accuracy',
-        paint: { 'line-color': ACCURACY_RING_COLOR, 'line-opacity': 0.5, 'line-width': 1 },
+        paint: {
+          'line-color': ACCURACY_RING_COLOR,
+          'line-opacity': 0.5,
+          'line-width': 1,
+        },
       },
       {
         id: 'current-position-halo',
         type: 'circle',
         source: 'current-position',
-        paint: { 'circle-radius': 10, 'circle-color': POSITION_DOT_HALO, 'circle-opacity': 0.9 },
+        paint: {
+          'circle-radius': 10,
+          'circle-color': POSITION_DOT_HALO,
+          'circle-opacity': 0.9,
+        },
       },
       {
         id: 'current-position-dot',
@@ -305,43 +323,46 @@ function RecordingMapInner({
       {!fitBounds && (
         <View style={styles.controls}>
           {onOpenRoutePicker && (
-            <TouchableOpacity
+            <Pressable
               testID="recording-map-route-overlay"
-              style={[styles.controlButton, routeOverlay ? styles.controlButtonActive : null]}
+              style={pressable([
+                styles.controlButton,
+                routeOverlay ? styles.controlButtonActive : null,
+              ])}
               onPress={onOpenRoutePicker}
-              activeOpacity={0.7}
               accessibilityRole="button"
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name="map-marker-path"
                 size={20}
                 color={routeOverlay ? colors.textOnDark : darkColors.textPrimary}
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
-          <TouchableOpacity
+          <Pressable
             testID="recording-map-style"
-            style={styles.controlButton}
+            style={pressable(styles.controlButton)}
             onPress={cycleStyle}
-            activeOpacity={0.7}
             accessibilityRole="button"
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="layers" size={20} color={darkColors.textPrimary} />
-          </TouchableOpacity>
+          </Pressable>
           {!isFollowing && (
-            <TouchableOpacity
+            <Pressable
               testID="recording-map-recenter"
-              style={styles.controlButton}
+              style={pressable(styles.controlButton)}
               onPress={() => setIsFollowing(true)}
-              activeOpacity={0.7}
               accessibilityRole="button"
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name="crosshairs-gps"
                 size={20}
                 color={darkColors.textPrimary}
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       )}

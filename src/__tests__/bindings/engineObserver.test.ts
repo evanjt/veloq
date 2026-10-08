@@ -142,3 +142,61 @@ it('refreshes the groups channel when a regroup is swapped in', async () => {
   off();
   offEvent();
 });
+
+it('refreshes activity reads when stored rows are announced', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const read = jest.fn();
+  const off = client.subscribe('activities', read);
+
+  observer.activitiesStored();
+  await flush();
+
+  expect(read).toHaveBeenCalledTimes(1);
+  off();
+});
+
+it.each(['restoreRecordZip', 'restoreRecordJson'] as const)(
+  'rereads mounted engine data after %s commits without a sync',
+  async (method) => {
+    const { client } = clientWithFakeEngine();
+    let name = 'Old name';
+    const read = jest.fn(() => name);
+    const seen: string[] = [];
+    const offs = ['activities', 'groups', 'sections', 'sync'].map((channel) =>
+      client.subscribe(channel, () => seen.push(read()))
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client.engine as any)[method] = jest.fn().mockImplementation(async () => {
+      name = 'Restored name';
+      return { placed: 1, unplaced: 0, missingActivityIds: [] };
+    });
+
+    expect(read()).toBe('Old name');
+    await client[method]('record');
+    await flush();
+
+    expect(seen).toContain('Restored name');
+    expect(seen).toHaveLength(4);
+    offs.forEach((off) => off());
+  }
+);
+
+it('keeps mounted reads unchanged after a refused restore and refreshes on retry', async () => {
+  const { client } = clientWithFakeEngine();
+  const read = jest.fn();
+  const off = client.subscribe('groups', read);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (client.engine as any).restoreRecordJson = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('Invalid record'))
+    .mockResolvedValueOnce({ placed: 1, unplaced: 0, missingActivityIds: [] });
+
+  await expect(client.restoreRecordJson('invalid')).rejects.toThrow('Invalid record');
+  await flush();
+  expect(read).not.toHaveBeenCalled();
+
+  await client.restoreRecordJson('valid');
+  await flush();
+  expect(read).toHaveBeenCalledTimes(1);
+  off();
+});

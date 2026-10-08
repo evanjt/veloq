@@ -11,15 +11,36 @@
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
+
 use crate::persistence::geocoded_places::{PlaceCell, cached_place, store_place};
 use crate::persistence::read_pool::with_read_conn;
-use crate::persistence::settings::geocoding_enabled_from;
+use crate::persistence::settings::{geocoding_enabled_from, setting_from, settings_keys};
 use crate::persistence::{engine_install, with_persistent_engine_blocking_for};
 
 /// The provider's public instance. The endpoint a lookup uses is handed to
 /// it, never assumed: with none, nothing is sent. This is the host that
 /// configuration names today, and the one the privacy page has to name.
 pub const NOMINATIM_ENDPOINT: &str = "https://nominatim.openstreetmap.org";
+
+const CONFIG_URL: &str = "https://auth.veloq.fit/geocoder";
+const CONFIG_LIFETIME_MS: i64 = 86_400_000;
+
+#[derive(Clone, Deserialize, Serialize)]
+struct ConfigCopy {
+    endpoint: Option<String>,
+    fetched_at_ms: i64,
+}
+
+impl ConfigCopy {
+    fn is_fresh(&self, now_ms: i64) -> bool {
+        now_ms >= self.fetched_at_ms
+            && now_ms.saturating_sub(self.fetched_at_ms) < CONFIG_LIFETIME_MS
+    }
+}
+
+static CONFIG_FETCH: LazyLock<tokio::sync::Mutex<()>> =
+    LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 /// Names the app, its version and where to reach its maker, which the
 /// provider's terms ask every request to carry.
@@ -131,6 +152,68 @@ impl<T: GeocodeTransport> Geocoder<T> {
         &self.transport
     }
 
+    /// Resolve the current worker configuration before sending a point.
+    pub async fn configured_place_name(
+        &self,
+        lat: f64,
+        lng: f64,
+        language: &str,
+    ) -> Option<String> {
+        let install = engine_install();
+        match held(PlaceCell::of(lat, lng), language)? {
+            Held::Answered(name) => return name,
+            Held::Owed => {}
+        }
+        let endpoint = self.configured_endpoint().await;
+        if engine_install() != install {
+            return None;
+        }
+        self.place_name(endpoint.as_deref(), lat, lng, language)
+            .await
+    }
+
+    /// The served endpoint for a run of lookups, or none when it says stop.
+    pub async fn configured_endpoint(&self) -> Option<String> {
+        let install = engine_install();
+        let previous = held_config();
+        if let Some(copy) = &previous
+            && copy.is_fresh(crate::persistence::attempts::now_ms())
+        {
+            return copy.endpoint.clone();
+        }
+        let _guard = CONFIG_FETCH.lock().await;
+        let previous = held_config();
+        if let Some(copy) = &previous
+            && copy.is_fresh(crate::persistence::attempts::now_ms())
+        {
+            return copy.endpoint.clone();
+        }
+        self.refresh_config(install, previous).await
+    }
+
+    async fn refresh_config(&self, install: u64, previous: Option<ConfigCopy>) -> Option<String> {
+        let Ok(body) = self.transport.get(CONFIG_URL, "").await else {
+            return previous.and_then(|copy| copy.endpoint);
+        };
+        let Some(endpoint) = parse_endpoint(&body) else {
+            return previous.and_then(|copy| copy.endpoint);
+        };
+        let copy = ConfigCopy {
+            endpoint,
+            fetched_at_ms: crate::persistence::attempts::now_ms(),
+        };
+        let json = serde_json::to_string(&copy).ok()?;
+        let stored = with_persistent_engine_blocking_for(install, move |engine| {
+            engine.set_setting(settings_keys::GEOCODER_CONFIG, &json)
+        })
+        .await;
+        match stored {
+            Some(Ok(())) => copy.endpoint,
+            Some(Err(_)) => previous.and_then(|copy| copy.endpoint),
+            None => None,
+        }
+    }
+
     /// The place name for a point, in `language`, or `None`.
     ///
     /// `None` without a request when geocoding is off, when the engine is
@@ -138,27 +221,48 @@ impl<T: GeocodeTransport> Geocoder<T> {
     /// from the device. Otherwise the request waits its turn behind any other
     /// in the engine, and an answer, a place or no place, is kept. A failed
     /// request keeps nothing, so a later lookup can ask again.
-    pub async fn place_name(
+    async fn place_name(
         &self,
         endpoint: Option<&str>,
         lat: f64,
         lng: f64,
         language: &str,
     ) -> Option<String> {
+        match self.lookup(endpoint, lat, lng, language).await {
+            Lookup::Place(name) => Some(name),
+            Lookup::NoPlace | Lookup::NotSent | Lookup::Failed => None,
+        }
+    }
+
+    /// What asking for a point came to, telling a lookup that was never sent
+    /// from one that was answered without a place or failed on the way, which
+    /// a caller that names things has to treat differently. The rules are
+    /// [`Self::place_name`]'s.
+    pub async fn lookup(
+        &self,
+        endpoint: Option<&str>,
+        lat: f64,
+        lng: f64,
+        language: &str,
+    ) -> Lookup {
         let cell = PlaceCell::of(lat, lng);
         let install = engine_install();
-        match held(cell, language)? {
-            Held::Answered(name) => return name,
-            Held::Owed => {}
+        match held(cell, language) {
+            None => return Lookup::NotSent,
+            Some(Held::Answered(name)) => return Lookup::from_kept(name),
+            Some(Held::Owed) => {}
         }
-        let endpoint = endpoint?;
+        let Some(endpoint) = endpoint else {
+            return Lookup::NotSent;
+        };
 
         let mut last_ended = LAST_REQUEST_ENDED.lock().await;
         // Read again under the pacer: the switch may have gone off while this
         // waited, or the lookup ahead of it may have answered the same cell.
-        match held(cell, language)? {
-            Held::Answered(name) => return name,
-            Held::Owed => {}
+        match held(cell, language) {
+            None => return Lookup::NotSent,
+            Some(Held::Answered(name)) => return Lookup::from_kept(name),
+            Some(Held::Owed) => {}
         }
         if let Some(ended) = *last_ended {
             tokio::time::sleep_until((ended + PACE).into()).await;
@@ -178,11 +282,11 @@ impl<T: GeocodeTransport> Geocoder<T> {
             Ok(Some(name)) => name,
             Ok(None) => {
                 log::warn!("veloqrs: [Geocode] the answer was not an address");
-                return None;
+                return Lookup::Failed;
             }
             Err(e) => {
                 log::warn!("veloqrs: [Geocode] {e}");
-                return None;
+                return Lookup::Failed;
             }
         };
         let language = language.to_string();
@@ -203,8 +307,58 @@ impl<T: GeocodeTransport> Geocoder<T> {
             log::warn!("veloqrs: [Geocode] keeping an answer: {e}");
         }
         drop(last_ended);
-        name
+        Lookup::from_kept(name)
     }
+}
+
+/// What one lookup came to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Lookup {
+    /// The point is in this place.
+    Place(String),
+    /// The provider answered and the answer named no place.
+    NoPlace,
+    /// Nothing was sent: geocoding is off, the engine is closed or there is
+    /// no endpoint. Asking later may still be answered.
+    NotSent,
+    /// A request went out and came back with no answer.
+    Failed,
+}
+
+impl Lookup {
+    fn from_kept(name: Option<String>) -> Self {
+        name.map_or(Self::NoPlace, Self::Place)
+    }
+}
+
+fn held_config() -> Option<ConfigCopy> {
+    with_read_conn(|conn| {
+        setting_from(conn, settings_keys::GEOCODER_CONFIG)
+            .ok()
+            .flatten()
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+    })
+    .flatten()
+}
+
+fn parse_endpoint(body: &str) -> Option<Option<String>> {
+    let value: serde_json::Value = serde_json::from_str(body).ok()?;
+    let endpoint = value.get("endpoint")?;
+    if endpoint.is_null() {
+        return Some(None);
+    }
+    let endpoint = endpoint.as_str()?;
+    let url = reqwest::Url::parse(endpoint).ok()?;
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return None;
+    }
+    Some(Some(endpoint.trim_end_matches('/').to_string()))
 }
 
 enum Held {

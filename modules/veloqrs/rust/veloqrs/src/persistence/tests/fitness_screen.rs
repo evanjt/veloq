@@ -3,14 +3,13 @@
 //! and swimming. It asked for the trend once per card and borrowed the summary
 //! card's bundle, week totals and all, once per sport for the speeds.
 //!
-//! Expected behaviour: one read answers all three, each the same answer its
-//! part gives over the same rows, with the trend compared across the three
-//! months the chart draws rather than the summary card's one.
+//! Expected behaviour: one read answers all three, with the FTP comparison
+//! shared with the summary card and three months of chart history.
 
 use super::pooled::{FITNESS_FTP_LOOKBACK_DAYS, fitness_screen_data};
 use crate::persistence::PersistentEngine;
 use crate::persistence::fitness::derivations::pooled::{
-    SYNC_PACE_WINDOW_DAYS, ftp_trend_over, ftp_trend_to, pace_trend,
+    SYNC_PACE_WINDOW_DAYS, ftp_trend_to, pace_trend,
 };
 use crate::persistence::wellness::WellnessRow;
 
@@ -43,13 +42,19 @@ fn library() -> PersistentEngine {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
         .upsert_wellness(&[
-            // The step is measured from the newest day at or before the
-            // window's start, so the chart's three months reach back to the
-            // first and the summary card's month only to the second.
             eftp_day("2026-06-01", 240.0),
             eftp_day("2026-07-20", 252.0),
             eftp_day(TODAY, 260.0),
         ])
+        .unwrap();
+    engine
+        .db
+        .execute(
+            "INSERT INTO activity_metrics
+             (activity_id, name, date, distance, moving_time, elapsed_time,
+              elevation_gain, sport_type) VALUES ('r1', 'Hill repeats', 1781000000, 0, 0, 0, 0, 'Ride')",
+            [],
+        )
         .unwrap();
     engine
         .set_eftp_change("r1", 1_781_000_000, 252.0, 12.0, "Hill repeats")
@@ -68,7 +73,7 @@ fn library() -> PersistentEngine {
 }
 
 #[test]
-fn the_read_answers_the_trend_over_the_chart_window_and_both_stored_speeds() {
+fn test_fitness_screen_read_uses_shared_ftp_comparison_and_stored_speeds() {
     let engine = library();
     let conn = engine.cold_connection();
 
@@ -77,9 +82,11 @@ fn the_read_answers_the_trend_over_the_chart_window_and_both_stored_speeds() {
     assert_eq!(read.ftp_trend.latest_ftp, Some(260));
     assert_eq!(
         read.ftp_trend.previous_ftp,
-        Some(240),
-        "compared across the chart's three months"
+        Some(252),
+        "compared across the shared month"
     );
+    assert_eq!(read.ftp_trend.delta_watts, Some(8));
+    assert_eq!(read.ftp_trend.history.len(), 3);
     assert_eq!(
         read.ftp_trend
             .changes
@@ -92,11 +99,8 @@ fn the_read_answers_the_trend_over_the_chart_window_and_both_stored_speeds() {
     assert_eq!(read.swim_pace_trend.latest_pace, Some(1.2));
 
     assert_eq!(
-        format!("{:?}", read.ftp_trend),
-        format!(
-            "{:?}",
-            ftp_trend_over(conn, TODAY, FITNESS_FTP_LOOKBACK_DAYS)
-        )
+        read.ftp_trend.previous_ftp,
+        ftp_trend_to(conn, TODAY).previous_ftp
     );
     assert_eq!(
         format!("{:?}", read.run_pace_trend),
@@ -109,15 +113,24 @@ fn the_read_answers_the_trend_over_the_chart_window_and_both_stored_speeds() {
 }
 
 #[test]
-fn the_chart_window_is_not_the_summary_cards_month() {
-    let engine = library();
+fn test_fitness_screen_ftp_direction_matches_summary_with_older_gain() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .upsert_wellness(&[
+            eftp_day("2026-06-07", 240.0),
+            eftp_day("2026-07-27", 252.0),
+            eftp_day("2026-08-06", 255.0),
+            eftp_day(TODAY, 252.0),
+        ])
+        .unwrap();
     let conn = engine.cold_connection();
 
     assert_eq!(FITNESS_FTP_LOOKBACK_DAYS, 90);
-    assert_ne!(
-        fitness_screen_data(conn, TODAY).ftp_trend.previous_ftp,
-        ftp_trend_to(conn, TODAY).previous_ftp
-    );
+    let fitness = fitness_screen_data(conn, TODAY).ftp_trend;
+    let summary = ftp_trend_to(conn, TODAY);
+    assert_eq!(fitness.delta_watts, summary.delta_watts);
+    assert_eq!(fitness.delta_watts, Some(-3));
+    assert_eq!(fitness.history.len(), 4);
 }
 
 #[test]

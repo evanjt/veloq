@@ -82,6 +82,7 @@ const EMPTY_SUMMARY: FfiStrengthSummary = {
   activityCount: 0,
   totalSets: 0,
   balance: [],
+  maxWeightedSets: 0,
 };
 
 const EMPTY_SCREEN_DATA: FfiStrengthScreenData = {

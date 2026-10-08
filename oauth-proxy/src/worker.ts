@@ -24,6 +24,7 @@ import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
 
 interface Env {
+  GEOCODER_ENDPOINT?: string;
   INTERVALS_CLIENT_ID: string;
   INTERVALS_CLIENT_SECRET: string;
   OAUTH_STATES: KVNamespace;
@@ -35,6 +36,31 @@ interface DeviceToken {
   token: string;
   platform: "ios" | "android";
   registeredAt: string;
+}
+
+const tokenOwnerKey = (token: string) => `token:${token}`;
+
+async function removeTokenFromAthlete(env: Env, athleteId: string, token: string): Promise<void> {
+  const key = `athlete:${athleteId}`;
+  const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+  if (!existing) return;
+
+  const filtered = existing.filter((entry) => entry.token !== token);
+  if (filtered.length === existing.length) return;
+  if (filtered.length === 0) {
+    await env.DEVICE_TOKENS.delete(key);
+  } else {
+    await env.DEVICE_TOKENS.put(key, JSON.stringify(filtered), {
+      expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+    });
+  }
+}
+
+async function clearTokenOwner(env: Env, athleteId: string, token: string): Promise<void> {
+  const key = tokenOwnerKey(token);
+  if (await env.DEVICE_TOKENS.get(key) === athleteId) {
+    await env.DEVICE_TOKENS.delete(key);
+  }
 }
 
 /** Rate limiting configuration */
@@ -74,6 +100,20 @@ export default {
       // Health check
       if (path === "/health") {
         return new Response("OK", { status: 200 });
+      }
+
+      if (path === "/geocoder" && request.method === "GET") {
+        const endpoint = env.GEOCODER_ENDPOINT;
+        return new Response(
+          JSON.stringify({ endpoint: endpoint && endpoint !== "stop" ? endpoint : null }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=86400",
+            },
+          }
+        );
       }
 
       // Register OAuth state (app calls this before starting OAuth flow)
@@ -619,6 +659,12 @@ async function handleDeviceRegister(
       return jsonResponse({ error: auth.error }, auth.status);
     }
 
+    const ownerKey = tokenOwnerKey(body.token);
+    const previousAthlete = await env.DEVICE_TOKENS.get(ownerKey);
+    if (previousAthlete && previousAthlete !== body.athleteId) {
+      await removeTokenFromAthlete(env, previousAthlete, body.token);
+    }
+
     const key = `athlete:${body.athleteId}`;
     const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
     const tokens: DeviceToken[] = existing ?? [];
@@ -643,13 +689,21 @@ async function handleDeviceRegister(
     // devices. Drop the oldest by registeredAt when the cap is exceeded.
     if (tokens.length > MAX_TOKENS_PER_ATHLETE) {
       tokens.sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));
-      tokens.splice(0, tokens.length - MAX_TOKENS_PER_ATHLETE);
+      const dropped = tokens.splice(0, tokens.length - MAX_TOKENS_PER_ATHLETE);
+      for (const entry of dropped) {
+        await clearTokenOwner(env, body.athleteId, entry.token);
+      }
     }
 
     // Store with TTL
     await env.DEVICE_TOKENS.put(key, JSON.stringify(tokens), {
       expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
     });
+    if (tokens.some((entry) => entry.token === body.token)) {
+      await env.DEVICE_TOKENS.put(ownerKey, body.athleteId, {
+        expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+      });
+    }
 
     return jsonResponse({ success: true });
   } catch {
@@ -688,20 +742,8 @@ async function handleDeviceUnregister(
       return jsonResponse({ error: auth.error }, auth.status);
     }
 
-    const key = `athlete:${body.athleteId}`;
-    const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-    if (!existing) {
-      return jsonResponse({ success: true }); // Already gone
-    }
-
-    const filtered = existing.filter((t) => t.token !== body.token);
-    if (filtered.length === 0) {
-      await env.DEVICE_TOKENS.delete(key);
-    } else {
-      await env.DEVICE_TOKENS.put(key, JSON.stringify(filtered), {
-        expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
-      });
-    }
+    await removeTokenFromAthlete(env, body.athleteId, body.token);
+    await clearTokenOwner(env, body.athleteId, body.token);
 
     return jsonResponse({ success: true });
   } catch {
@@ -809,6 +851,9 @@ async function handleIntervalsWebhook(
             await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
               expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
             });
+          }
+          for (const token of dead) {
+            await clearTokenOwner(env, event.athlete_id, token);
           }
           console.log(
             `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`

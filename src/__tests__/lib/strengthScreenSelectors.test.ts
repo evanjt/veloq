@@ -19,12 +19,19 @@ const WEEKS = [
 
 function screenData(): StrengthScreenData {
   return {
-    summary: { muscleVolumes: [], activityCount: 0, totalSets: 0, balance: [] },
+    summary: {
+      muscleVolumes: [],
+      activityCount: 0,
+      totalSets: 0,
+      maxWeightedSets: 0,
+      balance: [],
+    },
     weeks: WEEKS,
     weekly: WEEKS.map((_week, index) => ({
       muscleVolumes: [],
       activityCount: index + 1,
       totalSets: 0,
+      maxWeightedSets: 0,
       balance: [],
     })),
     progressions: [

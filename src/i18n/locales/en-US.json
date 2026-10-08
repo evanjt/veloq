@@ -1,4 +1,10 @@
 {
+  "phaseNames": {
+    "analysing": "Analyzing activities",
+    "diffing": "Comparing catalogs",
+    "cancelled": "Canceled",
+    "draining": "Preparing catalog"
+  },
   "about": {
     "openSource": "Open Source License (Apache 2.0)",
     "thirdPartyLicenses": "Third-Party Licenses"
@@ -83,8 +89,7 @@
     "previewStaleCatalogue_other": "The live catalog has not seen {{count}} of your activities yet, so sections shown as gone or new may only be detection catching up",
     "previewPoolCost_one": "{{count}} activity analyzed in {{duration}}",
     "previewPoolCost_other": "{{count}} activities analyzed in {{duration}}",
-    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too.",
-    "exportPrivacyRadius": "{{meters}} m"
+    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too."
   },
   "wellness": {
     "smoothingDescription": "Apply a rolling average to smooth out daily variations and show trends more clearly.",
@@ -102,8 +107,6 @@
     "v040": {
       "recutRunning": "Re-analyzing your sections",
       "recutRunningPhase": "Re-analyzing your sections: {{phase}}",
-      "phasePreparing": "preparing the catalog",
-      "phaseDiffing": "comparing the two catalogs",
       "recutFailedAfterApply": "Your sections were re-analyzed, but the summary of what changed was not saved. It is written again next launch."
     }
   },

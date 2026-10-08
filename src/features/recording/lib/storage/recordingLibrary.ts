@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { debug } from '@/shared/debug/debug';
@@ -127,34 +128,6 @@ async function ensureRecordingsDir(): Promise<void> {
   }
 }
 
-/**
- * How many bytes go through `String.fromCharCode` at once. Small enough to
- * stay inside the argument limit, large enough that a multi-megabyte FIT is
- * a few hundred joins rather than a few million.
- */
-const BASE64_CHUNK = 8192;
-
-export function bufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  // Built per chunk and joined once. Appending a character at a time
-  // reallocated the string on every byte of a long ride's FIT file, on the
-  // JS thread while the athlete waits on the save.
-  const chunks: string[] = [];
-  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
-    chunks.push(String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK)));
-  }
-  return btoa(chunks.join(''));
-}
-
-export function base64ToBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer as ArrayBuffer;
-}
-
 // ─── Save / read ──────────────────────────────────────────────────────────────
 
 export interface SaveRecordingParams {
@@ -202,9 +175,7 @@ export async function saveRecording(
     let fitPath = '';
     if (params.fitBuffer) {
       fitPath = `${RECORDINGS_DIR}${id}.fit`;
-      await FileSystem.writeAsStringAsync(fitPath, bufferToBase64(params.fitBuffer), {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      new File(fitPath).write(new Uint8Array(params.fitBuffer));
     }
 
     let streamsPath: string | undefined;

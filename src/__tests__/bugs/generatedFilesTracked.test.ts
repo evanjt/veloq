@@ -120,3 +120,32 @@ it('never enumerates node_modules, which is what the listing died on', () => {
   expect(status).toBe(0);
   expect(output).not.toContain('node_modules');
 });
+
+it('fails on a file tracked under android/ or ios/, which Expo generation owns', () => {
+  // A hand-kept copy of a generated native file drifts from the config that
+  // generates it: a tracked Info.plist kept a build number one behind app.json
+  // and an iCloud container the config had dropped.
+  const root = fixture({
+    '.gitignore': 'node_modules/\n',
+    'app.json': '{}\n',
+    'android/app/build.gradle': "applicationId 'com.example.orchard'\n",
+    'ios/Orchard/Info.plist': '<plist/>\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('android/app/build.gradle');
+  expect(output).toContain('ios/Orchard/Info.plist');
+});
+
+it('passes generated native projects that are on disk and ignored', () => {
+  const root = fixture({
+    '.gitignore': 'node_modules/\n/android\n/ios\n',
+    'app.json': '{}\n',
+  });
+  mkdirSync(join(root, 'android/app'), { recursive: true });
+  writeFileSync(join(root, 'android/app/build.gradle'), "applicationId 'com.example.orchard'\n");
+
+  expect(runGuard(root).status).toBe(0);
+});

@@ -116,4 +116,14 @@ describe('SectionTrimOverlay reset control', () => {
     const { queryByRole } = render(<SectionTrimOverlay {...props} canReset={false} />);
     expect(queryByRole('button', { name: 'sections.resetBounds' })).toBeNull();
   });
+
+  it('disables reset while an edit is pending', () => {
+    const onReset = jest.fn();
+    const { getByRole } = render(<SectionTrimOverlay {...props} isSaving onReset={onReset} />);
+    const reset = getByRole('button', { name: 'sections.resetBounds' });
+
+    expect(reset).toBeDisabled();
+    fireEvent.press(reset);
+    expect(onReset).not.toHaveBeenCalled();
+  });
 });

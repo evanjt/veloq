@@ -236,7 +236,21 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE sections DROP COLUMN original_polyline_blob;
                  ALTER TABLE gps_tracks DROP COLUMN elevation_source;
                  DROP INDEX idx_activity_census_trackless_series;
-                 ALTER TABLE activity_census DROP COLUMN has_series;",
+                 ALTER TABLE activity_census DROP COLUMN has_series;
+                 ALTER TABLE evidence_cache DROP COLUMN dirty_clusters;
+                 DROP TRIGGER section_list_counts_ai;
+                 DROP TRIGGER section_list_counts_ad;
+                 DROP TRIGGER section_list_counts_au;
+                 DROP TRIGGER route_group_sizes_ai;
+                 DROP TRIGGER route_group_sizes_ad;
+                 DROP TRIGGER route_group_sizes_au_old;
+                 DROP TRIGGER route_group_sizes_au_new;
+                 DROP TABLE section_list_counts;
+                 DROP TABLE route_group_sizes;
+                 CREATE TABLE section_visible_count (
+                     id INTEGER PRIMARY KEY CHECK (id = 1),
+                     n INTEGER NOT NULL
+                 );",
             )
             .unwrap();
         engine

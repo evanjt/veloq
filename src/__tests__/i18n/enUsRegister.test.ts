@@ -86,7 +86,8 @@ function flatten(node: unknown, path: string[] = []): [string, string][] {
 }
 
 function britishForms(text: string): string[] {
-  return (text.match(BRITISH) ?? []).filter((w) => !ALLOWED.has(w.toLowerCase()));
+  const visibleText = text.replace(/\{\{[^{}]+\}\}/g, '');
+  return (visibleText.match(BRITISH) ?? []).filter((w) => !ALLOWED.has(w.toLowerCase()));
 }
 
 function storeFiles(dir: string): string[] {
@@ -101,6 +102,10 @@ describe('en-US register', () => {
       britishForms(value).map((w) => `${key}: ${w}`)
     );
     expect(hits).toEqual([]);
+  });
+
+  it('ignores interpolation identifiers in displayed strings', () => {
+    expect(britishForms('{{metres}} m')).toEqual([]);
   });
 
   it('uses no British spelling in the store text', () => {

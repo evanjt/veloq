@@ -47,11 +47,11 @@ static BULK_EXPORT_PROGRESS: std::sync::Mutex<
 > = std::sync::Mutex::new(None);
 
 /// A claim on a job slot, released when the work ends however it ends.
-struct InFlight(&'static std::sync::atomic::AtomicBool);
+pub(crate) struct InFlight(&'static std::sync::atomic::AtomicBool);
 
 impl InFlight {
     /// The slot, or the refusal the caller shows.
-    fn claim(
+    pub(crate) fn claim(
         flag: &'static std::sync::atomic::AtomicBool,
         taken: &str,
     ) -> Result<Self, VeloqError> {
@@ -209,8 +209,9 @@ impl VeloqEngine {
     /// are committed and this engine simply never re-reads them.
     ///
     /// False is the common resume and costs one `SELECT`. True means the tiers
-    /// were replaced, which on the test handset's own library is 23.9 ms of the 100 ms a
-    /// transition gets, so it blocks the JavaScript thread rather than
+    /// were replaced. A release standalone engine binary on the test handset measured
+    /// the comparable targeted loaders at 18.9 to 20.0 ms of the 100 ms a
+    /// transition gets, so this call blocks the JavaScript thread rather than
     /// reporting progress. The screens re-read after it, as they do after any
     /// other change.
     fn take_external_writes(&self) -> bool {
@@ -533,6 +534,10 @@ impl VeloqEngine {
         .await
         .ok_or(VeloqError::NotInitialized)?
         .map_err(|msg| VeloqError::Database { msg })?;
+        crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
+        crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
+        crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
+        crate::objects::observer::notify(crate::objects::observer::Announcement::SyncSettled);
         Ok(FfiRecordRestoreResult {
             placed: result.placed,
             unplaced: result.unplaced,

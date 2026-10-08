@@ -112,7 +112,7 @@ pub struct Section {
 pub struct IndexActivitySummary {
     pub matched_sections: u32,
     pub inserted_portions: u32,
-    pub regrouped: bool,
+    pub regroup_scheduled: bool,
     pub indicators_recomputed: bool,
 }
 
@@ -122,7 +122,7 @@ pub struct BatchAttachSummary {
     /// Activities that matched at least one existing section.
     pub attached_activities: u32,
     pub inserted_portions: u32,
-    pub regrouped: bool,
+    pub regroup_scheduled: bool,
     pub indicators_recomputed: bool,
 }
 

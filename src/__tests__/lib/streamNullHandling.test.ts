@@ -8,8 +8,8 @@ import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { computeAllAverages } from '@/features/stats/lib/combinedPlotData';
 import type { ActivityStreams } from '@/types';
 
-function chips(streams: ActivityStreams) {
-  const values = computeAllAverages(CHART_CONFIGS, streams, true);
+function chips(streams: ActivityStreams, elevationGain = 0) {
+  const values = computeAllAverages(CHART_CONFIGS, streams, true, elevationGain);
   return Object.fromEntries(values.map((v) => [v.id, v]));
 }
 
@@ -20,8 +20,8 @@ describe('stream null handling', () => {
     expect(heartrate.maxValueWidth).toBe('170');
   });
 
-  it('does not fabricate elevation gain across a dropout', () => {
-    const { elevation } = chips({ altitude: [100, NaN, 100, 110] });
+  it('shows the activity gain across a dropout', () => {
+    const { elevation } = chips({ altitude: [100, NaN, 100, 110] }, 10);
     expect(elevation.value).toBe('+10');
     expect(elevation.maxValueWidth).toBe('+10');
   });

@@ -44,6 +44,7 @@ const TYPESCRIPT = [
   /\b(?:scheduleNotificationAsync|presentNotificationAsync|setNotificationChannelAsync)\(/g,
   /\bregisterTaskAsync\(/g,
   /\bFileSystem\.(?:writeAsStringAsync|copyAsync|moveAsync|downloadAsync|makeDirectoryAsync)\(/g,
+  /\bnew File\([^)]*\)\.write\(/g,
   /\b(?:runBackup|writeClearSnapshot|runRecordBackup|runBulkExport|convertLegacyDatabaseToRecordBackup)\(/g,
 ];
 const RUST = [

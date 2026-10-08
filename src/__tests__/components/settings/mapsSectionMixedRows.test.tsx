@@ -18,7 +18,10 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, values?: { mode?: string }) =>
+      key === 'settings.terrain3DMode' ? `Relief: ${values?.mode}` : key,
+  }),
 }));
 
 const mockStore = new Map<string, string>();
@@ -105,9 +108,9 @@ describe('map style rows over split saved values', () => {
     expect(view.getByTestId('map-style-pill-Hike')).toHaveTextContent('settings.default');
     expect(view.getByTestId('map-style-pill-Gym')).toHaveTextContent('settings.mixed');
     expect(view.getByTestId('map-terrain-pill-Gym')).toHaveTextContent(
-      '3D: settings.terrain3DSmart'
+      'Relief: settings.terrain3DSmart'
     );
-    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent('3D: settings.mixed');
+    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent('Relief: settings.mixed');
 
     await act(async () => {
       fireEvent.press(view.getByTestId('map-terrain-pill-Hike'));
@@ -116,7 +119,7 @@ describe('map style rows over split saved values', () => {
     expect(afterTerrain.terrain3DModeByType).toEqual({});
     expect(afterTerrain.activityTypeStyles).toEqual(GYM_SATELLITE);
     expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent(
-      '3D: settings.terrain3DSmart'
+      'Relief: settings.terrain3DSmart'
     );
     expect(view.getByTestId('map-style-pill-Gym')).toHaveTextContent('settings.mixed');
 
@@ -130,5 +133,18 @@ describe('map style rows over split saved values', () => {
     expect(afterStyle.terrain3DModeByType).toEqual(afterTerrain.terrain3DModeByType);
     expect(afterStyle.activityTypeStyles.Other).toBe('satellite');
     expect(view.getByTestId('map-style-pill-Gym')).not.toHaveTextContent('settings.mixed');
+  });
+
+  it('shows the translated terrain mode in the badge and group rows', async () => {
+    seed({});
+    const view = render(screen());
+    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+
+    expect(view.getByLabelText('settings.terrain3D: settings.terrain3DSmart')).toHaveTextContent(
+      'Relief: settings.terrain3DSmart'
+    );
+    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent(
+      'Relief: settings.terrain3DSmart'
+    );
   });
 });

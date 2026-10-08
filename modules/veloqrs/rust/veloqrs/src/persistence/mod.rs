@@ -76,6 +76,7 @@ pub mod feed_rings;
 pub(crate) mod file_lock;
 pub use export::{ExportPrivacyPreview, SuggestedHome};
 pub(crate) mod fitness;
+pub mod geocoded_names;
 pub mod geocoded_places;
 pub(crate) mod indicators;
 pub mod job_runs;
@@ -1290,6 +1291,8 @@ pub struct PersistentEngine {
     /// Cleared together with the cache at every invalidation point so the two can
     /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
+    evidence_cache_restored: bool,
+    evidence_cache_decodes: u64,
 
     /// A `clear_processed_activity_ids` whose DELETE failed, usually a
     /// `SQLITE_BUSY` outliving the 5 s timeout. The config that provoked the
@@ -1482,8 +1485,13 @@ impl PersistentEngine {
     /// next detect cold-rebatches every cluster. Exposed so a test can tell a
     /// warm restart from a cold one without timing it.
     #[doc(hidden)]
-    pub fn evidence_cache_folded_count(&self) -> usize {
-        self.cache_folded_ids.len()
+    pub fn evidence_cache_folded_count(&mut self) -> usize {
+        self.evidence_cache().1.len()
+    }
+
+    #[doc(hidden)]
+    pub fn evidence_cache_decode_count(&self) -> u64 {
+        self.evidence_cache_decodes
     }
 
     /// Drop the Unified evidence cache (and its folded-id shadow) so the next
@@ -1503,6 +1511,7 @@ impl PersistentEngine {
     pub(crate) fn forget_evidence_cache_in_memory(&mut self) {
         self.section_evidence_cache = SectionEvidenceCache::new();
         self.cache_folded_ids.clear();
+        self.evidence_cache_restored = true;
     }
 
     // ========================================================================
@@ -1560,6 +1569,8 @@ impl PersistentEngine {
             section_evidence_cache: SectionEvidenceCache::new(),
             fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
+            evidence_cache_restored: true,
+            evidence_cache_decodes: 0,
             pending_processed_clear: false,
             groups_dirty: false,
             groups_dirty_epoch: 0,
@@ -1689,8 +1700,9 @@ impl PersistentEngine {
     /// file, so a foreground engine that was alive throughout holds tiers that
     /// predate every one of those rows and nothing says so.
     ///
-    /// Deliberately not `load`. Measured on the test handset's own 29.2 MB library in a debug app build, so
-    /// read the ratios and not the milliseconds: the
+    /// Deliberately not `load`. Measured on the host in a debug engine binary
+    /// against a copy of the test handset's 29.2 MB library, so read the ratios and not
+    /// the milliseconds: the
     /// five loaders here are 23.9 ms of `load`'s 39.8 ms, of which
     /// `load_sections` alone is 22.3 ms, and the memory saving is 0.7 MB of
     /// 7.7, which is not the reason. The reason is that `load` is not a
@@ -1731,7 +1743,7 @@ impl PersistentEngine {
         // that are gone.
         self.clear_memory_caches();
         if first_error.is_none() {
-            self.restore_evidence_cache();
+            self.mark_evidence_cache_unrestored();
         }
         match first_error {
             Some(e) => Err(e),
@@ -1796,12 +1808,9 @@ impl PersistentEngine {
             return Err(e);
         }
 
-        // Adopt the evidence cache the last apply left behind, so a restart
-        // does not cold-rebatch the whole pool to reach the catalogue already
-        // in SQLite. Runs after `section_config` load: the row is keyed by the
-        // config digest and is a miss under any other config.
+        // The config is loaded before the cache's first read checks its digest.
         if loaded_whole {
-            self.restore_evidence_cache();
+            self.mark_evidence_cache_unrestored();
         }
 
         // Read the cutover token and set the pending flag. Nothing slow.
@@ -2222,8 +2231,9 @@ pub(crate) fn pooled_routes_screen_data(
     routes_screen_data(conn, query, groups_dirty_for_readers())
 }
 
-/// Every group and section the catalogue holds, then the search, the filters
-/// and the order, and only then the page.
+/// A page of groups and a page of sections in the order, search and filters
+/// asked for, with totals and counters over the whole catalogue. A list in an
+/// order a stored column answers is paged in SQL; any other is walked.
 fn routes_screen_data(
     conn: &Connection,
     query: crate::FfiRoutesScreenQuery,
@@ -2273,6 +2283,51 @@ fn pooled_route_group_page(
     conn: &Connection,
     query: &crate::FfiRoutesScreenQuery,
 ) -> PooledGroupPage {
+    paged_group_page(conn, query).unwrap_or_else(|| walked_group_page(conn, query))
+}
+
+/// The page of a list ordered by member count, which neither searches nor
+/// filters by sport, read through the count index, its totals from the stored
+/// group sizes. `None` for any other list, and while a group has no stored
+/// count for the index to place it by.
+fn paged_group_page(
+    conn: &Connection,
+    query: &crate::FfiRoutesScreenQuery,
+) -> Option<PooledGroupPage> {
+    let has_user_location = query.user_lat.is_finite() && query.user_lng.is_finite();
+    let by_count = match query.group_sort {
+        crate::FfiGroupSort::Activities => true,
+        crate::FfiGroupSort::Nearby => !has_user_location,
+        crate::FfiGroupSort::Distance | crate::FfiGroupSort::Name => false,
+    };
+    if !by_count || !query.group_search.trim().is_empty() || query.group_sport_type.is_some() {
+        return None;
+    }
+    let sizes = routes::pooled::group_sizes(conn)?;
+    let total_count: u32 = sizes.iter().map(|(_, n)| n).sum();
+    let filtered_count: u32 = sizes
+        .iter()
+        .filter(|(size, _)| *size >= query.min_group_activity_count)
+        .map(|(_, n)| n)
+        .sum();
+    let mut page = routes::pooled::group_keys_page(
+        conn,
+        query.min_group_activity_count,
+        query.group_offset,
+        query.group_limit,
+    );
+    let has_more = filtered_count as usize > query.group_offset as usize + page.len();
+    routes::pooled::name_groups(conn, &mut page);
+    routes::pooled::fill_page_details(conn, &mut page);
+    Some(PooledGroupPage {
+        groups: pooled_group_rows(conn, page),
+        total_count,
+        filtered_count,
+        has_more,
+    })
+}
+
+fn walked_group_page(conn: &Connection, query: &crate::FfiRoutesScreenQuery) -> PooledGroupPage {
     let min_group_activity_count = query.min_group_activity_count;
     let group_needle = query.group_search.trim().to_lowercase();
     let group_sort = query.group_sort;
@@ -2381,6 +2436,81 @@ fn pooled_route_section_page(
     conn: &Connection,
     query: &crate::FfiRoutesScreenQuery,
 ) -> PooledSectionPage {
+    paged_section_page(conn, query).unwrap_or_else(|| walked_section_page(conn, query))
+}
+
+/// The order a stored column answers for this list, or `None` when it orders
+/// by the shown name, by nearness to the athlete, or by the within-sport rank,
+/// none of which is stored.
+fn stored_section_order(
+    query: &crate::FfiRoutesScreenQuery,
+) -> Option<sections::queries::pooled::StoredSectionOrder> {
+    use sections::queries::pooled::StoredSectionOrder;
+    let has_user_location = query.user_lat.is_finite() && query.user_lng.is_finite();
+    match query.section_sort {
+        crate::FfiSectionSort::Visits => Some(StoredSectionOrder::Visits),
+        crate::FfiSectionSort::Nearby if !has_user_location => Some(StoredSectionOrder::Visits),
+        crate::FfiSectionSort::Distance => Some(StoredSectionOrder::Distance),
+        crate::FfiSectionSort::Signature if query.section_sport_type.is_none() => {
+            Some(StoredSectionOrder::Signature)
+        }
+        crate::FfiSectionSort::Nearby
+        | crate::FfiSectionSort::Signature
+        | crate::FfiSectionSort::Name => None,
+    }
+}
+
+/// The page of a list in a stored order, which neither searches nor filters by
+/// sport, read through the order's index, its totals and counters from the
+/// stored counts by kind. `None` for any other list.
+fn paged_section_page(
+    conn: &Connection,
+    query: &crate::FfiRoutesScreenQuery,
+) -> Option<PooledSectionPage> {
+    let order = stored_section_order(query)?;
+    if !query.section_search.trim().is_empty() || query.section_sport_type.is_some() {
+        return None;
+    }
+    let counts = sections::queries::pooled::section_kind_counts(conn);
+    let shown: Vec<sections::queries::pooled::SectionKind> =
+        sections::queries::pooled::SectionKind::ALL
+            .into_iter()
+            .filter(|kind| !kind.hidden_by(&query.section_filters))
+            .collect();
+    let filtered_count: u32 = counts
+        .iter()
+        .filter(|(kind, _)| shown.contains(kind))
+        .map(|(_, n)| n)
+        .sum();
+    let page_ids = sections::queries::pooled::section_list_page_ids(
+        conn,
+        order,
+        &shown,
+        query.section_offset,
+        query.section_limit,
+    );
+    let page_ids: Vec<&str> = page_ids.iter().map(String::as_str).collect();
+    let has_more = filtered_count as usize > query.section_offset as usize + page_ids.len();
+    let names = sections::named::pooled::overlay_names_for(conn, &page_ids);
+    let page = sections::queries::pooled::section_summaries_by_ids(conn, &page_ids, &names);
+    let counters = SectionCounters::of(counts.iter().copied());
+    Some(PooledSectionPage {
+        sections: pooled_section_rows(conn, page, None),
+        total_count: counters.visible,
+        filtered_count,
+        has_more,
+        unaccepted_auto_count: counters.unaccepted_auto,
+        accepted_auto_count: counters.accepted_auto,
+        custom_count: counters.custom,
+        retired_count: counters.retired,
+    })
+}
+
+fn walked_section_page(
+    conn: &Connection,
+    query: &crate::FfiRoutesScreenQuery,
+) -> PooledSectionPage {
+    use sections::queries::pooled::SectionKind;
     let section_needle = query.section_search.trim().to_lowercase();
     let section_sort = query.section_sort;
     let section_filters = &query.section_filters;
@@ -2402,15 +2532,15 @@ fn pooled_route_section_page(
     if let Some(sport) = query.section_sport_type.as_deref() {
         raw_sections.retain(|s| in_sport(&s.sport_types, sport));
     }
-    let total_sections = raw_sections
-        .iter()
-        .filter(|s| !s.disabled && s.superseded_by.is_none())
-        .count();
+    // The counters are the catalogue's, not the page's, so they are taken
+    // before anything is hidden or paged. A sport narrows them, except the
+    // retired count, which is the whole catalogue's.
+    let counters = SectionCounters::of(raw_sections.iter().map(|s| (SectionKind::of(s), 1)));
+    let retired_count =
+        SectionCounters::of(sections::queries::pooled::section_kind_counts(conn).into_iter())
+            .retired;
 
-    let (unaccepted_auto_count, accepted_auto_count, custom_count, retired_count) =
-        pooled_section_counts(conn, &raw_sections);
-
-    raw_sections.retain(|s| !section_filters_hide(section_filters, s));
+    raw_sections.retain(|s| !SectionKind::of(s).hidden_by(section_filters));
     if !section_needle.is_empty() {
         raw_sections.retain(|s| {
             s.name
@@ -2450,51 +2580,58 @@ fn pooled_route_section_page(
 
     PooledSectionPage {
         sections,
-        total_count: total_sections as u32,
+        total_count: counters.visible,
         filtered_count: filtered_section_count as u32,
         has_more: has_more_sections,
-        unaccepted_auto_count,
-        accepted_auto_count,
-        custom_count,
+        unaccepted_auto_count: counters.unaccepted_auto,
+        accepted_auto_count: counters.accepted_auto,
+        custom_count: counters.custom,
         retired_count,
+    }
+}
+
+/// The sections list's total and its four counters, summed over kinds.
+struct SectionCounters {
+    visible: u32,
+    unaccepted_auto: u32,
+    accepted_auto: u32,
+    custom: u32,
+    retired: u32,
+}
+
+impl SectionCounters {
+    fn of(counts: impl Iterator<Item = (sections::queries::pooled::SectionKind, u32)>) -> Self {
+        let mut counters = Self {
+            visible: 0,
+            unaccepted_auto: 0,
+            accepted_auto: 0,
+            custom: 0,
+            retired: 0,
+        };
+        for (kind, n) in counts {
+            if !kind.removed {
+                counters.visible += n;
+            }
+            if kind.is_visible_auto() {
+                if kind.user_defined {
+                    counters.accepted_auto += n;
+                } else {
+                    counters.unaccepted_auto += n;
+                }
+            }
+            if kind.custom {
+                counters.custom += n;
+            } else if kind.removed {
+                counters.retired += n;
+            }
+        }
+        counters
     }
 }
 
 /// Whether a group or section recorded in `sport_types` belongs to `sport`.
 fn in_sport(sport_types: &[String], sport: &str) -> bool {
     sport_types.iter().any(|s| s == sport)
-}
-
-fn pooled_section_counts(conn: &Connection, summaries: &[SectionSummary]) -> (u32, u32, u32, u32) {
-    // The four counters are the catalogue's, not the page's, so they are
-    // taken before anything is hidden or paged.
-    let mut unaccepted_auto_count: u32 = 0;
-    let mut accepted_auto_count: u32 = 0;
-    let mut custom_count: u32 = 0;
-    let retired_count = conn.query_row(
-            "SELECT COUNT(*) FROM sections WHERE section_type = 'auto' AND (disabled = 1 OR superseded_by IS NOT NULL)",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
-    for s in summaries {
-        if is_visible_auto(s) {
-            if s.is_user_defined {
-                accepted_auto_count += 1;
-            } else {
-                unaccepted_auto_count += 1;
-            }
-        }
-        if s.section_type == "custom" {
-            custom_count += 1;
-        }
-    }
-
-    (
-        unaccepted_auto_count,
-        accepted_auto_count,
-        custom_count,
-        retired_count,
-    )
 }
 
 fn pooled_section_rows(
@@ -2764,6 +2901,10 @@ pub fn close_for_restore() {
 /// started against is no longer the one open.
 static ENGINE_INSTALL: AtomicU64 = AtomicU64::new(0);
 
+// Every engine-lock visit may mutate memory, so a replay only adopts a
+// snapshot when no other visit happened before its save.
+static ENGINE_ACCESS_EPOCH: AtomicU64 = AtomicU64::new(0);
+
 /// The install a worker starting now belongs to. Zero before the first open,
 /// which no install ever equals, so a stamp taken before one is refused.
 pub fn engine_install() -> u64 {
@@ -2915,6 +3056,7 @@ where
     #[cfg(feature = "lock-trace")]
     timing.acquired();
     guard.as_mut().map(|engine| {
+        ENGINE_ACCESS_EPOCH.fetch_add(1, Ordering::AcqRel);
         follow_group_commit_off_engine(engine);
         let result = f(engine);
         publish_for_readers(engine);
@@ -2983,6 +3125,7 @@ where
         return None;
     }
     guard.as_mut().map(|engine| {
+        ENGINE_ACCESS_EPOCH.fetch_add(1, Ordering::AcqRel);
         follow_group_commit_off_engine(engine);
         let result = f(engine);
         publish_for_readers(engine);
@@ -3793,6 +3936,10 @@ mod screen_read_statements;
 #[cfg(test)]
 #[path = "tests/section_summaries_read_work.rs"]
 mod section_summaries_read_work;
+
+#[cfg(test)]
+#[path = "tests/routes_list_paging.rs"]
+mod routes_list_paging;
 
 #[cfg(test)]
 #[path = "tests/production_index_plans.rs"]
@@ -5160,24 +5307,6 @@ mod write_pragma_tests {
 
 /// An auto section the athlete can see: not disabled and not superseded. The
 /// two review counters and the hide filters both turn on this.
-fn is_visible_auto(s: &SectionSummary) -> bool {
-    s.section_type == "auto" && !s.disabled && s.superseded_by.is_none()
-}
-
-/// Whether the sections list hides this section. A disabled custom section
-/// follows the Removed filter as well as the Custom filter.
-fn section_filters_hide(filters: &crate::FfiSectionFilters, s: &SectionSummary) -> bool {
-    let visible_auto = is_visible_auto(s);
-    let custom = s.section_type == "custom";
-    let removed = s.disabled || s.superseded_by.is_some();
-    let unaccepted_auto = visible_auto && !s.is_user_defined;
-
-    (custom && filters.hide_custom)
-        || (visible_auto && filters.hide_auto)
-        || (removed && filters.hide_disabled)
-        || (unaccepted_auto && filters.hide_unaccepted)
-}
-
 /// What a reload would cost, measured rather than argued.
 ///
 /// A reload has to pick up what another process wrote, and the choice is

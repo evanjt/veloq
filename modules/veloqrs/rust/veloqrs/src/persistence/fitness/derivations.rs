@@ -524,14 +524,14 @@ pub(crate) mod pooled {
 
         let group_ids: Vec<&str> = groups.iter().map(|(id, _)| id.as_str()).collect();
         let loaded = match_directions(conn, &group_ids);
-        let mut directions: HashMap<&str, HashMap<&str, bool>> = HashMap::new();
+        let mut directions: HashMap<&str, HashMap<&str, tracematch::Direction>> = HashMap::new();
         for (gid, members) in &groups {
             if let Some(by_activity) = loaded.get(gid.as_str()) {
                 directions.insert(
                     gid.as_str(),
                     members
                         .iter()
-                        .filter_map(|m| by_activity.get(m.as_str()).map(|fwd| (m.as_str(), *fwd)))
+                        .filter_map(|m| by_activity.get(m.as_str()).map(|dir| (m.as_str(), *dir)))
                         .collect(),
                 );
             }
@@ -551,7 +551,7 @@ pub(crate) mod pooled {
         super::highlights::route_highlights(
             &views,
             &directions,
-            &super::highlights::non_attempt_members(conn),
+            &super::highlights::excluded_members(conn),
             &super::highlights::route_names(conn),
             |id| efforts.get(id).cloned(),
             activity_ids,
@@ -610,7 +610,7 @@ pub(crate) mod pooled {
             return Vec::new();
         }
         let groups = group_membership_of(conn, &route_ids);
-        let (loaded, non_attempts) = route_matches(conn, &route_ids);
+        let (loaded, excluded) = route_matches(conn, &route_ids);
         let views: Vec<GroupView<'_>> = groups
             .iter()
             .map(|(id, members)| GroupView {
@@ -618,14 +618,14 @@ pub(crate) mod pooled {
                 activity_ids: members,
             })
             .collect();
-        let mut directions: HashMap<&str, HashMap<&str, bool>> = HashMap::new();
+        let mut directions: HashMap<&str, HashMap<&str, tracematch::Direction>> = HashMap::new();
         for (gid, members) in &groups {
             if let Some(by_activity) = loaded.get(gid.as_str()) {
                 directions.insert(
                     gid.as_str(),
                     members
                         .iter()
-                        .filter_map(|m| by_activity.get(m.as_str()).map(|fwd| (m.as_str(), *fwd)))
+                        .filter_map(|m| by_activity.get(m.as_str()).map(|dir| (m.as_str(), *dir)))
                         .collect(),
                 );
             }
@@ -644,7 +644,7 @@ pub(crate) mod pooled {
         let mut rows = super::highlights::route_insights(
             &views,
             &directions,
-            &non_attempts,
+            &excluded,
             &HashMap::new(),
             |id| efforts.get(id).cloned(),
             &RouteInsightWindow {
@@ -704,20 +704,21 @@ pub(crate) mod pooled {
         out
     }
 
-    /// Which way round each activity ran each of `ids`, and the members that
-    /// are not attempts there (excluded or partial), from one read.
+    /// Which way round each activity ran each of `ids`, and its exclusions,
+    /// from one read.
     #[allow(clippy::type_complexity)]
     fn route_matches(
         conn: &Connection,
         ids: &[String],
     ) -> (
-        std::collections::HashMap<String, std::collections::HashMap<String, bool>>,
+        std::collections::HashMap<String, std::collections::HashMap<String, tracematch::Direction>>,
         std::collections::HashMap<String, std::collections::HashSet<String>>,
     ) {
         use std::collections::{HashMap, HashSet};
 
-        let mut directions: HashMap<String, HashMap<String, bool>> = HashMap::new();
-        let mut non_attempts: HashMap<String, HashSet<String>> = HashMap::new();
+        let mut directions: HashMap<String, HashMap<String, tracematch::Direction>> =
+            HashMap::new();
+        let mut excluded_members: HashMap<String, HashSet<String>> = HashMap::new();
         for chunk in ids.chunks(500) {
             let marks = vec!["?"; chunk.len()].join(",");
             let Ok(mut stmt) = conn.prepare(&format!(
@@ -739,8 +740,8 @@ pub(crate) mod pooled {
                 continue;
             };
             for (route_id, activity_id, direction, excluded) in rows.flatten() {
-                if excluded || direction == "partial" {
-                    non_attempts
+                if excluded {
+                    excluded_members
                         .entry(route_id.clone())
                         .or_default()
                         .insert(activity_id.clone());
@@ -752,11 +753,11 @@ pub(crate) mod pooled {
                     directions
                         .entry(route_id)
                         .or_default()
-                        .insert(activity_id, parsed.is_forward_like());
+                        .insert(activity_id, parsed);
                 }
             }
         }
-        (directions, non_attempts)
+        (directions, excluded_members)
     }
 
     /// Which way round each activity ran its group's route.
@@ -767,10 +768,11 @@ pub(crate) mod pooled {
     fn match_directions(
         conn: &Connection,
         group_ids: &[&str],
-    ) -> std::collections::HashMap<String, std::collections::HashMap<String, bool>> {
+    ) -> std::collections::HashMap<String, std::collections::HashMap<String, tracematch::Direction>>
+    {
         use std::collections::HashMap;
 
-        let mut out: HashMap<String, HashMap<String, bool>> = HashMap::new();
+        let mut out: HashMap<String, HashMap<String, tracematch::Direction>> = HashMap::new();
         if group_ids.is_empty() {
             return out;
         }
@@ -806,9 +808,7 @@ pub(crate) mod pooled {
             let Ok(parsed) = direction.parse::<tracematch::Direction>() else {
                 continue;
             };
-            out.entry(route_id)
-                .or_default()
-                .insert(activity_id, parsed.is_forward_like());
+            out.entry(route_id).or_default().insert(activity_id, parsed);
         }
         out
     }
@@ -1064,6 +1064,15 @@ pub(crate) mod pooled {
         ftp_trend_over(conn, today, FTP_LOOKBACK_DAYS)
     }
 
+    /// The default FTP comparison with enough history for a longer chart.
+    pub fn ftp_trend_with_history(
+        conn: &Connection,
+        today: &str,
+        history_days: i64,
+    ) -> crate::FfiFtpTrend {
+        ftp_trend_with_windows(conn, today, FTP_LOOKBACK_DAYS, history_days)
+    }
+
     /// The FTP trend compared across `lookback_days` rather than the default
     /// month, with the history carrying the whole window it was read from.
     ///
@@ -1074,6 +1083,15 @@ pub(crate) mod pooled {
         conn: &Connection,
         today: &str,
         lookback_days: i64,
+    ) -> crate::FfiFtpTrend {
+        ftp_trend_with_windows(conn, today, lookback_days, lookback_days)
+    }
+
+    fn ftp_trend_with_windows(
+        conn: &Connection,
+        today: &str,
+        lookback_days: i64,
+        history_days: i64,
     ) -> crate::FfiFtpTrend {
         let changes = eftp_changes(conn);
         let default = crate::FfiFtpTrend {
@@ -1089,13 +1107,13 @@ pub(crate) mod pooled {
 
         // A year of days is 365 rows of JSON, parsed once per call, and the
         // caller is a screen bundle rather than a loop.
-        let rows = match daily_cycling_ftp(conn, today, lookback_days) {
+        let rows = match daily_cycling_ftp(conn, today, lookback_days.max(history_days)) {
             Ok(rows) if !rows.is_empty() => rows,
             _ => return default,
         };
 
         let history_limit = crate::persistence::screens::TREND_HISTORY_POINTS
-            .max(u32::try_from(lookback_days.saturating_add(1)).unwrap_or(u32::MAX));
+            .max(u32::try_from(history_days.saturating_add(1)).unwrap_or(u32::MAX));
         let (latest_date, latest_ftp) = rows[rows.len() - 1].clone();
         let cutoff = day_offset(&latest_date, -lookback_days);
 
@@ -1119,9 +1137,7 @@ pub(crate) mod pooled {
             previous_date: previous.map(|(date, _)| epoch_seconds(date) as f64),
             delta_watts: previous.map(|(_, ftp)| latest_ftp as i32 - *ftp as i32),
             sample_count,
-            // The days the step was read from, carried rather than counted.
-            // `rows` is already the window `sample_count` counts, so the card
-            // draws the run-up to the step without a second read.
+            // The chart keeps its history even when the step has a shorter window.
             history: crate::persistence::screens::series_tail(
                 rows.iter(),
                 history_limit,
@@ -1451,8 +1467,10 @@ pub(crate) mod pooled {
     /// read is empty and logged.
     pub(crate) fn eftp_changes(conn: &Connection) -> Vec<crate::FfiEftpChange> {
         let mut stmt = match conn.prepare(
-            "SELECT activity_id, date, eftp, delta, activity_name
-             FROM eftp_changes ORDER BY date ASC, activity_id ASC",
+            "SELECT e.activity_id, e.date, e.eftp, e.delta, e.activity_name, m.sport_type
+             FROM eftp_changes e
+             JOIN activity_metrics m ON m.activity_id = e.activity_id
+             ORDER BY e.date ASC, e.activity_id ASC",
         ) {
             Ok(stmt) => stmt,
             Err(e) => {
@@ -1461,16 +1479,22 @@ pub(crate) mod pooled {
             }
         };
         let rows = stmt.query_map([], |row| {
-            Ok(crate::FfiEftpChange {
-                activity_id: row.get(0)?,
-                date: row.get(1)?,
-                eftp: row.get(2)?,
-                delta: row.get(3)?,
-                activity_name: row.get(4)?,
-            })
+            Ok((
+                crate::FfiEftpChange {
+                    activity_id: row.get(0)?,
+                    date: row.get(1)?,
+                    eftp: row.get(2)?,
+                    delta: row.get(3)?,
+                    activity_name: row.get(4)?,
+                },
+                row.get::<_, String>(5)?,
+            ))
         });
         match rows {
-            Ok(rows) => rows.flatten().collect(),
+            Ok(rows) => rows
+                .flatten()
+                .filter_map(|(change, sport)| crate::sport::is_cycling(&sport).then_some(change))
+                .collect(),
             Err(e) => {
                 log::warn!("veloqrs: [eftp_changes] row walk failed: {e}");
                 Vec::new()
@@ -1720,7 +1744,7 @@ impl PersistentEngine {
             })
             .collect();
 
-        let mut directions: HashMap<&str, HashMap<&str, bool>> = HashMap::new();
+        let mut directions: HashMap<&str, HashMap<&str, tracematch::Direction>> = HashMap::new();
         for group in &self.groups {
             let gid = group.group_id.as_str();
             if let Some(matches) = self.activity_matches.get(gid) {
@@ -1728,7 +1752,7 @@ impl PersistentEngine {
                     gid,
                     matches
                         .iter()
-                        .map(|m| (m.activity_id.as_str(), m.direction.is_forward_like()))
+                        .map(|m| (m.activity_id.as_str(), m.direction))
                         .collect(),
                 );
             }
@@ -1742,7 +1766,7 @@ impl PersistentEngine {
         highlights::route_highlights(
             &groups,
             &directions,
-            &highlights::non_attempt_members(&self.db),
+            &highlights::excluded_members(&self.db),
             &route_names,
             |id| self.activity_metrics.get(id).map(highlights::Effort::from),
             activity_ids,
@@ -1807,11 +1831,7 @@ pub(crate) fn calendar_from(
                 && lap.direction != "partial"
                 && lap.time.is_finite()
                 && lap.time > 0.0
-                && crate::persistence::records::covers_enough_for_record(
-                    lap.coverage,
-                    lap.distance,
-                    section_distance,
-                )
+                && lap.counts_for_record(section_distance)
         });
         let mut forward: Option<DirPerf> = None;
         let mut reverse: Option<DirPerf> = None;
@@ -2071,6 +2091,15 @@ mod eftp_change_markers {
 
     fn seed(engine: &PersistentEngine, id: &str, date: i64, eftp: f64, delta: f64) {
         engine
+            .db
+            .execute(
+                "INSERT OR IGNORE INTO activity_metrics
+                 (activity_id, name, date, distance, moving_time, elapsed_time,
+                  elevation_gain, sport_type) VALUES (?, ?, ?, 0, 0, 0, 0, 'Ride')",
+                rusqlite::params![id, id, date],
+            )
+            .expect("write activity metrics");
+        engine
             .set_eftp_change(id, date, eftp, delta, &format!("{id} ride"))
             .expect("write marker");
     }
@@ -2153,6 +2182,7 @@ pub(crate) mod highlights {
     use std::collections::{HashMap, HashSet};
 
     use rusqlite::Connection;
+    use tracematch::Direction;
 
     /// One route group, as this computation needs it.
     pub(crate) struct GroupView<'a> {
@@ -2189,6 +2219,17 @@ pub(crate) mod highlights {
         pub counted: bool,
     }
 
+    fn bucket_direction(directions: Option<&HashMap<&str, Direction>>, id: &str) -> Option<bool> {
+        match directions
+            .and_then(|m| m.get(id).copied())
+            .unwrap_or(Direction::Same)
+        {
+            Direction::Same => Some(true),
+            Direction::Reverse => Some(false),
+            Direction::Partial => None,
+        }
+    }
+
     /// The attempts at one route in one sport and one direction, oldest first.
     ///
     /// Excluded and partial members are not attempts, an activity with no
@@ -2198,7 +2239,7 @@ pub(crate) mod highlights {
     /// bucket is drawn, for the per-activity highlight and the insights read.
     pub(crate) fn bucket_members<'a, F>(
         group: &GroupView<'a>,
-        directions: Option<&HashMap<&str, bool>>,
+        directions: Option<&HashMap<&str, Direction>>,
         excluded: Option<&HashSet<String>>,
         sport: &str,
         forward: bool,
@@ -2214,10 +2255,7 @@ pub(crate) mod highlights {
                 if excluded.is_some_and(|ids| ids.contains(id)) {
                     return None;
                 }
-                let is_fwd = directions
-                    .and_then(|m| m.get(id.as_str()).copied())
-                    .unwrap_or(true);
-                if is_fwd != forward {
+                if bucket_direction(directions, id)? != forward {
                     return None;
                 }
                 let m = effort_of(id)?;
@@ -2275,7 +2313,7 @@ pub(crate) mod highlights {
     /// active window.
     pub(crate) fn route_insights<'a, F>(
         groups: &[GroupView<'a>],
-        directions: &HashMap<&'a str, HashMap<&'a str, bool>>,
+        directions: &HashMap<&'a str, HashMap<&'a str, Direction>>,
         excluded: &HashMap<String, HashSet<String>>,
         route_names: &HashMap<String, String>,
         effort_of: F,
@@ -2298,10 +2336,9 @@ pub(crate) mod highlights {
                 let Some(effort) = effort_of(id) else {
                     continue;
                 };
-                let forward = dir_map
-                    .and_then(|m| m.get(id.as_str()).copied())
-                    .unwrap_or(true);
-                buckets.insert((effort.sport_type, forward));
+                if let Some(forward) = bucket_direction(dir_map, id) {
+                    buckets.insert((effort.sport_type, forward));
+                }
             }
             for (sport, forward) in buckets {
                 let members = bucket_members(group, dir_map, skipped, &sport, forward, &effort_of);
@@ -2388,27 +2425,6 @@ pub(crate) mod highlights {
         excluded
     }
 
-    /// The members that are not attempts at their route: the ones the athlete
-    /// excluded and the ones that only partly overlap it. Neither earns a
-    /// highlight or stands as another effort's rival.
-    pub(crate) fn non_attempt_members(conn: &Connection) -> HashMap<String, HashSet<String>> {
-        let mut members = excluded_members(conn);
-        let Ok(mut stmt) = conn.prepare(
-            "SELECT route_id, activity_id FROM activity_matches WHERE direction = 'partial'",
-        ) else {
-            return members;
-        };
-        let Ok(rows) = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        }) else {
-            return members;
-        };
-        for (route_id, activity_id) in rows.flatten() {
-            members.entry(route_id).or_default().insert(activity_id);
-        }
-        members
-    }
-
     /// The name each route is shown under, keyed by group.
     pub(crate) fn route_names(conn: &Connection) -> HashMap<String, String> {
         crate::persistence::routes::pooled::all_route_names(conn)
@@ -2423,7 +2439,7 @@ pub(crate) mod highlights {
     /// its own metrics tier without copying it.
     pub(crate) fn route_highlights<'a, F>(
         groups: &[GroupView<'a>],
-        directions: &HashMap<&'a str, HashMap<&'a str, bool>>,
+        directions: &HashMap<&'a str, HashMap<&'a str, Direction>>,
         excluded: &HashMap<String, HashSet<String>>,
         route_names: &HashMap<String, String>,
         effort_of: F,
@@ -2440,6 +2456,7 @@ pub(crate) mod highlights {
         for group in groups {
             for aid in group.activity_ids {
                 if requested.contains(aid.as_str())
+                    && bucket_direction(directions.get(group.group_id), aid).is_some()
                     && !excluded
                         .get(group.group_id)
                         .is_some_and(|ids| ids.contains(aid))
@@ -2469,10 +2486,9 @@ pub(crate) mod highlights {
 
         for (&aid, group) in &activity_to_group {
             let gid = group.group_id;
-            let this_is_forward = directions
-                .get(gid)
-                .and_then(|m| m.get(aid).copied())
-                .unwrap_or(true);
+            let Some(this_is_forward) = bucket_direction(directions.get(gid), aid) else {
+                continue;
+            };
 
             let Some(this_effort) = effort_of(aid) else {
                 continue;
@@ -2501,6 +2517,7 @@ pub(crate) mod highlights {
                     let mut second_best_moving_time: u32 = u32::MAX;
                     let mut trends: HashMap<&str, (i8, f64, u32, bool)> = HashMap::new();
                     let mut sum = 0.0f64;
+                    let mut counted_so_far = 0u32;
                     for (
                         n,
                         BucketMember {
@@ -2511,10 +2528,10 @@ pub(crate) mod highlights {
                         },
                     ) in members.iter().enumerate()
                     {
-                        let trend = if n == 0 {
+                        let trend = if !counts[n] || counted_so_far == 0 {
                             0i8
                         } else {
-                            let avg = sum / n as f64;
+                            let avg = sum / f64::from(counted_so_far);
                             if *speed > avg * 1.01 {
                                 1
                             } else if *speed < avg * 0.99 {
@@ -2524,10 +2541,11 @@ pub(crate) mod highlights {
                             }
                         };
                         trends.insert(mid, (trend, *speed, *moving_time, counts[n]));
-                        sum += speed;
                         if !counts[n] {
                             continue;
                         }
+                        sum += speed;
+                        counted_so_far += 1;
                         if *moving_time < best_moving_time {
                             second_best_moving_time = best_moving_time;
                             best_moving_time = *moving_time;
@@ -2735,6 +2753,8 @@ mod tests {
             avg_power: None,
             coverage: Some(coverage),
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         }
     }
 

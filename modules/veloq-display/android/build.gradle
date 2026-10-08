@@ -1,0 +1,19 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.veloq.display'
+version = '0.1.0'
+
+android {
+  namespace "com.veloq.display"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  testImplementation "junit:junit:4.13.2"
+}

@@ -37,6 +37,8 @@ export interface DelegateHost {
   write(name: string, run: () => void): void;
   /** Wraps an FFI call with DEV-mode timing logs and optional metric recording. */
   timed<T>(name: string, fn: () => T, place?: CallPlace): T;
+  /** `timed` for an async export, measured until its promise settles. */
+  timedAsync<T>(name: string, fn: () => Promise<T>): Promise<T>;
   /** Emit a change notification to subscribers of a single event channel. */
   notify(event: string): void;
   /** Emit change notifications across multiple event channels at once. */

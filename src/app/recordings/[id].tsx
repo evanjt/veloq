@@ -141,13 +141,13 @@ function RecordingDetailScreenContent() {
       value: new Date(entry.startTime).toLocaleString(getIntlLocale()),
     },
     {
-      label: t('recording.duration', 'Duration'),
+      label: t('recording.library.duration', 'Duration'),
       value: formatDuration(entry.durationSeconds),
     },
   ];
   if (entry.distanceMeters > 0) {
     stats.push({
-      label: t('recording.distance', 'Distance'),
+      label: t('recording.library.distance', 'Distance'),
       value: formatDistance(entry.distanceMeters, isMetric),
     });
   }

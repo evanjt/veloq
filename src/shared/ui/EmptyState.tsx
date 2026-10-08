@@ -1,20 +1,11 @@
 import React, { ComponentProps } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Button } from './Button';
 import { useTheme } from '@/shared/app';
-import {
-  spacing,
-  layout,
-  colors,
-  gradients,
-  colorWithOpacity,
-  ink,
-  shadows,
-  typography,
-} from '@/theme';
+import { spacing, layout, colorWithOpacity, ink, typography } from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */
@@ -78,22 +69,12 @@ export function EmptyState({
       )}
 
       {actionLabel && onAction && (
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          style={styles.actionButton}
+        <Button
+          label={actionLabel}
           onPress={onAction}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[...gradients.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.actionGradient}
-          >
-            <Text style={styles.actionText}>{actionLabel}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+          variant="primary"
+          style={styles.actionButton}
+        />
       )}
     </View>
   );
@@ -160,17 +141,5 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginTop: spacing.lg,
-    borderRadius: layout.borderRadiusLg,
-    overflow: 'hidden',
-    ...shadows.tealGlow,
-  },
-  actionGradient: {
-    paddingVertical: spacing.smPlus,
-    paddingHorizontal: spacing.lg,
-  },
-  actionText: {
-    color: colors.textOnDark,
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
   },
 });

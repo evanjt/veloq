@@ -55,6 +55,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { seedSyncRange } from '@/shared/app/syncRangeSeed';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
+import { pushPlaceNameWords } from '@/i18n/placeNameWords';
 import { lightTheme, darkTheme, colors, darkColors, typography } from '@/theme';
 import {
   ShaderWarmup,
@@ -238,6 +239,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.warn('[Engine] Launch data failed:', engineErrorTag(error) ?? error);
           }
+          // The words a new route or section's place name is put together
+          // with, stored for a naming pass that may run with no JavaScript.
+          pushPlaceNameWords();
           settleLaunchIdentity('settled');
           // No count is not a count of 0: the login screen reads 0 in this mirror
           // as no library on the device, so a failed read leaves the last one.

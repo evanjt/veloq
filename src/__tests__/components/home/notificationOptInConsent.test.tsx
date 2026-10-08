@@ -19,8 +19,13 @@ import { Card } from '@/shared/ui/Card';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
+import enGB from '@/i18n/locales/en-GB.json';
 
-jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+const mockTranslation = jest.fn((key: string) => key);
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({ t: mockTranslation }),
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   requestNotificationPermission: jest.fn().mockResolvedValue(true),
@@ -37,6 +42,7 @@ jest.mock('@/shared/storage', () => ({
 const prefs = () => useNotificationPreferences.getState();
 
 beforeEach(() => {
+  mockTranslation.mockImplementation((key: string) => key);
   (requestNotificationPermission as jest.Mock).mockClear();
   useNotificationPreferences.setState({
     enabled: false,
@@ -50,6 +56,19 @@ beforeEach(() => {
 });
 
 describe('not enabled', () => {
+  it('describes the notification kinds available in Settings', () => {
+    mockTranslation.mockImplementation((key: string) => {
+      if (key === 'notifications.prompt.description') return enGB.notifications.prompt.description;
+      return key;
+    });
+    const screen = render(<NotificationOptInCard />);
+    const description = screen.getByText(enGB.notifications.prompt.description).props.children;
+
+    expect(description).toContain(enGB.notifications.settings.sectionPr.toLowerCase());
+    expect(description).toContain(enGB.notifications.settings.fitnessMilestone.toLowerCase());
+    expect(description).not.toMatch(/sync|ready/i);
+  });
+
   it('shows a title, one line and the buttons, with the disclosure collapsed', () => {
     const screen = render(<NotificationOptInCard />);
 

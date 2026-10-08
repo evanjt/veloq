@@ -7,18 +7,20 @@ main=$(dirname "$common")
 cd "$root"
 
 if [ "$root" != "$main" ]; then
-  if [ ! -d "$main/android" ]; then
-    echo "Android project is missing from the main checkout" >&2
-    exit 1
+  # An input the generated project reads, untracked because it is per account.
+  if [ ! -f google-services.json ] && [ -f "$main/google-services.json" ]; then
+    cp "$main/google-services.json" google-services.json
   fi
-  mkdir -p android
-  rsync -a --ignore-existing --exclude build --exclude .gradle --exclude .cxx \
-    "$main/android/" android/
-  if ! node scripts/check-native-tree.mjs >/dev/null 2>&1; then
+  if ! node scripts/check-native-tree.mjs --installation >/dev/null 2>&1; then
     export npm_config_cache="$root/modules/veloqrs/rust/target/npm-cache"
     npm run setup:native
   fi
 fi
+
+# Expo generation owns android/. Without --clean it fills in what is missing and
+# applies the config to what is there, so a tree generated earlier keeps its
+# Gradle outputs.
+./scripts/with-android-build-lock.sh env CI=1 npx expo prebuild --platform android --no-install
 
 export GRADLE_USER_HOME="$root/modules/veloqrs/rust/target/gradle-user"
 npm run test:android:unit

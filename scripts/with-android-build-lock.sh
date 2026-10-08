@@ -1,9 +1,8 @@
 #!/usr/bin/env sh
 # Run one Android build at a time on this machine.
 #
-# Every worktree shares the one `android/` tree, because `android/` is almost
-# entirely gitignored and a worktree cannot build without the main checkout's
-# copy. So two `assembleDebug` runs write the same
+# Two builds in one generated `android/` tree collide: two `assembleDebug` runs
+# write the same
 # `android/app/build/intermediates/incremental/debug/mergeDebugResources`, and
 # the loser fails on whichever resource file the winner moved out from under
 # it. That failure names the locale files and nothing about the collision, so

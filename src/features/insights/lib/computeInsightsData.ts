@@ -285,6 +285,11 @@ export function computeInsightsFromData(
                 daysAgo: pr.daysAgo,
                 sportType: pr.sportType,
                 traversalCount: pr.traversalCount,
+                standingCount: pr.standingCount,
+                percentileFaster: pr.percentileFaster ?? undefined,
+                previousBestTime: pr.previousBestTime ?? undefined,
+                previousBestDate: pr.previousBestDate ?? undefined,
+                deltaSeconds: pr.deltaSeconds ?? undefined,
                 recentEfforts: pr.recentEfforts,
                 bestActivityId: pr.bestActivityId,
                 // Thinned by the engine to what a thumbnail draws, so this decodes

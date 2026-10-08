@@ -37,6 +37,7 @@ export function toDirectionStats(
         lastActivity?: number | null;
         count: number;
         avgSpeed?: number | null;
+        outsideBandCount?: number;
       }
     | null
     | undefined
@@ -47,6 +48,7 @@ export function toDirectionStats(
     lastActivity: fromUnixSeconds(ffi.lastActivity),
     count: ffi.count,
     avgSpeed: ffi.avgSpeed ?? null,
+    outsideBandCount: ffi.outsideBandCount ?? 0,
   };
 }
 

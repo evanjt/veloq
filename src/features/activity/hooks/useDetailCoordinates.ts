@@ -9,9 +9,10 @@
  *
  * It stays its own read rather than joining the screen bundle. The track is
  * the largest thing an activity owns, this branch does not run at all when the
- * stream is to hand, and measured on the test handset in a debug Android build, everything the
- * engine answers for an activity open is 2 to 103 ms of a wait that runs to seconds. The engine's
- * own doc comment on the screen read carries the reasoning.
+ * stream is to hand, and measured on the test handset in a debug Android build with
+ * production JavaScript, everything the engine answers for an activity open
+ * is 2 to 103 ms of a wait that runs to seconds. The engine's own doc comment
+ * on the screen read carries the reasoning.
  */
 import { useMemo } from 'react';
 

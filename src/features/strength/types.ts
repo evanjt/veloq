@@ -8,6 +8,8 @@ export interface MuscleVolume {
   totalReps: number;
   volumeKg: number;
   exerciseNames: string[];
+  /** Body-diagram shade from the engine, 1 (lightest) to 5, against the most trained muscle. */
+  shade: number;
 }
 
 /** Summary of strength training volume over a time period. */
@@ -17,6 +19,8 @@ export interface StrengthSummary {
   muscleVolumes: MuscleVolume[];
   activityCount: number;
   totalSets: number;
+  /** The most trained muscle's weighted sets, the top of the diagram's scale. */
+  maxWeightedSets: number;
   /** The engine's verdict per opposing pair, one entry per pair, trained or not. */
   balance: EngineBalancePair[];
 }

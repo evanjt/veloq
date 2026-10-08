@@ -54,6 +54,11 @@ export function generateSectionPRInsights(
               // this and a run on a much-ridden climb drew a bicycle.
               sportType: pr.sportType,
               traversalCount: pr.traversalCount,
+              standingCount: pr.standingCount,
+              percentileFaster: pr.percentileFaster,
+              previousBestTime: pr.previousBestTime,
+              previousBestDate: pr.previousBestDate,
+              deltaSeconds: pr.deltaSeconds,
               previewPoints: pr.previewPoints,
             },
           ],

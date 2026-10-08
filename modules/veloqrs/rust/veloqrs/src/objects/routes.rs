@@ -241,10 +241,37 @@ impl RouteManager {
         })
     }
 
-    fn set_representative(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
+    /// The route detail reads that answer one sport and one range, in the
+    /// section performance read's shape: the chart, calendar, ranged bests,
+    /// trend, histogram, correlations, sport counts and excluded attempts.
+    fn get_detail_performance(
+        &self,
+        group_id: String,
+        time_range_days: u32,
+        sport_filter: Option<String>,
+    ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
+        // Off the engine lock: every read behind this is committed rows.
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::route_detail_performance(
+                conn,
+                &group_id,
+                time_range_days,
+                sport_filter.as_deref(),
+            )
+        })
+    }
+
+    fn set_representative(
+        &self,
+        route_id: String,
+        activity_id: Option<String>,
+    ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.set_route_representative(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })?;
+            match activity_id {
+                Some(activity_id) => e.set_route_representative(&route_id, &activity_id),
+                None => e.reset_route_representative(&route_id),
+            }
+            .map_err(|e| VeloqError::Database { msg: e })?;
             Ok(())
         })?
     }

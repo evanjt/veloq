@@ -27,7 +27,13 @@ jest.mock('@/shared/native/engine', () => ({
 
 function screenData(activityCount: number) {
   return {
-    summary: { muscleVolumes: [], activityCount, totalSets: activityCount * 4, balance: [] },
+    summary: {
+      muscleVolumes: [],
+      activityCount,
+      totalSets: activityCount * 4,
+      maxWeightedSets: 0,
+      balance: [],
+    },
     weekly: [],
     progressions: [],
     exercises: [],

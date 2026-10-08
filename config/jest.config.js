@@ -12,7 +12,7 @@ const babelTransform = [
     configFile: false,
     caller: { name: 'babel-jest', supportsStaticESM: false },
     presets: ['babel-preset-expo'],
-    plugins: [['module-resolver', { root: ['./'], alias: { '@': './src' } }]],
+    plugins: [['module-resolver', { alias: { '@': './src' } }]],
   },
 ];
 

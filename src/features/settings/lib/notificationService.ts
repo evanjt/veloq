@@ -1,13 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { router } from 'expo-router';
 import { brand } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import {
   isForSignedInAthlete,
   pushDataAthleteId,
   tapTargetFromPushData,
-} from '@/features/insights';
+} from '@/features/insights/light';
 import { ensureCredentialsHydrated, getStoredCredentials } from '@/shared/app/AuthStore';
 import { i18n } from '@/i18n';
 
@@ -199,6 +198,8 @@ export function routeFromNotificationData(data: unknown, coldStart = false): voi
     return;
   }
   log.log('Notification tap routing to:', target.path);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- A background push only posts a notification and never loads navigation.
+  const { router } = require('expo-router') as typeof import('expo-router');
   if (target.mode === 'navigate') {
     router.navigate(target.path as never);
     return;

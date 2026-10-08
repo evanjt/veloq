@@ -10,7 +10,21 @@ export function useRouteReference(
 ) {
   const handleSetAsReference = useCallback(
     (activityId: string) => {
-      if (!id || activityId === representativeId) return;
+      if (!id) return;
+      if (activityId === representativeId) {
+        Alert.alert(t('routes.resetReference'), t('routes.resetReferenceConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.reset'),
+            onPress: () => {
+              const engine = getEngine();
+              if (!engine) return;
+              engine.resetRouteRepresentative(id);
+            },
+          },
+        ]);
+        return;
+      }
       Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
         {

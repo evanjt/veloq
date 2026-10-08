@@ -1,12 +1,5 @@
 import type { CutoverPhase } from 'veloqrs';
 
-export const CUTOVER_PHASE_KEYS = {
-  draining: 'whatsNew.v040.phasePreparing',
-  archiving: 'whatsNew.v040.phasePreparing',
-  detecting: 'whatsNew.v040.phaseDetecting',
-  diffing: 'whatsNew.v040.phaseDiffing',
-} as const satisfies Partial<Record<CutoverPhase, string>>;
-
 /**
  * What a settled failure says, on the status line and on the change card. A
  * failure after the apply left the new sections in place, so it must not say

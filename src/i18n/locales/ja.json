@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "ルートを読み込み中",
+    "analysing": "アクティビティを分析中",
+    "saving": "区間を保存中",
+    "recomputingIndicators": "指標を計算中",
+    "diffing": "カタログを比較中",
+    "complete": "完了",
+    "cancelled": "キャンセルしました",
+    "draining": "カタログを準備中",
+    "archiving": "区間をアーカイブ中",
+    "detecting": "区間を検出中"
+  },
   "about": {
     "dataAttribution": "データ帰属",
     "description": "マップとビジュアル分析に特化した、intervals.icu向けの高速オフライン対応モバイルクライアント。",
@@ -19,6 +31,7 @@
     "version": "バージョン"
   },
   "activity": {
+    "terrainRow": "3D地形",
     "activityStats": "アクティビティ統計",
     "calories": "カロリー",
     "chartHint": "長押しでスクラブ • チップ長押しで軸変更",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "天気データまたはデバイスセンサーからの温度。",
       "energy": "心拍数、パワー、持続時間から推定されるエネルギー消費量。",
-      "fitnessImpact": "休息日と比べ、このアクティビティはトレーニング負荷を42で割った値だけフィットネスを、7で割った値だけ疲労を増やします。フォームへの影響はフィットネスから疲労を引いた値です。 時定数はそれぞれ42日と7日です。",
+      "fitnessImpact": "休息日と比べ、このアクティビティは負荷 × (1 − e^(−1/42)) だけフィットネスを、負荷 × (1 − e^(−1/7)) だけ疲労を増やします。筋力トレーニングは疲労のみを増やします。フォームへの影響はフィットネスから疲労を引いた値です。",
       "heartRate": "アクティビティ中の平均心拍数。",
       "newGround": "このアクティビティが通過した地図タイルのうち、これまでのアクティビティが通過していなかったものの割合です。タイルの幅は緯度により約150〜300 mで、新しい道の距離ではなくタイルの被覆率を示します。",
+      "activityEftp": "eFTPは、このアクティビティに対するintervals.icuのパワーモデル推定値です。",
       "power": "ワットでの平均パワー出力。",
       "trainingLoad": "トレーニングストレススコア（TSS）は、閾値に対する持続時間と強度に基づいてトレーニング負荷を数値化します。",
       "yourForm": "この日のあなたのフォーム（TSB）。これは特定のアクティビティではなく、全体的なトレーニングに基づく日次値です。TSB = フィットネス（CTL）- 疲労（ATL）。"
@@ -55,7 +69,7 @@
       "decoupling": "デカップリング",
       "deviceSensor": "デバイスセンサー",
       "efficiencyFactor": "効率係数",
-      "eftpEstimated": "eFTP（推定）",
+      "eftpEstimated": "このアクティビティのeFTP",
       "energy": "エネルギー",
       "fatigueATL": "疲労（ATL）",
       "feelsLike": "体感{{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "あなたのフィットネス（CTL）",
       "yourForm": "あなたのフォーム"
     },
+    "hrZoneTotal": "心拍数の記録がある時間: {{duration}}",
+    "movingTime": "移動時間: {{duration}}",
     "timeInHRZones": "心拍ゾーン別時間",
     "timeInPowerZones": "パワーゾーン別時間",
     "viewDetails": "詳細を表示",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "自己記録 {{improvement}}",
     "lineKeyActivity": "このアクティビティ",
     "lineKeyRoute": "一致したルート",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "最新情報を受け取る",
-      "description": "新しいアクティビティ、同期の進捗、データの準備完了を通知で受け取れます。",
+      "description": "新しいアクティビティ、自己ベスト、フィットネスの節目を通知で受け取れます。",
       "enable": "有効にする",
       "dismiss": "今はしない",
       "settingsHint": "通知はいつでも設定から有効にできます",
@@ -1176,6 +1193,8 @@
     "autoUpload": "自動アップロード",
     "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",
     "library": {
+      "distance": "距離",
+      "duration": "時間",
       "title": "マイ記録",
       "empty": "記録はまだありません",
       "emptyHint": "保存した記録はこの端末に保管されます。",
@@ -1250,6 +1269,7 @@
     "tomorrow": "明日"
   },
   "routes": {
+    "timeMethod": "ルートのタイムは停止時間を除いた移動時間です。",
     "activitiesCount_one": "{{count}}件のアクティビティ",
     "activitiesCount_other": "{{count}}件のアクティビティ",
     "targetPace": "ペース",
@@ -1273,8 +1293,12 @@
     "noMatchingRoutes": "一致するルートが見つかりません",
     "noRoutesYet": "まだルートがありません",
     "noSectionsMatchFilter": "フィルターに一致する区間がありません",
+    "placeJourney": "{{start}}から{{end}}",
+    "placeLoop": "{{place}}周回",
     "pointCountHint_one": "{{count}} GPSポイント",
     "pointCountHint_other": "{{count}} GPSポイント",
+    "renameFailedTitle": "名前を保存できませんでした",
+    "renameFailedMessage": "ルート名を保存できませんでした。もう一度お試しください。",
     "routeNamePlaceholder": "ルート名",
     "routeWord": "ルート",
     "routesWillAppear": "アクティビティ分析後にルートが表示されます",
@@ -1296,7 +1320,9 @@
     "standingBest": "{{total}} 回中の自己最速",
     "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
     "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
-    "largeSectionPerformanceWarning": "長い区間は処理に時間がかかる場合があります。"
+    "largeSectionPerformanceWarning": "長い区間は処理に時間がかかる場合があります。",
+    "resetReference": "基準をリセット",
+    "resetReferenceConfirm": "基準の自動選択に戻しますか？このルートの一致率が再計算されます。"
   },
   "routesScreen": {
     "computingRoutes": "ルート計算中...",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "日付範囲を拡張"
   },
   "sections": {
+    "timeMethod": "セクションのタイムは停止時間を含む経過時間です。",
     "activitiesCount_one": "{{count}}件のアクティビティ",
     "activitiesCount_other": "{{count}}件のアクティビティ",
     "avg": "平均",
@@ -1333,6 +1360,9 @@
     "legendReverse": "逆方向",
     "legendThisActivity": "このアクティビティ",
     "legendOutsideBand": "ルートの距離範囲外",
+    "legendTrend": "ガウス平滑化トレンド",
+    "legendTrendBand": "ばらつきの帯",
+    "legendTrendMethod": "線は局所線形近似を伴うガウスカーネル平滑化を使用します。帯は近似線の周りの試行の重み付きばらつきを示します。",
     "plotScatter": "散布図",
     "plotHistogram": "ヒストグラム",
     "histogramBinned": "棒に含まれる試行: {{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "除外 ラップ{{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D：{{mode}}",
     "developerDashboard": "開発者ダッシュボード",
     "account": "アカウント",
     "activities": "アクティビティ",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "区間は決定論的で、走行が増えるたびに形を整え直し、固定すると安定したまま保たれます。",
       "recutRunning": "区間を再解析しています",
       "recutRunningPhase": "区間を再解析しています: {{phase}}",
-      "phasePreparing": "カタログを準備しています",
-      "phaseDetecting": "新しい区間を切り出しています",
-      "phaseDiffing": "2つのカタログを比較しています",
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
       "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "Veloqを開いて",
+    "refresh": "更新",
+    "refreshing": "更新中",
     "toSeeTraining": "トレーニングを確認",
     "record": "記録",
     "recordDescription": "アクティビティの記録を開始します。",

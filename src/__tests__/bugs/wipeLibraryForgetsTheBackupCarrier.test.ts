@@ -1007,6 +1007,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'modules/veloq-widget/ios/WidgetSnapshotFile.swift',
       'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
       'modules/veloqrs/android/src/main/java/com/veloq/WidgetSnapshotFile.kt',
+      'modules/veloqrs/android/src/main/java/com/veloq/NativeWidgetSnapshot.kt',
       'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
       'widget/ios/shared/RecordSportEntity.swift',
       'widget/android/java/WidgetSnapshot.kt',
@@ -1014,6 +1015,15 @@ const DEVICE_WRITES: DeviceWrite[] = [
     holds:
       'the latest ride with its route outline, form, fitness, HRV, resting heart rate, weekly totals',
     wiped: { widget: true },
+  },
+  {
+    where: 'native-widget-refresh preferences and its one-shot WorkManager job on Android',
+    writers: [
+      'modules/veloqrs/android/src/main/java/com/veloq/NativeWidgetSnapshot.kt',
+      'modules/veloqrs/android/src/main/java/com/veloq/NativeWidgetRefreshWorker.kt',
+    ],
+    holds: 'the elapsed start time and a generic pending refresh, with no credential or athlete id',
+    kept: 'it holds no athlete data; the worker checks the secure store again before running',
   },
   {
     where: 'memory-probe.jsonl, in the App Group on iOS, written only by a probe build',
@@ -1236,6 +1246,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/shared/app/UnitPreferenceStore.ts',
       'src/shared/app/LanguageStore.ts',
+      'src/i18n/placeNameWords.ts',
       'src/shared/app/ThemeProvider.ts',
       'src/features/fitness/stores/SportPreferenceStore.ts',
       'src/features/settings/stores/summaryCardPreferences.ts',
@@ -1249,7 +1260,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'src/shared/storage/settingsStorage.ts',
     ],
     holds:
-      'display and behaviour choices, including the detection switch reconciled at launch and restore',
+      'display and behaviour choices, including the resolved pace unit and detection switch reconciled at launch and restore',
     kept: 'a preference of the device, no athlete data',
   },
   {

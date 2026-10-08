@@ -256,10 +256,10 @@ export function buildChartData(
 /**
  * Compute average values for every available chart type (not just selected).
  *
- * For altitude (`defaultMetric === 'gain'`) the "average" is the cumulative
- * positive delta (total elevation gain) with a `+` prefix. For everything
- * else, it is `seriesAverage`. Both format through `formatScrubValue`, so the
- * idle chip and a scrub of the same value read alike.
+ * For altitude (`defaultMetric === 'gain'`) the idle value is the activity's
+ * elevation gain with a `+` prefix. For everything else, it is `seriesAverage`.
+ * Both format through `formatScrubValue`, so the idle chip and a scrub of the
+ * same value read alike.
  *
  * Returns one entry per available chart, including a `maxValueWidth` string
  * so callers can lock the chip width during scrubbing.
@@ -267,7 +267,8 @@ export function buildChartData(
 export function computeAllAverages(
   chartConfigs: Record<ChartTypeId, ChartConfig>,
   streams: ActivityStreams,
-  isMetric: boolean
+  isMetric: boolean,
+  elevationGain: number | null | undefined
 ): ChartMetricValue[] {
   const results: ChartMetricValue[] = [];
   for (const chartId of Object.keys(chartConfigs) as ChartTypeId[]) {
@@ -284,15 +285,7 @@ export function computeAllAverages(
     let formatted: string;
     let widest: string;
     if (config.defaultMetric === 'gain') {
-      // Sum of positive deltas (elevation gain)
-      let gain = 0;
-      for (let i = 1; i < rawData.length; i++) {
-        // Both samples must be real. A null neighbour differences to a whole
-        // sample's worth of fabricated gain.
-        if (!Number.isFinite(rawData[i]) || !Number.isFinite(rawData[i - 1])) continue;
-        const delta = rawData[i] - rawData[i - 1];
-        if (delta > 0) gain += delta;
-      }
+      const gain = elevationGain != null && Number.isFinite(elevationGain) ? elevationGain : 0;
       formatted = `+${formatScrubValue(config, gain, isMetric)}`;
       // The gain holds while idle and a scrub shows altitude, so the chip
       // takes the wider of the two.

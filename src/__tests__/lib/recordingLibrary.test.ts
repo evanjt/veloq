@@ -24,8 +24,6 @@ import {
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
   adoptOwnerlessRecordings,
-  bufferToBase64,
-  base64ToBuffer,
 } from '@/features/recording/lib/storage/recordingLibrary';
 
 jest.mock('@/shared/debug/debug', () => ({
@@ -52,8 +50,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-const mockFileStore = new Map<string, string>();
+const mockFileStore = new Map<string, string | Uint8Array>();
 const mockDirStore = new Set<string>();
+const mockFileWrite = jest.fn((path: string, content: Uint8Array) => {
+  mockFileStore.set(path, content);
+});
+
+jest.mock('expo-file-system', () => ({
+  File: jest.fn().mockImplementation((path: string) => ({
+    write: (content: Uint8Array) => mockFileWrite(path, content),
+  })),
+}));
 
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
@@ -71,7 +78,7 @@ jest.mock('expo-file-system/legacy', () => ({
   }),
   readAsStringAsync: jest.fn(async (path: string) => {
     if (!mockFileStore.has(path)) throw new Error('ENOENT');
-    return mockFileStore.get(path)!;
+    return mockFileStore.get(path)! as string;
   }),
   deleteAsync: jest.fn(async (path: string) => {
     mockFileStore.delete(path);
@@ -267,6 +274,10 @@ beforeEach(() => {
   mockStorage.clear();
   mockFileStore.clear();
   mockDirStore.clear();
+  mockFileWrite.mockClear();
+  mockFileWrite.mockImplementation((path: string, content: Uint8Array) => {
+    mockFileStore.set(path, content);
+  });
   rows.clear();
   mockSignedInAthlete = 'i296629';
 });
@@ -287,10 +298,33 @@ describe('saveRecording', () => {
   it('writes the FIT bytes the engine will stream to the path the row names', async () => {
     const entry = await saveOne();
     const written = mockFileStore.get(entry.fitPath);
-    expect(written).toBeDefined();
-    expect(Array.from(new Uint8Array(base64ToBuffer(written!)))).toEqual([
-      0x0e, 0x10, 0x56, 0x45, 0x4c, 0x4f, 0x51,
-    ]);
+    expect(written).toBeInstanceOf(Uint8Array);
+    expect(Array.from(written as Uint8Array)).toEqual([0x0e, 0x10, 0x56, 0x45, 0x4c, 0x4f, 0x51]);
+    expect(
+      jest
+        .mocked(FileSystem.writeAsStringAsync)
+        .mock.calls.filter(([path]) => path === entry.fitPath)
+    ).toEqual([]);
+  });
+
+  it('leaves no index row when writing the FIT throws', async () => {
+    mockFileWrite.mockImplementationOnce(() => {
+      throw new Error('Disk full');
+    });
+
+    expect(
+      await saveRecording({
+        fitBuffer: makeBuffer(),
+        activityType: 'Ride',
+        name: 'Morning Ride',
+        startTime: 1_700_000_000_000,
+        durationSeconds: 3600,
+        distanceMeters: 25_000,
+        uploadStatus: 'pending',
+        athleteId: 'i296629',
+      })
+    ).toBeNull();
+    expect(rows.size).toBe(0);
   });
 
   it("keeps the review's notes and effort on the row, owed until sent", async () => {
@@ -499,7 +533,7 @@ describe('counts', () => {
 describe('legacy migration', () => {
   it('adopts pending_uploads entries into the library', async () => {
     const legacyPath = '/mock/docs/pending_uploads/123.fit';
-    mockFileStore.set(legacyPath, bufferToBase64(makeBuffer()));
+    mockFileStore.set(legacyPath, new Uint8Array(makeBuffer()));
     mockDirStore.add('/mock/docs/pending_uploads/');
     mockStorage.set(
       'veloq-upload-queue',
@@ -534,7 +568,7 @@ describe('legacy migration', () => {
 
   it('does not duplicate entries when run twice', async () => {
     const legacyPath = '/mock/docs/pending_uploads/9.fit';
-    mockFileStore.set(legacyPath, bufferToBase64(makeBuffer()));
+    mockFileStore.set(legacyPath, new Uint8Array(makeBuffer()));
     mockStorage.set(
       'veloq-upload-queue',
       JSON.stringify([
@@ -925,39 +959,6 @@ describe('adoptOwnerlessRecordings', () => {
     await adoptOwnerlessRecordings(async () => 'iA');
 
     expect(rows.size).toBe(0);
-  });
-});
-
-describe('bufferToBase64', () => {
-  const roundTrip = (bytes: Uint8Array) =>
-    new Uint8Array(base64ToBuffer(bufferToBase64(bytes.buffer as ArrayBuffer)));
-
-  it('round-trips every byte value', () => {
-    const bytes = Uint8Array.from({ length: 256 }, (_, i) => i);
-
-    expect(roundTrip(bytes)).toEqual(bytes);
-  });
-
-  it('round-trips nothing at all', () => {
-    expect(bufferToBase64(new ArrayBuffer(0))).toBe('');
-    expect(roundTrip(new Uint8Array(0))).toEqual(new Uint8Array(0));
-  });
-
-  it.each([8191, 8192, 8193, 16_384, 16_385])(
-    'round-trips %i bytes, which crosses a chunk boundary',
-    (length) => {
-      const bytes = Uint8Array.from({ length }, (_, i) => (i * 31 + 7) & 0xff);
-
-      expect(roundTrip(bytes)).toEqual(bytes);
-    }
-  );
-
-  it('encodes a length that is not a multiple of three the same way', () => {
-    // Base64 pads in threes, so the tail is where a chunked encoder goes wrong.
-    for (const length of [1, 2, 3, 4, 5]) {
-      const bytes = Uint8Array.from({ length }, (_, i) => i + 1);
-      expect(roundTrip(bytes)).toEqual(bytes);
-    }
   });
 });
 

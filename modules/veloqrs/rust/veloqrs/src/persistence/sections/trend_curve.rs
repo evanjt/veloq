@@ -169,11 +169,13 @@ fn curves_over(attempts: Vec<Attempt>) -> FfiSectionTrendCurves {
 
 /// The four curves over a section's counted attempts: each direction, by speed
 /// and by section time. A reverse attempt is one whose direction reads
-/// `reverse`; every other counts as forward.
+/// `reverse`; every other counts as forward. A route attempt outside its
+/// distance band is drawn but never fitted.
 pub(crate) fn trend_curves(points: &[FfiSectionChartPoint]) -> FfiSectionTrendCurves {
     curves_over(
         points
             .iter()
+            .filter(|p| !p.outside_distance_band)
             .map(|p| Attempt {
                 time: p.activity_date,
                 speed: p.speed,
@@ -223,6 +225,8 @@ mod tests {
             direction: direction.to_string(),
             is_best: false,
             avg_power: None,
+            outside_distance_band: false,
+            match_percentage: None,
         }
     }
 

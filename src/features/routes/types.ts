@@ -366,4 +366,5 @@ export interface DirectionStats {
   count: number;
   /** Average speed across traversals (m/s). Total lap distance over total lap time; null when there is no time. */
   avgSpeed: number | null;
+  outsideBandCount: number;
 }

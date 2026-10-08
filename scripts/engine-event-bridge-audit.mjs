@@ -10,7 +10,7 @@
 //      inside a useQuery queryFn or a useMemo must EITHER subscribe via
 //      useEngineSubscription / createEngineHook OR have every queryKey group they
 //      use invalidated in GlobalDataSync. Orphans are flagged.
-//   2. Every initialize* store hydrator imported into backup.ts must be called in
+//   2. Every initialise* store hydrator imported into backup.ts must be called in
 //      the storeInitialisers table, so a restored preference
 //      key isn't silently left un-hydrated.
 
@@ -156,12 +156,12 @@ function findEngineHookOrphans(knownGroups, invalidatedGroups, memberRoots, inva
   return orphans;
 }
 
-// Every initialize* hydrator imported into backup.ts must be invoked in the
-// storeInitialisers table. A restored preference whose initializer is missing
+// Every initialise* hydrator imported into backup.ts must be invoked in the
+// storeInitialisers table. A restored preference whose initialiser is missing
 // reads pre-restore in-memory state until the next app launch.
 function findReinitGaps(src) {
   const imported = new Set();
-  const importRe = /\b(initialize[A-Z]\w*)\b/g;
+  const importRe = /\b(initialise[A-Z]\w*)\b/g;
   let m;
   while ((m = importRe.exec(src))) imported.add(m[1]);
 
@@ -176,7 +176,7 @@ function findReinitGaps(src) {
   const body = bodyEnd === -1 ? after : after.slice(0, bodyEnd);
 
   const called = new Set();
-  const callRe = /,\s*(initialize[A-Z]\w*)\s*\]/g;
+  const callRe = /,\s*(initialise[A-Z]\w*)\s*\]/g;
   while ((m = callRe.exec(body))) called.add(m[1]);
 
   const missing = [...imported].filter((name) => !called.has(name));
@@ -220,10 +220,10 @@ function main() {
     );
   } else if (missing.length > 0) {
     failed = true;
-    console.error('Imported store initializers missing from storeInitialisers:');
+    console.error('Imported store initialisers missing from storeInitialisers:');
     for (const name of missing) console.error(`  ${name}`);
     console.error('');
-    console.error('Fix: add the initialize* function to the storeInitialisers table in backup.ts,');
+    console.error('Fix: add the initialise* function to the storeInitialisers table in backup.ts,');
     console.error('     or drop the unused import.');
     console.error('');
   }

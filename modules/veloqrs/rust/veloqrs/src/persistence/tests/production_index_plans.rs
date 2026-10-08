@@ -118,6 +118,54 @@ fn the_routes_of_a_section_are_read_through_the_section_and_match_indexes() {
     }
 }
 
+/// The routes screen opens on its default orders, the sections by visits with
+/// the removed ones last and the groups by member count, and each has an index
+/// laid out in that order. A page read that scans the table or sorts it pays
+/// for the whole catalogue to show fifty rows.
+#[test]
+fn the_default_routes_lists_page_through_their_order_indexes() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .db
+        .execute_batch(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json, distance_meters)
+             VALUES ('s1', 'auto', 'A', 'Ride', '[]', 100.0), ('s2', 'custom', 'B', 'Ride', '[]', 200.0);
+             INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+             VALUES ('g1', 'a1', '[\"a1\",\"a2\"]', 'Ride', 2);",
+        )
+        .unwrap();
+    let query = crate::FfiRoutesScreenQuery {
+        user_lat: f64::NAN,
+        user_lng: f64::NAN,
+        ..Default::default()
+    };
+
+    for (table, index) in [
+        ("sections", "idx_sections_list_visits"),
+        ("route_groups", "idx_route_groups_activity_count"),
+    ] {
+        let plans = plans_of(&mut engine, table, |engine| {
+            engine.get_routes_screen_data(query.clone());
+        });
+        for plan in &plans {
+            for step in plan.split(" | ") {
+                assert!(
+                    !step.starts_with(&format!("SCAN {table}")) || step.contains("INDEX idx_"),
+                    "the routes read scans {table}: {plan}"
+                );
+            }
+        }
+        let paged = plans
+            .iter()
+            .find(|plan| plan.contains(index))
+            .unwrap_or_else(|| panic!("no statement read {index}: {plans:?}"));
+        assert!(
+            !paged.contains("TEMP B-TREE"),
+            "the {table} page sorts rather than reading {index} in order: {paged}"
+        );
+    }
+}
+
 /// The zone totals filter a sport's family, and the sport-and-date index
 /// leads with the sport.
 #[test]

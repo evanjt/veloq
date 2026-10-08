@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Pressable, View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { Pressable, View, StyleSheet, TextInput } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -184,13 +184,13 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           </Pressable>
         </View>
       ) : editable ? (
-        <TouchableOpacity
+        <Pressable
           testID={`${editable.testIDPrefix}-rename-button`}
           accessibilityRole="button"
           accessibilityLabel={t('common.rename')}
           onPress={editable.onStartEdit}
-          style={styles.nameEditTouchable}
-          activeOpacity={0.7}
+          style={pressable(styles.nameEditTouchable)}
+          android_ripple={pressRipple}
         >
           <Text
             testID={nameTestID}
@@ -205,7 +205,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
             color={colorWithOpacity(colors.textOnDark, 0.6)}
             style={styles.editIcon}
           />
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         <Text testID={nameTestID} style={[heroTextStyles.name, styles.heroName]} numberOfLines={1}>
           {name}

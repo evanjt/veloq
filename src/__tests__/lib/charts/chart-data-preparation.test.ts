@@ -178,7 +178,7 @@ describe('computeAllAverages', () => {
     const configs = {
       power: powerConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams({ watts: [] }), true);
+    const result = computeAllAverages(configs, streams({ watts: [] }), true, 0);
     expect(result).toEqual([]);
   });
 
@@ -186,20 +186,24 @@ describe('computeAllAverages', () => {
     const configs = {
       power: powerConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams(), true);
+    const result = computeAllAverages(configs, streams(), true, 0);
     expect(result).toHaveLength(1);
     // mean([100,120,150,180,200,210,220,205,180,160]) = 172.5 → rounds to "173"
     expect(result[0].value).toBe('173');
     expect(result[0].unit).toBe('W');
   });
 
-  it('computes cumulative positive deltas for gain metrics (altitude)', () => {
+  it('uses the activity gain instead of noisy altitude steps', () => {
     const configs = {
       altitude: altitudeConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams(), true);
-    // Deltas: +5, +7, +8, -5, +3, +7, +5, -2, +7 → sum of positives = 42
-    expect(result[0].value).toBe('+42');
+    const result = computeAllAverages(
+      configs,
+      streams({ altitude: [100, 200, 123, 245] }),
+      true,
+      145
+    );
+    expect(result[0].value).toBe('+145');
   });
 
   it('skips NaN and Infinity values', () => {
@@ -209,7 +213,8 @@ describe('computeAllAverages', () => {
     const result = computeAllAverages(
       configs,
       streams({ watts: [100, NaN, 200, Infinity, -Infinity] }),
-      true
+      true,
+      0
     );
     // Valid values: [100, 200] → mean 150
     expect(result[0].value).toBe('150');
@@ -219,9 +224,8 @@ describe('computeAllAverages', () => {
     const configs = {
       altitude: altitudeConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
-    const metric = computeAllAverages(configs, streams(), true);
-    const imperial = computeAllAverages(configs, streams(), false);
-    // Gain of 42m * 3.28084 ≈ 137.8 → rounds to +138
+    const metric = computeAllAverages(configs, streams(), true, 42);
+    const imperial = computeAllAverages(configs, streams(), false, 42);
     expect(metric[0].value).toBe('+42');
     expect(imperial[0].value).toBe('+138');
     expect(metric[0].unit).toBe('m');
@@ -232,7 +236,7 @@ describe('computeAllAverages', () => {
     const configs = {
       power: powerConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams(), true);
+    const result = computeAllAverages(configs, streams(), true, 0);
     // Max raw value is 220, so maxValueWidth is "220"
     expect(result[0].maxValueWidth).toBe('220');
   });

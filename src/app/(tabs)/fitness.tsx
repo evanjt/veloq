@@ -65,6 +65,26 @@ function FitnessScreenContent() {
     perfEndRef.current?.();
   });
 
+  // Let the header and stats paint before mounting the chart canvases, then
+  // mount the sections below the chart on a later frame.
+  const [chartReady, setChartReady] = useState(false);
+  const [belowFoldReady, setBelowFoldReady] = useState(false);
+  useEffect(() => {
+    let chartFrame = 0;
+    let belowFoldFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      chartFrame = requestAnimationFrame(() => {
+        setChartReady(true);
+        belowFoldFrame = requestAnimationFrame(() => setBelowFoldReady(true));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(chartFrame);
+      cancelAnimationFrame(belowFoldFrame);
+    };
+  }, []);
+
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -265,138 +285,149 @@ function FitnessScreenContent() {
 
         {/* Combined fitness charts card */}
         <View onLayout={(event) => onAnchorLayout('chart', event)}>
-          <FitnessChartCard
-            wellness={wellness}
-            activities={activities ?? NO_ACTIVITIES}
-            dailyLoads={dailyLoads}
-            eftpChanges={eftpChanges}
-            selectedDate={selectedDate}
-            sharedSelectedIdx={sharedSelectedIdx}
-            onDateSelect={handleDateSelect}
-            onInteractionChange={handleInteractionChange}
-          />
-        </View>
-
-        {/* Sport Toggle - compact pill selector */}
-        <SportToggleSelector
-          sportMode={sportMode}
-          onSportModeChange={setSportMode}
-          isDark={isDark}
-        />
-
-        {/* Performance curves + season bests */}
-        <View onLayout={(event) => onAnchorLayout('performance', event)}>
-          <PerformanceCurveSection
-            sportMode={sportMode}
-            days={days}
-            currentFTP={currentFTP}
-            thresholdPace={thresholdPace}
-            swimThresholdPace={swimThresholdPace}
-            performanceExpanded={sections.expanded('performance')}
-            onPerformanceToggle={sections.onToggle('performance')}
-            bestsExpanded={sections.expanded('bests')}
-            onBestsToggle={sections.onToggle('bests')}
-            bestsEfforts={bestsEfforts}
-            bestsClimbing={bestsClimbing}
-            bestsClimbingStatus={bestsClimbingStatus}
-            loadingBests={loadingBests}
-            bestsHeader={bestsHeader}
-          />
-        </View>
-
-        {/* Zones, trends, thresholds, decoupling */}
-        <View onLayout={(event) => onAnchorLayout('trends', event)}>
-          <FitnessTrendSections
-            sportMode={sportMode}
-            timeRange={timeRange}
-            powerZones={powerZones}
-            hrZones={hrZones}
-            zoneCoverage={zoneCoverage}
-            loadingActivities={loadingActivities}
-            hasActivities={!!activities}
-            dominantZone={dominantZone}
-            zonesExpanded={sections.expanded('zones')}
-            onZonesToggle={sections.onToggle('zones')}
-            eftpTrend={eftpTrend}
-            ftpTrend={ftpTrend}
-            trendsExpanded={sections.expanded('trends')}
-            onTrendsToggle={sections.onToggle('trends')}
-            thresholdPace={thresholdPace}
-            runLthr={runLthr}
-            decouplingSource={decouplingSource}
-            efficiencyExpanded={sections.expanded('efficiency')}
-            onEfficiencyToggle={sections.onToggle('efficiency')}
-          />
-        </View>
-
-        {/* Info section */}
-        <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-          <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
-            {t('fitnessScreen.understandingMetrics')}
-          </Text>
-
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.fitness')}
-              </Text>{' '}
-              {t('fitnessScreen.fitnessDescription')}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.fatigue')}
-              </Text>{' '}
-              {t('fitnessScreen.fatigueDescription')}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.form')}
-              </Text>{' '}
-              {t('fitnessScreen.formDescription')}
-            </Text>
-          </View>
-
-          <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-            <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
-              {t('fitnessScreen.learnMore')}
-            </Text>
-            <Button
-              label={t('fitnessScreen.linkFitnessPage')}
-              variant="ghost"
-              size="sm"
-              onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+          {chartReady ? (
+            <FitnessChartCard
+              wellness={wellness}
+              activities={activities ?? NO_ACTIVITIES}
+              dailyLoads={dailyLoads}
+              eftpChanges={eftpChanges}
+              selectedDate={selectedDate}
+              sharedSelectedIdx={sharedSelectedIdx}
+              onDateSelect={handleDateSelect}
+              onInteractionChange={handleInteractionChange}
             />
-            <Button
-              label={t('fitnessScreen.linkTrainingLoad')}
-              variant="ghost"
-              size="sm"
-              onPress={() =>
-                WebBrowser.openBrowserAsync(
-                  'https://www.sciencetosport.com/monitoring-training-load/'
-                )
-              }
+          ) : (
+            <View
+              testID="fitness-chart-placeholder"
+              style={[styles.chartPlaceholder, isDark && styles.chartPlaceholderDark]}
             />
-            <Button
-              label={t('fitnessScreen.linkTSBManagement')}
-              variant="ghost"
-              size="sm"
-              onPress={() =>
-                WebBrowser.openBrowserAsync(
-                  'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
-                )
-              }
-            />
-          </View>
+          )}
         </View>
+
+        {belowFoldReady && (
+          <>
+            {/* Sport Toggle - compact pill selector */}
+            <SportToggleSelector
+              sportMode={sportMode}
+              onSportModeChange={setSportMode}
+              isDark={isDark}
+            />
+
+            {/* Performance curves + season bests */}
+            <View onLayout={(event) => onAnchorLayout('performance', event)}>
+              <PerformanceCurveSection
+                sportMode={sportMode}
+                days={days}
+                currentFTP={currentFTP}
+                thresholdPace={thresholdPace}
+                swimThresholdPace={swimThresholdPace}
+                performanceExpanded={sections.expanded('performance')}
+                onPerformanceToggle={sections.onToggle('performance')}
+                bestsExpanded={sections.expanded('bests')}
+                onBestsToggle={sections.onToggle('bests')}
+                bestsEfforts={bestsEfforts}
+                bestsClimbing={bestsClimbing}
+                bestsClimbingStatus={bestsClimbingStatus}
+                loadingBests={loadingBests}
+                bestsHeader={bestsHeader}
+              />
+            </View>
+
+            {/* Zones, trends, thresholds, decoupling */}
+            <View onLayout={(event) => onAnchorLayout('trends', event)}>
+              <FitnessTrendSections
+                sportMode={sportMode}
+                timeRange={timeRange}
+                powerZones={powerZones}
+                hrZones={hrZones}
+                zoneCoverage={zoneCoverage}
+                loadingActivities={loadingActivities}
+                hasActivities={!!activities}
+                dominantZone={dominantZone}
+                zonesExpanded={sections.expanded('zones')}
+                onZonesToggle={sections.onToggle('zones')}
+                eftpTrend={eftpTrend}
+                ftpTrend={ftpTrend}
+                trendsExpanded={sections.expanded('trends')}
+                onTrendsToggle={sections.onToggle('trends')}
+                thresholdPace={thresholdPace}
+                runLthr={runLthr}
+                decouplingSource={decouplingSource}
+                efficiencyExpanded={sections.expanded('efficiency')}
+                onEfficiencyToggle={sections.onToggle('efficiency')}
+              />
+            </View>
+
+            {/* Info section */}
+            <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
+              <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
+                {t('fitnessScreen.understandingMetrics')}
+              </Text>
+
+              <View style={styles.infoRow}>
+                <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
+                <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                  <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                    {t('metrics.fitness')}
+                  </Text>{' '}
+                  {t('fitnessScreen.fitnessDescription')}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
+                <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                  <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                    {t('metrics.fatigue')}
+                  </Text>{' '}
+                  {t('fitnessScreen.fatigueDescription')}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
+                <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                  <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                    {t('metrics.form')}
+                  </Text>{' '}
+                  {t('fitnessScreen.formDescription')}
+                </Text>
+              </View>
+
+              <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
+                <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
+                  {t('fitnessScreen.learnMore')}
+                </Text>
+                <Button
+                  label={t('fitnessScreen.linkFitnessPage')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+                />
+                <Button
+                  label={t('fitnessScreen.linkTrainingLoad')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={() =>
+                    WebBrowser.openBrowserAsync(
+                      'https://www.sciencetosport.com/monitoring-training-load/'
+                    )
+                  }
+                />
+                <Button
+                  label={t('fitnessScreen.linkTSBManagement')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={() =>
+                    WebBrowser.openBrowserAsync(
+                      'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
+                    )
+                  }
+                />
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
     </ScreenSafeAreaView>
   );
@@ -420,6 +451,16 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
     paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
+  },
+  chartPlaceholder: {
+    height: 500,
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: layout.cardPadding,
+    marginBottom: spacing.md,
+  },
+  chartPlaceholderDark: {
+    backgroundColor: darkColors.surface,
   },
   infoCard: {
     backgroundColor: colors.surface,

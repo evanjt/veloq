@@ -7,7 +7,7 @@ import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 import { HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { HrZoneBand } from 'veloqrs';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { formatDurationHuman } from '@/shared/format/format';
+import { formatDuration, formatDurationHuman } from '@/shared/format/format';
 import { DEFAULT_MAX_HR } from '../lib/hrZones';
 
 interface HRZonesChartProps {
@@ -15,9 +15,10 @@ interface HRZonesChartProps {
   hrZones?: HrZoneBand[] | undefined;
   /** The max HR from the detail screen read, the one the heart rate stat card divides by */
   maxHR?: number | undefined;
+  movingTime: number;
 }
 
-export function HRZonesChart({ hrZones, maxHR: engineMaxHR }: HRZonesChartProps) {
+export function HRZonesChart({ hrZones, maxHR: engineMaxHR, movingTime }: HRZonesChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
@@ -33,6 +34,8 @@ export function HRZonesChart({ hrZones, maxHR: engineMaxHR }: HRZonesChartProps)
       </View>
     );
   }
+
+  const zoneTotal = zoneData.reduce((total, zone) => total + zone.seconds, 0);
 
   const bands: ZoneBand[] = zoneData.map((zone) => ({
     key: zone.zone,
@@ -52,6 +55,14 @@ export function HRZonesChart({ hrZones, maxHR: engineMaxHR }: HRZonesChartProps)
           </Text>
           <Text style={[styles.maxHRLabel, isDark && styles.maxHRLabelDark]}>
             {t('activity.maxHR', { value: maxHR })}
+          </Text>
+        </View>
+        <View style={styles.totalsRow}>
+          <Text style={[styles.totalLabel, isDark && styles.maxHRLabelDark]}>
+            {t('activity.hrZoneTotal', { duration: formatDuration(zoneTotal) })}
+          </Text>
+          <Text style={[styles.totalLabel, isDark && styles.maxHRLabelDark]}>
+            {t('activity.movingTime', { duration: formatDuration(movingTime) })}
           </Text>
         </View>
         <ZoneHistogram bands={bands} />
@@ -84,6 +95,17 @@ const styles = StyleSheet.create({
   },
   maxHRLabelDark: {
     color: darkColors.textSecondary,
+  },
+  totalsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  totalLabel: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
   },
   placeholder: {
     minHeight: 100,

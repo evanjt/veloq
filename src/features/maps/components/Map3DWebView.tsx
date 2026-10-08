@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
-import { View, StyleSheet, PixelRatio } from 'react-native';
+import { AppState, View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
@@ -41,7 +41,15 @@ import type {
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { diffSpec, type SentSpec } from '@/features/maps/lib/mapSurfacePatch';
-import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
+import {
+  holdSurfaceReleased,
+  markNativeReleasedSurface,
+  rebuildReleasedSurfaces,
+  registerReleasableSurface,
+  resumeHeldSurface,
+} from '@/features/maps/lib/mapSurfaceRegistry';
+import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
+import { pageOpensAt } from '@/features/maps/lib/settledCamera';
 import type { MapStyleType } from './mapStyles';
 import { HILLSHADE_INSERT_INDEX_SCRIPT, TERRAIN_3D_CONFIG, terrain3DSource } from './mapStyles';
 import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
@@ -96,6 +104,11 @@ interface Map3DWebViewProps {
   highlightedSectionId?: string | null | undefined;
   /** Whether to show the heatmap raster overlay */
   showHeatmap?: boolean | undefined;
+  /**
+   * Releases the page's map while true, for a screen another screen covers,
+   * and rebuilds it at the camera it settled on when it turns false.
+   */
+  released?: boolean | undefined;
 }
 
 export interface Map3DWebViewRef {
@@ -185,6 +198,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       highlightCoordinate,
       highlightedSectionId,
       showHeatmap = false,
+      released = false,
       onMapReady,
       onMapReloading,
       onMapFailed,
@@ -202,7 +216,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     ref
   ) {
     const webViewRef = useRef<WebView>(null);
+    const registeredSurfaceRef = useRef<ReleasableSurface | null>(null);
     const mapReadyRef = useRef(false);
+    const releasedRef = useRef(released);
+    releasedRef.current = released;
     // Track camera state for restoration after style changes
     const savedCameraRef = useRef<{
       center: [number, number];
@@ -210,6 +227,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       bearing: number;
       pitch: number;
     } | null>(null);
+    // The camera the current page was built to open at, and a count that
+    // builds a new page when a released map comes back somewhere else.
+    const pageCameraRef = useRef<typeof savedCameraRef.current | undefined>(null);
+    const [pageEpoch, setPageEpoch] = useState(0);
 
     // Store GeoJSON data in refs to avoid stale closures
     const routesGeoJSONRef = useRef(routesGeoJSON);
@@ -543,6 +564,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
+      releaseIfHeld: () => {
+        if (!releasedRef.current) return false;
+        webViewRef.current?.injectJavaScript(buildReleaseMapScript());
+        return true;
+      },
+      onNativeMapReleased: () => {
+        const surface = registeredSurfaceRef.current;
+        if (surface && markNativeReleasedSurface(surface) && AppState.currentState === 'active') {
+          rebuildReleasedSurfaces();
+        }
+      },
     });
 
     // Expose reset method to parent
@@ -746,20 +778,57 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       webViewRef.current?.reload();
     }, [forgetLayers, onMapReloading]);
 
+    // A released map comes back in the same WebView. The page opens at the
+    // camera it was built with, so one the athlete has moved since gets a new
+    // page built at the saved camera rather than a reload.
+    const rebuildPage = useCallback(() => {
+      mapReadyRef.current = false;
+      forgetLayers();
+      const saved = savedCameraRef.current;
+      if (saved && !pageOpensAt(pageCameraRef.current, saved)) {
+        setPageEpoch((epoch) => epoch + 1);
+      } else {
+        webViewRef.current?.reload();
+      }
+    }, [forgetLayers]);
+
+    // Coming back from the background is reported as a reload, as a crash is.
+    // A screen coming back into view rebuilds only its page: reporting a reload
+    // would mount the caller's 2D surface underneath, a second page booting
+    // for the moment this one takes.
+    const onMapReloadingRef = useRef(onMapReloading);
+    onMapReloadingRef.current = onMapReloading;
+
     // A released page holds no map until the reload, so the layer updates are
     // silenced the same way a crash silences them.
-    useEffect(
-      () =>
-        registerReleasableSurface({
-          release: () => {
-            mapReadyRef.current = false;
-            forgetLayers();
+    useEffect(() => {
+      const surface: ReleasableSurface = {
+        release: (source) => {
+          mapReadyRef.current = false;
+          forgetLayers();
+          if (source === 'javascript')
             webViewRef.current?.injectJavaScript(buildReleaseMapScript());
-          },
-          rebuild: handleWebViewCrash,
-        }),
-      [forgetLayers, handleWebViewCrash]
-    );
+        },
+        rebuild: () => {
+          onMapReloadingRef.current?.();
+          rebuildPage();
+        },
+      };
+      registeredSurfaceRef.current = surface;
+      const unregister = registerReleasableSurface(surface);
+      if (releasedRef.current) holdSurfaceReleased(surface);
+      return () => {
+        registeredSurfaceRef.current = null;
+        unregister();
+      };
+    }, [forgetLayers, rebuildPage]);
+
+    useEffect(() => {
+      const surface = registeredSurfaceRef.current;
+      if (!surface) return;
+      if (released) holdSurfaceReleased(surface);
+      else if (resumeHeldSurface(surface)) rebuildPage();
+    }, [released, rebuildPage]);
 
     // Calculate bounds from coordinates using utility
     // Coordinates are in [lng, lat] format, convert to {lat, lng} for utility
@@ -803,6 +872,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Use saved camera position if available (from previous style change),
       // then fall back to initialCamera override (from parent), then to initial props.
       const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
+      pageCameraRef.current = savedCamera;
       const centerOverride = savedCamera ? savedCamera.center : (initialCenterRef.current ?? null);
       const zoom = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
       const bearing = savedCamera ? savedCamera.bearing : 0;
@@ -837,8 +907,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // `showHeatmap` comes from its ref for the same reason `mapStyle` does:
       // the toggle is injected onto the layer that is already there, and
       // listing it here reloaded the page and dropped the camera with it.
+      // `pageEpoch` moves when a released map comes back at a new camera.
       // eslint-disable-next-line react-hooks/exhaustive-deps -- Style and geometry updates enter the existing page through injection.
-    }, [initialPitch, terrainExaggeration]);
+    }, [initialPitch, terrainExaggeration, pageEpoch]);
 
     return (
       <View style={styles.container}>

@@ -38,7 +38,7 @@ impl ActivityManager {
                 ),
             });
         }
-        let (mutated, install) = with_engine(|engine| {
+        let (mutated, install, scheduled) = with_engine(|engine| {
             let install = crate::persistence::engine_install();
             let mut batch = Vec::with_capacity(activity_ids.len());
             for (i, id) in activity_ids.iter().enumerate() {
@@ -67,9 +67,12 @@ impl ActivityManager {
                 })?;
             // Junction rows now, so a stored ride shows its sections and PRs
             // without waiting on a detect run, which may be suspended.
-            engine.attach_new_activities(&activity_ids);
-            Ok::<_, VeloqError>((mutated, install))
+            let (_, scheduled) = engine.attach_new_activities(&activity_ids);
+            Ok::<_, VeloqError>((mutated, install, scheduled))
         })??;
+        if let Some(scheduled) = scheduled {
+            scheduled.start();
+        }
         // Announced after `with_engine` has let the lock go: the reader this
         // wakes reads the new track through that same lock. An add that
         // replaced a stored track with a different one is the only case, so a
@@ -718,6 +721,14 @@ mod tests {
                 .expect("the add");
         }
 
+        fn gps_events(recorder: &Recorder) -> Vec<String> {
+            recorder
+                .events()
+                .into_iter()
+                .filter(|event| event.starts_with("gps_tracks_mutated:"))
+                .collect()
+        }
+
         #[test]
         fn a_replaced_track_is_announced_and_a_verbatim_re_ingest_is_not() {
             let _serial = serial_global_state();
@@ -731,17 +742,17 @@ mod tests {
             add("a1", 46.21);
             flush();
             assert!(
-                recorder.events().is_empty(),
+                gps_events(&recorder).is_empty(),
                 "a sync re-storing what it already holds moved nothing: {:?}",
-                recorder.events()
+                gps_events(&recorder)
             );
 
             add("a1", 47.5);
             flush();
             assert_eq!(
-                recorder.events(),
+                gps_events(&recorder),
                 vec!["gps_tracks_mutated:a1".to_string()],
-                "the replaced track is named, so only its card re-reads"
+                "the replaced track is named for its card"
             );
 
             crate::objects::observer::flush();
@@ -761,9 +772,9 @@ mod tests {
             flush();
 
             assert!(
-                recorder.events().is_empty(),
+                gps_events(&recorder).is_empty(),
                 "a first sync is every activity arriving, and nothing is stale: {:?}",
-                recorder.events()
+                gps_events(&recorder)
             );
             crate::objects::observer::flush();
             set_observer(None);

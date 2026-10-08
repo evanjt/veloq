@@ -184,6 +184,11 @@ static TABLES: &[Table] = &[
         "the activities the server says moved the accepted eFTP",
     ),
     t(
+        "geocoded_names",
+        Derived,
+        "the name the geocoder gave a new route or section; losing it shows the numbered label, and asking again is the athlete's to choose",
+    ),
+    t(
         "geocoded_places",
         Derived,
         "the place name the geocoder answered for a cell; losing it costs one request per cell again",
@@ -237,6 +242,11 @@ static TABLES: &[Table] = &[
         "route_groups",
         Derived,
         "grouping output, re-cut by every detect",
+    ),
+    t(
+        "route_group_sizes",
+        Derived,
+        "how many route groups have each member count, kept by triggers on the route groups table",
     ),
     t(
         "route_line_layer",
@@ -299,9 +309,9 @@ static TABLES: &[Table] = &[
     ),
     t("section_pins", Record, "sections the athlete pinned"),
     t(
-        "section_visible_count",
+        "section_list_counts",
         Derived,
-        "how many sections the catalogue shows, kept by triggers on the sections table",
+        "how many sections of each kind the catalogue holds, kept by triggers on the sections table",
     ),
     mixed(
         "sections",

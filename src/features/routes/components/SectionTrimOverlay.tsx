@@ -328,7 +328,11 @@ export function SectionTrimOverlay({
           disabled={isSaving}
         />
         {canReset && (
-          <IconButton accessibilityLabel={t('sections.resetBounds')} onPress={onReset}>
+          <IconButton
+            accessibilityLabel={t('sections.resetBounds')}
+            onPress={onReset}
+            disabled={isSaving}
+          >
             <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
           </IconButton>
         )}

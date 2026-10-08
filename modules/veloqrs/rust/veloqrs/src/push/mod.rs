@@ -46,11 +46,12 @@ pub fn prepare_native_session(
     secret: &str,
     athlete_id: &str,
 ) -> Result<(), String> {
-    if crate::persistence::persistent_engine_ffi::open_if_closed(db_path.to_string(), false)
-        .is_none()
-    {
+    let Some(opened) =
+        crate::persistence::persistent_engine_ffi::open_if_closed(db_path.to_string(), false)
+    else {
         return Err(format!("the engine did not open at {db_path}"));
-    }
+    };
+    log::info!("[native session] open_if_closed opened={opened}");
     if crate::objects::current_transport().is_none() {
         crate::objects::set_credentials_from_native(auth_method, secret, athlete_id)?;
     }
@@ -194,8 +195,8 @@ pub fn record_refusal(db_path: &str, activity_id: &str, reason: &str) {
 /// the mercy of a field rename here.
 pub fn index_summary_json(summary: &crate::FfiIndexActivitySummary) -> String {
     format!(
-        "{{\"matchedSections\":{},\"insertedPortions\":{},\"regrouped\":{}}}",
-        summary.matched_sections, summary.inserted_portions, summary.regrouped
+        "{{\"matchedSections\":{},\"insertedPortions\":{},\"regroupScheduled\":{}}}",
+        summary.matched_sections, summary.inserted_portions, summary.regroup_scheduled
     )
 }
 
@@ -593,13 +594,23 @@ fn store_pushed_detail(
             log::warn!("[push] {activity_id} was written without a token: {e}");
         }
         if !engine.has_activity(activity_id) {
-            return Ok(Some((detail, false)));
+            return Ok(Some((detail, false, None)));
         }
-        engine.index_new_activity(activity_id)?;
-        Ok(Some((detail, true)))
+        let (_, scheduled) = engine.index_new_activity(activity_id)?;
+        Ok(Some((detail, true, scheduled)))
     });
     match taken {
-        Some(result) => result,
+        Some(Ok(result)) => {
+            if let Some((detail, indexed, scheduled)) = result {
+                if let Some(scheduled) = scheduled {
+                    scheduled.start();
+                }
+                Ok(Some((detail, indexed)))
+            } else {
+                Ok(None)
+            }
+        }
+        Some(Err(e)) => Err(e),
         // A closed engine and a moved install both answer `None`. A moved
         // install is the wipe's doing, not an error to report.
         None if crate::persistence::engine_install() != install => Ok(None),
@@ -637,12 +648,12 @@ mod tests {
         let json = index_summary_json(&crate::FfiIndexActivitySummary {
             matched_sections: 3,
             inserted_portions: 5,
-            regrouped: true,
+            regroup_scheduled: true,
         });
 
         assert_eq!(
             json,
-            "{\"matchedSections\":3,\"insertedPortions\":5,\"regrouped\":true}"
+            "{\"matchedSections\":3,\"insertedPortions\":5,\"regroupScheduled\":true}"
         );
     }
 

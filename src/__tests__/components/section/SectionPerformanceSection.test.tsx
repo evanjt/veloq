@@ -10,6 +10,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { SectionPerformanceSection } from '@/features/routes/components/section/SectionPerformanceSection';
 import { RANGE_DAYS, type SectionTimeRange } from '@/features/routes/constants';
 import type { PerformanceDataPoint } from '@/types';
+import enGB from '@/i18n/locales/en-GB.json';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -74,6 +75,13 @@ function Harness({ efforts }: { efforts: (PerformanceDataPoint & { x: number })[
 }
 
 describe('SectionPerformanceSection time range', () => {
+  it('explains that section times include stops beside the performance chart', () => {
+    const { getByTestId } = render(<Harness efforts={[effort(1)]} />);
+
+    expect(getByTestId('section-time-method').props.children).toBe('sections.timeMethod');
+    expect(enGB.sections.timeMethod).toMatch(/elapsed/i);
+    expect(enGB.sections.timeMethod).toMatch(/stops/i);
+  });
   it('keeps the range control on screen when the chosen range is empty', () => {
     const { getByTestId, queryByTestId } = render(<Harness efforts={[effort(200)]} />);
 

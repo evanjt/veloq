@@ -4,7 +4,7 @@
  * chart of the route's history with this activity highlighted.
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui';
@@ -51,6 +51,14 @@ export function RoutePerformanceSection({
   } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
+  const [trendDisplay, setTrendDisplay] = useState({ visible: false, reverse: false });
+  const onTrendChange = useCallback((visible: boolean, direction: 'forward' | 'reverse') => {
+    setTrendDisplay((current) =>
+      current.visible === visible && current.reverse === (direction === 'reverse')
+        ? current
+        : { visible, reverse: direction === 'reverse' }
+    );
+  }, []);
 
   const chartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     const valid = performances.filter(
@@ -180,6 +188,7 @@ export function RoutePerformanceSection({
           <SectionScatterChart
             chartData={chartData}
             trendCurves={trendCurves}
+            onTrendChange={onTrendChange}
             activityType={activityType}
             isDark={isDark}
             useTimeAxis
@@ -193,6 +202,8 @@ export function RoutePerformanceSection({
           />
           <ScatterLegend
             isDark={isDark}
+            showTrend={trendDisplay.visible}
+            trendColor={trendDisplay.reverse ? colors.reverseDirection : activityColor}
             showReverse={!!bestReverseRecord}
             showThisActivity
             showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}

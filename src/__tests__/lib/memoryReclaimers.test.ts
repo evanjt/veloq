@@ -2,7 +2,7 @@
  * Expected behaviour: each registered reclaimer gives back only what it can rebuild,
  * and gives back more the closer the level is to the kill.
  */
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import * as mapMemoryReclaimer from '@/features/maps/lib/mapMemoryReclaimer';
 import { registerMapSurfaceReclaimer } from '@/features/maps/lib/mapMemoryReclaimer';
@@ -99,6 +99,7 @@ describe('image cache reclaimer', () => {
 });
 
 describe('map surface reclaimer', () => {
+  const originalOs = Platform.OS;
   let off: () => void;
   const handlers: ((state: string) => void)[] = [];
 
@@ -116,6 +117,7 @@ describe('map surface reclaimer', () => {
   afterEach(() => {
     off();
     jest.restoreAllMocks();
+    Platform.OS = originalOs;
   });
 
   it('keeps the GL contexts until the process is a kill candidate', () => {
@@ -125,9 +127,17 @@ describe('map surface reclaimer', () => {
   });
 
   it('releases every mounted surface from TRIM_MEMORY_MODERATE in the background', () => {
+    Platform.OS = 'ios';
     setAppState('background');
     dispatchMemoryPressure(TRIM_MODERATE);
     expect(releaseMountedSurfaces).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves Android background release to the native WebView manager', () => {
+    Platform.OS = 'android';
+    setAppState('background');
+    dispatchMemoryPressure(TRIM_MODERATE);
+    expect(releaseMountedSurfaces).not.toHaveBeenCalled();
   });
 
   it("never tears down a map the athlete is looking at, which is iOS's warning", () => {

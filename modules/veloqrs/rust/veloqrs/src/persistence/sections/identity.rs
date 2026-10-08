@@ -40,15 +40,20 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use crate::persistence::sections::geometry;
+use crate::persistence::{ActivityMetadata, PersistentEngine};
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
     SectionConfig, shares_ground,
 };
+
+#[cfg(all(test, feature = "synthetic"))]
+#[path = "tests/replay_off_lock.rs"]
+mod replay_off_lock_tests;
 
 /// Sets each row's sport to the dominant sport of its members. A row none of
 /// whose members has a known sport keeps its label.
@@ -271,6 +276,49 @@ struct ReplayContext {
     sports: Option<HashMap<String, String>>,
 }
 
+struct ReplaySource<'a> {
+    context: &'a ReplayContext,
+    metadata: &'a HashMap<String, ActivityMetadata>,
+    fork_records: &'a [tracematch::BoundaryRecord],
+    section_ids: &'a BTreeSet<String>,
+    conn: &'a Connection,
+}
+
+pub(crate) struct IdentityReplaySnapshot {
+    context: ReplayContext,
+    metadata: HashMap<String, ActivityMetadata>,
+    section_ids: BTreeSet<String>,
+    identity: SectionIdentity,
+}
+
+impl IdentityReplaySnapshot {
+    pub(crate) fn capture(engine: &PersistentEngine) -> Self {
+        Self {
+            context: ReplayContext::capture(engine),
+            metadata: engine.activity_metadata.clone(),
+            section_ids: engine.sections.iter().map(|s| s.id.clone()).collect(),
+            identity: engine.identity.clone(),
+        }
+    }
+
+    pub(crate) fn replay<K: Ord>(
+        mut self,
+        conn: &Connection,
+        replay: SectionReplay<K>,
+        fork_records: &[tracematch::BoundaryRecord],
+    ) -> (SectionIdentity, ReplayApplied) {
+        let source = ReplaySource {
+            context: &self.context,
+            metadata: &self.metadata,
+            fork_records,
+            section_ids: &self.section_ids,
+            conn,
+        };
+        let applied = ReplaySource::replay(&mut self.identity, replay, source);
+        (self.identity, applied)
+    }
+}
+
 /// Version byte on the persisted section-registry blob. Bump on any
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
 /// gracefully instead of misparsing. Version 2 moved to rmp encoding: the
@@ -399,6 +447,14 @@ impl Default for SectionIdentity {
 }
 
 impl PersistentEngine {
+    #[cfg(test)]
+    pub(super) fn section_era_snapshot(
+        &self,
+        real_id: &str,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        section_era_snapshot_on(&self.db, real_id)
+    }
+
     /// Every id the database holds or has held: the live rows, the rows the
     /// view hides, and every id the ledger, the geometry versions or the pins
     /// name, the cutover's archived states among them. A content id retired by
@@ -441,6 +497,22 @@ impl PersistentEngine {
             .values()
             .find(|r| r.real_id == real_id)
             .map(|r| &r.section)
+    }
+
+    /// The pure join id the registry holds a real id under, if it holds it.
+    #[cfg(test)]
+    pub(crate) fn section_identity_join_id(&self, real_id: &str) -> Option<&str> {
+        self.identity
+            .rows
+            .iter()
+            .find(|(_, r)| r.real_id == real_id)
+            .map(|(pid, _)| pid.as_str())
+    }
+
+    /// The registry's pure hysteresis state, for comparing its entries.
+    #[cfg(test)]
+    pub(crate) fn section_identity_hysteresis(&self) -> &HysteresisState {
+        &self.identity.hysteresis
     }
 
     /// The last RAW detection catalogue applied, before the identity/hysteresis
@@ -711,6 +783,51 @@ impl PersistentEngine {
         identity: &mut SectionIdentity,
         replay: SectionReplay<K>,
     ) -> ReplayApplied {
+        let context = ReplayContext::capture(self);
+        let section_ids = self.sections.iter().map(|s| s.id.clone()).collect();
+        ReplaySource::replay(
+            identity,
+            replay,
+            ReplaySource {
+                context: &context,
+                metadata: &self.activity_metadata,
+                fork_records: &self.fork_records,
+                section_ids: &section_ids,
+                conn: &self.db,
+            },
+        )
+    }
+}
+
+impl ReplayContext {
+    fn capture(engine: &PersistentEngine) -> Self {
+        let config = engine.section_config.clone();
+        let (intent_grounds, intent_ids) = engine.durable_intent_rows();
+        let sports = config.pool_sports.then(|| {
+            engine
+                .activity_metadata
+                .iter()
+                .map(|(id, metadata)| (id.clone(), metadata.sport_type.clone()))
+                .collect()
+        });
+        Self {
+            config,
+            intent_grounds,
+            intent_ids,
+            accepted_bounds: engine.accepted_section_bounds(),
+            stored_ids: engine.stored_section_ids(),
+            pool: engine.activity_metadata.keys().cloned().collect(),
+            sports,
+        }
+    }
+}
+
+impl ReplaySource<'_> {
+    fn replay<K: Ord>(
+        identity: &mut SectionIdentity,
+        replay: SectionReplay<K>,
+        source: ReplaySource<'_>,
+    ) -> ReplayApplied {
         let mut events: Vec<SectionLifecycleEvent> = Vec::new();
         if replay.steps.is_empty() {
             return ReplayApplied {
@@ -719,31 +836,6 @@ impl PersistentEngine {
                 raw: None,
             };
         }
-        let config = self.section_config.clone();
-        // Durable-intent grounds + ids: exactly the rows the detection wipe
-        // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
-        // ground must not be re-emitted (that is the UNIQUE-id collision that
-        // crashes the save), and any registry id that has passed to one is
-        // relinquished.
-        let (intent_grounds, intent_ids) = self.durable_intent_rows();
-        let sports = config.pool_sports.then(|| {
-            self.activity_metadata
-                .iter()
-                .map(|(id, m)| (id.clone(), m.sport_type.clone()))
-                .collect()
-        });
-        let ctx = ReplayContext {
-            config,
-            intent_grounds,
-            intent_ids,
-            accepted_bounds: self.accepted_section_bounds(),
-            // One scan for the whole replay. This reads six tables, and every
-            // mint of every step reads the result.
-            stored_ids: self.stored_section_ids(),
-            pool: self.activity_metadata.keys().cloned().collect(),
-            sports,
-        };
-
         let mut blocks: BTreeMap<K, Vec<FrequentSection>> = BTreeMap::new();
         for step in replay.steps {
             for (key, block) in step.changed {
@@ -757,7 +849,7 @@ impl PersistentEngine {
                 }
             }
             let raw: Vec<&FrequentSection> = blocks.values().flatten().collect();
-            self.section_identity_step(identity, &ctx, &raw, &step.arrival, &mut events);
+            Self::step(identity, &source, &raw, &step.arrival, &mut events);
         }
 
         ReplayApplied {
@@ -769,14 +861,14 @@ impl PersistentEngine {
 
     /// One hysteresis step of a replay: the raw catalogue cut after `arrival`,
     /// its fired lifecycle events appended to `events`.
-    fn section_identity_step(
-        &self,
+    fn step(
         identity: &mut SectionIdentity,
-        ctx: &ReplayContext,
+        source: &ReplaySource<'_>,
         raw: &[&FrequentSection],
         arrival: &Arrival,
         events: &mut Vec<SectionLifecycleEvent>,
     ) {
+        let ctx = source.context;
         let config = &ctx.config;
         let (intent_grounds, intent_ids) = (&ctx.intent_grounds, &ctx.intent_ids);
 
@@ -867,7 +959,7 @@ impl PersistentEngine {
         // wherever the cut looked, and the held line judges only what it never
         // saw.
         let judged = |cut: &FrequentSection, aid: &str| {
-            cut_judged(&self.activity_metadata, config.pool_sports, cut, aid)
+            cut_judged(source.metadata, config.pool_sports, cut, aid)
         };
         // The registry's half of the agreement floor. The pure layer adopts an
         // agreeing extent only while the passes hold; members are this side's
@@ -910,7 +1002,10 @@ impl PersistentEngine {
         // below borrows nothing from `self`.
         let new_tracks: BTreeMap<String, Vec<GpsPoint>> = arrivals
             .iter()
-            .filter_map(|id| self.get_gps_track(id).map(|t| (id.clone(), t)))
+            .filter_map(|id| {
+                super::super::activities::pooled::gps_track(source.conn, id)
+                    .map(|track| (id.clone(), track))
+            })
             .collect();
         let around_of = |pid: &str| -> Vec<String> {
             let mut ids: BTreeSet<String> = identity.around.get(pid).cloned().unwrap_or_default();
@@ -919,7 +1014,7 @@ impl PersistentEngine {
         };
         let arrivals_list: Vec<String> = arrivals.iter().cloned().collect();
         let cell = tracematch::line_match_cell_m(config);
-        let fork_around_of = |line: &[GpsPoint]| fork_around(&self.fork_records, line, cell);
+        let fork_around_of = |line: &[GpsPoint]| fork_around(source.fork_records, line, cell);
 
         // Reconcile the payload map to the pure layer's post-step visible set.
         let old_rows = std::mem::take(&mut identity.rows);
@@ -1000,7 +1095,14 @@ impl PersistentEngine {
                     // carry takes the cut's label and two libraries with the
                     // same ground agree whichever sport arrived first. A
                     // frozen carry keeps the prior payload, label included.
-                    graft_prior_members(self, &mut row.section, cut, &prior, &judged, config);
+                    graft_prior_members(
+                        source.conn,
+                        &mut row.section,
+                        cut,
+                        &prior,
+                        &judged,
+                        config,
+                    );
                     // An adopted carry keeps learning new traffic exactly as a
                     // frozen one does: the batch candidate only carries its own
                     // sport's members, but a new activity of another sport on
@@ -1043,7 +1145,7 @@ impl PersistentEngine {
                 // view hides (disabled, superseded, accepted) and the
                 // retired included: a mint must never land on one of them.
                 let mut taken: BTreeSet<String> = ctx.stored_ids.clone();
-                taken.extend(self.sections.iter().map(|s| s.id.clone()));
+                taken.extend(source.section_ids.iter().cloned());
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_graves.values().map(|r| r.real_id.clone()));
@@ -1217,7 +1319,7 @@ impl PersistentEngine {
             }
             let ordered_siblings: Vec<String> =
                 pieces.into_iter().filter(|id| id != &parent_real).collect();
-            let mut details = self.section_era_snapshot(&parent_real);
+            let mut details = section_era_snapshot_on(source.conn, &parent_real);
             details.insert("siblings".into(), serde_json::json!(ordered_siblings));
             let fork = new_rows
                 .values()
@@ -1237,7 +1339,7 @@ impl PersistentEngine {
             let (Some(real_id), Some(row)) = (old_real.get(pid), new_rows.get(pid)) else {
                 continue;
             };
-            let mut details = self.section_era_snapshot(real_id);
+            let mut details = section_era_snapshot_on(source.conn, real_id);
             attribute(
                 &mut details,
                 &around_of(pid),
@@ -1258,7 +1360,7 @@ impl PersistentEngine {
             let Some(real_id) = old_real.get(&retirement.id) else {
                 continue;
             };
-            let mut details = self.section_era_snapshot(real_id);
+            let mut details = section_era_snapshot_on(source.conn, real_id);
             attribute(&mut details, &around_of(&retirement.id), &[]);
             let kind = match &retirement.reason {
                 tracematch::RetireReason::Dissolved => "dissolved",
@@ -1300,23 +1402,20 @@ impl PersistentEngine {
         identity.rows = new_rows;
         identity.seen = now_seen;
     }
+}
 
-    /// The era snapshot of one section as it stands NOW, before the change
-    /// this event narrates lands: each sport's record and its activity.
-    /// Read from the junction cache the save has not yet rewritten, so a
-    /// dissolved section's final era survives the cascade that removes its
-    /// rows. Records are empty when the era had no cached times (lap times
-    /// fill lazily on first performance read).
-    pub(super) fn section_era_snapshot(
-        &self,
-        real_id: &str,
-    ) -> serde_json::Map<String, serde_json::Value> {
-        let mut snap = serde_json::Map::new();
-        let prs = super::history::current_prs_on(&self.db, real_id);
-        snap.insert("prs".into(), super::history::prs_json(&prs));
-        snap
-    }
+/// The era snapshot before the replay's change rewrites the junction rows.
+fn section_era_snapshot_on(
+    conn: &Connection,
+    real_id: &str,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut snap = serde_json::Map::new();
+    let prs = super::history::current_prs_on(conn, real_id);
+    snap.insert("prs".into(), super::history::prs_json(&prs));
+    snap
+}
 
+impl PersistentEngine {
     /// Relinquish a registry row whose ground has just passed to a durable intent
     /// row, so the next detect does not carry (or debounce-dissolve) a ground the
     /// DB row now owns. Called by the mutations (accept/trim/rename/set-ref/merge)
@@ -1347,12 +1446,14 @@ impl PersistentEngine {
     /// A reset or an enable hands a row back to the detection wipe after the
     /// registry let it go, so with no prior for its ground the next detect
     /// would mint it a new id and strand its exclusions on the old one. The
-    /// rows already held are stepped as their own candidates, which carries
-    /// each unchanged, and the one new candidate resolves to a fresh pure id
-    /// that the real id is joined to. If a held row does not resolve to its own
-    /// id the step is not a no-op, so the whole registry reseeds instead.
-    /// Idempotent: a section already held, user-defined, disabled or absent
-    /// from the catalogue is left alone.
+    /// section is seeded as one prior under a fresh pure id that the real id is
+    /// joined to, without planning it against the rows already held: those
+    /// keep their state exactly, and the cost is the one section rather than
+    /// the registry, on a tap that blocks the JS thread. The next detect plans
+    /// it with the rest. Only if the hysteresis refuses the seed, or the
+    /// registry already holds the id it minted, does the whole registry
+    /// reseed. Idempotent: a section already held, user-defined, disabled or
+    /// absent from the catalogue is left alone.
     pub(crate) fn section_identity_admit(&mut self, real_id: &str) {
         if self.identity.rows.values().any(|r| r.real_id == real_id) {
             return;
@@ -1366,36 +1467,23 @@ impl PersistentEngine {
             return;
         };
 
-        let held: Vec<(String, FrequentSection)> = self
-            .identity
-            .rows
-            .iter()
-            .map(|(pid, r)| (pid.clone(), r.section.clone()))
-            .collect();
-        let mut candidates: Vec<CandidateSection> = held
-            .iter()
-            .map(|(_, s)| CandidateSection::from_section(s))
-            .collect();
-        candidates.push(CandidateSection::from_section(&section));
-
-        let mut trial = self.identity.hysteresis.clone();
-        let (_out, resolutions) = trial.step_assign(&candidates);
-        let carried_whole = held
-            .iter()
-            .enumerate()
-            .all(|(j, (pid, _))| resolutions[j].id == *pid);
-        let new_pid = resolutions[held.len()].id.clone();
-        if !carried_whole || self.identity.rows.contains_key(&new_pid) {
-            self.section_identity_reseed();
-        } else {
-            self.identity.hysteresis = trial;
-            self.identity.rows.insert(
-                new_pid,
-                IdentityRow {
-                    real_id: real_id.to_string(),
-                    section,
-                },
-            );
+        // A reseed rebuilds the hysteresis too, so a seed the registry cannot
+        // join needs no undoing.
+        let candidate = CandidateSection::from_section(&section);
+        match self.identity.hysteresis.admit(&candidate) {
+            Some(pid)
+                if !self.identity.rows.contains_key(&pid)
+                    && !self.identity.graves.contains_key(&pid) =>
+            {
+                self.identity.rows.insert(
+                    pid,
+                    IdentityRow {
+                        real_id: real_id.to_string(),
+                        section,
+                    },
+                );
+            }
+            _ => self.section_identity_reseed(),
         }
         self.section_identity_persist();
     }
@@ -1833,7 +1921,7 @@ fn fold_new_activities(
 /// `save_sections` writes stay coherent; a member whose track genuinely left
 /// the adopted ground stays dropped.
 fn graft_prior_members(
-    engine: &PersistentEngine,
+    conn: &Connection,
     section: &mut FrequentSection,
     cut: &FrequentSection,
     prior: &FrequentSection,
@@ -1857,7 +1945,7 @@ fn graft_prior_members(
         return;
     };
     for aid in missing {
-        let Some(track) = engine.get_gps_track(&aid) else {
+        let Some(track) = super::super::activities::pooled::gps_track(conn, &aid) else {
             continue;
         };
         let portions = line.portions(&aid, &track);

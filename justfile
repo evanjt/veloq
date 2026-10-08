@@ -58,10 +58,6 @@ perf-compare:
 capture-hierarchy:
     ./scripts/capture-hierarchy.sh
 
-# Set up StoreKit config for local iOS IAP testing (after prebuild)
-setup-storekit:
-    ./scripts/setup-storekit.sh
-
 # Verify a pulled backup export is valid SQLite (after the Maestro backup flow)
 verify-backup:
     ./scripts/verify-backup-export.sh

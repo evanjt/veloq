@@ -99,15 +99,3 @@ export function AnimatedPressable({
     </AnimatedPressableComponent>
   );
 }
-
-export function AnimatedButton({
-  children,
-  style,
-  ...props
-}: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
-  return (
-    <AnimatedPressable pressScale={0.95} hapticType="medium" style={style} {...props}>
-      {children}
-    </AnimatedPressable>
-  );
-}

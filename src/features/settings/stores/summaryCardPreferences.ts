@@ -44,7 +44,7 @@ export const AVAILABLE_METRICS: MetricDefinition[] = [
  * picker offers these and nothing else, so a stored hero outside them is a
  * value no code path writes and is rewritten on load.
  */
-export const HERO_METRICS = ['fitness', 'hrv'] as const satisfies readonly MetricId[];
+export const HERO_METRICS = ['fitness', 'form', 'hrv'] as const satisfies readonly MetricId[];
 
 export type HeroMetricId = (typeof HERO_METRICS)[number];
 
@@ -146,9 +146,7 @@ export async function initialiseDashboardPreferences(): Promise<void> {
       if (isHeroMetricId(heroMetric)) {
         summaryCard = { ...rest, heroMetric };
       } else {
-        // Form was a hero once and is drawn in the fitness sparkline now. No
-        // picker ever offered the others, so whichever it is, it becomes
-        // fitness rather than three readers each guessing.
+        // A metric without a hero renderer becomes fitness.
         summaryCard = { ...rest, heroMetric: 'fitness' };
         persistSummaryCard(summaryCard);
       }

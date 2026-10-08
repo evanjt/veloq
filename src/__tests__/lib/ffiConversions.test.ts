@@ -74,12 +74,18 @@ describe('castDirection', () => {
 
 describe('toDirectionStats', () => {
   it('converts valid input with Date conversion', () => {
-    const result = toDirectionStats({ avgTime: 120.5, lastActivity: 1768435200, count: 5 });
+    const result = toDirectionStats({
+      avgTime: 120.5,
+      lastActivity: 1768435200,
+      count: 5,
+      outsideBandCount: 2,
+    });
     expect(result).not.toBeNull();
     expect(result!.avgTime).toBe(120.5);
     expect(result!.lastActivity).toBeInstanceOf(Date);
     expect(result!.lastActivity!.getUTCFullYear()).toBe(2026);
     expect(result!.count).toBe(5);
+    expect(result!.outsideBandCount).toBe(2);
   });
 
   it('returns null for null input', () => {

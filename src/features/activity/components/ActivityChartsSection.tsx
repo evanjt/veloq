@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   ScrollView,
-  TouchableOpacity,
   Pressable,
   Modal,
   StatusBar,
@@ -339,6 +338,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <CombinedPlot
                   streams={streams}
+                  elevationGain={activity.total_elevation_gain}
                   selectedCharts={selectedCharts}
                   chartConfigs={effectiveChartConfigs}
                   height={180}
@@ -418,7 +418,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 style={[styles.chartCard, isDark && styles.cardDark]}
               >
                 <ComponentErrorBoundary componentName="HR Zones Chart">
-                  <HRZonesChart hrZones={hrZones} maxHR={maxHR} />
+                  <HRZonesChart hrZones={hrZones} maxHR={maxHR} movingTime={activity.moving_time} />
                 </ComponentErrorBoundary>
               </View>
             )}
@@ -556,23 +556,23 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
           <StatusBar hidden />
           <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
             {/* Close button */}
-            <TouchableOpacity
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
-              style={[
+              style={pressable([
                 styles.fullscreenCloseButton,
                 { top: Math.max(insets.top, insets.left, 16) + 8 },
-              ]}
+              ])}
               onPress={closeChartFullscreen}
               hitSlop={CLOSE_SLOP}
-              activeOpacity={0.7}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name="close"
                 size={24}
                 color={isDark ? colors.textOnDark : colors.textPrimary}
               />
-            </TouchableOpacity>
+            </Pressable>
 
             {/* Chart type selector in fullscreen */}
             <View
@@ -596,6 +596,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               <View style={styles.fullscreenChartWrapper}>
                 <CombinedPlot
                   streams={streams}
+                  elevationGain={activity.total_elevation_gain}
                   selectedCharts={selectedCharts}
                   chartConfigs={effectiveChartConfigs}
                   height={windowHeight - 100}

@@ -22,6 +22,8 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
         avg_power: None,
         coverage: Some(1.0),
         excluded: false,
+        outside_distance_band: false,
+        match_percentage: None,
     };
     SectionPerformanceRecord {
         activity_id: format!("act_{date}"),

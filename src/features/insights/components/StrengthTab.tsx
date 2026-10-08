@@ -33,15 +33,29 @@ interface StrengthTabProps {
    * no surface from which the fetch could be retried.
    */
   awaitingDownload?: boolean;
+  /**
+   * The period a link asked for. Each link is a new object, so a second link
+   * applies even when it names the period the tab already left; between links
+   * the athlete's own choice stands.
+   */
+  linkedPeriod?: { period: StrengthPeriod } | undefined;
 }
 
 export const StrengthTab = React.memo(function StrengthTab({
   awaitingDownload = false,
+  linkedPeriod,
 }: StrengthTabProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
-  const [period, setPeriod] = useState<StrengthPeriod>(DEFAULT_PERIOD);
+  const [period, setPeriod] = useState<StrengthPeriod>(linkedPeriod?.period ?? DEFAULT_PERIOD);
+  // Applied during render rather than in an effect, so the tab never reads the
+  // period it is leaving.
+  const [appliedLink, setAppliedLink] = useState(linkedPeriod);
+  if (linkedPeriod !== appliedLink) {
+    setAppliedLink(linkedPeriod);
+    if (linkedPeriod) setPeriod(linkedPeriod.period);
+  }
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
 
   const { data: screen, isLoading, isError, error, refetch } = useStrengthScreenData(period);
@@ -57,26 +71,15 @@ export const StrengthTab = React.memo(function StrengthTab({
 
   const gender = athlete?.sex === 'F' ? 'female' : 'male';
 
-  // Compute body diagram data with heat-map intensity + selection stroke
-  const bodyData: ExtendedBodyPart[] = useMemo(() => {
-    if (!summary || summary.muscleVolumes.length === 0) return [];
-    const maxWeighted = Math.max(...summary.muscleVolumes.map((v) => v.weightedSets));
-    if (maxWeighted === 0) return [];
-
-    return summary.muscleVolumes.map((v) => {
-      const normalised = v.weightedSets / maxWeighted;
-      const intensity = Math.max(1, Math.min(5, Math.ceil(normalised * 5)));
-      return {
+  const bodyData: ExtendedBodyPart[] = useMemo(
+    () =>
+      (summary?.muscleVolumes ?? []).map((v) => ({
         slug: v.slug as NonNullable<ExtendedBodyPart['slug']>,
-        intensity,
-      };
-    });
-  }, [summary]);
-
-  const maxWeightedSets = useMemo(() => {
-    if (!summary || summary.muscleVolumes.length === 0) return 0;
-    return Math.max(...summary.muscleVolumes.map((v) => v.weightedSets));
-  }, [summary]);
+        intensity: v.shade,
+      })),
+    [summary]
+  );
+  const maxWeightedSets = summary?.maxWeightedSets ?? 0;
 
   const selectedVolume: MuscleVolume | null = useMemo(() => {
     if (!selectedMuscle || !summary) return null;

@@ -108,6 +108,8 @@ fn performances(laps_in: &[Lap]) -> SectionPerformanceResult {
             avg_power: None,
             coverage: Some(lap.coverage),
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         })
         .collect();
     laps::performances(

@@ -91,6 +91,15 @@ pub mod settings_keys {
     /// library.
     pub const GEOCODING_ENABLED_AT: &str = "__geocoding_enabled_at";
 
+    /// The last worker geocoder response and when it arrived, as one JSON row.
+    pub const GEOCODER_CONFIG: &str = "__geocoder_config";
+
+    /// The words a geocoded name is put together with and the language tag
+    /// the lookups are asked in, as the JSON `geocoded_names::PlaceNameWords`
+    /// reads. The app stores it whenever it resolves its language, so a
+    /// naming pass with no JavaScript alive still names in that language.
+    pub const PLACE_NAME_WORDS: &str = "__place_name_words";
+
     /// Where the athlete lives, and how much of a track around it an export
     /// leaves behind. Absent or a zero radius means an export is exactly what
     /// it was before this existed.
@@ -366,7 +375,10 @@ impl PersistentEngine {
     /// turning it on while it is already on keeps the stamp it has, so a
     /// screen re-writing the switch does not move it. Turning it off keeps
     /// the stamp, which reads as nothing while the switch is off.
-    pub fn set_geocoding_enabled(&self, enabled: bool) -> SqlResult<()> {
+    ///
+    /// The routes held in memory take their shown names again, since a
+    /// geocoded name shows only while the switch is on.
+    pub fn set_geocoding_enabled(&mut self, enabled: bool) -> SqlResult<()> {
         if enabled == self.geocoding_enabled() {
             return Ok(());
         }
@@ -381,7 +393,7 @@ impl PersistentEngine {
             ));
         }
         self.set_settings(&pairs)?;
-        Ok(())
+        self.apply_route_names()
     }
 
     /// Store the notification templates JavaScript resolved for the locale it

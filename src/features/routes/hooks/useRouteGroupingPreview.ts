@@ -18,8 +18,9 @@ import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 /**
  * How long a knob has to stand still before the library is regrouped.
  *
- * Measured on a test handset with a standalone `aarch64-linux-android` engine binary (no app build) over a real 585-activity library: one run is 198 ms at
- * the strictest setting, 386 at the default and 442 at the loosest, so 400 is
+ * Measured on a test handset with a standalone `aarch64-linux-android` engine binary
+ * (no app build) over a real 585-activity library: one run is 198 ms at the
+ * strictest setting, 386 at the default and 442 at the loosest, so 400 is
  * about the length of a run rather than a guess above it. Lower and a drag
  * starts the next run before the last has finished, which buys nothing: the
  * paint cannot follow the knob more closely than the grouping can finish.

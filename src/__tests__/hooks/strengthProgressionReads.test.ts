@@ -41,9 +41,11 @@ function summaryForRange(weightedSets: number) {
       totalReps: 10,
       volumeKg: 100,
       exerciseNames: [slug],
+      shade: 1,
     })),
     activityCount: 3,
     totalSets: 12,
+    maxWeightedSets: weightedSets + MUSCLES.length - 1,
     balance: [],
   };
 }

@@ -34,6 +34,9 @@ interface Map3DBridgeParams {
   onTerrainUnavailable?: ((reason: string) => void) | undefined;
   onBearingChange?: ((bearing: number) => void) | undefined;
   onCameraStateChange?: ((camera: Camera, gesture: boolean) => void) | undefined;
+  onNativeMapReleased?: (() => void) | undefined;
+  /** Releases a page that loaded after its screen was covered; true when it did. */
+  releaseIfHeld?: (() => boolean) | undefined;
 }
 
 // Parses and dispatches messages from the 3D MapLibre WebView. Handlers keep
@@ -52,6 +55,8 @@ export function useMap3DBridge({
   onTerrainUnavailable,
   onBearingChange,
   onCameraStateChange,
+  onNativeMapReleased,
+  releaseIfHeld,
 }: Map3DBridgeParams) {
   const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
     () => ({
@@ -59,6 +64,7 @@ export function useMap3DBridge({
         log.log(data.message);
       },
       mapReady: () => {
+        if (releaseIfHeld?.()) return;
         mapReadyRef.current = true;
         onMapReady?.();
         syncStyle();
@@ -66,6 +72,7 @@ export function useMap3DBridge({
         // Update layers after map is ready - small delay ensures style is fully settled
         setTimeout(() => updateLayers(), 100);
       },
+      nativeMapReleased: () => onNativeMapReleased?.(),
       // Terminal counterpart to mapReady. The page cannot render, so the
       // caller has to stop waiting rather than sit on a spinner.
       mapFailed: (data: WebViewBridgeMessage) => {
@@ -120,6 +127,8 @@ export function useMap3DBridge({
       onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
+      onNativeMapReleased,
+      releaseIfHeld,
       updateLayers,
       syncRoute,
       syncStyle,

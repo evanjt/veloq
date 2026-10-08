@@ -128,19 +128,25 @@ fn rows(db: &Connection, table: &str, filter: &str) -> Result<Vec<RecordRow>, St
                         if let Some((_, _, json_key)) = LINE_COLUMNS
                             .iter()
                             .find(|(t, blob_key, _)| *t == table && blob_key == key)
-                            && let Some(json) = codec::deserialize_points(bytes)
-                                .ok()
-                                .and_then(|points| serde_json::to_string(&points).ok())
                         {
-                            lines.push((json_key.to_string(), Value::String(json)));
+                            match codec::deserialize_points(bytes) {
+                                Ok(points) => {
+                                    if let Ok(json) = serde_json::to_string(&points) {
+                                        lines.push((json_key.to_string(), Value::String(json)));
+                                    }
+                                }
+                                Err(error) => {
+                                    let id: String = row.get("id")?;
+                                    log::error!("{table} {id}: {key} read failed: {error}");
+                                }
+                            }
                         }
                         continue;
                     }
                 };
                 values.insert(key.clone(), value);
             }
-            // The blob is the line's authority, so it wins over a JSON column
-            // read beside it whatever order the columns came in.
+            // A decoded blob wins over its JSON column; an undecodable blob leaves the JSON intact.
             values.extend(lines);
             Ok(RecordRow {
                 table: table.to_string(),
@@ -641,6 +647,24 @@ mod tests {
         RECORD_TEMP_PREFIX, collect_record_payload, conversion_directory, convert_legacy_database,
         read_record_zip, record_temporary, write_record_zip,
     };
+
+    #[test]
+    fn test_rows_undecodable_line_logs_and_carries_json() {
+        crate::test_log::capturing();
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE section_intents (id TEXT, polyline_blob BLOB, polyline_json TEXT);
+             INSERT INTO section_intents VALUES ('garbled-line', x'ff', '[]');",
+        )
+        .unwrap();
+
+        let records = super::rows(&db, "section_intents", "1 = 1").unwrap();
+        assert_eq!(records[0].values["polyline_json"], "[]");
+        assert_eq!(
+            crate::test_log::errors_with("section_intents garbled-line").len(),
+            1
+        );
+    }
 
     /// Whether `left` sits beside `destination` under the name the wipe deletes.
     fn left_where_the_wipe_reaches(left: &std::path::Path, destination: &std::path::Path) -> bool {

@@ -95,16 +95,7 @@ describe('the activity barrel evaluates whole, whichever end the app enters from
 });
 
 describe.each([
-  [
-    'fitness',
-    [
-      'formatForm',
-      'formatEffortValue',
-      'currentAndPreviousWeek',
-      'useSportPreference',
-      'SPORT_TEXT_COLORS',
-    ],
-  ],
+  ['fitness', ['formatForm', 'formatEffortValue', 'useSportPreference', 'SPORT_TEXT_COLORS']],
   [
     'home',
     [
@@ -210,7 +201,7 @@ const ROUTES_NAMES = [
   'EMPTY_PERFORMANCE_VIEW',
   'FIXED_LABEL_LEDGER_KINDS',
   'getAllSectionDisplayNames',
-  'getPhaseDisplayName',
+  'getPhaseDisplayKey',
   'GroupingParamPanel',
   'groupingParamsOf',
   'GroupingPreviewMap',
@@ -275,7 +266,6 @@ const ROUTES_NAMES = [
   'usePreviewDetect',
   'useRepresentativeRoute',
   'useRevealMapOnDraw',
-  'useRevealMapOnHighlight',
   'useRouteChartData',
   'useRouteDetailData',
   'useRouteGroupingPreview',

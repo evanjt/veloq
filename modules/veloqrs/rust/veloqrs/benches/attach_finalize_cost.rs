@@ -1,7 +1,7 @@
 //! What the sync batch tail costs the engine write lock.
 //!
 //! Every sync ends with one `attach_finalize` under the **write** lock
-//! (`ffi.rs`, the attach batch tail), which either regroups when the ingest
+//! (`ffi.rs`, the attach batch tail), which either schedules regroup when ingest
 //! marked groups dirty or recomputes activity indicators when junction rows
 //! landed. It is the last long holder on the async path: the bulk exports run
 //! off the lock and the wipes have their own threads, so this is the number the
@@ -9,8 +9,8 @@
 //!
 //! Both arms are timed, on the same corpus, because which one runs depends on
 //! whether the batch created a new group and the two do different work. The
-//! sync arm ingests a handful of activities first, so the regroup takes the
-//! incremental path a real sync reaches rather than the full rebuild.
+//! sync arm ingests a handful of activities first, so the schedule includes
+//! the snapshot a real sync takes.
 //!
 //! The worker arm splits the regroup the way the off-lock worker runs it: the
 //! compute on a connection of its own, which holds no lock, and the swap, which
@@ -118,7 +118,7 @@ fn report(label: &str, sections: usize, activities: usize, elapsed_ms: f64) {
 }
 
 #[test]
-#[ignore] // ~1 min per scale; baseline for B489
+#[ignore] // ~1 min per scale
 fn attach_finalize_cost_baseline() {
     for scale in [1, 5] {
         println!("--- scale {scale} ---");
@@ -131,35 +131,39 @@ fn attach_finalize_cost_baseline() {
         let sections = engine.get_sections().len();
         let activities = engine.activity_count();
         let start = Instant::now();
-        let (regrouped, indicators) = engine.attach_finalize(1);
+        let (regroup_scheduled, indicators, _) = engine.attach_finalize(1, false);
         report(
-            &format!("attach_finalize indicators (regrouped={regrouped}, ran={indicators})"),
+            &format!(
+                "attach_finalize indicators (regroup_scheduled={regroup_scheduled}, ran={indicators})"
+            ),
             sections,
             activities,
             start.elapsed().as_secs_f64() * 1000.0,
         );
 
         // The sync arm, and the one that matters: a handful of new
-        // activities landed, so the tail regroups with the incremental path
-        // the ingest actually reaches.
+        // activities landed, so the tail schedules the owed regroup.
         let added = ingest_new(&mut engine, scale);
         let start = Instant::now();
-        let (regrouped, indicators) = engine.attach_finalize(1);
+        let (regroup_scheduled, indicators, _) = engine.attach_finalize(1, false);
         report(
             &format!(
-                "attach_finalize sync of {added} new (regrouped={regrouped}, ran={indicators})"
+                "attach_finalize sync of {added} new (regroup_scheduled={regroup_scheduled}, ran={indicators})"
             ),
             sections,
             activities + added,
             start.elapsed().as_secs_f64() * 1000.0,
         );
+        engine.get_groups();
 
         // Nothing landed and nothing is dirty: the tail must cost nothing at
         // all, which is what makes the two arms above the whole cost.
         let start = Instant::now();
-        let (regrouped, indicators) = engine.attach_finalize(0);
+        let (regroup_scheduled, indicators, _) = engine.attach_finalize(0, false);
         report(
-            &format!("attach_finalize idle (regrouped={regrouped}, ran={indicators})"),
+            &format!(
+                "attach_finalize idle (regroup_scheduled={regroup_scheduled}, ran={indicators})"
+            ),
             sections,
             activities,
             start.elapsed().as_secs_f64() * 1000.0,

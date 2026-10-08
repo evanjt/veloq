@@ -195,15 +195,15 @@ fn index_from_a_second_engine(path: &str, ride: &LifecycleActivity) {
     extension
         .update_activity_metadata(&id, Some(ride.start_date_unix + 86_400), None, None, None)
         .expect("metadata");
-    let summary = extension.index_new_activity(&id).expect("index");
+    let (summary, _) = extension.index_new_activity(&id).expect("index");
     let wall = started.elapsed();
     done.store(true, Ordering::SeqCst);
     let samples = prober.join().expect("prober");
     println!(
-        "  second engine: open {:.0} ms, {} sections matched, regrouped {}",
+        "  second engine: open {:.0} ms, {} sections matched, regroup scheduled {}",
         opened.as_secs_f64() * 1e3,
         summary.matched_sections,
-        summary.regrouped
+        summary.regroup_scheduled
     );
     report("a pushed ride indexed by a second engine", wall, &samples);
 }

@@ -10,6 +10,25 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 const translate = ((key: string) => key) as TFunction;
 
 describe('useRouteReference', () => {
+  it('offers reset when the current reference is tapped', () => {
+    const resetRouteRepresentative = jest.fn().mockReturnValue(true);
+    jest.mocked(getEngine).mockReturnValue({ resetRouteRepresentative } as never);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.text === 'common.reset')?.onPress?.();
+    });
+    const { result } = renderHook(() => useRouteReference('r_1', 'A', translate));
+
+    act(() => result.current.handleSetAsReference('A'));
+
+    expect(alert).toHaveBeenCalledWith(
+      'routes.resetReference',
+      'routes.resetReferenceConfirm',
+      expect.any(Array)
+    );
+    expect(resetRouteRepresentative).toHaveBeenCalledWith('r_1');
+    alert.mockRestore();
+  });
+
   it('follows the representative refreshed by the engine after a regroup', () => {
     const setRouteRepresentative = jest.fn().mockReturnValue(true);
     jest.mocked(getEngine).mockReturnValue({ setRouteRepresentative } as never);

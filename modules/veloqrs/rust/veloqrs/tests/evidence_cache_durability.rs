@@ -112,7 +112,7 @@ fn seeded(dir: &TempDir) -> PersistentEngine {
 #[test]
 fn a_detect_leaves_its_evidence_behind() {
     let dir = TempDir::new().unwrap();
-    let engine = seeded(&dir);
+    let mut engine = seeded(&dir);
 
     assert!(
         engine.evidence_cache_folded_count() > 0,
@@ -144,9 +144,24 @@ fn a_restart_resumes_warm_on_the_same_catalogue() {
 }
 
 #[test]
+fn a_restart_decodes_evidence_on_first_read_once() {
+    let dir = TempDir::new().unwrap();
+    let mut first = seeded(&dir);
+    let folded = first.evidence_cache_folded_count();
+    drop(first);
+
+    let mut second = open(&dir);
+    assert_eq!(second.evidence_cache_decode_count(), 0);
+    assert_eq!(second.evidence_cache_folded_count(), folded);
+    assert_eq!(second.evidence_cache_decode_count(), 1);
+    assert_eq!(second.evidence_cache_folded_count(), folded);
+    assert_eq!(second.evidence_cache_decode_count(), 1);
+}
+
+#[test]
 fn a_restart_under_another_config_starts_cold() {
     let dir = TempDir::new().unwrap();
-    let first = seeded(&dir);
+    let mut first = seeded(&dir);
     assert!(first.evidence_cache_folded_count() > 0);
     drop(first);
 
@@ -159,6 +174,8 @@ fn a_restart_under_another_config_starts_cold() {
         })
         .expect("config accepted");
     engine.load().expect("load");
+
+    assert_eq!(engine.evidence_cache_decode_count(), 0);
 
     assert_eq!(
         engine.evidence_cache_folded_count(),
@@ -174,7 +191,7 @@ fn a_restart_under_another_config_starts_cold() {
 #[test]
 fn an_unreadable_blob_starts_cold_without_failing_the_open() {
     let dir = TempDir::new().unwrap();
-    let first = seeded(&dir);
+    let mut first = seeded(&dir);
     assert!(first.evidence_cache_folded_count() > 0);
     drop(first);
 
@@ -188,6 +205,8 @@ fn an_unreadable_blob_starts_cold_without_failing_the_open() {
     }
 
     let mut engine = open(&dir);
+    assert_eq!(engine.evidence_cache_decode_count(), 0);
+    assert!(cache_row(&dir).is_some());
     assert_eq!(
         engine.evidence_cache_folded_count(),
         0,

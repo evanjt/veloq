@@ -307,6 +307,14 @@ fn period_comparisons(
     (week_over_week, week_against_chronic)
 }
 
+fn previous_week_end(p: &crate::FfiInsightsParams, current: &crate::FfiPeriodStats) -> i64 {
+    if current.count == 0 {
+        p.current_start as i64
+    } else {
+        p.prev_end as i64
+    }
+}
+
 /// A partial activity window cannot support a claim about the whole period.
 fn complete_period_comparisons(
     conn: &rusqlite::Connection,
@@ -321,7 +329,8 @@ fn complete_period_comparisons(
     use super::activities::pooled::period_is_covered;
 
     let current_complete = period_is_covered(conn, p.current_start as i64, p.current_end as i64);
-    let previous_complete = period_is_covered(conn, p.prev_start as i64, p.prev_end as i64);
+    let previous_complete =
+        period_is_covered(conn, p.prev_start as i64, previous_week_end(p, current));
     if !current_complete || !previous_complete {
         // The empty-current-week branch also needs proof of that emptiness.
         return (None, None);
@@ -354,10 +363,18 @@ fn positive(value: Option<f64>) -> Option<f64> {
 
 /// One activity's contribution to the 42-day and 7-day load averages.
 /// The rest-day baseline cancels prior-day decay from each difference.
-fn activity_load_impact(load: Option<f64>) -> Option<crate::FfiActivityFitnessImpact> {
+fn activity_load_impact(
+    load: Option<f64>,
+    sport_type: &str,
+) -> Option<crate::FfiActivityFitnessImpact> {
     let load = load.filter(|value| value.is_finite() && *value >= 0.0)?;
-    let fitness = load / 42.0;
-    let fatigue = load / 7.0;
+    let fitness_load = if sport_type == "WeightTraining" {
+        0.0
+    } else {
+        load
+    };
+    let fitness = fitness_load * (1.0 - (-1.0_f64 / 42.0).exp());
+    let fatigue = load * (1.0 - (-1.0_f64 / 7.0).exp());
     Some(crate::FfiActivityFitnessImpact {
         fitness,
         fatigue,
@@ -365,18 +382,22 @@ fn activity_load_impact(load: Option<f64>) -> Option<crate::FfiActivityFitnessIm
     })
 }
 
-/// The sport settings entry whose `types` holds `sport_type`, from the raw
-/// JSON the sync stored.
+/// The sport settings entry for `sport_type`, or the entry for unlisted sports.
 fn sport_entry(sport_settings: &str, sport_type: &str) -> Option<serde_json::Value> {
     let settings: serde_json::Value = serde_json::from_str(sport_settings).ok()?;
-    settings
-        .as_array()?
+    let entries = settings.as_array()?;
+    entries
         .iter()
         .find(|entry| {
             entry
                 .get("types")
                 .and_then(|t| t.as_array())
                 .is_some_and(|types| types.iter().any(|t| t.as_str() == Some(sport_type)))
+        })
+        .or_else(|| {
+            entries
+                .iter()
+                .find(|entry| entry.get("other").and_then(serde_json::Value::as_bool) == Some(true))
         })
         .cloned()
 }
@@ -387,9 +408,10 @@ const DEFAULT_HR_ZONE_UPPER_FRACTIONS: [f64; 5] = [0.6, 0.7, 0.8, 0.9, 1.0];
 
 /// The heart rate zone, numbered from 1, that `bpm` falls in for `sport_type`.
 ///
-/// The bounds are the `hr_zones` of the sport settings entry holding the type,
-/// each the upper edge of its zone, so zone 1 starts at 0 and a bound belongs
-/// to the zone above it. A sport with no zones in bpm gets
+/// The bounds are the `hr_zones` of the matching sport settings entry, or the
+/// entry marked `other` for an unlisted sport. Each is the upper edge of its
+/// zone, so zone 1 starts at 0 and a bound belongs to the zone above it.
+/// A sport with no zones in bpm gets
 /// [`DEFAULT_HR_ZONE_UPPER_FRACTIONS`] of its `max_hr`, or of
 /// [`DEFAULT_MAX_HR`]. A reading at or above the top bound is the top zone, and
 /// a reading that is not a positive number has none.
@@ -584,7 +606,15 @@ fn activity_hr_zones_from(
             |row| row.get::<_, Vec<u8>>(0),
         )
         .ok()
-        .and_then(|bytes| crate::persistence::codec::deserialize::<Vec<u32>>(&bytes).ok());
+        .and_then(
+            |bytes| match crate::persistence::codec::deserialize::<Vec<u32>>(&bytes) {
+                Ok(times) => Some(times),
+                Err(error) => {
+                    log::error!("time_streams {activity_id}: times read failed: {error}");
+                    None
+                }
+            },
+        );
     activity_hr_zones(
         body.as_deref(),
         sport_settings.as_deref(),
@@ -750,6 +780,22 @@ impl super::PersistentEngine {
             group_id,
             current_activity_id,
             min_group_activities,
+        )
+    }
+
+    /// The route detail reads that answer one sport and one range, in the
+    /// section performance read's shape and by its arithmetic.
+    pub fn route_detail_performance(
+        &self,
+        group_id: &str,
+        time_range_days: u32,
+        sport_filter: Option<&str>,
+    ) -> crate::FfiSectionPerformanceData {
+        pooled::route_detail_performance(
+            self.cold_connection(),
+            group_id,
+            time_range_days,
+            sport_filter,
         )
     }
 
@@ -1114,6 +1160,7 @@ fn climb_bests(
 /// and every figure on the screen is taken over one sport and one cutoff.
 fn section_detail_from<R>(
     sports: &[(String, u32)],
+    section_distance: Option<f64>,
     requested: Option<&str>,
     time_range_days: u32,
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
@@ -1194,8 +1241,10 @@ where
     let best_reverse_is_record =
         shown_best_is_record(&all, performances.best_reverse_record.as_ref(), true);
     let trend_curves = crate::persistence::sections::trend_curve::trend_curves(&chart_data.points);
-    let histograms =
-        crate::persistence::sections::attempt_histogram::section_histograms(&chart_data.points);
+    let histograms = crate::persistence::sections::attempt_histogram::section_histograms(
+        &chart_data.points,
+        section_distance,
+    );
     let days = chart_data.points.iter().filter_map(|p| {
         crate::persistence::sections::correlations::local_day(p.activity_date as i64)
     });
@@ -1262,13 +1311,7 @@ fn shown_best_is_record(
         .iter()
         .flat_map(|r| &r.laps)
         .filter(|lap| (lap.direction == "reverse") == reverse && lap.direction != "partial")
-        .filter(|lap| {
-            crate::persistence::records::covers_enough_for_record(
-                lap.coverage,
-                lap.distance,
-                whole.section_distance,
-            )
-        })
+        .filter(|lap| lap.counts_for_record(whole.section_distance))
         .map(|lap| lap.time);
     let (best, second) = crate::persistence::records::best_two(times);
     best.is_some_and(|best| crate::persistence::records::is_personal_record(best, second))
@@ -1403,6 +1446,73 @@ pub(crate) fn activity_series_tail<T>(
     all
 }
 
+#[derive(Default)]
+struct SectionPrStanding {
+    standing_count: u32,
+    percentile_faster: Option<u32>,
+    previous_best_time: Option<f64>,
+    previous_best_date: Option<f64>,
+    delta_seconds: Option<f64>,
+}
+
+fn counted_pr_laps<'a>(
+    records: &'a [crate::SectionPerformanceRecord],
+    direction: &str,
+    section_distance: f64,
+) -> Vec<(&'a crate::SectionPerformanceRecord, &'a crate::SectionLap)> {
+    records
+        .iter()
+        .flat_map(|activity| activity.laps.iter().map(move |lap| (activity, lap)))
+        .filter(|(_, lap)| {
+            lap.direction == direction
+                && !lap.excluded
+                && lap.time.is_finite()
+                && lap.time > 0.0
+                && crate::persistence::records::covers_enough_for_record(
+                    lap.coverage,
+                    lap.distance,
+                    section_distance,
+                )
+        })
+        .collect()
+}
+
+fn section_pr_standing(
+    records: &[crate::SectionPerformanceRecord],
+    record: &crate::SectionPerformanceRecord,
+    reverse: bool,
+) -> SectionPrStanding {
+    let direction = if reverse { "reverse" } else { "same" };
+    let mut laps = counted_pr_laps(records, direction, record.section_distance);
+    let standing_count = laps.len() as u32;
+    let Some(pr_index) = laps.iter().position(|(activity, lap)| {
+        activity.activity_id == record.activity_id && lap.time == record.best_time
+    }) else {
+        return SectionPrStanding {
+            standing_count,
+            ..Default::default()
+        };
+    };
+    laps.remove(pr_index);
+    let percentile_faster = (standing_count >= 3).then(|| {
+        let slower = laps
+            .iter()
+            .filter(|(_, lap)| lap.time > record.best_time)
+            .count();
+        (slower as f64 * 100.0 / f64::from(standing_count - 1)).round() as u32
+    });
+    let previous = laps
+        .into_iter()
+        .min_by(|(_, a), (_, b)| a.time.total_cmp(&b.time));
+    SectionPrStanding {
+        standing_count,
+        percentile_faster,
+        previous_best_time: previous.map(|(_, lap)| lap.time),
+        previous_best_date: previous.map(|(activity, _)| activity.activity_date as f64),
+        delta_seconds: previous.map(|(_, lap)| lap.time - record.best_time),
+    }
+}
+
 /// Screen reads that need no engine, only its database.
 ///
 /// These take a `Connection` rather than `&PersistentEngine`, which is what
@@ -1416,12 +1526,11 @@ pub(crate) fn activity_series_tail<T>(
 pub mod pooled {
     use rusqlite::Connection;
 
-    /// The days the fitness chart draws, and so the span its eFTP step is
-    /// measured across.
+    /// The days the fitness chart draws; its eFTP step uses the shared comparison window.
     pub const FITNESS_FTP_LOOKBACK_DAYS: i64 = 90;
 
     /// Everything the fitness tab paints with that stays fixed while it is
-    /// mounted: the eFTP trend over the chart's window with the activities
+    /// mounted: the eFTP trend with the chart's history and the activities
     /// that moved it, and the last stored critical speed for running and for
     /// swimming.
     ///
@@ -1433,7 +1542,7 @@ pub mod pooled {
     pub fn fitness_screen_data(conn: &Connection, today: &str) -> crate::FfiFitnessScreenData {
         use crate::persistence::fitness::derivations::pooled as fitness;
         crate::FfiFitnessScreenData {
-            ftp_trend: fitness::ftp_trend_over(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
+            ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
             run_pace_trend: fitness::pace_trend(conn, "Run"),
             swim_pace_trend: fitness::pace_trend(conn, "Swim"),
         }
@@ -1566,8 +1675,10 @@ pub mod pooled {
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::fitness::performances::{laps, pooled};
         let sports = laps::sports(conn, section_id);
+        let section_distance = laps::section_distance(conn, section_id);
         super::section_detail_from(
             &sports,
+            section_distance,
             sport_filter,
             time_range_days,
             |oldest, newest| {
@@ -1809,6 +1920,97 @@ pub mod pooled {
         }
     }
 
+    /// The route detail screen's performance bundle, in the section
+    /// performance read's shape.
+    ///
+    /// Each attempt enters [`super::section_detail_from`] as one lap over the
+    /// whole activity, so the calendar, the chart, the ranged bests, the trend,
+    /// the histogram, the correlations and the sport counts are the section's
+    /// arithmetic. What the route judges for itself travels on the attempt:
+    /// the distance band [`route_performances`] decides and the match. A route
+    /// has no lap curves.
+    ///
+    /// [`route_performances`]: crate::persistence::fitness::performances::route_performances
+    pub fn route_detail_performance(
+        conn: &Connection,
+        group_id: &str,
+        time_range_days: u32,
+        sport_filter: Option<&str>,
+    ) -> crate::FfiSectionPerformanceData {
+        use crate::persistence::activities::pooled as activities;
+        use crate::persistence::fitness::performances::{
+            excluded_route_performances, laps, route_attempts, route_performances,
+        };
+        use crate::persistence::routes::pooled as routes;
+
+        let group = routes::group_by_id(conn, group_id);
+        let activity_ids: Vec<String> = group
+            .as_ref()
+            .map(|g| g.activity_ids.clone())
+            .unwrap_or_default();
+        let excluded = routes::excluded_route_activity_ids(conn, group_id);
+        let match_info = routes::match_info(conn, group_id);
+        // Read once: every sport's included and excluded attempts are taken
+        // from the same members.
+        let metrics: std::collections::HashMap<&str, crate::ActivityMetrics> = activity_ids
+            .iter()
+            .filter_map(|id| activities::metrics_of(conn, id).map(|m| (id.as_str(), m)))
+            .collect();
+        let metrics_of = |id: &str| metrics.get(id).cloned();
+        let route_distance = group
+            .as_ref()
+            .and_then(|g| activities::metrics_of(conn, &g.representative_id))
+            .map_or(0.0, |m| m.distance);
+
+        // Every sport that has taken the route and its attempts that count,
+        // most first, ties by name. A sport with every attempt excluded is
+        // listed at none, so its attempts can still be restored under it.
+        let mut sports: Vec<(String, u32)> = Vec::new();
+        for id in &activity_ids {
+            let Some(m) = metrics.get(id.as_str()) else {
+                continue;
+            };
+            let counts = u32::from(!excluded.contains(id));
+            match sports.iter_mut().find(|(sport, _)| *sport == m.sport_type) {
+                Some((_, outings)) => *outings += counts,
+                None => sports.push((m.sport_type.clone(), counts)),
+            }
+        }
+        sports.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+        super::section_detail_from(
+            &sports,
+            None,
+            sport_filter,
+            time_range_days,
+            |oldest, newest| {
+                crate::persistence::wellness::pooled::wellness_days(conn, oldest, newest)
+                    .unwrap_or_default()
+            },
+            |_| std::sync::Arc::new(None),
+            |sport, rows| {
+                let attempts = match rows {
+                    laps::Rows::Included => route_performances(
+                        &activity_ids,
+                        Some(&match_info),
+                        &excluded,
+                        metrics_of,
+                        None,
+                        sport,
+                    ),
+                    laps::Rows::Excluded => excluded_route_performances(
+                        &activity_ids,
+                        &match_info,
+                        &excluded,
+                        metrics_of,
+                        sport,
+                    ),
+                };
+                std::sync::Arc::new(route_attempts(&attempts, route_distance, rows))
+            },
+        )
+    }
+
     /// Everything the activity detail screen paints with.
     ///
     /// The engine path answers the counts and the sport from the memory tier and
@@ -1879,9 +2081,9 @@ pub mod pooled {
                     .groups
                 })
                 .unwrap_or_default(),
-            fitness_impact: super::activity_load_impact(
-                activities::metrics_of(conn, activity_id).and_then(|metrics| metrics.training_load),
-            ),
+            fitness_impact: activities::metrics_of(conn, activity_id).and_then(|metrics| {
+                super::activity_load_impact(metrics.training_load, &metrics.sport_type)
+            }),
             activity_count: activity_count(conn),
             section_count: sections::section_count(conn),
             route_groups,
@@ -1949,7 +2151,11 @@ pub mod pooled {
         // Period stats (4 queries, all in one engine lock)
         let current_week =
             derivations::period_stats(conn, p.current_start as i64, p.current_end as i64);
-        let previous_week = derivations::period_stats(conn, p.prev_start as i64, p.prev_end as i64);
+        let previous_week = derivations::period_stats(
+            conn,
+            p.prev_start as i64,
+            super::previous_week_end(p, &current_week),
+        );
         let chronic_period =
             derivations::period_stats(conn, p.chronic_start as i64, p.prev_start as i64);
 
@@ -1996,17 +2202,18 @@ pub mod pooled {
             let perf = performances::cached_section_performances(conn, &s.id, Some(sport));
             // The per-direction bests exclude partial and short traversals.
             let best = [
-                perf.best_forward_record.as_ref(),
-                perf.best_reverse_record.as_ref(),
+                (false, perf.best_forward_record.as_ref()),
+                (true, perf.best_reverse_record.as_ref()),
             ]
             .into_iter()
-            .flatten()
-            .filter(|record| crate::persistence::records::is_section_record_pr(&perf, record))
-            .min_by(|a, b| a.best_time.total_cmp(&b.best_time));
-            if let Some(record) = best
+            .filter_map(|(reverse, record)| record.map(|record| (reverse, record)))
+            .filter(|(_, record)| crate::persistence::records::is_section_record_pr(&perf, record))
+            .min_by(|(_, a), (_, b)| a.best_time.total_cmp(&b.best_time));
+            if let Some((reverse, record)) = best
                 && record.activity_date >= recent_since
             {
                 let days_ago = crate::calendar_days_between(record.activity_date, now_ts as i64);
+                let standing = super::section_pr_standing(&perf.records, record, reverse);
                 // One row per (section, sport): a section holds a record in
                 // each sport that travels it, and neither replaces the other.
                 match recent_prs.iter_mut().find(|p: &&mut crate::FfiRecentPR| {
@@ -2019,6 +2226,11 @@ pub mod pooled {
                         held.best_time = record.best_time;
                         held.days_ago = days_ago;
                         held.traversal_count = perf.records.iter().map(|r| r.lap_count).sum();
+                        held.standing_count = standing.standing_count;
+                        held.percentile_faster = standing.percentile_faster;
+                        held.previous_best_time = standing.previous_best_time;
+                        held.previous_best_date = standing.previous_best_date;
+                        held.delta_seconds = standing.delta_seconds;
                         held.best_activity_id = Some(record.activity_id.clone());
                         held.recent_efforts = super::activity_series_tail(
                             perf.records.iter(),
@@ -2043,6 +2255,11 @@ pub mod pooled {
                         // already filtered to the sport the record was set
                         // in, and every record carries its laps.
                         traversal_count: perf.records.iter().map(|r| r.lap_count).sum(),
+                        standing_count: standing.standing_count,
+                        percentile_faster: standing.percentile_faster,
+                        previous_best_time: standing.previous_best_time,
+                        previous_best_date: standing.previous_best_date,
+                        delta_seconds: standing.delta_seconds,
                         // `perf.records` is already computed here, oldest
                         // first, to find the record above. The card draws the
                         // tail of it rather than the sheet reading the whole
@@ -2831,6 +3048,14 @@ mod training_screen_tests;
 mod fitness_screen_tests;
 
 #[cfg(test)]
+#[path = "tests/section_pr_standing.rs"]
+mod section_pr_standing_tests;
+
+#[cfg(test)]
+#[path = "tests/sport_settings_fallback.rs"]
+mod sport_settings_fallback_tests;
+
+#[cfg(test)]
 mod tests {
     use super::hr_change_clears_floor;
 
@@ -2840,7 +3065,7 @@ mod tests {
         DETAIL_SQL.lock().unwrap().push(sql.to_string());
     }
 
-    fn lap_record(age_days: i64, time: f64) -> crate::SectionPerformanceRecord {
+    pub(super) fn lap_record(age_days: i64, time: f64) -> crate::SectionPerformanceRecord {
         let date = chrono::Utc::now().timestamp() - age_days * 86_400;
         crate::SectionPerformanceRecord {
             activity_id: format!("act{age_days}"),
@@ -2859,6 +3084,8 @@ mod tests {
                 avg_power: None,
                 coverage: Some(1.0),
                 excluded: false,
+                outside_distance_band: false,
+                match_percentage: None,
             }],
             lap_count: 1,
             best_time: time,
@@ -2889,6 +3116,7 @@ mod tests {
         let all = std::sync::Arc::new(laps::summarise(1000.0, records));
         let data = super::section_detail_from(
             &[],
+            Some(1000.0),
             None,
             30,
             |_, _| Vec::new(),
@@ -2906,19 +3134,19 @@ mod tests {
 
     #[test]
     fn activity_load_impact_is_marginal_and_additive() {
-        let one = super::activity_load_impact(Some(100.0)).unwrap();
-        assert!((one.fitness - 100.0 / 42.0).abs() < 1e-10);
-        assert!((one.fatigue - 100.0 / 7.0).abs() < 1e-10);
+        let one = super::activity_load_impact(Some(100.0), "Ride").unwrap();
+        assert!((one.fitness - 2.35283).abs() < 1e-5);
+        assert!((one.fatigue - 13.31221).abs() < 1e-5);
         assert!((one.form - (one.fitness - one.fatigue)).abs() < 1e-10);
-        let pair = super::activity_load_impact(Some(200.0)).unwrap();
+        let pair = super::activity_load_impact(Some(200.0), "Ride").unwrap();
         assert!((pair.fitness - 2.0 * one.fitness).abs() < 1e-10);
         assert!((pair.fatigue - 2.0 * one.fatigue).abs() < 1e-10);
         assert!((pair.form - 2.0 * one.form).abs() < 1e-10);
-        let zero = super::activity_load_impact(Some(0.0)).unwrap();
+        let zero = super::activity_load_impact(Some(0.0), "Ride").unwrap();
         assert_eq!((zero.fitness, zero.fatigue, zero.form), (0.0, 0.0, 0.0));
-        let large = super::activity_load_impact(Some(1e300)).unwrap();
+        let large = super::activity_load_impact(Some(1e300), "Ride").unwrap();
         assert!(large.fitness.is_finite() && large.fatigue.is_finite() && large.form.is_finite());
-        assert!(super::activity_load_impact(None).is_none());
+        assert!(super::activity_load_impact(None, "Ride").is_none());
     }
 
     /// Scenario: the floor is a parameter, and the change is rounded to a
@@ -3012,6 +3240,53 @@ mod tests {
         const SETTINGS: &str =
             r#"[{"types":["Ride"],"max_hr":200,"hr_zones":[140,155,170,185,200]}]"#;
         const RIDE: &str = r#"{"type":"Ride"}"#;
+
+        #[test]
+        fn test_activity_hr_zones_from_undecodable_times_logs_and_returns_empty() {
+            crate::test_log::capturing();
+            let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
+            engine
+                .upsert_activity_bodies(&[("garbled-zones".into(), 1_700_000_000, RIDE.into())])
+                .unwrap();
+            engine.set_sport_settings(SETTINGS).unwrap();
+            engine
+                .db
+                .execute_batch(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES ('garbled-zones', 'Ride', 0, 0, 0, 0, 1700000000);
+                     INSERT INTO gps_tracks (activity_id, track_data, point_count)
+                     VALUES ('garbled-zones', x'00', 4);",
+                )
+                .unwrap();
+            engine
+                .store_time_stream("garbled-zones", &[0, 1, 2, 3])
+                .unwrap();
+            engine
+                .store_activity_streams(
+                    "garbled-zones",
+                    &[crate::net::types::StreamDto {
+                        kind: "heartrate".into(),
+                        data: vec![Some(90.0), Some(90.0), Some(150.0), Some(150.0)],
+                        data2: None,
+                    }],
+                )
+                .unwrap();
+
+            assert!(!activity_hr_zones_from(&engine.db, "garbled-zones").is_empty());
+            engine
+                .db
+                .execute(
+                    "UPDATE time_streams SET times = x'ff' WHERE activity_id = 'garbled-zones'",
+                    [],
+                )
+                .unwrap();
+
+            assert!(activity_hr_zones_from(&engine.db, "garbled-zones").is_empty());
+            assert_eq!(
+                crate::test_log::errors_with("time_streams garbled-zones").len(),
+                1
+            );
+        }
 
         fn zones(
             body: &str,
@@ -3414,6 +3689,10 @@ mod tests {
         let bundle = pooled_insights_data(&engine, &params);
         assert_eq!(bundle.recent_prs.len(), 1);
         assert_eq!(bundle.recent_prs[0].best_time, 180.0);
+        assert_eq!(bundle.recent_prs[0].standing_count, 3);
+        assert_eq!(bundle.recent_prs[0].percentile_faster, Some(100));
+        assert_eq!(bundle.recent_prs[0].previous_best_time, Some(200.0));
+        assert_eq!(bundle.recent_prs[0].delta_seconds, Some(20.0));
     }
 
     /// Three Run outings on the fixture section, the newest the fastest and
@@ -3827,6 +4106,32 @@ mod tests {
             assert_eq!(data.week_over_week.is_some(), empty == 2);
             assert_eq!(data.week_against_chronic.is_some(), empty == 0);
         }
+    }
+
+    #[test]
+    fn test_insights_rest_day_compares_the_whole_previous_week() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        let engine = coverage_engine(dir.path().join("insights.db").to_str().unwrap(), Some(0));
+        engine
+            .db
+            .execute(
+                "UPDATE activity_metrics SET training_load = CASE activity_id \
+                 WHEN 'a1' THEN 400 WHEN 'a2' THEN 1600 ELSE training_load END",
+                [],
+            )
+            .expect("period loads");
+        let mut p = coverage_params();
+        p.prev_end = p.prev_start + 3.0 * 3_600.0;
+
+        let data = pooled_insights_data(&engine, &p);
+        let comparison = data.week_against_chronic.expect("rest day comparison");
+        let last_week = data.weekly_totals.last().expect("last week");
+
+        assert_eq!(data.current_week.count, 0);
+        assert_eq!(data.previous_week.total_tss, 400.0);
+        assert_eq!(comparison.ratio, 0.0);
+        assert_eq!(last_week.stats.total_tss, 400.0);
     }
 
     /// Scenario: the insights tab is opened twice with nothing changed between.
@@ -5147,14 +5452,23 @@ mod tests {
         second.training_load = Some(100.0);
         let mut missing = widget_metric("missing", 1_700_000_000, 600);
         missing.training_load = None;
+        let mut strength = widget_metric("strength", 1_700_000_000, 600);
+        strength.sport_type = "WeightTraining".into();
+        strength.training_load = Some(22.0);
         engine
-            .set_activity_metrics(vec![first, second, missing])
+            .set_activity_metrics(vec![first, second, missing, strength])
             .expect("metrics");
         for id in ["first", "second"] {
             let impact = engine.activity_detail_data(id, 1).fitness_impact.unwrap();
-            assert!((impact.fitness - 100.0 / 42.0).abs() < 1e-10);
-            assert!((impact.fatigue - 100.0 / 7.0).abs() < 1e-10);
+            assert!((impact.fitness - 2.35283).abs() < 1e-5);
+            assert!((impact.fatigue - 13.31221).abs() < 1e-5);
         }
+        let impact = engine
+            .activity_detail_data("strength", 1)
+            .fitness_impact
+            .unwrap();
+        assert_eq!(impact.fitness, 0.0);
+        assert!((impact.fatigue - 2.92869).abs() < 1e-5);
         assert!(
             engine
                 .activity_detail_data("missing", 1)

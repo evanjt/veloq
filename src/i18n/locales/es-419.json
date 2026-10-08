@@ -1,4 +1,7 @@
 {
+  "phaseNames": {
+    "loading": "Cargando rutas"
+  },
   "activity": {
     "explanations": {
       "yourForm": "Tu forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Condición física (CTL) menos Fatiga (ATL)."
@@ -231,6 +234,5 @@
     "lastRunSections_other": "{{count}} secciones",
     "lastRunSections_many": "{{count}} de secciones"
   },
-  "systemSurfaces": {
-  }
+  "systemSurfaces": {}
 }

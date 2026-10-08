@@ -22,7 +22,7 @@ fn test_commit_switch_retry_keeps_detect_checkpoint() {
         .query_row("SELECT COUNT(*) FROM evidence_cache", [], |row| row.get(0))
         .expect("count");
     assert_eq!(kept, 1);
-    assert_eq!(engine.cache_folded_ids, folded_ids);
+    assert_eq!(engine.evidence_cache().1, &folded_ids);
 }
 
 struct TimedOutDetect {
@@ -56,7 +56,7 @@ fn assert_timeout_then_retry(
     resumed_ids: &HashSet<String>,
     attempt: usize,
 ) {
-    assert_eq!(&engine.cache_folded_ids, resumed_ids);
+    assert_eq!(engine.evidence_cache().1, resumed_ids);
     let worker = TimedOutDetect {
         checkpoint: RefCell::new(Some(super::super::CacheUpdate {
             cache: super::super::SectionEvidenceCache::new(),
@@ -74,12 +74,12 @@ fn assert_timeout_then_retry(
         worker.cancelled.get(),
         "attempt {attempt} left a worker running"
     );
-    assert_eq!(&engine.cache_folded_ids, resumed_ids);
+    assert_eq!(engine.evidence_cache().1, resumed_ids);
 
     engine.commit_switch().expect("retry switch");
     assert_eq!(
-        engine.cache_folded_ids,
-        folded_ids,
+        engine.evidence_cache().1,
+        &folded_ids,
         "attempt {} did not start with the prior checkpoint's folded ids",
         attempt + 2
     );
@@ -172,7 +172,8 @@ fn test_cutover_detect_killed_before_the_limit_resumes_from_its_checkpoint() {
     let mut engine = super::PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.commit_switch().expect("next launch's switch");
     assert_eq!(
-        engine.cache_folded_ids, folded_ids,
+        engine.evidence_cache().1,
+        &folded_ids,
         "the killed run's checkpoint never reached disk"
     );
 }

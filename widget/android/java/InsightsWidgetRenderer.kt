@@ -43,6 +43,7 @@ object InsightsWidgetRenderer {
       bindRows(context, v, emptyList(), 0, SummarySize.SMALL)
       bindMore(context, v, 0)
       WidgetRenderer.bindUpdatedAt(context, v, R.id.ins_updated, null)
+      WidgetRenderer.bindRefresh(context, v, null)
       return v
     }
 
@@ -56,6 +57,7 @@ object InsightsWidgetRenderer {
     bindRows(context, v, content.rows, widgetId, size)
     bindMore(context, v, content.more)
     WidgetRenderer.bindUpdatedAt(context, v, R.id.ins_updated, snap)
+    WidgetRenderer.bindRefresh(context, v, snap)
     return v
   }
 

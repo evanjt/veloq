@@ -27,7 +27,8 @@ import { ACTIVITY_LINK_ATHLETE_PARAM } from '@/features/insights/lib/pushPayload
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { DETAIL_STREAM_TYPES, streamTypesKey } from '@/features/activity/lib/engineStreams';
 import { ENGINE_ERROR_TAGS } from '@/shared/native/engineError';
-import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
+import { PHASE_DISPLAY_KEYS } from '@/features/routes/lib/detectionProgress';
+import { SUPPORTED_LOCALES } from '@/i18n/types';
 import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
@@ -49,6 +50,15 @@ const ROOT = path.join(__dirname, '../../..');
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const GENERATED = 'modules/veloqrs/src/generated/veloqrs.ts';
 const RUST = 'modules/veloqrs/rust/veloqrs/src';
+
+it('limits native map release to pages with a registered rebuild path', () => {
+  const manager = read('modules/veloqrs/android/src/main/java/com/veloq/VeloqWebViewManager.java');
+  const marker = 'window._veloqReleasableMap';
+  expect(manager).toContain(`${marker} && window.map`);
+  expect(read('src/features/maps/lib/htmlBuilders/map3D.ts')).toContain(`${marker} = true`);
+  expect(read('src/features/maps/lib/htmlBuilders/mapSurface.ts')).toContain(`${marker} = true`);
+  expect(read('src/features/maps/lib/htmlBuilders/snapshotWorker.ts')).not.toContain(marker);
+});
 
 it('uses the Rust launch activity window as the TypeScript default', () => {
   const source = read('modules/veloqrs/rust/veloqrs/src/objects/sync.rs');
@@ -700,11 +710,6 @@ const CONTRACTS: Contract[] = [
     b: { file: 'modules/veloq-widget/ios/VeloqWidgetRefresh.swift', has: '".widget-refresh"' },
   },
   {
-    agree: 'the tracked Info.plist permits the same task identifier',
-    a: { file: 'app.json', has: '$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh' },
-    b: { file: 'ios/VeloqDev/Info.plist', has: '$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh' },
-  },
-  {
     agree: 'the pod registers the subscriber that registers the task before launch finishes',
     a: {
       file: 'modules/veloq-widget/expo-module.config.json',
@@ -869,21 +874,6 @@ const CONTRACTS: Contract[] = [
       file: `${RUST}/objects/engine.rs`,
       has: 'fn set_observer(&self, observer: Arc<dyn crate::objects::observer::EngineObserver>)',
     },
-  },
-
-  // A config plugin's entry that a build without it silently lacks.
-  {
-    agree: 'the checked-in Info.plist carries the portrait mask app.json pins',
-    a: {
-      file: 'ios/VeloqDev/Info.plist',
-      has: /<key>EXDefaultScreenOrientationMask<\/key>\s*<string>UIInterfaceOrientationMaskPortrait<\/string>/,
-    },
-    b: { file: 'app.json', has: '"initialOrientation": "PORTRAIT_UP"' },
-  },
-  {
-    agree: 'the checked-in Info.plist offers no landscape app.json does not ask for',
-    a: { file: 'ios/VeloqDev/Info.plist', lacks: 'UIInterfaceOrientationLandscape' },
-    b: { file: 'app.json', has: '"orientation": "portrait"' },
   },
 ];
 
@@ -1119,10 +1109,36 @@ function announcedPhases(): string[] {
       found.add(m[1]);
     }
   }
+  const detection = read(`${RUST}/persistence/sections/detection.rs`);
+  const cancelled = detection.match(/const PHASE_CANCELLED: &str = "(\w+)"/);
+  if (cancelled && detection.includes('set_phase(PHASE_CANCELLED')) found.add(cancelled[1]);
+  const cutover = read(`${RUST}/persistence/cutover.rs`);
+  const cutoverConstants = new Map(
+    [...cutover.matchAll(/pub const (PHASE_\w+): &str = "(\w+)"/g)].map((match) => [
+      match[1],
+      match[2],
+    ])
+  );
+  for (const match of cutover.matchAll(/clock\.enter\((PHASE_\w+)\)/g)) {
+    const phase = cutoverConstants.get(match[1]);
+    if (phase) found.add(phase);
+  }
   // Refusals, not positions in a run. The screen drops progress on them.
   for (const refusal of ['aborted', 'suspended', 'cutover_owed']) found.delete(refusal);
   return [...found];
 }
+
+it.each(SUPPORTED_LOCALES)('names every engine phase in %s', (locale) => {
+  const bundle = resolvedLocale(locale);
+  for (const phase of announcedPhases()) {
+    const key = PHASE_DISPLAY_KEYS[phase as keyof typeof PHASE_DISPLAY_KEYS];
+    expect(key).toBeDefined();
+    if (key)
+      expect(bundle.phaseNames[key.split('.')[1] as keyof typeof bundle.phaseNames]).toEqual(
+        expect.any(String)
+      );
+  }
+});
 
 /** Every slug `exercise_muscle_groups` can put in a `MuscleActivation`. */
 function muscleSlugsInRust(): string[] {
@@ -1322,7 +1338,7 @@ const SETS: SetContract[] = [
     mode: 'within',
     atLeast: 4,
     a: announcedPhases,
-    b: () => announcedPhases().filter((phase) => getPhaseDisplayName(phase) !== phase),
+    b: () => Object.keys(PHASE_DISPLAY_KEYS),
   },
   {
     agree: 'every muscle slug Rust reports has the name TypeScript shows it under',

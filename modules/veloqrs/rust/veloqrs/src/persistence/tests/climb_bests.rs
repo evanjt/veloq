@@ -120,6 +120,28 @@ fn a_stream_one_point_short_holds_no_rows() {
 }
 
 #[test]
+fn test_measure_undecodable_time_stream_logs_and_returns_empty() {
+    let _serial = crate::test_globals::serial_global_state();
+    crate::test_log::capturing();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_track(&mut engine, "garbled-climb", "Run", track(hill_rep(10.0)));
+    store_stream(&mut engine, "garbled-climb", POINTS);
+    engine
+        .db
+        .execute(
+            "UPDATE time_streams SET times = x'ff' WHERE activity_id = 'garbled-climb'",
+            [],
+        )
+        .unwrap();
+
+    assert!(measure(&engine.db, "garbled-climb").unwrap().is_empty());
+    assert_eq!(
+        crate::test_log::errors_with("time_streams garbled-climb").len(),
+        1
+    );
+}
+
+#[test]
 fn a_track_replaced_under_its_stream_moves_the_rows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();

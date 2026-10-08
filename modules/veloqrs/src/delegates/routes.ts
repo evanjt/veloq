@@ -12,6 +12,7 @@ import type {
   FfiRoutePerformanceResult,
   FfiRoutesScreenData,
   FfiRoutesScreenQuery,
+  FfiSectionPerformanceData,
   GroupSummary,
   LiveRouteOverlap,
 } from '../generated/veloqrs';
@@ -176,6 +177,21 @@ export function setRouteRepresentative(
   }
 }
 
+export function resetRouteRepresentative(host: DelegateHost, routeId: string): boolean {
+  if (!host.ready) return false;
+  validateId(routeId, 'route ID');
+  try {
+    host.timed('resetRouteRepresentative', () =>
+      host.engine.routes().setRepresentative(routeId, undefined)
+    );
+    host.notify('groups');
+    return true;
+  } catch (e) {
+    console.error('[Engine] resetRouteRepresentative failed:', routeId, e);
+    return false;
+  }
+}
+
 export function getActivityRouteHighlights(
   host: DelegateHost,
   activityIds: string[]
@@ -208,4 +224,21 @@ export function getRouteDetailData(
   if (!result) return undefined;
   // The façade hands out plain objects for name maps, matching getAllRouteNames.
   return { ...result, routeNames: Object.fromEntries(result.routeNames) };
+}
+
+/**
+ * The route detail reads that answer one sport and one range, in the section
+ * performance read's shape: chart, calendar, ranged bests, trend, histogram,
+ * correlations, sport counts and excluded attempts.
+ */
+export function getRouteDetailPerformance(
+  host: DelegateHost,
+  groupId: string,
+  timeRangeDays: number,
+  sportFilter?: string
+): FfiSectionPerformanceData | undefined {
+  if (!host.ready || !groupId) return undefined;
+  return host.timed('getRouteDetailPerformance', () =>
+    host.engine.routes().getDetailPerformance(groupId, timeRangeDays, sportFilter)
+  );
 }

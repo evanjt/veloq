@@ -878,7 +878,7 @@ pub(crate) mod pooled {
     /// The whole overlay, or an empty one for a library nobody has named. The
     /// `EXISTS` probe is the engine's own short-circuit: without a named
     /// intent there is nothing to resolve and the catalogue is not read.
-    fn resolved_overlay(conn: &Connection) -> Arc<super::NamedOverlay> {
+    pub(crate) fn resolved_overlay(conn: &Connection) -> Arc<super::NamedOverlay> {
         crate::persistence::read_cache::named_overlay(conn, || {
             let has_named: bool = conn
                 .query_row(

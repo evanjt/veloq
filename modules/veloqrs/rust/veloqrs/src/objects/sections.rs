@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::engine::InFlight;
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::history::pooled as history;
 use crate::persistence::sections::{SectionNameError, named, pooled, queries};
@@ -19,6 +20,75 @@ fn departed_rides(
             date: date as f64,
         })
         .collect()
+}
+
+/// One edit to a section's bounds.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum FfiSectionBoundsEdit {
+    /// Cut the section's own line to `start_index..=end_index`.
+    Trim {
+        section_id: String,
+        start_index: u32,
+        end_index: u32,
+    },
+    /// Put back the line the section had before its first edit.
+    Reset { section_id: String },
+    /// Take `start_index..=end_index` of the activity's track as the line.
+    Expand {
+        section_id: String,
+        activity_id: String,
+        start_index: u32,
+        end_index: u32,
+    },
+}
+
+impl FfiSectionBoundsEdit {
+    /// Run the editor this edit names, returning the activities it took out.
+    fn apply(
+        &self,
+        engine: &mut crate::persistence::PersistentEngine,
+    ) -> Result<Vec<String>, String> {
+        match self {
+            Self::Trim {
+                section_id,
+                start_index,
+                end_index,
+            } => engine.trim_section(section_id, *start_index, *end_index),
+            Self::Reset { section_id } => engine.reset_section_bounds(section_id),
+            Self::Expand {
+                section_id,
+                activity_id,
+                start_index,
+                end_index,
+            } => engine.expand_section_bounds(section_id, activity_id, *start_index, *end_index),
+        }
+    }
+}
+
+/// One section edit at a time. Cleared by the edit itself rather than by the
+/// caller's future, so a caller that stops waiting does not free the slot
+/// while the edit still holds the engine.
+static SECTION_EDIT_IN_FLIGHT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Run `edit` against the library open at `install`, holding `slot` until the
+/// edit ends. A library installed since, by a restore or a wipe, is not
+/// written, and the edit resolves as the closed engine's error.
+async fn bounds_edit_for(
+    install: u64,
+    edit: FfiSectionBoundsEdit,
+    slot: InFlight,
+) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
+    crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
+        let done = edit
+            .apply(e)
+            .map(|departed| departed_rides(e, &departed))
+            .map_err(|msg| VeloqError::Database { msg });
+        drop(slot);
+        done
+    })
+    .await
+    .ok_or(VeloqError::NotInitialized)?
 }
 
 #[derive(uniffi::Object)]
@@ -566,27 +636,6 @@ impl SectionManager {
         })?
     }
 
-    fn trim(
-        &self,
-        section_id: String,
-        start_index: u32,
-        end_index: u32,
-    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        with_engine(|e| {
-            e.trim_section(&section_id, start_index, end_index)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
-    fn reset_bounds(&self, section_id: String) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        with_engine(|e| {
-            e.reset_section_bounds(&section_id)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
     fn get_extension_track(
         &self,
         section_id: String,
@@ -605,18 +654,19 @@ impl SectionManager {
         })?
     }
 
-    fn expand_bounds(
+    /// Trim, reset or expand a section's bounds, resolving with the rides the
+    /// edit took out of it.
+    ///
+    /// `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
+    /// tap may block. The write lock is still taken for the edit's length, so
+    /// what moves off the calling thread is the wait. One edit runs at a time,
+    /// and a second is refused until the edit, not the wait, ends.
+    pub async fn run_section_bounds_edit(
         &self,
-        section_id: String,
-        activity_id: String,
-        start_index: u32,
-        end_index: u32,
+        edit: FfiSectionBoundsEdit,
     ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        with_engine(|e| {
-            e.expand_section_bounds(&section_id, &activity_id, start_index, end_index)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
+        let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
+        bounds_edit_for(crate::persistence::engine_install(), edit, slot).await
     }
 
     fn get_efficiency_trend(
@@ -667,19 +717,25 @@ impl SectionManager {
     }
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
-    /// against existing sections, insert junction rows, regroup incrementally,
-    /// and refresh indicators. Does not create new sections - those wait for
+    /// against existing sections, insert junction rows, and schedule regroup.
+    /// The worker refreshes indicators. New sections wait for
     /// the next full detection run.
     fn index_new_activity(
         &self,
         activity_id: String,
     ) -> Result<crate::FfiIndexActivitySummary, VeloqError> {
-        with_engine(|engine| {
+        let (summary, scheduled) = with_engine(|engine| {
             engine
                 .index_new_activity(&activity_id)
-                .map(crate::FfiIndexActivitySummary::from)
+                .map(|(summary, scheduled)| {
+                    (crate::FfiIndexActivitySummary::from(summary), scheduled)
+                })
         })?
-        .map_err(|e| VeloqError::Database { msg: e })
+        .map_err(|e| VeloqError::Database { msg: e })?;
+        if let Some(scheduled) = scheduled {
+            scheduled.start();
+        }
+        Ok(summary)
     }
 
     /// Force-match a single activity to a specific section with relaxed thresholds.
@@ -1232,3 +1288,7 @@ mod scans_pooled_tests;
 #[cfg(test)]
 #[path = "tests/sections_ledger_pooled.rs"]
 mod ledger_pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/section_bounds_edit.rs"]
+mod bounds_edit_tests;

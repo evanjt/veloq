@@ -18,7 +18,7 @@ import { initialiseI18n, changeLanguage } from '@/i18n';
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('@/features/routes', () => ({ getPhaseDisplayName: (phase: string) => phase }));
+jest.mock('@/features/routes', () => ({ getPhaseDisplayKey: () => null }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 

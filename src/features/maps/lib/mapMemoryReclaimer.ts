@@ -1,4 +1,4 @@
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { registerReclaimer, TRIM_MODERATE } from '@/shared/app/memoryPressure';
 
@@ -15,7 +15,7 @@ export function registerMapSurfaceReclaimer(): () => void {
     name: 'map-surfaces',
     minLevel: TRIM_MODERATE,
     release: () => {
-      if (AppState.currentState === 'active') return;
+      if (AppState.currentState === 'active' || Platform.OS === 'android') return;
       releaseMountedSurfaces();
     },
   });

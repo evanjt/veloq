@@ -5,9 +5,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -59,19 +60,22 @@ function SectionRetiredScreenContent() {
                 {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
               </Text>
               {r.into && (
-                <TouchableOpacity
+                <Pressable
                   testID={`section-retired-${r.sectionId}-into`}
                   onPress={() => tapTo(`/section/${r.into}`)}
                   accessibilityRole="button"
                   accessibilityLabel={t('sectionHistory.retiredInto', {
                     name: names[r.into] ?? r.into,
                   })}
-                  activeOpacity={0.7}
+                  android_ripple={pressRipple}
+                  style={pressable()}
                 >
                   <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
-                    {t('sectionHistory.retiredInto', { name: names[r.into] ?? r.into })}
+                    {t('sectionHistory.retiredInto', {
+                      name: names[r.into] ?? r.into,
+                    })}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           ))
@@ -84,7 +88,11 @@ function SectionRetiredScreenContent() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  content: { padding: layout.screenPadding, paddingBottom: TAB_BAR_SAFE_PADDING, gap: spacing.sm },
+  content: {
+    padding: layout.screenPadding,
+    paddingBottom: TAB_BAR_SAFE_PADDING,
+    gap: spacing.sm,
+  },
   card: {
     padding: layout.cardPadding,
     borderRadius: layout.borderRadius,

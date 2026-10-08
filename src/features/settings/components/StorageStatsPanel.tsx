@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Pressable, View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { tapTo } from '@/shared/app/navigation';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -237,12 +237,12 @@ export function StorageStatsPanel({
     <>
       {/* Cache Stats - inline */}
       <View testID="settings-storage-stats" style={styles.statRow}>
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.activities')}
-          style={styles.statItem}
+          style={pressable(styles.statItem)}
           onPress={() => tapTo('/map')}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>{totalActivities}</Text>
           <Text
@@ -254,15 +254,15 @@ export function StorageStatsPanel({
           >
             {t('settings.activities')} ›
           </Text>
-        </TouchableOpacity>
+        </Pressable>
         <View style={styles.statDivider} />
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.routesCount')}
-          style={styles.statItem}
+          style={pressable(styles.statItem)}
           onPress={() => tapTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {routeMatchingEnabled ? routeGroupCount : '-'}
@@ -277,15 +277,15 @@ export function StorageStatsPanel({
           >
             {t('settings.routesCount')} ›
           </Text>
-        </TouchableOpacity>
+        </Pressable>
         <View style={styles.statDivider} />
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.sectionsCount')}
-          style={styles.statItem}
+          style={pressable(styles.statItem)}
           onPress={() => tapTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>
             {routeMatchingEnabled ? totalSections : '-'}
@@ -300,7 +300,7 @@ export function StorageStatsPanel({
           >
             {t('settings.sectionsCount')} ›
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>

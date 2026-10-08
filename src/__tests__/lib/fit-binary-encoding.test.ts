@@ -142,6 +142,64 @@ function onlyMessage(buffer: ArrayBuffer, globalMesgNum: number): DecodedMessage
 describe('generateFitFile', () => {
   const startTime = new Date('2026-01-15T10:00:00Z');
 
+  it('allocates the FIT body once for a long recording', async () => {
+    const points = 10800;
+    const copy = jest.spyOn(Uint8Array.prototype, 'set');
+    try {
+      await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        laps: [],
+        streams: makeStreams({
+          time: Array.from({ length: points }, (_, i) => i),
+        }),
+      });
+      expect(copy).not.toHaveBeenCalled();
+    } finally {
+      copy.mockRestore();
+    }
+  });
+
+  it('keeps the complete bytes of a paused ride with every stream', async () => {
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime,
+      pausedTimeSeconds: 3,
+      laps: [
+        {
+          index: 0,
+          startTime: 0,
+          endTime: 2,
+          startIndex: 0,
+          endIndex: 1,
+          movingEndTime: 2,
+          distance: 12,
+          avgSpeed: 6,
+          avgHeartrate: 140,
+          avgPower: 210,
+          avgCadence: 80,
+        },
+      ],
+      streams: makeStreams({
+        time: [0, 2, 5],
+        latlng: [
+          [46.5, 6.6],
+          [0, 0],
+          [46.5001, 6.6001],
+        ],
+        altitude: [420, NaN, 421],
+        heartrate: [140, 0, 145],
+        power: [210, 0, 215],
+        cadence: [80, 0, 82],
+        speed: [6, 0, 7],
+        distance: [0, 12, 26],
+      }),
+    });
+    expect(Buffer.from(buffer).toString('hex')).toBe(
+      '0e20b908e30100002e46495472e04000000000060001000102840202840304860404860806070004ff000100a06ecb43a06ecb4356656c6f7100450000170006fd04860202840302840402840001001b060705a06ecb43ff00010004000056656c6f7100460000150003fd048600010001010006a06ecb43000041000014000bfd04860004850104850202844e048603010004010005048606028449048607028401a06ecb43111111214b7eb104f811f81100008c5000000000701770170000d20001a26ecb43ffffff7fffffff7fffffffffffffffffb0040000000000000000ffff01a56ecb43ba151121f482b104fd11fd1100009152280a0000581b581b0000d70006a56ecb430004420000130009fd04860204860704860804860904860d02840f010013028411010002a26ecb43a06ecb43d0070000d0070000b004000070178cd2005002a56ecb43a26ecb43b80b00000000000078050000000091d70052430000120013fd04860204860704860804860904860501000601000e02840f02841001001101001201001301001402841502841602841702841901001a028403a56ecb43a06ecb4388130000d0070000280a00000200c832581b8f915152d500d70001000000000200440000220006fd048600048601028402010003010004010004a56ecb43d00700000100001a019a46'
+    );
+  });
+
   it.each([
     [[NaN, 450, 452], 2],
     [[450, NaN, 452], 2],

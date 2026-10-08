@@ -4,11 +4,12 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, getIntlLocale } from '@/shared/format/format';
 import { colors, controlHeight, darkColors, spacing, typography, layout } from '@/theme';
 import { Button, Card } from '@/shared/ui';
@@ -100,14 +101,14 @@ function Chips({
   return (
     <View style={styles.chips} testID={testID}>
       {shown.map((id) => (
-        <TouchableOpacity
+        <Pressable
           key={id}
           testID={`${testID}-${id}`}
-          style={[styles.chip, isDark && styles.chipDark]}
+          style={pressable([styles.chip, isDark && styles.chipDark])}
           accessibilityRole="button"
           accessibilityLabel={chipLabel(id, names)}
           onPress={() => tapTo(`/activity/${id}`)}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons
             name="map-marker-path"
@@ -117,7 +118,7 @@ function Chips({
           <Text style={[styles.chipText, isDark && styles.textDark]} numberOfLines={1}>
             {chipLabel(id, names)}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       ))}
       {rest > 0 && <Text style={[styles.more, isDark && styles.textDark]}>+{rest}</Text>}
     </View>
@@ -148,7 +149,9 @@ export function SectionHistoryPanel({
       case 'split':
         return t('sectionHistory.kind_split', { count: d.siblings.length });
       case 'reverted':
-        return t('sectionHistory.kind_reverted', { version: d.version ?? e.geometryVersion ?? '' });
+        return t('sectionHistory.kind_reverted', {
+          version: d.version ?? e.geometryVersion ?? '',
+        });
       case 'reference_anchored':
         return t(
           d.moved === false
@@ -172,19 +175,19 @@ export function SectionHistoryPanel({
         />
         <Text style={[styles.title, isDark && styles.textDark]}>{t('sectionHistory.title')}</Text>
         {pinnedVersion != null && (
-          <TouchableOpacity
+          <Pressable
             testID="section-history-unpin"
-            style={[styles.pill, isDark && styles.pillDark]}
+            style={pressable([styles.pill, isDark && styles.pillDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sectionHistory.unpin')}
             onPress={onUnpin}
-            activeOpacity={0.7}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="pin-off" size={12} color={colors.primary} />
             <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
               {t('sectionHistory.unpin')}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 
@@ -208,33 +211,35 @@ export function SectionHistoryPanel({
                   {isCurrent ? ` · ${t('sectionHistory.current')}` : ''}
                   {isPinned ? ` · ${t('sections.pinned')}` : ''}
                 </Text>
-                <TouchableOpacity
+                <Pressable
                   testID={`section-version-${v.version}-show`}
-                  style={[styles.pill, isDark && styles.pillDark]}
+                  style={pressable([styles.pill, isDark && styles.pillDark])}
                   accessibilityRole="button"
                   accessibilityLabel={`${t('sectionHistory.version', { version: v.version })}, ${isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}`}
                   accessibilityState={{ selected: isShown }}
                   onPress={() => onShowVersion(isShown ? null : v.version)}
-                  activeOpacity={0.7}
+                  android_ripple={pressRipple}
                 >
                   <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                     {isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {!isPinned && !isCurrent && (
-                  <TouchableOpacity
+                  <Pressable
                     testID={`section-version-${v.version}-revert`}
-                    style={[styles.pill, isDark && styles.pillDark]}
+                    style={pressable([styles.pill, isDark && styles.pillDark])}
                     accessibilityRole="button"
-                    accessibilityLabel={t('sectionHistory.revertVersion', { version: v.version })}
+                    accessibilityLabel={t('sectionHistory.revertVersion', {
+                      version: v.version,
+                    })}
                     onPress={() => onRevert(v.version)}
-                    activeOpacity={0.7}
+                    android_ripple={pressRipple}
                   >
                     <MaterialCommunityIcons name="undo-variant" size={12} color={colors.primary} />
                     <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                       {t('sectionHistory.revert')}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
             );
@@ -293,7 +298,9 @@ export function SectionHistoryPanel({
                   <Text key={record.sport ?? ''} style={[styles.meta, isDark && styles.textDark]}>
                     {inSport(
                       record.sport,
-                      t('sectionHistory.prEra', { time: formatDuration(record.time) })
+                      t('sectionHistory.prEra', {
+                        time: formatDuration(record.time),
+                      })
                     )}
                   </Text>
                 ))}

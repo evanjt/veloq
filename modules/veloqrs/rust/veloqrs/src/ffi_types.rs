@@ -1180,7 +1180,7 @@ impl From<crate::SectionPerformanceRecord> for FfiSectionPerformanceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiDirectionStats {
-    /// Average time across all traversals in this direction (seconds)
+    /// Average time across counted traversals in this direction (seconds)
     pub avg_time: Option<f64>,
     /// Unix timestamp of most recent traversal in this direction
     pub last_activity: Option<f64>,
@@ -1190,6 +1190,8 @@ pub struct FfiDirectionStats {
     /// Populated for route detail stats so the TS hook no longer has to
     /// re-aggregate. Section performance queries currently leave it as None.
     pub avg_speed: Option<f64>,
+    /// Timed route attempts outside the distance band.
+    pub outside_band_count: u32,
 }
 
 impl From<crate::DirectionStats> for FfiDirectionStats {
@@ -1199,6 +1201,7 @@ impl From<crate::DirectionStats> for FfiDirectionStats {
             last_activity: s.last_activity.map(|v| v as f64),
             count: s.count,
             avg_speed: s.avg_speed,
+            outside_band_count: s.outside_band_count,
         }
     }
 }
@@ -1744,6 +1747,13 @@ pub struct FfiSectionChartPoint {
     /// The lap's stored mean watts. `None` for a lap with no power stream and
     /// for a record without laps, which has no single lap to read it from.
     pub avg_power: Option<f64>,
+    /// A route attempt outside the band around the route's usual distance:
+    /// drawn, but never the record, fitted or binned. Always false on a
+    /// section.
+    pub outside_distance_band: bool,
+    /// How much of the route the attempt matched, 0 to 100. `None` on a
+    /// section, and on a route attempt with no stored match.
+    pub match_percentage: Option<f64>,
 }
 
 /// Bundled chart payload for the section-detail screen. Rust composes
@@ -1757,6 +1767,8 @@ pub struct FfiSectionChartData {
     pub has_reverse_runs: bool,
     /// The quickest lap in the section's own direction.
     pub best_time_secs: Option<f64>,
+    /// The oldest point's date, unix seconds.
+    pub first_activity_date: Option<f64>,
     pub last_activity_date: Option<f64>,
     pub total_activities: u32,
 }
@@ -2190,6 +2202,14 @@ pub struct FfiRecentPR {
     /// way to tell them apart. It counted the section's own traversals until
     /// 2026-09-20, so three runs on a much-ridden climb claimed the rides.
     pub traversal_count: u32,
+    /// Timed, eligible laps in the record's direction.
+    pub standing_count: u32,
+    /// Percent of other counted laps slower than the record, when at least three count.
+    pub percentile_faster: Option<u32>,
+    /// The next fastest counted lap in the record's direction.
+    pub previous_best_time: Option<f64>,
+    pub previous_best_date: Option<f64>,
+    pub delta_seconds: Option<f64>,
     /// The last efforts on the section, oldest first, capped by
     /// `FfiInsightsParams::history_limit`. What the card draws, so the list
     /// does not read the engine again per card to draw a line it already had.
@@ -2304,15 +2324,15 @@ pub struct FfiInsightsData {
 /// Scalar inputs for the insights bundle.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiInsightsParams {
-    /// Start of the current week
+    /// Start of the current week, filled by the engine from current_end
     pub current_start: f64,
-    /// Now
+    /// Current wall-clock second; the engine derives both week windows from it
     pub current_end: f64,
-    /// Start of the previous week
+    /// Start of the previous week, filled by the engine
     pub prev_start: f64,
-    /// End of the previous week
+    /// End of the previous elapsed week, filled by the engine
     pub prev_end: f64,
-    /// Start of the four-week chronic window
+    /// Start of the four-week chronic window, filled by the engine
     pub chronic_start: f64,
     /// Start of today
     pub today_start: f64,
@@ -3110,6 +3130,7 @@ mod tests {
             last_activity: Some(1700000000),
             count: 5,
             avg_speed: Some(4.5),
+            outside_band_count: 1,
         }
     }
 
@@ -3127,6 +3148,8 @@ mod tests {
             avg_power: Some(250.0),
             coverage: Some(1.0),
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         }
     }
 
@@ -3340,12 +3363,14 @@ mod tests {
                 last_activity: Some(1700000000),
                 count: 5,
                 avg_speed: Some(4.5),
+                outside_band_count: 0,
             }),
             reverse_stats: Some(crate::DirectionStats {
                 avg_time: Some(410.0),
                 last_activity: Some(1690000000),
                 count: 2,
                 avg_speed: Some(3.1),
+                outside_band_count: 0,
             }),
         };
 
@@ -3358,6 +3383,7 @@ mod tests {
         assert_eq!(ffi.best_reverse_record.as_ref().unwrap().best_time, 131.0);
         assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
         assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().outside_band_count, 0);
     }
 
     #[test]
@@ -3377,12 +3403,14 @@ mod tests {
                 last_activity: Some(1700000000),
                 count: 5,
                 avg_speed: Some(4.5),
+                outside_band_count: 1,
             }),
             reverse_stats: Some(crate::DirectionStats {
                 avg_time: Some(410.0),
                 last_activity: Some(1690000000),
                 count: 2,
                 avg_speed: Some(3.1),
+                outside_band_count: 2,
             }),
             current_rank: Some(3),
             attempt_count: 2,
@@ -3406,6 +3434,8 @@ mod tests {
         );
         assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
         assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().outside_band_count, 1);
+        assert_eq!(ffi.reverse_stats.as_ref().unwrap().outside_band_count, 2);
         assert_eq!(ffi.current_rank, Some(3));
     }
 
@@ -3751,6 +3781,9 @@ pub struct FfiMuscleVolume {
     pub volume_kg: f64,
     /// Human-readable exercise names that targeted this muscle
     pub exercise_names: Vec<String>,
+    /// Body-diagram shade, 1 (lightest) to `DIAGRAM_SHADES`, against the
+    /// most trained muscle in the same summary
+    pub shade: u8,
 }
 
 /// One opposing pair of muscle groups, and what their volumes say about it.
@@ -3790,6 +3823,9 @@ pub struct FfiStrengthSummary {
     pub total_sets: u32,
     /// One entry per opposing pair, trained or not
     pub balance: Vec<FfiStrengthBalancePair>,
+    /// The most trained muscle's weighted sets, the top of the diagram's
+    /// scale, or zero when nothing was trained
+    pub max_weighted_sets: f64,
 }
 
 /// Inclusive Unix-second range used for batched summary requests.
@@ -4044,7 +4080,7 @@ pub struct FfiSectionMatch {
 pub struct FfiIndexActivitySummary {
     pub matched_sections: u32,
     pub inserted_portions: u32,
-    pub regrouped: bool,
+    pub regroup_scheduled: bool,
 }
 
 impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
@@ -4052,7 +4088,7 @@ impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
         Self {
             matched_sections: s.matched_sections,
             inserted_portions: s.inserted_portions,
-            regrouped: s.regrouped,
+            regroup_scheduled: s.regroup_scheduled,
         }
     }
 }

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
-import { getPhaseDisplayName } from '@/features/routes';
+import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
 import {
   useBackgroundJobs,
@@ -77,13 +77,18 @@ function useDetail(job: BackgroundJob): string {
 
   if (job.state === 'running') {
     if (job.id === 'detection' && job.phase) {
+      const phaseKey = getPhaseDisplayKey(job.phase);
+      const phaseName = phaseKey ? t(phaseKey) : job.phase;
       return job.percent === null
-        ? getPhaseDisplayName(job.phase)
-        : `${getPhaseDisplayName(job.phase)} · ${t('backgroundJobs.progressPercent', {
+        ? phaseName
+        : `${phaseName} · ${t('backgroundJobs.progressPercent', {
             percent: Math.round(job.percent),
           })}`;
     }
-    if (job.id === 'cutover' && job.phase) return getPhaseDisplayName(job.phase);
+    if (job.id === 'cutover' && job.phase) {
+      const phaseKey = getPhaseDisplayKey(job.phase);
+      return phaseKey ? t(phaseKey) : job.phase;
+    }
     if (job.total > 0) {
       return t('backgroundJobs.progressCount', { completed: job.completed, total: job.total });
     }

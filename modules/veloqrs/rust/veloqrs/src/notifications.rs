@@ -545,10 +545,27 @@ pub fn fitness_milestone_pooled(
         });
     }
 
-    let (family, unit) = if crate::sport::is_running(&sport) {
-        ("Run", "s/km")
+    let metric = crate::persistence::settings::setting_from(conn, "veloq-resolved-unit-system")
+        .ok()
+        .flatten()
+        .as_deref()
+        != Some("imperial");
+    let (family, unit, factor) = if crate::sport::is_running(&sport) {
+        if metric {
+            ("Run", "s/km", 1.0)
+        } else {
+            ("Run", "s/mi", 1.0 / crate::widget_snapshot::KM_TO_MI)
+        }
     } else if crate::sport::is_swimming(&sport) {
-        ("Swim", "s/100m")
+        if metric {
+            ("Swim", "s/100m", 1.0)
+        } else {
+            (
+                "Swim",
+                "s/100yd",
+                crate::widget_snapshot::YARDS_100_IN_METRES / 100.0,
+            )
+        }
     } else {
         return None;
     };
@@ -558,7 +575,7 @@ pub fn fitness_milestone_pooled(
     if snapshot < day_start {
         return None;
     }
-    let seconds = trend.delta_seconds?.round() as i64;
+    let seconds = (trend.delta_seconds? * factor).round() as i64;
     let percent = trend.gain_percent?.round() as i64;
     (seconds > 0 && percent > 0).then(|| Highlight::PaceMilestone {
         delta: format!("{seconds}{unit}"),

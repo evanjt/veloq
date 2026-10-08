@@ -15,8 +15,18 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
-    t: (key: string, options?: string | Record<string, unknown>) =>
-      typeof options === 'string' ? options : options ? `${key}:${JSON.stringify(options)}` : key,
+    t: (key: string, options?: string | Record<string, unknown>) => {
+      const recording = require('../../i18n/locales/en-GB.json').recording;
+      if (key === 'recording.duration') return recording.duration;
+      if (key === 'recording.distance') return recording.distance;
+      if (key === 'recording.library.duration') return recording.library.duration;
+      if (key === 'recording.library.distance') return recording.library.distance;
+      return typeof options === 'string'
+        ? options
+        : options
+          ? `${key}:${JSON.stringify(options)}`
+          : key;
+    },
   }),
 }));
 jest.mock('expo-router', () => ({
@@ -31,7 +41,7 @@ jest.mock('expo-sharing', () => ({
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
-  useMetricSystem: () => true,
+  useMetricSystem: () => false,
 }));
 jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
@@ -92,6 +102,22 @@ it('keeps the named upload control busy while the recording uploads', async () =
     true
   );
   expect(screen.getByTestId('recording-upload-button')).toBeTruthy();
+});
+
+it('labels saved recording stats without input units in imperial mode', async () => {
+  (getVisibleRecording as jest.Mock).mockResolvedValue({
+    ...ENTRY,
+    durationSeconds: 1930,
+    distanceMeters: 5149,
+  });
+  render(<RecordingDetailScreen />);
+
+  expect(await screen.findByText('32:10')).toBeTruthy();
+  expect(screen.getByText('3.2 mi')).toBeTruthy();
+  expect(screen.getByText('Duration')).toBeTruthy();
+  expect(screen.getByText('Distance')).toBeTruthy();
+  expect(screen.queryByText('Duration (minutes)')).toBeNull();
+  expect(screen.queryByText('Distance (km)')).toBeNull();
 });
 
 it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (uploadStatus) => {

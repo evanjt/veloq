@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "正在加载路线",
+    "analysing": "正在分析活动",
+    "saving": "正在保存路段",
+    "recomputingIndicators": "正在计算指标",
+    "diffing": "正在比较目录",
+    "complete": "已完成",
+    "cancelled": "已取消",
+    "draining": "正在准备目录",
+    "archiving": "正在归档路段",
+    "detecting": "正在检测路段"
+  },
   "about": {
     "dataAttribution": "数据来源",
     "description": "一款快速、离线优先的 intervals.icu 移动客户端，专注于地图和可视化分析。",
@@ -19,6 +31,7 @@
     "version": "版本"
   },
   "activity": {
+    "terrainRow": "3D 地形",
     "activityStats": "活动统计",
     "calories": "卡路里",
     "chartHint": "长按拖动 • 长按芯片切换坐标轴",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "来自天气数据或您设备传感器的温度。",
       "energy": "根据心率、功率和持续时间估算的能量消耗。",
-      "fitnessImpact": "与休息日相比，本次活动使体能增加训练负荷除以42的数值，使疲劳增加训练负荷除以7的数值。状态影响等于体能影响减去疲劳影响。 两者的时间常数分别为42天和7天。",
+      "fitnessImpact": "与休息日相比，本次活动使体能增加负荷 × (1 − e^(−1/42))，使疲劳增加负荷 × (1 − e^(−1/7))。力量训练只增加疲劳。状态影响等于体能影响减去疲劳影响。",
       "heartRate": "活动期间的平均心率。",
       "newGround": "本次活动经过的地图图块中，此前任何活动都未经过的比例。图块宽度随纬度约为150至300米，因此衡量的是图块覆盖率，而不是新道路上的距离。",
+      "activityEftp": "eFTP 是 intervals.icu 对本次活动的功率模型估算值。",
       "power": "平均功率输出，单位为瓦特。",
       "trainingLoad": "训练压力分数 (TSS) 根据相对于您阈值的持续时间和强度来量化训练负荷。",
       "yourForm": "您这天的状态 (TSB)。这是基于您整体训练的每日值，而非特定于此活动。TSB = 体能 (CTL) 减去疲劳 (ATL)。"
@@ -55,7 +69,7 @@
       "decoupling": "脱耦",
       "deviceSensor": "设备传感器",
       "efficiencyFactor": "效率因子",
-      "eftpEstimated": "估算 eFTP",
+      "eftpEstimated": "本次活动的 eFTP",
       "energy": "能量",
       "fatigueATL": "疲劳 (ATL)",
       "feelsLike": "体感 {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "您的体能 (CTL)",
       "yourForm": "您的状态"
     },
+    "hrZoneTotal": "有心率记录的时间：{{duration}}",
+    "movingTime": "运动时间：{{duration}}",
     "timeInHRZones": "心率区间时间",
     "timeInPowerZones": "功率区间时间",
     "viewDetails": "查看详情",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "个人最佳 {{improvement}}",
     "lineKeyActivity": "本次活动",
     "lineKeyRoute": "匹配路线",
     "failedToLoad": "加载活动失败",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "保持同步",
-      "description": "获取新活动、同步进度以及数据准备就绪时的通知。",
+      "description": "获取新活动、个人最佳和体能里程碑的通知。",
       "enable": "启用",
       "dismiss": "暂不",
       "settingsHint": "您可以随时在设置中启用通知",
@@ -1176,6 +1193,8 @@
     "autoUpload": "自动上传",
     "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",
     "library": {
+      "distance": "距离",
+      "duration": "时长",
       "title": "我的录制",
       "empty": "还没有录制",
       "emptyHint": "保存的录制会保留在此设备上。",
@@ -1250,6 +1269,7 @@
     "tomorrow": "明天"
   },
   "routes": {
+    "timeMethod": "路线用时采用移动时间，不计入停留。",
     "activitiesCount_one": "{{count}} 个活动",
     "activitiesCount_other": "{{count}} 个活动",
     "targetPace": "配速",
@@ -1273,8 +1293,12 @@
     "noMatchingRoutes": "未找到匹配路线",
     "noRoutesYet": "暂无路线",
     "noSectionsMatchFilter": "没有匹配筛选条件的路段",
+    "placeJourney": "{{start}}至{{end}}",
+    "placeLoop": "{{place}}环线",
     "pointCountHint_one": "{{count}}个GPS点",
     "pointCountHint_other": "{{count}}个GPS点",
+    "renameFailedTitle": "无法保存名称",
+    "renameFailedMessage": "未能保存路线名称，请重试。",
     "routeNamePlaceholder": "路线名称",
     "routeWord": "路线",
     "routesWillAppear": "分析完您的活动后，路线将显示在这里",
@@ -1296,7 +1320,9 @@
     "standingBest": "{{total}} 次中最快的一次",
     "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
     "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
-    "largeSectionPerformanceWarning": "较长的路段可能需要更长时间处理。"
+    "largeSectionPerformanceWarning": "较长的路段可能需要更长时间处理。",
+    "resetReference": "重置参考路线",
+    "resetReferenceConfirm": "恢复自动选择参考路线？将重新计算此路线的匹配百分比。"
   },
   "routesScreen": {
     "computingRoutes": "正在计算路线...",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "扩展日期范围"
   },
   "sections": {
+    "timeMethod": "路段用时是经过时间，包含停留。",
     "activitiesCount_one": "{{count}} 个活动",
     "activitiesCount_other": "{{count}} 个活动",
     "avg": "平均",
@@ -1333,6 +1360,9 @@
     "legendReverse": "反向",
     "legendThisActivity": "此活动",
     "legendOutsideBand": "超出路线距离范围",
+    "legendTrend": "高斯平滑趋势",
+    "legendTrendBand": "离散带",
+    "legendTrendMethod": "曲线采用高斯核平滑和局部线性拟合。带状区域显示各次尝试相对拟合线的加权离散程度。",
     "plotScatter": "散点图",
     "plotHistogram": "直方图",
     "histogramBinned": "柱中的尝试次数：{{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "排除 第{{n}}圈"
   },
   "settings": {
+    "terrain3DMode": "3D：{{mode}}",
     "developerDashboard": "开发者面板",
     "account": "账户",
     "activities": "活动",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "路段具有确定性，会随你的骑行记录重新塑形；固定后即可保持稳定。",
       "recutRunning": "正在重新分析你的路段",
       "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
-      "phasePreparing": "正在准备目录",
-      "phaseDetecting": "正在切分新路段",
-      "phaseDiffing": "正在比较两份目录",
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
       "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "打开 Veloq",
+    "refresh": "刷新",
+    "refreshing": "正在刷新",
     "toSeeTraining": "查看您的训练",
     "record": "记录",
     "recordDescription": "开始记录活动。",

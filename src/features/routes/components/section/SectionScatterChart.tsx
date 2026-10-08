@@ -9,9 +9,9 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Pressable, StyleSheet, type ViewStyle, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import {
   ChartCanvas,
@@ -94,6 +94,7 @@ export interface SectionScatterChartProps {
    * then draws no direction toggles of its own.
    */
   selectedDirection?: ChartDirection | undefined;
+  onTrendChange?: ((visible: boolean, direction: ChartDirection) => void) | undefined;
 }
 
 export function SectionScatterChart({
@@ -121,6 +122,7 @@ export function SectionScatterChart({
   useTimeAxis,
   trendCurves,
   selectedDirection: controlledDirection,
+  onTrendChange,
 }: SectionScatterChartProps) {
   const isSwimming = isSwimmingActivity(activityType);
   const showPace = isPaceSport(activityType) || isSwimming;
@@ -216,6 +218,9 @@ export function SectionScatterChart({
       ),
     [trendCurves, allPoints, useTimeAxis, selectedDirection]
   );
+  useEffect(() => {
+    onTrendChange?.(selectedTrend !== null && selectedTrend.length >= 2, selectedDirection);
+  }, [onTrendChange, selectedTrend, selectedDirection]);
 
   // Time axis labels: start, middle, end - include day when months repeat
   const timeAxisLabels = useMemo(() => computeTimeAxisLabels(allPoints), [allPoints]);
@@ -303,23 +308,11 @@ export function SectionScatterChart({
     <View style={[styles.container, isDark && styles.containerDark, containerStyle]}>
       {/* Eye toggle for excluded activities */}
       {!mini && hasExcluded && onToggleShowExcluded && (
-        <View style={styles.eyeToggleRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('sections.showExcludedActivities')}
-            accessibilityState={{ selected: showExcluded }}
-            onPress={onToggleShowExcluded}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={pressable(styles.eyeToggle)}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons
-              name={showExcluded ? 'eye' : 'eye-off'}
-              size={16}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </Pressable>
-        </View>
+        <ExcludedActivitiesToggle
+          isDark={isDark}
+          showExcluded={!!showExcluded}
+          onToggle={onToggleShowExcluded}
+        />
       )}
       {!mini && controlledDirection === undefined && hasForward && hasReverse && (
         <ChipSelector
@@ -602,6 +595,40 @@ export function SectionScatterChart({
           }}
         />
       )}
+    </View>
+  );
+}
+
+interface ExcludedActivitiesToggleProps {
+  isDark: boolean;
+  showExcluded: boolean;
+  onToggle: () => void;
+}
+
+export function ExcludedActivitiesToggle({
+  isDark,
+  showExcluded,
+  onToggle,
+}: ExcludedActivitiesToggleProps) {
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.eyeToggleRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('sections.showExcludedActivities')}
+        accessibilityState={{ selected: showExcluded }}
+        onPress={onToggle}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={pressable(styles.eyeToggle)}
+        android_ripple={pressRipple}
+      >
+        <MaterialCommunityIcons
+          name={showExcluded ? 'eye' : 'eye-off'}
+          size={16}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+      </Pressable>
     </View>
   );
 }

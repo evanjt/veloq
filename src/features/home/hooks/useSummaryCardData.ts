@@ -4,13 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useWellnessGeneration } from '@/features/wellness';
-import {
-  formatForm,
-  getFormZone,
-  formZoneTextColor,
-  SPORT_COLORS,
-  currentAndPreviousWeek,
-} from '@/features/fitness';
+import { formatForm, getFormZone, formZoneTextColor, SPORT_COLORS } from '@/features/fitness';
 import { useDashboardPreferences, type MetricId } from '@/features/settings';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
@@ -21,6 +15,7 @@ import type { WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import {
   trendGlyph,
   trendOfMetric,
@@ -52,6 +47,7 @@ export interface SummaryCardData {
   heroValue: number | string;
   heroLabel: string;
   heroColor: string;
+  heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
 
   // Sparkline (fitness/form dual chart or HRV/RHR chart)
@@ -198,17 +194,9 @@ export function useSummaryCardData(
     if (!cardData) {
       if (awaitPrecomputed) return defaults;
 
-      // Wall-clock stamps, as the feed's bundle asks for: the engine compares
-      // them against `start_date_local` read as UTC.
-      const week = currentAndPreviousWeek(new Date());
-      cardData = readCardData((engine) =>
-        engine.getSummaryCardData(
-          week.weekStartTs,
-          week.weekEndTs,
-          week.prevStartTs,
-          week.prevEndTs
-        )
-      );
+      // The engine resolves matching week windows from this wall-clock stamp.
+      const nowWallSeconds = localWallClockToEpochSeconds(new Date());
+      cardData = readCardData((engine) => engine.getSummaryCardData(nowWallSeconds));
     }
 
     if (!cardData?.currentWeek) return defaults;
@@ -284,13 +272,23 @@ export function useSummaryCardData(
             color: colors.chartPink,
             trend: quickStats.hrvTrend,
           }
-        : {
-            value: quickStats.fitness ?? PLACEHOLDER,
-            label: t('metrics.fitness'),
-            color: colors.fitnessBlue,
-            trend: quickStats.fitnessTrend,
-          },
-    [summaryCard.heroMetric, quickStats, t]
+        : summaryCard.heroMetric === 'form'
+          ? {
+              value:
+                (quickStats.form == null
+                  ? null
+                  : formatForm(quickStats.form, quickStats.fitness, asPercent)) ?? PLACEHOLDER,
+              label: t('metrics.form'),
+              color: formColor,
+              trend: quickStats.formTrend,
+            }
+          : {
+              value: quickStats.fitness ?? PLACEHOLDER,
+              label: t('metrics.fitness'),
+              color: colors.fitnessBlue,
+              trend: quickStats.fitnessTrend,
+            },
+    [summaryCard.heroMetric, quickStats, t, asPercent, formColor]
   );
 
   // Sparklines pulled from Rust (wellness persisted in SQLite via
@@ -474,6 +472,8 @@ export function useSummaryCardData(
       heroValue: stableHeroData.value,
       heroLabel: stableHeroData.label,
       heroColor: stableHeroData.color,
+      heroZone:
+        summaryCard.heroMetric === 'form' && formZone ? t(`formZones.${formZone}`) : undefined,
       heroTrend: stableHeroData.trend,
       fitnessData: stableFitnessData,
       fitnessDelta,
@@ -493,6 +493,8 @@ export function useSummaryCardData(
       profileUrl,
       summaryCard.heroMetric,
       stableHeroData,
+      formZone,
+      t,
       stableFitnessData,
       fitnessDelta,
       stableRiseDays,

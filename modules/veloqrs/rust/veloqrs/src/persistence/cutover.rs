@@ -813,7 +813,7 @@ impl PersistentEngine {
             && stored_default
             && self.section_config == config
         {
-            self.restore_evidence_cache();
+            self.mark_evidence_cache_unrestored();
             return Ok(());
         }
         let to_json = |c: &SectionConfig| {

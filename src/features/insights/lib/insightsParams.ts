@@ -7,8 +7,6 @@
 
 import type { InsightsParams } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes';
-import { currentAndPreviousWeek } from '@/features/fitness';
-import { getMonday } from '@/shared/format/format';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
@@ -58,19 +56,6 @@ function trailingStrengthMonth(): { startTs: number; endTs: number } {
 export function buildInsightsParams(): InsightsParams {
   const now = new Date();
 
-  const { weekStartTs, prevStartTs } = currentAndPreviousWeek(now);
-
-  // Last week up to the same weekday and time as now, so a part-week is
-  // compared with the same part of the previous one.
-  const samePointLastWeek = new Date(now);
-  samePointLastWeek.setDate(samePointLastWeek.getDate() - 7);
-
-  // The four weeks before last week. The engine reads the chronic window as
-  // `chronic_start .. prev_start` and divides by a fixed four, so it starts
-  // four weeks before the previous week and not before the current one.
-  const chronicStart = getMonday(now);
-  chronicStart.setDate(chronicStart.getDate() - 7 - 28);
-
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
@@ -78,11 +63,11 @@ export function buildInsightsParams(): InsightsParams {
 
   return {
     historyLimit: HISTORY_LIMIT,
-    currentStart: weekStartTs,
+    currentStart: 0,
     currentEnd: toTs(now),
-    prevStart: prevStartTs,
-    prevEnd: toTs(samePointLastWeek),
-    chronicStart: toTs(chronicStart),
+    prevStart: 0,
+    prevEnd: 0,
+    chronicStart: 0,
     todayStart: toTs(todayStart),
     includeSections: isRouteMatchingEnabled(),
     rankedLimit: INSIGHTS_CONFIG.limits.rankedPerSport,

@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Caricamento dei percorsi",
+    "analysing": "Analisi delle attività",
+    "saving": "Salvataggio delle sezioni",
+    "recomputingIndicators": "Calcolo degli indicatori",
+    "diffing": "Confronto dei cataloghi",
+    "complete": "Completato",
+    "cancelled": "Annullato",
+    "draining": "Preparazione del catalogo",
+    "archiving": "Archiviazione delle sezioni",
+    "detecting": "Rilevamento delle sezioni"
+  },
   "about": {
     "dataAttribution": "Attribuzione dei dati",
     "description": "Un client mobile veloce e offline-first per intervals.icu con focus su mappe e analisi visiva.",
@@ -19,6 +31,7 @@
     "version": "Versione"
   },
   "activity": {
+    "terrainRow": "Terreno 3D",
     "activityStats": "Statistiche attività",
     "calories": "Calorie",
     "chartHint": "Tieni premuto per scorrere • Tieni premuto il chip per l'asse",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatura dai dati meteo o dal sensore del tuo dispositivo.",
       "energy": "Dispendio energetico stimato da frequenza cardiaca, potenza e durata.",
-      "fitnessImpact": "Rispetto a un giorno di riposo, questa attività aggiunge il carico di allenamento diviso per 42 alla condizione fisica e diviso per 7 alla fatica. L’impatto sulla forma è la condizione fisica meno la fatica. Le costanti di tempo sono rispettivamente di 42 e 7 giorni.",
+      "fitnessImpact": "Rispetto a un giorno di riposo, questa attività aggiunge carico × (1 − e^(−1/42)) alla condizione fisica e carico × (1 − e^(−1/7)) alla fatica. L’allenamento di forza aumenta solo la fatica. L’impatto sulla forma è condizione fisica meno fatica.",
       "heartRate": "Frequenza cardiaca media durante l'attività.",
       "newGround": "La quota delle tessere di mappa toccate da questa attività che nessuna attività precedente aveva toccato. Una tessera misura circa 150-300 m in base alla latitudine: è copertura di tessere, non distanza su strade nuove.",
+      "activityEftp": "L'eFTP è la stima del modello di potenza di intervals.icu per questa attività.",
       "power": "Potenza media erogata in watt.",
       "trainingLoad": "Il Training Stress Score (TSS) quantifica il carico di allenamento in base alla durata e all'intensità relative alla tua soglia.",
       "yourForm": "La tua Forma (TSB) in questo giorno. Questo è un valore giornaliero basato sul tuo allenamento complessivo, non specifico per questa attività. TSB = Forma (CTL) meno Affaticamento (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Disaccoppiamento",
       "deviceSensor": "Sensore dispositivo",
       "efficiencyFactor": "Fattore di efficienza",
-      "eftpEstimated": "eFTP (stimato)",
+      "eftpEstimated": "eFTP di questa attività",
       "energy": "Energia",
       "fatigueATL": "Affaticamento (ATL)",
       "feelsLike": "Percepiti {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "La tua forma (CTL)",
       "yourForm": "La tua forma"
     },
+    "hrZoneTotal": "Tempo con frequenza cardiaca: {{duration}}",
+    "movingTime": "Tempo in movimento: {{duration}}",
     "timeInHRZones": "Tempo nelle zone FC",
     "timeInPowerZones": "Tempo in zone di potenza",
     "viewDetails": "Vedi dettagli",
@@ -108,6 +124,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "RP {{improvement}}",
     "lineKeyActivity": "Questa attività",
     "lineKeyRoute": "Percorso corrispondente",
     "failedToLoad": "Impossibile caricare l'attività",
@@ -1040,7 +1057,7 @@
     },
     "prompt": {
       "title": "Resta aggiornato",
-      "description": "Ricevi notifiche su nuove attività, progressi di sincronizzazione e quando i tuoi dati sono pronti da esplorare.",
+      "description": "Ricevi notifiche su nuove attività, record personali e traguardi di forma.",
       "enable": "Attiva",
       "dismiss": "Non ora",
       "settingsHint": "Puoi attivare le notifiche in qualsiasi momento nelle Impostazioni",
@@ -1194,6 +1211,8 @@
     "autoUpload": "Caricamento automatico",
     "autoUploadDescription": "Carica automaticamente le registrazioni su intervals.icu al salvataggio. Se disattivato, restano su questo dispositivo finché non le carichi da Le mie registrazioni.",
     "library": {
+      "distance": "Distanza",
+      "duration": "Durata",
       "title": "Le mie registrazioni",
       "empty": "Nessuna registrazione",
       "emptyHint": "Le registrazioni salvate restano qui su questo dispositivo.",
@@ -1270,6 +1289,7 @@
     "tomorrow": "DOMANI"
   },
   "routes": {
+    "timeMethod": "I tempi del percorso usano il tempo in movimento, escluse le soste.",
     "activitiesCount_one": "{{count}} attività",
     "activitiesCount_many": "{{count}} di attività",
     "activitiesCount_other": "{{count}} attività",
@@ -1294,9 +1314,13 @@
     "noMatchingRoutes": "Nessun percorso corrispondente trovato",
     "noRoutesYet": "Nessun percorso ancora",
     "noSectionsMatchFilter": "Nessun tratto corrisponde al filtro",
+    "placeJourney": "Da {{start}} a {{end}}",
+    "placeLoop": "Giro di {{place}}",
     "pointCountHint_one": "{{count}} punto GPS",
     "pointCountHint_many": "{{count}} di punti GPS",
     "pointCountHint_other": "{{count}} punti GPS",
+    "renameFailedTitle": "Impossibile salvare il nome",
+    "renameFailedMessage": "Il nome del percorso non è stato salvato. Riprova.",
     "routeNamePlaceholder": "Nome percorso",
     "routeWord": "Percorso",
     "routesWillAppear": "I percorsi appariranno dopo l'analisi delle tue attività",
@@ -1318,7 +1342,9 @@
     "standingBest": "Il tuo più veloce su {{total}}",
     "standingRank": "{{rank}}º su {{total}}, {{gap}} dal tuo migliore",
     "standingRankPercentile": "{{rank}}º su {{total}}, più veloce del {{percent}}% di essi, {{gap}} dal tuo migliore",
-    "largeSectionPerformanceWarning": "Le sezioni grandi possono richiedere più tempo per essere elaborate."
+    "largeSectionPerformanceWarning": "Le sezioni grandi possono richiedere più tempo per essere elaborate.",
+    "resetReference": "Reimposta riferimento",
+    "resetReferenceConfirm": "Tornare alla selezione automatica del riferimento? Le percentuali di corrispondenza di questo percorso verranno ricalcolate."
   },
   "routesScreen": {
     "computingRoutes": "Calcolo percorsi...",
@@ -1326,6 +1352,7 @@
     "expandDateRange": "Espandi intervallo date"
   },
   "sections": {
+    "timeMethod": "I tempi della sezione sono tempi trascorsi, soste incluse.",
     "activitiesCount_one": "{{count}} attività",
     "activitiesCount_many": "{{count}} di attività",
     "activitiesCount_other": "{{count}} attività",
@@ -1356,6 +1383,9 @@
     "legendReverse": "Inverso",
     "legendThisActivity": "Questa attività",
     "legendOutsideBand": "Fuori dalla fascia di distanza del percorso",
+    "legendTrend": "Tendenza gaussiana",
+    "legendTrendBand": "Fascia di dispersione",
+    "legendTrendMethod": "La linea usa una levigatura con kernel gaussiano e adattamento lineare locale. La fascia mostra la dispersione ponderata dei tentativi intorno alla linea adattata.",
     "plotScatter": "Dispersione",
     "plotHistogram": "Istogramma",
     "histogramBinned": "Tentativi nelle barre: {{attempts}}",
@@ -1514,6 +1544,7 @@
     "excludeLapNumber": "Escludi Giro {{n}}"
   },
   "settings": {
+    "terrain3DMode": "Terreno 3D: {{mode}}",
     "developerDashboard": "Pannello sviluppatore",
     "account": "Account",
     "activities": "Attività",
@@ -1984,9 +2015,6 @@
       "sectionsBody": "I tratti sono deterministici e si rimodellano con le tue uscite; bloccane uno per mantenerlo stabile.",
       "recutRunning": "Nuova analisi dei tuoi tratti",
       "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
-      "phasePreparing": "preparazione del catalogo",
-      "phaseDetecting": "taglio dei nuovi tratti",
-      "phaseDiffing": "confronto dei due cataloghi",
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
       "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi.",
@@ -2284,6 +2312,8 @@
   },
   "systemSurfaces": {
     "openApp": "Apri Veloq",
+    "refresh": "Aggiorna",
+    "refreshing": "Aggiornamento in corso",
     "toSeeTraining": "per vedere il tuo allenamento",
     "record": "Registra",
     "recordDescription": "Avvia la registrazione di un'attività.",

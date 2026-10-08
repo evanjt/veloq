@@ -5,21 +5,28 @@
   android:layout_height="match_parent"
   android:orientation="vertical"
   android:gravity="center"
-  android:padding="@dimen/widget_padding"
+  android:padding="@dimen/widget_record_padding"
   android:background="@drawable/widget_record_background">
 
   <ImageView
-    android:layout_width="44dp"
-    android:layout_height="44dp"
+    android:layout_width="@dimen/widget_record_glyph"
+    android:layout_height="@dimen/widget_record_glyph"
     android:src="@drawable/widget_record_roundel"
     android:contentDescription="@null" />
 
   <TextView
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="@dimen/widget_gap"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/widget_record_label_height"
+    android:layout_marginTop="@dimen/widget_record_gap"
     android:text="@string/widget_record"
-    android:textSize="@dimen/widget_text_value"
+    android:textSize="@dimen/widget_record_text_max"
     android:textStyle="bold"
+    android:gravity="center"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:autoSizeTextType="uniform"
+    android:autoSizeMinTextSize="@dimen/widget_record_text_min"
+    android:autoSizeMaxTextSize="@dimen/widget_record_text_max"
+    android:autoSizeStepGranularity="1sp"
     android:textColor="@color/widget_record_foreground" />
 </LinearLayout>

@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
-import { OAUTH } from '@/features/auth';
+import { OAUTH } from '@/features/auth/light';
 import { TIME } from '@/shared/app/time';
 
 const log = debug.create('PushToken');

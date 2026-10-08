@@ -58,6 +58,7 @@ struct QueuedRun {
     abort_requested: bool,
     abort_notify: Arc<tokio::sync::Notify>,
     priority: DownloadPriority,
+    uncapped: bool,
 }
 
 /// The runs that have been started, oldest first. The head holds the slot.
@@ -80,6 +81,18 @@ static DOWNLOAD_QUEUE: std::sync::Mutex<DownloadQueue> = std::sync::Mutex::new(D
     runs: std::collections::VecDeque::new(),
 });
 static DOWNLOAD_SLOT_FREED: std::sync::Condvar = std::sync::Condvar::new();
+static NEXT_DOWNLOAD_RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+pub(crate) fn next_download_run() -> u64 {
+    NEXT_DOWNLOAD_RUN.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Hold an interactive place in the download queue for other network work.
+pub(crate) fn claim_interactive_download() -> DownloadSlotGuard {
+    let run = next_download_run();
+    enqueue_download_with_cap(run, 0, DownloadPriority::Interactive, true);
+    hold_download_slot(run)
+}
 
 fn queue() -> std::sync::MutexGuard<'static, DownloadQueue> {
     DOWNLOAD_QUEUE.lock().unwrap_or_else(|e| e.into_inner())
@@ -102,6 +115,10 @@ impl DownloadQueue {
             .any(|r| r.priority == DownloadPriority::Interactive)
     }
 
+    fn any_uncapped_interactive(&self) -> bool {
+        self.runs.iter().any(|r| r.uncapped)
+    }
+
     /// Whether this bulk run may start: no interactive run wants the network,
     /// no other bulk run is fetching, and it is the oldest bulk run waiting.
     fn bulk_may_start(&self, run: u64) -> bool {
@@ -122,6 +139,10 @@ impl DownloadQueue {
 /// Called on the thread that starts the run, not the one that fetches, so a
 /// caller that has been given a run id is already visible to the poll.
 pub fn enqueue_download(run: u64, total: u32, priority: DownloadPriority) {
+    enqueue_download_with_cap(run, total, priority, false);
+}
+
+fn enqueue_download_with_cap(run: u64, total: u32, priority: DownloadPriority, uncapped: bool) {
     queue().runs.push_back(QueuedRun {
         run,
         total,
@@ -130,6 +151,7 @@ pub fn enqueue_download(run: u64, total: u32, priority: DownloadPriority) {
         abort_requested: false,
         abort_notify: Arc::new(tokio::sync::Notify::new()),
         priority,
+        uncapped,
     });
 }
 
@@ -292,8 +314,8 @@ pub fn run_download_progress(run: u64) -> (u32, u32, bool) {
 
 /// How long a bulk request waits for interactive runs before going anyway.
 ///
-/// An interactive run that wedges must not stop the sync for the session, and
-/// a single track is seconds at worst, so the cap is generous and still finite.
+/// A track request that wedges must not stop the sync for the session. The
+/// first-use claim instead holds bulk until the readiness step exits.
 const INTERACTIVE_YIELD_CAP: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// How often the gate looks again. Short enough that the pause after the
@@ -306,7 +328,9 @@ async fn wait_out_interactive_runs(run: u64) {
         return;
     }
     let until = Instant::now() + INTERACTIVE_YIELD_CAP;
-    while should_yield_to_interactive(run) && Instant::now() < until {
+    while should_yield_to_interactive(run)
+        && (Instant::now() < until || queue().any_uncapped_interactive())
+    {
         tokio::time::sleep(INTERACTIVE_YIELD_POLL).await;
     }
 }

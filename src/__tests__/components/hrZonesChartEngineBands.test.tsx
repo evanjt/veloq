@@ -31,7 +31,9 @@ const bands = [
 ];
 
 it('renders the engine bands and times as given, with no sport settings read', () => {
-  const { getByText, queryByText } = render(<HRZonesChart hrZones={bands} maxHR={200} />);
+  const { getByText, queryByText } = render(
+    <HRZonesChart hrZones={bands} maxHR={200} movingTime={120} />
+  );
 
   expect(getByText('Z1')).toBeTruthy();
   expect(getByText('75%')).toBeTruthy();
@@ -44,6 +46,19 @@ it('renders the engine bands and times as given, with no sport settings read', (
 });
 
 it('shows the placeholder when the engine has no zone time', () => {
-  const { getByText } = render(<HRZonesChart hrZones={[]} maxHR={200} />);
+  const { getByText } = render(<HRZonesChart hrZones={[]} maxHR={200} movingTime={120} />);
   expect(getByText('activity.noHeartRateData')).toBeTruthy();
+});
+
+it('shows zone time with heart rate beside a different moving time', () => {
+  const differingBands = [
+    { ...bands[0], seconds: 3000 },
+    { ...bands[1], seconds: 985 },
+  ];
+  const { getByText } = render(
+    <HRZonesChart hrZones={differingBands} maxHR={200} movingTime={4090} />
+  );
+
+  expect(getByText('activity.hrZoneTotal:{"duration":"1:06:25"}')).toBeTruthy();
+  expect(getByText('activity.movingTime:{"duration":"1:08:10"}')).toBeTruthy();
 });

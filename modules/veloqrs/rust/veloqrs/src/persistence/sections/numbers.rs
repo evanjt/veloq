@@ -8,6 +8,11 @@
 //! section with no name of its own is shown as the current language's section
 //! word and its number, composed when it is read.
 //!
+//! While geocoding is on, a section the geocoder named shows that name in
+//! place of its numbered label. The numbering trigger is also what queues a
+//! section for that name, since it fires exactly once for every section id
+//! the engine has not seen before.
+//!
 //! A split child with no name of its own whose parent shows a typed name is
 //! shown as that name and its part along the parent's line instead,
 //! "Col de la Croix / 2", nesting through further splits. That name is
@@ -19,6 +24,9 @@ use std::sync::Arc;
 
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
+use super::super::geocoded_names::{
+    NamedKind, queue_new_section_sql, shown_geocoded_name, shown_geocoded_names,
+};
 use super::super::get_section_word;
 
 /// The section word of every shipped language, and the one an earlier build
@@ -54,14 +62,23 @@ const LABEL_SPORT_WORDS: [&str; 7] = [
 /// away, dissolved or deleted, so a number is never reissued to other ground.
 /// A row whose id already holds one, re-inserted by a detection apply or a
 /// replace, keeps it.
-const NUMBER_TRIGGER: &str = "
+///
+/// A row numbered here is one the engine has not seen before, so it is also
+/// queued for a geocoded name when it has no name and geocoding is on.
+fn number_trigger() -> String {
+    format!(
+        "
 CREATE TRIGGER sections_number_ai AFTER INSERT ON sections
 WHEN NOT EXISTS (SELECT 1 FROM section_numbers WHERE section_id = NEW.id)
 BEGIN
     INSERT INTO section_numbers (section_id, number) VALUES (NEW.id, (
         SELECT COALESCE(MAX(number), 0) + 1 FROM section_numbers
     ));
-END;";
+    {}
+END;",
+        queue_new_section_sql()
+    )
+}
 
 /// The label a section with no name of its own is shown under.
 pub(crate) fn numbered_label(section_word: &str, number: u32) -> String {
@@ -86,21 +103,25 @@ pub(crate) fn label_number(name: &str, section_word: &str) -> Option<u32> {
     (word == section_word || SHIPPED_SECTION_WORDS.contains(&word)).then_some(number)
 }
 
-/// The label of every section with no name of its own, in the current section
-/// word, keyed by section.
+/// The label of every section with no name of its own, keyed by section: its
+/// geocoded name while geocoding is on, else its number in the current
+/// section word.
 pub(crate) fn unnamed_labels(conn: &Connection) -> BTreeMap<String, String> {
     let section_word = get_section_word();
-    let read = || -> SqlResult<BTreeMap<String, String>> {
+    let mut geocoded = shown_geocoded_names(conn, NamedKind::Section);
+    let mut read = || -> SqlResult<BTreeMap<String, String>> {
         let mut stmt = conn.prepare_cached(
             "SELECT n.section_id, n.number FROM section_numbers n
              JOIN sections s ON s.id = n.section_id
              WHERE s.name IS NULL",
         )?;
         stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                numbered_label(&section_word, row.get(1)?),
-            ))
+            let id = row.get::<_, String>(0)?;
+            let number: u32 = row.get(1)?;
+            let label = geocoded
+                .remove(&id)
+                .unwrap_or_else(|| numbered_label(&section_word, number));
+            Ok((id, label))
         })?
         .collect()
     };
@@ -113,6 +134,7 @@ pub(crate) fn unnamed_labels(conn: &Connection) -> BTreeMap<String, String> {
 /// `unnamed_labels` for `ids` alone, in chunks that fit a statement.
 pub(crate) fn unnamed_labels_for(conn: &Connection, ids: &[&str]) -> BTreeMap<String, String> {
     let section_word = get_section_word();
+    let mut geocoded = shown_geocoded_names(conn, NamedKind::Section);
     let mut labels = BTreeMap::new();
     for chunk in ids.chunks(500) {
         let marks = vec!["?"; chunk.len()].join(",");
@@ -129,10 +151,12 @@ pub(crate) fn unnamed_labels_for(conn: &Connection, ids: &[&str]) -> BTreeMap<St
                 .collect()
         };
         match read() {
-            Ok(rows) => labels.extend(
-                rows.into_iter()
-                    .map(|(id, number)| (id, numbered_label(&section_word, number))),
-            ),
+            Ok(rows) => labels.extend(rows.into_iter().map(|(id, number)| {
+                let label = geocoded
+                    .remove(&id)
+                    .unwrap_or_else(|| numbered_label(&section_word, number));
+                (id, label)
+            })),
             Err(error) => log::warn!("veloqrs: [sections] numbered labels: {error}"),
         }
     }
@@ -140,7 +164,8 @@ pub(crate) fn unnamed_labels_for(conn: &Connection, ids: &[&str]) -> BTreeMap<St
 }
 
 /// The label `section_id` is shown under when it has no name of its own: its
-/// split name when it has one, its numbered label otherwise. `overlay` holds
+/// split name when it has one, its geocoded name while geocoding is on, its
+/// numbered label otherwise. `overlay` holds
 /// the corridor name of each auto section, which a parent shows over its row.
 pub(crate) fn unnamed_label(
     conn: &Connection,
@@ -175,7 +200,10 @@ fn numbered_unnamed_label(conn: &Connection, section_id: &str) -> Option<String>
         log::warn!("veloqrs: [sections] numbered label for {section_id}: {error}");
         None
     })
-    .map(|number| numbered_label(&get_section_word(), number))
+    .map(|number| {
+        shown_geocoded_name(conn, NamedKind::Section, section_id)
+            .unwrap_or_else(|| numbered_label(&get_section_word(), number))
+    })
 }
 
 /// Replace the numbered label of every unnamed split child in `labels` whose
@@ -266,6 +294,14 @@ fn typed_name(
         .filter(|name| label_number(name, section_word).is_none())
 }
 
+/// Whether `section_id` shows a name the athlete gave it: a corridor name
+/// resolved onto its ground, or a name on its row that is not a numbered
+/// handle. A section that does is never named by the geocoder.
+pub(crate) fn has_own_name(conn: &Connection, section_id: &str) -> bool {
+    let overlay = super::named::pooled::resolved_overlay(conn);
+    typed_name(conn, section_id, &overlay.by_section, &get_section_word()).is_some()
+}
+
 /// Each live split child's parent and part, keyed by child.
 pub(crate) type SplitLineage = HashMap<String, (String, u32)>;
 
@@ -317,7 +353,7 @@ pub(crate) fn ensure_section_numbers(
     release_minted_labels: bool,
 ) -> SqlResult<()> {
     conn.execute_batch("DROP TRIGGER IF EXISTS sections_number_ai;")?;
-    conn.execute_batch(NUMBER_TRIGGER)?;
+    conn.execute_batch(&number_trigger())?;
     let tx = conn.unchecked_transaction()?;
     let section_word = get_section_word();
     let rows: Vec<(String, bool, Option<String>, bool)> = {
@@ -406,7 +442,3 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/split_names.rs"]
 mod split_name_tests;
-
-#[cfg(test)]
-#[path = "tests/visible_count.rs"]
-mod visible_count_tests;

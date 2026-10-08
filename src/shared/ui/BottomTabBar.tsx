@@ -4,7 +4,7 @@
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { StyleSheet, Pressable, View, Text } from 'react-native';
 
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +20,7 @@ import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { SyncProgressStrip } from './SyncProgressStrip';
+import { pressable, pressRipple } from './pressFeedback';
 
 const log = debug.create('BottomTabBar');
 
@@ -146,11 +147,11 @@ function BottomTabBarComponent() {
             const label = t(`navigation.${item.key}`);
 
             return (
-              <TouchableOpacity
+              <Pressable
                 key={item.key}
-                style={styles.tabItem}
+                style={pressable(styles.tabItem)}
+                android_ripple={pressRipple}
                 onPress={() => handlePress(item.route)}
-                activeOpacity={0.6}
                 accessibilityLabel={label}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: isActive }}
@@ -173,7 +174,7 @@ function BottomTabBarComponent() {
                 >
                   {label}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>

@@ -19,6 +19,7 @@ import { settingsStyles } from './settingsStyles';
 
 const HERO_LABEL_KEYS = {
   fitness: 'metrics.fitness',
+  form: 'metrics.form',
   hrv: 'metrics.hrv',
 } as const satisfies Record<HeroMetricId, string>;
 
@@ -60,6 +61,7 @@ export function SummaryCardSection() {
             heroValue={summaryCardData.heroValue}
             heroLabel={summaryCardData.heroLabel}
             heroColor={summaryCardData.heroColor}
+            heroZone={summaryCardData.heroZone}
             heroTrend={summaryCardData.heroTrend}
             fitnessData={summaryCardData.fitnessData}
             fitnessDelta={summaryCardData.fitnessDelta}

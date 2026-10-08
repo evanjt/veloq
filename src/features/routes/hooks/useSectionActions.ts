@@ -77,7 +77,7 @@ export interface UseSectionActionsResult {
   rescanRefusal: StartVerdict | null;
 
   // --- actions ---
-  /** Commit the rename through the engine. A blank name is ignored. */
+  /** Commit the rename through the engine. A blank name clears it. */
   handleSaveName: (name: string) => void;
   /** Delete a custom section (prompts for confirmation). */
   handleDeleteSection: () => void;
@@ -165,7 +165,7 @@ export function useSectionActions({
   const handleSaveName = useCallback(
     (name: string) => {
       const trimmedName = name.trim();
-      if (!trimmedName || !id) {
+      if (!id) {
         return;
       }
 
@@ -173,11 +173,12 @@ export function useSectionActions({
 
       // Update local state immediately for instant feedback
       const previousName = customName ?? section?.name ?? null;
-      setCustomName(trimmedName);
+      const nextName = trimmedName || null;
+      setCustomName(nextName);
 
       // Fire rename in background - don't await, cache invalidation happens async
       renameSection(id, trimmedName).catch((error: unknown) => {
-        setCustomName((current) => (current === trimmedName ? previousName : current));
+        setCustomName((current) => (current === nextName ? previousName : current));
         Alert.alert(t('sections.renameFailedTitle'), t(renameFailureMessageKey(error)));
         if (__DEV__) console.error('Failed to save section name:', error);
       });

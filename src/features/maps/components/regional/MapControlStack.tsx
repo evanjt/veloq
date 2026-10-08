@@ -4,9 +4,10 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { View, Pressable, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { colors, darkColors, spacing, shadows, layout, colorWithOpacity, ink } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 
@@ -27,20 +28,20 @@ function LayerToggleButton({
   accessibilityLabel: string;
 }) {
   return (
-    <TouchableOpacity
+    <Pressable
       testID={testID}
-      style={[styles.layerToggleItem, active && styles.controlButtonActive]}
+      style={pressable([styles.layerToggleItem, active && styles.controlButtonActive])}
       onPress={onPress}
-      activeOpacity={0.8}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      android_ripple={pressRipple}
     >
       <MaterialCommunityIcons
         name={icon}
         size={18}
         color={active ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary}
       />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -152,20 +153,20 @@ export function MapControlStack({
   return (
     <View style={[styles.controlStack, { top }]}>
       {/* 3D Toggle - only active when activity with route is selected */}
-      <TouchableOpacity
+      <Pressable
         testID="map-toggle-3d"
-        style={[
+        style={pressable([
           styles.controlButton,
           isDark && styles.controlButtonDark,
           show3D && styles.controlButtonActive,
           !can3D && styles.controlButtonDisabled,
-        ]}
+        ])}
         onPress={can3D ? onToggle3D : undefined}
-        activeOpacity={can3D ? 0.8 : 1}
         disabled={!can3D}
         accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
         accessibilityRole="button"
         accessibilityState={{ disabled: !can3D }}
+        android_ripple={pressRipple}
       >
         <MaterialCommunityIcons
           name="terrain"
@@ -182,16 +183,16 @@ export function MapControlStack({
                   : colors.textDisabled
           }
         />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* North Arrow - tap to reset orientation */}
-      <TouchableOpacity
+      <Pressable
         testID="map-compass"
-        style={[styles.controlButton, isDark && styles.controlButtonDark]}
+        style={pressable([styles.controlButton, isDark && styles.controlButtonDark])}
         onPress={onResetOrientation}
-        activeOpacity={0.8}
         accessibilityLabel={t('maps.resetOrientation')}
         accessibilityRole="button"
+        android_ripple={pressRipple}
       >
         <CompassArrow
           size={22}
@@ -199,26 +200,26 @@ export function MapControlStack({
           northColor={colors.error}
           southColor={isDark ? colors.textOnDark : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Combined location + fit-all button
           Shows both icons stacked: location on top, fit-all on bottom
           Tap top half = go to location, tap bottom half = fit all */}
       <View style={styles.dualButtonContainer}>
         {/* Top: Location */}
-        <TouchableOpacity
+        <Pressable
           testID="map-location"
-          style={[
+          style={pressable([
             styles.dualButtonHalf,
             isDark && styles.controlButtonDark,
             userLocationActive && styles.controlButtonActive,
             styles.dualButtonTop,
-          ]}
+          ])}
           onPress={locationLoading ? undefined : onGetLocation}
-          activeOpacity={locationLoading ? 1 : 0.8}
           disabled={locationLoading}
           accessibilityLabel={t('maps.goToLocation')}
           accessibilityRole="button"
+          android_ripple={pressRipple}
         >
           {locationLoading ? (
             <ActivityIndicator
@@ -238,29 +239,29 @@ export function MapControlStack({
               }
             />
           )}
-        </TouchableOpacity>
+        </Pressable>
         {/* Divider line */}
         <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
         {/* Bottom: Fit All */}
         {activityCount > 0 && (
-          <TouchableOpacity
+          <Pressable
             testID="map-fit-all"
-            style={[
+            style={pressable([
               styles.dualButtonHalf,
               isDark && styles.controlButtonDark,
               styles.dualButtonBottom,
-            ]}
+            ])}
             onPress={onFitAll}
-            activeOpacity={0.8}
             accessibilityLabel={t('maps.fitAll')}
             accessibilityRole="button"
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name="fit-to-screen-outline"
               size={18}
               color={isDark ? colors.textOnDark : colors.textSecondary}
             />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 

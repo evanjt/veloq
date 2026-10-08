@@ -8,17 +8,16 @@ const { withEntitlementsPlist } = require("expo/config-plugins");
  * only new iOS capability the widget needs - no user-facing permission, no runtime
  * prompt. Automatic signing (Xcode / EAS) registers the group at build time.
  *
- * The id is FIXED (`group.com.veloq.app`), mirroring `with-icloud.js` which pins
- * `iCloud.com.veloq.app` for every variant. App Groups are shared containers keyed
+ * The id is FIXED (`group.com.veloq.app`) for every variant. App Groups are shared containers keyed
  * by group id, not by bundle id, so dev (`com.veloq.app.dev`) and production
  * (`com.veloq.app`) share one container, `routes.db` included. The two identities are
  * not installed side by side on one iPhone, and the move into the group sets aside
  * rather than overwrites a library it finds there. One group id means one
  * capability to register on the Apple Developer portal and one path the widget reads.
  *
- * The widget extension target must declare the SAME group in its own entitlements.
- * Because the native dirs are checked in (no prebuild), this is also mirrored by hand
- * into `ios/VeloqDev/VeloqDev.entitlements` and `ios/VeloqWidget/VeloqWidget.entitlements`.
+ * The widget and push extension targets declare the SAME group in their own
+ * entitlements, tracked beside their sources in `widget/ios/VeloqWidget/` and
+ * `push/ios/VeloqPushExtension/` and copied into the generated project by their plugins.
  */
 
 const APP_GROUP = "group.com.veloq.app";

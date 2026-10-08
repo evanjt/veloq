@@ -187,6 +187,10 @@ function referenceLocale(): Record<string, unknown> {
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((match) => match[1]);
+}
+
 test('reference locale exists', () => {
   expect(loadLocale(REFERENCE_LOCALE)).not.toBeNull();
 });
@@ -235,6 +239,29 @@ describe('Translation Completeness', () => {
     expect(blank).toEqual([]);
   });
 
+  test.each(availableLocales)('%s uses only reference placeholders', (locale) => {
+    const reference = referenceLocale();
+    const data = loadLocale(locale) as Record<string, unknown>;
+    const referenceKeys = getAllKeys(reference);
+    const unexpected: string[] = [];
+    for (const key of getAllKeys(data)) {
+      const value = getValueAtPath(data, key);
+      if (typeof value !== 'string') continue;
+      const base = key.replace(PLURAL_SUFFIX, '');
+      const matchingKeys = referenceKeys.includes(key)
+        ? [key]
+        : referenceKeys.filter((candidate) => candidate.replace(PLURAL_SUFFIX, '') === base);
+      const referenceValues = matchingKeys
+        .map((candidate) => getValueAtPath(reference, candidate))
+        .filter((candidate): candidate is string => typeof candidate === 'string');
+      const expected = new Set(referenceValues.flatMap(placeholders));
+      for (const name of placeholders(value)) {
+        if (!expected.has(name)) unexpected.push(`${key}: ${name}`);
+      }
+    }
+    expect(unexpected).toEqual([]);
+  });
+
   // i18next falls back to the English bundle when the locale lacks the form a count selects.
   test.each(availableLocales)('%s has every plural form its counts select', (locale) => {
     const keys = getAllKeys(loadLocale(locale) as Record<string, unknown>);
@@ -264,6 +291,21 @@ describe('Translation Completeness', () => {
       const accepted: Record<string, string> =
         acceptedIdenticalValues[locale as keyof typeof acceptedIdenticalValues] ?? {};
       expect(copied.filter((key) => !accepted[key]?.trim())).toEqual([]);
+    }
+  );
+
+  test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
+    '%s accepts only live leaves identical to en-US',
+    (locale) => {
+      const reference = loadLocale('en-US') as Record<string, unknown>;
+      const localeData = loadLocale(locale) as Record<string, unknown>;
+      const accepted: Record<string, string> =
+        acceptedIdenticalValues[locale as keyof typeof acceptedIdenticalValues] ?? {};
+      const stale = Object.keys(accepted).filter((key) => {
+        const value = getValueAtPath(localeData, key);
+        return typeof value !== 'string' || value !== getValueAtPath(reference, key);
+      });
+      expect(stale).toEqual([]);
     }
   );
 });

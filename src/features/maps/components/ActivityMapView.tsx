@@ -6,6 +6,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import { View, Modal, StatusBar, Animated, ActivityIndicator, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from 'expo-router';
 
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { LatLng } from '@/shared/geo/polyline';
@@ -202,6 +203,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   const [is3DReady, setIs3DReady] = useState(false);
   const [terrainUnavailable, setTerrainUnavailable] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
+  // A screen covered by another keeps its WebViews but releases their maps,
+  // which hold the GL context and every tile texture in it.
+  const screenFocused = useIsFocused();
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   // Track the latest 3D camera state for capture on exit
@@ -494,8 +498,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   // The card that was just tapped was drawn from a JPEG of this activity, in
   // this style and this camera, and it is already on disk. The surface behind
   // it takes 1.4 s on ground it has seen and up to 4.3 s on ground it has not
-  // (HANDSET_A, debug Android build with production JavaScript, so a release build
-  // reads faster), and it used to spend all of that dark. The image
+  // (HANDSET_A, debug Android build with production JavaScript), and it used to
+  // spend all of that dark. The image
   // is the feed's aspect, so covering the hero may crop it, which is worth it
   // for the seconds it stands.
   const posterUri = useMemo(() => {
@@ -815,6 +819,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 layers={layers}
                 images={OVERLAY_IMAGES}
                 interactiveLayers={SECTION_MARKER_LAYER_IDS}
+                released={!screenFocused}
                 onMapReady={handleMapReady}
                 onMapFailed={handleMapFailed}
                 onPress={handleSurfacePress}
@@ -859,6 +864,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 sectionMarkersGeoJSON={
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
+                released={!screenFocused}
                 onMapReady={handleMap3DReady}
                 onMapReloading={handleMap3DReloading}
                 onMapFailed={handleMap3DFailed}

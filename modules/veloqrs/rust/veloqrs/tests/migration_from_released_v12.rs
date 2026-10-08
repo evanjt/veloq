@@ -431,6 +431,12 @@ fn a_released_v12_database_upgrades_to_the_same_schema_as_a_fresh_install() {
             "column set diverged on {table}"
         );
     }
+    assert!(
+        columns_of(&upgraded, "evidence_cache")
+            .iter()
+            .any(|column| column == "dirty_clusters"),
+        "the upgraded cache row must carry checkpoint debt"
+    );
 }
 
 /// The internal key is ours and the intervals.icu id is metadata beside it.

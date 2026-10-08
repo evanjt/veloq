@@ -52,10 +52,10 @@ const IMPACT_MAX_AGE_DAYS: f64 = 2.0;
 const TEXT_NONE: &str = "-";
 
 const SECONDS_PER_DAY: i64 = 86_400;
-const KM_TO_MI: f64 = 0.621371;
+pub(crate) const KM_TO_MI: f64 = 0.621371;
 const KG_TO_LB: f64 = 2.20462;
 const M_TO_FT: f64 = 3.28084;
-const YARDS_100_IN_METRES: f64 = 91.44;
+pub(crate) const YARDS_100_IN_METRES: f64 = 91.44;
 const MAX_PACE_SECONDS: f64 = 100.0 * 3600.0;
 const MAX_DURATION_SECONDS: f64 = 1e9;
 
@@ -451,6 +451,9 @@ pub struct Display {
     pub week_label: String,
     /// The record control's spoken name, since its glyph carries no text.
     pub record_label: String,
+    /// The widget refresh control's spoken labels in the athlete's language.
+    pub refresh_label: String,
+    pub refreshing_label: String,
     pub per_week_suffix: String,
     pub form_zone: String,
     pub impact_line: Option<String>,
@@ -1083,6 +1086,8 @@ fn display(ctx: &WidgetContext, impact: Option<&Impact>, zone: Option<&'static s
         },
         week_label: translate(ctx, "metrics.week").to_string(),
         record_label: translate(ctx, "recording.startActivity").to_string(),
+        refresh_label: translate(ctx, "systemSurfaces.refresh").to_string(),
+        refreshing_label: translate(ctx, "systemSurfaces.refreshing").to_string(),
         per_week_suffix: translate(ctx, "fitnessScreen.perWeek").to_string(),
         form_zone: zone.map_or(String::new(), |z| {
             translate(ctx, &format!("formZones.{z}")).to_string()
@@ -1664,7 +1669,7 @@ pub fn route_outline(gps: &[FfiGpsPoint], max_points: usize) -> Option<RouteOutl
 // Reading and writing
 // ============================================================================
 
-/// Monday of this week to now, and the whole week before it, in the wall-clock
+/// Monday of this week to now, and the same elapsed part of the week before, in the wall-clock
 /// seconds an activity's date is recorded in.
 pub fn week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64) {
     let day = now_wall_seconds.div_euclid(SECONDS_PER_DAY);
@@ -1675,7 +1680,7 @@ pub fn week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64) {
         current_start,
         now_wall_seconds,
         current_start - 7 * SECONDS_PER_DAY,
-        current_start - 1,
+        now_wall_seconds - 7 * SECONDS_PER_DAY,
     )
 }
 

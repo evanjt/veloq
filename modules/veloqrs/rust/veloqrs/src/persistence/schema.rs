@@ -11,7 +11,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 65;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 68;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -158,6 +158,11 @@ impl PersistentEngine {
     /// M64: each activity's z17 tiles and how many no earlier activity touched.
     /// M65: whether the census says an activity carries a series beyond its
     /// track, so a trackless one can join the stream backfill.
+    /// M66: the routes screen's counts by section kind and group size, replacing
+    /// the single visible section count.
+    /// M67: the name the geocoder gave each route and section that appeared
+    /// while geocoding was on, apart from the names the athlete typed.
+    /// M68: checkpoint debt beside the evidence blob, readable without decoding it.
     /// M54: the cutover archive tables dropped, their rows carried into the
     /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
@@ -238,6 +243,9 @@ impl PersistentEngine {
             include_str!("../migrations/063_geocoded_places.sql"),
             include_str!("../migrations/064_activity_new_ground.sql"),
             include_str!("../migrations/065_activity_census_has_series.sql"),
+            include_str!("../migrations/066_route_list_counts.sql"),
+            include_str!("../migrations/067_geocoded_names.sql"),
+            include_str!("../migrations/068_evidence_debt.sql"),
         ]
     }
 
@@ -495,7 +503,7 @@ impl PersistentEngine {
         // Below 47 the rows carry the labels a build before numbers minted.
         sections::numbers::ensure_section_numbers(conn, current_version < 47)?;
         Self::ensure_section_rank_triggers(conn)?;
-        Self::ensure_section_visible_count(conn)?;
+        Self::ensure_route_list_counts(conn)?;
 
         // Migration 042 rebuilds the heatmap for files that run it. A file
         // whose migrations are already complete but whose app record lags
@@ -1256,44 +1264,94 @@ END;"#,
         )
     }
 
-    /// The stored visible section count, its triggers and the index that lists
-    /// the sections with no name of their own.
+    /// The routes screen's stored counts and their triggers, the indexes its
+    /// lists page through, and the index that lists the sections with no name
+    /// of their own.
     ///
     /// Made on every open, like the ranking triggers, because a rebuild of
-    /// `sections` drops the triggers and the index and copies its rows without
-    /// firing them. The count is reseeded here for the same reason. A writer
-    /// that replaces a section row would skip the delete trigger, so sections
-    /// are written by insert, upsert or update only.
-    fn ensure_section_visible_count(conn: &Connection) -> SqlResult<()> {
-        conn.execute_batch(
+    /// `sections` drops the triggers and the indexes and copies its rows
+    /// without firing them. The counts are reseeded here for the same reason.
+    /// A writer that replaces a row would skip the delete trigger, so sections
+    /// and groups are written by insert, upsert or update only.
+    ///
+    /// Each order index leads with the removed flag, because a removed section
+    /// follows every shown one, and ends with the id, which breaks ties. A
+    /// group's ties keep the order the groups were written in, which is the
+    /// rowid every index ends with.
+    fn ensure_route_list_counts(conn: &Connection) -> SqlResult<()> {
+        use sections::queries::pooled::{SECTION_REMOVED, SECTION_USER_DEFINED};
+        conn.execute_batch(&format!(
             r#"CREATE INDEX IF NOT EXISTS idx_sections_unnamed ON sections(id) WHERE name IS NULL;
 
-CREATE TRIGGER IF NOT EXISTS section_visible_count_ai
-AFTER INSERT ON sections WHEN NEW.disabled = 0 AND NEW.superseded_by IS NULL BEGIN
-    INSERT INTO section_visible_count (id, n) VALUES (1, 1)
-    ON CONFLICT(id) DO UPDATE SET n = n + 1;
+CREATE INDEX IF NOT EXISTS idx_sections_list_visits
+    ON sections({SECTION_REMOVED}, visit_count DESC, id);
+CREATE INDEX IF NOT EXISTS idx_sections_list_distance
+    ON sections({SECTION_REMOVED}, distance_meters DESC, id);
+CREATE INDEX IF NOT EXISTS idx_sections_list_signature
+    ON sections({SECTION_REMOVED}, COALESCE(rank_score, -1.0) DESC, id);
+CREATE INDEX IF NOT EXISTS idx_route_groups_activity_count
+    ON route_groups(activity_count DESC);
+
+CREATE TRIGGER IF NOT EXISTS section_list_counts_ai AFTER INSERT ON sections BEGIN
+    INSERT INTO section_list_counts (section_type, user_defined, removed, n)
+    VALUES (NEW.section_type, COALESCE(NEW.is_user_defined, 0) != 0,
+            NEW.disabled != 0 OR NEW.superseded_by IS NOT NULL, 1)
+    ON CONFLICT(section_type, user_defined, removed) DO UPDATE SET n = n + 1;
 END;
 
-CREATE TRIGGER IF NOT EXISTS section_visible_count_ad
-AFTER DELETE ON sections WHEN OLD.disabled = 0 AND OLD.superseded_by IS NULL BEGIN
-    INSERT INTO section_visible_count (id, n) VALUES (1, -1)
-    ON CONFLICT(id) DO UPDATE SET n = n - 1;
+CREATE TRIGGER IF NOT EXISTS section_list_counts_ad AFTER DELETE ON sections BEGIN
+    INSERT INTO section_list_counts (section_type, user_defined, removed, n)
+    VALUES (OLD.section_type, COALESCE(OLD.is_user_defined, 0) != 0,
+            OLD.disabled != 0 OR OLD.superseded_by IS NOT NULL, -1)
+    ON CONFLICT(section_type, user_defined, removed) DO UPDATE SET n = n - 1;
 END;
 
-CREATE TRIGGER IF NOT EXISTS section_visible_count_au
-AFTER UPDATE OF disabled, superseded_by ON sections BEGIN
-    INSERT INTO section_visible_count (id, n) VALUES (1,
-        (NEW.disabled = 0 AND NEW.superseded_by IS NULL)
-        - (OLD.disabled = 0 AND OLD.superseded_by IS NULL))
-    ON CONFLICT(id) DO UPDATE SET n = n
-        + (NEW.disabled = 0 AND NEW.superseded_by IS NULL)
-        - (OLD.disabled = 0 AND OLD.superseded_by IS NULL);
+CREATE TRIGGER IF NOT EXISTS section_list_counts_au
+AFTER UPDATE OF section_type, is_user_defined, disabled, superseded_by ON sections BEGIN
+    INSERT INTO section_list_counts (section_type, user_defined, removed, n)
+    VALUES (OLD.section_type, COALESCE(OLD.is_user_defined, 0) != 0,
+            OLD.disabled != 0 OR OLD.superseded_by IS NOT NULL, -1)
+    ON CONFLICT(section_type, user_defined, removed) DO UPDATE SET n = n - 1;
+    INSERT INTO section_list_counts (section_type, user_defined, removed, n)
+    VALUES (NEW.section_type, COALESCE(NEW.is_user_defined, 0) != 0,
+            NEW.disabled != 0 OR NEW.superseded_by IS NOT NULL, 1)
+    ON CONFLICT(section_type, user_defined, removed) DO UPDATE SET n = n + 1;
 END;
 
-INSERT INTO section_visible_count (id, n)
-SELECT 1, COUNT(*) FROM sections WHERE disabled = 0 AND superseded_by IS NULL
-ON CONFLICT(id) DO UPDATE SET n = excluded.n;"#,
-        )
+CREATE TRIGGER IF NOT EXISTS route_group_sizes_ai
+AFTER INSERT ON route_groups WHEN NEW.activity_count IS NOT NULL BEGIN
+    INSERT INTO route_group_sizes (activity_count, n) VALUES (NEW.activity_count, 1)
+    ON CONFLICT(activity_count) DO UPDATE SET n = n + 1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS route_group_sizes_ad
+AFTER DELETE ON route_groups WHEN OLD.activity_count IS NOT NULL BEGIN
+    INSERT INTO route_group_sizes (activity_count, n) VALUES (OLD.activity_count, -1)
+    ON CONFLICT(activity_count) DO UPDATE SET n = n - 1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS route_group_sizes_au_old
+AFTER UPDATE OF activity_count ON route_groups WHEN OLD.activity_count IS NOT NULL BEGIN
+    INSERT INTO route_group_sizes (activity_count, n) VALUES (OLD.activity_count, -1)
+    ON CONFLICT(activity_count) DO UPDATE SET n = n - 1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS route_group_sizes_au_new
+AFTER UPDATE OF activity_count ON route_groups WHEN NEW.activity_count IS NOT NULL BEGIN
+    INSERT INTO route_group_sizes (activity_count, n) VALUES (NEW.activity_count, 1)
+    ON CONFLICT(activity_count) DO UPDATE SET n = n + 1;
+END;
+
+DELETE FROM section_list_counts;
+INSERT INTO section_list_counts (section_type, user_defined, removed, n)
+SELECT section_type, {SECTION_USER_DEFINED}, {SECTION_REMOVED}, COUNT(*)
+FROM sections GROUP BY 1, 2, 3;
+
+DELETE FROM route_group_sizes;
+INSERT INTO route_group_sizes (activity_count, n)
+SELECT activity_count, COUNT(*) FROM route_groups
+WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
+        ))
     }
 
     /// Re-mint every clock-minted section id as a content id and re-key

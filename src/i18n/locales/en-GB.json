@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Loading tracks",
+    "analysing": "Analysing activities",
+    "saving": "Saving sections",
+    "recomputingIndicators": "Computing indicators",
+    "diffing": "Comparing catalogues",
+    "complete": "Complete",
+    "cancelled": "Cancelled",
+    "draining": "Preparing catalogue",
+    "archiving": "Archiving sections",
+    "detecting": "Detecting sections"
+  },
   "about": {
     "dataAttribution": "Data Attribution",
     "description": "A fast mobile client for intervals.icu with a focus on maps and visual analytics.",
@@ -19,6 +31,7 @@
     "version": "Version"
   },
   "activity": {
+    "terrainRow": "3D Terrain",
     "activityStats": "Activity Stats",
     "calories": "Calories",
     "chartHint": "Hold to scrub • Hold chip for axis",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperature from weather data or your device sensor.",
       "energy": "Estimated energy expenditure from heart rate, power, and duration.",
-      "fitnessImpact": "Compared with a rest day, this activity adds training load divided by 42 to fitness and by 7 to fatigue. Its form impact is fitness minus fatigue. These use time constants of 42 and 7 days, respectively.",
+      "fitnessImpact": "Compared with a rest day, this activity adds load × (1 − e^(−1/42)) to fitness and load × (1 − e^(−1/7)) to fatigue. Strength training adds fatigue only. Form impact is fitness minus fatigue.",
       "heartRate": "Average heart rate during the activity.",
       "newGround": "The share of the map tiles this activity touched that no earlier activity had touched. Tiles are about 150 to 300 m across, depending on latitude, so this is tile coverage and not distance on new roads.",
+      "activityEftp": "The eFTP is intervals.icu's power model estimate for this activity.",
       "power": "Average power output in watts.",
       "trainingLoad": "Training Stress Score (TSS) quantifies training load based on duration and intensity relative to your threshold.",
       "yourForm": "Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Decoupling",
       "deviceSensor": "Device sensor",
       "efficiencyFactor": "Efficiency Factor",
-      "eftpEstimated": "eFTP (estimated)",
+      "eftpEstimated": "This activity's eFTP",
       "energy": "Energy",
       "fatigueATL": "Fatigue (ATL)",
       "feelsLike": "Feels {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Your Fitness (CTL)",
       "yourForm": "Your Form"
     },
+    "hrZoneTotal": "Time with heart rate: {{duration}}",
+    "movingTime": "Moving time: {{duration}}",
     "timeInHRZones": "Time in HR Zones",
     "timeInPowerZones": "Time in Power Zones",
     "viewDetails": "View Details",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "PR {{improvement}}",
     "lineKeyActivity": "This activity",
     "lineKeyRoute": "Matched route",
     "failedToLoad": "Failed to load activity",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "Stay in the loop",
-      "description": "Get notified about new activities, sync progress, and when your data is ready to explore.",
+      "description": "Get notified about new activities, personal bests and fitness milestones.",
       "enable": "Enable",
       "dismiss": "Not now",
       "settingsHint": "You can enable notifications anytime in Settings",
@@ -1176,6 +1193,8 @@
     "autoUpload": "Auto-upload",
     "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.",
     "library": {
+      "distance": "Distance",
+      "duration": "Duration",
       "title": "My Recordings",
       "empty": "No recordings yet",
       "emptyHint": "Recordings you save are kept here on this device.",
@@ -1250,6 +1269,7 @@
     "tomorrow": "TOMORROW"
   },
   "routes": {
+    "timeMethod": "Route times use moving time, excluding stops.",
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
     "targetPace": "Pace",
@@ -1273,10 +1293,16 @@
     "noMatchingRoutes": "No matching routes found",
     "noRoutesYet": "No routes yet",
     "noSectionsMatchFilter": "No sections match filter",
+    "placeJourney": "{{start}} to {{end}}",
+    "placeLoop": "{{place}} Loop",
     "pointCountHint_one": "{{count}} GPS point",
     "pointCountHint_other": "{{count}} GPS points",
+    "renameFailedTitle": "Name could not be saved",
+    "renameFailedMessage": "The route name was not saved. Please try again.",
     "routeNamePlaceholder": "Route name",
     "routeWord": "Route",
+    "resetReference": "Reset Reference",
+    "resetReferenceConfirm": "Reset to automatic reference selection? Match percentages will be recalculated for this route.",
     "routesWillAppear": "Routes will appear after your activities are analysed",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will appear here",
     "sectionCreationFailed": "Failed to create section. Please try again.",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "Expand date range"
   },
   "sections": {
+    "timeMethod": "Section times are elapsed time, including stops.",
     "acceptSection": "Accept",
     "acceptAllSections": "Accept All",
     "acceptAllConfirm_one": "Accept all {{count}} auto-detected section? It will be preserved during future re-detection.",
@@ -1342,6 +1369,9 @@
     "legendReverse": "Reverse",
     "legendThisActivity": "This activity",
     "legendOutsideBand": "Outside the route distance band",
+    "legendTrend": "Gaussian trend",
+    "legendTrendBand": "Spread band",
+    "legendTrendMethod": "The line uses Gaussian kernel smoothing with a local linear fit. The band shows the weighted spread of attempts around the fitted line.",
     "plotScatter": "Scatter",
     "plotHistogram": "Histogram",
     "histogramBinned": "Attempts in the bars: {{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "Exclude Lap {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D: {{mode}}",
     "developerDashboard": "Developer Dashboard",
     "account": "Account",
     "activities": "Activities",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "Sections are deterministic and reshape as your runs add up; pin one to hold it stable.",
       "recutRunning": "Re-analysing your sections",
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
-      "phasePreparing": "preparing the catalogue",
-      "phaseDetecting": "cutting new sections",
-      "phaseDiffing": "comparing the two catalogues",
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
       "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged.",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "Open Veloq",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing",
     "toSeeTraining": "to see your training",
     "record": "Record",
     "recordDescription": "Start recording an activity.",

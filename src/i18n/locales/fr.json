@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Chargement des parcours",
+    "analysing": "Analyse des activités",
+    "saving": "Enregistrement des sections",
+    "recomputingIndicators": "Calcul des indicateurs",
+    "diffing": "Comparaison des catalogues",
+    "complete": "Terminé",
+    "cancelled": "Annulé",
+    "draining": "Préparation du catalogue",
+    "archiving": "Archivage des sections",
+    "detecting": "Détection des sections"
+  },
   "about": {
     "dataAttribution": "Attribution des données",
     "description": "Une application mobile rapide pour intervals.icu axée sur les cartes et les analyses visuelles.",
@@ -19,6 +31,7 @@
     "version": "Version"
   },
   "activity": {
+    "terrainRow": "Terrain 3D",
     "activityStats": "Statistiques d'activité",
     "calories": "Calories",
     "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Température des données météo ou du capteur de votre appareil.",
       "energy": "Dépense énergétique estimée à partir de la fréquence cardiaque, de la puissance et de la durée.",
-      "fitnessImpact": "Par rapport à un jour de repos, cette activité ajoute la charge d’entraînement divisée par 42 à la condition physique et divisée par 7 à la fatigue. L’impact sur la forme est la condition physique moins la fatigue. Les constantes de temps sont respectivement de 42 et 7 jours.",
+      "fitnessImpact": "Par rapport à un jour de repos, cette activité ajoute charge × (1 − e^(−1/42)) à la condition physique et charge × (1 − e^(−1/7)) à la fatigue. La musculation augmente seulement la fatigue. L’impact sur la forme est la condition physique moins la fatigue.",
       "heartRate": "Fréquence cardiaque moyenne pendant l'activité.",
       "newGround": "La part des tuiles de carte parcourues par cette activité qu'aucune activité antérieure n'avait parcourues. Une tuile mesure entre 150 et 300 m selon la latitude : il s'agit d'une couverture de tuiles, pas d'une distance sur des routes nouvelles.",
+      "activityEftp": "L'eFTP est l'estimation du modèle de puissance d'intervals.icu pour cette activité.",
       "power": "Puissance moyenne en watts.",
       "trainingLoad": "Training Stress Score (TSS) quantifie la charge d'entraînement basée sur la durée et l'intensité relative à votre seuil.",
       "yourForm": "Votre Forme (TSB) ce jour-là. C'est une valeur quotidienne basée sur votre entraînement global, pas spécifique à cette activité. TSB = Forme (CTL) moins Fatigue (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Découplage",
       "deviceSensor": "Capteur de l'appareil",
       "efficiencyFactor": "Facteur d'efficacité",
-      "eftpEstimated": "eFTP (estimé)",
+      "eftpEstimated": "eFTP de cette activité",
       "energy": "Énergie",
       "fatigueATL": "Fatigue (ATL)",
       "feelsLike": "Ressenti {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Votre forme (CTL)",
       "yourForm": "Votre forme"
     },
+    "hrZoneTotal": "Temps avec fréquence cardiaque : {{duration}}",
+    "movingTime": "Temps en mouvement : {{duration}}",
     "timeInHRZones": "Temps dans les zones FC",
     "timeInPowerZones": "Temps en zones de puissance",
     "viewDetails": "Voir les détails",
@@ -108,6 +124,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "RP {{improvement}}",
     "lineKeyActivity": "Cette activité",
     "lineKeyRoute": "Parcours associé",
     "failedToLoad": "Échec du chargement de l'activité",
@@ -1040,7 +1057,7 @@
     },
     "prompt": {
       "title": "Restez informé",
-      "description": "Recevez des notifications pour les nouvelles activités, la progression de la synchronisation et quand vos données sont prêtes à explorer.",
+      "description": "Recevez des notifications pour les nouvelles activités, les records personnels et les étapes de forme.",
       "enable": "Activer",
       "dismiss": "Pas maintenant",
       "settingsHint": "Vous pouvez activer les notifications à tout moment dans les Réglages",
@@ -1194,6 +1211,8 @@
     "autoUpload": "Téléversement automatique",
     "autoUploadDescription": "Téléverser automatiquement les enregistrements vers intervals.icu lors de la sauvegarde. Sinon, ils restent sur cet appareil jusqu'au téléversement depuis Mes enregistrements.",
     "library": {
+      "distance": "Distance",
+      "duration": "Durée",
       "title": "Mes enregistrements",
       "empty": "Aucun enregistrement",
       "emptyHint": "Les enregistrements sauvegardés restent ici sur cet appareil.",
@@ -1270,6 +1289,7 @@
     "tomorrow": "DEMAIN"
   },
   "routes": {
+    "timeMethod": "Les temps de parcours utilisent le temps en mouvement, sans les arrêts.",
     "activitiesCount_one": "{{count}} activité",
     "activitiesCount_many": "{{count}} d'activités",
     "activitiesCount_other": "{{count}} activités",
@@ -1294,9 +1314,13 @@
     "noMatchingRoutes": "Aucun parcours correspondant trouvé",
     "noRoutesYet": "Pas encore de parcours",
     "noSectionsMatchFilter": "Aucune section ne correspond au filtre",
+    "placeJourney": "{{start}} - {{end}}",
+    "placeLoop": "Boucle de {{place}}",
     "pointCountHint_one": "{{count}} point GPS",
     "pointCountHint_many": "{{count}} de points GPS",
     "pointCountHint_other": "{{count}} points GPS",
+    "renameFailedTitle": "Impossible d’enregistrer le nom",
+    "renameFailedMessage": "Le nom de l’itinéraire n’a pas été enregistré. Réessayez.",
     "routeNamePlaceholder": "Nom du parcours",
     "routeWord": "Itinéraire",
     "routesWillAppear": "Les parcours apparaîtront après l'analyse de vos activités",
@@ -1318,7 +1342,9 @@
     "standingBest": "Ton plus rapide sur {{total}}",
     "standingRank": "{{rank}}e sur {{total}}, {{gap}} de ton meilleur",
     "standingRankPercentile": "{{rank}}e sur {{total}}, plus rapide que {{percent}} % d'entre eux, {{gap}} de ton meilleur",
-    "largeSectionPerformanceWarning": "Les grandes sections peuvent prendre plus de temps à traiter."
+    "largeSectionPerformanceWarning": "Les grandes sections peuvent prendre plus de temps à traiter.",
+    "resetReference": "Réinitialiser la référence",
+    "resetReferenceConfirm": "Revenir à la sélection automatique de la référence ? Les pourcentages de correspondance de ce parcours seront recalculés."
   },
   "routesScreen": {
     "computingRoutes": "Calcul des parcours...",
@@ -1326,6 +1352,7 @@
     "expandDateRange": "Étendre la plage de dates"
   },
   "sections": {
+    "timeMethod": "Les temps de section sont des temps écoulés, arrêts compris.",
     "activitiesCount_one": "{{count}} activité",
     "activitiesCount_many": "{{count}} d'activités",
     "activitiesCount_other": "{{count}} activités",
@@ -1356,6 +1383,9 @@
     "legendReverse": "Inverse",
     "legendThisActivity": "Cette activité",
     "legendOutsideBand": "Hors de la plage de distance du parcours",
+    "legendTrend": "Tendance gaussienne",
+    "legendTrendBand": "Bande de dispersion",
+    "legendTrendMethod": "La ligne utilise un lissage par noyau gaussien avec un ajustement linéaire local. La bande montre la dispersion pondérée des tentatives autour de la ligne ajustée.",
     "plotScatter": "Nuage de points",
     "plotHistogram": "Histogramme",
     "histogramBinned": "Tentatives dans les barres : {{attempts}}",
@@ -1514,6 +1544,7 @@
     "excludeLapNumber": "Exclure Tour {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D : {{mode}}",
     "developerDashboard": "Tableau de bord développeur",
     "account": "Compte",
     "activities": "Activités",
@@ -1984,9 +2015,6 @@
       "sectionsBody": "Les tronçons sont déterministes et se remodèlent avec tes sorties ; épingle-en un pour le garder stable.",
       "recutRunning": "Nouvelle analyse de tes tronçons",
       "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
-      "phasePreparing": "préparation du catalogue",
-      "phaseDetecting": "découpe des nouveaux tronçons",
-      "phaseDiffing": "comparaison des deux catalogues",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
       "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse.",
@@ -2284,6 +2312,8 @@
   },
   "systemSurfaces": {
     "openApp": "Ouvrez Veloq",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation en cours",
     "toSeeTraining": "pour voir votre entraînement",
     "record": "Enregistrer",
     "recordDescription": "Lancer l'enregistrement d'une activité.",

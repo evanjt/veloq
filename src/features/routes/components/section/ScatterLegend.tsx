@@ -5,18 +5,21 @@
  * detail, and activity Routes tab surfaces.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { Button } from '@/shared/ui';
 
 export interface ScatterLegendProps {
   isDark: boolean;
   showReverse: boolean;
   showThisActivity: boolean;
   showOutsideBand?: boolean;
+  showTrend?: boolean;
+  trendColor?: string;
 }
 
 export function ScatterLegend({
@@ -24,8 +27,11 @@ export function ScatterLegend({
   showReverse,
   showThisActivity,
   showOutsideBand = false,
+  showTrend = false,
+  trendColor = colors.primary,
 }: ScatterLegendProps) {
   const { t } = useTranslation();
+  const [showMethod, setShowMethod] = useState(false);
 
   return (
     <View style={styles.legend}>
@@ -70,6 +76,29 @@ export function ScatterLegend({
             {t('sections.legendOutsideBand')}
           </Text>
         </View>
+      )}
+      {showTrend && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            style={styles.methodButton}
+            label={t('sections.legendTrend')}
+            icon={<View style={[styles.trendSwatch, { borderColor: trendColor }]} />}
+            onPress={() => setShowMethod((shown) => !shown)}
+          />
+          <View style={styles.legendItem}>
+            <View style={[styles.bandSwatch, { backgroundColor: trendColor }]} />
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+              {t('sections.legendTrendBand')}
+            </Text>
+          </View>
+          {showMethod && (
+            <Text style={[styles.methodText, isDark && styles.legendTextDark]}>
+              {t('sections.legendTrendMethod')}
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -117,6 +146,25 @@ const styles = StyleSheet.create({
   },
   outsideBandSwatchDark: {
     borderColor: darkColors.textSecondary,
+  },
+  trendSwatch: {
+    width: 12,
+    height: 2,
+    borderTopWidth: 2,
+  },
+  methodButton: {
+    alignSelf: 'center',
+  },
+  bandSwatch: {
+    width: 12,
+    height: 10,
+    opacity: 0.2,
+  },
+  methodText: {
+    width: '100%',
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   legendText: {
     fontSize: typography.label.fontSize,

@@ -9,6 +9,7 @@ import {
 } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
+import { pushPlaceNameWords } from '@/i18n/placeNameWords';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -74,8 +75,10 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 
     // The notification templates go with them, so a push handler woken with
     // the app killed writes its sentence in the language just chosen. Unlike
-    // the two words above these are durable, which is the whole point.
+    // the two words above these are durable, which is the whole point. The
+    // place name words are durable for the same reason.
     pushNotificationTemplates();
+    pushPlaceNameWords();
 
     set({ language });
   },

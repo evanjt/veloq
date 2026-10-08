@@ -33,6 +33,11 @@ const setupCommands = () => evaluate<string[][]>('m.setupCommands()');
 const cleanupCommands = () => evaluate<string[][]>('m.cleanupCommands()');
 const sessionCommands = (fixes: Fix[]) =>
   evaluate<string[][]>(`m.sessionCommands(${JSON.stringify(fixes)})`);
+const fixCommand = (fix: Fix) => evaluate<string[]>(`m.fixCommand(${JSON.stringify(fix)})`);
+const providerIsGone = (output: string) =>
+  evaluate<boolean>(`m.providerIsGone(${JSON.stringify(output)})`);
+const retryCommands = (fix: Fix, output: string) =>
+  evaluate<string[][]>(`m.retryCommands(${JSON.stringify(fix)}, ${JSON.stringify(output)})`);
 
 const origin = { lat: -33.85, lng: 151.2 };
 const metres = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
@@ -81,5 +86,16 @@ describe('mock GPS route', () => {
     ]);
     expect(all.slice(0, setupCommands().length)).toEqual(setupCommands());
     expect(setupCommands().join('|')).toContain('android:mock_location,allow');
+  });
+
+  it('restores a provider a flow removed and resends the refused fix once', () => {
+    const fix = routeFixes(origin, 8, 0)[0];
+    const refusal =
+      "Exception occurred while executing 'providers':\n" +
+      'java.lang.IllegalArgumentException: gps provider is not a test provider';
+    expect(providerIsGone(refusal)).toBe(true);
+    expect(providerIsGone('')).toBe(false);
+    expect(retryCommands(fix, refusal)).toEqual([...setupCommands(), fixCommand(fix)]);
+    expect(retryCommands(fix, '')).toEqual([]);
   });
 });

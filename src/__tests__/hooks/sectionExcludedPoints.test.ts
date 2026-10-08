@@ -40,6 +40,7 @@ const excludedPoint: FfiSectionChartPoint = {
   sectionDistance: 800,
   direction: 'reverse',
   isBest: false,
+  outsideDistanceBand: false,
 };
 
 describe('useSectionChartDataEnriched', () => {
@@ -54,6 +55,8 @@ describe('useSectionChartDataEnriched', () => {
         showExcluded: true,
         excludedPoints: [excludedPoint],
         preComputedCalendarSummary: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
       })
     );
 
@@ -77,6 +80,8 @@ describe('useSectionChartDataEnriched', () => {
         showExcluded: false,
         excludedPoints: [excludedPoint],
         preComputedCalendarSummary: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
       })
     );
 
@@ -94,12 +99,37 @@ describe('useSectionChartDataEnriched', () => {
         showExcluded: false,
         excludedPoints: [],
         preComputedCalendarSummary: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
       })
     );
 
     expect(result.current.combinedChartData.map((p) => [p.activityId, p.isBest])).toEqual([
       ['ride_now', true],
       ['faster', false],
+    ]);
+  });
+
+  it('uses the engine best for chart comparisons when a longer lap has higher speed', () => {
+    const { result } = renderHook(() =>
+      useSectionChartDataEnriched({
+        chartData: [
+          { ...counted[0], x: 0, sectionTime: 935, speed: 1951 / 935 },
+          { ...counted[0], x: 1, sectionTime: 870, speed: 1558 / 870 },
+        ],
+        showExcluded: false,
+        excludedPoints: [],
+        preComputedCalendarSummary: null,
+        bestForwardRecord: { bestTime: 870, bestPace: 1558 / 870 },
+        bestReverseRecord: null,
+      })
+    );
+
+    expect(
+      result.current.enrichedChartData.map((point) => [point.bestTime, point.bestSpeed])
+    ).toEqual([
+      [870, 1558 / 870],
+      [870, 1558 / 870],
     ]);
   });
 });

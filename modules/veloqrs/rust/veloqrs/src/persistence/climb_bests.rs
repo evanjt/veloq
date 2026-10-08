@@ -95,9 +95,12 @@ fn measure(conn: &Connection, activity_id: &str) -> SqlResult<Vec<ClimbBest>> {
     else {
         return Ok(Vec::new());
     };
-    // An undecodable stream measures nothing, the same as an absent one.
-    let Ok(times) = codec::deserialize::<Vec<u32>>(&times) else {
-        return Ok(Vec::new());
+    let times = match codec::deserialize::<Vec<u32>>(&times) {
+        Ok(times) => times,
+        Err(error) => {
+            log::error!("time_streams {activity_id}: times read failed: {error}");
+            return Ok(Vec::new());
+        }
     };
     let Some(blob) = conn
         .query_row(

@@ -35,7 +35,7 @@ export function useSportTypeFilter(allMetrics: Map<string, FfiActivityMetrics>) 
 
   // Derived rather than written into state by an effect, so the picker is never
   // drawn with nothing selected.
-  const defaultSportType = availableSportTypes.length > 1 ? dominantSportType : undefined;
+  const defaultSportType = dominantSportType;
   const effectiveSportType = selectedSportType ?? defaultSportType;
 
   // Get performance data filtered by selected sport type (no API call needed)

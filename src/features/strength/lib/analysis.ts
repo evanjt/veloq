@@ -95,9 +95,11 @@ export function normaliseStrengthSummary(raw: {
     totalReps: number;
     volumeKg: number;
     exerciseNames: string[];
+    shade: number;
   }[];
   activityCount?: number;
   totalSets?: number;
+  maxWeightedSets?: number;
   balance?: {
     id: string;
     leftSlug: string;
@@ -119,9 +121,11 @@ export function normaliseStrengthSummary(raw: {
       totalReps: v.totalReps,
       volumeKg: v.volumeKg,
       exerciseNames: v.exerciseNames,
+      shade: v.shade,
     })),
     activityCount: raw.activityCount ?? 0,
     totalSets: raw.totalSets ?? 0,
+    maxWeightedSets: raw.maxWeightedSets ?? 0,
     balance: (raw.balance ?? []).map((pair) => ({
       id: pair.id,
       leftSlug: pair.leftSlug,

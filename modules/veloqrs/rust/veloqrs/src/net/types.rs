@@ -105,7 +105,7 @@ where
 
 /// The base field list the activities request asks for. Every name is a field
 /// of the Activity schema.
-pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,average_heartrate,max_heartrate,icu_average_watts,icu_pm_p_max,average_cadence,calories,icu_training_load,decoupling,has_weather,average_weather_temp,icu_ftp,stream_types,skyline_chart_bytes,description";
+pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,average_heartrate,max_heartrate,icu_average_watts,icu_pm_p_max,average_cadence,calories,icu_training_load,icu_intensity,decoupling,has_weather,average_weather_temp,icu_ftp,stream_types,skyline_chart_bytes,description";
 
 /// The additional stats fields appended when `includeStats` is set.
 pub const ACTIVITY_STATS_EXTRA: &str = "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,\

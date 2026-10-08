@@ -47,6 +47,16 @@ export function fixCommand(fix) {
   );
 }
 
+/** A Maestro run removes the shell's test provider, and every later fix is refused with this. */
+export function providerIsGone(output) {
+  return output.includes('not a test provider');
+}
+
+/** What to run after a fix: nothing, or the setup again followed by the same fix once more. */
+export function retryCommands(fix, output) {
+  return providerIsGone(output) ? [...setupCommands(), fixCommand(fix)] : [];
+}
+
 export function cleanupCommands() {
   return [
     provider('remove-test-provider', 'gps'),

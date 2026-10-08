@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { castDirection, ensureFinite, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary, FfiSectionChartPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
+import type { SectionPerformanceRecord } from './useSectionPerformances';
 
 interface UseSectionChartDataEnrichedArgs {
   chartData: (PerformanceDataPoint & { x: number })[];
@@ -14,6 +15,8 @@ interface UseSectionChartDataEnrichedArgs {
   excludedPoints: readonly FfiSectionChartPoint[];
   /** The calendar summary the screen read returned for the same range and sport. */
   preComputedCalendarSummary: FfiCalendarSummary | null;
+  bestForwardRecord: Pick<SectionPerformanceRecord, 'bestTime' | 'bestPace'> | null;
+  bestReverseRecord: Pick<SectionPerformanceRecord, 'bestTime' | 'bestPace'> | null;
 }
 
 export function useSectionChartDataEnriched({
@@ -21,6 +24,8 @@ export function useSectionChartDataEnriched({
   showExcluded,
   excludedPoints,
   preComputedCalendarSummary,
+  bestForwardRecord,
+  bestReverseRecord,
 }: UseSectionChartDataEnrichedArgs) {
   // The excluded attempts, dimmed on the scatter chart when shown.
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
@@ -49,38 +54,12 @@ export function useSectionChartDataEnriched({
 
   const calendarSummary = preComputedCalendarSummary;
 
-  // Enrich chart data with the best to compare each point against; the
-  // record flag itself is the engine's, carried on the point
   const enrichedChartData = useMemo(() => {
-    if (chartData.length === 0) return chartData;
-
-    // Find best time/speed per direction from non-excluded points
-    let fwdBestTime: number | undefined;
-    let fwdBestSpeed: number | undefined;
-    let revBestTime: number | undefined;
-    let revBestSpeed: number | undefined;
-
-    for (const p of chartData) {
-      if (p.direction === 'reverse') {
-        if (revBestSpeed === undefined || p.speed > revBestSpeed) {
-          revBestSpeed = p.speed;
-          revBestTime = p.sectionTime;
-        }
-      } else {
-        if (fwdBestSpeed === undefined || p.speed > fwdBestSpeed) {
-          fwdBestSpeed = p.speed;
-          fwdBestTime = p.sectionTime;
-        }
-      }
-    }
-
     return chartData.map((p) => {
-      const isReverse = p.direction === 'reverse';
-      const dirBestTime = isReverse ? revBestTime : fwdBestTime;
-      const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
-      return { ...p, bestTime: dirBestTime, bestSpeed: dirBestSpeed };
+      const best = p.direction === 'reverse' ? bestReverseRecord : bestForwardRecord;
+      return { ...p, bestTime: best?.bestTime, bestSpeed: best?.bestPace };
     });
-  }, [chartData]);
+  }, [chartData, bestForwardRecord, bestReverseRecord]);
 
   // Merge excluded points into chart data when showing excluded
   const combinedChartData = useMemo(() => {

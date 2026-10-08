@@ -1,16 +1,15 @@
 /**
- * Scenario: saving a long ride builds the FIT file and its base64 on the JS
- * thread, behind the Save spinner.
+ * Scenario: saving a long ride builds the FIT file on the JS thread, behind
+ * the Save spinner.
  *
  * Expected behaviour: a three-hour ride stays well inside the 200 ms a
- * one-shot tap is allowed, so neither step needs moving off the thread.
+ * one-shot tap is allowed.
  *
  * Collected only under `npm run test:perf`, because a wall-clock assertion
  * measures the machine as much as the code.
  */
 
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
-import { bufferToBase64 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingStreams } from '@/features/recording/types';
 
 const THREE_HOURS_SECONDS = 3 * 60 * 60;
@@ -40,7 +39,7 @@ function buildStreams(samples: number): RecordingStreams {
 }
 
 describe('recording save cost', () => {
-  it('builds and encodes a three-hour ride inside a one-shot tap budget', async () => {
+  it('builds a three-hour ride inside a one-shot tap budget', async () => {
     const streams = buildStreams(THREE_HOURS_SECONDS);
 
     const buildStart = performance.now();
@@ -52,16 +51,9 @@ describe('recording save cost', () => {
     });
     const buildMs = performance.now() - buildStart;
 
-    const encodeStart = performance.now();
-    const base64 = bufferToBase64(buffer);
-    const encodeMs = performance.now() - encodeStart;
-
-    console.log(
-      `FIT ${(buffer.byteLength / 1024).toFixed(0)} KB: build ${buildMs.toFixed(1)} ms, ` +
-        `base64 ${encodeMs.toFixed(1)} ms, ${(base64.length / 1024).toFixed(0)} KB encoded`
-    );
+    console.log(`FIT ${(buffer.byteLength / 1024).toFixed(0)} KB: build ${buildMs.toFixed(1)} ms`);
 
     expect(buffer.byteLength).toBeGreaterThan(100 * 1024);
-    expect(buildMs + encodeMs).toBeLessThan(200);
+    expect(buildMs).toBeLessThan(200);
   });
 });

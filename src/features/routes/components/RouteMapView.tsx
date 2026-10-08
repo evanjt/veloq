@@ -5,9 +5,10 @@
  */
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
+import { View, StyleSheet, Pressable, Modal, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
@@ -84,7 +85,10 @@ export function RouteMapView({
     () =>
       Object.entries(activitySignatures)
         .filter(([, signature]) => signature.points && signature.points.length > 1)
-        .map(([id, signature]) => ({ id, points: lngLatFromShort(signature.points) })),
+        .map(([id, signature]) => ({
+          id,
+          points: lngLatFromShort(signature.points),
+        })),
     [activitySignatures]
   );
 
@@ -200,15 +204,15 @@ export function RouteMapView({
 
   return (
     <>
-      <TouchableOpacity
+      <Pressable
         testID="route-map-container"
-        style={[styles.container, { height }]}
+        style={pressable([styles.container, { height }])}
         onPress={handleMapPress}
         accessibilityRole="button"
         accessibilityLabel={t('maps.openFullscreen')}
         accessibilityState={{ disabled: !enableFullscreen && !onPress }}
-        activeOpacity={enableFullscreen || onPress ? 0.9 : 1}
         disabled={!enableFullscreen && !onPress}
+        android_ripple={pressRipple}
       >
         <MapSurface
           mapStyle={mapStyle}
@@ -225,7 +229,7 @@ export function RouteMapView({
             <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
 
       <Modal
         visible={isFullscreen}

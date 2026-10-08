@@ -147,6 +147,11 @@ function buildFfiData(): InsightsData {
         daysAgo: 3,
         sportType: 'Ride',
         traversalCount: 14,
+        standingCount: 4,
+        percentileFaster: 75,
+        previousBestTime: 700,
+        previousBestDate: 1_699_900_000,
+        deltaSeconds: 10,
         recentEfforts: [],
         encodedPolyline: new ArrayBuffer(0),
       },
@@ -315,6 +320,18 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
           })),
         },
       ],
+    });
+  });
+
+  it('carries the engine section standing into the PR sheet data', () => {
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
+    const pr = insights.find((insight) => insight.category === 'section_pr');
+    expect(pr?.supportingData?.sections?.[0]).toMatchObject({
+      standingCount: 4,
+      percentileFaster: 75,
+      previousBestTime: 700,
+      previousBestDate: 1_699_900_000,
+      deltaSeconds: 10,
     });
   });
 

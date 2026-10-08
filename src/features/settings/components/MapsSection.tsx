@@ -129,7 +129,7 @@ export function MapsSection() {
               mapPreferences.terrain3DMode !== 'off' && isDark && { color: darkColors.linkTeal },
             ]}
           >
-            3D: {terrain3DLabel}
+            {t('settings.terrain3DMode', { mode: terrain3DLabel })}
           </Text>
         </Pressable>
       </View>
@@ -223,9 +223,10 @@ export function MapsSection() {
                 android_ripple={pressRipple}
               >
                 <Text style={[styles.pillText, { color: mutedColor }]}>
-                  3D:{' '}
-                  {t(terrainKey as 'settings.terrain3DSmart', {
-                    defaultValue: 'Smart',
+                  {t('settings.terrain3DMode', {
+                    mode: t(terrainKey as 'settings.terrain3DSmart', {
+                      defaultValue: 'Smart',
+                    }),
                   })}
                 </Text>
               </Pressable>

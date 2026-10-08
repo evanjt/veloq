@@ -23,6 +23,8 @@ export ANDROID_SERIAL
 if [ "$variant" = debug ]; then
   scripts/with-android-build-lock.sh sh -ec '
     node scripts/check-toolchain.mjs
+    node scripts/sync-android-widgets.mjs
+    node scripts/check-native-tree.mjs
     npm run bundle:android
     (cd android && ./gradlew assembleDebug)
     node scripts/build-record.js write debug
@@ -32,6 +34,8 @@ else
   export APP_VARIANT
   scripts/with-android-build-lock.sh sh -ec '
     node scripts/check-toolchain.mjs
+    node scripts/sync-android-widgets.mjs
+    node scripts/check-native-tree.mjs
     node scripts/build-record.js snapshot android release
     (cd android && ./gradlew assembleRelease)
     node scripts/build-record.js write release

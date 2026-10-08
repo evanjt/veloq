@@ -11,7 +11,6 @@
  * widget snapshot, the strength volume and the insights parameters already use.
  */
 
-import { getMonday, getSunday } from '@/shared/format/format';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 /**
@@ -31,31 +30,6 @@ export function mondayAnchors(currentMonday: Date, weeksBack: number): Date[] {
 /** One Monday as the stamp the engine's week comparison is in. */
 export function weekAnchorSeconds(monday: Date): number {
   return localWallClockToEpochSeconds(monday);
-}
-
-/** This calendar week and the one before it, as the four stamps the summary
- *  card bundle compares. Monday to Sunday, wall clock like every other bound
- *  here. */
-export function currentAndPreviousWeek(now: Date): {
-  weekStartTs: number;
-  weekEndTs: number;
-  prevStartTs: number;
-  prevEndTs: number;
-} {
-  const monday = getMonday(now);
-  const sunday = getSunday(now);
-  sunday.setHours(23, 59, 59, 0);
-  const prevMonday = new Date(monday);
-  prevMonday.setDate(prevMonday.getDate() - 7);
-  const prevSunday = new Date(monday);
-  prevSunday.setDate(prevSunday.getDate() - 1);
-  prevSunday.setHours(23, 59, 59, 0);
-  return {
-    weekStartTs: localWallClockToEpochSeconds(monday),
-    weekEndTs: localWallClockToEpochSeconds(sunday),
-    prevStartTs: localWallClockToEpochSeconds(prevMonday),
-    prevEndTs: localWallClockToEpochSeconds(prevSunday),
-  };
 }
 
 /**

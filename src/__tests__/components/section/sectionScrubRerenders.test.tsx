@@ -3,16 +3,13 @@
  * state held by the screen root, so every new index committed the whole screen.
  *
  * Expected behaviour: the scrub lives in a store the root creates and never
- * reads. A new index renders the map that draws it and nothing above, the page
- * scrolls back to the map on each new attempt, and a repeat or a clear leaves
- * the page where it is.
+ * reads. A new index renders the map that draws it and nothing above.
  */
 
 import React from 'react';
-import { render, renderHook, act } from '@testing-library/react-native';
+import { render, act } from '@testing-library/react-native';
 
 import { HighlightedSectionMap } from '@/features/routes/components/section/HighlightedSectionMap';
-import { useRevealMapOnHighlight } from '@/features/routes/hooks/useRevealMapOnDraw';
 import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { FrequentSection } from '@/types';
 
@@ -40,13 +37,10 @@ const LAP = [{ lat: 1, lng: 2 }];
 
 function setup() {
   const store = createMapHighlightStore();
-  const scrollTo = jest.fn();
-  const scrollRef = { current: { scrollTo } };
   const rootRenders = jest.fn();
 
   function Root() {
     rootRenders();
-    useRevealMapOnHighlight(scrollRef as never, store);
     return (
       <HighlightedSectionMap
         highlight={store}
@@ -59,7 +53,7 @@ function setup() {
   }
 
   const tree = render(<Root />);
-  return { store, scrollTo, rootRenders, tree };
+  return { store, rootRenders, tree };
 }
 
 const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.length - 1][0];
@@ -115,33 +109,6 @@ describe('a chart scrub on the section screen', () => {
     act(() => store.set('a', LAP));
 
     expect(mockMapProps).not.toHaveBeenCalled();
-  });
-
-  it('scrolls to the map on each new attempt and not on a repeat or a clear', () => {
-    const { store, scrollTo } = setup();
-
-    act(() => store.set('a', LAP));
-    act(() => store.set('a', LAP));
-    act(() => store.set('b', LAP));
-    act(() => store.set(null));
-    expect(scrollTo).toHaveBeenCalledTimes(2);
-    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
-
-    act(() => store.set('b', LAP));
-    expect(scrollTo).toHaveBeenCalledTimes(3);
-  });
-
-  it('stops listening when the screen unmounts', () => {
-    const store = createMapHighlightStore();
-    const scrollTo = jest.fn();
-    const view = renderHook(() =>
-      useRevealMapOnHighlight({ current: { scrollTo } } as never, store)
-    );
-
-    view.unmount();
-    act(() => store.set('a'));
-
-    expect(scrollTo).not.toHaveBeenCalled();
   });
 
   it('takes a set that works detached, as a chart calls it', () => {

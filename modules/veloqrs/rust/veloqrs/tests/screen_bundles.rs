@@ -1014,6 +1014,292 @@ fn route_detail_honours_the_group_minimum() {
     assert!(bundle.groups.iter().all(|g| g.activity_ids.len() >= 3));
 }
 
+/// One attempt at the fixture route: its sport, how many days ago, its
+/// distance and moving time, its match, and whether it was taken out.
+struct Attempt {
+    id: &'static str,
+    sport: &'static str,
+    days_ago: i64,
+    distance: f64,
+    moving_time: u32,
+    match_percentage: f64,
+    excluded: bool,
+}
+
+const ATTEMPTS: [Attempt; 6] = [
+    Attempt {
+        id: "ride_old",
+        sport: "Ride",
+        days_ago: 60,
+        distance: 1000.0,
+        moving_time: 270,
+        match_percentage: 95.0,
+        excluded: false,
+    },
+    Attempt {
+        id: "ride_new",
+        sport: "Ride",
+        days_ago: 10,
+        distance: 1010.0,
+        moving_time: 300,
+        match_percentage: 92.0,
+        excluded: false,
+    },
+    // Half as long again as the others, so outside the band and faster.
+    Attempt {
+        id: "ride_long",
+        sport: "Ride",
+        days_ago: 5,
+        distance: 1500.0,
+        moving_time: 250,
+        match_percentage: 70.0,
+        excluded: false,
+    },
+    Attempt {
+        id: "ride_excluded",
+        sport: "Ride",
+        days_ago: 3,
+        distance: 1000.0,
+        moving_time: 200,
+        match_percentage: 90.0,
+        excluded: true,
+    },
+    Attempt {
+        id: "run_a",
+        sport: "Run",
+        days_ago: 8,
+        distance: 1000.0,
+        moving_time: 400,
+        match_percentage: 88.0,
+        excluded: false,
+    },
+    Attempt {
+        id: "run_b",
+        sport: "Run",
+        days_ago: 4,
+        distance: 1000.0,
+        moving_time: 420,
+        match_percentage: 87.0,
+        excluded: false,
+    },
+];
+
+/// A route of [`ATTEMPTS`], all ridden the route's own way.
+fn route_with_attempts() -> Setup {
+    let mut s = setup();
+    let now = chrono::Utc::now().timestamp();
+    for a in &ATTEMPTS {
+        s.engine
+            .add_activity(a.id.to_string(), line(46.2, 7.35, 60), a.sport.to_string())
+            .expect("add attempt");
+    }
+    s.engine
+        .set_activity_metrics_extended(
+            ATTEMPTS
+                .iter()
+                .map(|a| veloqrs::FfiActivityMetrics {
+                    distance: a.distance,
+                    moving_time: a.moving_time,
+                    elapsed_time: a.moving_time,
+                    sport_type: a.sport.to_string(),
+                    ..metrics(a.id, now - a.days_ago * 86_400)
+                })
+                .collect(),
+        )
+        .expect("set metrics");
+    let ids: Vec<&str> = ATTEMPTS.iter().map(|a| a.id).collect();
+    s.raw
+        .execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+             VALUES ('loop', 'ride_old', ?1, 'Ride', ?2)",
+            params![serde_json::to_string(&ids).unwrap(), ids.len()],
+        )
+        .expect("insert group");
+    for a in &ATTEMPTS {
+        s.raw
+            .execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction, excluded)
+                 VALUES ('loop', ?1, ?2, 'same', ?3)",
+                params![a.id, a.match_percentage, a.excluded],
+            )
+            .expect("insert match");
+    }
+    s
+}
+
+fn chart_ids(points: &[veloqrs::FfiSectionChartPoint]) -> Vec<&str> {
+    points.iter().map(|p| p.activity_id.as_str()).collect()
+}
+
+#[test]
+fn route_performance_answers_one_sport_in_the_section_shape() {
+    let _serial_state = crate::serial_state();
+    let s = route_with_attempts();
+
+    let read = s.engine.route_detail_performance("loop", 0, Some("Ride"));
+    let direct = veloqrs::FfiRoutePerformanceResult::from(s.engine.get_route_performances(
+        "loop",
+        None,
+        Some("Ride"),
+    ));
+
+    assert_eq!(read.sport_type.as_deref(), Some("Ride"));
+    let counts: Vec<(&str, u32)> = read
+        .sport_counts
+        .iter()
+        .map(|c| (c.sport_type.as_str(), c.count))
+        .collect();
+    assert_eq!(counts, vec![("Ride", 3), ("Run", 2)]);
+
+    let points = &read.chart_data.points;
+    assert_eq!(chart_ids(points), vec!["ride_old", "ride_new", "ride_long"]);
+    for point in points {
+        let attempt = ATTEMPTS.iter().find(|a| a.id == point.activity_id).unwrap();
+        let route = direct
+            .performances
+            .iter()
+            .find(|p| p.activity_id == point.activity_id)
+            .unwrap();
+        assert_eq!(point.outside_distance_band, route.outside_distance_band);
+        assert_eq!(
+            point.outside_distance_band,
+            point.activity_id == "ride_long"
+        );
+        assert_eq!(point.is_best, route.is_record, "{}", point.activity_id);
+        assert_eq!(point.match_percentage, Some(attempt.match_percentage));
+        assert_eq!(point.section_time, attempt.moving_time);
+    }
+    assert_eq!(
+        read.chart_data.first_activity_date,
+        points.first().map(|p| p.activity_date)
+    );
+    assert_eq!(
+        read.chart_data.last_activity_date,
+        points.last().map(|p| p.activity_date)
+    );
+    // The long attempt is the quickest drawn, and holds nothing.
+    assert_eq!(read.chart_data.best_time_secs, Some(270.0));
+
+    assert_eq!(chart_ids(&read.excluded_points), vec!["ride_excluded"]);
+    assert!(read.excluded_points.iter().all(|p| !p.is_best));
+    let listed: Vec<(&str, bool)> = read
+        .lap_records
+        .iter()
+        .flat_map(|r| &r.laps)
+        .map(|lap| (lap.activity_id.as_str(), lap.excluded))
+        .collect();
+    assert_eq!(
+        listed,
+        vec![
+            ("ride_old", false),
+            ("ride_new", false),
+            ("ride_long", false),
+            ("ride_excluded", true),
+        ]
+    );
+
+    let best = read.performances.best_forward_record.as_ref().unwrap();
+    assert_eq!(best.activity_id, "ride_old");
+    assert_eq!(
+        Some(best.activity_id.as_str()),
+        direct.best_forward.as_ref().map(|p| p.activity_id.as_str())
+    );
+    let record_held = direct
+        .performances
+        .iter()
+        .any(|p| p.activity_id == best.activity_id && p.is_record);
+    assert_eq!(read.best_forward_is_record, record_held);
+    assert!(read.best_forward_is_record);
+    assert!(!read.best_reverse_is_record);
+
+    let calendar = read.calendar_summary.as_ref().expect("a calendar");
+    let counted: u32 = calendar.years.iter().map(|y| y.traversal_count).sum();
+    assert_eq!(counted, 2, "the two Ride attempts inside the band");
+    assert_eq!(
+        calendar
+            .forward_pr
+            .as_ref()
+            .map(|b| b.best_activity_id.as_str()),
+        Some("ride_old")
+    );
+
+    assert_eq!(
+        format!("{:?}", read.trend_curves),
+        format!("{:?}", direct.trend_curves)
+    );
+    assert_eq!(
+        format!("{:?}", read.histograms),
+        format!("{:?}", direct.histograms)
+    );
+    assert!(read.curves.is_none());
+}
+
+#[test]
+fn route_performance_ranges_the_chart_and_bests_and_keeps_the_calendar() {
+    let _serial_state = crate::serial_state();
+    let s = route_with_attempts();
+
+    let whole = s.engine.route_detail_performance("loop", 0, Some("Ride"));
+    let ranged = s.engine.route_detail_performance("loop", 30, Some("Ride"));
+
+    assert_eq!(
+        chart_ids(&ranged.chart_data.points),
+        vec!["ride_new", "ride_long"]
+    );
+    assert!(ranged.chart_data.points.iter().all(|p| !p.is_best));
+    let best = ranged.performances.best_forward_record.as_ref().unwrap();
+    assert_eq!(best.activity_id, "ride_new");
+    assert!(
+        !ranged.best_forward_is_record,
+        "the record is outside the range"
+    );
+    assert_eq!(
+        format!("{:?}", ranged.calendar_summary),
+        format!("{:?}", whole.calendar_summary)
+    );
+}
+
+#[test]
+fn route_performance_answers_the_sport_asked_for() {
+    let _serial_state = crate::serial_state();
+    let s = route_with_attempts();
+
+    let run = s.engine.route_detail_performance("loop", 0, Some("Run"));
+    let direct = s.engine.get_route_performances("loop", None, Some("Run"));
+
+    assert_eq!(run.sport_type.as_deref(), Some("Run"));
+    assert_eq!(chart_ids(&run.chart_data.points), vec!["run_a", "run_b"]);
+    for point in &run.chart_data.points {
+        let route = direct
+            .performances
+            .iter()
+            .find(|p| p.activity_id == point.activity_id)
+            .unwrap();
+        assert_eq!(point.is_best, route.is_record, "{}", point.activity_id);
+    }
+    assert!(run.excluded_points.is_empty());
+    assert!(run.best_forward_is_record);
+
+    // With none asked, a route more than one sport has taken answers for the
+    // one with the most attempts.
+    let unasked = s.engine.route_detail_performance("loop", 0, None);
+    assert_eq!(unasked.sport_type.as_deref(), Some("Ride"));
+}
+
+#[test]
+fn route_performance_of_an_unknown_route_is_empty() {
+    let _serial_state = crate::serial_state();
+    let s = route_with_attempts();
+
+    let read = s.engine.route_detail_performance("no-route", 0, None);
+
+    assert!(read.sport_type.is_none());
+    assert!(read.sport_counts.is_empty());
+    assert!(read.chart_data.points.is_empty());
+    assert!(read.lap_records.is_empty());
+    assert!(read.calendar_summary.is_none());
+}
+
 // ============================================================================
 // Insights
 // ============================================================================

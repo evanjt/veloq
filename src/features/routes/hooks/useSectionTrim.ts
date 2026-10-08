@@ -7,7 +7,7 @@
  * padded window (~500m each side) so the user can extend the section bounds.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,7 @@ import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
-import type { FfiDepartedRide } from 'veloqrs';
+import type { FfiDepartedRide, SectionBoundsEdit } from 'veloqrs';
 import type { FrequentSection, RoutePoint } from '@/types';
 import { announceDepartedRides } from '../lib/departedRides';
 
@@ -134,6 +134,15 @@ export function useSectionTrim(
   const [trimEnd, setTrimEnd] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [expandContext, setExpandContext] = useState<ExpandContext | null>(null);
+  const editInFlight = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   // The effective polyline point count for the slider
   const effectivePointCount = useMemo(() => {
@@ -235,8 +244,41 @@ export function useSectionTrim(
     setExpandContext(null);
   }, []);
 
-  const confirmTrim = useCallback(() => {
-    if (!section?.id) return;
+  const runBoundsEdit = useCallback(
+    async (edit: SectionBoundsEdit) => {
+      if (editInFlight.current) return;
+      editInFlight.current = true;
+      setIsSaving(true);
+
+      let departed: FfiDepartedRide[] | null = null;
+      try {
+        departed = (await getEngine()?.runSectionBoundsEdit(edit)) ?? null;
+      } catch {
+        departed = null;
+      } finally {
+        editInFlight.current = false;
+        if (mounted.current) setIsSaving(false);
+      }
+
+      if (!departed) {
+        Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+      if (mounted.current) {
+        setIsTrimming(false);
+        setIsExpanded(false);
+        setExpandContext(null);
+        onRefresh();
+      }
+      announceDepartedRides(departed, t);
+    },
+    [queryClient, onRefresh, t]
+  );
+
+  const confirmTrim = useCallback(async () => {
+    if (!section?.id || editInFlight.current) return;
 
     // Validate minimum points
     if (trimEnd - trimStart + 1 < 5) {
@@ -247,14 +289,7 @@ export function useSectionTrim(
       return;
     }
 
-    setIsSaving(true);
-    const engine = getEngine();
-    if (!engine) {
-      setIsSaving(false);
-      return;
-    }
-
-    let departed: FfiDepartedRide[] | null = null;
+    let edit: SectionBoundsEdit;
 
     if (isExpanded && expandContext) {
       // Check if the user expanded beyond the section or shrunk within it
@@ -266,65 +301,48 @@ export function useSectionTrim(
         // The window is a slice of the representative track, so window indices offset into it
         const activityId = section.representativeActivityId;
         if (!activityId) {
-          setIsSaving(false);
           Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
           return;
         }
-        departed = engine.expandSectionBounds(
-          section.id,
+        edit = {
+          kind: 'expand',
+          sectionId: section.id,
           activityId,
-          expandContext.windowStartIdx + trimStart,
-          expandContext.windowStartIdx + trimEnd
-        );
+          startIndex: expandContext.windowStartIdx + trimStart,
+          endIndex: expandContext.windowStartIdx + trimEnd,
+        };
       } else {
         // User shrunk within section - map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;
         const sectionEnd = trimEnd - expandContext.sectionStartInWindow;
-        departed = engine.trimSection(section.id, sectionStart, sectionEnd);
+        edit = {
+          kind: 'trim',
+          sectionId: section.id,
+          startIndex: sectionStart,
+          endIndex: sectionEnd,
+        };
       }
     } else {
       // Trim mode - pure trim on section polyline
-      departed = engine.trimSection(section.id, trimStart, trimEnd);
+      edit = { kind: 'trim', sectionId: section.id, startIndex: trimStart, endIndex: trimEnd };
     }
 
-    setIsSaving(false);
-
-    if (departed) {
-      setIsTrimming(false);
-      setIsExpanded(false);
-      setExpandContext(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-      onRefresh();
-      announceDepartedRides(departed, t);
-    } else {
-      Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
-    }
-  }, [section, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
+    await runBoundsEdit(edit);
+  }, [section, trimStart, trimEnd, isExpanded, expandContext, runBoundsEdit, t]);
 
   const resetBounds = useCallback(() => {
-    if (!section?.id) return;
+    if (!section?.id || editInFlight.current) return;
 
     Alert.alert(t('sections.resetBounds'), t('sections.resetBoundsConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.reset'),
-        onPress: () => {
-          const engine = getEngine();
-          if (!engine) return;
-
-          const departed = engine.resetSectionBounds(section.id);
-          if (departed) {
-            setIsTrimming(false);
-            setIsExpanded(false);
-            setExpandContext(null);
-            queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-            onRefresh();
-            announceDepartedRides(departed, t);
-          }
+        onPress: async () => {
+          await runBoundsEdit({ kind: 'reset', sectionId: section.id });
         },
       },
     ]);
-  }, [section, queryClient, onRefresh, t]);
+  }, [section, runBoundsEdit, t]);
 
   return {
     isTrimming,

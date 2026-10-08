@@ -20,10 +20,11 @@ import {
   loadRecordingBackup,
   saveRecordingBackup,
 } from './storage/recordingBackup';
+import { BACKGROUND_LOCATION_TASK } from './backgroundLocationTask';
+
+export { BACKGROUND_LOCATION_TASK } from './backgroundLocationTask';
 
 const log = debug.create('BackgroundLocation');
-
-export const BACKGROUND_LOCATION_TASK = 'veloq-background-location';
 
 const SERVICE_CHECK_DELAY_MS = 400;
 const SERVICE_CHECK_RETRIES = 6;
@@ -138,17 +139,6 @@ export async function handleBackgroundLocations(
 
   log.log(`Background: processed ${locations.length} location(s)`);
 }
-
-// Must be called at module scope (top level, not inside a component)
-TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
-  if (error) {
-    log.error('Background location error:', error.message);
-    return;
-  }
-
-  const { locations } = data as { locations: Location.LocationObject[] };
-  await handleBackgroundLocations(locations);
-});
 
 export async function startBackgroundLocation(options?: {
   notificationTitle?: string;

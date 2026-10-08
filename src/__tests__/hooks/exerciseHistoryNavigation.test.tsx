@@ -26,6 +26,7 @@ it('opens the selected exercise history from the strength list', () => {
         totalReps: 96,
         volumeKg: 0,
         exerciseNames: ['Leg Curl'],
+        shade: 5,
       }}
       exerciseSummary={{
         exercises: [

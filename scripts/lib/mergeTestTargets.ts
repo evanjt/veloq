@@ -81,6 +81,9 @@ export interface MergeTargets {
   rustAll: boolean;
 }
 
+/** The local modules with JVM tests, each run by `npm run test:android:unit`. */
+const ANDROID_JVM_MODULES = ['veloqrs', 'veloq-display'];
+
 interface ManifestTest {
   name: string;
   path: string;
@@ -647,7 +650,9 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
     typescript: changed.filter(isTypeScript).sort(),
     related: jest.related,
     jestApp: jest.app,
-    androidJvm: changed.some((path) => path.startsWith('modules/veloqrs/android/')),
+    androidJvm: changed.some((path) =>
+      ANDROID_JVM_MODULES.some((module) => path.startsWith(`modules/${module}/android/`))
+    ),
     iosProject: changed.some(
       (path) =>
         path === 'app.json' ||
