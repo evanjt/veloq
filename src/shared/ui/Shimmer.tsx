@@ -104,26 +104,6 @@ export function ChartSkeleton({
   );
 }
 
-export function StatsPillSkeleton() {
-  return (
-    <View style={styles.pillRow}>
-      <Shimmer width={80} height={44} borderRadius={layout.borderRadius} />
-      <Shimmer
-        width={70}
-        height={44}
-        borderRadius={layout.borderRadius}
-        style={{ marginLeft: spacing.xsPlus }}
-      />
-      <Shimmer
-        width={75}
-        height={44}
-        borderRadius={layout.borderRadius}
-        style={{ marginLeft: spacing.xsPlus }}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
@@ -142,8 +122,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  pillRow: {
-    flexDirection: 'row',
   },
 });

@@ -1,0 +1,219 @@
+{
+  "display": {
+    "formZone": "Grey Zone",
+    "impactLine": null,
+    "metricLabels": {
+      "fatigue": "Fatigue",
+      "fitness": "Fitness",
+      "form": "Form",
+      "hrv": "HRV",
+      "ramp": "Ramp",
+      "rhr": "RHR"
+    },
+    "perWeekSuffix": "/wk",
+    "recordLabel": "Start Activity",
+    "refreshLabel": "Refresh",
+    "refreshingLabel": "Refreshing",
+    "weekLabel": "Week"
+  },
+  "emptyLibrary": true,
+  "formHistory": null,
+  "generatedAt": 1733360000,
+  "impact": null,
+  "insights": [],
+  "latest": null,
+  "launcherShortcuts": [],
+  "locale": "en-AU",
+  "metrics": {
+    "fatigue": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "fitness": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "form": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat",
+      "zone": "greyZone"
+    },
+    "hrv": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "rampRate": {
+      "value": 0.0
+    },
+    "rhr": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    }
+  },
+  "recordShortcuts": [],
+  "schemaVersion": 15,
+  "sparklines": {
+    "fatigue": [],
+    "fitness": [],
+    "form": [],
+    "hrv": []
+  },
+  "strength": {
+    "body": "male",
+    "url": "veloq://insights?tab=strength&period=1m",
+    "windows": {
+      "last30": {
+        "activityCount": 0,
+        "emptyText": "No gym sessions in the last 1 month",
+        "label": "1 month",
+        "maxWeightedSets": 0.0,
+        "muscles": [],
+        "owedCount": 0,
+        "top": [],
+        "totalSets": 0
+      },
+      "month": {
+        "activityCount": 0,
+        "emptyText": "No gym sessions this month",
+        "label": "December",
+        "maxWeightedSets": 0.0,
+        "muscles": [],
+        "owedCount": 0,
+        "top": [],
+        "totalSets": 0
+      }
+    }
+  },
+  "summaryCard": {
+    "entries": [
+      {
+        "colorKey": "blue",
+        "id": "fitness",
+        "label": "Fitness",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "ftp",
+        "label": "FTP",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "weekHours",
+        "label": "Week",
+        "trendDir": "flat",
+        "value": "0h",
+        "verdict": "flat"
+      }
+    ],
+    "hero": {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Form",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    "heroSparkline": [],
+    "sparkline": "fitnessForm"
+  },
+  "summaryMetrics": [
+    {
+      "colorKey": "default",
+      "id": "hrv",
+      "label": "HRV",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "rhr",
+      "label": "RHR",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekHours",
+      "label": "Week",
+      "trendDir": "flat",
+      "value": "0h",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekCount",
+      "label": "#",
+      "trendDir": "flat",
+      "value": "0",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "ftp",
+      "label": "FTP",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "thresholdPace",
+      "label": "Pace",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "css",
+      "label": "CSS",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "blue",
+      "id": "fitness",
+      "label": "Fitness",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Form",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    }
+  ],
+  "theme": {},
+  "weekly": {
+    "count": 0,
+    "deltaPct": null,
+    "distanceLabel": "0 m",
+    "distanceM": 0.0,
+    "durationLabel": "0:00",
+    "durationS": 0.0,
+    "tss": 0
+  }
+}

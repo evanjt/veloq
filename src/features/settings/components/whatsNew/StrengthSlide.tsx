@@ -1,108 +1,89 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Canvas, RoundedRect } from '@shopify/react-native-skia';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
-import type { ParseKeys } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  BodyPairWithLoupe,
+  StrengthBalanceScale,
+  balancePairName,
+  muscleName,
+  type MuscleSlug,
+} from '@/features/strength';
+import { colors, darkColors, spacing, typography, strengthRamp, bodyDiagram } from '@/theme';
 
-// Illustrative values. The four groups are the coarse ones the body diagram
-// rolls its fifteen muscle slugs up into, so `MUSCLE_DISPLAY_NAMES` has no key
-// for them and they carry their own.
-const MUSCLE_GROUPS = [
-  { key: 'whatsNew.v030.strengthChest', left: 0.7, right: 0.65 },
-  { key: 'whatsNew.v030.strengthBack', left: 0.85, right: 0.8 },
-  { key: 'whatsNew.v030.strengthShoulders', left: 0.5, right: 0.55 },
-  { key: 'whatsNew.v030.strengthLegs', left: 0.9, right: 0.75 },
+// Illustrative values, in the shape the strength tab draws: each muscle's shade
+// on the body's five-step ramp, and two of the antagonist pairs its volume
+// split compares, with each side's weighted sets.
+const BODY_DATA: ExtendedBodyPart[] = [
+  { slug: 'chest', intensity: 3 },
+  { slug: 'upper-back', intensity: 4 },
+  { slug: 'deltoids', intensity: 2 },
+  { slug: 'biceps', intensity: 2 },
+  { slug: 'triceps', intensity: 2 },
+  { slug: 'quadriceps', intensity: 5 },
+  { slug: 'hamstring', intensity: 3 },
+  { slug: 'gluteal', intensity: 4 },
+  { slug: 'calves', intensity: 1 },
 ];
 
-const BAR_WIDTH = 80;
-const BAR_HEIGHT = 10;
-const ROW_HEIGHT = 28;
-const GAP = 6;
-const CANVAS_WIDTH = BAR_WIDTH * 2 + GAP;
-const CANVAS_HEIGHT = MUSCLE_GROUPS.length * ROW_HEIGHT;
+const SPLIT_PAIRS: {
+  id: string;
+  left: MuscleSlug;
+  right: MuscleSlug;
+  leftSets: number;
+  rightSets: number;
+}[] = [
+  { id: 'chest_back', left: 'chest', right: 'upper-back', leftSets: 9, rightSets: 12 },
+  { id: 'quads_hamstrings', left: 'quadriceps', right: 'hamstring', leftSets: 14, rightSets: 8 },
+];
 
-// Both bars carry a week each and no value is printed, so the pair is the only
-// carrier. `walk` already holds 3:1 on both themes; the aqua does not, so the
-// right-hand week takes the mark tone, legend dot and bar together.
-const LEFT_COLOR = colors.walk;
-const RIGHT_COLOR = colors.markCyan;
+const BODY_SCALE = 0.3;
+// The pair fills the width it is given, and each body is drawn 200 wide
+// before scaling, so the pair is held to the two bodies side by side.
+const BODY_PAIR_WIDTH = 2 * 200 * BODY_SCALE;
 
 export function StrengthSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const primaryColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackColor = isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.06);
 
   return (
     <View style={styles.container}>
-      <View style={styles.legendRow}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: LEFT_COLOR }]} />
-          <Text style={[styles.legendText, { color: mutedColor }]}>
-            {t('whatsNew.v030.strengthThisWeek')}
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: RIGHT_COLOR }]} />
-          <Text style={[styles.legendText, { color: mutedColor }]}>
-            {t('whatsNew.v030.strengthLastWeek')}
-          </Text>
-        </View>
+      <View style={styles.bodies}>
+        <BodyPairWithLoupe
+          data={BODY_DATA}
+          gender="male"
+          scale={BODY_SCALE}
+          colors={strengthRamp}
+          defaultFill={isDark ? bodyDiagram.fillDark : bodyDiagram.fillLight}
+        />
       </View>
-      <View style={styles.chartRow}>
-        <View style={styles.labels}>
-          {MUSCLE_GROUPS.map((g) => (
-            <Text key={g.key} style={[styles.label, { color: mutedColor, height: ROW_HEIGHT }]}>
-              {t(g.key as ParseKeys)}
+      <View style={styles.split}>
+        <Text style={[styles.splitTitle, { color: primaryColor }]}>
+          {t('insights.strengthBalance.volumeSplit')}
+        </Text>
+        {SPLIT_PAIRS.map((pair) => (
+          <View key={pair.id} style={styles.pair}>
+            <Text style={[styles.pairName, { color: primaryColor }]} numberOfLines={1}>
+              {balancePairName(pair.id, t)}
             </Text>
-          ))}
-        </View>
-        <Canvas style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-          {MUSCLE_GROUPS.map((g, i) => {
-            const y = i * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
-            return (
-              <React.Fragment key={g.key}>
-                {/* Track backgrounds */}
-                <RoundedRect
-                  x={0}
-                  y={y}
-                  width={BAR_WIDTH}
-                  height={BAR_HEIGHT}
-                  r={3}
-                  color={trackColor}
-                />
-                <RoundedRect
-                  x={BAR_WIDTH + GAP}
-                  y={y}
-                  width={BAR_WIDTH}
-                  height={BAR_HEIGHT}
-                  r={3}
-                  color={trackColor}
-                />
-                {/* Filled bars */}
-                <RoundedRect
-                  x={0}
-                  y={y}
-                  width={BAR_WIDTH * g.left}
-                  height={BAR_HEIGHT}
-                  r={3}
-                  color={LEFT_COLOR}
-                />
-                <RoundedRect
-                  x={BAR_WIDTH + GAP}
-                  y={y}
-                  width={BAR_WIDTH * g.right}
-                  height={BAR_HEIGHT}
-                  r={3}
-                  color={RIGHT_COLOR}
-                />
-              </React.Fragment>
-            );
-          })}
-        </Canvas>
+            <StrengthBalanceScale
+              leftWeightedSets={pair.leftSets}
+              rightWeightedSets={pair.rightSets}
+            />
+            <View style={styles.sides}>
+              <Text style={[styles.side, { color: mutedColor }]} numberOfLines={1}>
+                {muscleName(pair.left, t)}
+              </Text>
+              <Text style={[styles.side, { color: mutedColor }]} numberOfLines={1}>
+                {muscleName(pair.right, t)}
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -111,40 +92,35 @@ export function StrengthSlide() {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
+  bodies: {
+    width: BODY_PAIR_WIDTH,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
-  },
-  legendText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '500',
-  },
-  chartRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  split: {
+    flex: 1,
     gap: spacing.sm,
   },
-  labels: {
-    width: 70,
+  splitTitle: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '600',
   },
-  label: {
+  pair: {
+    gap: spacing.xs,
+  },
+  pairName: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    textAlignVertical: 'center',
-    lineHeight: ROW_HEIGHT,
+  },
+  sides: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  side: {
+    fontSize: typography.label.fontSize,
   },
 });

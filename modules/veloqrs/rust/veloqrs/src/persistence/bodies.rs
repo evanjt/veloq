@@ -11,7 +11,7 @@ use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use super::PersistentEngine;
 use super::activities::detail_body_present;
 use super::fitness::derivations::pooled::SYNC_PACE_WINDOW_DAYS;
-use super::streams::{FROM_THE_TRACK, SeriesIndex};
+use super::streams::{FROM_THE_TRACK, SeriesIndex, stocking_asks_for};
 
 pub(crate) mod pooled {
     use super::*;
@@ -56,13 +56,25 @@ pub(crate) mod pooled {
         {
             return serde_json::to_string(&samples_selection(&wanted, &stored)?).ok();
         }
+        // The rows of an activity with a track are written by the wide sync,
+        // the stream pass and the detail screen's fetch, which all ask for
+        // every series the screen draws and store every one upstream answers.
+        // The map preview's fetch stores none, its two series being the
+        // track's. So for a chart of the track, a series those fetches ask
+        // for and did not store is one upstream does not have, and it is left
+        // out the way the server's own body leaves it out. A selection that
+        // does not chart the track is served only whole.
+        let charts_the_track = wanted.iter().any(|kind| FROM_THE_TRACK.contains(kind));
+        let stocked = charts_the_track && !stored.is_empty();
         let available = |kind: &&str| {
-            FROM_THE_TRACK.contains(kind) || stored.iter().any(|item| &item.kind.as_str() == kind)
+            FROM_THE_TRACK.contains(kind)
+                || stored.iter().any(|item| &item.kind.as_str() == kind)
+                || (stocked && stocking_asks_for(kind))
         };
         if !wanted.iter().all(available) {
             return None;
         }
-        let items = if wanted.iter().any(|kind| FROM_THE_TRACK.contains(kind)) {
+        let items = if charts_the_track {
             let points = crate::persistence::activities::pooled::gps_track(conn, activity_id)?;
             if points.is_empty() {
                 return None;
@@ -184,7 +196,10 @@ pub(crate) mod pooled {
             if FROM_THE_TRACK.contains(kind) {
                 continue;
             }
-            let item = stored.iter().find(|item| &item.kind.as_str() == kind)?;
+            // Absent only when the caller judged it one upstream does not hold.
+            let Some(item) = stored.iter().find(|item| &item.kind.as_str() == kind) else {
+                continue;
+            };
             if item.data.len() != point_count {
                 log::warn!(
                     "[Streams] {} series {} carries {} samples against {} track points, selection not served",
@@ -637,14 +652,16 @@ impl PersistentEngine {
         Ok(self.reconstruct_stream_body(activity_id, types))
     }
 
-    /// Rebuild a stream body from `gps_tracks` and `time_streams`, or `None`
-    /// when the selection asks for a series neither holds.
+    /// Rebuild a stream body from `gps_tracks`, `time_streams` and the
+    /// durable series store, or `None` when the selection asks for a series
+    /// none of them can answer.
     ///
     /// Answering a selection only in part would be worse than answering none
     /// of it: the detail screen treats any body as "stocked" and stops
     /// fetching, so an athlete would lose their power and heart rate to a
-    /// reconstruction that never had them. A selection is served whole or not
-    /// at all.
+    /// reconstruction that never had them. A series is left out only when the
+    /// activity's stored rows came from a fetch that asked for it and upstream
+    /// had none, which is what the server's own body does.
     fn reconstruct_stream_body(&self, activity_id: &str, types: &str) -> Option<String> {
         pooled::reconstruct_stream_body(&self.db, activity_id, types)
     }
@@ -1931,6 +1948,97 @@ mod tests {
         engine.set_stream_body("ride", DETAIL, &body).unwrap();
 
         assert_eq!(engine.stored_stream_kinds("ride").unwrap(), vec!["watts"]);
+    }
+
+    /// Scenario: a ride recorded with no power meter and no temperature
+    /// sensor has its track, its clock and its four sensor series stored by
+    /// the stream pass, and its cached body has been evicted.
+    ///
+    /// Expected behaviour: the detail selection is answered from the device
+    /// with what upstream holds, and the series upstream never had are left
+    /// out the way the server's own body leaves them out. A series outside
+    /// what the stocking fetch asks for is still unanswered.
+    #[test]
+    fn a_stocked_ride_without_power_answers_its_detail_selection_offline() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("ride".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine.set_time_streams_flat(&["ride".to_string()], &[0, 5, 10, 15], &[0]);
+        let stocked: Vec<crate::net::types::StreamDto> = [
+            ("heartrate", 140.0),
+            ("cadence", 85.0),
+            ("distance", 0.0),
+            ("velocity_smooth", 8.0),
+        ]
+        .iter()
+        .map(|(kind, base)| crate::net::types::StreamDto {
+            kind: (*kind).to_string(),
+            data: (0..4).map(|i| Some(base + f64::from(i))).collect(),
+            data2: None,
+        })
+        .collect();
+        engine.store_activity_streams("ride", &stocked).unwrap();
+
+        let (raw, stale) = pooled::stream_body(&engine.db, "ride", DETAIL).unwrap();
+        let raw = raw.expect("the ride's charts are on the device");
+        assert!(!stale);
+        let items = parse_body(&raw);
+        let mut kinds: Vec<&str> = items.iter().map(|s| s.kind.as_str()).collect();
+        kinds.sort_unstable();
+        assert_eq!(
+            kinds,
+            vec![
+                "altitude",
+                "cadence",
+                "distance",
+                "heartrate",
+                "latlng",
+                "time",
+                "velocity_smooth"
+            ]
+        );
+        assert_eq!(
+            series(&items, "heartrate").unwrap().data,
+            vec![Some(140.0), Some(141.0), Some(142.0), Some(143.0)]
+        );
+        assert_eq!(
+            series(&items, "time").unwrap().data,
+            vec![Some(0.0), Some(5.0), Some(10.0), Some(15.0)]
+        );
+        assert_eq!(
+            engine.read_stream_body("ride", DETAIL).unwrap(),
+            Some(raw),
+            "the locked read answers the same body"
+        );
+
+        assert!(
+            engine
+                .read_stream_body("ride", "heartrate,latlng,left_right_balance")
+                .unwrap()
+                .is_none(),
+            "a series the stocking fetch never asked about may still be upstream"
+        );
+    }
+
+    /// Scenario: a ride has its track and clock stored, and no fetch has
+    /// stored any of its sensor series yet.
+    ///
+    /// Expected behaviour: the detail selection is not answered, so the
+    /// screen still fetches the series rather than drawing a track alone.
+    #[test]
+    fn an_unstocked_ride_leaves_its_detail_selection_to_the_fetch() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("ride".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine.set_time_streams_flat(&["ride".to_string()], &[0, 5, 10, 15], &[0]);
+
+        assert_eq!(
+            pooled::stream_body(&engine.db, "ride", DETAIL).unwrap(),
+            (None, false)
+        );
+        assert!(engine.read_stream_body("ride", DETAIL).unwrap().is_none());
     }
 
     #[test]

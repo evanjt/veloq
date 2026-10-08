@@ -22,10 +22,11 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { SportFilterMenu } from './SportFilterMenu';
 import type { SectionHideFlags, SectionsSortOption } from '@/features/routes/lib/routesScreenQuery';
-import { Button, EmptyState } from '@/shared/ui';
+import { Button, EmptyState, ExplanationCard } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
+import { sectionsExplanation } from '@/features/routes/lib/explanationCopy';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
@@ -556,6 +557,9 @@ export const SectionsList = memo(function SectionsList({
           label={t('namedCorridors.link')}
         />
         <DataRangeFooter days={cacheDays} isDark={isDark} />
+        <View style={styles.explanation}>
+          <ExplanationCard {...sectionsExplanation(t)} testID="sections-explanation" />
+        </View>
       </View>
     );
   };
@@ -629,6 +633,10 @@ const styles = StyleSheet.create({
   },
   flatList: {
     marginTop: 0,
+  },
+  explanation: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   list: {
     paddingBottom: spacing.xxl,

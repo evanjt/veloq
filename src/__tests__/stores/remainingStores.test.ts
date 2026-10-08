@@ -73,7 +73,7 @@ describe('declared defaults', () => {
     useWhatsNewStore.setState({
       lastSeenVersion: '9.9.9',
       isLoaded: true,
-      tourState: { mode: 'tutorial', resumeIndex: 4, exploring: true, tip: null },
+      tourState: { mode: 'tutorial', shownIndex: 3, resumeIndex: 4, exploring: true, tip: null },
     });
     const state = freshState('@/features/settings/stores/WhatsNewStore', 'useWhatsNewStore');
     expect(state.lastSeenVersion).toBeNull();
@@ -243,7 +243,7 @@ describe('WhatsNewStore', () => {
     describe('showMe()', () => {
       it('sets exploring state with next index and tip', () => {
         useWhatsNewStore.getState().startTour('whatsNew');
-        useWhatsNewStore.getState().showMe(2, 'Try this feature');
+        useWhatsNewStore.getState().showMe(1, 2, 'Try this feature');
         const tour = useWhatsNewStore.getState().tourState;
         expect(tour!.resumeIndex).toBe(2);
         expect(tour!.exploring).toBe(true);
@@ -252,12 +252,12 @@ describe('WhatsNewStore', () => {
 
       it('defaults tip to null when not provided', () => {
         useWhatsNewStore.getState().startTour('whatsNew');
-        useWhatsNewStore.getState().showMe(1);
+        useWhatsNewStore.getState().showMe(0, 1);
         expect(useWhatsNewStore.getState().tourState!.tip).toBeNull();
       });
 
       it('is a no-op when no tour is active', () => {
-        useWhatsNewStore.getState().showMe(5, 'ignored');
+        useWhatsNewStore.getState().showMe(4, 5, 'ignored');
         expect(useWhatsNewStore.getState().tourState).toBeNull();
       });
     });
@@ -265,7 +265,7 @@ describe('WhatsNewStore', () => {
     describe('resumeTour()', () => {
       it('clears exploring flag while keeping index', () => {
         useWhatsNewStore.getState().startTour('whatsNew');
-        useWhatsNewStore.getState().showMe(3, 'Exploring');
+        useWhatsNewStore.getState().showMe(2, 3, 'Exploring');
         useWhatsNewStore.getState().resumeTour();
         const tour = useWhatsNewStore.getState().tourState;
         expect(tour!.exploring).toBe(false);
@@ -281,7 +281,7 @@ describe('WhatsNewStore', () => {
     describe('endTour()', () => {
       it('clears tour state', () => {
         useWhatsNewStore.getState().startTour('whatsNew');
-        useWhatsNewStore.getState().showMe(2);
+        useWhatsNewStore.getState().showMe(1, 2);
         useWhatsNewStore.getState().endTour();
         expect(useWhatsNewStore.getState().tourState).toBeNull();
       });

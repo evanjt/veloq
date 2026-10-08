@@ -87,6 +87,9 @@ const t = ((key: string, options?: { count?: number }) =>
 const LEGACY_JSON = JSON.stringify({ version: 2, routeNames: { 'route-1': 'Harbour loop' } });
 const PICKED_VELOQ = 'file:///cache/DocumentPicker/old.veloq';
 const PICKED_DB = 'file:///cache/DocumentPicker/older.veloqdb';
+const PICKED_ZIP = 'file:///cache/DocumentPicker/veloq-backup.zip';
+// A zip archive opens with the local file header signature, PK\x03\x04, read here as base64.
+const RECORD_ZIP = 'UEsDBBQAAAAIAA';
 
 function heldFiles(): string[] {
   return [...mockFiles.keys()].filter((uri) => uri.startsWith('file:///docs/'));
@@ -99,6 +102,7 @@ beforeEach(() => {
   mockEngineState.ready = false;
   mockFiles.set(PICKED_VELOQ, LEGACY_JSON);
   mockFiles.set(PICKED_DB, 'sqlite');
+  mockFiles.set(PICKED_ZIP, RECORD_ZIP);
 });
 
 describe('a legacy backup picked while signed out', () => {
@@ -150,11 +154,59 @@ describe('a legacy backup picked while signed out', () => {
     expect(mockFiles.get(heldFiles()[0])).toBe(LEGACY_JSON);
   });
 
-  it('holds nothing while the engine is open, or for a record zip', async () => {
+  it('holds nothing while the engine is open', async () => {
     mockEngineState.ready = true;
     expect(await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq')).toBe(false);
-    mockEngineState.ready = false;
-    expect(await holdImportWhileSignedOut('file:///cache/x.zip', 'veloq-backup.zip')).toBe(false);
+    expect(await holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip')).toBe(false);
+    expect(heldFiles()).toEqual([]);
+  });
+
+  it('holds nothing for a file of any other kind', async () => {
+    mockFiles.set('file:///cache/DocumentPicker/notes.txt', 'hello');
+    expect(
+      await holdImportWhileSignedOut('file:///cache/DocumentPicker/notes.txt', 'notes.txt')
+    ).toBe(false);
+    expect(heldFiles()).toEqual([]);
+  });
+});
+
+describe('a record zip picked or downloaded while signed out', () => {
+  it('keeps a copy as it is, leaving the source for its owner to delete', async () => {
+    expect(await holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip')).toBe(true);
+
+    expect(heldFiles()).toHaveLength(1);
+    expect(mockFiles.get(heldFiles()[0])).toBe(RECORD_ZIP);
+    expect(mockFiles.has(PICKED_ZIP)).toBe(true);
+    expect(mockRestoreRecordBackup).not.toHaveBeenCalled();
+    expect(mockConvert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a file that is not a zip archive before keeping anything', async () => {
+    mockFiles.set(PICKED_ZIP, 'not an archive');
+    await expect(holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip')).rejects.toThrow();
+    mockFiles.set(PICKED_ZIP, '');
+    await expect(holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip')).rejects.toThrow();
+    expect(heldFiles()).toEqual([]);
+  });
+
+  it('replaces an older backup held before it', async () => {
+    await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq');
+    await holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip');
+
+    expect(heldFiles()).toHaveLength(1);
+    expect(mockFiles.get(heldFiles()[0])).toBe(RECORD_ZIP);
+  });
+
+  it('is restored through the record path at the first signed-in launch', async () => {
+    await holdImportWhileSignedOut(PICKED_ZIP, 'veloq-backup.zip');
+    const [held] = heldFiles();
+    mockEngineState.ready = true;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+
+    expect(await applyHeldImport(t)).toBe(true);
+
+    expect(mockRestoreRecordBackup).toHaveBeenCalledWith(held);
+    expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
     expect(heldFiles()).toEqual([]);
   });
 });

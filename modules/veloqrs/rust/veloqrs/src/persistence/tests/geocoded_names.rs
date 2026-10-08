@@ -4,6 +4,7 @@
 //! geocoded name shows only while geocoding is on.
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rusqlite::params;
 use tracematch::GpsPoint;
@@ -18,7 +19,7 @@ use crate::test_globals::{init_global_engine, serial_global_state};
 const ENDPOINT: &str = "https://places.example";
 
 /// Two points in one suburb a cell apart, one in another suburb, one the
-/// provider names no place for and one it never answers.
+/// provider names no place for and one it answers with a server error.
 const NORTHCOTE: (f64, f64) = (-37.7701, 145.0102);
 const NORTHCOTE_EAST: (f64, f64) = (-37.7701, 145.0302);
 const SOUTHBANK: (f64, f64) = (-37.8101, 144.9602);
@@ -26,15 +27,18 @@ const OPEN_WATER: (f64, f64) = (-38.5001, 145.5001);
 const UNANSWERED: (f64, f64) = (-39.0001, 145.5001);
 
 /// The provider as a script, keyed on the latitude of the cell asked about,
-/// writing down every request and the language it carried.
+/// writing down every request and the language it carried. While `offline`
+/// is set no request reaches it, as on a device with no connection.
 struct Provider {
     sent: Mutex<Vec<(String, String)>>,
+    offline: AtomicBool,
 }
 
 impl Provider {
     fn new() -> Self {
         Self {
             sent: Mutex::new(Vec::new()),
+            offline: AtomicBool::new(false),
         }
     }
 
@@ -49,6 +53,9 @@ impl GeocodeTransport for Provider {
             .lock()
             .unwrap()
             .push((url.to_string(), language.to_string()));
+        if self.offline.load(Ordering::SeqCst) {
+            return Err(GeocodeError::Unreachable("connection refused".to_string()));
+        }
         let suburb = if url.contains("lat=-37.770") {
             "Northcote"
         } else if url.contains("lat=-37.810") {
@@ -56,7 +63,7 @@ impl GeocodeTransport for Provider {
         } else if url.contains("lat=-38.500") {
             return Ok(r#"{"address":{"water":"Bass Strait"}}"#.to_string());
         } else {
-            return Err(GeocodeError::Unreachable("no route to host".to_string()));
+            return Err(GeocodeError::Rejected { status: 500 });
         };
         Ok(format!(
             r#"{{"address":{{"road":"High Street","suburb":"{suburb}","city":"Melbourne"}}}}"#
@@ -333,6 +340,72 @@ fn a_lookup_that_finds_no_place_or_fails_leaves_the_number_and_is_not_asked_agai
 
     assert_eq!(run(&provider), 0);
     assert_eq!(provider.transport().count(), asked);
+}
+
+#[test]
+fn a_lookup_that_never_reaches_the_provider_leaves_the_item_queued_for_the_next_pass() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_unreached.db");
+    switch(true);
+    store_words();
+    add_route("loop", round_trip(NORTHCOTE));
+    add_section("climb", line(SOUTHBANK, NORTHCOTE));
+    let provider = Geocoder::with_transport(Provider::new());
+    provider.transport().offline.store(true, Ordering::SeqCst);
+
+    assert_eq!(run(&provider), 0);
+    assert_eq!(
+        provider.transport().count(),
+        1,
+        "the pass stops at the first lookup that never arrived"
+    );
+    assert_eq!(route_name("loop"), "Route 1");
+    assert_eq!(waiting().len(), 2, "both stay queued");
+
+    provider.transport().offline.store(false, Ordering::SeqCst);
+    assert_eq!(run(&provider), 2);
+    assert_eq!(route_name("loop"), "Northcote Loop");
+    assert_eq!(section_name("climb"), "Southbank to Northcote");
+    assert!(waiting().is_empty());
+}
+
+#[test]
+fn an_end_that_never_reaches_the_provider_leaves_the_item_queued() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_end_unreached.db");
+    switch(true);
+    store_words();
+    add_route("journey", line(NORTHCOTE, SOUTHBANK));
+    let provider = Geocoder::with_transport(Provider::new());
+    crate::runtime::block_on(provider.lookup(Some(ENDPOINT), NORTHCOTE.0, NORTHCOTE.1, "en-AU"));
+    provider.transport().offline.store(true, Ordering::SeqCst);
+
+    assert_eq!(run(&provider), 0);
+    assert_eq!(route_name("journey"), "Route 1");
+    assert_eq!(waiting().len(), 1);
+
+    provider.transport().offline.store(false, Ordering::SeqCst);
+    assert_eq!(run(&provider), 1);
+    assert_eq!(route_name("journey"), "Northcote to Southbank");
+}
+
+#[test]
+fn a_pass_while_the_device_is_offline_sends_nothing_and_keeps_the_queue() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_offline.db");
+    switch(true);
+    store_words();
+    add_route("loop", round_trip(NORTHCOTE));
+    let provider = Geocoder::with_transport(Provider::new());
+    crate::net::connectivity::set_online(false);
+
+    assert_eq!(run(&provider), 0);
+    assert_eq!(provider.transport().count(), 0);
+    assert_eq!(waiting().len(), 1);
+
+    crate::net::connectivity::set_online(true);
+    assert_eq!(run(&provider), 1);
+    assert_eq!(route_name("loop"), "Northcote Loop");
 }
 
 #[test]

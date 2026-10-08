@@ -44,7 +44,7 @@ import {
   SectionHeader,
   SectionActionRow,
   SectionContentArea,
-  type SectionStreamsState,
+  sectionStreamsState,
   type SectionDeltaLine,
   SectionDebugPanel,
   SectionDetailLinks,
@@ -242,17 +242,9 @@ function SectionDetailScreenContent() {
     if (!section?.activityPortions) return [];
     return Array.from(new Set(section.activityPortions.map((p) => p.activityId)));
   }, [section]);
-  const {
-    ready: streamsReady,
-    error: streamsError,
-    refetch: refetchStreams,
-  } = useSectionTimeStreamSync(portionActivityIds, detail?.missingTimeStreamIds);
-
-  const streams: SectionStreamsState = streamsError
-    ? { status: 'failed', error: streamsError, onRetry: refetchStreams }
-    : !streamsReady
-      ? { status: 'loading', onRetry: refetchStreams }
-      : { status: 'ready', onRetry: refetchStreams };
+  const streamSync = useSectionTimeStreamSync(portionActivityIds, detail?.missingTimeStreamIds);
+  const streamsReady = streamSync.ready;
+  const streams = sectionStreamsState(streamSync);
 
   // Second call: everything that needs lap times. With no chip picked, the
   // engine answers for the sport with the most outings and says which.
@@ -306,8 +298,11 @@ function SectionDetailScreenContent() {
 
   const { isRunning } = useSectionMapData(effectiveSportType, section);
 
-  const bestForwardIsRecord = performance?.bestForwardIsRecord ?? false;
-  const bestReverseIsRecord = performance?.bestReverseIsRecord ?? false;
+  // An activity still missing its stream could hold a faster effort, so a best
+  // read without it is shown as a best and never as the record.
+  const recordsSettled = streamSync.outstanding === 0;
+  const bestForwardIsRecord = recordsSettled && (performance?.bestForwardIsRecord ?? false);
+  const bestReverseIsRecord = recordsSettled && (performance?.bestReverseIsRecord ?? false);
 
   if (!section) {
     return (

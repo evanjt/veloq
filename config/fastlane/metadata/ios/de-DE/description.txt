@@ -23,4 +23,4 @@ Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale P
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 
-Erfordert ein Intervals.icu-Konto für Live-Daten. Nicht mit Intervals.icu verbunden.
+Erfordert ein intervals.icu-Konto für Live-Daten. Nicht mit intervals.icu verbunden.

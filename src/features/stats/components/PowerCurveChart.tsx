@@ -9,7 +9,7 @@ import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 import { RangeCoverage } from 'veloqrs';
-import { ToggleButton } from '@/shared/ui';
+import { BodyNotDownloaded, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 
 interface PowerCurveChartProps {
@@ -79,7 +79,14 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const chartColors = useChartColors();
   const lineColor = color ?? chartColors.powerCurve;
 
-  const { data: curve, isLoading, error, coverage, bodyStatus } = usePowerCurve({ sport, days });
+  const {
+    data: curve,
+    isLoading,
+    error,
+    coverage,
+    bodyStatus,
+    retryBody,
+  } = usePowerCurve({ sport, days });
 
   // Per kilogram is the one comparison that survives a change of body weight.
   // Offered only when the body carried the series, and never persisted: it is
@@ -154,11 +161,20 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {coverage === RangeCoverage.NotFetched
-              ? t('stats.rangeNotDownloaded')
-              : t('stats.noPowerData')}
-          </Text>
+          {coverage === RangeCoverage.NotFetched ? (
+            <BodyNotDownloaded
+              testID="power-curve-not-downloaded"
+              style={styles.notDownloaded}
+              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              message={t('stats.rangeNotDownloaded')}
+              status={bodyStatus}
+              onRetry={retryBody}
+            />
+          ) : (
+            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+              {t('stats.noPowerData')}
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -299,6 +315,9 @@ const styles = StyleSheet.create({
   emptyState: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notDownloaded: {
     alignItems: 'center',
   },
   emptyText: {

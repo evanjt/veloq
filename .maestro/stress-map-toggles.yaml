@@ -12,12 +12,9 @@ tags:
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-# Wait for map controls to load
-- extendedWaitUntil:
-    visible:
-      id: "map-toggle-activities"
-    timeout: 10000
-    optional: true
+# Wait for map controls to load, and open the layers menu that holds the toggles
+- runFlow:
+    file: helpers/open-map-layers.yaml
 
 # Stress test: Rapidly toggle activity layer (10 times)
 - repeat:

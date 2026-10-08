@@ -7,6 +7,7 @@ export { StrengthProgressionCard } from './components/StrengthProgressionCard';
 export { StrengthExerciseList } from './components/StrengthExerciseList';
 export { default as ExerciseDetailScreen } from './components/ExerciseDetailScreen';
 export { StrengthBalanceView } from './components/StrengthBalanceView';
+export { StrengthBalanceScale } from './components/StrengthBalanceScale';
 export { StrengthPairsInfoSheet } from './components/StrengthPairsInfoSheet';
 
 export { useExerciseSets, useMuscleGroups, useStrengthCardData } from './hooks/useExerciseSets';

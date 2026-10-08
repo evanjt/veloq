@@ -23,4 +23,4 @@ Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las 
 
 Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 
-Requiere una cuenta de Intervals.icu para datos en directo. No afiliado a Intervals.icu.
+Requiere una cuenta de intervals.icu para datos en directo. No afiliado a intervals.icu.

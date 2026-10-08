@@ -117,9 +117,20 @@ describe('Android artifact recipes wait for the build lock', () => {
       23,
       [
         'node scripts/prepare-native.mjs --platform android',
-        'node scripts/check-toolchain.mjs',
+        'node scripts/check-toolchain.mjs --platform android',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/bundle-android.mjs',
+      ],
+    ],
+    [
+      'android:standalone',
+      23,
+      [
+        'node scripts/prepare-native.mjs --platform android',
+        'node scripts/check-toolchain.mjs --platform android',
+        'node scripts/sync-android-widgets.mjs',
+        'node scripts/build-record.js snapshot android release',
+        'gradlew assembleRelease',
       ],
     ],
     [
@@ -127,7 +138,7 @@ describe('Android artifact recipes wait for the build lock', () => {
       23,
       [
         'node scripts/prepare-native.mjs --platform android',
-        'node scripts/check-toolchain.mjs',
+        'node scripts/check-toolchain.mjs --platform android',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/build-record.js snapshot android release',
         'gradlew assembleRelease',

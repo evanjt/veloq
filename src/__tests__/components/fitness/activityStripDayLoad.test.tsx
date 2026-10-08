@@ -144,8 +144,10 @@ describe('the activity strip title and key', () => {
     const tree = render(mixed(null, MIXED));
 
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
-    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(/Ride/);
-    expect(tree.getByTestId('fitness-strip-key-Run')).toHaveTextContent(/Run/);
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(
+      /maps\.activityTypes\.ride/
+    );
+    expect(tree.getByTestId('fitness-strip-key-Run')).toHaveTextContent(/maps\.activityTypes\.run/);
     expect(tree.queryByTestId('fitness-strip-key-Walk')).toBeNull();
     expect(tree.getByTestId('fitness-strip-key-noLoad')).toHaveTextContent(/fitness\.noLoadKey/);
     expect(tree.getByTestId('fitness-strip-gloss')).toHaveTextContent(/fitness\.stripGloss/);
@@ -159,6 +161,22 @@ describe('the activity strip title and key', () => {
     tree.rerender(mixed(null, MIXED));
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
     expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
+  });
+
+  it('keys sports of one group as that group, once', () => {
+    const tree = render(
+      mixed(null, [
+        withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
+        withLoad(activity('v1', '2026-03-11'), 'VirtualRide', 40),
+        withLoad(activity('g1', '2026-03-12'), 'GravelRide', 30),
+      ])
+    );
+
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(
+      /maps\.activityTypes\.ride/
+    );
+    expect(tree.queryByTestId('fitness-strip-key-VirtualRide')).toBeNull();
+    expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
   });
 
   it('omits sports and the neutral entry that the window does not show', () => {

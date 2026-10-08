@@ -33,10 +33,11 @@ import org.xmlpull.v1.XmlPullParser
 
 /**
  * Scenario: every widget is placed at the smallest, the target and the largest size its provider
- * info allows, in light and dark, with the sample library and with the longest words the locales
- * have.
+ * info allows, in light and dark, with the sample library, with the longest words the locales
+ * have, with an empty library and with rides and no wellness reading.
  *
- * Expected behaviour: no line of text is ellipsised, clipped or pushed out of its parent. Every
+ * Expected behaviour: no line of text is ellipsised, clipped or pushed out of its parent. An empty
+ * library draws the open-the-app prompt, and a missing wellness reading draws a dash. Every
  * placement is saved as a PNG under the test package's external files, `widget-captures/`, so a
  * failure can be looked at rather than only read.
  *
@@ -78,21 +79,29 @@ class WidgetCaptureTest {
     out.deleteRecursively()
     out.mkdirs()
     val failures = mutableListOf<String>()
-    for (fixture in listOf("demo", "long-text")) {
+    val prompt = context.getString(R.string.widget_open_app)
+    for (fixture in listOf("demo", "long-text", "empty", "no-wellness")) {
       val snap = snapshot(fixture)
       for (widget in widgets) {
+        val expected =
+          when {
+            widget.name == "record" -> null
+            fixture == "empty" -> prompt
+            fixture == "no-wellness" && widget.name == "summary" -> "-"
+            else -> null
+          }
         for (cells in placements(widget.info)) {
           for (dark in listOf(false, true)) {
             val name = "${widget.name}-${cells.cols}x${cells.rows}-$fixture-${if (dark) "dark" else "light"}"
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
-              failures += capture(name, widget, snap, cells, themed(dark), out)
+              failures += capture(name, widget, snap, cells, themed(dark), out, expected)
             }
           }
         }
       }
     }
     assertTrue(
-      "Cut-off text in ${failures.size} places, captures in $out:\n" + failures.joinToString("\n"),
+      "Cut-off or missing text in ${failures.size} places, captures in $out:\n" + failures.joinToString("\n"),
       failures.isEmpty())
   }
 
@@ -185,6 +194,7 @@ class WidgetCaptureTest {
     cells: Cells,
     themed: Context,
     out: File,
+    expected: String?,
   ): List<String> {
     val widthDp = 73 * cells.cols - 16
     val heightDp = 118 * cells.rows - 16
@@ -205,8 +215,17 @@ class WidgetCaptureTest {
     bitmap.recycle()
     val found = mutableListOf<String>()
     inspect(host, name, found)
+    if (expected != null && expected !in shownTexts(host)) found += "$name: draws no \"$expected\""
     return found
   }
+
+  private fun shownTexts(view: View): List<String> =
+    when {
+      view.visibility != View.VISIBLE -> emptyList()
+      view is TextView -> listOf(view.text.toString())
+      view is ViewGroup -> (0 until view.childCount).flatMap { shownTexts(view.getChildAt(it)) }
+      else -> emptyList()
+    }
 
   private fun inspect(view: View, name: String, found: MutableList<String>) {
     if (view.visibility != View.VISIBLE) return

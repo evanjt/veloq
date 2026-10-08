@@ -23,6 +23,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useActivities } from '@/features/activity/hooks';
 import { getEngine } from '@/shared/native/engine';
+import { onBackupReconnect } from '@/features/settings/lib/autobackup';
 
 jest.mock('@/features/activity/hooks', () => ({
   useActivities: jest.fn(() => ({ data: [], isFetching: false })),
@@ -42,13 +43,18 @@ jest.mock('@/features/settings/lib/notificationService', () => ({
   updateSyncNotification: jest.fn(),
   dismissSyncNotification: jest.fn(),
 }));
-jest.mock('@/features/settings/lib/autobackup', () => ({ onSyncComplete: jest.fn() }));
+jest.mock('@/features/settings/lib/autobackup', () => ({
+  onSyncComplete: jest.fn(),
+  onBackupReconnect: jest.fn(),
+}));
 // The tree mounts under NetworkProvider in the app. Here only the value the
 // reconnect subscribers read is needed, not the NetInfo listener behind it.
 jest.mock('@/shared/app/NetworkContext', () => ({
   ...jest.requireActual('@/shared/app/NetworkContext'),
   useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => mockOnline,
 }));
+let mockOnline = true;
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockUseActivities = useActivities as jest.MockedFunction<typeof useActivities>;
@@ -105,6 +111,7 @@ beforeEach(() => {
   syncListeners.length = 0;
   syncing = false;
   useSyncDateRange.setState({ extendedFetch: IDLE_EXTENDED_FETCH });
+  mockOnline = true;
 });
 
 afterEach(() => {
@@ -112,6 +119,26 @@ afterEach(() => {
 });
 
 describe('GlobalDataSync', () => {
+  it('asks the backup for an owed copy on the offline to online edge, once', () => {
+    const view = renderSyncTree();
+    expect(onBackupReconnect).not.toHaveBeenCalled();
+
+    mockOnline = false;
+    view.rerender(
+      React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
+    );
+    expect(onBackupReconnect).not.toHaveBeenCalled();
+
+    mockOnline = true;
+    view.rerender(
+      React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
+    );
+    view.rerender(
+      React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
+    );
+    expect(onBackupReconnect).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     [['TrailRun'], 'Run'],
     [['OpenWaterSwim'], 'Swim'],

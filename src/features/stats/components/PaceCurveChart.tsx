@@ -15,7 +15,7 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui';
+import { BodyNotDownloaded, pressable, pressRipple } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -77,6 +77,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     error,
     coverage,
     bodyStatus,
+    retryBody,
   } = usePaceCurve({
     sport,
     days,
@@ -201,11 +202,20 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {coverage === RangeCoverage.NotFetched
-              ? t('stats.rangeNotDownloaded')
-              : t('stats.noPaceData')}
-          </Text>
+          {coverage === RangeCoverage.NotFetched ? (
+            <BodyNotDownloaded
+              testID="pace-curve-not-downloaded"
+              style={styles.notDownloaded}
+              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              message={t('stats.rangeNotDownloaded')}
+              status={bodyStatus}
+              onRetry={retryBody}
+            />
+          ) : (
+            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+              {t('stats.noPaceData')}
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -400,6 +410,9 @@ const styles = StyleSheet.create({
   emptyState: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notDownloaded: {
     alignItems: 'center',
   },
   emptyText: {

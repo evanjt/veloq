@@ -233,13 +233,15 @@ describe('the native build tree check', () => {
   });
 
   it('runs before every command that builds the app natively', () => {
-    const builds = /run-android\.sh|with-android-build-lock|expo run:|clean:rust/;
+    const builds = /run-android\.sh|run-ios\.sh|with-android-build-lock|expo run:|clean:rust/;
     for (const name of [
       'android',
+      'android:standalone',
       'android:prod',
       'android:debug',
       'test:android',
       'ios',
+      'ios:standalone',
       'ios:prod',
     ]) {
       const script = packageJson.scripts[name];

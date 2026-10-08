@@ -1,29 +1,10 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import {
-  Canvas,
-  Path,
-  Circle,
-  LinearGradient,
-  vec,
-  Line as SkiaLine,
-} from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import {
-  colors,
-  darkColors,
-  spacing,
-  opacity,
-  ink,
-  layout,
-  typography,
-  colorWithOpacity,
-} from '@/theme';
+import { formatDuration, safeGetTime } from '@/shared/format/format';
+import { colors, darkColors, spacing, opacity, ink, layout, colorWithOpacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import {
@@ -31,10 +12,9 @@ import {
   plottedDirection,
   type DirectionBests,
 } from '@/features/insights/lib/directionBests';
-import type { LayoutChangeEvent } from 'react-native';
+import { InsightSeriesChart } from '../InsightSeriesChart';
 
-const CHART_HEIGHT = 160;
-const CHART_PADDING = { top: 12, bottom: 24, left: 42, right: 12 };
+const CHART_HEIGHT = 200;
 
 interface SectionPerformanceTimelineProps {
   records: SectionPerformanceRecord[];
@@ -43,10 +23,12 @@ interface SectionPerformanceTimelineProps {
   lineColor?: string;
 }
 
+const formatTime = (seconds: number) => formatDuration(Math.round(seconds));
+
 /**
- * Timeline chart showing section performance (time) over date.
- * X-axis: dates, Y-axis: duration in seconds (inverted so faster = higher).
- * An out-and-back plots the direction holding the record. PR is highlighted with a distinct marker.
+ * Every effort on the section over date, its time on the value axis with the
+ * fastest at the top. An out-and-back plots the direction holding the record,
+ * and the record carries a distinct marker.
  */
 export const SectionPerformanceTimeline = React.memo(function SectionPerformanceTimeline({
   records,
@@ -55,12 +37,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 }: SectionPerformanceTimelineProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [chartWidth, setChartWidth] = useState(0);
-  const onChartLayout = useCallback((e: LayoutChangeEvent) => {
-    setChartWidth(e.nativeEvent.layout.width);
-  }, []);
 
-  // Sort records chronologically
   const sorted = useMemo(() => {
     const efforts = directionEfforts(records, bests);
     const direction = plottedDirection(efforts, bests);
@@ -69,206 +46,36 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       .sort((a, b) => safeGetTime(a.record.activityDate) - safeGetTime(b.record.activityDate));
   }, [records, bests]);
 
-  const { linePath, areaPath, pointPositions, bestPointIdx, yMin, yMax, yTicks, xLabels } =
-    useMemo(() => {
-      const empty = {
-        linePath: '',
-        areaPath: '',
-        pointPositions: [] as { x: number; y: number }[],
-        bestPointIdx: -1,
-        yMin: 0,
-        yMax: 100,
-        yTicks: [] as number[],
-        xLabels: [] as { x: number; label: string }[],
-      };
-      if (sorted.length < 2 || chartWidth <= 0) return empty;
+  const samples = useMemo(
+    () => sorted.map((e) => ({ value: e.time, date: safeGetTime(e.record.activityDate) / 1000 })),
+    [sorted]
+  );
 
-      const times = sorted.map((e) => e.time);
-      const minTime = Math.min(...times);
-      const maxTime = Math.max(...times);
-      const range = maxTime - minTime || 10;
-      const paddedMin = minTime - range * 0.1;
-      const paddedMax = maxTime + range * 0.1;
-      const yRange = paddedMax - paddedMin;
-
-      const drawW = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
-      const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-
-      // Map data to pixel positions
-      // Y is inverted: lower time (faster) = higher on chart
-      const positions = sorted.map((r, i) => ({
-        x: CHART_PADDING.left + (i / (sorted.length - 1)) * drawW,
-        y: CHART_PADDING.top + ((r.time - paddedMin) / yRange) * drawH,
-      }));
-
-      // Build line path
-      let d = `M ${positions[0].x} ${positions[0].y}`;
-      for (let i = 1; i < positions.length; i++) {
-        d += ` L ${positions[i].x} ${positions[i].y}`;
-      }
-
-      // Build area path
-      const lastX = positions[positions.length - 1].x;
-      const bottomY = CHART_HEIGHT - CHART_PADDING.bottom;
-      const area = `${d} L ${lastX} ${bottomY} L ${positions[0].x} ${bottomY} Z`;
-
-      // Find best point index
-      const bestIdx = sorted.findIndex((e) => e.isPr);
-
-      // Y-axis ticks: 3 evenly spaced
-      const tickCount = 3;
-      const tickStep = range / (tickCount - 1);
-      const ticks = Array.from({ length: tickCount }, (_, i) => Math.round(minTime + i * tickStep));
-
-      // X-axis labels: first, middle (if enough points), last
-      const labels: { x: number; label: string }[] = [];
-      if (sorted.length >= 2) {
-        labels.push({ x: positions[0].x, label: formatShortDate(sorted[0].record.activityDate) });
-        if (sorted.length >= 5) {
-          const midIdx = Math.floor(sorted.length / 2);
-          labels.push({
-            x: positions[midIdx].x,
-            label: formatShortDate(sorted[midIdx].record.activityDate),
-          });
-        }
-        labels.push({
-          x: positions[positions.length - 1].x,
-          label: formatShortDate(sorted[sorted.length - 1].record.activityDate),
-        });
-      }
-
-      return {
-        linePath: d,
-        areaPath: area,
-        pointPositions: positions,
-        bestPointIdx: bestIdx,
-        yMin: paddedMin,
-        yMax: paddedMax,
-        yTicks: ticks,
-        xLabels: labels,
-      };
-    }, [sorted, chartWidth]);
-
-  if (sorted.length < 2) return null;
-
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const gridColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.06);
-  const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
   // The 5 px dot among the faint ones is the only thing that says best record,
   // so it is a mark and owes 3:1 rather than the amber chart tone.
   const bestMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
-  const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-  const yRange = yMax - yMin || 1;
+  const bestIndex = sorted.findIndex((e) => e.isPr);
+  const marker = useMemo(
+    () => (bestIndex >= 0 ? { index: bestIndex, color: bestMarkColor } : null),
+    [bestIndex, bestMarkColor]
+  );
+
+  if (sorted.length < 2) return null;
+
+  const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
 
   return (
     <ChartErrorBoundary height={CHART_HEIGHT}>
       <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-        <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-          {t('insights.sectionPrSheet.allEfforts', { n: sorted.length })}
-        </Text>
-        <View style={styles.chartWrapper} onLayout={onChartLayout}>
-          {linePath ? (
-            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-              {/* Horizontal grid lines */}
-              {yTicks.map((tick, i) => {
-                const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
-                return (
-                  <SkiaLine
-                    key={`grid-${i}`}
-                    p1={vec(CHART_PADDING.left, y)}
-                    p2={vec(chartWidth - CHART_PADDING.right, y)}
-                    color={gridColor}
-                    strokeWidth={1}
-                  />
-                );
-              })}
-              {/* Area fill */}
-              <Path path={areaPath} style="fill">
-                <LinearGradient
-                  start={vec(0, CHART_PADDING.top)}
-                  end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                  colors={[`${lineColor}25`, `${lineColor}05`]}
-                />
-              </Path>
-              {/* Line */}
-              <Path
-                path={linePath}
-                style="stroke"
-                strokeWidth={2}
-                color={lineColor}
-                strokeCap="round"
-                strokeJoin="round"
-              />
-              {/* Scatter dots */}
-              {pointPositions.map((p, i) =>
-                i === bestPointIdx ? null : (
-                  <Circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} color={dotColor} />
-                )
-              )}
-              {/* Best record highlight */}
-              {bestPointIdx >= 0 && pointPositions[bestPointIdx] && (
-                <>
-                  <Circle
-                    cx={pointPositions[bestPointIdx].x}
-                    cy={pointPositions[bestPointIdx].y}
-                    r={7}
-                    color={bestMarkColor}
-                    opacity={0.3}
-                  />
-                  <Circle
-                    cx={pointPositions[bestPointIdx].x}
-                    cy={pointPositions[bestPointIdx].y}
-                    r={5}
-                    color={bestMarkColor}
-                  />
-                  <Circle
-                    cx={pointPositions[bestPointIdx].x}
-                    cy={pointPositions[bestPointIdx].y}
-                    r={2.5}
-                    color={ink.white}
-                  />
-                </>
-              )}
-            </Canvas>
-          ) : null}
-
-          {/* Y-axis labels (time values) - faster at bottom, slower at top */}
-          {yTicks.map((tick, i) => {
-            const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
-            return (
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                key={`y-${i}`}
-                style={[
-                  styles.axisLabel,
-                  {
-                    position: 'absolute',
-                    left: 0,
-                    top: y - 6,
-                    width: CHART_PADDING.left - 4,
-                    textAlign: 'right',
-                    color: textSecondary,
-                  },
-                ]}
-              >
-                {formatDuration(tick)}
-              </Text>
-            );
-          })}
-
-          {/* X-axis date labels */}
-          <View style={[styles.xAxisRow, { left: CHART_PADDING.left, right: CHART_PADDING.right }]}>
-            {xLabels.map((label, i) => (
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                key={`x-${i}`}
-                style={[styles.axisLabel, { color: textSecondary }]}
-              >
-                {label.label}
-              </Text>
-            ))}
-          </View>
-        </View>
+        <InsightSeriesChart
+          samples={samples}
+          title={t('insights.sectionPrSheet.allEfforts', { n: sorted.length })}
+          color={lineColor}
+          formatValue={formatTime}
+          invert
+          pointColor={dotColor}
+          marker={marker}
+        />
       </View>
     </ChartErrorBoundary>
   );
@@ -282,27 +89,5 @@ const styles = StyleSheet.create({
   },
   chartCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  chartLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  chartLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  chartWrapper: {
-    position: 'relative',
-    height: CHART_HEIGHT,
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '500',
-  },
-  xAxisRow: {
-    position: 'absolute',
-    bottom: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
 });

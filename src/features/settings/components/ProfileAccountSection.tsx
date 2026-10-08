@@ -14,7 +14,7 @@ import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
 import * as haptics from '@/shared/ui/haptics';
 import { pressable, pressRipple } from '@/shared/ui';
-import { signOutMessage } from '../lib/signOutCopy';
+import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 
 interface Athlete {
   name?: string;
@@ -68,7 +68,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const handleLogout = () => {
     Alert.alert(
       t('alerts.disconnectTitle'),
-      signOutMessage(t('alerts.disconnectMessage'), t('alerts.disconnectOffline'), isOnline),
+      offlineConfirmMessage(t('alerts.disconnectMessage'), t('alerts.disconnectOffline'), isOnline),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -90,7 +90,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       t('alerts.disconnectAndClearTitle', {
         defaultValue: 'Sign out and delete data?',
       }),
-      signOutMessage(
+      offlineConfirmMessage(
         t('alerts.disconnectAndClearMessage', {
           defaultValue:
             'This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.',

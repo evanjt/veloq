@@ -117,6 +117,8 @@ function BottomTabBarComponent() {
 
   return (
     <>
+      {/* The sync pill shows on the tab screens, floating at the top of the page */}
+      <SyncProgressStrip />
       <View
         testID="bottom-tab-bar"
         style={[styles.container, { height: totalHeight }]}
@@ -129,13 +131,6 @@ function BottomTabBarComponent() {
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-        {/* Sits in the fade zone above the icons, over the page and out of its flow */}
-        <View
-          style={[styles.syncSlot, { bottom: TAB_BAR_HEIGHT + insets.bottom }]}
-          pointerEvents="none"
-        >
-          <SyncProgressStrip />
-        </View>
         {/* Icons row - positioned at bottom above safe area */}
         <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
           {MENU_ITEMS.map((item) => {
@@ -186,12 +181,6 @@ function BottomTabBarComponent() {
 export const BottomTabBar = memo(BottomTabBarComponent);
 
 const styles = StyleSheet.create({
-  syncSlot: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: GRADIENT_HEIGHT,
-  },
   container: {
     position: 'absolute',
     left: 0,

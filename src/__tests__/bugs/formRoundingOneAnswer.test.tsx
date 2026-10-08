@@ -13,7 +13,7 @@ import { render, renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
-import { useFitnessComputations } from '@/features/fitness/hooks/useFitnessComputations';
+import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 import type { Activity, WellnessData } from '@/types';
 
@@ -37,19 +37,8 @@ const activity = {
   start_date_local: '2026-09-05T08:00:00',
 } as Activity;
 
-function fitnessTabForm(day: WellnessData) {
-  const { result } = renderHook(() =>
-    useFitnessComputations({
-      wellness: [day],
-      sportMode: 'Cycling',
-      powerZones: undefined,
-      hrZones: undefined,
-      eftpTrend: undefined,
-      selectedDate: null,
-      selectedValues: null,
-    })
-  );
-  return result.current.currentValues?.form;
+function fitnessTabReadout(day: WellnessData) {
+  return render(<FitnessChart data={[day]} />);
 }
 
 function activityFormCard(day: WellnessData) {
@@ -72,10 +61,12 @@ describe.each([
   [60.4, 60.4, 60, 60, '0'],
 ])('ctl %d and atl %d', (ctl, atl, fitness, fatigue, shown) => {
   const day = { id: '2026-09-05', ctl, atl } as WellnessData;
-  const form = fitness - fatigue;
 
   it('the fitness tab shows rounded fitness minus rounded fatigue', () => {
-    expect(fitnessTabForm(day)).toBe(form);
+    const tree = fitnessTabReadout(day);
+    expect(tree.getByTestId('fitness-form-value')).toHaveTextContent(shown, { exact: true });
+    expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent(`${fitness}`, { exact: true });
+    expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent(`${fatigue}`, { exact: true });
   });
 
   it('the activity Form card agrees and adds up from its own details', () => {

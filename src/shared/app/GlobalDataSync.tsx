@@ -15,7 +15,7 @@ import {
   useStoredPreviewTracks,
 } from '@/features/activity/hooks/useMapPreviewCoordinates';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { onSyncComplete } from '@/features/settings/lib/autobackup';
+import { onBackupReconnect, onSyncComplete } from '@/features/settings/lib/autobackup';
 
 import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -25,6 +25,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { usePushedWritesOnForeground } from '@/shared/native/usePushedWritesOnForeground';
 import { usePickupDeadline } from '@/shared/app/usePickupDeadline';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { syncSettledForExpansion } from '@/shared/app/expansionLock';
 
 export function GlobalDataSync() {
@@ -47,6 +48,9 @@ export function GlobalDataSync() {
   // A FIT download the radio refused announces nothing, so the reconnect edge
   // is the only thing that can wake the sets a strength card cached as empty.
   useStrengthReconnect();
+
+  // A backup copy a carrier could not take while offline goes on the way back.
+  useReconnect(onBackupReconnect);
 
   // A re-ingest that replaced a stored track moved the preview line cut from
   // it. The engine names those activities, and only their cards re-read.

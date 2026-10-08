@@ -47,6 +47,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Activities toggle. HARD assert (always present in demo mode)
 - assertVisible:
     id: "map-toggle-activities"

@@ -141,7 +141,7 @@ export function SectionHeader({
               )}
             </Pressable>
           )}
-          <HeroStatsRow stats={stats} />
+          <HeroStatsRow testID="section-detail-stats" stats={stats} />
         </>
       }
     >

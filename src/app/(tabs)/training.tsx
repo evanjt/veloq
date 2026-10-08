@@ -149,7 +149,6 @@ function HealthScreenContent() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="training-screen">
-      <SyncRefreshNotice message={notice} />
       <View style={styles.header} testID="training-header">
         <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
         {isFetching && !isRefreshing && (
@@ -254,6 +253,7 @@ function HealthScreenContent() {
           </View>
         )}
       </ScrollView>
+      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

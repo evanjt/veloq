@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.veloq.NativeWidgetRefreshWorker
 import com.veloq.WidgetAgeRefreshWorker
+import com.veloq.WidgetDataRefreshWorker
 
 /**
  * Home-screen Summary widget. Renders the last snapshot the app wrote to filesDir. It never
@@ -22,6 +23,9 @@ import com.veloq.WidgetAgeRefreshWorker
  * before the schedule existed gets no first-placement call. The schedule is shared with every
  * other widget that shows an age line, so removing the last Summary widget does not cancel it:
  * the worker cancels itself once no widget of the app is placed.
+ *
+ * [WidgetDataRefreshWorker] pulls fresh data on a longer timer while an athlete is signed in, and
+ * every data widget settles it the same way, including on its last removal.
  */
 class VeloqWidgetProvider : AppWidgetProvider() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -36,10 +40,16 @@ class VeloqWidgetProvider : AppWidgetProvider() {
     val snap = WidgetSnapshot.read(context)
     for (id in ids) update(context, manager, snap, id)
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
   }
 
   override fun onEnabled(context: Context) {
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
+  }
+
+  override fun onDisabled(context: Context) {
+    WidgetDataRefreshWorker.reconcile(context)
   }
 
   override fun onAppWidgetOptionsChanged(

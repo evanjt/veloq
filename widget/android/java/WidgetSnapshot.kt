@@ -174,6 +174,14 @@ data class WidgetSnapshot(
    */
   val demoLabel: String? = null,
   /**
+   * When the sync the numbers came from finished, in seconds. Set only on a snapshot redrawn from
+   * stored rows because its pull did not land, where [generatedAt] is the redraw and says nothing
+   * about how old the numbers are. Zero when no clean sync is recorded or the field is absent.
+   */
+  val dataAsOf: Long = 0L,
+  /** The words that say the numbers are as of the last sync, present on the same snapshots. */
+  val dataAsOfLabel: String? = null,
+  /**
    * The Insights tab's ranked list, in its order and of every kind. Empty on a snapshot written
    * before schema 11, with no account, or when the ranking could not run.
    */
@@ -250,6 +258,8 @@ data class WidgetSnapshot(
         recordShortcuts = parseShortcuts(root, "recordShortcuts"),
         launcherShortcuts = parseShortcuts(root, "launcherShortcuts"),
         demoLabel = display.optString("demoLabel", "").takeIf { it.isNotEmpty() },
+        dataAsOf = root.optLong("dataAsOf", 0L),
+        dataAsOfLabel = display.optString("dataAsOfLabel", "").takeIf { it.isNotEmpty() },
         insights = parseInsights(root),
         strength = parseStrength(root),
       )

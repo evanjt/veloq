@@ -10,6 +10,7 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
+import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import { decodeCoords } from 'veloqrs';
 import type { ActivityBoundsItem } from '@/types';
 
@@ -141,11 +142,13 @@ describe('RegionalMapView', () => {
     renderRegional();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('map-layers'));
     expect(screen.getByTestId('map-toggle-activities')).toBeTruthy();
   });
 
   it('offers fit-all once there is at least one activity', () => {
     renderRegional();
+    fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.getByTestId('map-fit-all')).toBeTruthy();
     expect(() => fireEvent.press(screen.getByTestId('map-fit-all'))).not.toThrow();
@@ -153,6 +156,7 @@ describe('RegionalMapView', () => {
 
   it('withholds fit-all when there is nothing to fit', () => {
     renderRegional({ activities: [] });
+    fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.queryByTestId('map-fit-all')).toBeNull();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
@@ -160,6 +164,7 @@ describe('RegionalMapView', () => {
 
   it('keeps the overlay toggles pressable', () => {
     renderRegional();
+    fireEvent.press(screen.getByTestId('map-layers'));
 
     for (const id of ['map-toggle-activities', 'map-toggle-heatmap']) {
       expect(() => fireEvent.press(screen.getByTestId(id))).not.toThrow();
@@ -215,6 +220,23 @@ describe('RegionalMapView', () => {
 
     fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId('webview')).toBeNull();
+  });
+
+  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', () => {
+    renderRegional();
+
+    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
+
+    fireEvent(screen.getByTestId('webview'), 'message', {
+      nativeEvent: {
+        data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
+      },
+    });
+
+    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
   it('tears the surface down when the tab loses focus and rebuilds it on return', () => {

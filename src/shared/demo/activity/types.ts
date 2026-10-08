@@ -1,4 +1,4 @@
-// Demo fixture shapes that mirror the Intervals.icu API response format exactly.
+// Demo fixture shapes that mirror the intervals.icu API response format exactly.
 // Matching the real API shape keeps the app's demo path identical to live data.
 
 export interface ApiActivity {

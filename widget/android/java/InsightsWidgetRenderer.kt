@@ -36,8 +36,15 @@ object InsightsWidgetRenderer {
     val size = InsightsWidget.sizeFor(minWidthDp, minHeightDp)
     val content = snap?.let { InsightsWidget.content(it, size, kinds) }
     val first = content?.rows?.firstOrNull()
-    if (size == SummarySize.SHORT && first != null && !WidgetSnapshot.showsEmptyPrompt(snap)) {
-      return renderShort(context, first)
+    if (size == SummarySize.SHORT) {
+      return when {
+        WidgetSnapshot.showsEmptyPrompt(snap) || content == null ->
+          renderShortMessage(context, context.getString(R.string.widget_open_app), "veloq://")
+        first == null ->
+          renderShortMessage(
+            context, context.getString(R.string.widget_insights_empty), InsightsWidget.TAB_URL)
+        else -> renderShort(context, first)
+      }
     }
 
     val v = RemoteViews(context.packageName, R.layout.widget_insights)
@@ -72,6 +79,18 @@ object InsightsWidgetRenderer {
     v.setInt(R.id.ins_dot0, "setColorFilter", toneColor(context, insight.tone))
     v.setTextViewText(R.id.ins_title0, insight.title)
     v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, insight.url, 21))
+    return v
+  }
+
+  /**
+   * One row tall with nothing to list: the message alone, since the row has no room for a hint
+   * or the age line, and a tap that opens [url].
+   */
+  private fun renderShortMessage(context: Context, text: String, url: String): RemoteViews {
+    val v = RemoteViews(context.packageName, R.layout.widget_insights_short)
+    v.setViewVisibility(R.id.ins_dot0, View.GONE)
+    v.setTextViewText(R.id.ins_title0, text)
+    v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, url, 21))
     return v
   }
 

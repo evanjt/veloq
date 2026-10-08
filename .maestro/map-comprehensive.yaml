@@ -15,9 +15,12 @@ tags:
 # Wait for map controls to load (requires: MapLibre init + engine ready + activities fetched)
 - extendedWaitUntil:
     visible:
-      id: "map-toggle-activities"
+      id: "map-layers"
     timeout: 45000
     optional: true
+
+- runFlow:
+    file: helpers/open-map-layers.yaml
 
 - takeScreenshot: "screenshots/map-controls-loaded"
 
@@ -42,7 +45,10 @@ tags:
 # Layer Toggles
 # =============================================================================
 
-# Wait for map controls to be available after filter interactions
+# Fit-all closed the menu, so open it again for the toggles.
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 - extendedWaitUntil:
     visible:
       id: "map-toggle-activities"
@@ -137,6 +143,9 @@ tags:
     visible:
       id: "map-screen"
     timeout: 2000
+
+- runFlow:
+    file: helpers/open-map-layers.yaml
 
 - tapOn:
     id: "map-fit-all"

@@ -30,6 +30,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   isAutoBackupEnabled: () => false,
   setAutoBackupEnabled: jest.fn(),
   getLastBackupTimestamp: () => null,
+  getDestinationLastBackup: () => null,
   getUnplacedBackupRecords: async () => [],
   getBackupFailures: () => ({}),
   getBackupFolderName: () => null,

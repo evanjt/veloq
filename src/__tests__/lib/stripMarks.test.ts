@@ -4,7 +4,7 @@
  * same day drew differently at different ranges.
  *
  * Expected behaviour: one constant-height mark per active date at every
- * range, sports in equal portions in a stable order whatever their load,
+ * range, sport groups in equal portions in a stable order whatever their load,
  * marks bound to the date slot so they never overlap, and nothing for rest.
  */
 
@@ -99,8 +99,8 @@ describe('stripMarks', () => {
       ],
       WIDTH
     );
-    const expected = ['Ride', 'Run', 'WeightTraining'].map((type) => ({
-      type,
+    const expected = ['Gym', 'Ride', 'Run'].map((group) => ({
+      group,
       fraction: 1 / 3,
     }));
     expect(a.segments).toEqual(expected);
@@ -121,9 +121,33 @@ describe('stripMarks', () => {
       WIDTH
     );
     expect(mark.segments).toEqual([
-      { type: 'Ride', fraction: 0.5 },
-      { type: 'Run', fraction: 0.5 },
+      { group: 'Ride', fraction: 0.5 },
+      { group: 'Run', fraction: 0.5 },
     ]);
+  });
+
+  it('draws sports of one group as that group, once', () => {
+    const [mark] = stripMarks(
+      [
+        day(0, [
+          { type: 'GravelRide', load: 50 },
+          { type: 'VirtualRide', load: 40 },
+          { type: 'WeightTraining', load: 20 },
+          { type: 'Workout', load: 10 },
+          { type: 'Ride', load: 30 },
+        ]),
+      ],
+      WIDTH
+    );
+    expect(mark.segments).toEqual([
+      { group: 'Gym', fraction: 0.5 },
+      { group: 'Ride', fraction: 0.5 },
+    ]);
+  });
+
+  it('draws a sport no group names under Other', () => {
+    const [mark] = stripMarks([day(0, [{ type: 'Unlisted' as ActivityType, load: 5 }])], WIDTH);
+    expect(mark.segments).toEqual([{ group: 'Other', fraction: 1 }]);
   });
 
   it('draws no mark for a rest day', () => {
@@ -162,7 +186,7 @@ describe('stripMarks', () => {
  */
 describe('a group that trained without load', () => {
   const MUTED = '#muted';
-  const colorOf = (type: ActivityType) => `#${type}`;
+  const colorOf = (group: string) => `#${group}`;
 
   it('is marked as carrying no load, in a window that has none at all', () => {
     const marks = stripMarks(
@@ -259,14 +283,27 @@ describe('stripKey', () => {
       day(3, [{ type: 'Run', load: 20 }]),
     ]);
 
-    expect(key.sports).toEqual(['Ride', 'Run']);
+    expect(key.groups).toEqual(['Ride', 'Run']);
     expect(key.noLoad).toBe(false);
+  });
+
+  it('names each group once however many of its sports the window holds', () => {
+    const key = stripKey([
+      day(0, [{ type: 'MountainBikeRide', load: 30 }]),
+      day(1, [{ type: 'EBikeRide', load: 20 }]),
+      day(2, [{ type: 'TrailRun', load: 20 }]),
+      day(3, [{ type: 'Treadmill', load: 20 }]),
+      day(4, [{ type: 'Tennis', load: 20 }]),
+      day(5, [{ type: 'Squash', load: 20 }]),
+    ]);
+
+    expect(key.groups).toEqual(['Racket', 'Ride', 'Run']);
   });
 
   it('names only the sport that appears for a single-sport window', () => {
     const key = stripKey(days(5, (n) => (n % 2 ? [{ type: 'Swim', load: 40 }] : [])));
 
-    expect(key.sports).toEqual(['Swim']);
+    expect(key.groups).toEqual(['Swim']);
   });
 
   it('flags the neutral state without naming a sport that only trained without load', () => {
@@ -275,11 +312,11 @@ describe('stripKey', () => {
       day(1, [{ type: 'Walk', load: 0 }]),
     ]);
 
-    expect(key.sports).toEqual(['Ride']);
+    expect(key.groups).toEqual(['Ride']);
     expect(key.noLoad).toBe(true);
   });
 
   it('is empty for a window of rest days', () => {
-    expect(stripKey(days(4, () => []))).toEqual({ sports: [], noLoad: false });
+    expect(stripKey(days(4, () => []))).toEqual({ groups: [], noLoad: false });
   });
 });

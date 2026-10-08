@@ -2420,37 +2420,6 @@ pub struct FfiStartupData {
     /// beside this read, which cost the feed a second call per wellness
     /// invalidation and every `activities` event causes one.
     pub sparklines: Option<FfiWellnessSparklines>,
-    /// The activities whose feed card carries the new-activity ring, newest
-    /// first. Empty on a library with no marker. The feed's rows come from the
-    /// activity query, so this set is what marks them.
-    pub new_activity_ids: Vec<String>,
-    /// Unix second when the next displayed ring expires.
-    pub next_ring_expiry_at: Option<f64>,
-    /// Whether a displayed ring still needs its first showing recorded.
-    pub ring_stamp_required: bool,
-}
-
-/// What the feed tells the engine about its own use, which the new-activity
-/// rings are decided from.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
-pub enum FfiFeedSeen {
-    /// The feed came to the front.
-    Opened,
-    /// The athlete tapped or scrolled past these rings.
-    Dismissed { activity_ids: Vec<String> },
-    /// The feed left the front.
-    Closed,
-}
-
-impl From<FfiFeedSeen> for crate::persistence::feed_rings::FeedSeen {
-    fn from(event: FfiFeedSeen) -> Self {
-        use crate::persistence::feed_rings::FeedSeen;
-        match event {
-            FfiFeedSeen::Opened => FeedSeen::Opened,
-            FfiFeedSeen::Dismissed { activity_ids } => FeedSeen::Dismissed { activity_ids },
-            FfiFeedSeen::Closed => FeedSeen::Closed,
-        }
-    }
 }
 
 // ============================================================================
@@ -2652,6 +2621,10 @@ pub struct FfiSectionPerformanceData {
     /// point along it, for the laps inside the range. `None` when neither
     /// direction holds a lap to compare with its reference.
     pub curves: Option<FfiSectionLapCurves>,
+    /// True when this read left the curves owed rather than computing them:
+    /// the route screen's read serves them only once held, and
+    /// `RouteManager::load_detail_performance` computes them off the JS thread.
+    pub curves_pending: bool,
     /// Aerobic efficiency over the answered sport's counted efforts across the
     /// whole record, or `None` with fewer than three that carry heart rate.
     pub efficiency_trend: Option<FfiEfficiencyTrend>,
@@ -2825,6 +2798,9 @@ pub struct FfiRouteDetailData {
     pub excluded_activity_ids: Vec<String>,
     /// Simplified GPS signatures for the route's activities
     pub map_signatures: Vec<FfiMapSignature>,
+    /// The route's activities whose time streams still have to be fetched
+    /// before the delta curves can draw them
+    pub missing_time_stream_ids: Vec<String>,
     /// Whether the athlete may ask for the route to be named from its
     /// places: geocoding is on and they typed no name for it
     pub can_name_from_places: bool,

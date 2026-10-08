@@ -18,6 +18,7 @@ class VeloqrsModule(reactContext: ReactApplicationContext) :
 
   external fun nativeInstallRustCrate(runtimePointer: Long, callInvoker: CallInvokerHolder): Boolean
   external fun nativeCleanupRustCrate(runtimePointer: Long): Boolean
+  external fun nativeRuntimeTornDown()
 
   override fun installRustCrate(): Boolean {
     val context = this.reactApplicationContext
@@ -31,6 +32,14 @@ class VeloqrsModule(reactContext: ReactApplicationContext) :
     return nativeCleanupRustCrate(
       this.reactApplicationContext.javaScriptContextHolder!!.get()
     )
+  }
+
+  // The engine outlives the JavaScript runtime, and a reload frees the runtime
+  // without running clearObserver, so the observer it registered is let go
+  // here, before the next runtime installs its own.
+  override fun invalidate() {
+    nativeRuntimeTornDown()
+    super.invalidate()
   }
 
   companion object {

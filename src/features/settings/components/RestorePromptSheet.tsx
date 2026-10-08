@@ -6,28 +6,16 @@
  * can come back. Dismissing it, swiping the sheet away, or restoring, answers it
  * for good.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { getIntlLocale } from '@/shared/format/format';
 
-import { useImportDatabaseBackup } from '../hooks/useBackup';
-import { webdavBackend, type BackupEntry } from '../lib/autobackup/backends';
 import { answerRestorePrompt } from '../lib/restorePrompt';
-import { restoreBackendEntry } from '../lib/restoreBackendEntry';
-import { WebdavConfigForm } from './WebdavConfigForm';
+import { RestoreChooser } from './RestoreChooser';
 
 interface RestorePromptSheetProps {
   onClose: () => void;
@@ -36,12 +24,7 @@ interface RestorePromptSheetProps {
 export function RestorePromptSheet({ onClose }: RestorePromptSheetProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { importDatabaseBackup, importing } = useImportDatabaseBackup();
-  const [showWebdav, setShowWebdav] = useState(false);
-  const [entries, setEntries] = useState<BackupEntry[] | null>(null);
-  const [listing, setListing] = useState(false);
-  const [restoring, setRestoring] = useState<string | null>(null);
-  const running = useRef(false);
+  const [busy, setBusy] = useState(false);
 
   // A swipe-down unmounts the sheet without a tap, and counts as the dismiss.
   useEffect(() => answerRestorePrompt, []);
@@ -50,49 +33,6 @@ export function RestorePromptSheet({ onClose }: RestorePromptSheetProps) {
     answerRestorePrompt();
     onClose();
   }, [onClose]);
-
-  const handleFile = useCallback(async () => {
-    const result = await importDatabaseBackup();
-    if (result?.success) finish();
-  }, [importDatabaseBackup, finish]);
-
-  const handleList = useCallback(async () => {
-    setListing(true);
-    try {
-      if (!(await webdavBackend.isAvailable())) {
-        throw new Error(t('backup.destinationUnavailable'));
-      }
-      setEntries(await webdavBackend.listBackups());
-    } catch (error) {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : '');
-    } finally {
-      setListing(false);
-    }
-  }, [t]);
-
-  const handleRestore = useCallback(
-    async (entry: BackupEntry) => {
-      if (running.current) return;
-      running.current = true;
-      setRestoring(entry.id);
-      try {
-        const messages = await restoreBackendEntry(webdavBackend, entry, t);
-        Alert.alert(t('backup.restoreComplete'), messages.join('\n'));
-        finish();
-      } catch (error) {
-        Alert.alert(
-          t('common.error'),
-          error instanceof Error ? error.message : t('backup.importError')
-        );
-      } finally {
-        running.current = false;
-        setRestoring(null);
-      }
-    },
-    [t, finish]
-  );
-
-  const busy = importing || restoring !== null;
 
   return (
     <KeyboardAvoidingView
@@ -107,54 +47,7 @@ export function RestorePromptSheet({ onClose }: RestorePromptSheetProps) {
           <Text style={[styles.body, isDark && styles.textSecondary]}>
             {t('backup.restorePromptMessage')}
           </Text>
-          <Button
-            testID="restore-prompt-file"
-            label={importing ? t('backup.importing') : t('backup.restoreFromFile')}
-            variant="secondary"
-            onPress={handleFile}
-            disabled={busy}
-          />
-          <Button
-            testID="restore-prompt-webdav"
-            label={t('backup.restoreFromWebdav')}
-            variant="secondary"
-            onPress={() => setShowWebdav((shown) => !shown)}
-            disabled={busy}
-          />
-          {showWebdav && (
-            <>
-              <WebdavConfigForm
-                onConfigChange={() => setEntries(null)}
-                onRemoved={() => setEntries(null)}
-              />
-              <Button
-                testID="restore-prompt-list"
-                label={t('backup.restoreFromDestination')}
-                variant="secondary"
-                onPress={handleList}
-                loading={listing}
-                disabled={busy}
-              />
-              {entries?.length === 0 && (
-                <Text style={[styles.body, isDark && styles.textSecondary]}>
-                  {t('backup.noBackupsAtDestination')}
-                </Text>
-              )}
-              {entries?.map((entry) => (
-                <Button
-                  key={entry.id}
-                  testID={`restore-prompt-entry-${entry.id}`}
-                  label={t('backup.restoreDatedBackup', {
-                    date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-                  })}
-                  variant="ghost"
-                  onPress={() => handleRestore(entry)}
-                  loading={restoring === entry.id}
-                  disabled={busy}
-                />
-              ))}
-            </>
-          )}
+          <RestoreChooser onRestored={finish} onBusyChange={setBusy} />
           <Button
             testID="restore-prompt-dismiss"
             label={t('backup.restorePromptDismiss')}

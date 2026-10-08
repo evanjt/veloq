@@ -1889,7 +1889,7 @@ pub(crate) mod pooled {
 
     use std::collections::HashMap;
 
-    use rusqlite::{Connection, Result as SqlResult, Row, params};
+    use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params};
 
     use tracematch::{GpsPoint, RouteGroup};
 
@@ -2274,6 +2274,22 @@ pub(crate) mod pooled {
             )
             .ok()?;
         crate::persistence::activities::pooled::gps_track(conn, &representative_id)
+    }
+
+    /// The representative the athlete chose for a route, or `None` while it
+    /// is the grouping's own pick.
+    pub(crate) fn chosen_representative(conn: &Connection, group_id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT representative_id FROM route_groups
+             WHERE id = ?1 AND representative_chosen = 1",
+            params![group_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .unwrap_or_else(|error| {
+            log::warn!("[routes] chosen representative of {group_id}: {error:?}");
+            None
+        })
     }
 
     /// Whether the athlete typed a name for a route. A route that has one is

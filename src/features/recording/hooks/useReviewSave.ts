@@ -496,10 +496,13 @@ export function useReviewSave({
     finishAndGoHome,
   ]);
 
+  // A grant that failed says why in place of the permission explanation, and
+  // the fix stays on screen so the athlete can try again. A cancelled grant
+  // reports no error and leaves the explanation as it was.
   const handleUpgradeToOAuth = useCallback(async () => {
-    setErrorMessage(null);
-    const success = await upgradePermissions();
-    if (success) {
+    const { granted, error } = await upgradePermissions();
+    if (error) setErrorMessage(error);
+    if (granted) {
       log.log('Upgraded to OAuth, retrying upload...');
       setShowPermissionFix(false);
       handleSave();

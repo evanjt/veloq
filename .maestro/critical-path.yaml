@@ -109,7 +109,7 @@ tags:
     file: helpers/navigate-to-map.yaml
 
 - assertVisible:
-    id: "map-fit-all"
+    id: "map-layers"
     optional: true
 
 - takeScreenshot: "screenshots/critical-map"

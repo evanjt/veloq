@@ -11,7 +11,7 @@
  * nothing to draw, so a knob move is a data swap and never a layer rebuild.
  */
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -31,6 +31,8 @@ import {
 } from '@/features/maps';
 import type { PaintedRoute } from '../../lib/groupingParams';
 import { GROUPING_LAYER_PAINT as PAINT, groupingLegendRows } from '../../lib/groupingLegend';
+import { groupingAreaBounds } from '../../lib/groupingAreaCamera';
+import type { PreviewAreaCentre } from '../../lib/previewMapCamera';
 
 /** One of today's routes, with the line the routes screen already holds. */
 export interface GroupingRoute {
@@ -42,6 +44,8 @@ export interface GroupingRoute {
 
 interface GroupingPreviewMapProps {
   routes: GroupingRoute[];
+  /** The riding area the routes were read around, which the camera frames. */
+  centre: PreviewAreaCentre | null;
   /** The paint for each route, or empty until a preview has answered. */
   painted: PaintedRoute[];
   /** Every route the setting would merge, the largest group's included. */
@@ -55,6 +59,7 @@ function collection(features: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
 
 export function GroupingPreviewMap({
   routes,
+  centre,
   painted,
   mergedCount,
   mapStyle,
@@ -105,18 +110,39 @@ export function GroupingPreviewMap({
     return { largest, merging, other, dropped };
   }, [routes, lines, painted]);
 
-  // The map frames itself from the boxes it was given, so the screen never has
-  // to reach into the map feature to build a camera.
-  const initialCamera: MapCameraSpec = useMemo(() => {
+  // The map frames itself from the area it was given, so the screen never has
+  // to reach into the map feature to build a camera. Without an area the
+  // routes frame themselves.
+  const framing = useMemo(() => {
+    if (centre) return groupingAreaBounds(centre, routes);
     const corners: LngLat[] = [];
     for (const route of routes) {
       if (!route.bounds) continue;
       corners.push([route.bounds.minLng, route.bounds.minLat]);
       corners.push([route.bounds.maxLng, route.bounds.maxLat]);
     }
-    const bounds = boundsOfLngLat(corners);
-    return bounds ? { bounds, padding: spacing.lg } : { center: [0, 0], zoom: 2 };
-  }, [routes]);
+    return boundsOfLngLat(corners);
+  }, [centre, routes]);
+
+  // The routes arrive after the push transition, so the first camera is the
+  // area's point at a riding zoom rather than the world, and the fit follows.
+  const initialCamera: MapCameraSpec = useMemo(
+    () =>
+      centre
+        ? { center: [centre.lng, centre.lat], zoom: 11 }
+        : framing
+          ? { bounds: framing, padding: spacing.lg }
+          : { center: [0, 0], zoom: 2 },
+    // The first camera is a mount-time value; later moves go through the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The initial camera is captured once on mount.
+    []
+  );
+
+  // A knob move repaints the same routes and leaves the viewport alone. A new
+  // area, or the routes read for it landing, is what moves the camera.
+  useEffect(() => {
+    if (framing) surfaceRef.current?.fitBounds(framing, spacing.lg, 400);
+  }, [framing]);
 
   const sources: Record<string, MapSourceSpec> = useMemo(
     () => ({

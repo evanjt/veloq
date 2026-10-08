@@ -59,11 +59,41 @@ centre_of() { # $1 an attribute match
     awk '{ printf "%d %d\n", ($1 + $3) / 2, ($2 + $4) / 2 }'
 }
 
-# The first feed card on its stats row: the map preview takes the touch itself.
-card_point() {
-  dump | tr '>' '\n' | grep -E 'resource-id="activity-card-' | grep -v 'activity-card-bottom' | head -1 |
+# The first feed card on its stats row, from a dump on stdin: the map preview
+# takes the touch itself.
+card_of() {
+  tr '>' '\n' | grep -E 'resource-id="activity-card-' | grep -v 'activity-card-bottom' | head -1 |
     sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p' |
     awk '{ printf "%d %d\n", $1 + ($3 - $1) * 0.3, $4 - ($4 - $2) * 0.15 }'
+}
+
+# The card point once two dumps a second apart agree on it, with the feed
+# showing in both. A list still moving after a swipe takes a tap as a stop
+# rather than a press, so the open never happens.
+settled_card_point() {
+  local prev="" now xml n
+  for n in 1 2 3 4 5 6 7 8 9 10; do
+    focused && xml=$(dump) || return 1
+    grep -q 'resource-id="home-screen"' <<<"$xml" || return 1
+    now=$(card_of <<<"$xml")
+    if [ -n "$now" ] && [ "$now" = "$prev" ]; then
+      echo "$now"
+      return 0
+    fi
+    prev=$now
+    sleep 1
+  done
+  return 1
+}
+
+# A screen that may still be mounting: $1 the id, $2 the seconds to poll for.
+appears() {
+  local n
+  for n in $(seq 1 "$2"); do
+    showing "$1" && return 0
+    sleep 1
+  done
+  showing "$1"
 }
 
 wait_quiet() {
@@ -130,12 +160,17 @@ for run in $(seq 0 "$RUNS"); do
   fi
 
   f=$OUT/activity-open-$run.txt
-  read -r x y < <(card_point)
-  if [ -n "${x:-}" ]; then
+  if read -r x y < <(settled_card_point); then
     capture "$f" "input tap $x $y"
-    showing activity-detail-screen || bad "$f" "detail not showing after the tap"
-    a shell input keyevent KEYCODE_BACK
-    sleep 3
+    if appears activity-detail-screen 4; then
+      # Back from the feed would leave the app, so it goes only from the detail.
+      a shell input keyevent KEYCODE_BACK
+      sleep 3
+    else
+      bad "$f" "detail not showing after the tap"
+    fi
+  else
+    echo "run $run: the feed did not settle, no activity open" >&2
   fi
   showing home-screen || { echo "run $run: not back on the feed" >&2; enter || exit 1; }
 

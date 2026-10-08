@@ -7,7 +7,6 @@ export {
   ClimbingStatusNote,
   TimeRangeSelector,
   SportToggleSelector,
-  FitnessHeaderStats,
   BestEffortsHeaderButton,
 } from './components';
 

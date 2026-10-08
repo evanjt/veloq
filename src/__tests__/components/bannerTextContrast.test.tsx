@@ -1,5 +1,5 @@
 /**
- * Scenario: the demo banner and the offline banner are read at a glance, and
+ * Scenario: the demo banner and the offline pill are read at a glance, and
  * both drew white on a mid-tone fill. Neither is an inactive control, so no
  * WCAG exemption reaches them.
  *
@@ -123,9 +123,9 @@ describe('a banner read at a glance clears the text bar', () => {
     }
   });
 
-  it('draws every offline-banner word over its fill at 4.5:1', () => {
+  it('draws every offline-pill word over its fill at 4.5:1', () => {
     render(<OfflineBanner />);
-    const { fill, inks: colours } = inks('offline-banner');
+    const { fill, inks: colours } = inks('offline-pill');
 
     expect(colours.length).toBeGreaterThan(1);
     for (const ink of colours) {

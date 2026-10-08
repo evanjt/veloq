@@ -72,6 +72,8 @@ const EXEMPT = [
   // A key of the widget snapshot JSON, which the Kotlin and Swift widgets
   // already shipped read by that name, so a rename strands every placed widget.
   '"colorkey"',
+  // rusqlite's transaction mode enum.
+  'transactionbehavior',
 ];
 
 // Not ours to spell, in TypeScript only. `color` is not banned there at all:

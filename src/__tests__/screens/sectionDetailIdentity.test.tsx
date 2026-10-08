@@ -88,6 +88,7 @@ const mockUseSectionLedger = jest.fn((..._args: unknown[]) => ({
 const mockUseSectionTimeStreamSync = jest.fn((..._args: unknown[]) => ({
   ready: true,
   error: undefined,
+  outstanding: 0,
   refetch: () => {},
 }));
 const mockUseSectionActions = jest.fn((_options: Record<string, unknown>) => ({}));
@@ -96,6 +97,9 @@ const mockUseSectionTrim = jest.fn((..._args: unknown[]) => ({}));
 let capturedSaveName: ((name: string) => void) | undefined;
 let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
 let capturedEfficiencyTrend: unknown;
+let capturedContentArea:
+  | { streams?: unknown; bestForwardIsRecord?: boolean; bestReverseIsRecord?: boolean }
+  | undefined;
 let mockSelectedSport: string | undefined;
 const mockUseSectionDetailPerformance = jest.fn(
   (..._args: unknown[]): { data: unknown; error: unknown } => ({
@@ -128,6 +132,9 @@ jest.mock('@/features/routes', () => {
     isSportOffered: () => true,
     rescanRefusalKey: () => null,
     shouldShowSportChips: () => false,
+    sectionStreamsState: jest.requireActual(
+      '@/features/routes/components/section/SectionPerformanceSection'
+    ).sectionStreamsState,
     useRevealMapOnDraw: noop,
     createMapHighlightStore: jest.requireActual('@/features/routes/lib/mapHighlight')
       .createMapHighlightStore,
@@ -177,9 +184,13 @@ jest.mock('@/features/routes', () => {
     SectionContentArea: (props: {
       onActivitySelect: (activityId: string | null) => void;
       efficiencyTrend?: unknown;
+      streams?: unknown;
+      bestForwardIsRecord?: boolean;
+      bestReverseIsRecord?: boolean;
     }) => {
       capturedActivitySelect = props.onActivitySelect;
       capturedEfficiencyTrend = props.efficiencyTrend;
+      capturedContentArea = props;
       return null;
     },
     SectionDebugPanel: component,
@@ -293,5 +304,75 @@ describe('section detail efficiency trend', () => {
 
     expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[2]).toBe('Run');
     expect(capturedEfficiencyTrend).toBe(runTrend);
+  });
+});
+
+/**
+ * Scenario: offline, the wait for the section's time streams ended with two
+ * activities still missing, and the performance read named its best the
+ * record from the activities it had.
+ *
+ * Expected behaviour: the content area is told the streams are partial, with
+ * the count and a retry, and is handed no record flag in either direction.
+ */
+describe('section detail with time streams missing', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    capturedContentArea = undefined;
+    mockSelectedSport = undefined;
+  });
+
+  function readNamingRecords() {
+    mockUseSectionDetailPerformance.mockImplementation(() => ({
+      data: {
+        sportType: 'Ride',
+        sportCounts: [{ sportType: 'Ride', count: 3 }],
+        performances: {},
+        chartData: { points: [] },
+        excludedPoints: [],
+        lapRecords: [],
+        bestForwardIsRecord: true,
+        bestReverseIsRecord: true,
+      },
+      error: undefined,
+    }));
+  }
+
+  it('hands the partial state and holds back the record flags', async () => {
+    readNamingRecords();
+    const refetch = jest.fn();
+    mockUseSectionTimeStreamSync.mockImplementation(() => ({
+      ready: true,
+      error: undefined,
+      outstanding: 2,
+      refetch,
+    }));
+
+    render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    expect(capturedContentArea?.streams).toEqual({
+      status: 'partial',
+      outstanding: 2,
+      onRetry: refetch,
+    });
+    expect(capturedContentArea?.bestForwardIsRecord).toBe(false);
+    expect(capturedContentArea?.bestReverseIsRecord).toBe(false);
+  });
+
+  it('passes the record flags through once every stream is stored', async () => {
+    readNamingRecords();
+    mockUseSectionTimeStreamSync.mockImplementation(() => ({
+      ready: true,
+      error: undefined,
+      outstanding: 0,
+      refetch: () => {},
+    }));
+
+    render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    expect((capturedContentArea?.streams as { status: string }).status).toBe('ready');
+    expect(capturedContentArea?.bestForwardIsRecord).toBe(true);
   });
 });

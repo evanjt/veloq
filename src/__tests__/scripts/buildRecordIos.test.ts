@@ -115,6 +115,15 @@ describe('the iOS build record', () => {
     expect(verify({ bundleId: 'com.veloq.app' }).problems).toEqual([]);
   });
 
+  it('refuses to record an app of another identity than the build asked for', () => {
+    const snapshot = sourceIdentity(root);
+    app = buildApp(root, { bundleId: 'com.veloq.app' });
+
+    expect(() =>
+      ios.writeRecord(root, app, { variant: 'Release', snapshot, identity: 'com.veloq.app.dev' })
+    ).toThrow(/the build asked for com\.veloq\.app\.dev, the app declares com\.veloq\.app\b/);
+  });
+
   it('refuses to record an app whose embedded configuration names another identifier', () => {
     const snapshot = sourceIdentity(root);
     app = buildApp(root, { bundleId: 'com.veloq.app', embeddedBundleId: 'com.veloq.app.dev' });

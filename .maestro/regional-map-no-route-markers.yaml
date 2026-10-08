@@ -22,6 +22,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Turn heatmap on so we're testing the loud case.
 - tapOn:
     id: "map-toggle-heatmap"

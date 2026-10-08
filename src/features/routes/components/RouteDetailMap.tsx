@@ -8,6 +8,7 @@ import type { buildFinalRouteGroup } from '../lib/buildRouteGroup';
 import { useMapHighlight, type MapHighlightStore } from '../lib/mapHighlight';
 import type { ActivityType } from '@/types';
 import type { LatLngShort } from '@/shared/geo/distance';
+import type { SectionDeltaLine } from '../lib/deltaLayout';
 
 type FinalRouteGroup = NonNullable<ReturnType<typeof buildFinalRouteGroup>>;
 
@@ -19,6 +20,8 @@ interface RouteDetailMapProps {
   hasMapData: boolean;
   activityColor: string;
   selectedSportType?: ActivityType | undefined;
+  /** The attempt the chart's delta plot shows, which colours the route line. */
+  deltaLine?: SectionDeltaLine | null | undefined;
 }
 
 export function RouteDetailMap({
@@ -28,6 +31,7 @@ export function RouteDetailMap({
   hasMapData,
   activityColor,
   selectedSportType,
+  deltaLine,
 }: RouteDetailMapProps) {
   const mapHeight = useHeroMapHeight();
   const { activityId, lapPoints } = useMapHighlight(highlight);
@@ -43,6 +47,7 @@ export function RouteDetailMap({
           highlightedLapPoints={lapPoints}
           enableFullscreen={true}
           activitySignatures={signatures}
+          deltaLine={deltaLine}
         />
       ) : (
         <View

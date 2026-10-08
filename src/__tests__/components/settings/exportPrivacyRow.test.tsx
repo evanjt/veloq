@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import {
@@ -19,6 +19,7 @@ import {
 } from '@/features/settings/components/ExportPrivacyRow';
 import { getEngine } from '@/shared/native/engine';
 import type { HomeRadiusMapProps } from '@/features/maps';
+import { colors } from '@/theme';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // The map is the maps feature's, tested there. Here the row is asked what it
@@ -54,6 +55,10 @@ function describedRadius(tree: ReturnType<typeof render>): string {
   const message = String(alert.mock.calls.at(-1)?.[1]);
   alert.mockRestore();
   return message;
+}
+
+function titleColour(tree: ReturnType<typeof render>): unknown {
+  return StyleSheet.flatten(tree.getByTestId('export-privacy-title').props.style).color;
 }
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -137,6 +142,57 @@ describe('the export privacy row', () => {
     fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
 
     expect(settings.get('__export_privacy_radius_m')).toBeUndefined();
+  });
+
+  it('looks off limits before a home is set, and says the home is what it needs', async () => {
+    engineWith();
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+
+    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(true);
+    expect(titleColour(tree)).toBe(colors.textDisabled);
+    // The reason names where the home is set, which is the suggestion and the map below.
+    expect(tree.getByTestId('export-privacy-needs-home').props.children).toBe(
+      'settings.exportPrivacyNeedsHome'
+    );
+  });
+
+  it('says a home is needed even when there is no place to suggest', async () => {
+    engineWith({ suggestExportHome: jest.fn(() => null) });
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-needs-home')).toBeTruthy());
+    expect(tree.getByTestId('export-privacy-needs-home').props.children).toBe(
+      'settings.exportPrivacyNeedsHomeNoSuggestion'
+    );
+    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(true);
+  });
+
+  it('looks switchable and drops the reason once the home is confirmed', async () => {
+    const { settings } = engineWith();
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-confirm')).toBeTruthy());
+
+    fireEvent.press(tree.getByTestId('export-privacy-confirm'));
+
+    await waitFor(() => expect(tree.queryByTestId('export-privacy-needs-home')).toBeNull());
+    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(false);
+    expect(titleColour(tree)).toBe(colors.textPrimary);
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
+  });
+
+  it('looks switchable on an install that already has a home', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '0');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(false);
+    expect(tree.queryByTestId('export-privacy-needs-home')).toBeNull();
   });
 
   it('writes all three settings once the home is confirmed', async () => {

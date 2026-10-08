@@ -56,6 +56,10 @@ interface StaticCompassArrowProps {
 /**
  * Static (non-animated) compass arrow for overlaying on terrain previews.
  * Takes a plain bearing number instead of Animated.Value.
+ *
+ * Drawn from border triangles rather than an SVG: a feed row carries one, and an
+ * SVG surface re-renders and dispatches a layout event every time the list
+ * reattaches the row, inside the draw pass of a scroll frame.
  */
 export function StaticCompassArrow({
   size = 16,
@@ -63,12 +67,32 @@ export function StaticCompassArrow({
   northColor = colors.compassNorth,
   southColor = ink.white,
 }: StaticCompassArrowProps) {
+  // The same 24-unit arrow as the SVG one: each half 8 wide and 10 tall.
+  const halfWidth = (size * 4) / 24;
+  const halfHeight = (size * 10) / 24;
+  const sides = {
+    borderLeftWidth: halfWidth,
+    borderRightWidth: halfWidth,
+    borderLeftColor: colors.transparent,
+    borderRightColor: colors.transparent,
+  };
   return (
-    <View style={[styles.staticContainer, { transform: [{ rotate: `${-bearing}deg` }] }]}>
-      <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Path d="M12 2 L16 12 L12 10 L8 12 Z" fill={northColor} />
-        <Path d="M12 22 L8 12 L12 14 L16 12 Z" fill={southColor} />
-      </Svg>
+    <View
+      style={[
+        styles.staticContainer,
+        { width: size, height: size, transform: [{ rotate: `${-bearing}deg` }] },
+      ]}
+    >
+      <View
+        style={[
+          styles.triangle,
+          sides,
+          { borderBottomWidth: halfHeight, borderBottomColor: northColor },
+        ]}
+      />
+      <View
+        style={[styles.triangle, sides, { borderTopWidth: halfHeight, borderTopColor: southColor }]}
+      />
     </View>
   );
 }
@@ -81,5 +105,9 @@ const styles = StyleSheet.create({
   staticContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  triangle: {
+    width: 0,
+    height: 0,
   },
 });

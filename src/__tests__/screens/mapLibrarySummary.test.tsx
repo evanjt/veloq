@@ -30,6 +30,8 @@ jest.mock('@/features/maps', () => ({
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
   categoryChipColours: () => ({ fill: 'red', ink: 'black' }),
   DEFAULT_MAP_PERIOD: 'all',
+  filterSheetExpandedAfterDrag: jest.requireActual('@/features/maps/lib/filterSheet')
+    .filterSheetExpandedAfterDrag,
   getPeriodStart: () => new Date('2026-01-01'),
   groupTypesByCategory: (types: string[]) =>
     new Map<string, string[]>([
@@ -89,8 +91,36 @@ describe('map library summary', () => {
     });
   });
 
+  it('opens on the period chips alone and shows the other filters once the handle is raised', () => {
+    const view = render(<MapScreen />);
+    expect(view.getByText('all')).toBeTruthy();
+    expect(view.queryByText('5–10km')).toBeNull();
+    expect(view.queryByText('Run', { exact: false })).toBeNull();
+    expect(view.queryByText('292:0')).toBeNull();
+
+    fireEvent.press(view.getByTestId('map-filter-handle'));
+    expect(view.getByText('5–10km')).toBeTruthy();
+    expect(view.getByText('Run', { exact: false })).toBeTruthy();
+    expect(view.getByText('292:0')).toBeTruthy();
+
+    fireEvent.press(view.getByTestId('map-filter-handle'));
+    expect(view.queryByText('5–10km')).toBeNull();
+    expect(view.getByText('all')).toBeTruthy();
+  });
+
+  it('keeps a distance filter applied while the sheet is lowered', () => {
+    const view = render(<MapScreen />);
+    fireEvent.press(view.getByTestId('map-filter-handle'));
+    fireEvent.press(view.getByText('5–10km'));
+    fireEvent.press(view.getByTestId('map-filter-handle'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ distanceBand: MapDistanceBand.Short })
+    );
+  });
+
   it('shows the full library while mapped activities arrive and narrows the mapped count', () => {
     const view = render(<MapScreen />);
+    fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('292:0')).toBeTruthy();
 
     mockUseMap.mockImplementation(({ selectedTypes }: { selectedTypes: Set<string> }) => ({

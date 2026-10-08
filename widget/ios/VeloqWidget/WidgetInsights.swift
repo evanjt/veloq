@@ -53,12 +53,13 @@ extension WidgetPalette {
   }
 }
 
-/// One row: a tone mark, the title and the subtitle. On Medium and Large it is its own link; Small
-/// has room for one row and the whole widget carries that row's link.
+/// One row: a tone mark, the title and, where there is room, the subtitle. On Medium and Large it
+/// is its own link; Small has room for one row and the whole widget carries that row's link.
 struct InsightRowView: View {
   let row: WidgetInsight
   let palette: WidgetPalette
   let size: InsightsSize
+  var showsSubtitle = true
 
   @ViewBuilder
   var body: some View {
@@ -80,14 +81,12 @@ struct InsightRowView: View {
           .measuredText("insight title")
           .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
           .foregroundColor(palette.textPrimary)
-          .lineLimit(size == .small ? 3 : 2)
           .multilineTextAlignment(.leading)
-        if let subtitle = row.subtitle, !subtitle.isEmpty {
+        if showsSubtitle, let subtitle = row.subtitle, !subtitle.isEmpty {
           Text(subtitle)
             .measuredText("insight subtitle")
             .font(.system(size: WidgetTheme.TypeScale.caption))
             .foregroundColor(palette.textSecondary)
-            .lineLimit(size == .medium ? 1 : 2)
             .multilineTextAlignment(.leading)
         }
       }
@@ -143,7 +142,20 @@ struct InsightsWidgetView: View {
         startPoint: .top, endPoint: .bottom))
   }
 
+  /// Every row whole. Where the family has no room for every subtitle, the subtitles go from the
+  /// last row up, and every title stays: no line caps its count, because the choice reads each
+  /// line's whole height.
   private func content(_ listing: InsightsContent, _ palette: WidgetPalette) -> some View {
+    ViewThatFits(in: .vertical) {
+      ForEach((0...listing.rows.count).reversed(), id: \.self) { subtitles in
+        rows(listing, palette, subtitles: subtitles)
+      }
+    }
+  }
+
+  private func rows(_ listing: InsightsContent, _ palette: WidgetPalette, subtitles: Int)
+    -> some View
+  {
     VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
       if listing.rows.isEmpty {
         Spacer(minLength: 0)
@@ -155,8 +167,8 @@ struct InsightsWidgetView: View {
           .multilineTextAlignment(.center)
         Spacer(minLength: 0)
       } else {
-        ForEach(Array(listing.rows.enumerated()), id: \.offset) { _, row in
-          InsightRowView(row: row, palette: palette, size: size)
+        ForEach(Array(listing.rows.enumerated()), id: \.offset) { index, row in
+          InsightRowView(row: row, palette: palette, size: size, showsSubtitle: index < subtitles)
         }
         Spacer(minLength: 0)
         if listing.more > 0 {
@@ -171,7 +183,7 @@ struct InsightsWidgetView: View {
       }
       SnapshotAgeLine(snapshot: entry.snapshot, palette: palette)
     }
-    .padding(WidgetTheme.Layout.padding)
+    .widgetPadding(WidgetTheme.Layout.padding)
   }
 }
 

@@ -18,6 +18,7 @@ export {
   getAppRedirectUri,
   getProxyRedirectUri,
   INTERVALS_URLS,
+  oauthFailureKey,
   type OAuthTokenResponse,
 } from './lib/oauth';
 

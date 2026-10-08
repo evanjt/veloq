@@ -7,7 +7,6 @@
  */
 
 import type {
-  FfiFeedSeen,
   FfiStartResult,
   SuggestedHome,
   ExportPrivacyPreview,
@@ -916,6 +915,13 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     routeDelegates.getRouteDetailPerformance(this, groupId, timeRangeDays, sportFilter);
 
+  loadRouteDetailPerformance = (
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): Promise<FfiSectionPerformanceData | undefined> =>
+    routeDelegates.loadRouteDetailPerformance(this, groupId, timeRangeDays, sportFilter);
+
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);
 
@@ -982,8 +988,6 @@ class EngineClient implements DelegateHost {
     previewActivityIds: string[]
   ): FfiStartupData | undefined =>
     fitnessDelegates.getStartupData(this, params, previewActivityIds);
-
-  recordFeedSeen = (event: FfiFeedSeen): void => fitnessDelegates.recordFeedSeen(this, event);
 
   composeWidgetSnapshot = (
     contextJson: string,
@@ -1335,7 +1339,13 @@ class EngineClient implements DelegateHost {
   /** Drops the paused import, leaving the library and the waiting records. */
   async discardRecordImport(): Promise<void> {
     if (!this.ready) throw new Error('Engine not initialised');
-    await this.engine.discardRecordImport();
+    await this.engine.discardRecordImport(false);
+  }
+
+  /** Drops what an import left waiting, keeping what was placed. */
+  async discardUnplacedBackupRecords(): Promise<void> {
+    if (!this.ready) throw new Error('Engine not initialised');
+    await this.engine.discardRecordImport(true);
   }
 
   async getUnplacedBackupRecords(): Promise<FfiUnplacedRecord[]> {

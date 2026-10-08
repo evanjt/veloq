@@ -60,6 +60,14 @@ export const BODY_WAIT_MS = 15_000;
 export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut' | 'refused';
 
 /**
+ * Whether the wait gave up without a body, so asking again is the athlete's
+ * to do. Nothing else re-asks a fetch that failed while the radio was up.
+ */
+export function waitEnded(status: EngineBodyStatus): boolean {
+  return status === 'timedOut' || status === 'refused';
+}
+
+/**
  * The wait, and the way to start it over.
  *
  * `retry` asks again from the beginning: the request goes out a second time

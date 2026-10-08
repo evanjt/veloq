@@ -286,6 +286,17 @@ export async function discardRecordImport(): Promise<void> {
   await engine.discardRecordImport();
 }
 
+/**
+ * Drop what an import left waiting at the athlete's word, keeping what was
+ * placed. Rejects when the engine is closed, as a discard that did not happen
+ * must not read as done.
+ */
+export async function discardUnplacedRecords(): Promise<void> {
+  const engine = getEngine();
+  if (!engine || !isEngineReady()) throw new Error('Engine not initialised');
+  await engine.discardUnplacedBackupRecords();
+}
+
 // ============================================================================
 // Shared helpers
 // ============================================================================

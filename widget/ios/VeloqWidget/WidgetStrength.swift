@@ -133,7 +133,7 @@ struct StrengthWidgetView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(WidgetTheme.Layout.padding)
+      .widgetPadding(WidgetTheme.Layout.padding)
     } else {
       stacked(content, palette)
     }
@@ -169,7 +169,7 @@ struct StrengthWidgetView: View {
       }
       SnapshotAgeLine(snapshot: entry.snapshot, palette: palette)
     }
-    .padding(size == .small ? WidgetTheme.Layout.gap : WidgetTheme.Layout.padding)
+    .widgetPadding(size == .small ? WidgetTheme.Layout.gap : WidgetTheme.Layout.padding)
   }
 }
 

@@ -155,14 +155,40 @@ export function ExportPrivacyRow() {
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const hint = [styles.hint, isDark && settingsStyles.textSecondary];
+  // A switch held off by a missing home looks like any switch that is off, so
+  // the whole title reads as inactive until there is a home to trim around.
+  const textDisabled = isDark ? darkColors.textDisabled : colors.textDisabled;
 
   return (
     <View style={styles.block} testID="export-privacy-row">
       <Row>
-        <MaterialCommunityIcons name="home-map-marker" size={22} color={textSecondary} />
-        <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-          {t('settings.exportPrivacyTitle', 'Leave home out of exports')}
-        </Text>
+        <MaterialCommunityIcons
+          name="home-map-marker"
+          size={22}
+          color={confirmed ? textSecondary : textDisabled}
+        />
+        <View style={styles.titleBlock}>
+          <Text
+            testID="export-privacy-title"
+            style={[
+              settingsStyles.actionRowText,
+              isDark && settingsStyles.textLight,
+              !confirmed && { color: textDisabled },
+            ]}
+          >
+            {t('settings.exportPrivacyTitle', 'Leave home out of exports')}
+          </Text>
+          {!confirmed && (
+            <Text style={hint} testID="export-privacy-needs-home">
+              {mapHome
+                ? t(
+                    'settings.exportPrivacyNeedsHome',
+                    'Off until a home is set. Use the suggested place below, or tap the map.'
+                  )
+                : t('settings.exportPrivacyNeedsHomeNoSuggestion', 'Off until a home is set.')}
+            </Text>
+          )}
+        </View>
         <InfoButton
           testID="export-privacy-info"
           title={t('settings.exportPrivacyTitle', 'Leave home out of exports')}
@@ -265,6 +291,7 @@ const styles = StyleSheet.create({
   block: { paddingBottom: spacing.sm, gap: spacing.sm },
   hint: { ...typography.caption, color: colors.textSecondary },
   indented: { paddingHorizontal: spacing.md },
+  titleBlock: { flex: 1 },
   suggestion: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   suggestionText: { flex: 1 },
 });

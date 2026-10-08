@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteGroups, useSectionSummaries, useRouteSettings } from '@/features/routes';
-import { useTheme } from '@/shared/app';
+import { useTheme, useIsOnline } from '@/shared/app';
 import { calendarDaysBetween, formatDateOrDash } from '@/shared/format/format';
 import { formatDaySpan, type SpanTranslator } from '@/shared/format/daySpan';
 import { estimateRoutesDatabaseSize, getAthleteFilesSize } from '@/shared/storage/gpsStorage';
@@ -25,6 +25,7 @@ import { engineErrorKey } from '@/shared/native/engineError';
 import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
 import * as haptics from '@/shared/ui/haptics';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
+import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
@@ -37,6 +38,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const isOnline = useIsOnline();
   const queryClient = useQueryClient();
 
   const { cacheStats, clearCache } = useActivityBoundsCache();
@@ -147,7 +149,14 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
   const handleClearCache = useCallback(() => {
-    Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
+    // Offline the wipe still goes through and the reload cannot start, so the
+    // feed, maps and routes stay empty until the connection returns.
+    const message = offlineConfirmMessage(
+      t('alerts.clearCacheMessage'),
+      t('alerts.clearCacheOffline'),
+      isOnline
+    );
+    Alert.alert(t('alerts.clearCacheTitle'), message, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('alerts.clearReload'),
@@ -197,7 +206,15 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         },
       },
     ]);
-  }, [t, queryClient, resetSyncDateRange, clearCache, refreshCacheSizes, refreshBasemapTiles]);
+  }, [
+    t,
+    isOnline,
+    queryClient,
+    resetSyncDateRange,
+    clearCache,
+    refreshCacheSizes,
+    refreshBasemapTiles,
+  ]);
 
   return (
     <>

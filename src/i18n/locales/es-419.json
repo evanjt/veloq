@@ -45,6 +45,7 @@
     "carrierDeviceIos": "Respaldo de iCloud",
     "carrierDeviceAndroid": "Respaldo de Google",
     "carrierDeviceDescription": "La guarda la respaldo de seguridad del dispositivo. No hay nada que configurar aquí.",
+    "noBrowsableDestination": "El respaldo del dispositivo solo vuelve cuando configuras un teléfono nuevo, así que no se puede restaurar desde aquí. Para restaurar en este teléfono, agrega WebDAV o una carpeta abajo, o importa un archivo de respaldo.",
     "carrierOlderOnDevice": "Respaldos anteriores en este dispositivo",
     "backupFailedMessage": "No se pudo completar el respaldo. Revisa el destino e inténtalo de nuevo.",
     "backupFailedQuota": "El servidor no tiene espacio para el respaldo.",
@@ -208,8 +209,8 @@
       "fitnessBody": "Sigue tu condición física, fatiga y forma con zonas codificadas por colores."
     },
     "v030": {
-      "insightsBody": "Perspectivas diarias personalizadas basadas en tu entrenamiento: PRs de sección, tendencias de eficiencia, hitos de condición física y patrones de HRV.",
       "backupTitle": "Respaldo y restauración",
+      "backupTip": "Toca Respaldar ahora para crear un respaldo, o activa el respaldo automático para tener siempre uno al día.",
       "backupBody": "Guarda tus ajustes y decisiones en un archivo de respaldo pequeño y compártelo desde tu dispositivo. Al restaurarlo, las actividades se descargan de nuevo y tus decisiones se aplican donde coincidan."
     }
   },

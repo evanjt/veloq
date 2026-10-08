@@ -36,10 +36,23 @@ fn ride(
     reverse: bool,
     speed: impl Fn(f64) -> f64,
 ) -> (Vec<GpsPoint>, Vec<u32>) {
+    ride_along(
+        |d| at(if reverse { to - d } else { from + d }),
+        to - from,
+        speed,
+    )
+}
+
+/// A ride of `span` metres along any path, `position` giving the point at a
+/// distance travelled, sampled once a second.
+fn ride_along(
+    position: impl Fn(f64) -> GpsPoint,
+    span: f64,
+    speed: impl Fn(f64) -> f64,
+) -> (Vec<GpsPoint>, Vec<u32>) {
     let mut travelled = 0.0;
     let mut clock = 0.0;
     let mut samples = vec![(0.0, 0.0)];
-    let span = to - from;
     while travelled < span {
         let step = speed(travelled);
         let next = (travelled + step).min(span);
@@ -47,12 +60,19 @@ fn ride(
         travelled = next;
         samples.push((travelled, clock));
     }
-    let track = samples
-        .iter()
-        .map(|(d, _)| at(if reverse { to - d } else { from + d }))
-        .collect();
+    let track = samples.iter().map(|(d, _)| position(*d)).collect();
     let times = samples.iter().map(|(_, t)| t.round() as u32).collect();
     (track, times)
+}
+
+/// The point `north` and `east` metres from the section's start.
+fn at_offset(north: f64, east: f64) -> GpsPoint {
+    let per_degree = metres_per_degree();
+    GpsPoint {
+        latitude: 46.0 + north / per_degree,
+        longitude: 7.0 + east / (per_degree * 46.0_f64.to_radians().cos()),
+        elevation: None,
+    }
 }
 
 fn steady(_: f64) -> f64 {
@@ -470,6 +490,108 @@ fn a_direction_holding_only_its_reference_has_no_deltas() {
     assert_eq!(forward.laps[0].activity_id, "fading");
 }
 
+/// A 1,000 m square loop, 250 m a side, from its start corner north, east,
+/// south and west back to the start.
+fn square(d: f64) -> GpsPoint {
+    let d = d.clamp(0.0, LENGTH);
+    match (d / 250.0) as u32 {
+        0 => at_offset(d, 0.0),
+        1 => at_offset(250.0, d - 250.0),
+        2 => at_offset(750.0 - d, 250.0),
+        _ => at_offset(0.0, LENGTH - d),
+    }
+}
+
+/// Out 500 m north and back down the same road to the start.
+fn out_and_back(d: f64) -> GpsPoint {
+    at(if d <= 500.0 { d } else { LENGTH - d })
+}
+
+/// A whole-line lap along `path`, as a route attempt is: the line is the
+/// path itself, with a vertex every 50 m, and the activity's first sample sits
+/// `start_east` metres east of the start, the way a watch starts a stride off
+/// the line.
+fn whole_line_curves(
+    path: fn(f64) -> GpsPoint,
+    start_east: f64,
+) -> Option<crate::FfiSectionLapCurves> {
+    let line: Vec<GpsPoint> = (0..=20).map(|i| path(i as f64 * 50.0)).collect();
+    let nudged = |speed: fn(f64) -> f64| {
+        let (mut track, times) = ride_along(path, LENGTH, speed);
+        track[0] = at_offset(0.0, start_east);
+        (track, times)
+    };
+    let laps_in = vec![
+        Lap::new("steady", 0, "same", nudged(steady)),
+        Lap::new("fading", 1, "same", nudged(fades_after_halfway)),
+    ];
+    let perf = performances(&laps_in);
+    lap_curves(
+        &line,
+        &perf,
+        None,
+        |id| {
+            laps_in
+                .iter()
+                .find(|l| l.id == id)
+                .map(|l| l.ride.0.clone())
+        },
+        |id| {
+            laps_in
+                .iter()
+                .find(|l| l.id == id)
+                .map(|l| l.ride.1.clone())
+        },
+    )
+}
+
+fn assert_fades_over_the_second_half(curves: Option<crate::FfiSectionLapCurves>, what: &str) {
+    let curves = curves.unwrap_or_else(|| panic!("{what}: curves"));
+    assert!((curves.section_length_m - LENGTH).abs() < 0.01, "{what}");
+    let forward = curves.forward.as_ref().expect("forward deltas");
+    assert_eq!(forward.reference_activity_id, "steady", "{what}");
+    assert!(forward.missing.is_empty(), "{what}: {:?}", forward.missing);
+    let fading = lap(forward, "fading");
+    for (k, delta) in fading.delta_secs.iter().enumerate().take(51) {
+        assert_near(*delta, 0.0, 0.5, &format!("{what}: delta at {} m", k * 10));
+    }
+    assert_near(
+        fading.delta_secs[75],
+        15.625,
+        0.5,
+        &format!("{what}: delta at 750 m"),
+    );
+    assert_near(
+        fading
+            .end_delta_secs
+            .expect("a full lap quotes an end delta"),
+        31.25,
+        0.5,
+        &format!("{what}: end delta"),
+    );
+}
+
+/// Scenario: a route that is a loop, its start and finish on one corner, and
+/// two attempts whose first sample lands 2 m along the closing side, nearer
+/// the line's end than its start.
+///
+/// Expected behaviour: each attempt starts at the start of the line rather
+/// than its end, so the fade is drawn over the second half as on a straight.
+#[test]
+fn a_loop_attempt_starting_beside_the_finish_is_measured_from_the_start() {
+    assert_fades_over_the_second_half(whole_line_curves(square, 2.0), "loop");
+}
+
+/// Scenario: a route out along a road and back down it, every point of the
+/// return leg on a point of the way out.
+///
+/// Expected behaviour: the return leg is placed on the line's second half by
+/// where the attempt has come from, so the fade on the way back is drawn there.
+#[test]
+fn an_out_and_back_attempt_follows_the_line_down_the_return_leg() {
+    assert_fades_over_the_second_half(whole_line_curves(out_and_back, 0.0), "out and back");
+}
+
 mod stored {
     //! The bundle read through SQLite: the ledger names the reference, and
     //! the curves are computed once for every range.
@@ -648,5 +770,259 @@ mod stored {
             4,
             "one track and one stream per activity"
         );
+    }
+
+    /// Three Ride attempts as one route, each its whole activity: `steady`
+    /// the record, `fading` and `unstreamed` behind it, `unstreamed` with no
+    /// stored time stream. `representative` is the route's line, `chosen` whether the
+    /// athlete picked it. The route shares its id with the section the
+    /// attempts also cross.
+    fn route_with(path: &str, representative: &str, chosen: bool) -> PersistentEngine {
+        let mut laps_in = reference_and_fading();
+        laps_in.push(Lap::new(
+            "unstreamed",
+            2,
+            "same",
+            ride(0.0, LENGTH, false, |_| 3.8),
+        ));
+        let engine = engine_with(path, &laps_in);
+        engine
+            .db
+            .execute(
+                "DELETE FROM time_streams WHERE activity_id = 'unstreamed'",
+                [],
+            )
+            .expect("unstreamed");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                           activity_count, representative_chosen)
+                 VALUES ('climb', ?1, '[\"steady\",\"fading\",\"unstreamed\"]', 'Ride', 3, ?2)",
+                rusqlite::params![representative, chosen],
+            )
+            .expect("route");
+        for lap in &laps_in {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                     VALUES ('climb', ?1, 100.0, 'same')",
+                    rusqlite::params![lap.id],
+                )
+                .expect("match");
+        }
+        engine
+    }
+
+    fn route_read(days: u32, curves: pooled::CurveRead) -> crate::FfiSectionPerformanceData {
+        crate::persistence::read_pool::with_read_conn(|conn| {
+            crate::persistence::screens::pooled::route_detail_performance(
+                conn, "climb", days, None, curves,
+            )
+        })
+        .expect("reader")
+    }
+
+    fn route_bundle(days: u32) -> crate::FfiSectionPerformanceData {
+        route_read(days, pooled::CurveRead::Computed)
+    }
+
+    /// Scenario: a route of three Ride attempts, one of them with no time
+    /// stream, its line the record's own activity.
+    ///
+    /// Expected behaviour: the route read carries one curve per streamed
+    /// attempt, measured along the line against the record, lists the
+    /// unstreamed attempt as missing its stream, and computes the curves once
+    /// for every range.
+    #[test]
+    fn a_route_measures_each_attempt_against_its_record() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_route.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let _engine = route_with(db_path, "steady", false);
+
+        pooled::reset_test_counters();
+        let data = route_bundle(0);
+        let curves = data.curves.as_ref().expect("the route carries curves");
+        assert!((curves.section_length_m - LENGTH).abs() < 0.5);
+        assert!(curves.reverse.is_none());
+        let forward = curves.forward.as_ref().expect("forward deltas");
+        assert_eq!(
+            (
+                forward.reference_activity_id.as_str(),
+                forward.reference_source
+            ),
+            ("steady", FfiReferenceSource::Record)
+        );
+        let drawn: Vec<&str> = forward
+            .laps
+            .iter()
+            .map(|l| l.activity_id.as_str())
+            .collect();
+        assert_eq!(
+            drawn,
+            ["steady", "fading"],
+            "one curve per streamed attempt"
+        );
+        assert_near(
+            lap(forward, "fading")
+                .end_delta_secs
+                .expect("a whole attempt quotes an end delta"),
+            31.25,
+            0.5,
+            "the fading attempt's end delta",
+        );
+        let missing: Vec<(&str, FfiLapDeltaMissingReason)> = forward
+            .missing
+            .iter()
+            .map(|m| (m.activity_id.as_str(), m.reason))
+            .collect();
+        assert_eq!(
+            missing,
+            [("unstreamed", FfiLapDeltaMissingReason::NoTimeStream)]
+        );
+
+        // The fixture's rides are years old, so only the whole record holds them.
+        assert!(route_bundle(30).curves.is_none());
+        assert_eq!(pooled::computations(), 1, "one computation for two ranges");
+    }
+
+    /// Scenario: the athlete set the fading attempt as the route's
+    /// representative, and the section of the same id has been read first.
+    ///
+    /// Expected behaviour: the representative is the route's reference, marked
+    /// as the athlete's, and the record runs ahead of it, rather than the
+    /// section's curves being served for the route.
+    #[test]
+    fn a_representative_the_athlete_chose_is_the_route_reference() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_route_chosen.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let engine = route_with(db_path, "fading", true);
+
+        assert_eq!(
+            reference_of(&bundle(0)),
+            ("steady".into(), FfiReferenceSource::Record),
+            "the section has no reference set"
+        );
+        let data = route_bundle(0);
+        let forward = data
+            .curves
+            .as_ref()
+            .and_then(|c| c.forward.as_ref())
+            .expect("forward deltas");
+        assert_eq!(
+            (
+                forward.reference_activity_id.as_str(),
+                forward.reference_source
+            ),
+            ("fading", FfiReferenceSource::AthleteSet)
+        );
+        assert_near(
+            lap(forward, "steady").end_delta_secs.expect("end delta"),
+            -31.25,
+            0.5,
+            "the record's end delta",
+        );
+
+        engine
+            .db
+            .execute(
+                "UPDATE route_groups SET representative_chosen = 0 WHERE id = 'climb'",
+                [],
+            )
+            .expect("reset");
+        let reset = route_bundle(0);
+        let forward = reset
+            .curves
+            .as_ref()
+            .and_then(|c| c.forward.as_ref())
+            .expect("forward deltas");
+        assert_eq!(
+            (
+                forward.reference_activity_id.as_str(),
+                forward.reference_source
+            ),
+            ("steady", FfiReferenceSource::Record),
+            "a representative the grouping picked is no reference"
+        );
+    }
+
+    /// Scenario: the route screen opens, its own read serving the curves only
+    /// once held, then the curves are loaded, then a write lands.
+    ///
+    /// Expected behaviour: the first read says the curves are owed and
+    /// computes nothing; once loaded, the screen's read serves them with
+    /// nothing owed and computes nothing more; after the write they are owed
+    /// again. The section read never leaves its curves owed.
+    #[test]
+    fn the_route_screen_read_serves_its_curves_only_once_loaded() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_route_held.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let engine = route_with(db_path, "steady", false);
+
+        pooled::reset_test_counters();
+        let owed = route_read(0, pooled::CurveRead::Held);
+        assert!(owed.curves_pending);
+        assert!(owed.curves.is_none());
+        assert_eq!(
+            pooled::computations(),
+            0,
+            "the screen's read computes nothing"
+        );
+
+        let loaded = route_read(0, pooled::CurveRead::Computed);
+        assert!(!loaded.curves_pending);
+        assert!(loaded.curves.is_some());
+
+        let held = route_read(0, pooled::CurveRead::Held);
+        assert!(!held.curves_pending);
+        assert_eq!(
+            held.curves
+                .as_ref()
+                .and_then(|c| c.forward.as_ref())
+                .map(|f| f.laps.len()),
+            Some(2)
+        );
+        assert_eq!(pooled::computations(), 1, "loaded once, then served");
+
+        engine
+            .db
+            .execute(
+                "UPDATE activity_metrics SET name = 'renamed' WHERE activity_id = 'fading'",
+                [],
+            )
+            .expect("write");
+        assert!(route_read(0, pooled::CurveRead::Held).curves_pending);
+        assert!(!bundle(0).curves_pending, "a section computes its own");
+    }
+
+    /// Scenario: the route screen opens on a route one of whose attempts has
+    /// no stored time stream.
+    ///
+    /// Expected behaviour: the detail read names that attempt, so the screen
+    /// fetches its stream before the curves can draw it.
+    #[test]
+    fn the_route_detail_read_names_the_attempts_missing_a_stream() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_route_missing.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let _engine = route_with(db_path, "steady", false);
+
+        let detail = crate::persistence::read_pool::with_read_conn(|conn| {
+            crate::persistence::screens::pooled::route_detail_data(conn, "climb", None, 2)
+        })
+        .expect("reader");
+        assert_eq!(detail.missing_time_stream_ids, ["unstreamed"]);
     }
 }

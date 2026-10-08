@@ -125,6 +125,9 @@ tags:
     timeout: 30000
 - takeScreenshot: "screenshots/tour-09-regional-map-default"
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 - assertVisible:
     id: "map-toggle-heatmap"
 - assertVisible:

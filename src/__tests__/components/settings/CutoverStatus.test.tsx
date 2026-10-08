@@ -105,7 +105,7 @@ describe('the cutover status line', () => {
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(
       screen.getByText(
-        'The section rebuild did not finish. Your sections are unchanged and it runs again next launch.'
+        "The section rebuild didn't finish. Your sections are unchanged and it has another go next launch."
       )
     ).toBeTruthy();
   });

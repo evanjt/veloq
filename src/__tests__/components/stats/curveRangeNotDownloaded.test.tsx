@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from '@/__tests__/__shared__/veloqrsStub';
 
@@ -23,6 +23,7 @@ const NOT_DOWNLOADED = 'stats.rangeNotDownloaded';
 
 const coverage: { current: RangeCoverage } = { current: RangeCoverage.Empty };
 const bodyStatus: { current: string } = { current: 'idle' };
+const mockRetryBody = jest.fn();
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -35,6 +36,7 @@ jest.mock('@/features/stats/hooks/usePowerCurve', () => ({
     error: null,
     coverage: coverage.current,
     bodyStatus: bodyStatus.current,
+    retryBody: mockRetryBody,
   }),
 }));
 
@@ -51,6 +53,7 @@ jest.mock('@/features/stats/hooks/usePaceCurve', () => ({
     error: null,
     coverage: coverage.current,
     bodyStatus: bodyStatus.current,
+    retryBody: mockRetryBody,
   }),
 }));
 
@@ -61,6 +64,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 beforeEach(() => {
+  mockRetryBody.mockClear();
   coverage.current = RangeCoverage.Empty;
   bodyStatus.current = 'idle';
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -130,5 +134,26 @@ describe('a curve chart whose body the engine is fetching', () => {
 
     expect(screen.getByText(NOT_DOWNLOADED)).toBeTruthy();
     expect(screen.queryByTestId('curve-loading-placeholder')).toBeNull();
+  });
+
+  it.each(charts)('offers a Retry that asks again once the %s wait has ended', (_, chart) => {
+    coverage.current = RangeCoverage.NotFetched;
+
+    for (const status of ['timedOut', 'refused']) {
+      bodyStatus.current = status;
+      const { unmount } = render(chart(), { wrapper });
+
+      fireEvent.press(screen.getByText('common.retry'));
+      unmount();
+    }
+    expect(mockRetryBody).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(charts)('offers no Retry for a %s range the census finds empty', (_, chart) => {
+    bodyStatus.current = 'timedOut';
+
+    render(chart(), { wrapper });
+
+    expect(screen.queryByText('common.retry')).toBeNull();
   });
 });

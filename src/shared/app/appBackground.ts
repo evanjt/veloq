@@ -1,5 +1,4 @@
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
-import { reportFeedClosed } from '@/shared/native/feedSeen';
 import { flushBasemapSidecars } from '@/features/maps/lib/basemapFlush';
 import { onAppBackground } from '@/features/settings/lib/autobackup';
 
@@ -8,8 +7,6 @@ import { onAppBackground } from '@/features/settings/lib/autobackup';
  * from its AppState listener.
  */
 export function handleAppBackground(): void {
-  // The engine rings the activities that arrive after this moment.
-  reportFeedClosed();
   onAppBackground();
   // The last moment the process is reliably alive. Without this a tile
   // source under the store's flush cadence keeps no index, and the next

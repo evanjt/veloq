@@ -29,11 +29,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => `[${key}]` }),
 }));
 
-jest.mock('@shopify/react-native-skia', () => {
-  const { View } = require('react-native');
-  return { Canvas: View, RoundedRect: () => null };
-});
-
 function drawnText(tree: ReturnType<typeof render>): string[] {
   return tree.root.findAllByType('Text' as never).flatMap((node) => {
     const child = (node.props as { children?: unknown }).children;
@@ -51,7 +46,7 @@ describe('the strength tour slide', () => {
     }
   });
 
-  it('names the muscle groups and the two weeks through keys that exist', () => {
+  it('names the volume split and its muscles through keys that exist', () => {
     const drawn = drawnText(render(<StrengthSlide />));
     const lookup = en as unknown as Record<string, unknown>;
 

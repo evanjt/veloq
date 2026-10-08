@@ -28,7 +28,7 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
   };
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="data-range-footer" style={[styles.container, isDark && styles.containerDark]}>
       <Text style={[styles.text, isDark && styles.textSecondary]}>
         {t('routes.dataRangeHint', { duration: formatDaySpan(days, t as SpanTranslator) })}
       </Text>

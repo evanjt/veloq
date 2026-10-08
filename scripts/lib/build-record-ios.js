@@ -106,6 +106,15 @@ function appFacts(app) {
   };
 }
 
+/** The bundle identifier an app's Info.plist declares, or null when it cannot be read. */
+function appBundleId(app) {
+  try {
+    return plistString(plistText(path.join(app, 'Info.plist')), 'CFBundleIdentifier');
+  } catch {
+    return null;
+  }
+}
+
 /** The identities an app's facts carry, in the shape `identityProblems` reads. */
 function appIdentity(facts) {
   return { native: facts.bundleId, embedded: facts.config, extensions: facts.extensions };
@@ -154,9 +163,10 @@ function archiveFacts(root, app, platform) {
 /**
  * Write the record for `app`, or throw naming every reason it cannot be
  * vouched for. `snapshot` is the identity taken before the build started: the
- * tree's inputs now must be the ones it held.
+ * tree's inputs now must be the ones it held. `identity` is the bundle
+ * identifier the build was asked for, when the caller knows it.
  */
-function writeRecord(root, app, { variant, snapshot = null }) {
+function writeRecord(root, app, { variant, snapshot = null, identity = null }) {
   const problems = [];
   const file = recordPath(app);
   fs.rmSync(file, { force: true });
@@ -175,6 +185,9 @@ function writeRecord(root, app, { variant, snapshot = null }) {
     );
   }
   if (!facts.bundleId) problems.push('the app declares no CFBundleIdentifier');
+  else if (identity && facts.bundleId !== identity) {
+    problems.push(`the build asked for ${identity}, the app declares ${facts.bundleId}`);
+  }
   if (!facts.bundle && /^release$/i.test(variant)) {
     problems.push('the app carries no JavaScript bundle');
   }
@@ -235,7 +248,9 @@ function verifyRecord(root, app, expect) {
   const file = recordPath(app);
   if (!fs.existsSync(file)) {
     return {
-      problems: [`no build record at ${file}: build with npm run ios:prod, or npm run ios:record`],
+      problems: [
+        `no build record at ${file}: build with npm run ios:standalone or npm run ios:prod, or npm run ios:record after npm run ios`,
+      ],
       record: null,
       summary: '',
     };
@@ -302,4 +317,4 @@ function verifyRecord(root, app, expect) {
   return { problems, record, summary };
 }
 
-module.exports = { appFacts, appIdentity, recordPath, verifyRecord, writeRecord };
+module.exports = { appBundleId, appFacts, appIdentity, recordPath, verifyRecord, writeRecord };

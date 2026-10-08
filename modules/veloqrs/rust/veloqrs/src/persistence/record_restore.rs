@@ -274,10 +274,6 @@ impl PersistentEngine {
             engine
                 .delete_setting(PAUSED_IMPORT_KEY)
                 .map_err(|e| e.to_string())?;
-            // An imported library has no marker, so nothing in it rings.
-            engine
-                .delete_setting(super::settings::settings_keys::FEED_RINGS)
-                .map_err(|e| e.to_string())?;
             Ok(result)
         })
     }
@@ -287,6 +283,45 @@ impl PersistentEngine {
     pub fn discard_paused_import(&self) -> Result<(), String> {
         self.delete_setting(PAUSED_IMPORT_KEY)
             .map_err(|e| e.to_string())
+    }
+
+    /// Drop what an import left waiting, at the athlete's word: the records
+    /// not placed yet, the activities fetched for them, the numbers held for
+    /// their ground and the restored names no section has taken. What was
+    /// placed stays, and a paused import is its own to discard.
+    pub fn discard_unplaced_records(&mut self) -> Result<(), String> {
+        self.in_write_txn(|engine| {
+            for key in [PENDING_KEY, OWED_KEY] {
+                engine.delete_setting(key).map_err(|e| e.to_string())?;
+            }
+            for store in [NumberStore::Routes, NumberStore::Sections] {
+                engine
+                    .db
+                    .execute(
+                        &format!(
+                            "DELETE FROM {} WHERE substr({}, 1, ?2) = ?1",
+                            store.table(),
+                            store.key()
+                        ),
+                        params![HELD_NUMBER_PREFIX, HELD_NUMBER_PREFIX.len() as i64],
+                    )
+                    .map_err(|e| e.to_string())?;
+            }
+            let unresolved: Vec<String> = engine
+                .get_named_corridors()
+                .into_iter()
+                .filter(|corridor| {
+                    corridor.section_id.is_none() && corridor.intent_id.starts_with("ri_")
+                })
+                .map(|corridor| corridor.intent_id)
+                .collect();
+            for intent_id in unresolved {
+                engine
+                    .remove_named_corridor(&intent_id)
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
     }
 
     /// Reconsider every unresolved record after an activity or catalogue change.
@@ -371,6 +406,7 @@ impl PersistentEngine {
         let mut missing = BTreeSet::new();
         let mut numbered = BTreeSet::new();
         let mut routes_touched = false;
+        let unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
         let imported_names: BTreeSet<String> = entries
             .iter()
             .filter_map(|row| match row.table.as_str() {
@@ -405,7 +441,7 @@ impl PersistentEngine {
             }
             if self.place_record_row(&row)? {
                 result.placed += 1;
-            } else if settled && self.history_has_no_section(&row, &pinned)? {
+            } else if self.history_never_places(&row, &pinned, settled, &unavailable)? {
                 result.not_restored += 1;
             } else {
                 pending.push(row);
@@ -428,7 +464,6 @@ impl PersistentEngine {
         // nothing to do about it, and it lands with its ground.
         let waiting = pending.iter().filter(|row| !is_number_row(row)).count();
         result.unplaced = (waiting + restored_unresolved_names) as u32;
-        let unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
         let mut owed = id_set_from_conn(&self.db, OWED_KEY)?;
         owed.extend(missing.iter().cloned());
         owed.retain(|id| !unavailable.contains(id) && !self.has_activity(id));
@@ -860,22 +895,41 @@ impl PersistentEngine {
         Ok(true)
     }
 
-    /// Whether a history row's ground is stored here and no section of this
-    /// library covers it, for a section the athlete never pinned.
-    fn history_has_no_section(
+    /// Whether a history row can never be placed in this library, for a
+    /// section the athlete never pinned. A row with no line to match, and none
+    /// coming, never places. A row whose line is here places only on a section
+    /// detection cuts over it, so it is given up once detection has cut the
+    /// catalogue with its ride, or has settled when the row names no ride.
+    fn history_never_places(
         &self,
         row: &RecordRow,
         pinned: &BTreeSet<String>,
+        settled: bool,
+        unavailable: &BTreeSet<String>,
     ) -> Result<bool, String> {
         if row.table != "section_history"
             || string(&row.values, "section_id").is_some_and(|id| pinned.contains(id))
         {
             return Ok(false);
         }
-        let Some(points) = row.ground.as_ref().and_then(|g| ground_line(&self.db, g)) else {
-            return Ok(false);
+        if string(&row.values, "at").is_none() || string(&row.values, "kind").is_none() {
+            return Ok(true);
+        }
+        let Some(ground) = row.ground.as_ref() else {
+            return Ok(true);
         };
-        Ok(matching_section(&self.db, &points, MatchScope::Any)?.is_none())
+        let ride = ground
+            .rep_activity_id
+            .as_deref()
+            .filter(|id| !id.is_empty());
+        let Some(points) = ground_line(&self.db, ground) else {
+            return Ok(ride.is_none_or(|id| self.has_activity(id) || unavailable.contains(id)));
+        };
+        let detected = match ride {
+            Some(id) => settled || self.processed_activity_ids.contains(id),
+            None => settled,
+        };
+        Ok(detected && matching_section(&self.db, &points, MatchScope::Any)?.is_none())
     }
 
     fn place_history(&self, row: &RecordRow) -> Result<bool, String> {
@@ -1816,6 +1870,159 @@ mod tests {
         let result = engine.settle_record_restore().unwrap();
         assert_eq!(result.not_restored, 0);
         assert_eq!(pending_rows(&engine), 2);
+    }
+
+    fn grounded_history(ride_id: &str, point_count: usize, line: Option<&[GpsPoint]>) -> String {
+        json!({"version": 1, "entries": [{
+            "table": "section_history",
+            "values": {"section_id": "gone-id", "at": "2025-01-01 00:00:00",
+                "kind": "dissolved", "details": "{}"},
+            "ground": {"rep_activity_id": ride_id, "rep_start_index": 10,
+                "rep_end_index": 40, "point_count": point_count,
+                "polyline_json": line.map(|line| serde_json::to_string(line).unwrap())}
+        }]})
+        .to_string()
+    }
+
+    #[test]
+    fn test_history_with_no_ground_is_not_restored_at_once() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-bare.db").to_str().unwrap()).unwrap();
+        let payload = json!({"version": 1, "entries": [{
+            "table": "section_history",
+            "values": {"section_id": "gone-id", "at": "2025-01-01 00:00:00",
+                "kind": "archived", "details": "{}"}
+        }]});
+        let result = engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (0, 1));
+        assert_eq!(pending_rows(&engine), 0);
+        assert!(engine.unplaced_records().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_history_whose_stored_ride_cannot_rebuild_its_ground_is_not_restored() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-recount.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("old-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let result = engine
+            .restore_record_json(&grounded_history("old-ride", 95, None))
+            .unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (0, 1));
+        assert_eq!(pending_rows(&engine), 0);
+    }
+
+    #[test]
+    fn test_history_on_a_ride_detection_has_seen_with_no_section_is_not_restored() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-seen.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("old-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        engine
+            .save_processed_activity_ids(&["old-ride".to_string()])
+            .unwrap();
+        let stored = engine.get_gps_track("old-ride").unwrap();
+        let result = engine
+            .restore_record_json(&grounded_history("old-ride", 80, Some(&stored[10..40])))
+            .unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (0, 1));
+        assert_eq!(pending_rows(&engine), 0);
+        assert_eq!(history_rows(&engine), 0);
+        assert!(engine.unplaced_records().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_history_on_a_ride_detection_has_not_seen_keeps_waiting() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-unseen.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("old-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let stored = engine.get_gps_track("old-ride").unwrap();
+        let result = engine
+            .restore_record_json(&grounded_history("old-ride", 80, Some(&stored[10..40])))
+            .unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (1, 0));
+        assert_eq!(engine.retry_record_restore().unwrap().not_restored, 0);
+        assert_eq!(pending_rows(&engine), 1);
+    }
+
+    #[test]
+    fn test_history_on_a_ride_still_owed_keeps_waiting() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-owed.db").to_str().unwrap()).unwrap();
+        let result = engine
+            .restore_record_json(&grounded_history("owed-ride", 80, None))
+            .unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (1, 0));
+        assert_eq!(engine.settle_record_restore().unwrap().not_restored, 0);
+        assert_eq!(pending_rows(&engine), 1);
+    }
+
+    #[test]
+    fn test_history_on_a_ride_the_server_has_lost_is_not_restored() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-lost.db").to_str().unwrap()).unwrap();
+        engine
+            .restore_record_json(&grounded_history("lost-ride", 80, None))
+            .unwrap();
+        engine
+            .mark_record_activity_unavailable("lost-ride")
+            .unwrap();
+        let result = engine.retry_record_restore().unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (0, 1));
+        assert_eq!(pending_rows(&engine), 0);
+    }
+
+    #[test]
+    fn test_discarding_waiting_records_clears_them_and_releases_held_numbers() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("discard-waiting.db").to_str().unwrap()).unwrap();
+        let payload = json!({"version": 1, "entries": [
+            {"table": "section_history",
+                "values": {"section_id": "gone-id", "at": "2025-01-01 00:00:00",
+                    "kind": "formed", "details": "{}"},
+                "ground": {"rep_activity_id": "owed-ride", "rep_start_index": 10,
+                    "rep_end_index": 40, "point_count": 80, "polyline_json": null}},
+            {"table": "section_numbers",
+                "values": {"section_id": "gone-id", "number": 12, "section_type": "auto"},
+                "ground": {"rep_activity_id": "owed-ride", "rep_start_index": 10,
+                    "rep_end_index": 40, "point_count": 80, "polyline_json": null}},
+            {"table": "section_intents",
+                "values": {"id": "far-climb", "kind": "named", "name": "Far climb",
+                    "sport_type": "Ride",
+                    "polyline_json": serde_json::to_string(&ride()[10..40]).unwrap()}}
+        ]});
+        engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!(engine.unplaced_records().unwrap().len(), 2);
+        let held = |engine: &PersistentEngine| -> i64 {
+            engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*) FROM section_numbers WHERE section_id LIKE 'restored:%'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        assert_eq!(held(&engine), 1);
+
+        engine.discard_unplaced_records().unwrap();
+        assert_eq!(pending_rows(&engine), 0);
+        assert!(engine.unplaced_records().unwrap().is_empty());
+        assert!(engine.owed_record_activities().unwrap().is_empty());
+        assert_eq!(held(&engine), 0);
+        engine.discard_unplaced_records().unwrap();
+        assert_eq!(pending_rows(&engine), 0);
     }
 
     #[test]

@@ -238,3 +238,68 @@ export function build(root: string, options: BuildOptions = {}) {
   expect(zipped.status).toBe(0);
   return target;
 }
+
+function protoField(field: number, value: Buffer | string): Buffer {
+  const bytes = Buffer.from(value);
+  const varint = (n: number) => {
+    const out: number[] = [];
+    while (n > 0x7f) {
+      out.push((n & 0x7f) | 0x80);
+      n >>>= 7;
+    }
+    out.push(n);
+    return Buffer.from(out);
+  };
+  return Buffer.concat([varint((field << 3) | 2), varint(bytes.length), bytes]);
+}
+
+/**
+ * The manifest of an App Bundle's base module, in the protocol buffer form
+ * aapt2 writes for a bundle: an `XmlNode` whose `manifest` element carries the
+ * `android` namespace, a `versionCode` attribute in it and `package`.
+ */
+export function protoManifest(id: string): Buffer {
+  const ANDROID = 'http://schemas.android.com/apk/res/android';
+  const attribute = (name: string, value: string, uri = '') =>
+    protoField(
+      4,
+      Buffer.concat([
+        ...(uri ? [protoField(1, uri)] : []),
+        protoField(2, name),
+        protoField(3, value),
+      ])
+    );
+  const element = Buffer.concat([
+    protoField(1, Buffer.concat([protoField(1, 'android'), protoField(2, ANDROID)])),
+    protoField(3, 'manifest'),
+    attribute('versionCode', '7', ANDROID),
+    attribute('package', id),
+    protoField(5, protoField(1, protoField(3, 'application'))),
+  ]);
+  return protoField(1, element);
+}
+
+/** An App Bundle whose base module declares `applicationId` and embeds `configPackage`. */
+export function buildAab(
+  dir: string,
+  options: { applicationId?: string; configPackage?: string } = {}
+): string {
+  const applicationId = options.applicationId ?? 'com.veloq.app.dev';
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-aab-'));
+  write(staging, 'base/manifest/AndroidManifest.xml', protoManifest(applicationId));
+  write(
+    staging,
+    'base/assets/app.config',
+    JSON.stringify({
+      name: applicationId.endsWith('.dev') ? 'Veloq Dev' : 'Veloq',
+      android: { package: options.configPackage ?? applicationId },
+    })
+  );
+  write(staging, 'BundleConfig.pb', Buffer.alloc(4));
+  const target = path.join(dir, 'app-release.aab');
+  fs.rmSync(target, { force: true });
+  const zipped = spawnSync('zip', ['-q', '-r', target, '.'], { cwd: staging, env: gitFreeEnv() });
+  expect(zipped.status).toBe(0);
+  fs.rmSync(staging, { recursive: true, force: true });
+  return target;
+}

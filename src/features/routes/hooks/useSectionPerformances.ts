@@ -1,14 +1,31 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { engine, type SectionPerformanceResult } from 'veloqrs';
+import {
+  engine,
+  hasStarted,
+  startOutcome,
+  StartOutcome,
+  type StartResult,
+  type SectionPerformanceResult,
+} from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { awaitTimeStreams } from '@/features/routes/lib/awaitTimeStreams';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { DirectionBests } from '@/features/insights';
 
 /** How long to wait for Rust to finish a time-stream batch before rendering
- *  whatever landed. Missing streams only cost precision, not correctness. */
+ *  whatever landed. What is still missing then is reported, not hidden. */
 const TIME_STREAM_TIMEOUT_MS = 30_000;
+
+/**
+ * Whether a start will announce the streams it was asked for. A busy key is the
+ * same batch already in flight, which announces them; any other refusal fetches
+ * nothing, so waiting on it only holds the screen on a placeholder.
+ */
+function willAnnounce(start: StartResult): boolean {
+  return hasStarted(start) || startOutcome(start) === StartOutcome.Busy;
+}
 
 /**
  * Individual lap/traversal of a section
@@ -71,6 +88,8 @@ interface UseSectionPerformancesResult {
   records: SectionPerformanceRecord[];
   /** Whether data is still loading (not yet ready to display) */
   isLoading: boolean;
+  /** Activities whose time streams were still missing when the wait ended. */
+  outstanding: number;
   /** Whether streams are being fetched from API */
   isFetchingFromApi: boolean;
   /** Error message if loading failed */
@@ -148,6 +167,19 @@ export function toPerformanceRecord(
   };
 }
 
+/**
+ * The records with every lap's record mark cleared, for a set read while some
+ * time streams are missing: a missing activity could hold the faster lap.
+ */
+export function withoutRecordMarks(
+  records: SectionPerformanceRecord[]
+): SectionPerformanceRecord[] {
+  return records.map((record) => ({
+    ...record,
+    laps: record.laps.map((lap) => (lap.isRecord ? { ...lap, isRecord: false } : lap)),
+  }));
+}
+
 /** Convert FFI records to the render shape (Date conversion, direction cast). */
 export function toPerformanceView(result: SectionPerformanceResult): SectionPerformanceView {
   return {
@@ -172,6 +204,12 @@ export interface UseSectionTimeStreamSyncResult {
   isFetching: boolean;
   /** Error message when the fetch failed */
   error: string | null;
+  /**
+   * How many activities' time streams were still missing when the wait ended.
+   * Above zero, records read now leave those activities out, so a best or a
+   * record among them is not settled.
+   */
+  outstanding: number;
   /** Re-run the sync */
   refetch: () => void;
 }
@@ -192,6 +230,7 @@ export function useSectionTimeStreamSync(
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0); // For refetch
   const [fetchComplete, setFetchComplete] = useState(false);
+  const [outstanding, setOutstanding] = useState(0);
 
   // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite).
   //
@@ -223,11 +262,14 @@ export function useSectionTimeStreamSync(
       try {
         // Rust fetches the missing streams behind the shared governor and
         // persists them, announcing each one as it lands.
-        engine.syncTimeStreams(missingIds);
+        const start = engine.syncTimeStreams(missingIds);
 
-        await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS, signal });
+        const remaining = willAnnounce(start)
+          ? await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS, signal })
+          : missingIds.length;
 
         if (signal.aborted) return;
+        setOutstanding(remaining);
         setFetchComplete(true);
       } catch {
         if (signal.aborted) return;
@@ -242,6 +284,7 @@ export function useSectionTimeStreamSync(
   // Fetch missing streams when the activity set changes or refetch is triggered
   useEffect(() => {
     setFetchComplete(false);
+    setOutstanding(0);
     const run = new AbortController();
     // An empty list settles inside, so there is one exit and one cleanup.
     fetchMissingStreams(run.signal);
@@ -253,7 +296,13 @@ export function useSectionTimeStreamSync(
     setFetchKey((k) => k + 1);
   }, []);
 
-  return { ready: fetchComplete, isFetching: isLoading, error, refetch };
+  // A stream missing at the deadline was most likely asked for into a dead
+  // network, and nothing in Rust re-asks an on-demand fetch.
+  useReconnect(() => {
+    if (fetchComplete && outstanding > 0) refetch();
+  });
+
+  return { ready: fetchComplete, isFetching: isLoading, error, outstanding, refetch };
 }
 
 /**
@@ -279,6 +328,7 @@ export function useSectionPerformances(
     ready: fetchComplete,
     isFetching: isLoading,
     error,
+    outstanding,
     refetch,
   } = useSectionTimeStreamSync(allActivityIds);
 
@@ -292,8 +342,8 @@ export function useSectionPerformances(
     records,
     bestForwardRecord,
     bestReverseRecord,
-    bestForwardIsPr,
-    bestReverseIsPr,
+    bestForwardIsPr: forwardIsPrOfRead,
+    bestReverseIsPr: reverseIsPrOfRead,
     forwardStats,
     reverseStats,
   } = useMemo(() => {
@@ -310,6 +360,11 @@ export function useSectionPerformances(
     }
   }, [section, fetchComplete, sportType, readSections]);
 
+  // A missing activity could hold a faster effort, so a best read without it
+  // is shown as a best and never as a PR.
+  const bestForwardIsPr = outstanding === 0 && forwardIsPrOfRead;
+  const bestReverseIsPr = outstanding === 0 && reverseIsPrOfRead;
+
   const bests = useMemo<DirectionBests>(
     () => ({
       forward: bestForwardRecord,
@@ -323,6 +378,7 @@ export function useSectionPerformances(
   return {
     records,
     isLoading: !fetchComplete,
+    outstanding,
     isFetchingFromApi: isLoading,
     error,
     bestForwardRecord,

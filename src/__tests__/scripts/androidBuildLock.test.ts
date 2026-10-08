@@ -39,8 +39,9 @@ function privateLock(): NodeJS.ProcessEnv {
 describe('the Android build takes a lock of its own', () => {
   it('is what the build scripts run through', () => {
     expect(packageJson.scripts['android:debug']).toContain('with-android-build-lock.sh');
-    expect(packageJson.scripts.android).toContain('run-android.sh debug');
-    expect(packageJson.scripts['android:prod']).toContain('run-android.sh release');
+    expect(packageJson.scripts.android).toContain('run-android.sh dev metro');
+    expect(packageJson.scripts['android:standalone']).toContain('run-android.sh dev standalone');
+    expect(packageJson.scripts['android:prod']).toContain('run-android.sh production standalone');
   });
 
   it('leaves no rebuild alias beside the build commands', () => {

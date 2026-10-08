@@ -1,20 +1,20 @@
 /**
  * Scenario: a wifi-to-cellular handoff reports the internet unreachable for a
- * few seconds, longer than the three-second offline debounce. The banner slid
- * in, the screens gave up their top edge, and half a second later both moved
- * back.
+ * moment, and a real loss of the network should be said within a few seconds.
  *
- * Expected behaviour: the banner and the top edge wait a further five seconds
- * past the debounce, and move together. An online reading takes both back on
- * the same render. A sync-error banner already up keeps the slot through the
- * same wait and hands it straight to the offline banner.
+ * Expected behaviour: the offline pill shows four seconds after the drop, a
+ * debounce of one and a half then a hold of two and a half, and a handoff
+ * shorter than that shows nothing. An online reading takes it away on the
+ * render it lands. The pill floats under the status bar, so the screens keep
+ * their top edge throughout. A sync-error banner gives way when the pill shows,
+ * since a sync cannot progress offline, and comes back with the network.
  */
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { NetworkProvider, OFFLINE_BANNER_DELAY_MS } from '@/shared/app/NetworkContext';
+import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { TopSafeAreaProvider, useTopSafeArea } from '@/shared/app/TopSafeAreaContext';
 import { OfflineBanner } from '@/shared/ui/OfflineBanner';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
@@ -57,7 +57,8 @@ jest.mock('expo-network', () => ({
   getNetworkStateAsync: () => new Promise(() => {}),
 }));
 
-const DEBOUNCE_MS = 3000;
+const DEBOUNCE_MS = 1500;
+const HOLD_MS = 2500;
 const ONLINE: Reading = { isConnected: true, isInternetReachable: true, type: 'WIFI' };
 const UNREACHABLE: Reading = { isConnected: true, isInternetReachable: false, type: 'CELLULAR' };
 
@@ -97,7 +98,7 @@ function wait(ms: number) {
  */
 function waitThroughBoth(lessMs = 0) {
   wait(DEBOUNCE_MS);
-  wait(OFFLINE_BANNER_DELAY_MS - lessMs);
+  wait(HOLD_MS - lessMs);
 }
 
 function topEdgeKept(): boolean {
@@ -115,39 +116,56 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('shows neither the banner nor a moved edge for a handoff shorter than both waits', () => {
+it('shows nothing for a handoff shorter than both waits', () => {
   mount();
   reading(UNREACHABLE);
 
   wait(DEBOUNCE_MS);
-  wait(500);
+  wait(HOLD_MS - 500);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
-  expect(topEdgeKept()).toBe(true);
-
-  wait(OFFLINE_BANNER_DELAY_MS - 1000);
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
-  expect(topEdgeKept()).toBe(true);
 
   reading(ONLINE);
-  wait(OFFLINE_BANNER_DELAY_MS * 2);
+  wait(HOLD_MS * 2);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
   expect(topEdgeKept()).toBe(true);
 });
 
-it('shows the banner and hands over the top edge together once the spell outlasts both', () => {
+it('shows nothing for a drop shorter than the debounce', () => {
+  mount();
+  reading(UNREACHABLE);
+  wait(DEBOUNCE_MS - 1);
+  reading(ONLINE);
+  wait(DEBOUNCE_MS + HOLD_MS);
+
+  expect(screen.queryByTestId('offline-banner')).toBeNull();
+});
+
+it('shows the pill four seconds after the drop, and the screens keep their top edge', () => {
   mount();
   reading(UNREACHABLE);
 
   waitThroughBoth(1);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
-  expect(topEdgeKept()).toBe(true);
 
   wait(1);
   expect(screen.getByTestId('offline-banner')).toBeTruthy();
-  expect(topEdgeKept()).toBe(false);
+  expect(topEdgeKept()).toBe(true);
 });
 
-it('takes the banner and the edge back on the render the online reading lands', () => {
+it('floats the pill under the status bar, passing touches through, on one line', () => {
+  mount();
+  reading(UNREACHABLE);
+  waitThroughBoth();
+
+  const pill = screen.getByTestId('offline-banner');
+  const style = StyleSheet.flatten(pill.props.style) as { position?: string; top?: number };
+  expect(style.position).toBe('absolute');
+  expect(style.top).toBeGreaterThanOrEqual(40);
+  expect(pill.props.pointerEvents).toBe('none');
+  expect(screen.getByTestId('offline-banner-text').props.numberOfLines).toBe(1);
+});
+
+it('takes the pill away on the render the online reading lands', () => {
   mount();
   reading(UNREACHABLE);
   waitThroughBoth();
@@ -156,7 +174,6 @@ it('takes the banner and the edge back on the render the online reading lands', 
   reading(ONLINE);
 
   expect(screen.queryByTestId('offline-banner')).toBeNull();
-  expect(topEdgeKept()).toBe(true);
 });
 
 it('starts the wait over for a second drop after coming back', () => {
@@ -168,7 +185,6 @@ it('starts the wait over for a second drop after coming back', () => {
   reading(UNREACHABLE);
   waitThroughBoth(1);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
-  expect(topEdgeKept()).toBe(true);
 
   wait(1);
   expect(screen.getByTestId('offline-banner')).toBeTruthy();
@@ -195,7 +211,7 @@ describe('with a sync error holding the slot', () => {
     expect(topEdgeKept()).toBe(false);
   });
 
-  it('swaps the sync-error banner for the offline one on the same render', () => {
+  it('gives way to the pill and hands the top edge back to the screen', () => {
     mount();
     reading(UNREACHABLE);
 
@@ -206,7 +222,7 @@ describe('with a sync error holding the slot', () => {
     wait(1);
     expect(screen.queryByTestId('sync-error-banner')).toBeNull();
     expect(screen.getByTestId('offline-banner')).toBeTruthy();
-    expect(topEdgeKept()).toBe(false);
+    expect(topEdgeKept()).toBe(true);
 
     reading(ONLINE);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();

@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export interface WhatsNewSlideDefinition {
+interface SlideContent {
   /** i18n key for slide title */
   titleKey: string;
   /** i18n key for slide body text */
@@ -9,15 +9,34 @@ export interface WhatsNewSlideDefinition {
   icon: string;
   /** Custom component rendered below the text */
   Component: ComponentType;
-  /** Route to navigate to when "Show Me" is tapped. Omit for info-only slides. */
-  showMeRoute?: string;
-  /** Optional pre-navigation action tag. The modal handles execution. */
-  showMeAction?: string;
+}
+
+/**
+ * A slide that offers Show Me names where it goes and the tip the return pill
+ * shows there, so the athlete never lands on a screen with nothing to try.
+ */
+interface ShowMe {
+  /** Route to navigate to when "Show Me" is tapped. */
+  showMeRoute: string;
+  /** i18n key for the tip shown on the TourReturnPill after navigating. */
+  showMeTip: string;
+  /**
+   * Swap the route for the athlete's busiest section or route (`resolveShowMeRoute`), keeping
+   * `showMeRoute` as the list to land on when there is none.
+   */
+  showMeAction?: 'openBusiestSection' | 'openBusiestRoute';
   /** Offer Show Me only once this holds. Omit to offer it always. */
   showMeWhen?: 'cutoverChanged';
-  /** i18n key for a tip shown on the TourReturnPill after navigating. */
-  showMeTip?: string;
 }
+
+interface InfoOnly {
+  showMeRoute?: never;
+  showMeTip?: never;
+  showMeWhen?: never;
+  showMeAction?: never;
+}
+
+export type WhatsNewSlideDefinition = SlideContent & (ShowMe | InfoOnly);
 
 /**
  * Version → slides registry. Modal only shows if the current version has entries.
@@ -30,7 +49,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       bodyKey: 'whatsNew.v022.mapStylesBody',
       icon: 'map-legend',
       showMeRoute: '/',
-      showMeAction: 'enableSatellite3D',
+      showMeTip: 'whatsNew.v022.mapStylesTip',
       // Load the map preview only when this slide is shown.
       get Component() {
         return require('./MapPreferencesSlide').MapPreferencesSlide;
@@ -51,6 +70,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       bodyKey: 'whatsNew.v022.fitnessBody',
       icon: 'heart-pulse',
       showMeRoute: '/fitness',
+      showMeTip: 'whatsNew.v022.fitnessTip',
       get Component() {
         return require('./FitnessHeroSlide').FitnessHeroSlide;
       },
@@ -62,6 +82,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       bodyKey: 'whatsNew.v030.insightsBody',
       icon: 'lightbulb-outline',
       showMeRoute: '/insights',
+      showMeTip: 'whatsNew.v030.insightsTip',
       get Component() {
         return require('./InsightsSlide').InsightsSlide;
       },
@@ -73,16 +94,9 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       // The strength sub-tab, where the body diagram this slide describes is
       // drawn. Fitness carries no strength surface at all.
       showMeRoute: '/insights?tab=strength',
+      showMeTip: 'whatsNew.v030.strengthTip',
       get Component() {
         return require('./StrengthSlide').StrengthSlide;
-      },
-    },
-    {
-      titleKey: 'whatsNew.v030.sectionTrimTitle',
-      bodyKey: 'whatsNew.v030.sectionTrimBody',
-      icon: 'arrow-expand-horizontal',
-      get Component() {
-        return require('./SectionTrimSlide').SectionTrimSlide;
       },
     },
     {
@@ -90,6 +104,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       bodyKey: 'whatsNew.v030.backupBody',
       icon: 'cloud-upload-outline',
       showMeRoute: '/backup-settings',
+      showMeTip: 'whatsNew.v030.backupTip',
       get Component() {
         return require('./BackupSlide').BackupSlide;
       },
@@ -97,11 +112,34 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
   ],
   '0.4.0': [
     {
+      titleKey: 'whatsNew.v040.sectionPageTitle',
+      bodyKey: 'whatsNew.v040.sectionPageBody',
+      icon: 'chart-timeline-variant',
+      showMeRoute: '/insights?tab=sections',
+      showMeTip: 'whatsNew.v040.sectionPageTip',
+      showMeAction: 'openBusiestSection',
+      get Component() {
+        return require('./SectionPerformanceSlide').SectionPerformanceSlide;
+      },
+    },
+    {
+      titleKey: 'whatsNew.v040.routesTitle',
+      bodyKey: 'whatsNew.v040.routesBody',
+      icon: 'map-marker-path',
+      showMeRoute: '/insights?tab=routes',
+      showMeTip: 'whatsNew.v040.routesTip',
+      showMeAction: 'openBusiestRoute',
+      get Component() {
+        return require('./RoutesSlide').RoutesSlide;
+      },
+    },
+    {
       titleKey: 'whatsNew.v040.sectionsTitle',
       bodyKey: 'whatsNew.v040.sectionsBody',
       icon: 'history',
-      // The detector configuration, where the rule behind the slide is set.
-      showMeRoute: '/detection-settings',
+      // The section preview, where the map shows the sections a setting change would cut.
+      showMeRoute: '/detection-preview',
+      showMeTip: 'whatsNew.v040.sectionsTip',
       get Component() {
         return require('./SectionChangeCardSlide').SectionChangeCardSlide;
       },

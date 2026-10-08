@@ -77,6 +77,12 @@ const GUARDS = [
     violation: '/**\n * @returns the value\n */\nexport const a = 1;\n',
   },
   {
+    script: 'lint-service-name.mjs',
+    file: 'src/i18n/locales/xx.json',
+    clean: '{ "subtitle": "Join intervals.icu" }\n',
+    violation: '{ "subtitle": "Join I' + 'ntervals.icu" }\n',
+  },
+  {
     script: 'lint-comment-line-refs.mjs',
     file: 'src/features/probe/useProbe.ts',
     clean: '// The reader, named rather than numbered.\nexport const a = 1;\n',

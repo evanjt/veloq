@@ -102,6 +102,7 @@ describe('RegionalMapView 3D selected line colour', () => {
     fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(lastRouteColor()).toBe(HEATMAP_ROUTE_COLOR);
 
+    fireEvent.press(screen.getByTestId('map-layers'));
     fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
     expect(lastRouteColor()).toBe(getActivityTypeConfig('Ride').color);
   });

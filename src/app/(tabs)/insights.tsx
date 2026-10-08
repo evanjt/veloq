@@ -567,7 +567,6 @@ function InsightsScreenContent() {
       </View>
 
       {renderSharedRouteState()}
-      <SyncRefreshNotice message={notice} />
 
       <SwipeableTabs
         tabs={tabs}
@@ -578,6 +577,7 @@ function InsightsScreenContent() {
       >
         {tabPages}
       </SwipeableTabs>
+      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

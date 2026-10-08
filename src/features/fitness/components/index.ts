@@ -6,5 +6,4 @@ export { ClimbingBestRows } from './ClimbingBestRows';
 export { ClimbingStatusNote } from './ClimbingStatusNote';
 export { TimeRangeSelector } from './TimeRangeSelector';
 export { SportToggleSelector } from './SportToggleSelector';
-export { FitnessHeaderStats } from './FitnessHeaderStats';
 export { BestEffortsHeaderButton } from './BestEffortsHeaderButton';

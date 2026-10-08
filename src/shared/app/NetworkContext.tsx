@@ -17,9 +17,8 @@ interface NetworkContextValue {
   /** Whether device has network connectivity */
   isOnline: boolean;
   /**
-   * Whether the offline banner is up. It trails `isOnline` going false by
-   * `OFFLINE_BANNER_DELAY_MS` and follows it back on the same render, so the
-   * banner and the top edge it takes move together.
+   * Whether the offline pill is up. It trails `isOnline` going false by
+   * `OFFLINE_BANNER_DELAY_MS` and follows it back on the same render.
    */
   offlineBannerShown: boolean;
 }
@@ -35,12 +34,20 @@ const NetworkContext = createContext<NetworkContextValue | null>(null);
 export const FOREGROUND_REREAD_MS = 15 * 60 * 1000;
 
 /**
- * How long the banner waits after `isOnline` goes false, on top of the three
- * second debounce. A network handoff can report the internet unreachable for
- * longer than the debounce, and a banner that slides in and out again moves
- * every screen's top edge twice for nothing.
+ * How long an offline reading has to stand before the app believes it. An
+ * online reading applies at once, so this only covers a hiccup between two
+ * known states.
  */
-export const OFFLINE_BANNER_DELAY_MS = 5000;
+export const OFFLINE_DEBOUNCE_MS = 1500;
+
+/**
+ * How long the offline pill waits after `isOnline` goes false, on top of the
+ * debounce. A network handoff can report the internet unreachable for longer
+ * than the debounce, and a pill that blinks on and off again says nothing. The
+ * pill floats and moves no screen's edge, so the wait is only for that, and the
+ * two together put it up four seconds after the drop.
+ */
+export const OFFLINE_BANNER_DELAY_MS = 2500;
 
 /**
  * Hand the edge to Rust as well as to TanStack.
@@ -73,12 +80,12 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [bannerDue, setBannerDue] = useState(false);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
+  // Debounce timer for going-offline transitions
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Whether any reading has come back yet. `isOnline` above is a seed, not an
   // answer, so the first reading is not a transition and is not debounced: a
-  // cold boot in aeroplane mode otherwise reads as online for three seconds
+  // cold boot in aeroplane mode otherwise reads as online for the debounce
   // and every mount effect in that window latches on the online branch.
   const hasReadingRef = useRef(false);
 
@@ -132,11 +139,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         // The first reading is the answer the seed was standing in for.
         goOffline();
       } else {
-        // Going offline: debounce by 3s to avoid flashing during brief hiccups
+        // Going offline: debounced, so a brief hiccup changes nothing
         offlineTimerRef.current = setTimeout(() => {
           if (cancelled) return;
           goOffline();
-        }, 3000);
+        }, OFFLINE_DEBOUNCE_MS);
       }
 
       hasReadingRef.current = true;
@@ -186,7 +193,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // repeating what it holds.
   //
   // The answer goes through `applyNetworkState`, not around it: that is where
-  // an online edge applies at once and a drop waits three seconds, and two
+  // an online edge applies at once and a drop waits out the debounce, and two
   // paths that debounce differently is what one path avoids. The value already
   // held is pushed first, because Rust's copy expires and a re-read that never
   // answers must not leave it expired.

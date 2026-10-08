@@ -269,14 +269,6 @@ impl VeloqEngine {
         crate::push::runs::recent()
     }
 
-    fn get_activity_count(&self) -> Result<u32, VeloqError> {
-        with_reader(crate::persistence::activities::pooled::activity_count).and_then(|r| {
-            r.map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
-        })
-    }
-
     /// Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
     /// Used for one-time backfill after upgrade.
     fn get_activities_needing_time_streams(&self) -> Result<Vec<String>, VeloqError> {
@@ -545,13 +537,21 @@ impl VeloqEngine {
         })
     }
 
-    /// Drop the paused import at the athlete's word, leaving the library and
-    /// the records already waiting as they are.
-    async fn discard_record_import(&self) -> Result<(), VeloqError> {
-        crate::persistence::with_persistent_engine_blocking(|engine| engine.discard_paused_import())
-            .await
-            .ok_or(VeloqError::NotInitialized)?
-            .map_err(|msg| VeloqError::Database { msg })
+    /// Drop what an import left at the athlete's word. Without `waiting` it is
+    /// the paused import, leaving the library and the records already waiting
+    /// as they are. With it, it is the records still waiting to be placed,
+    /// keeping what was placed and any paused import.
+    async fn discard_record_import(&self, waiting: bool) -> Result<(), VeloqError> {
+        crate::persistence::with_persistent_engine_blocking(move |engine| {
+            if waiting {
+                engine.discard_unplaced_records()
+            } else {
+                engine.discard_paused_import()
+            }
+        })
+        .await
+        .ok_or(VeloqError::NotInitialized)?
+        .map_err(|msg| VeloqError::Database { msg })
     }
 
     /// List decisions that still await their activity or matching ground.
@@ -743,7 +743,7 @@ mod tests {
             VeloqEngine::create(tmp.path().join("other.db").to_string_lossy().into_owned());
         assert!(engine.is_initialized());
         assert_eq!(
-            engine.get_activity_count().unwrap(),
+            engine.activities().get_count().unwrap(),
             1,
             "a second create must not reopen"
         );
@@ -751,7 +751,7 @@ mod tests {
         engine.destroy();
         assert!(!engine.is_initialized());
         assert!(matches!(
-            engine.get_activity_count(),
+            engine.activities().get_count(),
             Err(VeloqError::NotInitialized)
         ));
         assert!(matches!(
@@ -800,7 +800,7 @@ mod tests {
         let engine =
             VeloqEngine::create(tmp.path().join("fresh.db").to_string_lossy().into_owned());
         assert!(engine.is_initialized());
-        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        assert_eq!(engine.activities().get_count().unwrap(), 0);
         engine.destroy();
     }
 
@@ -874,7 +874,7 @@ mod tests {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("count_under_writer.db");
         seed_activity("a1");
-        let count = read_while_writer_holds(|| VeloqEngine.get_activity_count().unwrap());
+        let count = read_while_writer_holds(|| VeloqEngine.activities().get_count().unwrap());
         assert_eq!(count, 1);
     }
 
@@ -1123,13 +1123,13 @@ mod tests {
         assert_eq!(derived.activities_removed, 2);
         assert_eq!(derived.activities_kept, 0);
         assert_eq!(derived.sections_removed, 0);
-        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        assert_eq!(engine.activities().get_count().unwrap(), 0);
 
         seed_activity("a3");
         let tiles = _tmp.path().join("tiles");
         crate::runtime::block_on(engine.run_clear_all(tiles.to_string_lossy().into_owned()))
             .unwrap();
-        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        assert_eq!(engine.activities().get_count().unwrap(), 0);
         engine.mark_for_recomputation().unwrap();
     }
 
@@ -1175,7 +1175,7 @@ mod tests {
         crate::runtime::block_on(VeloqEngine.run_clear_all(tiles.clone())).unwrap();
         seed_activity("a2");
         crate::runtime::block_on(VeloqEngine.run_clear_all(tiles)).unwrap();
-        assert_eq!(VeloqEngine.get_activity_count().unwrap(), 0);
+        assert_eq!(VeloqEngine.activities().get_count().unwrap(), 0);
     }
 
     /// Expected behaviour: a wipe still running refuses the second call and
@@ -1191,7 +1191,7 @@ mod tests {
             VeloqEngine.run_clear_all(tmp.path().join("tiles").to_string_lossy().into()),
         );
         assert!(matches!(refused, Err(VeloqError::Busy { .. })));
-        assert_eq!(VeloqEngine.get_activity_count().unwrap(), 1);
+        assert_eq!(VeloqEngine.activities().get_count().unwrap(), 1);
         drop(held);
     }
 

@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
 import com.veloq.WidgetAgeRefreshWorker
+import com.veloq.WidgetDataRefreshWorker
 
 /**
  * Insights widget: the Insights tab's top cards, one on a small placement, two on a medium and
@@ -21,10 +22,16 @@ class VeloqInsightsWidgetProvider : AppWidgetProvider() {
     val snap = WidgetSnapshot.read(context)
     for (id in ids) update(context, manager, snap, id)
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
   }
 
   override fun onEnabled(context: Context) {
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
+  }
+
+  override fun onDisabled(context: Context) {
+    WidgetDataRefreshWorker.reconcile(context)
   }
 
   override fun onAppWidgetOptionsChanged(

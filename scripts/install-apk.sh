@@ -10,16 +10,25 @@
 # A commit stamp cannot settle it: two builds off one dirty tree carry the same
 # commit, and the bundle and Rust library Gradle packages can be older than the
 # configuration that stamped them. So the check is the build record
-# `npm run android:debug` or `npm run android:prod` writes beside the APK
-# (`scripts/lib/build-record.js`):
+# `npm run android:debug`, `npm run android:standalone` or `npm run android:prod`
+# writes beside the APK (`scripts/lib/build-record.js`):
 # the bundle and libraries the APK carries must be the recorded ones, the
 # recorded inputs must be the tree's, and the identity, Rust profile, features
 # and ABIs must be the ones asked for and the handset runs.
 #
+# Veloq Dev and Veloq both build a release APK to the same path. The identity
+# is asked for with --identity, never read from APP_VARIANT. Without it the
+# install takes the identity the record names, which the build was asked for.
+#
 #   scripts/install-apk.sh debug                      # refuses anything else
 #   scripts/install-apk.sh debug --features lock-trace
+#   scripts/install-apk.sh release --identity dev     # Veloq Dev standalone, nothing else
+#   scripts/install-apk.sh release --identity production
 #   scripts/install-apk.sh release --stale            # install it anyway, knowingly
 #   scripts/install-apk.sh old/before.apk --stale     # a named file, same checks
+#
+# Through npm the arguments follow `--`, since npm refuses a flag it does not
+# know: `npm run install:android -- release --identity dev`.
 set -eu
 
 # A named file is read from where the caller stood, before the cd below.
@@ -47,9 +56,14 @@ shift || true
 while [ "$#" -gt 0 ]; do
   case "$1" in
   --stale) ALLOW_STALE=1 ;;
-  --app-id | --profile | --features)
+  --identity | --app-id | --profile | --features)
     if [ "$#" -lt 2 ]; then
       echo "install-apk: $1 needs a value" >&2
+      exit 2
+    fi
+    # An identity it does not know is refused here, so --stale cannot carry it past.
+    if [ "$1" = --identity ] && [ "$2" != dev ] && [ "$2" != production ]; then
+      echo "install-apk: --identity $2 names no identity; use dev or production" >&2
       exit 2
     fi
     EXPECT+=("$1" "$2")
@@ -73,7 +87,10 @@ case "$VARIANT" in
   ;;
 *)
   APK="android/app/build/outputs/apk/$VARIANT/app-$VARIANT.apk"
-  HINT="build one with npm run android:debug or npm run android:prod"
+  case "$VARIANT" in
+  debug) HINT="build one with npm run android:debug" ;;
+  *) HINT="build one with npm run android:standalone or npm run android:prod" ;;
+  esac
   ;;
 esac
 if [ ! -f "$APK" ]; then
@@ -99,7 +116,7 @@ fi
 if ! node scripts/build-record.js verify "$VARIANT" --apk "$APK" ${EXPECT[@]+"${EXPECT[@]}"}; then
   if [ "$ALLOW_STALE" -eq 0 ]; then
     echo "install-apk: refusing, this APK is not the build of the tree you are on" >&2
-    echo "install-apk: rebuild it with npm run android:debug, or pass --stale to install it anyway" >&2
+    echo "install-apk: rebuild it ($HINT), or pass --stale to install it anyway" >&2
     exit 1
   fi
   echo "install-apk: installing an unverified build because --stale was passed" >&2

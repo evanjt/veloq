@@ -1,6 +1,7 @@
 package com.veloq
 
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import java.io.File
@@ -36,20 +37,32 @@ internal object WidgetSnapshotFile {
    */
   fun redraw(context: Context): Int {
     val app = context.applicationContext
-    val manager = AppWidgetManager.getInstance(app)
     var asked = 0
-    for (info in manager.installedProviders) {
-      if (info.provider.packageName != app.packageName) continue
-      val ids = manager.getAppWidgetIds(info.provider)
-      if (ids.isEmpty()) continue
+    forEachPlaced(app) { provider, ids ->
       asked += ids.size
       app.sendBroadcast(
         Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-          component = info.provider
+          component = provider
           putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
         }
       )
     }
     return asked
+  }
+
+  /** How many widgets of this app are placed, across every provider. */
+  fun placed(context: Context): Int {
+    var count = 0
+    forEachPlaced(context.applicationContext) { _, ids -> count += ids.size }
+    return count
+  }
+
+  private fun forEachPlaced(app: Context, each: (ComponentName, IntArray) -> Unit) {
+    val manager = AppWidgetManager.getInstance(app)
+    for (info in manager.installedProviders) {
+      if (info.provider.packageName != app.packageName) continue
+      val ids = manager.getAppWidgetIds(info.provider)
+      if (ids.isNotEmpty()) each(info.provider, ids)
+    }
   }
 }

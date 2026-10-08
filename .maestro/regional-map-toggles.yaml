@@ -19,6 +19,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Core toggles are always present regardless of data state.
 - assertVisible:
     id: "map-toggle-heatmap"

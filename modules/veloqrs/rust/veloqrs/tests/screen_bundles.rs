@@ -2070,19 +2070,14 @@ fn startup_matches_the_calls_it_replaces() {
         summary_card,
         preview_tracks,
         sparklines,
-        new_activity_ids,
-        next_ring_expiry_at: _,
-        ring_stamp_required: _,
     } = s.engine.startup_data(
         p.current_start as i64,
         p.current_end as i64,
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
-        0,
     );
 
-    assert!(new_activity_ids.is_empty(), "no marker, nothing rings");
     assert_eq!(
         sparklines.map(|s| s.fitness),
         s.engine
@@ -2150,7 +2145,6 @@ fn startup_skips_ids_with_no_signature() {
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
-        0,
     );
 
     let bundled: Vec<&str> = bundle
@@ -2173,7 +2167,6 @@ fn startup_still_answers_with_no_preview_ids() {
         p.prev_start as i64,
         p.prev_end as i64,
         &[],
-        0,
     );
 
     assert!(bundle.preview_tracks.is_empty());
@@ -2871,7 +2864,6 @@ fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
-        0,
     );
     let bundled = bundle.preview_tracks.first().expect("a1 has a signature");
 

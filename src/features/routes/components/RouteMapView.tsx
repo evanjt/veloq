@@ -15,6 +15,7 @@ import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
   boundsOfLngLat,
+  buildDeltaLineStops,
   featureCollection,
   isDarkStyle,
   lineFeature,
@@ -26,6 +27,7 @@ import {
   useDrawnMapStyle,
 } from '@/features/maps';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
+import type { SectionDeltaLine } from '../lib/deltaLayout';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
@@ -48,6 +50,8 @@ interface RouteMapViewProps {
   onPress?: (() => void) | undefined;
   /** Activity signatures for trace rendering (activity ID -> points) */
   activitySignatures?: Record<string, { points: RoutePoint[] }> | undefined;
+  /** The attempt the chart's delta plot shows, which colours the route line. */
+  deltaLine?: SectionDeltaLine | null | undefined;
 }
 
 const FIT_PADDING = 40;
@@ -62,6 +66,7 @@ export function RouteMapView({
   enableFullscreen = false,
   onPress,
   activitySignatures = {},
+  deltaLine = null,
 }: RouteMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -120,6 +125,19 @@ export function RouteMapView({
 
   const routeLine = useMemo(() => featureCollection([lineFeature(routeCoords)]), [routeCoords]);
 
+  const deltaLineStops = useMemo(
+    () =>
+      deltaLine
+        ? buildDeltaLineStops(
+            deltaLine.splits,
+            deltaLine.splitStepM,
+            deltaLine.sectionLengthM,
+            deltaLine.direction
+          )
+        : null,
+    [deltaLine]
+  );
+
   // Markers follow whatever is highlighted, falling back to the route itself.
   const endpoints = useMemo(() => {
     const lapCoords = highlightedLapPoints ? lngLatFromShort(highlightedLapPoints) : [];
@@ -146,8 +164,8 @@ export function RouteMapView({
     [fadedTraces, highlightedTrace, endpoints]
   );
 
-  const sources = useMemo<Record<string, MapSourceSpec>>(
-    () => ({ ...overlaySources, route: { kind: 'geojson', data: routeLine } }),
+  const sources = useMemo(
+    () => buildRouteSources(overlaySources, routeLine),
     [overlaySources, routeLine]
   );
 
@@ -163,11 +181,13 @@ export function RouteMapView({
         fadedOpacity,
         fadedFilter,
         includeRoute: true,
+        deltaLineStops,
       }),
-    [activityColor, representativeOpacity, fadedOpacity, fadedFilter]
+    [activityColor, representativeOpacity, fadedOpacity, fadedFilter, deltaLineStops]
   );
 
-  // Fullscreen has room to show the other attempts at full strength.
+  // Fullscreen has room to show the other attempts at full strength. Its shell
+  // draws the route itself and carries no delta colouring.
   const fullscreenLayers = useMemo<MapLayerSpec[]>(
     () =>
       buildRouteLayers({
@@ -253,15 +273,27 @@ export function RouteMapView({
 }
 
 /**
+ * The inline map's sources: the overlays and the route itself. line-gradient
+ * addresses the route by line-progress, which needs line metrics.
+ */
+export function buildRouteSources(
+  overlaySources: Record<string, MapSourceSpec>,
+  routeLine: GeoJSON.FeatureCollection
+): Record<string, MapSourceSpec> {
+  return { ...overlaySources, route: { kind: 'geojson', data: routeLine, lineMetrics: true } };
+}
+
+/**
  * Layer stack, back to front: other attempts, then the representative route, then
  * whatever the caller singled out, then the endpoint dots.
  */
-function buildRouteLayers({
+export function buildRouteLayers({
   activityColor,
   representativeOpacity,
   fadedOpacity,
   fadedFilter,
   includeRoute,
+  deltaLineStops = null,
 }: {
   activityColor: string;
   representativeOpacity: number;
@@ -270,6 +302,11 @@ function buildRouteLayers({
   fadedFilter: unknown[] | undefined;
   /** Off in fullscreen, where the shell draws the route itself. */
   includeRoute: boolean;
+  /**
+   * `line-progress` stops colouring the route line by time won or lost, while
+   * the chart shows the delta plot. Without them the line keeps `activityColor`.
+   */
+  deltaLineStops?: (string | number)[] | null;
 }): MapLayerSpec[] {
   const routeLayers: MapLayerSpec[] = includeRoute
     ? [
@@ -290,7 +327,16 @@ function buildRouteLayers({
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': activityColor,
+            ...(deltaLineStops
+              ? {
+                  'line-gradient': [
+                    'interpolate',
+                    ['linear'],
+                    ['line-progress'],
+                    ...deltaLineStops,
+                  ],
+                }
+              : { 'line-color': activityColor }),
             'line-opacity': representativeOpacity,
             'line-width': 4,
           },

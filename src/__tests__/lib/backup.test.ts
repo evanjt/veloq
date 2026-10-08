@@ -15,6 +15,7 @@ import {
   checkRecordBackup,
   convertLegacyBackupToRecord,
   discardRecordImport,
+  discardUnplacedRecords,
   exportRecordBackup,
   restoreRecordBackup,
   restoreBackup,
@@ -57,6 +58,7 @@ const mockEngine = {
     .mockResolvedValue({ placed: 2, unplaced: 1, missingActivityIds: [] }),
   getUnplacedBackupRecords: jest.fn().mockResolvedValue([]),
   discardRecordImport: jest.fn().mockResolvedValue(undefined),
+  discardUnplacedBackupRecords: jest.fn().mockResolvedValue(undefined),
   syncNow: jest.fn().mockReturnValue(0),
 };
 const mockEngineState = { ready: true };
@@ -601,6 +603,18 @@ describe('paused record import', () => {
     mockEngineState.ready = false;
     await expect(discardRecordImport()).rejects.toThrow('Engine not initialised');
     expect(mockEngine.discardRecordImport).not.toHaveBeenCalled();
+  });
+
+  it('discards the waiting records through the engine, apart from the paused import', async () => {
+    await discardUnplacedRecords();
+    expect(mockEngine.discardUnplacedBackupRecords).toHaveBeenCalledTimes(1);
+    expect(mockEngine.discardRecordImport).not.toHaveBeenCalled();
+  });
+
+  it('rejects a discard of the waiting records on a closed engine', async () => {
+    mockEngineState.ready = false;
+    await expect(discardUnplacedRecords()).rejects.toThrow('Engine not initialised');
+    expect(mockEngine.discardUnplacedBackupRecords).not.toHaveBeenCalled();
   });
 
   it('rejects with the engine refusal and keeps the stores as they were', async () => {

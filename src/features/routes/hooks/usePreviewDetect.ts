@@ -11,6 +11,11 @@
  * per-track event is not an option: the loader increments once per activity
  * and the observer binding blocks the calling Rust thread until JavaScript
  * returns, so a few hundred activities would be a few hundred blocking calls.
+ *
+ * `request` is the slider's way in. It waits for the values to stand still,
+ * and a run already going is cancelled and its end awaited before the new one
+ * starts: the engine's cancel is cooperative, so the old run holds the slot
+ * until it notices, and a start before then is refused as busy.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,6 +46,20 @@ export const PREVIEW_POLL_INTERVAL_MS = 1000;
  */
 export const PREVIEW_LAPSE_AFTER_MS = 45_000;
 
+/**
+ * How long the values must stand still after a slider is released before a
+ * run starts. A release already means the athlete has stopped dragging, so
+ * this only coalesces several adjustments made one after another into one run
+ * rather than starting and cancelling a run for each.
+ */
+export const PREVIEW_DEBOUNCE_MS = 400;
+
+interface PreviewRequest {
+  lat: number;
+  lng: number;
+  params: PreviewParams;
+}
+
 export interface PreviewProgress {
   phase: string;
   completed: number;
@@ -61,6 +80,11 @@ export interface PreviewDetectState {
    * stays in `refusal` until the next start.
    */
   start: (lat: number, lng: number, params: PreviewParams) => StartVerdict;
+  /**
+   * Ask for a run at these values once they have stood still, superseding a
+   * run in flight. A refusal lands in `refusal` as it does for `start`.
+   */
+  request: (lat: number, lng: number, params: PreviewParams) => void;
   cancel: () => void;
   reset: () => void;
 }
@@ -74,6 +98,13 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   const unsubscribeRef = useRef<(() => void)[]>([]);
   const runningRef = useRef(false);
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The values a superseded run is being cancelled for. Set only while the old
+  // run winds down, and started from its end.
+  const pendingRef = useRef<PreviewRequest | null>(null);
+  const startRef = useRef<(lat: number, lng: number, params: PreviewParams) => StartVerdict>(
+    () => StartOutcome.NotReady
+  );
 
   const stopRun = useCallback(() => {
     unsubscribeRef.current.forEach((off) => off());
@@ -83,6 +114,12 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     runningRef.current = false;
   }, []);
 
+  const dropRequest = useCallback(() => {
+    if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+    debounceRef.current = null;
+    pendingRef.current = null;
+  }, []);
+
   const settle = useCallback(() => {
     if (!client || !runningRef.current) return false;
     const polled = client.pollPreviewDetect();
@@ -90,6 +127,14 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     // still reading running is a stray event and the run stays live.
     if (polled === 'running') return false;
     stopRun();
+    const pending = pendingRef.current;
+    if (pending) {
+      // The run was cut for values the athlete has moved off, so however it
+      // ended it is not shown. An untaken payload is reaped by the next start.
+      pendingRef.current = null;
+      startRef.current(pending.lat, pending.lng, pending.params);
+      return true;
+    }
     if (polled === 'complete') {
       // Settled from a timer as well as an announcement, so a failed take is
       // the run's error state rather than a throw nothing catches.
@@ -113,7 +158,8 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   }, [client, stopRun]);
 
   const readProgress = useCallback(() => {
-    if (!client || !runningRef.current) return;
+    // A superseded run's phases describe work nobody is waiting for.
+    if (!client || !runningRef.current || pendingRef.current) return;
     // Progress is advisory: a failed read leaves the last figures and the run
     // settles on its own announcement.
     const p = attemptEngineRead(() => client.getPreviewProgress()).value;
@@ -182,30 +228,57 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     },
     [client, settle, readProgress]
   );
+  // Read from the end of a superseded run, which settles before start exists.
+  useEffect(() => {
+    startRef.current = start;
+  }, [start]);
+
+  const request = useCallback(
+    (lat: number, lng: number, params: PreviewParams) => {
+      if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        if (!client) return;
+        if (!runningRef.current) {
+          start(lat, lng, params);
+          return;
+        }
+        // One cancel is enough however many values land while it winds down:
+        // the last of them is what starts.
+        if (!pendingRef.current) client.cancelPreviewDetect();
+        pendingRef.current = { lat, lng, params };
+        setProgress(null);
+      }, PREVIEW_DEBOUNCE_MS);
+    },
+    [client, start]
+  );
 
   const cancel = useCallback(() => {
+    dropRequest();
     if (!client || !runningRef.current) return;
     client.cancelPreviewDetect();
     stopRun();
     setStatus('cancelled');
     setProgress(null);
-  }, [client, stopRun]);
+  }, [client, stopRun, dropRequest]);
 
   const reset = useCallback(() => {
+    dropRequest();
     stopRun();
     setStatus('idle');
     setProgress(null);
     setResult(null);
     setRefusal(null);
     setLapsed(false);
-  }, [stopRun]);
+  }, [stopRun, dropRequest]);
 
   useEffect(() => {
     return () => {
+      dropRequest();
       if (runningRef.current) client?.cancelPreviewDetect();
       stopRun();
     };
-  }, [client, stopRun]);
+  }, [client, stopRun, dropRequest]);
 
-  return { status, progress, result, refusal, lapsed, start, cancel, reset };
+  return { status, progress, result, refusal, lapsed, start, request, cancel, reset };
 }

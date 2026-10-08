@@ -55,8 +55,14 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   deleteSupersededTerrainPreviews: (...args: unknown[]) => mockDeleteSuperseded(...args),
 }));
 
+let mockCameraOverride: {
+  center: [number, number];
+  zoom: number;
+  bearing: number;
+  pitch: number;
+} | null = null;
 jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
-  getCameraOverride: () => null,
+  getCameraOverride: () => mockCameraOverride,
 }));
 
 jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({
@@ -93,6 +99,7 @@ describe('ActivityMapPreview', () => {
     mockMapStyle = 'light';
     mockTerrain3DMode = 'never';
     mockHasOverride = false;
+    mockCameraOverride = null;
     mockDeleteSuperseded.mockClear();
     mockSnapshotLanded = null;
     mockCached.clear();
@@ -150,6 +157,28 @@ describe('ActivityMapPreview', () => {
     const preview = getByTestId('activity-map-preview-ready-demo-1');
     const { Image } = require('react-native');
     expect(preview.findByType(Image).props.fadeDuration).toBe(0);
+  });
+
+  it('draws the compass of a turned snapshot without an SVG surface', () => {
+    // An SVG surface re-renders and dispatches a layout event every time the
+    // list reattaches the row, which held feed scroll frames past the budget.
+    mockTerrain3DMode = 'always';
+    mockCameraOverride = { center: [8.71, 47.51], zoom: 13, bearing: 90, pitch: 60 };
+    mockCached.add(mockKey('demo-1', 'light', true));
+
+    const { getByTestId, UNSAFE_root } = render(<ActivityMapPreview activity={activity} />);
+
+    expect(getByTestId('activity-map-preview-compass')).toBeTruthy();
+    const svgHosts = UNSAFE_root.findAll(
+      (node) => typeof node.type === 'string' && node.type.startsWith('RNSVG')
+    );
+    expect(svgHosts).toHaveLength(0);
+  });
+
+  it('draws no compass over a snapshot facing north', () => {
+    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
+
+    expect(queryByTestId('activity-map-preview-compass')).toBeNull();
   });
 
   it('draws none over a satellite snapshot either, where the credit was longest', () => {

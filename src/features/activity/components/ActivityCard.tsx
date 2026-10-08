@@ -41,7 +41,6 @@ import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
-import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
 import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import { pressable, pressRipple } from '@/shared/ui';
@@ -65,10 +64,6 @@ interface ActivityCardProps {
   snapshotReady?: boolean | undefined;
   /** What a strength card paints, from the feed's one batched read. Absent draws an ordinary card. */
   strengthData?: StrengthCardData | undefined;
-  /** The activity arrived since the athlete last looked: draws the gold ring */
-  isNew?: boolean | undefined;
-  /** Called after a tap has told the engine to drop this card's ring */
-  onNewDismissed?: (() => void) | undefined;
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean | undefined;
   /** Section highlights for this activity (PRs, trends) from batch FFI query */
@@ -192,8 +187,6 @@ export const ActivityCard = React.memo(
     routeHighlight,
     newGround,
     strengthData,
-    isNew,
-    onNewDismissed,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
@@ -209,18 +202,6 @@ export const ActivityCard = React.memo(
     useEffect(() => {
       freshLoginTimeline.mark('firstCard');
     }, []);
-    // The ring is the only visual carrier of new, so the label says it too.
-    const newLabel = isNew ? `${t('activity.newActivity')}, ` : '';
-    const newRing = isNew ? (
-      <View
-        testID={`activity-card-${activity.id}-new-ring`}
-        pointerEvents="none"
-        style={[
-          styles.newRing,
-          { borderColor: isDark ? darkColors.chartGoldMark : colors.chartGoldMark },
-        ]}
-      />
-    ) : null;
     const handlePressIn = useCallback(() => setIsPressed(true), []);
     const handlePressOut = useCallback(() => setIsPressed(false), []);
 
@@ -234,14 +215,7 @@ export const ActivityCard = React.memo(
       [activity.id]
     );
 
-    const activityId = activity.id;
-    const handlePress = useCallback(() => {
-      if (isNew) {
-        reportFeedDismissed([activityId]);
-        onNewDismissed?.();
-      }
-      openActivity();
-    }, [isNew, activityId, onNewDismissed, openActivity]);
+    const handlePress = useCallback(() => openActivity(), [openActivity]);
 
     const handleLongPress = useCallback(() => {
       haptics.medium();
@@ -385,7 +359,7 @@ export const ActivityCard = React.memo(
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             accessibilityRole="button"
-            accessibilityLabel={`${newLabel}${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
             style={pressable(isPressed && styles.cardPressed)}
             android_ripple={pressRipple}
           >
@@ -464,7 +438,6 @@ export const ActivityCard = React.memo(
                 {/* Secondary stats */}
                 {secondaryStatsRow(compactMutedColor)}
               </View>
-              {newRing}
             </Card>
           </Pressable>
           {contextMenu}
@@ -497,7 +470,7 @@ export const ActivityCard = React.memo(
                 style={pressable(styles.pressableOverlay)}
                 android_ripple={pressRipple}
                 accessibilityRole="button"
-                accessibilityLabel={`${newLabel}${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+                accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
               />
 
               {/* Top gradient: sport icon + name/date stacked + route trend */}
@@ -734,7 +707,6 @@ export const ActivityCard = React.memo(
                 {secondaryStatsRow(theme.secondaryText)}
               </View>
             </View>
-            {newRing}
           </Card>
         </View>
 
@@ -756,7 +728,6 @@ export const ActivityCard = React.memo(
           prev.routeHighlight,
           prev.newGround,
           prev.strengthData,
-          prev.isNew,
         ],
       },
       {
@@ -770,7 +741,6 @@ export const ActivityCard = React.memo(
           next.routeHighlight,
           next.newGround,
           next.strengthData,
-          next.isNew,
         ],
       }
     )
@@ -795,12 +765,6 @@ const styles = StyleSheet.create({
   cardPressed: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
-  },
-  newRing: {
-    ...StyleSheet.absoluteFill,
-    borderWidth: 2,
-    borderRadius: layout.borderRadius,
-    zIndex: 3,
   },
   mapContainer: {
     position: 'relative',

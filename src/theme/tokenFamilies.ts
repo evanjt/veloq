@@ -133,6 +133,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   accentLight: 'ground',
   secondary: 'ground',
   secondaryLight: 'ground',
+  appColourPillBackground: 'ground',
   highlight: 'ground',
   highlightAlt: 'ground',
   success: 'ground',
@@ -230,8 +231,8 @@ export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
   // `primary` is no longer under white: the filled teal controls carry the
   // dark ink, and neither is `info` any more. The one ground left is the
   // demo banner's dark-mode fill, `secondary`, which carries white at 4.51:1
-  // where dark ink on it is 3.93:1.
-  textOnDark: ['secondary'],
+  // where dark ink on it is 3.93:1, and the sync pill's fill in both themes.
+  textOnDark: ['secondary', 'appColourPillBackground'],
   textOnPrimary: ['accent', 'accentLight', 'primary'],
   warningBannerText: ['warningBannerBg'],
 };

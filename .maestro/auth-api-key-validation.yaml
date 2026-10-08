@@ -41,7 +41,7 @@ tags:
       platform: iOS
     commands:
       - tapOn:
-          text: "Connect to Intervals.icu"
+          text: "Connect to intervals.icu"
           optional: true
 - runFlow:
     when:

@@ -191,27 +191,66 @@ export function useSectionDetailPerformance(
 
 /**
  * Single engine call for a route's attempt times in the section performance
- * read's shape: chart, calendar, ranged bests, trend, histogram, sport counts
- * and excluded attempts, for one sport and one range.
+ * read's shape: chart, calendar, ranged bests, trend, histogram, delta curves,
+ * sport counts and excluded attempts, for one sport and one range.
  *
- * `refreshKey` re-runs the call after an exclusion or a reference change.
+ * `refreshKey` re-runs the call after an exclusion or a reference change. The
+ * attempt times are moving times and need no stream, so the call does not
+ * wait for them. The delta curves can take longer to compute than a tap may
+ * block, so the call serves them only once the engine holds them: while it
+ * says they are owed and `streamsReady` says the streams they are drawn from
+ * have landed, the same read with the curves is loaded off the JS thread and
+ * stands in for this one.
  */
 export function useRouteDetailPerformance(
   groupId: string | undefined,
   timeRangeDays: number,
   sportFilter: string | undefined,
-  refreshKey = 0
+  refreshKey = 0,
+  streamsReady = true
 ): { data: SectionPerformanceData | null; error: unknown } {
-  const readPerformance = useEngineRead(['groups', 'detectionApplied'], [refreshKey]);
+  const readPerformance = useEngineRead(['groups', 'detectionApplied'], [refreshKey, streamsReady]);
 
-  return useMemo(() => {
+  const read = useMemo(() => {
     if (!groupId) return { data: null, error: undefined };
-    const read = readPerformance((engine) =>
+    const result = readPerformance((engine) =>
       attemptEngineRead(
         () => engine.getRouteDetailPerformance(groupId, timeRangeDays, sportFilter) ?? null
       )
     );
-    if (!read) return { data: null, error: undefined };
-    return read.ok ? { data: read.value, error: undefined } : { data: null, error: read.error };
+    if (!result) return { data: null, error: undefined };
+    return result.ok
+      ? { data: result.value, error: undefined }
+      : { data: null, error: result.error };
   }, [groupId, timeRangeDays, sportFilter, readPerformance]);
+
+  // The loaded read, kept beside the read it stands in for, so a newer read
+  // is never covered by an older load.
+  const [loaded, setLoaded] = useState<{
+    for: SectionPerformanceData;
+    data: SectionPerformanceData;
+  } | null>(null);
+  const owed = read.data?.curvesPending ? read.data : null;
+  useEffect(() => {
+    const engine = getEngine();
+    if (!owed || !streamsReady || !groupId || !engine) return undefined;
+    let live = true;
+    engine
+      .loadRouteDetailPerformance(groupId, timeRangeDays, sportFilter)
+      .then((data) => {
+        if (live && data) setLoaded({ for: owed, data });
+      })
+      .catch(() => {
+        // empty-on-error: the curves stay owed and the plot is not offered; every
+        // figure the read already drew stands.
+      });
+    return () => {
+      live = false;
+    };
+  }, [owed, streamsReady, groupId, timeRangeDays, sportFilter]);
+
+  if (loaded && read.data && loaded.for === read.data) {
+    return { data: loaded.data, error: undefined };
+  }
+  return read;
 }

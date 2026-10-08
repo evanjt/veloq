@@ -1,4 +1,5 @@
 import type { ActivityType } from '@/types';
+import { getActivityCategory } from '@/shared/activity/sportCategories';
 
 /** What one day on the strip holds. */
 export interface StripDay {
@@ -6,7 +7,7 @@ export interface StripDay {
   activities: { type: ActivityType; load: number }[];
 }
 
-/** One drawn mark: a bar at `x`, split by sport from the bottom up. */
+/** One drawn mark: a bar at `x`, split by sport group from the bottom up. */
 export interface StripMark {
   /** The date the mark stands for. */
   dates: string[];
@@ -14,8 +15,8 @@ export interface StripMark {
   width: number;
   /** Fraction of the strip's height, 0 to 1. */
   height: number;
-  /** Sport portions from the bottom up, equal and in name order. Fractions sum to 1. */
-  segments: { type: ActivityType; fraction: number }[];
+  /** Sport group portions from the bottom up, equal and in name order. Fractions sum to 1. */
+  segments: { group: string; fraction: number }[];
   /** The date trained but carries no load, so it draws in the neutral colour. */
   noLoad: boolean;
 }
@@ -26,10 +27,17 @@ const MAX_MARK_WIDTH = 6;
 /** The share of a date's slot a mark fills, the rest being the gap to the next date. */
 const SLOT_SHARE = 0.6;
 
-/** Each distinct sport takes an equal portion, in name order, so load and activity order never move it. */
-function sportShares(day: StripDay): StripMark['segments'] {
-  const types = [...new Set(day.activities.map((a) => a.type))].sort((a, b) => a.localeCompare(b));
-  return types.map((type) => ({ type, fraction: 1 / types.length }));
+/**
+ * Each distinct sport group takes an equal portion, in name order, so load and
+ * activity order never move it. The strip colours by the display group rather
+ * than the sport, because a sport colour each is more hues than a mark a few
+ * pixels wide can tell apart.
+ */
+function groupShares(day: StripDay): StripMark['segments'] {
+  const groups = [...new Set(day.activities.map((a) => getActivityCategory(a.type)))].sort((a, b) =>
+    a.localeCompare(b)
+  );
+  return groups.map((group) => ({ group, fraction: 1 / groups.length }));
 }
 
 /**
@@ -42,11 +50,11 @@ function sportShares(day: StripDay): StripMark['segments'] {
 export function markFills(
   mark: StripMark,
   mutedColor: string,
-  colorOf: (type: ActivityType) => string
+  colorOf: (group: string) => string
 ): { color: string; fraction: number }[] {
   if (mark.noLoad) return [{ color: mutedColor, fraction: 1 }];
   return mark.segments.map((segment) => ({
-    color: colorOf(segment.type),
+    color: colorOf(segment.group),
     fraction: segment.fraction,
   }));
 }
@@ -70,24 +78,24 @@ export function stripMarks(days: StripDay[], chartWidth: number): StripMark[] {
       x: Math.min(Math.max(0, centre - width / 2), chartWidth - width),
       width,
       height: MARK_HEIGHT,
-      segments: sportShares(day),
+      segments: groupShares(day),
       noLoad: day.activities.every((a) => a.load <= 0),
     });
   });
   return marks;
 }
 
-/** What the strip's key names: the sports drawn in colour, and whether any mark is neutral. */
+/** What the strip's key names: the sport groups drawn in colour, and whether any mark is neutral. */
 export interface StripKey {
-  /** Sports with at least one loaded date, in name order. */
-  sports: ActivityType[];
+  /** Sport groups with at least one loaded date, in name order. */
+  groups: string[];
   /** At least one date trained without load and draws neutral. */
   noLoad: boolean;
 }
 
-/** The sports and neutral state the given days draw, so the key names only what the strip shows. */
+/** The sport groups and neutral state the given days draw, so the key names only what the strip shows. */
 export function stripKey(days: StripDay[]): StripKey {
-  const sports = new Set<ActivityType>();
+  const groups = new Set<string>();
   let noLoad = false;
   for (const day of days) {
     if (day.activities.length === 0) continue;
@@ -95,7 +103,7 @@ export function stripKey(days: StripDay[]): StripKey {
       noLoad = true;
       continue;
     }
-    for (const a of day.activities) sports.add(a.type);
+    for (const a of day.activities) groups.add(getActivityCategory(a.type));
   }
-  return { sports: [...sports].sort((a, b) => a.localeCompare(b)), noLoad };
+  return { groups: [...groups].sort((a, b) => a.localeCompare(b)), noLoad };
 }

@@ -1,61 +1,386 @@
 {
   "activity": {
-    "noDataAvailable": "No data here yet"
+    "noDataAvailable": "Nothing here yet",
+    "noHeartRateData": "No heart rate data on this one"
   },
   "activityDetail": {
+    "failedToLoad": "Couldn't load this activity",
+    "feedPreviewUpdated": "Feed preview updated, too easy",
+    "intervalsNotDownloaded": "Intervals haven't come down yet",
     "noMatchedSections": "No matched sections yet",
-    "noMatchedSectionsDescription": "Sections matching this activity will rock up here"
+    "noMatchedSectionsDescription": "Sections matching this activity will rock up here",
+    "noRouteMatch": "No route match just yet",
+    "noRouteMatchDescription": "Do this route a few more times and we'll start tracking how you go, or reach back further in Settings to bring in older activities.",
+    "tapMuscle": "Tap for the details"
+  },
+  "activitySummary": {
+    "downloading": "Pulling this activity down...",
+    "unavailable": "Couldn't download this activity, sorry."
   },
   "activityTypes": {
     "Soccer": "Soccer"
   },
+  "alerts": {
+    "clearCacheMessage": "This clears out all cached activity data, activity tracks and route matching data, then starts to reload. Might take a few minutes.",
+    "disconnectMessage": "This takes your API credentials out of the app. You'll need to pop them in again to use it.",
+    "disconnectOffline": "You're offline. Both ways back in need a connection, so you won't be able to sign in again till the network's back.",
+    "failedToClear": "Couldn't clear the cache. Give it another go.",
+    "failedToDisconnect": "Couldn't disconnect. Give it another go.",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To hang on to it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Carrying on to demo mode will permanently delete that data. To hang on to it, go back and sign in to that account first.",
+    "unnamedLibraryMessage": "This device holds a library with no account's name on it. If it's yours, keep it and it'll sync as this account. Otherwise delete it.",
+    "unnamedLibraryMine": "Yep, that's mine",
+    "accountChangeUnknownDemoMessage": "This device holds a library from another account. Carrying on to demo mode will permanently delete it. To hang on to it, go back and sign in to that account first.",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections and route data on this device. It all comes back down from intervals.icu next time you sign in. This cannot be undone."
+  },
   "backup": {
-    "restoreComplete": "All restored, legend"
+    "exportError": "Couldn't export the backup.",
+    "signInRequired": "Sign in first, then import the backup.",
+    "heldUntilSignIn": "This backup gets restored once you sign in.",
+    "importError": "Couldn't import the backup.",
+    "restoreComplete": "All restored, legend",
+    "lastBackupNever": "No backup made yet",
+    "carrierDeviceDescription": "Your device backup looks after this. Nothing to set up here.",
+    "carrierFolderNone": "No folder picked yet",
+    "backupDifferentAccount": "This backup belongs to a different account. Sign in to that one to restore it.",
+    "backupMissing": "The backup file's empty or missing.",
+    "readerUnavailable": "The backup reader isn't available on this device.",
+    "differentAccountMessage_one": "This device holds {{count}} activity from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes it. To hang on to it, cancel and sign in to that account instead.",
+    "differentAccountMessage_other": "This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To hang on to them, cancel and sign in to that account instead.",
+    "unplacedReadError": "Couldn't load the records waiting to be placed.",
+    "importPaused": "An import got cut short before it finished, and nothing from it has been applied yet. It picks up again by itself next launch.",
+    "importPausedError": "The import couldn't finish and is still paused. Nothing from it has been applied.",
+    "discardImportMessage": "Nothing from it has been applied, and your library stays put. To bring it in later, just import the file again.",
+    "discardImportError": "Couldn't discard the paused import. It's still paused.",
+    "unplacedActivityPending": "Fetching the activities your backup mentions",
+    "noBackupsAtDestination": "No backups at this destination, sorry.",
+    "restorePromptMessage": "Couldn't find a backup on this phone. If you've got one in a file or on a WebDAV server, you can restore it now.",
+    "recordRestored": "Your names, sections and routes are back. Their activities are coming down again.",
+    "unplacedRecords_one": "{{count}} saved item can't be applied just yet.",
+    "unplacedRecords_other": "{{count}} saved items can't be applied just yet.",
+    "destinationUnavailable": "Can't get to the backup destination.",
+    "backupFailedMessage": "Couldn't finish the backup. Check your backup destination and have another go.",
+    "backupFailedAuth": "The server knocked back your username or password.",
+    "backupFailedQuota": "The server's out of room for the backup.",
+    "backupFailedPath": "The server couldn't find the backup folder. Check the server URL.",
+    "backupFailedServer": "The server didn't answer. Veloq will have another go later.",
+    "backupFailedTransport": "Veloq couldn't reach the server. It'll try again later.",
+    "backupFailedFolder": "Veloq can't get to the backup folder any more. Pick the folder again.",
+    "lastAttemptFailed": "Last go failed on {{date}}",
+    "invalidQrCode": "That's not a Nextcloud QR code",
+    "cameraPermissionNeeded": "Needs camera access to scan QR codes",
+    "fillAllFields": "Fill in all the fields, please",
+    "webdavInvalidUrl": "That's not a valid server address"
+  },
+  "bestEffortsScreen": {
+    "climbingOwed": "Climbing bests are still being worked out."
   },
   "cache": {
-    "allActivitiesSynced": "All activities synced up, legend"
+    "allActivitiesSynced": "All activities synced, too easy",
+    "fetchingGpsData": "Grabbing GPS data...",
+    "offlineUsingCached": "Offline, so using the routes you've got",
+    "syncedActivities_one": "Synced {{count}} activity, all good",
+    "syncedActivities_other": "Synced {{count}} activities, all good",
+    "syncedStillAnalysing_one": "Synced {{count}} activity. Still sussing out routes",
+    "syncedStillAnalysing_other": "Synced {{count}} activities. Still sussing out routes",
+    "downloadingGpsProgress": "Pulling down GPS data... {{percent}}%",
+    "noValidGpsChecked_one": "Couldn't find usable GPS data (checked {{count}} activity)",
+    "noValidGpsChecked_other": "Couldn't find usable GPS data (checked {{count}} activities)",
+    "fetchingTimeStreams": "Grabbing time data... {{percent}}%",
+    "finalizingHeatmap": "Finishing off the heatmap... {{percent}}%"
+  },
+  "emptyState": {
+    "error": {
+      "description": "We couldn't load this, sorry",
+      "title": "Something's gone pear-shaped"
+    },
+    "offline": {
+      "description": "Some bits won't work while offline"
+    },
+    "syncError": {
+      "title": "Sync's not getting through",
+      "neverSynced": "No sync has finished yet",
+      "reason": {
+        "unauthorized": "intervals.icu knocked back your login",
+        "rateLimited": "intervals.icu asked us to ease up, so sync is waiting a tick",
+        "server": "intervals.icu sent back something the app couldn't use",
+        "network": "Couldn't get through to intervals.icu",
+        "storage": "Couldn't read a file on this device",
+        "notConfigured": "There's no intervals.icu login on this device",
+        "internal": "Sync stopped for a reason the app can't put a name to",
+        "engineClosed": "Sync stopped because the library got closed partway through"
+      }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} route didn't come down",
+      "title_other": "{{count}} routes didn't come down",
+      "detail": "They're missing from the map and not matched to any section. The next refresh has another crack."
+    },
+    "startupError": {
+      "title": "Some bits of the app didn't load",
+      "detail": "Couldn't load: {{areas}}. Restart the app and have another go."
+    }
+  },
+  "engine": {
+    "initFailed": "The route engine couldn't start. Routes and sections might not be available.",
+    "failure": {
+      "notOpen": "The route engine isn't open yet. Try again in a tick.",
+      "busy": "The database is flat out. Try again in a tick.",
+      "database": "The database couldn't do that. Try again, and clear the cache if it keeps happening."
+    },
+    "initReason": {
+      "busy": "Something else was using the database. Another go should sort it.",
+      "storageUnavailable": "The database couldn't be written. Free up some space, then try again.",
+      "failed": "The route engine stopped for a reason the app can't put a name to."
+    },
+    "quarantine": {
+      "resyncing": "Your activities are coming down again."
+    }
+  },
+  "errorState": {
+    "defaultTitle": "Strewth, something went wrong",
+    "unableToLoad": "Couldn't load {{componentName}}",
+    "closeAndReopen": "Close the app and open it again to keep going.",
+    "restartHint": "Have another go, or restart the app",
+    "unableToDisplay": "Can't show {{label}}",
+    "unableToDisplayChart": "Can't show this chart",
+    "tapToRetry": "Tap to have another go"
+  },
+  "export": {
+    "bulkSharing": "Opening the share sheet...",
+    "error": "Couldn't export the GPX file."
   },
   "feed": {
-    "noActivities": "No activities found, mate",
-    "noMatchingActivities": "Nothing matching those filters"
+    "failedToLoad": "Couldn't load your activities",
+    "firstSyncBody": "Only the first time, promise. The feed opens once your first activities land.",
+    "firstSyncTitle": "Fetching your activities, hang tight",
+    "noActivities": "No activities to show, mate",
+    "noMatchingActivities": "Nothing matching those filters",
+    "streamConsentTitle": "Grab the missing activity data?",
+    "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Grabbing it uses about {{megabytes}} MB of data.",
+    "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence series. Grabbing them uses about {{megabytes}} MB of data."
   },
   "fitness": {
-    "noData": "No fitness data yet, mate",
+    "noData": "No fitness data yet",
     "restDay": "Rest day, legend"
   },
+  "fitnessScreen": {
+    "failedToLoad": "Couldn't load fitness data"
+  },
+  "login": {
+    "connectionFailed": "Couldn't connect. Check your API key and have another go.",
+    "createAccountHint": "Make a free account to keep track of your training.",
+    "invalidApiKey": "That API key didn't work. Check it and have another go.",
+    "queuedOffline": "No connection. Your key's saved and will sign you in once you're back online.",
+    "oauthFailed": "Sign in didn't work. Have another go.",
+    "oauthAccessDenied": "Access was denied. Allow access and have another go at signing in.",
+    "oauthProxyRefused": "The sign-in service knocked back the request. Try again shortly.",
+    "oauthUnreachable": "Couldn't reach the sign-in service. Check your connection and have another go.",
+    "sessionDataKept": "Your activities, sections and settings are all still on this device.",
+    "sessionSignedOut": "You've been signed out.",
+    "sessionKeyRejected": "Your API key got knocked back."
+  },
+  "mapScreen": {
+    "loadingOlderActivities": "Bringing in older activities..."
+  },
+  "maps": {
+    "threeDUnavailable": "Terrain needs a connection, so here's the flat map.",
+    "unavailableHint": "The map couldn't load. Check your connection and open it again."
+  },
+  "notifications": {
+    "prompt": {
+      "title": "Want a heads-up?",
+      "description": "Get a heads-up about new activities, personal bests and fitness milestones.",
+      "settingsHint": "You can switch notifications on any time in Settings"
+    },
+    "activityBody": {
+      "fasterOnRoute": "Quicker than usual on {{name}}",
+      "fasterOnRouteDelta": "Quicker than usual on {{name}} ({{delta}} off PR)"
+    },
+    "stillRegisteredMessage": "Veloq couldn't reach the notification server while signing out. This device might still get notifications for your activities for up to 30 days."
+  },
+  "recording": {
+    "autoPausedHint": "Waiting for you to get moving",
+    "distanceInvalid": "Pop in a valid distance (0-999).",
+    "durationRequired": "Pop in a valid duration.",
+    "gpsAcquiring": "Hunting for GPS...",
+    "gpsAlertMessage": "Can't get a GPS fix. Check location services are on and you've got a clear view of the sky.",
+    "gpsTrackingError": "Couldn't start GPS tracking. Try pausing and resuming.",
+    "gpsWaiting": "Waiting on a GPS signal. Head outdoors for a better fix.",
+    "gpsWeakWarning": "GPS signal's weak, so the recording might be a bit off",
+    "hrInvalid": "Pop in a valid heart rate (30-250).",
+    "notesPlaceholder": "How'd it feel?",
+    "resumePreviousMessage": "A recording that started {{startTime}} got cut off with {{duration}} of moving time. Discarding deletes it permanently.",
+    "savedQueued": "Activity saved. It'll upload by itself once you're back online.",
+    "savedQueuedAuth": "Activity saved. It'll upload once you sign in again.",
+    "savedLocally": "Activity saved on this device. Upload it whenever you like from My Recordings.",
+    "savedLocallyNoScope": "Ride saved on this device. It uploads once you give it upload access.",
+    "library": {
+      "empty": "Nothing recorded yet",
+      "emptyHint": "Recordings you save live here on this device.",
+      "notFound": "Can't find that recording",
+      "deleteConfirmMessage": "{{sport}} · {{startTime}}: This takes the recording off this device permanently."
+    },
+    "keepAwakeDescription": "Stops the screen nodding off while you record.",
+    "routeOverlay": {
+      "empty": "No saved routes for this sport just yet."
+    },
+    "batteryOptNudge": "Long recordings go best with battery optimisation off for Veloq.",
+    "signInDescription": "Recording needs your intervals.icu account, so the ride's got somewhere to go.",
+    "writePermissionLocalOnly": "Recording works without it. The ride stays on this device till you grant upload access."
+  },
+  "routeDetail": {
+    "routeNotFound": "Can't find that route"
+  },
   "routes": {
-    "noFrequentSections": "No frequent sections yet, mate",
+    "adjustSportTypeFilter": "Try tweaking the sport type filter",
+    "duplicateNameMessage": "Pick a different name. Every route needs its own.",
+    "gpsTrackNotSynced": "No GPS data yet. Wait for sync to finish and have another go.",
+    "invalidSectionRange": "That selection range doesn't work. Try picking a different portion.",
+    "noFrequentSections": "No frequent sections just yet",
     "noMatchingRoutes": "Couldn't find any matching routes",
     "noRoutesYet": "No routes yet, mate",
     "noSectionsMatchFilter": "No sections match that filter",
-    "routesWithTwoPlus": "Routes with 2+ activities on similar paths will rock up here"
+    "placeNameFailedMessage": "Couldn't look up the place name, so the name stays as it was. Have another go later.",
+    "placeNameNoPlaceMessage": "Couldn't find a place where this starts, so the name stays as it was.",
+    "renameFailedMessage": "The route name didn't save. Have another go.",
+    "routesWillAppear": "Routes will turn up once your activities are analysed",
+    "routesWithTwoPlus": "Routes with 2+ activities on similar paths will rock up here",
+    "sectionCreationFailed": "Couldn't create the section. Have another go.",
+    "sectionsDescription": "Sections get picked up when you travel the same roads a few times, even on different routes",
+    "largeSectionPerformanceWarning": "Big sections can take a bit longer to process."
   },
   "sections": {
-    "noActivitiesFound": "No activities found, mate"
+    "detectionPaused": "Detection's paused while your sections migrate",
+    "detectionPausedElevation": "Detection's paused while elevation comes down",
+    "detectionHeldElevationWaiting_one": "Detection is waiting on elevation for {{count}} activity track. Veloq has another go when you're online.",
+    "detectionHeldElevationWaiting_other": "Detection is waiting on elevation for {{count}} activity tracks. Veloq has another go when you're online.",
+    "removeSectionConfirm": "This section won't turn up in activity details or insights. You can bring it back from the sections list.",
+    "noActivitiesFound": "No activities here yet",
+    "sectionNotFound": "Can't find that section",
+    "setReferenceError": "Couldn't set the reference. The section or activity may have changed. Have another go.",
+    "trimFailed": "Couldn't trim the section bounds",
+    "trimTooShort": "A section needs at least 5 points",
+    "expandUnavailable": "No activity track to expand with",
+    "noMatchesFound": "No matching sections turned up",
+    "rescanRefusedBusy": "A scan's already running.",
+    "rescanRefusedHeld": "Detection is on hold while the engine finishes other work.",
+    "rescanRefusedNotReady": "The engine's still opening. Try again in a tick.",
+    "rescanRefusedNothingOwed": "Everything's been scanned already, all done.",
+    "rescanRefusedFailed": "The scan couldn't get going.",
+    "latestIsRecord": "Your best time here was your last one, legend",
+    "renameFailedMessage": "The section name didn't save. Have another go.",
+    "nameTaken": "Another section's already got this name. Pick a different one."
   },
   "settings": {
-    "noData": "Nothin' here"
+    "largeHistoryMessage_one": "Reaching back this far brings down up to about {{count}} activity. It'll take a while, and there's no promise the app stays quick with that much stored.",
+    "largeHistoryMessage_other": "Reaching back this far brings down up to about {{count}} activities. It'll take a while, and there's no promise the app stays quick with that much stored.",
+    "largeHistoryTitle": "That's a hefty download",
+    "appTourDescription": "Have a look around and see how it all works",
+    "rangeLockedMessage": "The local data range opens once the first sync is done. If it never gets going, check you're online and signed in.",
+    "rangeLockedTitle": "Still getting set up",
+    "noData": "Nothin' here",
+    "rescanFailed": "The rescan couldn't finish. Some activity tracks couldn't be read.",
+    "syncStep": {
+      "calendar": "Grabbing your calendar",
+      "activities": "Grabbing your newest activities",
+      "athlete": "Grabbing your profile",
+      "census": "Counting up your activities on intervals.icu",
+      "curves": "Grabbing your power and pace curves",
+      "firstActivities": "Grabbing your five newest activities",
+      "intervalBodies": "Grabbing the laps and intervals of your activities",
+      "recordActivities": "Grabbing the activities your backup names",
+      "remainingActivities": "Grabbing the rest of your activities",
+      "sportSettings": "Grabbing your sport settings",
+      "wellness": "Grabbing your wellness data"
+    },
+    "streamBackfillRefusedOffline": "No connection. Have another go once you're online.",
+    "streamBackfillRefusedNotReady": "The engine's still opening. Try again in a tick.",
+    "streamBackfillRefusedBusy": "A download's already running.",
+    "streamBackfillRefusedFailed": "The download couldn't get going.",
+    "tileCacheLimitHint": "Bump it up for better offline and local browsing",
+    "elevationBackfillRunning": "Adding elevation to your activity tracks",
+    "elevationBackfillComplete": "Every activity track has elevation now, too easy",
+    "elevationBackfillPartial": "Some activity tracks still need elevation. They'll get another go later.",
+    "elevationBackfillRetrying_one": "{{count}} activity track couldn't be updated. It'll get another go later.",
+    "elevationBackfillRetrying_other": "{{count}} activity tracks couldn't be updated. They'll get another go later.",
+    "elevationBackfillFailed": "The elevation update couldn't run.",
+    "cutoverFailed": "The section rebuild didn't finish. Your sections are unchanged and it has another go next launch.",
+    "previewFailed": "The preview couldn't finish.",
+    "runSlow": "This is taking a bit longer than usual. It's still going.",
+    "stillRunning": "Still going. You can leave this screen.",
+    "previewSuspended": "Elevation update in progress. Try again in a tick.",
+    "previewRefusedBusy": "A preview's already running.",
+    "previewRefusedFailed": "The preview couldn't get going.",
+    "exportPrivacyNoSuggestion": "Not enough rides yet to suss out where home is.",
+    "groupingNothingToGroup": "No rides with a track to group just yet",
+    "groupingFailed": "The grouping didn't finish. Move a knob to have another go."
   },
   "stats": {
-    "completeActivitiesHeatmap": "Get out there and do some activities to see your calendar heatmap",
+    "completeActivitiesHeatmap": "Get out there and do some activities to fill your calendar heatmap",
     "completeActivitiesHr": "Do some activities with heart rate to see zone distribution",
     "completeActivitiesPower": "Do some activities with a power meter to see zone distribution",
-    "completeActivitiesYearComparison": "Get some activities done to see year-over-year comparison",
+    "completeActivitiesYearComparison": "Get a few activities in to see year-over-year comparison",
     "completeDecouplingHint": "Do a proper sustained effort with power and HR to see decoupling analysis",
     "completePowerActivities": "Do some power-based activities to see your FTP trend",
-    "noActivitiesInPeriod": "No activities in this period, mate",
-    "noActivityData": "No activity data yet, mate",
+    "noActivitiesInPeriod": "Nothing logged in this period",
+    "noActivityData": "No activity data yet",
     "noDecouplingData": "No decoupling data yet",
     "noFtpData": "No FTP data yet",
     "noPaceData": "No pace data yet",
     "noPowerData": "No power data yet",
-    "noSwimPaceData": "No swim pace data yet, mate",
-    "noZoneData": "No zone data yet"
+    "noSwimPaceData": "No swim pace data yet",
+    "noZoneData": "No zone data yet",
+    "rangeNotDownloaded": "Hasn't come down yet",
+    "rangePartlyDownloaded": "Some of this range hasn't come down yet"
+  },
+  "statsScreen": {
+    "noEffortData": "No best effort data yet",
+    "notEnoughRuns": "Not enough runs in yet"
+  },
+  "refresh": {
+    "busy": "Refreshes once this sync is done.",
+    "notReady": "Sync's still opening. Try again in a tick.",
+    "offline": "Refreshes once you're back online.",
+    "notConfigured": "Sign in first to sync.",
+    "failed": "The sync couldn't get going."
   },
   "wellness": {
-    "noTrendData": "No trend data yet"
+    "noTrendData": "No trend data yet",
+    "trendHint": "HRV, sleep and resting HR trends will turn up here once there's data logged"
+  },
+  "strength": {
+    "noWorkouts": "No gym sessions in the last {{period}}",
+    "noWorkoutsThisMonth": "No gym sessions this month",
+    "exerciseActivitiesFailed": "Couldn't load the workouts for this exercise."
   },
   "support": {
-    "thankYou": "Legend, thanks for the support!"
+    "feedbackDescription": "Your feedback helps shape the app, so fire away.",
+    "thankYou": "Legend, thanks for the support!",
+    "noCrashLog": "No crashes, all sweet"
+  },
+  "sensors": {
+    "nonePaired": "No sensors paired yet. Give it a scan below to add one.",
+    "searching": "Hunting for sensors nearby…",
+    "bleUnavailable": "Bluetooth isn't available",
+    "bleUnavailableHint": "This build doesn't come with Bluetooth support."
+  },
+  "sectionHistory": {
+    "empty": "Nothing's changed yet"
+  },
+  "namedCorridors": {
+    "empty": "You haven't named a section yet",
+    "dormant": "No section covers this ground at the moment"
+  },
+  "backgroundJobs": {
+    "statePartial": "Done, a few to retry",
+    "statePaused": "Paused till the app's next opened"
+  },
+  "systemSurfaces": {
+    "toSeeTraining": "to check out your training",
+    "recordDescription": "Get an activity recording going.",
+    "latestActivityDescription": "Your latest activity and its route.",
+    "insightsEmpty": "Nothing new to report",
+    "strengthDescription": "The muscles you've worked, shaded by sets."
   }
 }

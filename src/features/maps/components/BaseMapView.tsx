@@ -17,7 +17,6 @@ import {
   ink,
 } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 import { CompassArrow, ComponentErrorBoundary, IconButton } from '@/shared/ui';
 import {
@@ -33,6 +32,7 @@ import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
+import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationCollection,
@@ -117,15 +117,10 @@ export function BaseMapView({
   const mapStyle = useDrawnMapStyle(chosenStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
-
-  // The page drew, it just had no DEM tiles, so 3D is the flat map with a
-  // wasted WebView on top. Drop back and say why, rather than leave it.
-  const handleTerrainUnavailable = useCallback(() => {
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => {
     setIs3DReady(false);
     setIs3DMode(false);
-    setTerrainUnavailable(true);
-  }, []);
+  });
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [currentBounds, setCurrentBounds] = useState<LngLatBounds | null>(null);
@@ -446,16 +441,14 @@ export function BaseMapView({
               routeColor={routeColor}
               onMapReady={handleMap3DReady}
               onMapFailed={() => setIs3DMode(false)}
-              onTerrainUnavailable={handleTerrainUnavailable}
+              onTerrainUnavailable={onTerrainUnavailable}
               onBearingChange={handleBearingChange}
             />
           </Animated.View>
         </ComponentErrorBoundary>
       )}
 
-      {terrainUnavailable && (
-        <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
-      )}
+      {terrainNotice}
 
       {/* Controls overlay */}
       {renderControls()}

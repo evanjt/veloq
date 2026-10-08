@@ -15,7 +15,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { isRetryableInit } from 'veloqrs';
-import { reportFeedOpened } from '@/shared/native/feedSeen';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -219,8 +218,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // Effects mounted below this one ran while the handle was null.
           // The bump is what lets them try again, the launch sync first.
           markEngineReady();
-          // A cold launch emits no `active` change, so the open is reported here.
-          reportFeedOpened();
           reconsiderFallback();
           // The name translations, the heatmap toggle, the athlete id the
           // backup's cross-athlete guard reads, and the stats the date range
@@ -413,7 +410,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       }
       if (state === 'active') {
         onAppForeground();
-        reportFeedOpened();
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;

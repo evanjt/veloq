@@ -2,23 +2,21 @@
  * Which of the top banners claims the top slot.
  *
  * They stack under one status bar, so the topmost carries the inset and the
- * rest sit flush beneath it. The order is the whole decision: offline outranks
- * a failing sync, because a device with no network has no sync to report on,
- * and both outrank the notices and the demo ribbon. The order matches the order
- * the banners mount in, so the one picked here is the one drawn first.
+ * rest sit flush beneath it. The order is the whole decision: a failing sync
+ * outranks the notices and the demo ribbon. The order matches the order the
+ * banners mount in, so the one picked here is the one drawn first.
  *
- * Offline does not depend on a session. A signed-out athlete is exactly the one
- * who cannot get back in without the network, because both login paths make a
- * round trip before they will accept a credential, so hiding the banner from
- * them withheld it from the person it was for.
+ * Offline is not in the slot. It is a pill floating under the status bar, which
+ * moves no screen's edge, so it takes no inset. It still outranks a failing
+ * sync, because a device with no network has no sync to report on: the
+ * sync-error banner gives way while the pill shows, and the slot with it.
  */
 export interface TopBannerState {
   startupErrorShown: boolean;
   /**
-   * The provider's held value rather than `isOnline`, so the inset moves with
-   * the offline banner and not ahead of it. The sync-error arm reads it too: a
-   * sync-error banner keeps the slot through the hold and hands it straight to
-   * the offline banner, rather than leaving the slot empty while the hold runs.
+   * The provider's held value rather than `isOnline`: a sync-error banner keeps
+   * the slot through the offline pill's hold and gives it up when the pill
+   * shows, rather than vanishing while the hold runs.
    */
   offlineBannerShown: boolean;
   isAuthenticated: boolean;
@@ -29,14 +27,7 @@ export interface TopBannerState {
   engineInitFailed: boolean;
 }
 
-export type TopBanner =
-  | 'startupError'
-  | 'demo'
-  | 'offline'
-  | 'syncError'
-  | 'trackFetch'
-  | 'engineInit'
-  | null;
+export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'trackFetch' | 'engineInit' | null;
 
 type ShownBanner = Exclude<TopBanner, null>;
 
@@ -47,8 +38,12 @@ export function padsStatusBar(active: TopBanner | undefined, self: ShownBanner):
 
 export function pickTopBanner(state: TopBannerState): TopBanner {
   if (state.startupErrorShown) return 'startupError';
-  if (state.offlineBannerShown) return 'offline';
-  if (state.isAuthenticated && !state.isDemoMode && state.lastError !== null) {
+  if (
+    state.isAuthenticated &&
+    !state.isDemoMode &&
+    !state.offlineBannerShown &&
+    state.lastError !== null
+  ) {
     return 'syncError';
   }
   if (state.trackFetchNoticeShown) return 'trackFetch';

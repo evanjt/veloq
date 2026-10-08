@@ -76,10 +76,25 @@ static LAST_REQUEST_ENDED: LazyLock<tokio::sync::Mutex<Option<Instant>>> =
 /// A request never reached an answer.
 #[derive(Debug, thiserror::Error)]
 pub enum GeocodeError {
+    /// The network is absent: no connection, a name or connect failure, or a
+    /// timeout. Asking again once the device is back online may be answered.
     #[error("geocoder unreachable: {0}")]
     Unreachable(String),
     #[error("geocoder answered {status}")]
     Rejected { status: u16 },
+    /// The provider was reached and the exchange broke for another reason.
+    #[error("geocoder request failed: {0}")]
+    Broken(String),
+}
+
+impl GeocodeError {
+    fn from_transport(e: reqwest::Error) -> Self {
+        if e.is_connect() || e.is_timeout() {
+            Self::Unreachable(e.to_string())
+        } else {
+            Self::Broken(e.to_string())
+        }
+    }
 }
 
 /// How a request reaches the provider: the body of a GET, sent with the
@@ -115,20 +130,14 @@ impl GeocodeTransport for HttpTransport {
         if !language.is_empty() {
             request = request.header(reqwest::header::ACCEPT_LANGUAGE, language);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|e| GeocodeError::Unreachable(e.to_string()))?;
+        let response = request.send().await.map_err(GeocodeError::from_transport)?;
         let status = response.status();
         if !status.is_success() {
             return Err(GeocodeError::Rejected {
                 status: status.as_u16(),
             });
         }
-        response
-            .text()
-            .await
-            .map_err(|e| GeocodeError::Unreachable(e.to_string()))
+        response.text().await.map_err(GeocodeError::from_transport)
     }
 }
 
@@ -284,6 +293,10 @@ impl<T: GeocodeTransport> Geocoder<T> {
                 log::warn!("veloqrs: [Geocode] the answer was not an address");
                 return Lookup::Failed;
             }
+            Err(e @ GeocodeError::Unreachable(_)) => {
+                log::warn!("veloqrs: [Geocode] {e}");
+                return Lookup::NotSent;
+            }
             Err(e) => {
                 log::warn!("veloqrs: [Geocode] {e}");
                 return Lookup::Failed;
@@ -318,10 +331,12 @@ pub enum Lookup {
     Place(String),
     /// The provider answered and the answer named no place.
     NoPlace,
-    /// Nothing was sent: geocoding is off, the engine is closed or there is
-    /// no endpoint. Asking later may still be answered.
+    /// Nothing reached the provider: geocoding is off, the engine is closed,
+    /// there is no endpoint, or the network was absent. Asking later may
+    /// still be answered.
     NotSent,
-    /// A request went out and came back with no answer.
+    /// A request reached the provider and came back with no answer: an HTTP
+    /// error or an answer that is not an address.
     Failed,
 }
 

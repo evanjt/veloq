@@ -23,4 +23,4 @@ Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pu
 
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 
-Vereist een Intervals.icu-account voor live gegevens. Niet gelieerd aan Intervals.icu.
+Vereist een intervals.icu-account voor live gegevens. Niet gelieerd aan intervals.icu.

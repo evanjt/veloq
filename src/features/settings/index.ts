@@ -22,6 +22,7 @@ export { useNotificationPreferences } from './stores/NotificationPreferencesStor
 export type { NotificationPreferences } from './stores/NotificationPreferencesStore';
 export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
 export { RestorePromptSheet } from './components/RestorePromptSheet';
+export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
 export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
 export { excludeLocalBackupsFromDeviceBackup } from './lib/autobackup/backends/localBackend';

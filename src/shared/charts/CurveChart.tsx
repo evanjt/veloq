@@ -3,16 +3,23 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import {
+  Circle,
+  DashPathEffect,
+  LinearGradient,
+  Line as SkiaLine,
+  vec,
+} from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTheme } from '@/shared/app';
-import { chartStyles, spacing } from '@/theme';
+import { chartStyles, ink, spacing } from '@/theme';
 
 import { dataExtent, domainContains, placeLabels, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
 import { ChartCrosshair } from './ChartCrosshair';
-import { CurveLine } from './CurvePaths';
+import { CurveArea, CurveLine } from './CurvePaths';
+import type { CurveKind } from './curvePath';
 import { useChartColors } from './useChartColors';
 import { useChartGestures } from './useChartGestures';
 
@@ -35,6 +42,14 @@ export interface CurveChartProps<T extends { x: number; y: number }> {
   formatY: (value: number) => string;
   /** Names the top y-axis label, for a caller whose axis unit is under test. */
   topAxisTestID?: string;
+  /** How the line runs between samples. Discrete samples read honestly as `linear`. */
+  curve?: CurveKind;
+  /** Fills under the line with a fading wash of the line colour. */
+  area?: boolean;
+  /** A dot on every sample, for a series of discrete events. */
+  pointColor?: string;
+  /** A ringed dot on one sample, such as a record, by its index in `data`. */
+  marker?: { index: number; color: string } | null;
   crosshairMode?: 'point' | 'finger';
   onSelect?: (point: T) => void;
   onInteractionChange?: (active: boolean) => void;
@@ -59,6 +74,10 @@ export function CurveChart<T extends { x: number; y: number }>({
   xLabels,
   formatY,
   topAxisTestID,
+  curve = 'natural',
+  area = false,
+  pointColor,
+  marker,
   crosshairMode = 'point',
   onSelect,
   onInteractionChange,
@@ -106,8 +125,18 @@ export function CurveChart<T extends { x: number; y: number }>({
           {({ points, bounds, yFor }) => {
             syncBounds(bounds);
             syncXCoords(points.y, (p) => p.x);
+            const marked = marker ? points.y[marker.index] : undefined;
             return (
               <>
+                {area && (
+                  <CurveArea points={points.y} y0={bounds.bottom} curve={curve}>
+                    <LinearGradient
+                      start={vec(0, bounds.top)}
+                      end={vec(0, bounds.bottom)}
+                      colors={[`${color}30`, `${color}05`]}
+                    />
+                  </CurveArea>
+                )}
                 {showReference && (
                   <SkiaLine
                     p1={vec(bounds.left, yFor(referenceLine.value))}
@@ -118,8 +147,26 @@ export function CurveChart<T extends { x: number; y: number }>({
                     <DashPathEffect intervals={[6, 4]} />
                   </SkiaLine>
                 )}
-                <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
-                <CurveLine points={points.y} color={color} strokeWidth={1.5} />
+                <CurveLine
+                  points={points.y}
+                  color={chartColors.casing}
+                  strokeWidth={2.5}
+                  curve={curve}
+                />
+                <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
+                {pointColor &&
+                  points.y.map((p, i) =>
+                    i === marker?.index ? null : (
+                      <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                    )
+                  )}
+                {marker && marked && (
+                  <>
+                    <Circle cx={marked.x} cy={marked.y} r={7} color={marker.color} opacity={0.3} />
+                    <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
+                    <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
+                  </>
+                )}
               </>
             );
           }}

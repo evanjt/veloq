@@ -23,4 +23,4 @@ Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les 
 
 Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
 
-Necessite un compte Intervals.icu pour les donnees en direct. Non affilie a Intervals.icu.
+Necessite un compte intervals.icu pour les donnees en direct. Non affilie a intervals.icu.

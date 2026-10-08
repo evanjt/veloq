@@ -1,4 +1,7 @@
-/** The first visit paints stats before mounting chart canvases and lower sections. */
+/**
+ * The first visit paints the range selector and a chart placeholder before
+ * mounting chart canvases and lower sections.
+ */
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
@@ -29,9 +32,8 @@ jest.mock('@/shared/ui', () => {
     ScreenSafeAreaView: View,
     TAB_BAR_SAFE_PADDING: 0,
     ChartSkeleton: View,
-    StatsPillSkeleton: View,
     ErrorStatePreset: View,
-    Button: View,
+    ExplanationCard: View,
   };
 });
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
@@ -64,18 +66,10 @@ jest.mock('@/features/fitness', () => {
     FitnessTrendSections: () => <View testID="fitness-trends" />,
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
-    FitnessHeaderStats: () => <View testID="fitness-header-stats" />,
     BestEffortsHeaderButton: () => null,
     resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn(), notice: null }),
-    useFitnessComputations: () => ({
-      ftpTrend: [],
-      dominantZone: null,
-      displayValues: null,
-      displayDate: null,
-      formZone: null,
-      rampRate: null,
-    }),
+    useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
       wellness: [],
       activities: [],
@@ -101,7 +95,7 @@ jest.mock('@/features/fitness', () => {
   };
 });
 
-it('paints stats and a chart placeholder before mounting the chart and performance section', () => {
+it('paints the range selector and a chart placeholder before mounting the chart and performance section', () => {
   const frames: FrameRequestCallback[] = [];
   const request = jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
     frames.push(callback);
@@ -111,7 +105,7 @@ it('paints stats and a chart placeholder before mounting the chart and performan
 
   try {
     render(<FitnessScreen />);
-    expect(screen.getByTestId('fitness-header-stats')).toBeTruthy();
+    expect(screen.getByTestId('time-range')).toBeTruthy();
     expect(
       StyleSheet.flatten(screen.getByTestId('fitness-chart-placeholder').props.style).height
     ).toBe(500);

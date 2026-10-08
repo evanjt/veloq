@@ -66,12 +66,13 @@ describe('TopSafeAreaProvider with a failing sync', () => {
     expect(result.current.screenEdges.includes('top')).toBe(hideDemoBanner);
   });
 
-  it('lets the offline banner win when there is no connection', () => {
+  it('gives the edge back to the screen when the floating offline pill replaces the error', () => {
     mockIsOnline = false;
     mockHealth = { lastError: 'HTTP 503', lastSuccessAt: null };
     const { result } = renderHook(() => useTopSafeArea(), { wrapper });
 
-    expect(result.current.activeBanner).toBe('offline');
+    expect(result.current.activeBanner).toBeNull();
+    expect(result.current.screenEdges).toContain('top');
   });
 
   it('leaves the top edge to the screen when the sync is healthy', () => {

@@ -100,13 +100,6 @@ export enum FeedSportGroup {
   Other = 3,
 }
 
-/** `FfiFeedSeen` as generated: three tagged variants built with `.new`. */
-export const FfiFeedSeen = {
-  Opened: { new: () => ({ tag: 'Opened' }) },
-  Closed: { new: () => ({ tag: 'Closed' }) },
-  Dismissed: { new: (inner: { activityIds: string[] }) => ({ tag: 'Dismissed', inner }) },
-};
-
 export enum MapDistanceBand {
   All,
   XShort,
@@ -314,7 +307,6 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     BulkExportFormat,
     GroupSort,
     FeedSportGroup,
-    FfiFeedSeen,
     MapDistanceBand,
     FfiNewGroundBadge,
     EfficiencyDirection,

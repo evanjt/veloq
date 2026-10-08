@@ -279,6 +279,35 @@ const CONTRACTS: Contract[] = [
     },
   },
 
+  // A torn-down JavaScript runtime lets go of its observer, on both platforms.
+  ...[`${TILE_IOS}/Veloqrs.mm`, 'modules/veloqrs/android/cpp-adapter.cpp'].map((file) => ({
+    agree: `${file} tears the runtime down through a symbol Rust exports`,
+    a: { file, has: 'veloq_runtime_torn_down();' },
+    b: {
+      file: `${RUST}/objects/observer.rs`,
+      has: 'pub extern "C" fn veloq_runtime_torn_down()',
+    },
+  })),
+  {
+    agree: 'the Android module declares the JNI symbol its runtime teardown calls',
+    a: { file: `${TILE_ANDROID}/VeloqrsModule.kt`, has: 'external fun nativeRuntimeTornDown()' },
+    b: {
+      file: 'modules/veloqrs/android/cpp-adapter.cpp',
+      has: 'Java_com_veloq_VeloqrsModule_nativeRuntimeTornDown(',
+    },
+  },
+  {
+    agree: 'both platforms tear the runtime down when React invalidates the module',
+    a: {
+      file: `${TILE_ANDROID}/VeloqrsModule.kt`,
+      has: /override fun invalidate\(\) \{\s*nativeRuntimeTornDown\(\)/,
+    },
+    b: {
+      file: `${TILE_IOS}/Veloqrs.mm`,
+      has: /- \(void\)invalidate\s*\{\s*veloq_runtime_torn_down\(\);/,
+    },
+  },
+
   // The tile transport, on both platforms.
   ...['veloq_tile_get_or_fetch', 'veloq_tile_free'].map((name) => ({
     agree: `the iOS scheme handler's ${name} is a symbol Rust exports`,

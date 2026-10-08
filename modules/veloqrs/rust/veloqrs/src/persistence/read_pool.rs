@@ -80,6 +80,7 @@ pub(crate) fn bind(db_path: &str) {
     let mut idle = lock(&READ_POOL.idle);
     idle.clear();
     READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
+    super::settings_conn::forget();
     // What a reader is allowed to remember belongs to the database it was read
     // from, so it moves with the binding.
     super::read_cache::bind(db_path);
@@ -94,6 +95,15 @@ pub(crate) fn close() {
     super::read_cache::close();
     *lock(&READ_POOL.path) = None;
     idle.clear();
+    super::settings_conn::forget();
+}
+
+/// The database the pool is bound to and the binding's generation, which
+/// moves on every bind and close. `None` while no engine is installed.
+pub(crate) fn binding() -> Option<(u64, String)> {
+    let path = lock(&READ_POOL.path);
+    let generation = READ_POOL.generation.load(Ordering::Acquire);
+    path.clone().map(|path| (generation, path))
 }
 
 /// Run `f` against a connection of this thread's own, with no engine lock

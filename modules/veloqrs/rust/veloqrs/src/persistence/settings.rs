@@ -49,12 +49,6 @@ pub mod settings_keys {
     /// it, stamps nothing more. Deleted with the activity's rows.
     pub const CURVE_DEPARTED_PREFIX: &str = "__curve_departed:";
 
-    /// The feed's new-activity marker, stamps and dismissals as one JSON row.
-    /// It describes this device's use of this library, so a clear takes it and
-    /// a record backup and a restore leave it out: a restored library has no
-    /// marker and nothing in it rings.
-    pub const FEED_RINGS: &str = "__feed_rings";
-
     /// Whose library this database holds. It names the data, not the device,
     /// so a clear takes it with the library.
     pub const ATHLETE_ID: &str = "__athlete_id";
@@ -194,6 +188,51 @@ pub fn setting_from(conn: &rusqlite::Connection, key: &str) -> SqlResult<Option<
     .optional()
 }
 
+/// Upsert several settings in one transaction on `conn`, skipping each pair
+/// whose value is already stored. Returns how many were written.
+///
+/// The transaction is taken immediate. A deferred one reads first and then
+/// asks to write, and under WAL a write another connection committed in
+/// between makes that upgrade fail at once with the database locked, never
+/// waiting out the busy timeout. The preference then never reached SQLite,
+/// which is the copy the next launch reads.
+pub fn set_settings_on(
+    conn: &rusqlite::Connection,
+    pairs: &[(String, String)],
+) -> SqlResult<usize> {
+    if pairs.is_empty() {
+        return Ok(0);
+    }
+    let tx = rusqlite::Transaction::new_unchecked(conn, rusqlite::TransactionBehavior::Immediate)?;
+    let mut written = 0usize;
+    {
+        let mut read = tx.prepare("SELECT value FROM settings WHERE key = ?")?;
+        let mut write = tx.prepare(
+            "INSERT INTO settings (key, value, updated_at)
+             VALUES (?, ?, strftime('%s', 'now'))
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                            updated_at = excluded.updated_at",
+        )?;
+        for (key, value) in pairs {
+            let stored: Option<String> =
+                read.query_row(params![key], |row| row.get(0)).optional()?;
+            if stored.as_deref() == Some(value.as_str()) {
+                continue;
+            }
+            write.execute(params![key, value])?;
+            written += 1;
+        }
+    }
+    tx.commit()?;
+    Ok(written)
+}
+
+/// Delete one setting on `conn`.
+pub fn delete_setting_on(conn: &rusqlite::Connection, key: &str) -> SqlResult<()> {
+    conn.execute("DELETE FROM settings WHERE key = ?", params![key])?;
+    Ok(())
+}
+
 /// The match config the settings rows hold, from a connection that holds no
 /// engine lock. A missing or unparseable value keeps the default.
 pub fn match_config_from(conn: &rusqlite::Connection) -> SqlResult<tracematch::MatchConfig> {
@@ -307,31 +346,7 @@ impl PersistentEngine {
     /// measured cost of a single write). Nothing is written when every pair
     /// is unchanged, so the common launch still takes no commit at all.
     pub fn set_settings(&self, pairs: &[(String, String)]) -> SqlResult<usize> {
-        if pairs.is_empty() {
-            return Ok(0);
-        }
-        let tx = self.db.unchecked_transaction()?;
-        let mut written = 0usize;
-        {
-            let mut read = tx.prepare("SELECT value FROM settings WHERE key = ?")?;
-            let mut write = tx.prepare(
-                "INSERT INTO settings (key, value, updated_at)
-                 VALUES (?, ?, strftime('%s', 'now'))
-                 ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                                updated_at = excluded.updated_at",
-            )?;
-            for (key, value) in pairs {
-                let stored: Option<String> =
-                    read.query_row(params![key], |row| row.get(0)).optional()?;
-                if stored.as_deref() == Some(value.as_str()) {
-                    continue;
-                }
-                write.execute(params![key, value])?;
-                written += 1;
-            }
-        }
-        tx.commit()?;
-        Ok(written)
+        set_settings_on(&self.db, pairs)
     }
 
     /// Whether section detection is switched on.
@@ -449,9 +464,7 @@ impl PersistentEngine {
 
     /// Delete a single setting.
     pub fn delete_setting(&self, key: &str) -> SqlResult<()> {
-        self.db
-            .execute("DELETE FROM settings WHERE key = ?", params![key])?;
-        Ok(())
+        delete_setting_on(&self.db, key)
     }
 
     /// Apply persisted match-strictness overrides to the in-memory `match_config`.

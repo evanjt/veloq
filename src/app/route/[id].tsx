@@ -25,6 +25,8 @@ import {
   useSectionChartData,
   useSectionChartDataEnriched,
   useSectionMapData,
+  useSectionTimeStreamSync,
+  sectionStreamsState,
   buildRouteGroupBase,
   buildFinalRouteGroup,
   routeHeadline,
@@ -35,6 +37,7 @@ import {
   RANGE_DAYS,
   isSportOffered,
   shouldShowSportChips,
+  type SectionDeltaLine,
   type SectionTimeRange,
 } from '@/features/routes';
 import { useGpxExport, useDebugStore } from '@/features/settings';
@@ -68,6 +71,7 @@ const NO_CORRELATIONS: FfiSectionCorrelation[] = [];
 /** Until the attempt times are read there is no trend to draw. */
 const NO_TREND_CURVES: FfiSectionTrendCurves = {};
 const NO_HISTOGRAMS: FfiAttemptHistograms = {};
+const NO_ACTIVITY_IDS: string[] = [];
 
 /** A route opens on every attempt it has, whatever its age. */
 const ROUTE_DEFAULT_RANGE: SectionTimeRange = 'all';
@@ -112,6 +116,20 @@ function RouteDetailScreenContent() {
 
   const engineGroup = detail?.group;
 
+  // The delta curves are drawn from the attempts' time streams, so the gap the
+  // detail read reported is fetched while the chart draws from moving times.
+  const streamSync = useSectionTimeStreamSync(
+    engineGroup?.activityIds ?? NO_ACTIVITY_IDS,
+    detail?.missingTimeStreamIds
+  );
+  // With none missing there is nothing to wait for, so the read is made once.
+  const noneMissing = !detail?.missingTimeStreamIds.length;
+  const streams = sectionStreamsState(noneMissing ? { ...streamSync, ready: true } : streamSync);
+  // A curve is measured on every attempt's stream, so a wait that ended with
+  // streams outstanding loads none: the plot waits for the retry that lands them.
+  const streamsSettled = streams.status === 'ready';
+  const [deltaLine, setDeltaLine] = useState<SectionDeltaLine | null>(null);
+
   // The attempt times for one sport and one range, in one read. With no pill
   // picked, the engine answers for the sport with the most attempts and says
   // which.
@@ -121,7 +139,8 @@ function RouteDetailScreenContent() {
     id,
     RANGE_DAYS[routeTimeRange],
     selectedSportType,
-    detailRefreshKey
+    detailRefreshKey,
+    streamsSettled
   );
   if (
     performance &&
@@ -298,6 +317,7 @@ function RouteDetailScreenContent() {
             hasMapData={hasMapData}
             activityColor={activityColor}
             selectedSportType={effectiveSportType ? displayType : undefined}
+            deltaLine={deltaLine}
           />
         </DetailHero>
 
@@ -326,6 +346,9 @@ function RouteDetailScreenContent() {
             lastActivityDate={lastActivityDate}
             trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
             histograms={performance?.histograms ?? NO_HISTOGRAMS}
+            curves={performance?.curves}
+            onDeltaLineChange={setDeltaLine}
+            streams={streams}
             forwardStats={forwardStats}
             reverseStats={reverseStats}
             bestForwardRecord={bestForwardRecord}

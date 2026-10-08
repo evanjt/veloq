@@ -10,7 +10,6 @@ import type {
   WellnessSparklines,
 } from 'veloqrs';
 import { buildInsightsParams } from '@/features/insights';
-import { reportFeedOpened } from '@/shared/native/feedSeen';
 import type { LatLng } from '@/shared/geo/polyline';
 
 /**
@@ -32,9 +31,6 @@ export interface StartupResult {
   previewTracks: Map<string, PreviewTrack>;
   /** The card's sparklines, or null when the athlete has no wellness */
   sparklines: WellnessSparklines | null;
-  /** Activities that arrived since the athlete last looked: the feed rings them */
-  newActivityIds: ReadonlySet<string>;
-  nextRingExpiryAt: number | null;
 }
 
 function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<string, PreviewTrack> {
@@ -51,12 +47,6 @@ function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<strin
     }
   }
   return tracks;
-}
-
-function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
-  if (a.size !== b.size) return false;
-  for (const id of a) if (!b.has(id)) return false;
-  return true;
 }
 
 function retainUnchangedPreviewTracks(
@@ -88,13 +78,8 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
 
   try {
     const params = buildInsightsParams();
-    let result = engine.getStartupData(params, previewActivityIds);
+    const result = engine.getStartupData(params, previewActivityIds);
     if (!result) return null;
-    if (result.ringStampRequired) {
-      if (!reportFeedOpened()) return null;
-      result = engine.getStartupData(params, previewActivityIds);
-      if (!result) return null;
-    }
 
     return {
       summaryCardData: result.summaryCard,
@@ -103,8 +88,6 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
       // card reads the difference as "the bundle answered" against "there is
       // no bundle, read it yourself".
       sparklines: result.sparklines ?? null,
-      newActivityIds: new Set(result.newActivityIds ?? []),
-      nextRingExpiryAt: result.nextRingExpiryAt ?? null,
     };
   } catch {
     // empty-on-error: null is "keep what is already on screen", so a failed refresh leaves
@@ -201,15 +184,10 @@ export function useStartupData(previewActivityIds: string[]): {
   const settleSeen = useRef(false);
 
   const [data, setData] = useState<StartupResult | null>(null);
-  const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const publish = useCallback((next: StartupResult) => {
     setData((previous) => ({
       ...next,
       previewTracks: retainUnchangedPreviewTracks(previous?.previewTracks, next.previewTracks),
-      newActivityIds:
-        previous && sameIds(previous.newActivityIds, next.newActivityIds)
-          ? previous.newActivityIds
-          : next.newActivityIds,
     }));
   }, []);
 
@@ -222,27 +200,7 @@ export function useStartupData(previewActivityIds: string[]): {
     });
   }, [publish]);
 
-  useEffect(() => {
-    const expiry = data?.nextRingExpiryAt;
-    if (expiry == null) return undefined;
-    expiryTimer.current = setTimeout(
-      () => {
-        const next = fetchStartupData(idsRef.current);
-        if (next) publish(next);
-      },
-      Math.max(0, expiry * 1000 - Date.now())
-    );
-    return () => {
-      if (expiryTimer.current != null) clearTimeout(expiryTimer.current);
-      expiryTimer.current = null;
-    };
-  }, [data?.nextRingExpiryAt, publish]);
-
   useForeground(() => {
-    if (data?.nextRingExpiryAt != null && Date.now() >= data.nextRingExpiryAt * 1000) {
-      if (expiryTimer.current != null) clearTimeout(expiryTimer.current);
-      expiryTimer.current = null;
-    }
     readSoon();
   });
 

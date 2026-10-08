@@ -12861,6 +12861,11 @@ export type FfiRouteDetailData = {
    */
   mapSignatures: Array<FfiMapSignature>;
   /**
+   * The route's activities whose time streams still have to be fetched
+   * before the delta curves can draw them
+   */
+  missingTimeStreamIds: Array<string>;
+  /**
    * Whether the athlete may ask for the route to be named from its
    * places: geocoding is on and they typed no name for it
    */
@@ -12901,6 +12906,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         excludedActivityIds: FfiConverterSequenceString.readFromCursor(c),
         mapSignatures:
           FfiConverterSequenceTypeFfiMapSignature.readFromCursor(c),
+        missingTimeStreamIds: FfiConverterSequenceString.readFromCursor(c),
         canNameFromPlaces: FfiConverterBool.readFromCursor(c),
       };
     }
@@ -12921,6 +12927,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         value.mapSignatures,
         c,
       );
+      FfiConverterSequenceString.writeIntoCursor(value.missingTimeStreamIds, c);
       FfiConverterBool.writeIntoCursor(value.canNameFromPlaces, c);
     }
     allocationSize(value: TypeName): number {
@@ -12939,6 +12946,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         FfiConverterSequenceTypeFfiMapSignature.allocationSize(
           value.mapSignatures,
         ) +
+        FfiConverterSequenceString.allocationSize(value.missingTimeStreamIds) +
         FfiConverterBool.allocationSize(value.canNameFromPlaces)
       );
     }
@@ -15866,6 +15874,12 @@ export type FfiSectionPerformanceData = {
    */
   curves?: FfiSectionLapCurves;
   /**
+   * True when this read left the curves owed rather than computing them:
+   * the route screen's read serves them only once held, and
+   * `RouteManager::load_detail_performance` computes them off the JS thread.
+   */
+  curvesPending: boolean;
+  /**
    * Aerobic efficiency over the answered sport's counted efforts across the
    * whole record, or `None` with fewer than three that carry heart rate.
    */
@@ -15916,6 +15930,7 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
           FfiConverterSequenceTypeFfiSectionCorrelation.readFromCursor(c),
         correlationFloor: FfiConverterUInt32.readFromCursor(c),
         curves: FfiConverterOptionalTypeFfiSectionLapCurves.readFromCursor(c),
+        curvesPending: FfiConverterBool.readFromCursor(c),
         efficiencyTrend:
           FfiConverterOptionalTypeFfiEfficiencyTrend.readFromCursor(c),
       };
@@ -15959,6 +15974,7 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         value.curves,
         c,
       );
+      FfiConverterBool.writeIntoCursor(value.curvesPending, c);
       FfiConverterOptionalTypeFfiEfficiencyTrend.writeIntoCursor(
         value.efficiencyTrend,
         c,
@@ -15996,6 +16012,7 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         FfiConverterOptionalTypeFfiSectionLapCurves.allocationSize(
           value.curves,
         ) +
+        FfiConverterBool.allocationSize(value.curvesPending) +
         FfiConverterOptionalTypeFfiEfficiencyTrend.allocationSize(
           value.efficiencyTrend,
         )
@@ -16849,20 +16866,6 @@ export type FfiStartupData = {
    * invalidation and every `activities` event causes one.
    */
   sparklines?: FfiWellnessSparklines;
-  /**
-   * The activities whose feed card carries the new-activity ring, newest
-   * first. Empty on a library with no marker. The feed's rows come from the
-   * activity query, so this set is what marks them.
-   */
-  newActivityIds: Array<string>;
-  /**
-   * Unix second when the next displayed ring expires.
-   */
-  nextRingExpiryAt?: number;
-  /**
-   * Whether a displayed ring still needs its first showing recorded.
-   */
-  ringStampRequired: boolean;
 };
 
 /**
@@ -16892,9 +16895,6 @@ const FfiConverterTypeFfiStartupData = (() => {
           FfiConverterSequenceTypeFfiPreviewTrack.readFromCursor(c),
         sparklines:
           FfiConverterOptionalTypeFfiWellnessSparklines.readFromCursor(c),
-        newActivityIds: FfiConverterSequenceString.readFromCursor(c),
-        nextRingExpiryAt: FfiConverterOptionalFloat64.readFromCursor(c),
-        ringStampRequired: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16907,9 +16907,6 @@ const FfiConverterTypeFfiStartupData = (() => {
         value.sparklines,
         c,
       );
-      FfiConverterSequenceString.writeIntoCursor(value.newActivityIds, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.nextRingExpiryAt, c);
-      FfiConverterBool.writeIntoCursor(value.ringStampRequired, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -16919,10 +16916,7 @@ const FfiConverterTypeFfiStartupData = (() => {
         ) +
         FfiConverterOptionalTypeFfiWellnessSparklines.allocationSize(
           value.sparklines,
-        ) +
-        FfiConverterSequenceString.allocationSize(value.newActivityIds) +
-        FfiConverterOptionalFloat64.allocationSize(value.nextRingExpiryAt) +
-        FfiConverterBool.allocationSize(value.ringStampRequired)
+        )
       );
     }
   }
@@ -18783,178 +18777,6 @@ const FfiConverterTypeEngineLogLevel = (() => {
     }
     allocationSize(value: TypeName): number {
       return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-// Enum: FfiFeedSeen
-export enum FfiFeedSeen_Tags {
-  Opened = "Opened",
-  Dismissed = "Dismissed",
-  Closed = "Closed",
-}
-/**
- * What the feed tells the engine about its own use, which the new-activity
- * rings are decided from.
- */
-export const FfiFeedSeen = (() => {
-  type Opened__interface = {
-    tag: FfiFeedSeen_Tags.Opened;
-  };
-  /**
-   * The feed came to the front.
-   */
-  class Opened_ extends UniffiEnum implements Opened__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiFeedSeen";
-    readonly tag = FfiFeedSeen_Tags.Opened;
-    constructor() {
-      super("FfiFeedSeen", "Opened");
-    }
-
-    static new(): Opened_ {
-      return new Opened_();
-    }
-
-    static instanceOf(obj: any): obj is Opened_ {
-      return obj.tag === FfiFeedSeen_Tags.Opened;
-    }
-  }
-
-  type Dismissed__interface = {
-    tag: FfiFeedSeen_Tags.Dismissed;
-    inner: Readonly<{ activityIds: Array<string> }>;
-  };
-  /**
-   * The athlete tapped or scrolled past these rings.
-   */
-  class Dismissed_ extends UniffiEnum implements Dismissed__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiFeedSeen";
-    readonly tag = FfiFeedSeen_Tags.Dismissed;
-    readonly inner: Readonly<{ activityIds: Array<string> }>;
-    constructor(inner: { activityIds: Array<string> }) {
-      super("FfiFeedSeen", "Dismissed");
-
-      this.inner = Object.freeze(inner);
-    }
-    static new(inner: { activityIds: Array<string> }): Dismissed_ {
-      return new Dismissed_(inner);
-    }
-
-    static instanceOf(obj: any): obj is Dismissed_ {
-      return obj.tag === FfiFeedSeen_Tags.Dismissed;
-    }
-  }
-
-  type Closed__interface = {
-    tag: FfiFeedSeen_Tags.Closed;
-  };
-  /**
-   * The feed left the front.
-   */
-  class Closed_ extends UniffiEnum implements Closed__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiFeedSeen";
-    readonly tag = FfiFeedSeen_Tags.Closed;
-    constructor() {
-      super("FfiFeedSeen", "Closed");
-    }
-
-    static new(): Closed_ {
-      return new Closed_();
-    }
-
-    static instanceOf(obj: any): obj is Closed_ {
-      return obj.tag === FfiFeedSeen_Tags.Closed;
-    }
-  }
-
-  function instanceOf(obj: any): obj is FfiFeedSeen {
-    return obj[uniffiTypeNameSymbol] === "FfiFeedSeen";
-  }
-
-  return Object.freeze({
-    instanceOf,
-    Opened: Opened_,
-    Dismissed: Dismissed_,
-    Closed: Closed_,
-  });
-})();
-/**
- * What the feed tells the engine about its own use, which the new-activity
- * rings are decided from.
- */
-export type FfiFeedSeen = InstanceType<
-  (typeof FfiFeedSeen)["Opened" | "Dismissed" | "Closed"]
->;
-
-// FfiConverter for enum FfiFeedSeen
-const FfiConverterTypeFfiFeedSeen = (() => {
-  type TypeName = FfiFeedSeen;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return new FfiFeedSeen.Opened();
-        case 2:
-          return new FfiFeedSeen.Dismissed({
-            activityIds: FfiConverterSequenceString.readFromCursor(c),
-          });
-        case 3:
-          return new FfiFeedSeen.Closed();
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value.tag) {
-        case FfiFeedSeen_Tags.Opened: {
-          c.writeI32(1);
-          return;
-        }
-        case FfiFeedSeen_Tags.Dismissed: {
-          c.writeI32(2);
-          const inner = value.inner;
-          FfiConverterSequenceString.writeIntoCursor(inner.activityIds, c);
-          return;
-        }
-        case FfiFeedSeen_Tags.Closed: {
-          c.writeI32(3);
-          return;
-        }
-        default:
-          // Throwing from here means that FfiFeedSeen_Tags hasn't matched an ordinal.
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    allocationSize(value: TypeName): number {
-      switch (value.tag) {
-        case FfiFeedSeen_Tags.Opened: {
-          return 4;
-        }
-        case FfiFeedSeen_Tags.Dismissed: {
-          const inner = value.inner;
-          let size = 4;
-          size += FfiConverterSequenceString.allocationSize(inner.activityIds);
-          return size;
-        }
-        case FfiFeedSeen_Tags.Closed: {
-          return 4;
-        }
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
     }
   }
   return new FFIConverter();
@@ -23790,12 +23612,6 @@ export interface FitnessManagerLike {
     endTs: number,
   ) /*throws*/ : FfiZoneDistribution;
   /**
-   * Tell the engine the feed opened, closed or had rings dismissed. It
-   * writes one settings row and decides every ring the next
-   * `get_startup_data` returns.
-   */
-  recordFeedSeen(event: FfiFeedSeen) /*throws*/ : void;
-  /**
    * Record one critical-speed snapshot under the window it was read over.
    *
    * `window_days` is the range the curve behind it covered. It is part of
@@ -24435,30 +24251,6 @@ export class FitnessManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
-  }
-
-  /**
-   * Tell the engine the feed opened, closed or had rings dismissed. It
-   * writes one settings row and decides every ring the next
-   * `get_startup_data` returns.
-   */
-  recordFeedSeen(event: FfiFeedSeen): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
-          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          FfiConverterTypeFfiFeedSeen.lower(
-            event,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
   }
 
   /**
@@ -26261,6 +26053,19 @@ export interface RouteManagerLike {
     coordinates: Array<number>,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<Array<LiveRouteOverlap>>;
+  /**
+   * The same read with the delta curves computed, off the JS thread. Each
+   * attempt's track and time stream is decoded and projected onto the
+   * route's line, which on a long route or a well-ridden one runs past a
+   * tap's budget. The curves are held afterwards, so the read above serves
+   * them until the database moves.
+   */
+  loadDetailPerformance(
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<FfiSectionPerformanceData>;
   setName(routeId: string, name: string) /*throws*/ : void;
   setRepresentative(
     routeId: string,
@@ -26588,6 +26393,74 @@ export class RouteManager
         /*liftFunc:*/ (__rb) => {
           try {
             return FfiConverterSequenceTypeLiveRouteOverlap.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * The same read with the delta curves computed, off the JS thread. Each
+   * attempt's track and time stream is decoded and projected onto the
+   * route's line, which on a long route or a well-ridden one runs past a
+   * tap's budget. The curves are held afterwards, so the read above serves
+   * them until the database moves.
+   */
+  async loadDetailPerformance(
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSectionPerformanceData> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(groupId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              timeRangeDays,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterOptionalString.lower(
+              sportFilter,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
           } finally {
             nativeModule().rustbuffer_free(__rb);
           }
@@ -30446,19 +30319,21 @@ export interface VeloqEngineLike {
   destroy(): void;
   detection(): DetectionManagerLike;
   /**
-   * Drop the paused import at the athlete's word, leaving the library and
-   * the records already waiting as they are.
+   * Drop what an import left at the athlete's word. Without `waiting` it is
+   * the paused import, leaving the library and the records already waiting
+   * as they are. With it, it is the records still waiting to be placed,
+   * keeping what was placed and any paused import.
    */
-  discardRecordImport(asyncOpts_?: {
-    signal: AbortSignal;
-  }) /*throws*/ : Promise<void>;
+  discardRecordImport(
+    waiting: boolean,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<void>;
   fitness(): FitnessManagerLike;
   /**
    * Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
    * Used for one-time backfill after upgrade.
    */
   getActivitiesNeedingTimeStreams() /*throws*/ : Array<string>;
-  getActivityCount() /*throws*/ : number;
   /**
    * Get backup metadata as JSON for validation before restore.
    * Returns: {"schema_version", "activity_count", "section_count", "athlete_id"}.
@@ -30788,12 +30663,15 @@ export class VeloqEngine
   }
 
   /**
-   * Drop the paused import at the athlete's word, leaving the library and
-   * the records already waiting as they are.
+   * Drop what an import left at the athlete's word. Without `waiting` it is
+   * the paused import, leaving the library and the records already waiting
+   * as they are. With it, it is the records still waiting to be placed,
+   * keeping what was placed and any paused import.
    */
-  async discardRecordImport(asyncOpts_?: {
-    signal: AbortSignal;
-  }): Promise<void> /*throws*/ {
+  async discardRecordImport(
+    waiting: boolean,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<void> /*throws*/ {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
       return await uniffiRustCallAsync(
@@ -30801,6 +30679,7 @@ export class VeloqEngine
         /*rustFutureFunc:*/ () => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_discard_record_import(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            FfiConverterBool.lower(waiting, nativeModule().rustbuffer_alloc),
           );
         },
         /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
@@ -30859,23 +30738,6 @@ export class VeloqEngine
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
-  }
-
-  getActivityCount(): number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
   }
 
   /**
@@ -33478,14 +33340,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen() !==
-    54443
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot() !==
     20487
   ) {
@@ -33867,6 +33721,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_live_overlaps",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_load_detail_performance() !==
+    55711
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_load_detail_performance",
     );
   }
   if (
@@ -34767,7 +34629,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_discard_record_import() !==
-    47289
+    36231
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_discard_record_import",
@@ -34787,14 +34649,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count() !==
-    24355
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_get_activity_count",
     );
   }
   if (
@@ -35092,7 +34946,6 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiFeedGroup,
-    FfiConverterTypeFfiFeedSeen,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,

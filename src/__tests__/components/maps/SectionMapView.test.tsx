@@ -14,6 +14,7 @@ import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-
 import * as Location from 'expo-location';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
+import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
@@ -294,6 +295,26 @@ describe('SectionMapView', () => {
     expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
     expect(screen.queryByTestId('webview')).toBeNull();
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
+  });
+
+  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', () => {
+    renderSection();
+
+    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
+
+    fireEvent(screen.getByTestId('webview'), 'message', {
+      nativeEvent: {
+        data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
+      },
+    });
+
+    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
+    expect(screen.getByTestId('section-map-3d-toggle').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false })
+    );
+    expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
   describe('locate button', () => {

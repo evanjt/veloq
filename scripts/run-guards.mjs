@@ -422,7 +422,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, or a tag release that skips a store deploy and ends green with nothing uploaded',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, or a tag release that skips a store deploy and ends green with nothing uploaded',
   },
   {
     name: 'lint:counted-translation',
@@ -552,6 +552,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-em-dashes.mjs'),
     catches: 'an em dash in prose or comments',
+  },
+  {
+    name: 'lint:service-name',
+    kind: 'style',
+    cmd: node('lint-service-name.mjs'),
+    catches:
+      'the data service named with a capital first letter in copy, where it writes its name in lower case',
   },
   {
     name: 'lint:jsdoc-tags',

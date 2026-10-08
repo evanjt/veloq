@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
 import { useMapPreferences } from '../stores/MapPreferencesContext';
-import { clearTerrainPreviews, type MapStyleType } from '@/features/maps';
+import { clearTerrainPreviews, SMART_3D_MIN_RELIEF_M, type MapStyleType } from '@/features/maps';
+import { formatElevation } from '@/shared/format/format';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { Row } from '@/shared/ui/Row';
@@ -45,6 +46,7 @@ const TERRAIN_LABELS: Record<string, string> = {
 
 export function MapsSection() {
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const { t } = useTranslation();
   const {
     preferences: mapPreferences,
@@ -133,6 +135,11 @@ export function MapsSection() {
           </Text>
         </Pressable>
       </View>
+      <Text style={[styles.terrainHint, isDark && settingsStyles.textSecondary]}>
+        {t('settings.terrain3DSmartHint', {
+          height: formatElevation(SMART_3D_MIN_RELIEF_M, isMetric),
+        })}
+      </Text>
       <MapStylePreviewPicker
         value={mapPreferences.defaultStyle}
         onValueChange={handleDefaultMapStyleChange}
@@ -317,6 +324,11 @@ const styles = StyleSheet.create({
   overrideDivider: {
     height: StyleSheet.hairlineWidth,
     marginVertical: spacing.xs,
+  },
+  terrainHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   hintText: {
     ...typography.caption,

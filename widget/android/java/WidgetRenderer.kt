@@ -183,20 +183,22 @@ object WidgetRenderer {
   }
 
   /**
-   * When the app last wrote this snapshot, as the system phrases it.
+   * How old the numbers are, as the system phrases it.
    *
    * The widget is stale exactly for the athlete whose app has not run, and the
    * numbers on it give no clue how old they are. The line is computed at render
    * rather than carried in the payload: a pre-formatted "just now" written at
    * save time would still say "just now" a day later.
    *
-   * A snapshot from before the field carries zero and the line is hidden, which
-   * says nothing rather than saying 1970.
+   * It counts from [SnapshotAge.reference]: the last sync on a snapshot redrawn
+   * from stored rows after a pull that did not land, which then leads with the
+   * words that say so, else the write time. A snapshot with neither hides the
+   * line, or shows those words alone, rather than saying 1970.
    *
    * Past [SnapshotAge.STALE_AFTER_SECONDS] the line is amber and names the time
-   * the snapshot was written. [VeloqWidgetProvider] keeps it true between
-   * snapshots by asking for a redraw on a schedule, since nothing else redraws
-   * a widget whose app is not running.
+   * it counts from. [VeloqWidgetProvider] keeps it true between snapshots by
+   * asking for a redraw on a schedule, since nothing else redraws a widget whose
+   * app is not running.
    */
   internal fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
     // A sample library has no age to report: it is composed afresh for every
@@ -207,14 +209,21 @@ object WidgetRenderer {
       v.setTextColor(id, res(context, R.color.widget_text_secondary))
       return
     }
-    val seconds = snap?.generatedAt ?: 0L
-    if (seconds <= 0L) {
-      v.setViewVisibility(id, View.GONE)
+    val asOf = snap?.dataAsOfLabel
+    val seconds = SnapshotAge.reference(snap)
+    if (seconds == null) {
+      if (asOf == null) {
+        v.setViewVisibility(id, View.GONE)
+      } else {
+        v.setViewVisibility(id, View.VISIBLE)
+        v.setTextViewText(id, asOf)
+        v.setTextColor(id, res(context, R.color.widget_text_secondary))
+      }
       return
     }
     val now = System.currentTimeMillis()
     val stale = SnapshotAge.isStale(seconds, now)
-    val label =
+    val age =
       if (stale) {
         SnapshotAge.absolute(seconds, ZoneId.systemDefault(), Locale.getDefault())
       } else {
@@ -222,7 +231,7 @@ object WidgetRenderer {
           seconds * 1000L, now, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE)
       }
     v.setViewVisibility(id, View.VISIBLE)
-    v.setTextViewText(id, label)
+    v.setTextViewText(id, if (asOf == null) age else "$asOf · $age")
     v.setTextColor(
       id, res(context, if (stale) R.color.widget_warning else R.color.widget_text_secondary))
   }

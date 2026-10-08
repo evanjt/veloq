@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.util.Log
 import java.io.File
 
-/** One native snapshot writer for push and button refreshes with no JavaScript running. */
+/** One native snapshot writer for push, button and timer refreshes with no JavaScript running. */
 object NativeWidgetSnapshot {
   private const val TAG = "VeloqWidgetRefresh"
   private const val PREFS = "native-widget-refresh"
@@ -22,6 +22,23 @@ object NativeWidgetSnapshot {
       File(context.filesDir, ActivityPushWorker.DB_FILE).absolutePath,
       credential.method, credential.secret, credential.athleteId)
     return write(context, WidgetRefreshDecision.snapshot(answer))
+  }
+
+  /** One refresh run, from a tap or the timer, once [begin] has taken the busy slot. */
+  fun run(context: Context) {
+    val started = startedAt(context)
+    var wrote = false
+    try {
+      val credential = credential(context)
+      if (credential is PushCredential.Stored.Ready) {
+        wrote = refresh(context, credential.credential)
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "native widget refresh failed; keeping the last snapshot", e)
+    } finally {
+      finish(context)
+      logRun(started, wrote)
+    }
   }
 
   /** A missing native answer keeps the file and its age. */

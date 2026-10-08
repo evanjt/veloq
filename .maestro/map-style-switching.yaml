@@ -15,7 +15,7 @@ tags:
 # Wait for map controls
 - extendedWaitUntil:
     visible:
-      id: "map-toggle-activities"
+      id: "map-layers"
     timeout: 20000
 
 - takeScreenshot: "screenshots/map-style-initial"

@@ -21,6 +21,7 @@ import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
 import {
+  BodyNotDownloaded,
   Button,
   ComponentErrorBoundary,
   DeviceAttribution,
@@ -84,6 +85,9 @@ interface ActivityChartsSectionProps {
    * those is worth a line on screen.
    */
   intervalsOutcome?: IntervalsOutcome | undefined;
+  /** The wait for the interval body, which offers a Retry once it ends without one. */
+  intervalsStatus?: EngineBodyStatus | undefined;
+  onRetryIntervals?: (() => void) | undefined;
   activityWellness: WellnessData | null | undefined;
   coordinates: LatLng[];
   isDark: boolean;
@@ -114,6 +118,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   onRetryStreams,
   intervalsData,
   intervalsOutcome = 'loaded',
+  intervalsStatus = 'idle',
+  onRetryIntervals,
   activityWellness,
   coordinates,
   isDark,
@@ -293,19 +299,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
           hasPowerZones) && (
           <View style={styles.chartSection}>
             {!streamsDownloaded && (
-              <View
+              <BodyNotDownloaded
                 testID="streams-not-downloaded"
                 style={[styles.chartCard, isDark && styles.cardDark]}
-              >
-                <Text>{t('statsScreen.curveNotDownloaded')}</Text>
-                {(streamsStatus === 'timedOut' || streamsStatus === 'refused') && (
-                  <Button
-                    label={t('common.retry')}
-                    variant="ghost"
-                    onPress={() => onRetryStreams?.()}
-                  />
-                )}
-              </View>
+                message={t('statsScreen.curveNotDownloaded')}
+                status={streamsStatus}
+                onRetry={() => onRetryStreams?.()}
+              />
             )}
             {availableCharts.length > 0 && (
               <View style={styles.chartControls}>
@@ -358,14 +358,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             {/* Intervals zone bar. Its own source is `icu_intervals`, which is
                 persisted whether or not the streams were ever fetched. */}
             {intervalsOwed && (
-              <View
+              <BodyNotDownloaded
                 testID="intervals-not-downloaded"
                 style={[styles.intervalsCard, isDark && styles.cardDark, styles.intervalsPending]}
-              >
-                <Text style={[styles.intervalsTitle, isDark && styles.textSecondary]}>
-                  {t('activityDetail.intervalsNotDownloaded')}
-                </Text>
-              </View>
+                textStyle={[styles.intervalsTitle, isDark && styles.textSecondary]}
+                message={t('activityDetail.intervalsNotDownloaded')}
+                status={intervalsStatus}
+                onRetry={() => onRetryIntervals?.()}
+              />
             )}
 
             {hasIntervals && (

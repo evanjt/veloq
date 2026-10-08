@@ -18,13 +18,14 @@ import {
   StrengthBalanceView,
   STRENGTH_PERIODS,
 } from '@/features/strength';
-import { ErrorStatePreset, TAB_BAR_SAFE_PADDING, ToggleButton } from '@/shared/ui';
+import { ErrorStatePreset, ExplanationCard, TAB_BAR_SAFE_PADDING, ToggleButton } from '@/shared/ui';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
+import { strengthExplanation } from '../lib/aboutCopy';
 
 interface StrengthTabProps {
   /**
@@ -232,27 +233,7 @@ export const StrengthTab = React.memo(function StrengthTab({
             periodLabel={periodLabel}
           />
 
-          {/* Info card */}
-          <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons
-                name="scale-balance"
-                size={14}
-                color={isDark ? darkColors.textSecondary : colors.textDisabled}
-              />
-              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                {t('strength.infoWeighting')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Disclaimer */}
-          <Text style={[styles.disclaimerText, isDark && styles.disclaimerTextDark]}>
-            {t(
-              'strength.disclaimer',
-              'Volume calculations are approximations based on exercise data from your connected device.'
-            )}
-          </Text>
+          <ExplanationCard {...strengthExplanation(t)} testID="strength-explanation" />
         </>
       )}
     </ScrollView>
@@ -305,38 +286,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   emptyTextDark: {
-    color: darkColors.textSecondary,
-  },
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
-    marginBottom: spacing.md,
-  },
-  infoCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  infoText: {
-    flex: 1,
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  infoTextDark: {
-    color: darkColors.textSecondary,
-  },
-  disclaimerText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
-  },
-  disclaimerTextDark: {
     color: darkColors.textSecondary,
   },
 });

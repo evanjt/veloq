@@ -14,6 +14,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 import RouteGroupingPreviewScreen from '@/app/route-grouping-preview';
 import { GROUPING_DEFAULTS } from '@/features/routes/lib/groupingParams';
+import { GroupSort } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -27,6 +28,11 @@ const mockStart = jest.fn(() => true);
 let mockPreviewGroups: { key: string; activityIds: string[] }[] | null = null;
 let mockPreviewStatus = 'idle';
 let mockStrictness: { minMatchPct: number; endpointThreshold: number } | null = null;
+const AREA_A = { binKey: '1043:165', lat: 46.948, lng: 7.447, visitTotal: 40, sectionCount: 3 };
+const AREA_B = { binKey: '-755:3358', lat: -33.9, lng: 151.2, visitTotal: 12, sectionCount: 1 };
+let mockCentres: (typeof AREA_A)[] = [AREA_A, AREA_B];
+let mockSelectCentre: ((centre: typeof AREA_A) => void) | null = null;
+let mockMapProps: { centre?: unknown } | null = null;
 
 const mockSetMatchStrictness = jest.fn();
 const mockRescan = jest.fn(() => 1);
@@ -56,6 +62,7 @@ jest.mock('@/shared/native/engine', () => {
     takeRouteGroupingPreviewResult: () => mockPreviewGroups,
     cancelRouteGroupingPreview: jest.fn(),
     getMatchStrictness: () => mockStrictness,
+    getPreviewCentres: () => mockCentres,
     setMatchStrictness: (...args: unknown[]) => mockSetMatchStrictness(...args),
   };
   return { getEngine: () => engine };
@@ -90,7 +97,25 @@ jest.mock('@/features/routes/components', () => ({
     mockOnChange = onChange;
     return null;
   },
-  GroupingPreviewMap: () => null,
+  GroupingPreviewMap: (props: { centre?: unknown }) => {
+    mockMapProps = props;
+    return null;
+  },
+  PreviewCentrePicker: ({
+    centres,
+    selectedBinKey,
+    onSelect,
+  }: {
+    centres: unknown[];
+    selectedBinKey: string | null;
+    onSelect: typeof mockSelectCentre;
+  }) => {
+    mockSelectCentre = onSelect;
+    const { Text } = require('react-native');
+    return (
+      <Text testID="grouping-area-picker">{`${centres.length} areas, ${selectedBinKey}`}</Text>
+    );
+  },
 }));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
@@ -132,6 +157,9 @@ beforeEach(() => {
   mockPreviewGroups = null;
   mockPreviewStatus = 'idle';
   mockStrictness = null;
+  mockCentres = [AREA_A, AREA_B];
+  mockSelectCentre = null;
+  mockMapProps = null;
   mockTransitionPending = false;
   mockTransitionListeners.clear();
 });
@@ -219,6 +247,68 @@ it('waits for the opening transition before reading routes', () => {
   expect(mockGetRoutesScreenData).not.toHaveBeenCalled();
   act(() => mockTransitionListeners.get('transitionEnd')?.({ data: { closing: false } }));
   expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * Scenario: the athlete's most-ridden routes lie in several regions, and the
+ * preview drew all of them, so it opened on a view of the whole world where no
+ * line could be read and the screen seemed to do nothing.
+ *
+ * Expected behaviour: the screen offers the same riding areas the section
+ * preview does, opens on the first, draws the routes nearest the selected area
+ * and hands the map that area to frame, and choosing another area re-reads the
+ * routes there.
+ */
+describe('the area the preview opens on', () => {
+  const lastRead = () =>
+    (mockGetRoutesScreenData.mock.calls.at(-1) as unknown as [Record<string, unknown>])[0];
+
+  it('offers the ranked areas and selects the first', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('grouping-area-picker').props.children).toBe('2 areas, 1043:165');
+    expect(mockMapProps?.centre).toEqual(AREA_A);
+  });
+
+  it('reads the routes nearest the selected area', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+
+    expect(lastRead()).toMatchObject({
+      groupSort: GroupSort.Nearby,
+      userLat: AREA_A.lat,
+      userLng: AREA_A.lng,
+    });
+  });
+
+  it('re-reads the routes when another area is chosen', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockSelectCentre?.(AREA_B));
+
+    expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(2);
+    expect(lastRead()).toMatchObject({ userLat: AREA_B.lat, userLng: AREA_B.lng });
+    expect(screen.getByTestId('grouping-area-picker').props.children).toBe('2 areas, -755:3358');
+    expect(mockMapProps?.centre).toEqual(AREA_B);
+  });
+
+  it('does not re-read when the selected area is chosen again', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockSelectCentre?.(AREA_A));
+
+    expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the most-ridden routes when the library has no area yet', async () => {
+    mockCentres = [];
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+
+    expect(lastRead()).toMatchObject({ groupSort: GroupSort.Activities });
+    expect(mockMapProps?.centre).toBeNull();
+  });
 });
 
 /**

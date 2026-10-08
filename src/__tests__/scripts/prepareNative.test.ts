@@ -5,8 +5,11 @@
  *
  * Expected behaviour: a project that builds the other identity, or none, is
  * regenerated from clean before the build and keeps its release signing files;
- * a project that already builds the selected identity is left alone; an
- * APP_VARIANT that names no identity is refused before anything is generated.
+ * so is one generated from other native configuration (app config, plugins,
+ * the plugin packages and the sources they copy), or with no record of what it
+ * was generated from. A project generated from the current configuration for
+ * the selected identity is left alone. An APP_VARIANT that names no identity is
+ * refused before anything is generated.
  */
 import { spawnSync } from 'child_process';
 import fs from 'fs';
@@ -16,6 +19,24 @@ import path from 'path';
 const root = path.join(__dirname, '../../..');
 
 let tree: string;
+
+// One application target whose single configuration carries the identifier.
+const PBX = [
+  '\\t\\tT1 = {',
+  '\\t\\t\\tisa = PBXNativeTarget;',
+  '\\t\\t\\tbuildConfigurationList = L1;',
+  '\\t\\t\\tproductType = "com.apple.product-type.application";',
+  '\\t\\t};',
+  '\\t\\tL1 = {',
+  '\\t\\t\\tisa = XCConfigurationList;',
+  '\\t\\t\\tbuildConfigurations = (C1,);',
+  '\\t\\t};',
+  '\\t\\tC1 = {',
+  '\\t\\t\\tisa = XCBuildConfiguration;',
+  '\\t\\t\\tPRODUCT_BUNDLE_IDENTIFIER = %s;',
+  '\\t\\t};',
+  '',
+].join('\\n');
 
 beforeEach(() => {
   tree = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-native-'));
@@ -31,9 +52,14 @@ beforeEach(() => {
     '#!/bin/sh\n' +
       'echo "npx $* CI=$CI" >> calls\n' +
       '[ "${TEST_FAIL_GENERATE:-}" = 1 ] && { rm -rf "$4"; exit 9; }\n' +
-      'case "$APP_VARIANT" in production) id=com.orchard.app ;; *) id=com.orchard.app.dev ;; esac\n' +
-      'rm -rf "$4" && mkdir -p "$4/app"\n' +
-      'echo "applicationId \'$id\'" > "$4/app/build.gradle"\n',
+      'case "$APP_VARIANT" in production) id=com.veloq.app ;; *) id=com.veloq.app.dev ;; esac\n' +
+      'rm -rf "$4"\n' +
+      'if [ "$4" = ios ]; then\n' +
+      '  mkdir -p ios/Orchard.xcodeproj\n' +
+      `  printf '${PBX}' "$id" > ios/Orchard.xcodeproj/project.pbxproj\n` +
+      'else\n' +
+      '  mkdir -p "$4/app" && echo "applicationId \'$id\'" > "$4/app/build.gradle"\n' +
+      'fi\n',
     { mode: 0o755 }
   );
 });
@@ -68,7 +94,6 @@ function prepare(platform: string, variant?: string, extra: Record<string, strin
   return { result, calls };
 }
 
-// The identity module names the real packages, so the stub's are not the ones checked.
 const devGradle = "applicationId 'com.veloq.app.dev'\n";
 const SIGNING = {
   'android/keystore.properties': 'storeFile=release.keystore\n',
@@ -80,6 +105,15 @@ function signing() {
 }
 
 const kept = () => Object.fromEntries(Object.keys(SIGNING).map((file) => [file, read(file)]));
+
+/** Generate a project for the selected identity, then forget the call. */
+function generated(platform = 'android', variant?: string) {
+  const { result } = prepare(platform, variant);
+  expect(result.status).toBe(0);
+  fs.rmSync(path.join(tree, 'calls'));
+}
+
+const GENERATE_ANDROID = 'npx expo prebuild --platform android --clean --no-install CI=1';
 
 describe('prepare-native', () => {
   it('regenerates a Dev Android project for a production build and keeps the signing files', () => {
@@ -93,14 +127,82 @@ describe('prepare-native', () => {
     expect(fs.existsSync(path.join(tree, '.native-keep'))).toBe(false);
   });
 
-  it('leaves a project that already builds the selected identity alone', () => {
-    write('android/app/build.gradle', devGradle);
+  it('leaves a project generated from the current configuration for the selected identity alone', () => {
+    write('app.json', '{"expo":{"plugins":["./src/plugins/with-orchard"]}}\n');
+    write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
+    generated();
     signing();
+    const gradle = read('android/app/build.gradle');
     const { result, calls } = prepare('android');
     expect(result.status).toBe(0);
     expect(calls).toEqual([]);
     expect(result.stderr).toBe('');
-    expect(read('android/app/build.gradle')).toBe(devGradle);
+    expect(read('android/app/build.gradle')).toBe(gradle);
+  });
+
+  it('regenerates a project of the selected identity when a config plugin changed since', () => {
+    write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
+    generated();
+    signing();
+    write(
+      'src/plugins/with-orchard.js',
+      'module.exports = (config) => ({ ...config, signed: 1 });\n'
+    );
+    const { result, calls } = prepare('android');
+    expect(result.status).toBe(0);
+    expect(calls).toEqual([GENERATE_ANDROID]);
+    expect(result.stderr).toContain('native configuration changed since it was generated');
+    expect(kept()).toEqual(SIGNING);
+  });
+
+  it.each([
+    ['the app config', 'app.json', '{"expo":{"name":"Orchard","version":"2.0.0"}}\n'],
+    ['the identity module', 'scripts/lib/app-identity.js', null],
+    ['a plugin package version', 'node_modules/expo-orchard/package.json', '{"version":"2.0.0"}\n'],
+    ['an asset the config names', 'src/assets/orchard.png', 'larger'],
+  ])('regenerates when %s changed since', (_what, file, contents) => {
+    write(
+      'app.json',
+      '{"expo":{"name":"Orchard","icon":"./src/assets/orchard.png","plugins":[["expo-orchard",{}]]}}\n'
+    );
+    write('node_modules/expo-orchard/package.json', '{"version":"1.0.0"}\n');
+    write('src/assets/orchard.png', 'small');
+    generated();
+    write(file, contents ?? `${read(file)}// edited\n`);
+    const { result, calls } = prepare('android');
+    expect(result.status).toBe(0);
+    expect(calls).toEqual([GENERATE_ANDROID]);
+  });
+
+  it('regenerates iOS when a source its extensions copy changed, and Android not', () => {
+    write('push/ios/Orchard/Service.swift', 'let a = 1\n');
+    generated('ios');
+    generated('android');
+    write('push/ios/Orchard/Service.swift', 'let a = 2\n');
+    expect(prepare('android').calls).toEqual([]);
+    expect(prepare('ios').calls).toEqual(['npx expo prebuild --platform ios --clean CI=1']);
+  });
+
+  it('regenerates a project of the selected identity with no record of what generated it, once', () => {
+    write('android/app/build.gradle', devGradle);
+    signing();
+    const first = prepare('android');
+    expect(first.result.status).toBe(0);
+    expect(first.calls).toEqual([GENERATE_ANDROID]);
+    expect(first.result.stderr).toContain('no record of the configuration it was generated from');
+    expect(kept()).toEqual(SIGNING);
+    fs.rmSync(path.join(tree, 'calls'));
+    expect(prepare('android').calls).toEqual([]);
+  });
+
+  it('keeps no record of a generation that failed, so the next build generates again', () => {
+    generated();
+    write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
+    expect(prepare('android', undefined, { TEST_FAIL_GENERATE: '1' }).result.status).toBe(9);
+    write('android/app/build.gradle', devGradle);
+    const { result, calls } = prepare('android');
+    expect(result.status).toBe(0);
+    expect(calls).toEqual([GENERATE_ANDROID, GENERATE_ANDROID]);
   });
 
   it('generates a missing Android project', () => {
@@ -140,7 +242,7 @@ describe('prepare-native', () => {
   });
 
   it('restores signing files a killed run left aside, before comparing', () => {
-    write('android/app/build.gradle', devGradle);
+    generated();
     for (const [file, contents] of Object.entries(SIGNING)) write(`.native-keep/${file}`, contents);
     const { result, calls } = prepare('android');
     expect(result.status).toBe(0);
@@ -150,7 +252,7 @@ describe('prepare-native', () => {
   });
 
   it('never overwrites a signing file with an older one left aside', () => {
-    write('android/app/build.gradle', devGradle);
+    generated();
     signing();
     write('.native-keep/android/keystore.properties', 'storeFile=stale.keystore\n');
     const { result } = prepare('android');

@@ -65,14 +65,14 @@ describe('SectionsListHeader detection hold', () => {
     const tree = renderHeader('cutover');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
-    expect(tree.getByText('Detection paused while your sections migrate')).toBeTruthy();
+    expect(tree.getByText("Detection's paused while your sections migrate")).toBeTruthy();
   });
 
   it('names the elevation download while a pass is running', () => {
     const tree = renderHeader('elevation-running');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
-    expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+    expect(tree.getByText("Detection's paused while elevation comes down")).toBeTruthy();
   });
 
   /**
@@ -86,10 +86,10 @@ describe('SectionsListHeader detection hold', () => {
 
     expect(
       tree.getByText(
-        'Detection waits on elevation for 12 activity tracks. Veloq retries them when you are online.'
+        "Detection is waiting on elevation for 12 activity tracks. Veloq has another go when you're online."
       )
     ).toBeTruthy();
-    expect(tree.queryByText('Detection paused while elevation downloads')).toBeNull();
+    expect(tree.queryByText("Detection's paused while elevation comes down")).toBeNull();
   });
 
   it('says one track singly', () => {
@@ -97,7 +97,7 @@ describe('SectionsListHeader detection hold', () => {
 
     expect(
       tree.getByText(
-        'Detection waits on elevation for 1 activity track. Veloq retries it when you are online.'
+        "Detection is waiting on elevation for 1 activity track. Veloq has another go when you're online."
       )
     ).toBeTruthy();
   });
@@ -116,7 +116,7 @@ describe('SectionsListHeader detection hold', () => {
   it('falls back to the unsized sentence when the count is unanswerable', () => {
     const tree = renderHeader('elevation-waiting');
 
-    expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+    expect(tree.getByText("Detection's paused while elevation comes down")).toBeTruthy();
     expect(within(tree.getByTestId('detection-paused')).queryByText(/\d/)).toBeNull();
   });
 
@@ -154,7 +154,7 @@ describe('SectionsListHeader detection hold', () => {
     const busy = render(
       <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={StartOutcome.Busy} />
     );
-    expect(busy.getByText('A scan is already running.')).toBeTruthy();
+    expect(busy.getByText("A scan's already running.")).toBeTruthy();
   });
 
   it('says nothing about a refusal until there is one', () => {

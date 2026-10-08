@@ -39,6 +39,7 @@ import {
   TRIM_UPDATE_THROTTLE_MS,
   useMapFullscreen,
   useDrawnMapStyle,
+  useTerrainFallback,
   useThrottledValue,
   buildSectionTrimCollection,
   EMPTY_FEATURE_COLLECTION,
@@ -258,6 +259,7 @@ export const SectionMapView = memo(function SectionMapView({
     setIs3DReady(false);
     setIs3DMode(false);
   }, []);
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(handleMap3DFailed);
 
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
@@ -535,6 +537,7 @@ export const SectionMapView = memo(function SectionMapView({
                     released={!screenFocused}
                     onMapReady={handleMap3DReady}
                     onMapFailed={handleMap3DFailed}
+                    onTerrainUnavailable={onTerrainUnavailable}
                     onBearingChange={handleBearingChange}
                     onCameraStateChange={handleCamera3DChange}
                   />
@@ -548,6 +551,8 @@ export const SectionMapView = memo(function SectionMapView({
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
             )}
+
+            {terrainNotice}
           </View>
 
           {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}

@@ -63,6 +63,7 @@ const LISTING_GUARDS = [
   'lint-comment-line-refs.mjs',
   'lint-em-dashes.mjs',
   'lint-jsdoc-tags.mjs',
+  'lint-service-name.mjs',
 ];
 
 describe.each(LISTING_GUARDS)('%s', (script) => {

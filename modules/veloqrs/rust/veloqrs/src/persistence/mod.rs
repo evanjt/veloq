@@ -72,7 +72,6 @@ pub use activities::{
 pub mod codec;
 pub mod cutover;
 pub(crate) mod export;
-pub mod feed_rings;
 pub(crate) mod file_lock;
 pub use export::{ExportPrivacyPreview, SuggestedHome};
 pub(crate) mod fitness;
@@ -103,6 +102,7 @@ pub mod sections;
 pub use sections::SectionNameError;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
+pub(crate) mod settings_conn;
 pub mod streams;
 pub use bodies::BodiesOwed;
 pub use streams::StreamGap;

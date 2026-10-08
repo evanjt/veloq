@@ -1,8 +1,10 @@
 /**
- * Scenario: the insights tour slide names four categories. They were English literals, so under
- * another app language the slide title came through translated and the rows beneath did not.
+ * Scenario: the insights tour slide named four categories in generic words, with no picture of
+ * what a card looks like and no word on where one comes from.
  *
- * Expected behaviour: every row label is a translation key, and every locale has a value for it.
+ * Expected behaviour: the slide draws example cards through the list card the Insights tab uses,
+ * built by the generators that build the real ones, and one line says how an insight is made.
+ * Every locale has that line, and the body stays one sentence with no claim about the home screen.
  */
 import { resolvedLocale } from './resolvedLocale';
 import React from 'react';
@@ -11,35 +13,53 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { InsightsSlide } from '@/features/settings/components/whatsNew/InsightsSlide';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
-const KEYS = [
-  'insightsSectionPrs',
-  'insightsEfficiency',
-  'insightsMilestones',
-  'insightsHrv',
-] as const;
 
 describe('the insights tour slide', () => {
-  it('renders each category through the translator', () => {
-    const { getByText } = render(<InsightsSlide />);
+  it('draws a section record and a fitness step as the Insights tab draws them', () => {
+    const { getAllByTestId } = render(<InsightsSlide />);
 
-    for (const key of KEYS) expect(getByText(`whatsNew.v030.${key}`)).toBeTruthy();
+    const ids = getAllByTestId(/^insight-card-.*(?<!-body)$/).map(
+      (card) => card.props.testID as string
+    );
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toMatch(/^insight-card-section_pr-/);
+    expect(ids[1]).toBe('insight-card-fitness_milestone-ftp');
   });
 
-  it('has a value for every category in every locale', () => {
+  it('titles each card with the generator copy, not a category label', () => {
+    const { getByText, queryByText } = render(<InsightsSlide />);
+
+    expect(getByText('insights.sectionPr')).toBeTruthy();
+    expect(getByText('insights.ftpIncrease')).toBeTruthy();
+    expect(queryByText('whatsNew.v030.insightsSectionPrs')).toBeNull();
+  });
+
+  it('draws the section the example record was set on', () => {
+    const { getAllByTestId } = render(<InsightsSlide />);
+
+    expect(getAllByTestId(/^section-preview-/)).toHaveLength(1);
+  });
+
+  it('says how an insight is made, through the translator', () => {
+    const { getByText } = render(<InsightsSlide />);
+
+    expect(getByText('whatsNew.v030.insightsHow')).toBeTruthy();
+  });
+
+  it('has a value for that line in every locale', () => {
     for (const file of fs.readdirSync(LOCALES_DIR)) {
       const bundle = resolvedLocale(file.replace('.json', ''));
-      for (const key of KEYS) {
-        expect(`${file} ${bundle.whatsNew.v030[key]}`).not.toContain('undefined');
-      }
+      expect(`${file} ${bundle.whatsNew.v030.insightsHow}`).not.toContain('undefined');
     }
   });
 });
 
 describe('the insights tour slide body', () => {
-  it('describes the categories only, with no claim about the home screen, in every locale', () => {
+  it('is one sentence with no claim about the home screen, in every locale', () => {
     for (const file of fs.readdirSync(LOCALES_DIR)) {
       const bundle = resolvedLocale(file.replace('.json', ''));
       const body: string = bundle.whatsNew.v030.insightsBody;

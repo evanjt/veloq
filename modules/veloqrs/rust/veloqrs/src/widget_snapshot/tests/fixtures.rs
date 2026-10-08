@@ -1,7 +1,8 @@
-//! The two snapshots the widget captures render: the sample library in the
-//! app's own words, and the same shape with the longest words any locale has,
-//! a 60-character activity name and five-digit values. Both are composed here,
-//! so a capture draws what the engine writes rather than a hand-kept copy.
+//! The snapshots the widget captures render: the sample library in the app's
+//! own words, the same shape with the longest words any locale has, a
+//! 60-character activity name and five-digit values, an empty library, and a
+//! library with rides and no wellness reading. All are composed here, so a
+//! capture draws what the engine writes rather than a hand-kept copy.
 //!
 //! The files under `widget/fixtures/` are compared with what this composes, and
 //! `VELOQ_WRITE_WIDGET_FIXTURES=1` rewrites them.
@@ -402,10 +403,7 @@ fn compose_fixture(library: &Library, ctx: &WidgetContext) -> serde_json::Value 
 }
 
 fn demo() -> serde_json::Value {
-    // The app's English is en-GB with the en-AU words laid over it.
-    let mut strings = locale("en-GB.json");
-    strings.extend(locale("en-AU.json"));
-    let mut ctx = context(strings, english_dates(), true);
+    let mut ctx = context(english(), english_dates(), true);
     ctx.record_shortcuts = vec![shortcut("Ride", "Ride"), shortcut("Run", "Run")];
     ctx.launcher_shortcuts = ctx.record_shortcuts.clone();
     ctx.insights = vec![
@@ -555,6 +553,51 @@ fn long_text() -> serde_json::Value {
     compose_fixture(&library, &ctx)
 }
 
+fn english() -> BTreeMap<String, String> {
+    // The app's English is en-GB with the en-AU words laid over it.
+    let mut strings = locale("en-GB.json");
+    strings.extend(locale("en-AU.json"));
+    strings
+}
+
+/// A signed-in athlete who has synced nothing yet.
+fn empty() -> serde_json::Value {
+    let ctx = context(english(), english_dates(), false);
+    let library = Library {
+        wellness: Vec::new(),
+        rides: Vec::new(),
+        route_name: String::new(),
+        strength: Vec::new(),
+    };
+    compose_fixture(&library, &ctx)
+}
+
+/// Rides synced and no wellness row yet, with every wellness metric on the
+/// summary so each one draws its dash.
+fn no_wellness() -> serde_json::Value {
+    let mut ctx = context(english(), english_dates(), false);
+    if let Some(prefs) = ctx.summary_card.as_mut() {
+        prefs.hero_metric = "hrv".to_string();
+        prefs.supporting_metrics = ["fitness", "fatigue", "form", "rhr"]
+            .map(String::from)
+            .to_vec();
+    }
+    let library = Library {
+        wellness: Vec::new(),
+        rides: vec![ride(
+            "bare-1",
+            "Harbour Loop",
+            NOW - 3_600,
+            42_195.0,
+            5_400,
+            88.0,
+        )],
+        route_name: "Harbour Loop".to_string(),
+        strength: Vec::new(),
+    };
+    compose_fixture(&library, &ctx)
+}
+
 fn check(name: &str, composed: serde_json::Value) {
     let path = repo_root()
         .join("widget/fixtures")
@@ -583,6 +626,28 @@ fn check(name: &str, composed: serde_json::Value) {
 fn the_widget_fixtures_are_what_the_engine_composes() {
     check("demo", demo());
     check("long-text", long_text());
+    check("empty", empty());
+    check("no-wellness", no_wellness());
+}
+
+/// Scenario: the captures draw the empty prompt and the dash for a missing
+/// reading from these two fixtures.
+///
+/// Expected behaviour: the empty fixture marks an empty library, and the
+/// no-wellness fixture has a ride and a dash for every wellness metric.
+#[test]
+fn the_sparse_fixtures_carry_the_empty_library_and_the_dashes() {
+    assert_eq!(empty()["emptyLibrary"], serde_json::json!(true));
+    let bare = no_wellness();
+    assert_eq!(bare["emptyLibrary"], serde_json::json!(false));
+    assert!(bare["latest"].is_object());
+    for metric in ["fitness", "fatigue", "form", "hrv", "rhr"] {
+        assert_eq!(
+            bare["metrics"][metric]["text"],
+            serde_json::json!(TEXT_NONE),
+            "{metric}"
+        );
+    }
 }
 
 /// Scenario: the long-text fixture is meant to stress every line a widget draws.

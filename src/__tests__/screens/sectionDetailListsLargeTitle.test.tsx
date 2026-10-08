@@ -38,6 +38,7 @@ jest.mock('@/shared/native/useEngineSubscription', () => ({ useEngineSubscriptio
 jest.mock('@/features/routes', () => ({
   DetailFallback: () => null,
   SectionLapList: () => null,
+  SectionStreamsNotice: () => null,
   SectionHistoryPanel: () => null,
   RANGE_DAYS: { all: 0 },
   useSectionDetailData: () => ({
@@ -45,8 +46,14 @@ jest.mock('@/features/routes', () => ({
     status: { kind: 'open' },
   }),
   useSectionDetailPerformance: () => ({ data: { lapRecords: [] }, error: undefined }),
-  useSectionTimeStreamSync: () => ({ ready: true, error: undefined, refetch: jest.fn() }),
+  useSectionTimeStreamSync: () => ({
+    ready: true,
+    error: undefined,
+    outstanding: 0,
+    refetch: jest.fn(),
+  }),
   toPerformanceRecord: (record: unknown) => record,
+  withoutRecordMarks: (records: unknown) => records,
   useSectionLaps: () => ({ excludeLap: jest.fn(), includeLap: jest.fn() }),
   useSectionLedger: () => ({
     history: [],

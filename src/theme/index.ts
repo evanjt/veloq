@@ -33,6 +33,7 @@ export {
   recording,
   amberBanner,
   redBanner,
+  offlinePill,
   contributionRamp,
   errorScreen,
   bodyDiagram,

@@ -3,9 +3,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams } from 'expo-router';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
+  filterSheetExpandedAfterDrag,
   getPeriodStart,
   MapNameSearch,
   type MapPeriod,
@@ -45,6 +48,11 @@ const ALL_TIME_END = new Date('2099-12-31');
 
 const MAX_SEARCH_RESULTS = 5;
 
+// A vertical drag this far claims the gesture; a horizontal one this far leaves
+// it to the chip rows, which scroll sideways.
+const SHEET_DRAG_ACTIVATION = 12;
+const SHEET_FADE_MS = 150;
+
 // Distance thresholds in meters (metric) and labels for both systems
 function getDistanceOptions(
   isMetric: boolean,
@@ -65,6 +73,58 @@ function getDistanceOptions(
         { key: MapDistanceBand.Medium, label: '6–30mi' },
         { key: MapDistanceBand.Long, label: '30mi+' },
       ];
+}
+
+/** One row of single-choice filter chips, the chosen one filled. */
+function FilterChipRow<K extends string | number>({
+  options,
+  selected,
+  onSelect,
+  isDark,
+}: {
+  options: { key: K; label: string }[];
+  selected: K;
+  onSelect: (key: K) => void;
+  isDark: boolean;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipRow}
+    >
+      {options.map(({ key, label }) => (
+        <Pressable
+          key={key}
+          onPress={() => onSelect(key)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: selected === key }}
+          style={pressable([
+            styles.chip,
+            selected === key
+              ? styles.chipFilterActive
+              : isDark
+                ? styles.chipDark
+                : styles.chipInactive,
+          ])}
+          android_ripple={pressRipple}
+        >
+          <Text
+            style={[
+              styles.chipText,
+              selected === key
+                ? styles.chipTextFilterActive
+                : isDark
+                  ? styles.chipTextDark
+                  : styles.chipTextInactive,
+            ]}
+          >
+            {label}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
 }
 
 function MapScreenContent() {
@@ -106,6 +166,8 @@ function MapScreenContent() {
   const [nameNeedle, setNameNeedle] = useState('');
   const [focusActivityId, setFocusActivityId] = useState<string | undefined>(undefined);
   const [resultsOpen, setResultsOpen] = useState(false);
+  // The filter sheet opens lowered, the period chips alone over the map.
+  const [sheetExpanded, setSheetExpanded] = useState(false);
 
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
@@ -189,6 +251,16 @@ function MapScreenContent() {
     });
   };
 
+  const sheetDrag = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
+    .failOffsetX([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
+    .onEnd((event) => {
+      setSheetExpanded(
+        filterSheetExpandedAfterDrag(sheetExpanded, event.translationY, event.velocityY)
+      );
+    });
+
   // Show error state if activities failed to load
   if (isActivitiesError) {
     return (
@@ -237,133 +309,108 @@ function MapScreenContent() {
         />
       </ComponentErrorBoundary>
 
-      {/* Bottom info bar with sport filters */}
-      <View
-        style={[
-          styles.infoBar,
-          { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
-          isDark && styles.infoBarDark,
-        ]}
-      >
-        {/* Attribution pill */}
-        <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-          <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-            {attribution}
-          </Text>
-        </View>
-
-        <MapNameSearch
-          needle={nameNeedle}
-          onChangeNeedle={changeNeedle}
-          results={results}
-          onChoose={chooseResult}
-        />
-
-        {/* Time period chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
+      {/* Filter sheet: lowered it shows the period chips, raised every filter */}
+      <GestureDetector gesture={sheetDrag}>
+        <Animated.View
+          layout={LinearTransition.duration(SHEET_FADE_MS)}
+          style={[
+            styles.infoBar,
+            { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
+            isDark && styles.infoBarDark,
+          ]}
         >
-          {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
-            <Pressable
-              key={key}
-              onPress={() => setPeriod(key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: period === key }}
-              style={pressable([
-                styles.chip,
-                period === key
-                  ? styles.chipFilterActive
-                  : isDark
-                    ? styles.chipDark
-                    : styles.chipInactive,
-              ])}
-              android_ripple={pressRipple}
+          {/* Attribution pill */}
+          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
+            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+              {attribution}
+            </Text>
+          </View>
+
+          <Pressable
+            testID="map-filter-handle"
+            onPress={() => setSheetExpanded((expanded) => !expanded)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              sheetExpanded ? t('mapScreen.hideFilters') : t('mapScreen.showFilters')
+            }
+            accessibilityState={{ expanded: sheetExpanded }}
+            hitSlop={{ top: spacing.md, bottom: spacing.xs }}
+            style={pressable(styles.handleRow)}
+            android_ripple={pressRipple}
+          >
+            <View style={[styles.handle, isDark && styles.handleDark]} />
+          </Pressable>
+
+          {sheetExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(SHEET_FADE_MS)}
+              exiting={FadeOut.duration(SHEET_FADE_MS)}
             >
-              <Text
-                style={[
-                  styles.chipText,
-                  period === key
-                    ? styles.chipTextFilterActive
-                    : isDark
-                      ? styles.chipTextDark
-                      : styles.chipTextInactive,
-                ]}
-              >
-                {t(labelKey as never)}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+              <MapNameSearch
+                needle={nameNeedle}
+                onChangeNeedle={changeNeedle}
+                results={results}
+                onChoose={chooseResult}
+              />
+            </Animated.View>
+          )}
 
-        {/* Distance chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
-          {getDistanceOptions(isMetric, t('mapScreen.distanceAny')).map(({ key, label }) => (
-            <Pressable
-              key={key}
-              onPress={() => setDistanceFilter(key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: distanceFilter === key }}
-              style={pressable([
-                styles.chip,
-                distanceFilter === key
-                  ? styles.chipFilterActive
-                  : isDark
-                    ? styles.chipDark
-                    : styles.chipInactive,
-              ])}
-              android_ripple={pressRipple}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  distanceFilter === key
-                    ? styles.chipTextFilterActive
-                    : isDark
-                      ? styles.chipTextDark
-                      : styles.chipTextInactive,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Sport type filter chips */}
-        <SportChipRow
-          chips={categorySorted.map(({ category, count }) => ({
-            key: category,
-            label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
-            count,
-          }))}
-          selected={selectedCategories}
-          onToggle={toggleCategory}
-        />
-
-        {/* Activity count and date range */}
-        <View style={styles.infoRow}>
-          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            {t('mapScreen.activitySummary', {
-              count: totalCount,
-              mapped: displayActivities.length,
-              defaultValue: '{{count}} activities · {{mapped}} on the map',
-            })}
-            {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
-          </Text>
-          <Button
-            label={t('mapScreen.expandRange', 'Expand range')}
-            variant="ghost"
-            size="sm"
-            onPress={() => tapTo('/sync-settings')}
+          {/* Time period chips */}
+          <FilterChipRow
+            options={PERIOD_OPTIONS.map(({ id, labelKey }) => ({
+              key: id,
+              label: t(labelKey as never),
+            }))}
+            selected={period}
+            onSelect={setPeriod}
+            isDark={isDark}
           />
-        </View>
-      </View>
+
+          {sheetExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(SHEET_FADE_MS)}
+              exiting={FadeOut.duration(SHEET_FADE_MS)}
+            >
+              {/* Distance chips */}
+              <FilterChipRow
+                options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
+                selected={distanceFilter}
+                onSelect={setDistanceFilter}
+                isDark={isDark}
+              />
+
+              {/* Sport type filter chips */}
+              <SportChipRow
+                chips={categorySorted.map(({ category, count }) => ({
+                  key: category,
+                  label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
+                  count,
+                }))}
+                selected={selectedCategories}
+                onToggle={toggleCategory}
+              />
+
+              {/* Activity count and date range */}
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                  {t('mapScreen.activitySummary', {
+                    count: totalCount,
+                    mapped: displayActivities.length,
+                    defaultValue: '{{count}} activities · {{mapped}} on the map',
+                  })}
+                  {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+                </Text>
+                <Button
+                  label={t('mapScreen.expandRange', 'Expand range')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => tapTo('/sync-settings')}
+                />
+              </View>
+            </Animated.View>
+          )}
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
@@ -409,8 +456,20 @@ const styles = StyleSheet.create({
     zIndex: 10,
     backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
     paddingBottom: spacing.md,
+  },
+  handleRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  handle: {
+    width: spacing.xl,
+    height: spacing.xs,
+    borderRadius: layout.borderRadiusFull,
+    backgroundColor: colorWithOpacity(ink.black, 0.25),
+  },
+  handleDark: {
+    backgroundColor: colorWithOpacity(ink.white, 0.35),
   },
   infoBarDark: {
     backgroundColor: colorWithOpacity(darkColors.backgroundAlt, 0.92),

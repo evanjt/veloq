@@ -451,7 +451,7 @@ export function useActivityIntervals(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
-  useEngineBody(
+  const wait = useEngineBody(
     query.data !== null,
     () => getEngine()?.syncActivityIntervals(id),
     queryKey,
@@ -465,6 +465,8 @@ export function useActivityIntervals(id: string) {
     ...query,
     data: query.data ?? EMPTY_INTERVALS,
     outcome: outcomeOf(query.data),
+    bodyStatus: wait.status,
+    retryBody: wait.retry,
   };
 }
 

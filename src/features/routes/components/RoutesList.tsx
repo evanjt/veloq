@@ -24,10 +24,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
-import { EmptyState, SearchBar, pressable, pressRipple } from '@/shared/ui';
+import { EmptyState, ExplanationCard, SearchBar, pressable, pressRipple } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
+import { routesExplanation } from '@/features/routes/lib/explanationCopy';
 import { SportFilterMenu } from './SportFilterMenu';
 import type { RouteGroup } from '@/types';
 import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
@@ -225,6 +226,9 @@ export const RoutesList = memo(function RoutesList({
           </View>
         )}
         <DataRangeFooter days={cacheDays} isDark={isDark} />
+        <View style={styles.explanation}>
+          <ExplanationCard {...routesExplanation(t)} testID="routes-explanation" />
+        </View>
       </View>
     );
   };
@@ -359,6 +363,10 @@ const styles = StyleSheet.create({
   },
   summaryTextDark: {
     color: darkColors.textPrimary,
+  },
+  explanation: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   list: {
     paddingTop: spacing.md,
