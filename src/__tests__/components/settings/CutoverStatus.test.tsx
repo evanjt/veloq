@@ -64,13 +64,13 @@ describe('the cutover status line', () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
     render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
-    expect(screen.getByText('Rebuilding sections: cutting new sections')).toBeTruthy();
+    expect(screen.getByText('Rebuilding sections: Detecting sections')).toBeTruthy();
   });
 
   it('uses the preparing wording while the run drains', () => {
     mockUseCutoverSummary.mockReturnValue(running('draining'));
     render(<CutoverStatus />);
-    expect(screen.getByText('Rebuilding sections: preparing the catalogue')).toBeTruthy();
+    expect(screen.getByText('Rebuilding sections: Preparing catalogue')).toBeTruthy();
   });
 
   it('names every phase a run can hold the slot in', () => {

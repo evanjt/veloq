@@ -48,13 +48,13 @@ export function useWidget(id: string) {
 `;
 }
 
-function runAudit(hookSource: string): { status: number; output: string } {
+function runAudit(hookSource: string, backupSource = BACKUP): { status: number; output: string } {
   const root = mkdtempSync(join(tmpdir(), 'bridge-audit-'));
   roots.push(root);
   const files: Record<string, string> = {
     'src/shared/query/queryKeys.ts': QUERY_KEYS,
     'src/shared/app/GlobalDataSync.tsx': GLOBAL_SYNC,
-    'src/features/settings/lib/backup.ts': BACKUP,
+    'src/features/settings/lib/backup.ts': backupSource,
     'src/features/widgets/useWidget.ts': hookSource,
   };
   for (const [file, text] of Object.entries(files)) {
@@ -83,4 +83,26 @@ it('fails a file keyed on a member whose root nothing invalidates', () => {
 
 it('passes a file keyed on a member under an invalidated root', () => {
   expect(runAudit(hook('list')).status).toBe(0);
+});
+
+it('fails when an imported store initialiser is missing from the restore table', () => {
+  const backup = `import { initialiseWidgetStore } from './widgetStore';
+const storeInitialisers = () => [
+];
+`;
+
+  const { status, output } = runAudit(hook('list'), backup);
+
+  expect(status).toBe(1);
+  expect(output).toContain('initialiseWidgetStore');
+});
+
+it('passes when an imported store initialiser is registered in the restore table', () => {
+  const backup = `import { initialiseWidgetStore } from './widgetStore';
+const storeInitialisers = () => [
+  ['initialiseWidgetStore', initialiseWidgetStore],
+];
+`;
+
+  expect(runAudit(hook('list'), backup).status).toBe(0);
 });

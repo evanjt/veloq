@@ -71,7 +71,7 @@ describe('SectionChangeCardSlide', () => {
     it('names the phase while the re-cut runs and shows no counts', () => {
       engineWith({ phase: 'detecting', running: true }, { counts: COUNTS });
       const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
-      expect(getByTestId('change-card-progress')).toHaveTextContent(/phaseDetecting/);
+      expect(getByTestId('change-card-progress')).toHaveTextContent(/phaseNames.detecting/);
       expect(queryByTestId('change-card-counts')).toBeNull();
     });
 
@@ -192,12 +192,11 @@ describe('SectionChangeCardSlide', () => {
       ).toBeNull();
     });
 
-    it('reads draining and archiving as the one preparing line', () => {
+    it('names the draining and archiving steps', () => {
       for (const phase of ['draining', 'archiving']) {
         engineWith({ phase, running: true }, null);
         const line = render(<SectionChangeCardSlide />).getByTestId('change-card-progress');
-        expect(line).toHaveTextContent(/phasePreparing/);
-        expect(line).not.toHaveTextContent(new RegExp(phase, 'i'));
+        expect(line).toHaveTextContent(new RegExp(`phaseNames\\.${phase}`));
       }
     });
   });

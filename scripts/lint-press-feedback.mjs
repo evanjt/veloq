@@ -16,7 +16,7 @@
 // card that swallows the tap behind it are both `Pressable` and neither is a
 // button. `// press-feedback: none, <why>` above the tag is that statement,
 // and the reason is for the next reader rather than for this script.
-// A TouchableOpacity tag sets activeOpacity or spreads props until its migration.
+// Rendered Touchable controls use the shared controls or pressable() instead.
 
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -95,21 +95,23 @@ function saysWhatAPressLooksLike(node) {
   return false;
 }
 
-function setsTouchableOpacity(node) {
-  return node.attributes.properties.some(
-    (prop) =>
-      ts.isJsxSpreadAttribute(prop) ||
-      (ts.isJsxAttribute(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'activeOpacity')
-  );
-}
-
 const failures = [];
-const opacityFailures = [];
+const touchableFailures = [];
+const touchableNames = new Set([
+  'TouchableOpacity',
+  'TouchableHighlight',
+  'TouchableWithoutFeedback',
+  'TouchableNativeFeedback',
+]);
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file).replace(/^src\//, '');
   if (DEFINES_IT.includes(rel)) continue;
   const source = tree.text(file);
-  if (!source.includes('<Pressable') && !source.includes('<TouchableOpacity')) continue;
+  if (
+    !source.includes('<Pressable') &&
+    ![...touchableNames].some((name) => source.includes(`<${name}`))
+  )
+    continue;
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const visit = (node) => {
     if (
@@ -124,10 +126,9 @@ for (const file of walk(SRC)) {
     }
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
-      tagName(node) === 'TouchableOpacity' &&
-      !setsTouchableOpacity(node)
+      touchableNames.has(tagName(node))
     ) {
-      opacityFailures.push(
+      touchableFailures.push(
         `${relative(ROOT, file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
       );
     }
@@ -146,11 +147,13 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  ${f}`);
 }
 
-if (opacityFailures.length > 0) {
-  console.error(`TouchableOpacity tags with no activeOpacity: ${opacityFailures.length}.`);
-  for (const f of opacityFailures) console.error(`  ${f}`);
+if (touchableFailures.length > 0) {
+  console.error(
+    `Touchable tags rendered: ${touchableFailures.length}. Use Button, ToggleButton, IconButton or Pressable with pressable().`
+  );
+  for (const f of touchableFailures) console.error(`  ${f}`);
 }
 
-if (failures.length > 0 || opacityFailures.length > 0) process.exit(1);
+if (failures.length > 0 || touchableFailures.length > 0) process.exit(1);
 
-console.log('Press feedback guard: Pressable and TouchableOpacity tags set feedback.');
+console.log('Press feedback guard: Pressable tags set feedback; no Touchable tags render.');

@@ -92,6 +92,19 @@ describe('a refused section rename', () => {
 
     expect(Alert.alert).toHaveBeenCalledWith('sections.renameFailedTitle', 'sections.nameTaken');
   });
+
+  it('restores the old name when clearing it is refused', async () => {
+    mockRenameSection.mockRejectedValueOnce(new Error('Section name rejected'));
+    const hook = mount();
+
+    await act(async () => {
+      hook.result.current.handleSaveName('   ');
+    });
+
+    expect(mockRenameSection).toHaveBeenCalledWith('s1', '');
+    expect(hook.result.current.customName).toBe('Old climb');
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('section haptics', () => {
@@ -100,13 +113,15 @@ describe('section haptics', () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
-  it.each(['', '   '])('fires nothing when the name is %j', async (name) => {
+  it.each(['', '   '])('clears a name when the input is %j', async (name) => {
+    mockRenameSection.mockResolvedValueOnce(undefined);
     const hook = mount();
     await act(async () => {
       hook.result.current.handleSaveName(name);
     });
-    expect(mockRenameSection).not.toHaveBeenCalled();
-    expect(haptics.success).not.toHaveBeenCalled();
+    expect(mockRenameSection).toHaveBeenCalledWith('s1', '');
+    expect(hook.result.current.customName).toBeNull();
+    expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
   it('fires one success when a name passes its checks', async () => {

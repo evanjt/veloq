@@ -369,6 +369,14 @@ describe('the commands a merge runs', () => {
     expect(commands).toContain('./scripts/check-android-jvm.sh');
   });
 
+  it('runs JVM tests when the display module changes, which carries JVM tests of its own', () => {
+    const commands = mergeTestCommands(
+      mergeTestTargets(['modules/veloq-display/android/src/main/java/example/Display.kt'])
+    );
+
+    expect(commands).toContain('./scripts/check-android-jvm.sh');
+  });
+
   it('checks the iOS project when iOS or plugin sources change', () => {
     for (const changed of ['ios/ExampleApp/Info.plist', 'src/plugins/with-ios-widget.js']) {
       expect(mergeTestCommands(mergeTestTargets([changed]))).toContain(

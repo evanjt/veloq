@@ -82,7 +82,10 @@ jest.mock('@/features/routes/hooks/useRoutesScreenData', () => ({
 }));
 
 const mockFlags = { strength: 'hidden', routeMatching: false, debug: true };
-jest.mock('@/features/strength', () => ({ useStrengthTabState: () => mockFlags.strength }));
+jest.mock('@/features/strength', () => ({
+  useStrengthTabState: () => mockFlags.strength,
+  strengthPeriodOf: jest.requireActual('@/features/strength/periods').strengthPeriodOf,
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/useUserLocation', () => ({
   useUserLocation: () => ({ location: null, requestPermission: jest.fn() }),
@@ -197,5 +200,73 @@ describe('the Insights screen', () => {
 
     push();
     expect(mockStrip.activeTab).toBe('strength');
+  });
+});
+
+describe('a link to the strength tab that names a period', () => {
+  /** The period the strength page was handed, read off the page the strip holds. */
+  function linkedPeriod(): string | undefined {
+    const page = mockStrip.pages[mockStrip.tabs.findIndex((tab) => tab.key === 'strength')];
+    return (page?.props as { linkedPeriod?: { period: string } } | undefined)?.linkedPeriod?.period;
+  }
+
+  beforeEach(() => {
+    Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: false });
+  });
+
+  it('hands the named period to the strength tab on the first render and clears the param', () => {
+    mockParams.current = { tab: 'strength', period: '1m' };
+
+    render(<InsightsScreen />);
+
+    expect(mockStrip.activeTab).toBe('strength');
+    expect(linkedPeriod()).toBe('1m');
+    expect(mockParams.current.period).toBeUndefined();
+  });
+
+  it.each(['bogus', '1y', 'all', ''])('leaves the tab its own period for %p', (period) => {
+    mockParams.current = { tab: 'strength', period };
+
+    render(<InsightsScreen />);
+
+    expect(mockStrip.activeTab).toBe('strength');
+    expect(linkedPeriod()).toBeUndefined();
+  });
+
+  it('leaves the tab its own period when the link names none', () => {
+    mockParams.current = { tab: 'strength' };
+
+    render(<InsightsScreen />);
+
+    expect(linkedPeriod()).toBeUndefined();
+  });
+
+  it('moves the mounted tab to the period a second link names', () => {
+    mockParams.current = { tab: 'strength', period: '1m' };
+    const { rerender } = render(<InsightsScreen />);
+    rerender(<InsightsScreen />);
+    expect(linkedPeriod()).toBe('1m');
+
+    mockParams.current = { ...mockParams.current, tab: 'strength', period: '7d' };
+    rerender(<InsightsScreen />);
+
+    expect(linkedPeriod()).toBe('7d');
+    expect(mockParams.current.period).toBeUndefined();
+  });
+
+  it('hands a fresh link when a second link names the same period again', () => {
+    mockParams.current = { tab: 'strength', period: '1m' };
+    const { rerender } = render(<InsightsScreen />);
+    rerender(<InsightsScreen />);
+    const page = mockStrip.pages[mockStrip.tabs.findIndex((tab) => tab.key === 'strength')];
+    const first = (page.props as { linkedPeriod?: object }).linkedPeriod;
+
+    mockParams.current = { ...mockParams.current, period: '1m' };
+    rerender(<InsightsScreen />);
+
+    const again = mockStrip.pages[mockStrip.tabs.findIndex((tab) => tab.key === 'strength')];
+    const second = (again.props as { linkedPeriod?: object }).linkedPeriod;
+    expect(second).toEqual({ period: '1m' });
+    expect(second).not.toBe(first);
   });
 });

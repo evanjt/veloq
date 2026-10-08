@@ -1364,6 +1364,10 @@ pub(crate) mod pooled {
 // Both fragments refer to the activity_census alias `c`.
 const CENSUS_ROW_CHANGED: &str = "c.fetched_sync_date IS NOT c.icu_sync_date";
 
+pub(super) fn detail_body_present(raw: &str) -> String {
+    format!("json_valid({raw}) AND COALESCE(json_extract({raw}, '$.icu_athlete_id'), '') != ''")
+}
+
 /// A census row whose track was refused for good at the version the census
 /// still names. An edit upstream moves `icu_sync_date` off the recorded one,
 /// which retires the refusal. Refers to the alias `c`.
@@ -2136,12 +2140,14 @@ impl PersistentEngine {
              DELETE FROM job_attempts;
              DELETE FROM job_runs;
              DELETE FROM geocoded_places;
+             DELETE FROM geocoded_names;
              DELETE FROM push_runs;
              DELETE FROM sport_settings;
              DELETE FROM section_rank_inputs;
              DELETE FROM section_rank_dirty;
              DELETE FROM section_rank_dirty_activity;
-             DELETE FROM section_visible_count;",
+             DELETE FROM section_list_counts;
+             DELETE FROM route_group_sizes;",
         )?;
 
         // Settings survive `clear()` on purpose, but detector, owner and record
@@ -4058,12 +4064,21 @@ impl PersistentEngine {
         }
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         let result = (|| {
-            let mut body = self.db.prepare(
+            let stored_detail = detail_body_present("activity_bodies.raw");
+            let incoming_detail = detail_body_present("excluded.raw");
+            let mut body = self.db.prepare(&format!(
                 "INSERT INTO activity_bodies (activity_id, date, raw, updated_at)
                  VALUES (?1, ?2, ?3, strftime('%s', 'now'))
                  ON CONFLICT(activity_id) DO UPDATE SET
-                    date = excluded.date, raw = excluded.raw, updated_at = excluded.updated_at",
-            )?;
+                    date = excluded.date,
+                    raw = CASE WHEN ({stored_detail}) AND NOT ({incoming_detail})
+                         AND EXISTS (SELECT 1 FROM activity_census c
+                                     WHERE c.athlete_id = ?4 AND c.intervals_id = ?5
+                                       AND c.fetched_sync_date IS NOT NULL
+                                       AND NOT ({CENSUS_ROW_CHANGED}))
+                         THEN activity_bodies.raw ELSE excluded.raw END,
+                    updated_at = excluded.updated_at"
+            ))?;
             let mut invalidate = self.db.prepare(&format!(
                 "DELETE FROM interval_bodies WHERE activity_id = ?3
                  AND EXISTS (SELECT 1 FROM activity_census c
@@ -4076,7 +4091,7 @@ impl PersistentEngine {
                  WHERE athlete_id = ?1 AND intervals_id = ?2",
             )?;
             for ((local_id, date, raw), upstream_id) in rows.iter().zip(upstream_ids) {
-                body.execute(params![local_id, date, raw])?;
+                body.execute(params![local_id, date, raw, athlete_id, upstream_id])?;
                 invalidate.execute(params![athlete_id, upstream_id, local_id])?;
             }
             drop(body);
@@ -4289,6 +4304,10 @@ mod census_bounds_tests;
 #[cfg(test)]
 #[path = "tests/activities_pool.rs"]
 mod activities_pool_tests;
+
+#[cfg(test)]
+#[path = "tests/synced_activity_bodies.rs"]
+mod synced_activity_bodies_tests;
 
 #[cfg(test)]
 mod tests {

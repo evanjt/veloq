@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
  * come from the generated `widget_*` resources (auto light/dark). Form values are coloured by the
  * snapshot's zone enum; the widget never derives TSB boundaries.
  *
- * A tap anywhere opens Fitness.
+ * The card opens Fitness; the age row's refresh control queues native work.
  */
 object WidgetRenderer {
   /** Where a tap on the Summary widget goes. */
@@ -58,6 +58,7 @@ object WidgetRenderer {
     bindChart(context, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(context, v, R.id.small_updated, snap)
+    bindRefresh(context, v, snap)
     return v
   }
 
@@ -75,6 +76,7 @@ object WidgetRenderer {
     bindChart(context, v, R.id.sum_sparkline, snap, card, chartW, 48)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(context, v, R.id.med_updated, snap)
+    bindRefresh(context, v, snap)
     return v
   }
 
@@ -104,6 +106,7 @@ object WidgetRenderer {
     }
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(context, v, R.id.large_updated, snap)
+    bindRefresh(context, v, snap)
     return v
   }
 
@@ -204,6 +207,27 @@ object WidgetRenderer {
     v.setTextViewText(id, label)
     v.setTextColor(
       id, res(context, if (stale) R.color.widget_warning else R.color.widget_text_secondary))
+  }
+
+  /** The age and the action share a row; the action keeps a full finger-sized target. */
+  internal fun bindRefresh(context: Context, v: RemoteViews, snap: WidgetSnapshot?) {
+    if (snap == null || snap.emptyLibrary || snap.demoLabel != null) {
+      v.setViewVisibility(R.id.widget_refresh, View.GONE)
+      return
+    }
+    v.setViewVisibility(R.id.widget_refresh, View.VISIBLE)
+    val busy = com.veloq.NativeWidgetSnapshot.isBusy(context)
+    v.setTextViewText(R.id.widget_refresh, if (busy) "…" else "↻")
+    v.setContentDescription(
+      R.id.widget_refresh,
+      if (busy) snap?.refreshingLabel ?: context.getString(R.string.widget_refreshing)
+      else snap?.refreshLabel ?: context.getString(R.string.widget_refresh))
+    v.setOnClickPendingIntent(
+      R.id.widget_refresh,
+      PendingIntent.getBroadcast(
+        context, 40,
+        Intent(context, VeloqWidgetProvider::class.java).setAction(VeloqWidgetProvider.ACTION_REFRESH),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
   }
 
   // ---- latest activity widget ---------------------------------------------------
@@ -367,7 +391,7 @@ object WidgetRenderer {
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 
-  /** The whole widget opens Fitness; an instance the host has not numbered yet gets no tap. */
+  /** The card surface opens Fitness; an instance the host has not numbered yet gets no tap. */
   private fun bindFitnessTap(context: Context, v: RemoteViews, widgetId: Int) {
     if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
     v.setOnClickPendingIntent(R.id.sum_root, deepLink(context, FITNESS_URL, 4))

@@ -5,3 +5,4 @@
  */
 export { widgetInsights, type WidgetInsight } from './lib/widgetInsights';
 export type { Insight, InsightCategory, TFunc } from './types';
+export { isForSignedInAthlete, pushDataAthleteId, tapTargetFromPushData } from './lib/pushPayload';

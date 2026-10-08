@@ -39,6 +39,15 @@ fn the_list_request_asks_for_the_stored_decoupling() {
     );
 }
 
+#[test]
+fn test_activity_fields_request_stored_intensity() {
+    assert!(
+        super::stored_activity_fields()
+            .split(',')
+            .any(|field| field == "icu_intensity")
+    );
+}
+
 /// Scenario: the list request named no `description`, so an activity never
 /// opened online had no text on its detail screen. `polyline` is not a field of
 /// the Activity schema, so asking for it returns nothing and is left out.

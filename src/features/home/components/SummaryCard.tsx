@@ -1,12 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Pressable,
-  Image,
-  useWindowDimensions,
-} from 'react-native';
+import { View, StyleSheet, Pressable, Image, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
@@ -53,8 +46,9 @@ export interface SummaryCardProps {
   // Hero metric data
   heroMetric?: string | undefined;
   heroValue: number | string;
-  heroLabel: string; // "Fitness" or "HRV"
+  heroLabel: string;
   heroColor: string;
+  heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
   onHeroPress?: (() => void) | undefined;
 
@@ -103,6 +97,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroValue,
   heroLabel,
   heroColor,
+  heroZone,
   heroTrend,
   onHeroPress,
   fitnessData,
@@ -145,6 +140,7 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
+  const isFormMode = heroMetric === 'form';
   // The series a sparkline needs are carried on the flag rather than checked
   // again at the call site, so the plot cannot be reached without them.
   const showAny = sparklinesReady && showSparkline;
@@ -168,18 +164,6 @@ export const SummaryCard = React.memo(function SummaryCard({
   const fitnessTextColor = isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText;
   const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
 
-  const displayValue =
-    scrubValues !== null
-      ? isHrvMode
-        ? (scrubValues.hrv ?? heroValue)
-        : scrubValues.fitness
-      : heroValue;
-  const displayColor =
-    scrubValues !== null ? (isHrvMode ? fatigueTextColor : fitnessTextColor) : heroColor;
-
-  // Format hero value (no sign prefix - CTL/fitness/HRV values are always positive)
-  const formattedHeroValue = String(displayValue);
-
   // Current fitness sparkline values (latest or scrubbed)
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
   const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
@@ -192,6 +176,23 @@ export const SummaryCard = React.memo(function SummaryCard({
     : isDark
       ? darkColors.textPrimary
       : colors.textPrimary;
+  const displayValue =
+    scrubValues !== null
+      ? isHrvMode
+        ? (scrubValues.hrv ?? heroValue)
+        : isFormMode
+          ? (formatForm(scrubValues.form, scrubValues.fitness, asPercent) ?? '-')
+          : scrubValues.fitness
+      : heroValue;
+  const displayColor =
+    scrubValues !== null
+      ? isHrvMode
+        ? fatigueTextColor
+        : isFormMode
+          ? currentFormColor
+          : fitnessTextColor
+      : heroColor;
+  const formattedHeroValue = String(displayValue);
   // RHR borrows the high-risk red, and it is a value and a label, so it takes
   // the text variant of that token like every other word drawn in one.
   const rhrColor = formZoneTextColor('highRisk', isDark);
@@ -223,7 +224,9 @@ export const SummaryCard = React.memo(function SummaryCard({
             <Text
               style={[
                 styles.scrubDate,
-                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+                {
+                  color: isDark ? darkColors.textSecondary : colors.textSecondary,
+                },
               ]}
             >
               {scrubValues.dateLabel}
@@ -233,12 +236,12 @@ export const SummaryCard = React.memo(function SummaryCard({
           {/* Top row: Profile + Hero value + zone */}
           <View style={styles.topRow}>
             {/* Profile photo with gear badge */}
-            <TouchableOpacity
+            <Pressable
               onPress={onProfilePress}
-              activeOpacity={0.7}
-              style={styles.profileTouchArea}
+              style={pressable(styles.profileTouchArea)}
               accessibilityLabel={t('common.openSettings')}
               accessibilityRole="button"
+              android_ripple={pressRipple}
             >
               <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
                 {canDrawPhoto ? (
@@ -264,7 +267,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
               </View>
-            </TouchableOpacity>
+            </Pressable>
 
             {/* Hero metric - tappable */}
             <Pressable
@@ -286,13 +289,25 @@ export const SummaryCard = React.memo(function SummaryCard({
               ) : fitnessSparkline ? (
                 <View>
                   <View style={styles.heroValueRow}>
-                    <Text style={[styles.heroValueFixed, { color: fitnessTextColor }]}>
-                      {currentFitness}
+                    <Text
+                      style={[
+                        styles.heroValueFixed,
+                        { color: isFormMode ? currentFormColor : fitnessTextColor },
+                      ]}
+                    >
+                      {isFormMode
+                        ? (formatForm(currentForm, currentFitness, asPercent) ?? '-')
+                        : currentFitness}
                     </Text>
-                    <Text style={[styles.heroLabel, { color: fitnessTextColor }]}>
-                      {t('metrics.fitness')}
+                    <Text
+                      style={[
+                        styles.heroLabel,
+                        { color: isFormMode ? currentFormColor : fitnessTextColor },
+                      ]}
+                    >
+                      {t(isFormMode ? 'metrics.form' : 'metrics.fitness')}
                     </Text>
-                    {!scrubValues && fitnessChange !== null && (
+                    {!isFormMode && !scrubValues && fitnessChange !== null && (
                       <Text
                         testID="summary-card-fitness-change"
                         accessibilityHint={t('summaryCardChange.rule')}
@@ -306,15 +321,22 @@ export const SummaryCard = React.memo(function SummaryCard({
                     )}
                   </View>
                   <View style={styles.heroSubLine}>
-                    {currentFatigue !== null && (
+                    {isFormMode && (
+                      <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                        {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
+                      </Text>
+                    )}
+                    {!isFormMode && currentFatigue !== null && (
                       <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
                         {currentFatigue} {t('metrics.fatigue')}
                       </Text>
                     )}
-                    <Text style={[styles.heroSubText, { color: currentFormColor }]}>
-                      {formatForm(currentForm, currentFitness, asPercent) ?? ''}{' '}
-                      {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
-                    </Text>
+                    {!isFormMode && (
+                      <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                        {formatForm(currentForm, currentFitness, asPercent) ?? ''}{' '}
+                        {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
+                      </Text>
+                    )}
                   </View>
                 </View>
               ) : hrvSparkline ? (
@@ -351,6 +373,9 @@ export const SummaryCard = React.memo(function SummaryCard({
                   <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
                     {heroLabel}
                   </Text>
+                  {isFormMode && heroZone && (
+                    <Text style={[styles.heroSubText, { color: displayColor }]}>{heroZone}</Text>
+                  )}
                 </View>
               )}
             </Pressable>

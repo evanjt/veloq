@@ -94,6 +94,16 @@ describe('the device write guard', () => {
     expect(run.output).toContain('src/shared/a.ts  2, listed 1');
   });
 
+  it('counts a direct byte write through a File', () => {
+    const root = treeWith({
+      'src/shared/a.ts': `${TS_STORE}\nnew File(path).write(new Uint8Array(buffer));\n`,
+    });
+    const run = runGuard(root, { 'src/shared/a.ts': 1 });
+
+    expect(run.status).toBe(1);
+    expect(run.output).toContain('src/shared/a.ts  2, listed 1');
+  });
+
   it('refuses a listed file that no longer writes', () => {
     const root = treeWith({ 'src/shared/a.ts': 'export const nothing = 1;\n' });
 

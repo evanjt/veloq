@@ -3,7 +3,6 @@ import { useFocusEffect } from 'expo-router';
 import { hasStarted, StartOutcome, type StartVerdict } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
-import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import {
   DETECTION_FOREGROUND_MS,
   followDetection,
@@ -17,7 +16,6 @@ interface RescanResult {
 
 interface RescanProgress {
   phase: string;
-  displayName: string;
   completed: number;
   total: number;
   percent: number;
@@ -102,7 +100,6 @@ export function useSectionRescan(): SectionRescanState {
       onProgress: (p) =>
         setProgress({
           phase: p.phase,
-          displayName: getPhaseDisplayName(p.phase),
           completed: p.completed,
           total: p.total,
           percent: p.percent,

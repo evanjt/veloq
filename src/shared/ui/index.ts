@@ -1,7 +1,7 @@
 export { Shimmer, ActivityCardSkeleton, ChartSkeleton, StatsPillSkeleton } from './Shimmer';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
-export { AnimatedPressable, AnimatedButton } from './AnimatedPressable';
+export { AnimatedPressable } from './AnimatedPressable';
 export { Button, ToggleButton, ToggleButtonRow } from './Button';
 export type {
   ButtonProps,

@@ -61,6 +61,14 @@ fn page(attempts: &[Attempt], excluded: &[&str], current: &str) -> crate::RouteP
 }
 
 fn feed(attempts: &[Attempt], excluded: &[&str]) -> HashMap<String, bool> {
+    feed_with_directions(attempts, excluded, &[])
+}
+
+fn feed_with_directions(
+    attempts: &[Attempt],
+    excluded: &[&str],
+    match_directions: &[(&str, &str)],
+) -> HashMap<String, bool> {
     let ids: Vec<String> = attempts.iter().map(|a| a.id.clone()).collect();
     let groups = [GroupView {
         group_id: "g",
@@ -72,15 +80,64 @@ fn feed(attempts: &[Attempt], excluded: &[&str]) -> HashMap<String, bool> {
         excluded.iter().map(|s| s.to_string()).collect(),
     );
     let lookup = metrics_of(attempts, 0);
+    let directions = HashMap::from([(
+        "g",
+        match_directions
+            .iter()
+            .map(|(id, direction)| (*id, direction.parse().expect("valid direction")))
+            .collect(),
+    )]);
     let rows = highlights::route_highlights(
         &groups,
-        &HashMap::new(),
+        &directions,
         &excl,
         &HashMap::new(),
         |id| lookup(id).as_ref().map(Effort::from),
         &ids,
     );
     rows.into_iter().map(|r| (r.activity_id, r.is_pr)).collect()
+}
+
+fn feed_trend(attempts: &[Attempt], current: &str) -> i8 {
+    let ids: Vec<String> = attempts.iter().map(|a| a.id.clone()).collect();
+    let groups = [GroupView {
+        group_id: "g",
+        activity_ids: &ids,
+    }];
+    let lookup = metrics_of(attempts, 0);
+    highlights::route_highlights(
+        &groups,
+        &HashMap::new(),
+        &HashMap::new(),
+        &HashMap::new(),
+        |id| lookup(id).as_ref().map(Effort::from),
+        &ids,
+    )
+    .into_iter()
+    .find(|row| row.activity_id == current)
+    .expect("highlight present")
+    .trend
+}
+
+#[test]
+fn partial_match_cannot_take_a_reverse_route_record() {
+    let attempts = vec![
+        attempt("reverse_best", "Ride", 10_000.0, 900),
+        attempt("reverse_other", "Ride", 10_000.0, 950),
+        attempt("overlap", "Ride", 10_000.0, 600),
+    ];
+    let rows = feed_with_directions(
+        &attempts,
+        &[],
+        &[
+            ("reverse_best", "reverse"),
+            ("reverse_other", "reverse"),
+            ("overlap", "partial"),
+        ],
+    );
+
+    assert!(!rows.contains_key("overlap"));
+    assert!(rows["reverse_best"]);
 }
 
 fn outside(result: &crate::RoutePerformanceResult, id: &str) -> bool {
@@ -136,6 +193,37 @@ fn a_run_shortcut_holds_no_record_and_is_flagged() {
     assert!(!rows["short"]);
     assert!(rows["c"]);
     assert!(result.performances.iter().any(|p| p.activity_id == "short"));
+}
+
+#[test]
+fn test_route_stats_average_only_counted_timed_attempts() {
+    let attempts = vec![
+        attempt("first", "Run", 5000.0, 1000),
+        attempt("second", "Run", 5000.0, 1050),
+        attempt("short", "Run", 2000.0, 400),
+        attempt("untimed", "Run", 5000.0, 0),
+    ];
+
+    let result = page(&attempts, &[], "second");
+    let stats = result.forward_stats.expect("forward stats");
+
+    assert_eq!(result.best.as_ref().unwrap().moving_time, 1000);
+    assert_eq!(stats.avg_time, Some(1025.0));
+    assert_eq!(stats.count, 2);
+    assert_eq!(stats.outside_band_count, 1);
+    assert_eq!(stats.avg_speed, Some((5.0 + 5000.0 / 1050.0) / 2.0));
+}
+
+#[test]
+fn test_route_highlight_trend_ignores_short_attempt() {
+    let attempts = vec![
+        attempt("first", "Run", 5000.0, 1000),
+        attempt("second", "Run", 5000.0, 1050),
+        attempt("short", "Run", 2000.0, 800),
+        attempt("latest", "Run", 5000.0, 1020),
+    ];
+
+    assert_eq!(feed_trend(&attempts, "latest"), 0);
 }
 
 #[test]

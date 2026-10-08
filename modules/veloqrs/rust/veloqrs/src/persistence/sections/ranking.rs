@@ -59,24 +59,34 @@ struct TraversalRow {
 /// `persistence/records.rs` writes, so a quicker traversal the other way is a
 /// different effort and cannot be the best. A section only ever ridden in
 /// reverse still has a best: with no forward traversal to pick from, the rule
-/// applies to the direction that exists rather than answering nothing.
+/// applies to the direction that exists rather than answering nothing. An
+/// attempt outside a route's distance band is never the best.
 fn best_time_secs(points: &[crate::FfiSectionChartPoint]) -> Option<f64> {
     let quickest = |forward_only: bool| {
         points
             .iter()
-            .filter(|p| p.section_time > 0 && (!forward_only || p.direction != "reverse"))
+            .filter(|p| {
+                p.section_time > 0
+                    && !p.outside_distance_band
+                    && (!forward_only || p.direction != "reverse")
+            })
             .map(|p| p.section_time)
             .min()
     };
     quickest(true).or_else(|| quickest(false)).map(|t| t as f64)
 }
 
-/// Marks the one point per direction that beats every other traversal of that
-/// direction by time. A tie or a lone traversal marks nothing.
+/// Marks the one point per direction that beats every other counted traversal
+/// of that direction by time. A tie or a lone traversal marks nothing, and an
+/// attempt outside a route's distance band is neither the record nor a rival.
 fn stamp_records(points: &mut [crate::FfiSectionChartPoint]) {
     for direction in ["same", "reverse"] {
         let mut order: Vec<usize> = (0..points.len())
-            .filter(|&i| points[i].direction == direction && points[i].section_time > 0)
+            .filter(|&i| {
+                points[i].direction == direction
+                    && points[i].section_time > 0
+                    && !points[i].outside_distance_band
+            })
             .collect();
         order.sort_by_key(|&i| points[i].section_time);
         let (Some(&best), Some(&rival)) = (order.first(), order.get(1)) else {
@@ -447,6 +457,8 @@ pub(crate) fn chart_from_cutoff(
                 direction: direction.to_string(),
                 is_best: false,
                 avg_power: None,
+                outside_distance_band: false,
+                match_percentage: None,
             });
         } else {
             for lap in &record.laps {
@@ -488,6 +500,8 @@ pub(crate) fn chart_from_cutoff(
                     direction: direction.to_string(),
                     is_best: false,
                     avg_power: lap.avg_power,
+                    outside_distance_band: lap.outside_distance_band,
+                    match_percentage: lap.match_percentage,
                 });
             }
         }
@@ -526,6 +540,10 @@ pub(crate) fn chart_from_cutoff(
         (min, max)
     };
 
+    let first_activity_date = points
+        .iter()
+        .map(|p| p.activity_date)
+        .min_by(f64::total_cmp);
     let last_activity_date = points
         .iter()
         .map(|p| p.activity_date)
@@ -539,6 +557,7 @@ pub(crate) fn chart_from_cutoff(
         max_speed,
         has_reverse_runs,
         best_time_secs,
+        first_activity_date,
         last_activity_date,
         total_activities,
     }
@@ -656,6 +675,8 @@ mod workout_trend_encoding_tests {
             avg_power,
             coverage: Some(1.0),
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -705,6 +726,8 @@ mod workout_trend_encoding_tests {
             avg_power: None,
             coverage: None,
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -738,6 +761,8 @@ mod workout_trend_encoding_tests {
             avg_power: None,
             coverage: Some(1.0),
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         };
         crate::SectionPerformanceRecord {
             laps: vec![lap],
@@ -997,6 +1022,8 @@ mod workout_trend_encoding_tests {
                 avg_power: None,
                 coverage: None,
                 excluded: false,
+                outside_distance_band: false,
+                match_percentage: None,
             }
         }
 

@@ -64,7 +64,8 @@ jest.mock('@/features/routes/components', () => ({
   DataRangeFooter: () => null,
   DetailFallback: () => null,
   RouteDetailMap: () => null,
-  SportTypeSelector: () => null,
+  SportTypeSelector: () =>
+    jest.requireActual('react').createElement('Text', { testID: 'sport-type-selector' }),
   RouteDetailChart: () => null,
   RouteDetailDebugPanel: () => null,
   routeDetailScreenStyles: {},
@@ -85,7 +86,12 @@ jest.mock('@/features/routes/hooks/useRouteDetailData', () => ({
       },
       groups: [],
       activityCount: 2,
-      performances: { activityMetrics: [] },
+      performances: {
+        activityMetrics: [
+          { activityId: 'a1', sportType: 'Ride' },
+          { activityId: 'a2', sportType: 'Ride' },
+        ],
+      },
       encodedRepresentative: new ArrayBuffer(8),
       routeNames: { r_9: 'Strecke 4' },
       excludedActivityIds: [],
@@ -106,12 +112,7 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
 jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useRouteRenaming'),
   ...jest.requireMock('@/features/routes/hooks/useRoutePerformances'),
-  useSportTypeFilter: () => ({
-    selectedSportType: null,
-    setSelectedSportType: jest.fn(),
-    availableSportTypes: [],
-    sportFilter: undefined,
-  }),
+  ...jest.requireActual('@/features/routes/hooks/useSportTypeFilter'),
   useRouteChartData: () => ({ signatures: {}, chartData: [] }),
   useRouteReference: () => ({ effectiveRepresentativeId: 'a1', handleSetAsReference: jest.fn() }),
   useExcludedActivities: () => ({
@@ -151,7 +152,10 @@ it('opens the rename field on the numbered label', () => {
 it('names the GPX export with the numbered label', () => {
   const screen = render(<RouteDetailScreen />);
 
+  expect(screen.queryByTestId('sport-type-selector')).toBeNull();
   fireEvent.press(screen.getByTestId('route-export-gpx'));
 
-  expect(mockExportGpx).toHaveBeenCalledWith(expect.objectContaining({ name: 'Strecke 4' }));
+  expect(mockExportGpx).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'Strecke 4', sport: 'Ride' })
+  );
 });

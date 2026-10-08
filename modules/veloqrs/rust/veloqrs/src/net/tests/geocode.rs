@@ -1,4 +1,5 @@
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use httpmock::prelude::*;
@@ -101,6 +102,103 @@ fn with_no_endpoint_nothing_is_sent() {
 
     assert_eq!(name, None);
     assert_eq!(geocoder.transport().count(), 0);
+}
+
+#[test]
+fn configured_stop_sends_no_point() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_config_stop.db");
+    switch(true);
+    let geocoder =
+        Geocoder::with_transport(Stub::answering(|_| Ok(r#"{"endpoint":null}"#.to_string())));
+
+    let name = crate::runtime::block_on(geocoder.configured_place_name(HERE.0, HERE.1, "en-AU"));
+
+    assert_eq!(name, None);
+    let sent = geocoder.transport().sent.lock().unwrap();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].url, "https://auth.veloq.fit/geocoder");
+}
+
+#[test]
+fn configured_endpoint_routes_the_point_to_its_provider() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_config_endpoint.db");
+    switch(true);
+    let geocoder = Geocoder::with_transport(Stub::answering(|url| {
+        if url.ends_with("/geocoder") {
+            Ok(r#"{"endpoint":"https://places.example"}"#.to_string())
+        } else {
+            Ok(answer("Northcote"))
+        }
+    }));
+
+    let name = crate::runtime::block_on(geocoder.configured_place_name(HERE.0, HERE.1, "en-AU"));
+
+    assert_eq!(name.as_deref(), Some("Northcote"));
+    let sent = geocoder.transport().sent.lock().unwrap();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[0].url, "https://auth.veloq.fit/geocoder");
+    assert!(sent[1].url.starts_with("https://places.example/reverse?"));
+}
+
+#[test]
+fn failed_config_fetch_on_fresh_engine_sends_no_point() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_config_unreachable.db");
+    switch(true);
+    let geocoder = Geocoder::with_transport(Stub::answering(|_| {
+        Err(GeocodeError::Unreachable("offline".to_string()))
+    }));
+
+    let name = crate::runtime::block_on(geocoder.configured_place_name(HERE.0, HERE.1, "en-AU"));
+
+    assert_eq!(name, None);
+    assert_eq!(geocoder.transport().count(), 1);
+}
+
+#[test]
+fn failed_refresh_keeps_the_last_endpoint() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_config_last_good.db");
+    switch(true);
+    let offline = Arc::new(AtomicBool::new(false));
+    let config_offline = Arc::clone(&offline);
+    let geocoder = Geocoder::with_transport(Stub::answering(move |url| {
+        if url.ends_with("/geocoder") {
+            if config_offline.load(Ordering::SeqCst) {
+                Err(GeocodeError::Unreachable("offline".to_string()))
+            } else {
+                Ok(r#"{"endpoint":"https://places.example"}"#.to_string())
+            }
+        } else {
+            Ok(answer("Northcote"))
+        }
+    }));
+
+    crate::runtime::block_on(geocoder.configured_place_name(HERE.0, HERE.1, "en-AU"));
+    crate::runtime::block_on(geocoder.configured_place_name(THERE.0, THERE.1, "en-AU"));
+    assert_eq!(geocoder.transport().count(), 3);
+
+    let mut copy = held_config().unwrap();
+    copy.fetched_at_ms = 0;
+    with_persistent_engine(|engine| {
+        engine
+            .set_setting(
+                settings_keys::GEOCODER_CONFIG,
+                &serde_json::to_string(&copy).unwrap(),
+            )
+            .unwrap();
+    });
+    offline.store(true, Ordering::SeqCst);
+
+    let name = crate::runtime::block_on(geocoder.configured_place_name(37.3, -122.0, "en-AU"));
+
+    assert_eq!(name.as_deref(), Some("Northcote"));
+    let sent = geocoder.transport().sent.lock().unwrap();
+    assert_eq!(sent.len(), 5);
+    assert_eq!(sent[3].url, "https://auth.veloq.fit/geocoder");
+    assert!(sent[4].url.starts_with("https://places.example/reverse?"));
 }
 
 #[test]

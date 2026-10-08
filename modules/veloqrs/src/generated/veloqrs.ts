@@ -510,6 +510,24 @@ export function resumeElevationBackfill(): boolean {
 }
 
 /**
+ * Set the engine's process-wide log level after logger initialisation.
+ */
+export function setEngineLogLevel(level: EngineLogLevel): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_set_engine_log_level(
+        FfiConverterTypeEngineLogLevel.lower(
+          level,
+          nativeModule().rustbuffer_alloc,
+        ),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+}
+
+/**
  * Tell the engine whether the athlete is touching the screen.
  *
  * Call it with `true` on the first touch and again every couple of seconds
@@ -6575,7 +6593,7 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
  */
 export type FfiDirectionStats = {
   /**
-   * Average time across all traversals in this direction (seconds)
+   * Average time across counted traversals in this direction (seconds)
    */
   avgTime?: number;
   /**
@@ -6592,6 +6610,10 @@ export type FfiDirectionStats = {
    * re-aggregate. Section performance queries currently leave it as None.
    */
   avgSpeed?: number;
+  /**
+   * Timed route attempts outside the distance band.
+   */
+  outsideBandCount: number;
 };
 
 /**
@@ -6620,6 +6642,7 @@ const FfiConverterTypeFfiDirectionStats = (() => {
         lastActivity: FfiConverterOptionalFloat64.readFromCursor(c),
         count: FfiConverterUInt32.readFromCursor(c),
         avgSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
+        outsideBandCount: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -6627,13 +6650,15 @@ const FfiConverterTypeFfiDirectionStats = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.lastActivity, c);
       FfiConverterUInt32.writeIntoCursor(value.count, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgSpeed, c);
+      FfiConverterUInt32.writeIntoCursor(value.outsideBandCount, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalFloat64.allocationSize(value.avgTime) +
         FfiConverterOptionalFloat64.allocationSize(value.lastActivity) +
         FfiConverterUInt32.allocationSize(value.count) +
-        FfiConverterOptionalFloat64.allocationSize(value.avgSpeed)
+        FfiConverterOptionalFloat64.allocationSize(value.avgSpeed) +
+        FfiConverterUInt32.allocationSize(value.outsideBandCount)
       );
     }
   }
@@ -8227,7 +8252,7 @@ const FfiConverterTypeFfiHrvTrend = (() => {
 export type FfiIndexActivitySummary = {
   matchedSections: number;
   insertedPortions: number;
-  regrouped: boolean;
+  regroupScheduled: boolean;
 };
 
 /**
@@ -8256,19 +8281,19 @@ const FfiConverterTypeFfiIndexActivitySummary = (() => {
       return {
         matchedSections: FfiConverterUInt32.readFromCursor(c),
         insertedPortions: FfiConverterUInt32.readFromCursor(c),
-        regrouped: FfiConverterBool.readFromCursor(c),
+        regroupScheduled: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterUInt32.writeIntoCursor(value.matchedSections, c);
       FfiConverterUInt32.writeIntoCursor(value.insertedPortions, c);
-      FfiConverterBool.writeIntoCursor(value.regrouped, c);
+      FfiConverterBool.writeIntoCursor(value.regroupScheduled, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.matchedSections) +
         FfiConverterUInt32.allocationSize(value.insertedPortions) +
-        FfiConverterBool.allocationSize(value.regrouped)
+        FfiConverterBool.allocationSize(value.regroupScheduled)
       );
     }
   }
@@ -8482,6 +8507,20 @@ export type FfiRecentPr = {
    */
   traversalCount: number;
   /**
+   * Timed, eligible laps in the record's direction.
+   */
+  standingCount: number;
+  /**
+   * Percent of other counted laps slower than the record, when at least three count.
+   */
+  percentileFaster?: number;
+  /**
+   * The next fastest counted lap in the record's direction.
+   */
+  previousBestTime?: number;
+  previousBestDate?: number;
+  deltaSeconds?: number;
+  /**
    * The last efforts on the section, oldest first, capped by
    * `FfiInsightsParams::history_limit`. What the card draws, so the list
    * does not read the engine again per card to draw a line it already had.
@@ -8529,6 +8568,11 @@ const FfiConverterTypeFfiRecentPR = (() => {
         daysAgo: FfiConverterUInt32.readFromCursor(c),
         sportType: FfiConverterString.readFromCursor(c),
         traversalCount: FfiConverterUInt32.readFromCursor(c),
+        standingCount: FfiConverterUInt32.readFromCursor(c),
+        percentileFaster: FfiConverterOptionalUInt32.readFromCursor(c),
+        previousBestTime: FfiConverterOptionalFloat64.readFromCursor(c),
+        previousBestDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        deltaSeconds: FfiConverterOptionalFloat64.readFromCursor(c),
         recentEfforts: FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
         encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
         bestActivityId: FfiConverterOptionalString.readFromCursor(c),
@@ -8541,6 +8585,11 @@ const FfiConverterTypeFfiRecentPR = (() => {
       FfiConverterUInt32.writeIntoCursor(value.daysAgo, c);
       FfiConverterString.writeIntoCursor(value.sportType, c);
       FfiConverterUInt32.writeIntoCursor(value.traversalCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.standingCount, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.percentileFaster, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.previousBestTime, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.previousBestDate, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.deltaSeconds, c);
       FfiConverterSequenceTypeFfiSeriesPoint.writeIntoCursor(
         value.recentEfforts,
         c,
@@ -8556,6 +8605,11 @@ const FfiConverterTypeFfiRecentPR = (() => {
         FfiConverterUInt32.allocationSize(value.daysAgo) +
         FfiConverterString.allocationSize(value.sportType) +
         FfiConverterUInt32.allocationSize(value.traversalCount) +
+        FfiConverterUInt32.allocationSize(value.standingCount) +
+        FfiConverterOptionalUInt32.allocationSize(value.percentileFaster) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousBestTime) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousBestDate) +
+        FfiConverterOptionalFloat64.allocationSize(value.deltaSeconds) +
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(
           value.recentEfforts,
         ) +
@@ -8948,6 +9002,11 @@ export type FfiMuscleVolume = {
    * Human-readable exercise names that targeted this muscle
    */
   exerciseNames: Array<string>;
+  /**
+   * Body-diagram shade, 1 (lightest) to `DIAGRAM_SHADES`, against the
+   * most trained muscle in the same summary
+   */
+  shade: number;
 };
 
 /**
@@ -8979,6 +9038,7 @@ const FfiConverterTypeFfiMuscleVolume = (() => {
         totalReps: FfiConverterFloat64.readFromCursor(c),
         volumeKg: FfiConverterFloat64.readFromCursor(c),
         exerciseNames: FfiConverterSequenceString.readFromCursor(c),
+        shade: FfiConverterUInt8.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -8989,6 +9049,7 @@ const FfiConverterTypeFfiMuscleVolume = (() => {
       FfiConverterFloat64.writeIntoCursor(value.totalReps, c);
       FfiConverterFloat64.writeIntoCursor(value.volumeKg, c);
       FfiConverterSequenceString.writeIntoCursor(value.exerciseNames, c);
+      FfiConverterUInt8.writeIntoCursor(value.shade, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8998,7 +9059,8 @@ const FfiConverterTypeFfiMuscleVolume = (() => {
         FfiConverterFloat64.allocationSize(value.weightedSets) +
         FfiConverterFloat64.allocationSize(value.totalReps) +
         FfiConverterFloat64.allocationSize(value.volumeKg) +
-        FfiConverterSequenceString.allocationSize(value.exerciseNames)
+        FfiConverterSequenceString.allocationSize(value.exerciseNames) +
+        FfiConverterUInt8.allocationSize(value.shade)
       );
     }
   }
@@ -9124,6 +9186,11 @@ export type FfiStrengthSummary = {
    * One entry per opposing pair, trained or not
    */
   balance: Array<FfiStrengthBalancePair>;
+  /**
+   * The most trained muscle's weighted sets, the top of the diagram's
+   * scale, or zero when nothing was trained
+   */
+  maxWeightedSets: number;
 };
 
 /**
@@ -9155,6 +9222,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
         totalSets: FfiConverterUInt32.readFromCursor(c),
         balance:
           FfiConverterSequenceTypeFfiStrengthBalancePair.readFromCursor(c),
+        maxWeightedSets: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -9169,6 +9237,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
         value.balance,
         c,
       );
+      FfiConverterFloat64.writeIntoCursor(value.maxWeightedSets, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -9180,7 +9249,8 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
         FfiConverterUInt32.allocationSize(value.totalSets) +
         FfiConverterSequenceTypeFfiStrengthBalancePair.allocationSize(
           value.balance,
-        )
+        ) +
+        FfiConverterFloat64.allocationSize(value.maxWeightedSets)
       );
     }
   }
@@ -10021,23 +10091,23 @@ const FfiConverterTypeFfiTimestampRange = (() => {
  */
 export type FfiInsightsParams = {
   /**
-   * Start of the current week
+   * Start of the current week, filled by the engine from current_end
    */
   currentStart: number;
   /**
-   * Now
+   * Current wall-clock second; the engine derives both week windows from it
    */
   currentEnd: number;
   /**
-   * Start of the previous week
+   * Start of the previous week, filled by the engine
    */
   prevStart: number;
   /**
-   * End of the previous week
+   * End of the previous elapsed week, filled by the engine
    */
   prevEnd: number;
   /**
-   * Start of the four-week chronic window
+   * Start of the four-week chronic window, filled by the engine
    */
   chronicStart: number;
   /**
@@ -14095,6 +14165,17 @@ export type FfiSectionChartPoint = {
    * for a record without laps, which has no single lap to read it from.
    */
   avgPower?: number;
+  /**
+   * A route attempt outside the band around the route's usual distance:
+   * drawn, but never the record, fitted or binned. Always false on a
+   * section.
+   */
+  outsideDistanceBand: boolean;
+  /**
+   * How much of the route the attempt matched, 0 to 100. `None` on a
+   * section, and on a route attempt with no stored match.
+   */
+  matchPercentage?: number;
 };
 
 /**
@@ -14130,6 +14211,8 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         direction: FfiConverterString.readFromCursor(c),
         isBest: FfiConverterBool.readFromCursor(c),
         avgPower: FfiConverterOptionalFloat64.readFromCursor(c),
+        outsideDistanceBand: FfiConverterBool.readFromCursor(c),
+        matchPercentage: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -14143,6 +14226,8 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
       FfiConverterString.writeIntoCursor(value.direction, c);
       FfiConverterBool.writeIntoCursor(value.isBest, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgPower, c);
+      FfiConverterBool.writeIntoCursor(value.outsideDistanceBand, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.matchPercentage, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -14155,7 +14240,9 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         FfiConverterFloat64.allocationSize(value.sectionDistance) +
         FfiConverterString.allocationSize(value.direction) +
         FfiConverterBool.allocationSize(value.isBest) +
-        FfiConverterOptionalFloat64.allocationSize(value.avgPower)
+        FfiConverterOptionalFloat64.allocationSize(value.avgPower) +
+        FfiConverterBool.allocationSize(value.outsideDistanceBand) +
+        FfiConverterOptionalFloat64.allocationSize(value.matchPercentage)
       );
     }
   }
@@ -14176,6 +14263,10 @@ export type FfiSectionChartData = {
    * The quickest lap in the section's own direction.
    */
   bestTimeSecs?: number;
+  /**
+   * The oldest point's date, unix seconds.
+   */
+  firstActivityDate?: number;
   lastActivityDate?: number;
   totalActivities: number;
 };
@@ -14207,6 +14298,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
         maxSpeed: FfiConverterFloat64.readFromCursor(c),
         hasReverseRuns: FfiConverterBool.readFromCursor(c),
         bestTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        firstActivityDate: FfiConverterOptionalFloat64.readFromCursor(c),
         lastActivityDate: FfiConverterOptionalFloat64.readFromCursor(c),
         totalActivities: FfiConverterUInt32.readFromCursor(c),
       };
@@ -14220,6 +14312,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
       FfiConverterFloat64.writeIntoCursor(value.maxSpeed, c);
       FfiConverterBool.writeIntoCursor(value.hasReverseRuns, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.bestTimeSecs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.firstActivityDate, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.lastActivityDate, c);
       FfiConverterUInt32.writeIntoCursor(value.totalActivities, c);
     }
@@ -14232,6 +14325,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
         FfiConverterFloat64.allocationSize(value.maxSpeed) +
         FfiConverterBool.allocationSize(value.hasReverseRuns) +
         FfiConverterOptionalFloat64.allocationSize(value.bestTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.firstActivityDate) +
         FfiConverterOptionalFloat64.allocationSize(value.lastActivityDate) +
         FfiConverterUInt32.allocationSize(value.totalActivities)
       );
@@ -18909,6 +19003,39 @@ const FfiConverterTypeDownloadPriority = (() => {
   return new FFIConverter();
 })();
 
+export enum EngineLogLevel {
+  Boot,
+  Info,
+}
+
+const FfiConverterTypeEngineLogLevel = (() => {
+  type TypeName = EngineLogLevel;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return EngineLogLevel.Boot;
+        case 2:
+          return EngineLogLevel.Info;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case EngineLogLevel.Boot:
+          return c.writeI32(1);
+        case EngineLogLevel.Info:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
 // Enum: FfiFeedSeen
 export enum FfiFeedSeen_Tags {
   Opened = "Opened",
@@ -19350,6 +19477,247 @@ const FfiConverterTypeFfiInitOutcome = (() => {
     }
     allocationSize(value: TypeName): number {
       return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiSectionBoundsEdit
+export enum FfiSectionBoundsEdit_Tags {
+  Trim = "Trim",
+  Reset = "Reset",
+  Expand = "Expand",
+}
+/**
+ * One edit to a section's bounds.
+ */
+export const FfiSectionBoundsEdit = (() => {
+  type Trim__interface = {
+    tag: FfiSectionBoundsEdit_Tags.Trim;
+    inner: Readonly<{
+      sectionId: string;
+      startIndex: number;
+      endIndex: number;
+    }>;
+  };
+  /**
+   * Cut the section's own line to `start_index..=end_index`.
+   */
+  class Trim_ extends UniffiEnum implements Trim__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiSectionBoundsEdit";
+    readonly tag = FfiSectionBoundsEdit_Tags.Trim;
+    readonly inner: Readonly<{
+      sectionId: string;
+      startIndex: number;
+      endIndex: number;
+    }>;
+    constructor(inner: {
+      sectionId: string;
+      startIndex: number;
+      endIndex: number;
+    }) {
+      super("FfiSectionBoundsEdit", "Trim");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: {
+      sectionId: string;
+      startIndex: number;
+      endIndex: number;
+    }): Trim_ {
+      return new Trim_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Trim_ {
+      return obj.tag === FfiSectionBoundsEdit_Tags.Trim;
+    }
+  }
+
+  type Reset__interface = {
+    tag: FfiSectionBoundsEdit_Tags.Reset;
+    inner: Readonly<{ sectionId: string }>;
+  };
+  /**
+   * Put back the line the section had before its first edit.
+   */
+  class Reset_ extends UniffiEnum implements Reset__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiSectionBoundsEdit";
+    readonly tag = FfiSectionBoundsEdit_Tags.Reset;
+    readonly inner: Readonly<{ sectionId: string }>;
+    constructor(inner: { sectionId: string }) {
+      super("FfiSectionBoundsEdit", "Reset");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { sectionId: string }): Reset_ {
+      return new Reset_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Reset_ {
+      return obj.tag === FfiSectionBoundsEdit_Tags.Reset;
+    }
+  }
+
+  type Expand__interface = {
+    tag: FfiSectionBoundsEdit_Tags.Expand;
+    inner: Readonly<{
+      sectionId: string;
+      activityId: string;
+      startIndex: number;
+      endIndex: number;
+    }>;
+  };
+  /**
+   * Take `start_index..=end_index` of the activity's track as the line.
+   */
+  class Expand_ extends UniffiEnum implements Expand__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiSectionBoundsEdit";
+    readonly tag = FfiSectionBoundsEdit_Tags.Expand;
+    readonly inner: Readonly<{
+      sectionId: string;
+      activityId: string;
+      startIndex: number;
+      endIndex: number;
+    }>;
+    constructor(inner: {
+      sectionId: string;
+      activityId: string;
+      startIndex: number;
+      endIndex: number;
+    }) {
+      super("FfiSectionBoundsEdit", "Expand");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: {
+      sectionId: string;
+      activityId: string;
+      startIndex: number;
+      endIndex: number;
+    }): Expand_ {
+      return new Expand_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Expand_ {
+      return obj.tag === FfiSectionBoundsEdit_Tags.Expand;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiSectionBoundsEdit {
+    return obj[uniffiTypeNameSymbol] === "FfiSectionBoundsEdit";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    Trim: Trim_,
+    Reset: Reset_,
+    Expand: Expand_,
+  });
+})();
+/**
+ * One edit to a section's bounds.
+ */
+export type FfiSectionBoundsEdit = InstanceType<
+  (typeof FfiSectionBoundsEdit)["Trim" | "Reset" | "Expand"]
+>;
+
+// FfiConverter for enum FfiSectionBoundsEdit
+const FfiConverterTypeFfiSectionBoundsEdit = (() => {
+  type TypeName = FfiSectionBoundsEdit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiSectionBoundsEdit.Trim({
+            sectionId: FfiConverterString.readFromCursor(c),
+            startIndex: FfiConverterUInt32.readFromCursor(c),
+            endIndex: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 2:
+          return new FfiSectionBoundsEdit.Reset({
+            sectionId: FfiConverterString.readFromCursor(c),
+          });
+        case 3:
+          return new FfiSectionBoundsEdit.Expand({
+            sectionId: FfiConverterString.readFromCursor(c),
+            activityId: FfiConverterString.readFromCursor(c),
+            startIndex: FfiConverterUInt32.readFromCursor(c),
+            endIndex: FfiConverterUInt32.readFromCursor(c),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiSectionBoundsEdit_Tags.Trim: {
+          c.writeI32(1);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.sectionId, c);
+          FfiConverterUInt32.writeIntoCursor(inner.startIndex, c);
+          FfiConverterUInt32.writeIntoCursor(inner.endIndex, c);
+          return;
+        }
+        case FfiSectionBoundsEdit_Tags.Reset: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.sectionId, c);
+          return;
+        }
+        case FfiSectionBoundsEdit_Tags.Expand: {
+          c.writeI32(3);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.sectionId, c);
+          FfiConverterString.writeIntoCursor(inner.activityId, c);
+          FfiConverterUInt32.writeIntoCursor(inner.startIndex, c);
+          FfiConverterUInt32.writeIntoCursor(inner.endIndex, c);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiSectionBoundsEdit_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiSectionBoundsEdit_Tags.Trim: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.sectionId);
+          size += FfiConverterUInt32.allocationSize(inner.startIndex);
+          size += FfiConverterUInt32.allocationSize(inner.endIndex);
+          return size;
+        }
+        case FfiSectionBoundsEdit_Tags.Reset: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.sectionId);
+          return size;
+        }
+        case FfiSectionBoundsEdit_Tags.Expand: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.sectionId);
+          size += FfiConverterString.allocationSize(inner.activityId);
+          size += FfiConverterUInt32.allocationSize(inner.startIndex);
+          size += FfiConverterUInt32.allocationSize(inner.endIndex);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
     }
   }
   return new FFIConverter();
@@ -23438,20 +23806,15 @@ export interface FitnessManagerLike {
   ) /*throws*/ : FfiPowerCurve | undefined;
   /**
    * The feed's first paint in a single engine lock: the summary card and
-   * the GPS preview tracks. `params` supplies the summary card's two week
-   * windows; the rest of the insights bundle is fetched by the insights tab
+   * the GPS preview tracks. `params.current_end` supplies wall-clock now;
+   * the rest of the insights bundle is fetched by the insights tab
    * when it opens, not here.
    */
   getStartupData(
     params: FfiInsightsParams,
     previewActivityIds: Array<string>,
   ) /*throws*/ : FfiStartupData;
-  getSummaryCardData(
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-  ) /*throws*/ : FfiSummaryCardData;
+  getSummaryCardData(nowWallSeconds: number) /*throws*/ : FfiSummaryCardData;
   /**
    * Everything the training tab paints with that stays fixed while it is
    * mounted, over the windows it draws. Off the engine lock, since it reads
@@ -23908,8 +24271,8 @@ export class FitnessManager
 
   /**
    * The feed's first paint in a single engine lock: the summary card and
-   * the GPS preview tracks. `params` supplies the summary card's two week
-   * windows; the rest of the insights bundle is fetched by the insights tab
+   * the GPS preview tracks. `params.current_end` supplies wall-clock now;
+   * the rest of the insights bundle is fetched by the insights tab
    * when it opens, not here.
    */
   getStartupData(
@@ -23943,12 +24306,7 @@ export class FitnessManager
     }
   }
 
-  getSummaryCardData(
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-  ): FfiSummaryCardData /*throws*/ {
+  getSummaryCardData(nowWallSeconds: number): FfiSummaryCardData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -23957,15 +24315,9 @@ export class FitnessManager
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
           uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
           FfiConverterFloat64.lower(
-            currentStart,
+            nowWallSeconds,
             nativeModule().rustbuffer_alloc,
           ),
-          FfiConverterFloat64.lower(
-            currentEnd,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterFloat64.lower(prevStart, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(prevEnd, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -25951,6 +26303,16 @@ export interface RouteManagerLike {
     currentActivityId: string | undefined,
     minGroupActivities: number,
   ) /*throws*/ : FfiRouteDetailData;
+  /**
+   * The route detail reads that answer one sport and one range, in the
+   * section performance read's shape: the chart, calendar, ranged bests,
+   * trend, histogram, correlations, sport counts and excluded attempts.
+   */
+  getDetailPerformance(
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+  ) /*throws*/ : FfiSectionPerformanceData;
   getExcludedActivities(routeId: string) /*throws*/ : Array<string>;
   getExcludedPerformances(
     routeId: string,
@@ -25988,7 +26350,10 @@ export interface RouteManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<Array<LiveRouteOverlap>>;
   setName(routeId: string, name: string) /*throws*/ : void;
-  setRepresentative(routeId: string, activityId: string) /*throws*/ : void;
+  setRepresentative(
+    routeId: string,
+    activityId: string | undefined,
+  ) /*throws*/ : void;
 }
 /**
  * @deprecated Use `RouteManagerLike` instead.
@@ -26136,6 +26501,44 @@ export class RouteManager
     );
     try {
       return FfiConverterTypeFfiRouteDetailData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The route detail reads that answer one sport and one range, in the
+   * section performance read's shape: the chart, calendar, ranged bests,
+   * trend, histogram, correlations, sport counts and excluded attempts.
+   */
+  getDetailPerformance(
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+  ): FfiSectionPerformanceData /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(groupId, nativeModule().rustbuffer_alloc),
+          FfiConverterUInt32.lower(
+            timeRangeDays,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(
+            sportFilter,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -26406,7 +26809,10 @@ export class RouteManager
     );
   }
 
-  setRepresentative(routeId: string, activityId: string): void /*throws*/ {
+  setRepresentative(
+    routeId: string,
+    activityId: string | undefined,
+  ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -26415,7 +26821,10 @@ export class RouteManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeId, nativeModule().rustbuffer_alloc),
-          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalString.lower(
+            activityId,
+            nativeModule().rustbuffer_alloc,
+          ),
           callStatus,
         );
       },
@@ -26530,12 +26939,6 @@ export interface SectionManagerLike {
     activityId: string,
     startIndex: number,
   ) /*throws*/ : void;
-  expandBounds(
-    sectionId: string,
-    activityId: string,
-    startIndex: number,
-    endIndex: number,
-  ) /*throws*/ : Array<FfiDepartedRide>;
   getAllNames() /*throws*/ : Map<string, string>;
   getById(sectionId: string) /*throws*/ : FfiSection | undefined;
   /**
@@ -26659,8 +27062,8 @@ export interface SectionManagerLike {
   ) /*throws*/ : void;
   /**
    * Cheap post-ingest indexing for one freshly downloaded activity: match it
-   * against existing sections, insert junction rows, regroup incrementally,
-   * and refresh indicators. Does not create new sections - those wait for
+   * against existing sections, insert junction rows, and schedule regroup.
+   * The worker refreshes indicators. New sections wait for
    * the next full detection run.
    */
   indexNewActivity(activityId: string) /*throws*/ : FfiIndexActivitySummary;
@@ -26698,12 +27101,24 @@ export interface SectionManagerLike {
     sectionId: string,
   ) /*throws*/ : boolean;
   removeNamedCorridor(intentId: string) /*throws*/ : void;
-  resetBounds(sectionId: string) /*throws*/ : Array<FfiDepartedRide>;
   resetReference(sectionId: string) /*throws*/ : Array<FfiDepartedRide>;
   revertToVersion(
     sectionId: string,
     version: number,
   ) /*throws*/ : Array<FfiDepartedRide>;
+  /**
+   * Trim, reset or expand a section's bounds, resolving with the rides the
+   * edit took out of it.
+   *
+   * `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
+   * tap may block. The write lock is still taken for the edit's length, so
+   * what moves off the calling thread is the wait. One edit runs at a time,
+   * and a second is refused until the edit, not the wait, ends.
+   */
+  runSectionBoundsEdit(
+    edit: FfiSectionBoundsEdit,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<Array<FfiDepartedRide>>;
   /**
    * Mark or unmark a section as a lift.
    *
@@ -26716,11 +27131,6 @@ export interface SectionManagerLike {
   setReference(
     sectionId: string,
     activityId: string,
-  ) /*throws*/ : Array<FfiDepartedRide>;
-  trim(
-    sectionId: string,
-    startIndex: number,
-    endIndex: number,
   ) /*throws*/ : Array<FfiDepartedRide>;
   unpin(sectionId: string) /*throws*/ : void;
 }
@@ -26911,35 +27321,6 @@ export class SectionManager
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
-  }
-
-  expandBounds(
-    sectionId: string,
-    activityId: string,
-    startIndex: number,
-    endIndex: number,
-  ): Array<FfiDepartedRide> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(startIndex, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(endIndex, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
   }
 
   getAllNames(): Map<string, string> /*throws*/ {
@@ -27550,8 +27931,8 @@ export class SectionManager
 
   /**
    * Cheap post-ingest indexing for one freshly downloaded activity: match it
-   * against existing sections, insert junction rows, regroup incrementally,
-   * and refresh indicators. Does not create new sections - those wait for
+   * against existing sections, insert junction rows, and schedule regroup.
+   * The worker refreshes indicators. New sections wait for
    * the next full detection run.
    */
   indexNewActivity(activityId: string): FfiIndexActivitySummary /*throws*/ {
@@ -27716,27 +28097,6 @@ export class SectionManager
     );
   }
 
-  resetBounds(sectionId: string): Array<FfiDepartedRide> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   resetReference(sectionId: string): Array<FfiDepartedRide> /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -27780,6 +28140,69 @@ export class SectionManager
       return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Trim, reset or expand a section's bounds, resolving with the rides the
+   * edit took out of it.
+   *
+   * `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
+   * tap may block. The write lock is still taken for the edit's length, so
+   * what moves off the calling thread is the wait. One edit runs at a time,
+   * and a second is refused until the edit, not the wait, ends.
+   */
+  async runSectionBoundsEdit(
+    edit: FfiSectionBoundsEdit,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<Array<FfiDepartedRide>> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_run_section_bounds_edit(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiSectionBoundsEdit.lower(
+              edit,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
     }
   }
 
@@ -27837,33 +28260,6 @@ export class SectionManager
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
           FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  trim(
-    sectionId: string,
-    startIndex: number,
-    endIndex: number,
-  ): Array<FfiDepartedRide> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_trim(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(startIndex, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(endIndex, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -30480,8 +30876,9 @@ export interface VeloqEngineLike {
    * are committed and this engine simply never re-reads them.
    *
    * False is the common resume and costs one `SELECT`. True means the tiers
-   * were replaced, which on the S22's own library is 23.9 ms of the 100 ms a
-   * transition gets, so it blocks the JavaScript thread rather than
+   * were replaced. A release standalone engine binary on the S22 measured
+   * the comparable targeted loaders at 18.9 to 20.0 ms of the 100 ms a
+   * transition gets, so this call blocks the JavaScript thread rather than
    * reporting progress. The screens re-read after it, as they do after any
    * other change.
    */
@@ -31462,8 +31859,9 @@ export class VeloqEngine
    * are committed and this engine simply never re-reads them.
    *
    * False is the common resume and costs one `SELECT`. True means the tiers
-   * were replaced, which on the S22's own library is 23.9 ms of the 100 ms a
-   * transition gets, so it blocks the JavaScript thread rather than
+   * were replaced. A release standalone engine binary on the S22 measured
+   * the comparable targeted loaders at 18.9 to 20.0 ms of the 100 ms a
+   * transition gets, so this call blocks the JavaScript thread rather than
    * reporting progress. The screens re-read after it, as they do after any
    * other change.
    */
@@ -32592,6 +32990,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_engine_log_level() !==
+    27516
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_set_engine_log_level",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_interacting() !== 54233
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
@@ -33352,7 +33758,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
-    57928
+    12178
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data",
@@ -33360,7 +33766,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data() !==
-    25083
+    10801
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data",
@@ -33767,6 +34173,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance() !==
+    13909
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_detail_performance",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities() !==
     49615
   ) {
@@ -33840,7 +34254,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !==
-    54072
+    43478
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_set_representative",
@@ -33916,14 +34330,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
-    9986
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
     );
   }
   if (
@@ -34112,7 +34518,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity() !==
-    6116
+    47275
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity",
@@ -34159,14 +34565,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds() !==
-    19483
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference() !==
     12966
   ) {
@@ -34180,6 +34578,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit() !==
+    58084
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit",
     );
   }
   if (
@@ -34204,14 +34610,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_set_reference",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim() !==
-    27870
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_trim",
     );
   }
   if (
@@ -35000,7 +35398,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_take_external_writes() !==
-    20025
+    31335
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_take_external_writes",
@@ -35035,6 +35433,7 @@ export default Object.freeze({
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeEfficiencyDirection,
     FfiConverterTypeElevationBackfillProgress,
+    FfiConverterTypeEngineLogLevel,
     FfiConverterTypeEngineObserver,
     FfiConverterTypeExportPrivacyPreview,
     FfiConverterTypeFetchAndStoreResult,
@@ -35172,6 +35571,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSampleLibrary,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionActivityRow,
+    FfiConverterTypeFfiSectionBoundsEdit,
     FfiConverterTypeFfiSectionChange,
     FfiConverterTypeFfiSectionChartData,
     FfiConverterTypeFfiSectionChartPoint,

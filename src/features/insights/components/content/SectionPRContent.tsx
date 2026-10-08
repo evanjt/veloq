@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSectionPerformances } from '@/features/routes';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
-import { findPreviousBest } from '@/features/insights/lib/previousBest';
 import { cardSportType } from '@/features/insights/lib/cardSport';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
@@ -33,38 +32,25 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const prData = insight.supportingData?.sections?.[0];
   const sectionId = prData?.sectionId ?? null;
   const { section, error: sectionError } = useSectionDetail(sectionId);
-  // The record's sport, so the timeline, the effort count, the percentile and
-  // the previous best all stand on the rows the record was set against. Read
-  // unfiltered, a ride PR on ground that is also run opened on the runs.
+  // The timeline and effort list show the sport the record was set in.
   const { records, bests, isLoading } = useSectionPerformances(section, prData?.sportType);
 
   // The record's sport, not the section's: shared ground holds a record in
   // each sport that travels it.
   const bestRecord = useMemo(() => prRecordOf(bests), [bests]);
   const sportType = cardSportType(prData?.sportType, section?.sportTypes);
-  const bestTime = bestRecord?.bestTime ?? prData?.bestTime ?? null;
+  const bestTime = prData?.bestTime ?? bestRecord?.bestTime ?? null;
   const bestTimeFormatted = bestTime != null ? formatDuration(bestTime) : null;
-  const effortCount = records.length > 0 ? records.length : undefined;
-
-  // Previous best: the second-fastest time across all efforts
-  const previousBest = useMemo(() => findPreviousBest(records, bestRecord), [records, bestRecord]);
-  const delta = previousBest && bestTime != null ? previousBest.bestTime - bestTime : null;
+  const effortCount = prData?.standingCount;
+  const delta = prData?.deltaSeconds;
   const deltaFormatted = delta != null && delta > 0 ? formatDuration(delta) : null;
-  const previousBestDate = previousBest?.activityDate
-    ? formatShortDate(previousBest.activityDate)
-    : undefined;
-  const previousBestTimeFormatted = previousBest ? formatDuration(previousBest.bestTime) : null;
-
-  // Percentile: what percentage of efforts this PR is faster than
-  const percentileFaster = useMemo(() => {
-    if (!bestRecord || records.length < 3) return null;
-    const slowerCount = records.filter(
-      (r) => r.activityId !== bestRecord.activityId && r.bestTime > bestRecord.bestTime
-    ).length;
-    const otherCount = records.length - 1;
-    if (otherCount <= 0) return null;
-    return Math.round((slowerCount / otherCount) * 100);
-  }, [records, bestRecord]);
+  const previousBestDate =
+    prData?.previousBestDate != null
+      ? formatShortDate(new Date(prData.previousBestDate * 1000))
+      : undefined;
+  const previousBestTimeFormatted =
+    prData?.previousBestTime != null ? formatDuration(prData.previousBestTime) : null;
+  const percentileFaster = prData?.percentileFaster;
 
   return (
     <View style={styles.container}>

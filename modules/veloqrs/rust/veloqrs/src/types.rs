@@ -150,6 +150,29 @@ pub struct SectionLap {
     /// excluded rows carries one, and it never counts.
     #[serde(default)]
     pub excluded: bool,
+    /// A route attempt whose distance sits outside the band around the
+    /// route's usual distance: drawn, never counted. Always false for a
+    /// section lap.
+    #[serde(default)]
+    pub outside_distance_band: bool,
+    /// How much of the route a route attempt matched, 0 to 100. `None` for a
+    /// section lap.
+    #[serde(default)]
+    pub match_percentage: Option<f64>,
+}
+
+impl SectionLap {
+    /// Whether this lap may stand for its ground's record and its counted
+    /// figures: it covers enough of the ground, and a route attempt sits
+    /// inside the route's distance band.
+    pub(crate) fn counts_for_record(&self, section_distance: f64) -> bool {
+        !self.outside_distance_band
+            && crate::persistence::records::covers_enough_for_record(
+                self.coverage,
+                self.distance,
+                section_distance,
+            )
+    }
 }
 
 /// Section performance record for an activity.
@@ -197,7 +220,7 @@ pub struct SectionPerformanceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DirectionStats {
-    /// Average time across all traversals in this direction (seconds)
+    /// Average time across counted traversals in this direction (seconds)
     pub avg_time: Option<f64>,
     /// Unix timestamp of most recent traversal in this direction
     pub last_activity: Option<i64>,
@@ -208,6 +231,9 @@ pub struct DirectionStats {
     /// currently leave it as None.
     #[serde(default)]
     pub avg_speed: Option<f64>,
+    /// Timed route attempts outside the distance band, absent from the averages.
+    #[serde(default)]
+    pub outside_band_count: u32,
 }
 
 /// Complete section performance result.

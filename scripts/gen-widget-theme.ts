@@ -130,6 +130,12 @@ ${androidColors(widgetPalette.light)}
   <color name="widget_record_grad_start">${widgetRecord.light.gradientStart}</color>
   <color name="widget_record_grad_end">${widgetRecord.light.gradientEnd}</color>
   <color name="widget_record_foreground">${widgetRecord.foreground}</color>
+  <dimen name="widget_record_padding">${widgetRecord.padding}dp</dimen>
+  <dimen name="widget_record_glyph">${widgetRecord.glyph}dp</dimen>
+  <dimen name="widget_record_gap">${widgetRecord.gap}dp</dimen>
+  <dimen name="widget_record_text_min">${widgetRecord.textMin}sp</dimen>
+  <dimen name="widget_record_text_max">${widgetRecord.textMax}sp</dimen>
+  <dimen name="widget_record_label_height">${widgetRecord.labelHeight}dp</dimen>
   <dimen name="widget_radius">${widgetLayout.radius}dp</dimen>
   <dimen name="widget_radius_inner">${widgetLayout.radiusInner}dp</dimen>
   <dimen name="widget_padding">${widgetLayout.padding}dp</dimen>

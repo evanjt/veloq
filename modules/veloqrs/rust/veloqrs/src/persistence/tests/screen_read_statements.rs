@@ -163,7 +163,8 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         Side::Small => (small.section.clone(), small.group.clone()),
         Side::Large => (large.section.clone(), large.group.clone()),
     });
-    let (for_section, for_performance, for_route) = (pick.clone(), pick.clone(), pick);
+    let (for_section, for_performance, for_route, for_route_performance) =
+        (pick.clone(), pick.clone(), pick.clone(), pick);
     vec![
         ("stats", Box::new(|_, e| consume(e.stats()))),
         (
@@ -224,9 +225,11 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         (
             "routes_screen_data",
             Box::new(|_, e| {
+                // A page smaller than the smaller library's lists, so the
+                // page is the same size in both and only a scan can grow.
                 consume(e.get_routes_screen_data(crate::FfiRoutesScreenQuery {
-                    group_limit: 20,
-                    section_limit: 20,
+                    group_limit: 10,
+                    section_limit: 10,
                     min_group_activity_count: 2,
                     ..Default::default()
                 }))
@@ -260,6 +263,12 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
             "route_detail_data",
             Box::new(move |side, e| {
                 consume(e.route_detail_data(&for_route(side).1, Some("a1"), 2))
+            }),
+        ),
+        (
+            "route_detail_performance",
+            Box::new(move |side, e| {
+                consume(e.route_detail_performance(&for_route_performance(side).1, 365, None))
             }),
         ),
         (
@@ -357,7 +366,12 @@ fn step_ceiling(name: &str) -> f64 {
         | "startup_data"
         | "fitness_screen_data"
         | "section_detail_performance"
+        | "route_detail_performance"
         | "widget_snapshot_data" => 1.0,
+        // Both lists page through their order indexes and the totals come
+        // from stored counts, so it stays level; the page's own groups differ
+        // between the two libraries by a step.
+        "routes_screen_data" => 1.01,
         // All time ranks and counts every climbing activity, so it grows with
         // the library and no faster.
         "best_efforts_data" => 3.0,
@@ -366,7 +380,6 @@ fn step_ceiling(name: &str) -> f64 {
         "training_screen_data" => 3.0,
         "get_section_summaries" | "map_screen_data_with_sections" => 3.5,
         "insights_data" => 1.62,
-        "routes_screen_data" => 1.6,
         "activity_detail_data" | "section_detail_data" | "route_detail_data" => 2.6,
         other => panic!("{other} has no step ceiling"),
     }

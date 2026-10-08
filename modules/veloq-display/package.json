@@ -1,0 +1,15 @@
+{
+  "name": "veloq-display",
+  "version": "0.1.0",
+  "description": "Asks Android for the panel's highest refresh rate at the current resolution when the main activity is created",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

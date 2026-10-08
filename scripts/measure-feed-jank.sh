@@ -91,7 +91,23 @@ warm_up() {
     echo "$1 warm-up  frames=$(echo "$line" | cut -d' ' -f1)  janky=$(echo "$line" | cut -d' ' -f2)  pct=$(echo "$line" | cut -d' ' -f3)"
   else
     echo "$1 warm-up failed its checks"
+    return 1
   fi
+}
+
+ready_after_entry() {
+  local label=$1 attempt=1
+  while [ "$attempt" -le 3 ]; do
+    if warm_up "$label"; then
+      return 0
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      enter || { echo "$label ENTRY FAILED"; return 1; }
+    fi
+    attempt=$((attempt + 1))
+  done
+  echo "$label WARM-UP FAILED"
+  return 1
 }
 
 # `set LABEL APK N` installs, enters, and prints N good runs after a warm-up.
@@ -101,7 +117,7 @@ set_runs() {
   # purpose. The stamp it prints keeps the pair readable.
   ANDROID_SERIAL=$D "$(dirname "$0")/install-apk.sh" "$apk" --stale >&2 || { echo "$label INSTALL FAILED"; return 1; }
   enter || { echo "$label ENTRY FAILED"; return 1; }
-  warm_up "$label"
+  ready_after_entry "$label" || return 1
   while [ "$got" -lt "$want" ] && [ "$tries" -lt $((want * 3)) ]; do
     tries=$((tries + 1))
     if line=$(one); then
@@ -109,11 +125,11 @@ set_runs() {
       echo "$label $got  frames=$(echo "$line" | cut -d' ' -f1)  janky=$(echo "$line" | cut -d' ' -f2)  pct=$(echo "$line" | cut -d' ' -f3)"
     else
       echo "$label discarded (attempt $tries)"
-      enter
-      warm_up "$label"
+      enter || { echo "$label ENTRY FAILED"; return 1; }
+      ready_after_entry "$label" || return 1
     fi
   done
-  [ "$got" -eq "$want" ] || echo "$label SHORT: $got of $want"
+  [ "$got" -eq "$want" ] || { echo "$label SHORT: $got of $want"; return 1; }
 }
 
 if [ $# -ne 3 ]; then

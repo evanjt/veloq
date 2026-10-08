@@ -27,6 +27,7 @@ const t = ((key: string) => key) as never;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setRouteName.mockReset();
   getAllRouteNames.mockReturnValue({});
   getGroupSummaries.mockImplementation(() => {
     throw new Error('the rename path must not read group summaries');
@@ -53,6 +54,23 @@ it('saves a name no other route holds', () => {
 
   expect(setRouteName).toHaveBeenCalledWith('route-1', 'Hill Climb');
   expect(Alert.alert).not.toHaveBeenCalled();
+});
+
+it('restores the shown name and alerts when the engine refuses a rename', () => {
+  getAllRouteNames.mockReturnValue({ 'route-1': 'Old' });
+  setRouteName.mockImplementation(() => {
+    throw new Error('Storage unavailable');
+  });
+
+  const hook = renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  rename(hook, 'Hill Climb');
+
+  expect(hook.result.current.customName).toBe('Old');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'routes.renameFailedTitle',
+    'routes.renameFailedMessage'
+  );
+  expect(haptics.success).not.toHaveBeenCalled();
 });
 
 it('rejects a name another route already holds', () => {

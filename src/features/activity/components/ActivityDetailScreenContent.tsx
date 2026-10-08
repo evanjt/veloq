@@ -267,7 +267,9 @@ export function ActivityDetailScreenContent() {
       if (routeHighlight) {
         if (routeHighlight.isPr) {
           const improvement = formatPrImprovement(routeHighlight.prImprovementSeconds);
-          routeBadge.badgeText = improvement ? `PR ${improvement}` : 'PR';
+          routeBadge.badgeText = t('activityDetail.routePrBadge', {
+            improvement: improvement ?? '',
+          }).trim();
           routeBadge.badgeTone = 'pr';
         } else if (routeHighlight.timeDeltaSeconds != null && routeHighlight.timeDeltaSeconds > 0) {
           routeBadge.badgeText = formatPrDelta(routeHighlight.timeDeltaSeconds);

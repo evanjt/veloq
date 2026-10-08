@@ -41,11 +41,13 @@ function strengthSummary(): StrengthSummary {
     totalReps: 0,
     volumeKg: 0,
     exerciseNames: [],
+    shade: 1,
   });
   return {
     muscleVolumes: [muscle('quadriceps', 12), muscle('hamstring', 5)],
     activityCount: 4,
     totalSets: 17,
+    maxWeightedSets: 12,
     balance: [
       {
         id: 'quads_hamstrings',

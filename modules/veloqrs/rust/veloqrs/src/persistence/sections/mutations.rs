@@ -1058,16 +1058,22 @@ impl PersistentEngine {
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
     /// against existing sections, insert junction rows with portions, regroup
-    /// incrementally, and refresh indicators. Does NOT create new sections - a
+    /// on a worker, and refresh indicators. Does NOT create new sections - a
     /// genuinely new repeated stretch waits for the next full detection run.
     ///
-    /// Cost is O(1 activity × M sections) plus an incremental regroup, so it
+    /// Cost is O(1 activity × M sections) plus a worker schedule, so it
     /// fits inside a background push handler where a full O(N²) detection
     /// cannot.
     pub fn index_new_activity(
         &mut self,
         activity_id: &str,
-    ) -> Result<IndexActivitySummary, String> {
+    ) -> Result<
+        (
+            IndexActivitySummary,
+            Option<super::super::regroup::ScheduledRegroup>,
+        ),
+        String,
+    > {
         let mut summary = IndexActivitySummary::default();
         // The push path stores its stream through `store_time_streams_flat`,
         // which leaves the backfill owed. One activity, so one scan.
@@ -1076,13 +1082,11 @@ impl PersistentEngine {
         summary.matched_sections = matched;
         summary.inserted_portions = portions;
 
-        // Ingest marked groups dirty, so this takes the incremental regroup
-        // path (skipped while route matching is off, the groups stay owed) and places the new activity in a route group. recompute_groups
-        // also refreshes activity indicators at its end.
+        // The worker refreshes indicators when it swaps the new groups.
+        let mut scheduled = None;
         if self.groups_dirty && self.detection_enabled() {
-            self.get_groups();
-            summary.regrouped = true;
-            summary.indicators_recomputed = true;
+            scheduled = self.schedule_regroup();
+            summary.regroup_scheduled = scheduled.is_some();
         } else if summary.inserted_portions > 0 {
             match self.recompute_activity_indicators() {
                 Ok(()) => summary.indicators_recomputed = true,
@@ -1094,14 +1098,14 @@ impl PersistentEngine {
         }
 
         log::info!(
-            "veloqrs: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
+            "veloqrs: [index_new_activity] {} matched {} sections ({} portions, regroup_scheduled={})",
             activity_id,
             summary.matched_sections,
             summary.inserted_portions,
-            summary.regrouped
+            summary.regroup_scheduled
         );
 
-        Ok(summary)
+        Ok((summary, scheduled))
     }
 
     /// Junction-matching core of the attach tier: match one activity against
@@ -1244,28 +1248,34 @@ impl PersistentEngine {
 
     /// Batch tail of the attach tier: one regroup (ingest marks groups
     /// dirty) or, failing that, one indicator recompute when any junction
-    /// rows landed. Returns (regrouped, indicators_recomputed).
+    /// rows landed. Returns (regroup_scheduled, indicators_recomputed, worker).
     ///
     /// The lap backfill runs here, once, for whatever streams the batch
     /// landed. `store_time_streams_flat` leaves it owed rather than paying a
     /// whole-table scan per activity under the write lock.
-    pub fn attach_finalize(&mut self, inserted_portions: u32) -> (bool, bool) {
+    pub fn attach_finalize(
+        &mut self,
+        inserted_portions: u32,
+        conditioning_follows: bool,
+    ) -> (bool, bool, Option<super::super::regroup::ScheduledRegroup>) {
         self.backfill_section_performance_cache();
         // With route matching off the groups stay owed rather than rebuilt,
         // so switching it back on regroups once.
         if self.groups_dirty && self.detection_enabled() {
-            self.get_groups();
-            (true, true)
+            let scheduled = (!conditioning_follows)
+                .then(|| self.schedule_regroup())
+                .flatten();
+            (scheduled.is_some(), false, scheduled)
         } else if inserted_portions > 0 {
             match self.recompute_activity_indicators() {
-                Ok(()) => (false, true),
+                Ok(()) => (false, true, None),
                 Err(e) => {
                     log::warn!("veloqrs: [attach] indicator recompute failed: {}", e);
-                    (false, false)
+                    (false, false, None)
                 }
             }
         } else {
-            (false, false)
+            (false, false, None)
         }
     }
 
@@ -1273,7 +1283,13 @@ impl PersistentEngine {
     /// activity in the batch, then ONE regroup/indicator tail. Visits, laps,
     /// and PRs read from the junction table are current the moment this
     /// returns; new sections wait for the conditioning run.
-    pub fn attach_new_activities(&mut self, activity_ids: &[String]) -> BatchAttachSummary {
+    pub fn attach_new_activities(
+        &mut self,
+        activity_ids: &[String],
+    ) -> (
+        BatchAttachSummary,
+        Option<super::super::regroup::ScheduledRegroup>,
+    ) {
         let mut summary = BatchAttachSummary::default();
         for id in activity_ids {
             let (matched, portions) = self.attach_stored_activity(id);
@@ -1283,18 +1299,19 @@ impl PersistentEngine {
             }
         }
 
-        let (regrouped, indicators) = self.attach_finalize(summary.inserted_portions);
-        summary.regrouped = regrouped;
+        let (regroup_scheduled, indicators, scheduled) =
+            self.attach_finalize(summary.inserted_portions, false);
+        summary.regroup_scheduled = regroup_scheduled;
         summary.indicators_recomputed = indicators;
 
         log::info!(
-            "veloqrs: [attach] {}/{} activities attached ({} portions, regrouped={})",
+            "veloqrs: [attach] {}/{} activities attached ({} portions, regroup_scheduled={})",
             summary.attached_activities,
             activity_ids.len(),
             summary.inserted_portions,
-            summary.regrouped
+            summary.regroup_scheduled
         );
-        summary
+        (summary, scheduled)
     }
 
     /// Match activities against a section polyline, adding any that overlap
@@ -1507,6 +1524,10 @@ mod adoption_ledger;
 #[cfg(test)]
 #[path = "tests/registry_excluded_members.rs"]
 mod registry_excluded_members;
+
+#[cfg(test)]
+#[path = "tests/registry_admit_one.rs"]
+mod registry_admit_one;
 
 #[cfg(test)]
 mod tests {

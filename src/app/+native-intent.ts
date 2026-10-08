@@ -6,18 +6,46 @@
  * reaches the tap handler, so the athlete check a tapped entry passes is made
  * here instead. A recording link is marked a quick start here, so a link from
  * another app cannot start a ride without a tap on Start. A null keeps the app where it is.
+ *
+ * On Android the router stops waiting for the launch link after 150 ms and
+ * starts at the root instead, and a cold start whose activity resumes later than
+ * that, a widget tap on a killed app, loses its link and opens the Feed. So a
+ * cold Android launch at the root asks the system once more, with a longer wait.
  */
+
+import * as ExpoLinking from 'expo-linking';
+import { Linking, Platform } from 'react-native';
 
 import { openableSystemPath } from '@/features/insights';
 import { armSystemRecordingPath } from '@/features/recording';
 import { ensureCredentialsHydrated, getStoredCredentials } from '@/shared/app/AuthStore';
 
+/** How long a cold start waits for the system's launch link after the router gave up on it. */
+const LAUNCH_LINK_WAIT_MS = 3_000;
+
+async function launchLink(path: string, initial: boolean): Promise<string> {
+  if (!initial || Platform.OS !== 'android' || path !== ExpoLinking.createURL('/')) return path;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const gaveUp = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), LAUNCH_LINK_WAIT_MS);
+  });
+  try {
+    return (await Promise.race([Linking.getInitialURL(), gaveUp])) ?? path;
+  } catch {
+    return path;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function redirectSystemPath({
-  path,
+  path: received,
+  initial,
 }: {
   path: string;
   initial: boolean;
 }): Promise<string | null> {
+  const path = await launchLink(received, initial);
   // Only a link naming an athlete turns on the athlete, and only it waits for one.
   if (openableSystemPath(path, null) === path) return armSystemRecordingPath(path);
   // A cold tap can beat the credential to memory.

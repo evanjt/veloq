@@ -8,7 +8,7 @@ fn test_get_summary_card_data_writer_held() {
 
     let card = read_while_writer_holds(|| {
         FitnessManager::new()
-            .get_summary_card_data(100.0, 200.0, 0.0, 99.0)
+            .get_summary_card_data(200.0)
             .expect("summary card read")
     });
     assert_eq!(card.current_week.count, 0);

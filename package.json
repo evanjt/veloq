@@ -5,22 +5,23 @@
     "type": "git",
     "url": "https://github.com/evanjt/veloq"
   },
-  "main": "expo-router/entry",
+  "main": "appEntry.ts",
   "scripts": {
     "start": "npx expo start",
-    "android": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs && ./scripts/run-android.sh debug",
-    "android:prod": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs && ./scripts/run-android.sh release",
+    "android": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs --installation && ./scripts/run-android.sh debug",
+    "android:prod": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs --installation && ./scripts/run-android.sh release",
     "bundle:android": "./scripts/with-android-build-lock.sh node scripts/bundle-android.mjs",
     "setup:native": "node scripts/setup-native-worktree.mjs",
-    "android:debug": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs && ./scripts/with-android-build-lock.sh sh -c 'npm run bundle:android && (cd android && ./gradlew assembleDebug) && node scripts/build-record.js write debug' && npm run check:native-records",
+    "sync:android-widgets": "./scripts/with-android-build-lock.sh node scripts/sync-android-widgets.mjs",
+    "android:debug": "npm run lint:expo-location-altitude && node scripts/check-native-tree.mjs --installation && ./scripts/with-android-build-lock.sh sh -c 'node scripts/sync-android-widgets.mjs && node scripts/check-native-tree.mjs && npm run bundle:android && (cd android && ./gradlew assembleDebug) && node scripts/build-record.js write debug' && npm run check:native-records",
     "install:android": "./scripts/install-apk.sh",
     "install:ios": "./scripts/install-ios.sh",
     "ios": "node scripts/check-native-tree.mjs && node scripts/check-toolchain.mjs && node scripts/build-record.js snapshot ios Debug && npx expo run:ios",
     "ios:record": "node scripts/build-record.js write-ios Debug",
     "ios:prod": "node scripts/check-native-tree.mjs && node scripts/build-record.js snapshot ios Release && APP_VARIANT=production npx expo run:ios --configuration Release && APP_VARIANT=production node scripts/build-record.js write-ios Release",
     "sync:live-activity": "node scripts/sync-live-activity-sources.js",
-    "test:android": "node scripts/check-native-tree.mjs && ./scripts/with-android-build-lock.sh ./scripts/with-device-lock.sh sh -c 'cd android && ./gradlew :veloqrs:connectedDebugAndroidTest -PreactNativeArchitectures=arm64-v8a'",
-    "test:android:unit": "node scripts/check-native-tree.mjs && ./scripts/with-android-build-lock.sh sh -c 'cd android && ./gradlew :veloqrs:testDebugUnitTest -PreactNativeArchitectures=arm64-v8a'",
+    "test:android": "node scripts/check-native-tree.mjs --installation && ./scripts/with-android-build-lock.sh ./scripts/with-device-lock.sh sh -c 'node scripts/sync-android-widgets.mjs && node scripts/check-native-tree.mjs && cd android && ./gradlew :veloqrs:connectedDebugAndroidTest -PreactNativeArchitectures=arm64-v8a'",
+    "test:android:unit": "node scripts/check-native-tree.mjs --installation && ./scripts/with-android-build-lock.sh sh -c 'node scripts/sync-android-widgets.mjs && node scripts/check-native-tree.mjs && cd android && ./gradlew :veloqrs:testDebugUnitTest :veloq-display:testDebugUnitTest -PreactNativeArchitectures=arm64-v8a'",
     "test:rust": "cd modules/veloqrs/rust && cargo test -p veloqrs",
     "test:rust:synthetic": "cd modules/veloqrs/rust && cargo test -p veloqrs --features synthetic",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
@@ -58,6 +59,7 @@
     "maestro:pack:stress": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-stress --no-ansi",
     "ffi:generate": "npm --prefix modules/veloqrs run generate --",
     "check:bindings-fresh": "node scripts/check-bindings-fresh.mjs",
+    "check:install-scripts": "node scripts/check-install-scripts.mjs",
     "config:unified": "npx tsx scripts/generate-unified-config.ts",
     "config:activity-window": "node scripts/generate-activity-window.mjs",
     "config:activity-window:check": "node scripts/generate-activity-window.mjs --check",
@@ -81,8 +83,8 @@
     "check:module-version": "node scripts/check-module-version.mjs",
     "check:production-console": "node scripts/check-production-console.mjs",
     "check:worklets": "node scripts/patch-worklets-lifecycle.js --check",
-    "check:android-prebuild": "node scripts/check-android-prebuild.mjs",
     "check:debug-push-receiver": "node scripts/check-debug-push-receiver.mjs",
+    "check:background-task-entry": "node scripts/check-background-task-entry.mjs",
     "check:private-data": "bash scripts/check-no-private-data.sh --all",
     "lint:detector-ordering": "node scripts/lint-detector-ordering.mjs",
     "lint:expo-location-altitude": "node scripts/lint-expo-location-altitude.mjs",
@@ -280,5 +282,10 @@
     "expo-modules-core": "56.0.14",
     "js-yaml": "^4.3.0",
     "uuid": ">=11.1.1"
+  },
+  "allowScripts": {
+    "@shopify/react-native-skia@2.6.2": true,
+    "msgpackr-extract@3.0.4": true,
+    "unrs-resolver@1.11.1": true
   }
 }

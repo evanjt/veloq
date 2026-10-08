@@ -176,9 +176,12 @@ function idleChip(
   configs: Record<ChartTypeId, ChartConfig>,
   streams: Parameters<typeof computeAllAverages>[1],
   id: ChartTypeId,
-  isMetric = true
+  isMetric = true,
+  elevationGain = 0
 ) {
-  return computeAllAverages(configs, streams, isMetric).find((chip) => chip.id === id);
+  return computeAllAverages(configs, streams, isMetric, elevationGain).find(
+    (chip) => chip.id === id
+  );
 }
 
 describe('the idle chip formats as the scrub does', () => {
@@ -208,11 +211,11 @@ describe('the idle chip formats as the scrub does', () => {
 
   it('keeps the + on elevation gain, converted for an imperial athlete', () => {
     const streams = { altitude: [100, 110, 105, 120] };
-    expect(idleChip(CHART_CONFIGS, streams, 'elevation')?.value).toBe('+25');
-    expect(idleChip(CHART_CONFIGS, streams, 'elevation', false)?.value).toBe(
+    expect(idleChip(CHART_CONFIGS, streams, 'elevation', true, 25)?.value).toBe('+25');
+    expect(idleChip(CHART_CONFIGS, streams, 'elevation', false, 25)?.value).toBe(
       `+${formatScrubValue(CHART_CONFIGS.elevation, 25, false)}`
     );
-    expect(idleChip(CHART_CONFIGS, streams, 'elevation')?.maxValueWidth).toBe('+25');
+    expect(idleChip(CHART_CONFIGS, streams, 'elevation', true, 25)?.maxValueWidth).toBe('+25');
   });
 });
 
@@ -278,8 +281,9 @@ describe('the idle pace chip over a run with stops', () => {
 
 describe('the idle chips drop stops by the sport the activity was', () => {
   const chip = (type: Parameters<typeof chartConfigsFor>[0], id: ChartTypeId, v: number[]) =>
-    computeAllAverages(chartConfigsFor(type), { velocity_smooth: v }, true).find((m) => m.id === id)
-      ?.value;
+    computeAllAverages(chartConfigsFor(type), { velocity_smooth: v }, true, 0).find(
+      (m) => m.id === id
+    )?.value;
 
   it('leaves a ride standstill drift of 1.5 km/h out of the speed chip', () => {
     expect(chip('Ride', 'speed', [8, 8, 0.42, 0.42])).toBe('28.8');

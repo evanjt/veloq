@@ -62,51 +62,63 @@ export function StatsRow({
     : '';
 
   return (
-    <View style={styles.statsRow}>
-      <View style={styles.statsLeft}>
-        <MaterialCommunityIcons
-          name={direction === 'forward' ? 'arrow-right' : 'arrow-left'}
-          size={14}
-          color={color}
-        />
-        <Text style={[styles.statsDirection, isDark && styles.textLight]}>
-          {direction === 'forward' ? t('sections.forward') : t('sections.reverse')}
-        </Text>
-        <View style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, 0.13) }]}>
-          <Text style={[styles.countText, { color }]}>{pointCount}</Text>
-        </View>
-      </View>
-      <View style={styles.statsMiddle}>
-        {stats?.avgTime != null && (
-          <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
-            {showPace && stats.avgSpeed != null && stats.avgSpeed > 0
-              ? `${isSwimming ? formatSwimPace(stats.avgSpeed, isMetric) : formatPace(stats.avgSpeed, isMetric)} ${t('sections.avg')}`
-              : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
+    <View>
+      <View style={styles.statsRow}>
+        <View style={styles.statsLeft}>
+          <MaterialCommunityIcons
+            name={direction === 'forward' ? 'arrow-right' : 'arrow-left'}
+            size={14}
+            color={color}
+          />
+          <Text style={[styles.statsDirection, isDark && styles.textLight]}>
+            {direction === 'forward' ? t('sections.forward') : t('sections.reverse')}
           </Text>
+          <View style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, 0.13) }]}>
+            <Text testID={`stats-row-count-${direction}`} style={[styles.countText, { color }]}>
+              {stats?.count ?? pointCount}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.statsMiddle}>
+          {stats?.avgTime != null && (
+            <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
+              {showPace && stats.avgSpeed != null && stats.avgSpeed > 0
+                ? `${isSwimming ? formatSwimPace(stats.avgSpeed, isMetric) : formatPace(stats.avgSpeed, isMetric)} ${t('sections.avg')}`
+                : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
+            </Text>
+          )}
+        </View>
+        {bestRecord && (
+          <View style={styles.prBadge}>
+            {bestIsRecord && (
+              <View testID={`stats-row-trophy-${direction}`}>
+                <MaterialCommunityIcons
+                  name="trophy"
+                  size={11}
+                  color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+                />
+              </View>
+            )}
+            <Text
+              testID={`stats-row-best-${direction}`}
+              style={
+                bestIsRecord
+                  ? [styles.prTime, isDark && styles.prTimeDark]
+                  : [styles.statsValue, isDark && styles.textSecondary]
+              }
+            >
+              {bestIsRecord ? bestValue : `${bestValue} ${t('sections.best')}`}
+            </Text>
+          </View>
         )}
       </View>
-      {bestRecord && (
-        <View style={styles.prBadge}>
-          {bestIsRecord && (
-            <View testID={`stats-row-trophy-${direction}`}>
-              <MaterialCommunityIcons
-                name="trophy"
-                size={11}
-                color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
-              />
-            </View>
-          )}
-          <Text
-            testID={`stats-row-best-${direction}`}
-            style={
-              bestIsRecord
-                ? [styles.prTime, isDark && styles.prTimeDark]
-                : [styles.statsValue, isDark && styles.textSecondary]
-            }
-          >
-            {bestIsRecord ? bestValue : `${bestValue} ${t('sections.best')}`}
-          </Text>
-        </View>
+      {(stats?.outsideBandCount ?? 0) > 0 && (
+        <Text
+          testID={`stats-row-outside-band-${direction}`}
+          style={[styles.outsideBand, isDark && styles.textSecondary]}
+        >
+          {t('sections.histogramOutsideBand', { attempts: stats?.outsideBandCount })}
+        </Text>
       )}
     </View>
   );
@@ -145,6 +157,12 @@ const styles = StyleSheet.create({
   },
   statsValue: {
     fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
+  outsideBand: {
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.xs,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   prBadge: {

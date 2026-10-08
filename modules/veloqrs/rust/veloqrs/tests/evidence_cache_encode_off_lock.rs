@@ -148,7 +148,7 @@ fn a_restart_resumes_warm_on_a_row_the_worker_encoded() {
     engine.apply_sections_finalize();
     drop(engine);
 
-    let restarted = open(&dir);
+    let mut restarted = open(&dir);
 
     assert!(
         restarted.evidence_cache_folded_count() > 0,

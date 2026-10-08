@@ -8,6 +8,29 @@ fn unix_now() -> i64 {
         .unwrap_or(0)
 }
 
+fn with_week_bounds(mut params: crate::FfiInsightsParams) -> crate::FfiInsightsParams {
+    let (current_start, current_end, prev_start, prev_end, chronic_start) =
+        insights_week_bounds(crate::ffi_types::int_from_wire(params.current_end));
+    params.current_start = current_start as f64;
+    params.current_end = current_end as f64;
+    params.prev_start = prev_start as f64;
+    params.prev_end = prev_end as f64;
+    params.chronic_start = chronic_start as f64;
+    params
+}
+
+fn insights_week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64, i64) {
+    let (current_start, current_end, prev_start, prev_end) =
+        crate::widget_snapshot::week_bounds(now_wall_seconds);
+    (
+        current_start,
+        current_end,
+        prev_start,
+        prev_end,
+        prev_start - 28 * 86_400,
+    )
+}
+
 #[derive(uniffi::Object)]
 pub struct FitnessManager {
     pub(crate) _private: (),
@@ -214,15 +237,10 @@ impl FitnessManager {
 
     fn get_summary_card_data(
         &self,
-        current_start: f64,
-        current_end: f64,
-        prev_start: f64,
-        prev_end: f64,
+        now_wall_seconds: f64,
     ) -> Result<crate::FfiSummaryCardData, VeloqError> {
-        let current_start = crate::ffi_types::int_from_wire(current_start);
-        let current_end = crate::ffi_types::int_from_wire(current_end);
-        let prev_start = crate::ffi_types::int_from_wire(prev_start);
-        let prev_end = crate::ffi_types::int_from_wire(prev_end);
+        let (current_start, current_end, prev_start, prev_end) =
+            crate::widget_snapshot::week_bounds(crate::ffi_types::int_from_wire(now_wall_seconds));
         with_reader(|conn| {
             crate::persistence::screens::pooled::summary_card(
                 conn,
@@ -344,12 +362,13 @@ impl FitnessManager {
         &self,
         params: crate::FfiInsightsParams,
     ) -> Result<crate::FfiInsightsData, VeloqError> {
+        let params = with_week_bounds(params);
         with_reader(|conn| crate::persistence::screens::pooled::insights_data(conn, &params))
     }
 
     /// The feed's first paint in a single engine lock: the summary card and
-    /// the GPS preview tracks. `params` supplies the summary card's two week
-    /// windows; the rest of the insights bundle is fetched by the insights tab
+    /// the GPS preview tracks. `params.current_end` supplies wall-clock now;
+    /// the rest of the insights bundle is fetched by the insights tab
     /// when it opens, not here.
     fn get_startup_data(
         &self,
@@ -360,6 +379,7 @@ impl FitnessManager {
         // nothing the engine holds in memory, so a sync page mid-transaction
         // does not hold the first screen the athlete sees.
         let now = unix_now();
+        let params = with_week_bounds(params);
         with_reader(|conn| {
             let snapshot = crate::persistence::feed_rings::feed_ring_snapshot(conn, now);
             crate::persistence::screens::pooled::startup_data(
@@ -579,12 +599,7 @@ mod tests {
 
         assert_eq!(feed.summary_card.current_week.count, 1);
         let direct = fitness
-            .get_summary_card_data(
-                (now - 7 * 86_400) as f64,
-                now as f64,
-                (now - 14 * 86_400) as f64,
-                (now - 7 * 86_400) as f64,
-            )
+            .get_summary_card_data(now as f64)
             .expect("direct summary card");
         assert_eq!(format!("{direct:?}"), format!("{:?}", feed.summary_card));
     }
@@ -660,3 +675,7 @@ mod fitness_summary_card_tests;
 #[cfg(test)]
 #[path = "tests/fitness_pooled.rs"]
 mod fitness_pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/fitness_week_bounds.rs"]
+mod fitness_week_bounds_tests;

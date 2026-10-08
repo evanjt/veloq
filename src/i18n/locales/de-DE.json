@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Strecken laden",
+    "analysing": "Aktivitäten analysieren",
+    "saving": "Abschnitte speichern",
+    "recomputingIndicators": "Indikatoren berechnen",
+    "diffing": "Kataloge vergleichen",
+    "complete": "Abgeschlossen",
+    "cancelled": "Abgebrochen",
+    "draining": "Katalog vorbereiten",
+    "archiving": "Abschnitte archivieren",
+    "detecting": "Abschnitte erkennen"
+  },
   "about": {
     "dataAttribution": "Datenherkunft",
     "description": "Ein schneller Mobile-Client für intervals.icu mit Fokus auf Karten und visuelle Analyse.",
@@ -19,6 +31,7 @@
     "version": "Version"
   },
   "activity": {
+    "terrainRow": "3D-Terrain",
     "activityStats": "Aktivitätsstatistiken",
     "calories": "Kalorien",
     "chartHint": "Halten zum Scrubben • Chip halten für Achse",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatur aus Wetterdaten oder deinem Gerätesensor.",
       "energy": "Geschätzter Energieverbrauch aus Herzfrequenz, Leistung und Dauer.",
-      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um die Trainingsbelastung geteilt durch 42 und die Ermüdung um die Belastung geteilt durch 7. Der Formbeitrag ist Fitness minus Ermüdung. Die Zeitkonstanten betragen 42 bzw. 7 Tage.",
+      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/42)) und die Ermüdung um Belastung × (1 − e^(−1/7)). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
       "heartRate": "Durchschnittliche Herzfrequenz während der Aktivität.",
       "newGround": "Der Anteil der Kartenkacheln dieser Aktivität, die keine frühere Aktivität berührt hatte. Eine Kachel ist je nach Breitengrad etwa 150 bis 300 m breit; gemessen wird also die Kachelabdeckung, nicht die Strecke auf neuen Wegen.",
+      "activityEftp": "Der eFTP ist die Schätzung des Leistungsmodells von intervals.icu für diese Aktivität.",
       "power": "Durchschnittliche Leistungsabgabe in Watt.",
       "trainingLoad": "Training Stress Score (TSS) quantifiziert die Trainingsbelastung basierend auf Dauer und Intensität relativ zu deiner Schwelle.",
       "yourForm": "Deine Form (TSB) an diesem Tag. Dies ist ein Tageswert basierend auf deinem Gesamttraining, nicht spezifisch für diese Aktivität. TSB = Fitness (CTL) minus Ermüdung (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Entkopplung",
       "deviceSensor": "Gerätesensor",
       "efficiencyFactor": "Effizienzfaktor",
-      "eftpEstimated": "eFTP (geschätzt)",
+      "eftpEstimated": "eFTP dieser Aktivität",
       "energy": "Energie",
       "fatigueATL": "Ermüdung (ATL)",
       "feelsLike": "Gefühlt {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Deine Fitness (CTL)",
       "yourForm": "Deine Form"
     },
+    "hrZoneTotal": "Zeit mit Herzfrequenz: {{duration}}",
+    "movingTime": "Bewegungszeit: {{duration}}",
     "timeInHRZones": "Zeit in HF-Zonen",
     "timeInPowerZones": "Zeit in Leistungszonen",
     "viewDetails": "Details anzeigen",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "PB {{improvement}}",
     "lineKeyActivity": "Diese Aktivität",
     "lineKeyRoute": "Passende Route",
     "failedToLoad": "Aktivität konnte nicht geladen werden",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "Bleib auf dem Laufenden",
-      "description": "Erhalte Benachrichtigungen über neue Aktivitäten, Sync-Fortschritt und wenn deine Daten bereit sind.",
+      "description": "Erhalte Benachrichtigungen über neue Aktivitäten, Bestleistungen und Fitness-Meilensteine.",
       "enable": "Aktivieren",
       "dismiss": "Nicht jetzt",
       "settingsHint": "Du kannst Benachrichtigungen jederzeit in den Einstellungen aktivieren",
@@ -1176,6 +1193,8 @@
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",
     "library": {
+      "distance": "Distanz",
+      "duration": "Dauer",
       "title": "Meine Aufzeichnungen",
       "empty": "Noch keine Aufzeichnungen",
       "emptyHint": "Gespeicherte Aufzeichnungen bleiben hier auf diesem Gerät.",
@@ -1250,6 +1269,7 @@
     "tomorrow": "MORGEN"
   },
   "routes": {
+    "timeMethod": "Routenzeiten verwenden Bewegungszeit ohne Pausen.",
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäten",
     "targetPace": "Pace",
@@ -1273,8 +1293,12 @@
     "noMatchingRoutes": "Keine passenden Routen gefunden",
     "noRoutesYet": "Noch keine Routen",
     "noSectionsMatchFilter": "Keine Abschnitte entsprechen dem Filter",
+    "placeJourney": "{{start}} nach {{end}}",
+    "placeLoop": "{{place}} Runde",
     "pointCountHint_one": "{{count}} GPS-Punkt",
     "pointCountHint_other": "{{count}} GPS-Punkte",
+    "renameFailedTitle": "Name konnte nicht gespeichert werden",
+    "renameFailedMessage": "Der Routenname wurde nicht gespeichert. Versuche es erneut.",
     "routeNamePlaceholder": "Routenname",
     "routeWord": "Strecke",
     "routesWillAppear": "Routen erscheinen nach der Analyse deiner Aktivitäten",
@@ -1296,7 +1320,9 @@
     "standingBest": "Deine schnellste von {{total}}",
     "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
     "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
-    "largeSectionPerformanceWarning": "Große Abschnitte können länger zur Verarbeitung brauchen."
+    "largeSectionPerformanceWarning": "Große Abschnitte können länger zur Verarbeitung brauchen.",
+    "resetReference": "Referenz zurücksetzen",
+    "resetReferenceConfirm": "Zur automatischen Referenzauswahl zurückkehren? Die Übereinstimmungswerte für diese Route werden neu berechnet."
   },
   "routesScreen": {
     "computingRoutes": "Berechne Routen...",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "Datumsbereich erweitern"
   },
   "sections": {
+    "timeMethod": "Abschnittszeiten sind verstrichene Zeit einschließlich Pausen.",
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäten",
     "avg": "Ø",
@@ -1333,6 +1360,9 @@
     "legendReverse": "Rückwärts",
     "legendThisActivity": "Diese Aktivität",
     "legendOutsideBand": "Außerhalb des Distanzbereichs der Route",
+    "legendTrend": "Gauß-Trend",
+    "legendTrendBand": "Streubereich",
+    "legendTrendMethod": "Die Linie verwendet eine Gauß-Kernglättung mit lokaler linearer Anpassung. Der Bereich zeigt die gewichtete Streuung der Versuche um die angepasste Linie.",
     "plotScatter": "Streuung",
     "plotHistogram": "Histogramm",
     "histogramBinned": "Versuche in den Balken: {{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "Ausschließen Runde {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D-Terrain: {{mode}}",
     "developerDashboard": "Entwicklerübersicht",
     "account": "Konto",
     "activities": "Aktivitäten",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "Abschnitte sind deterministisch und formen sich mit deinen Läufen neu; mit einer Fixierung bleibt einer stabil.",
       "recutRunning": "Deine Abschnitte werden neu analysiert",
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
-      "phasePreparing": "der Katalog wird vorbereitet",
-      "phaseDetecting": "neue Abschnitte werden geschnitten",
-      "phaseDiffing": "die beiden Kataloge werden verglichen",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "Öffne Veloq",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert",
     "toSeeTraining": "um dein Training zu sehen",
     "record": "Aufzeichnen",
     "recordDescription": "Starte die Aufzeichnung einer Aktivität.",

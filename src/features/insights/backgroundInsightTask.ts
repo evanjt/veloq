@@ -8,7 +8,7 @@ import {
   presentActivityNotification,
   refreshPushTokenRegistration,
   type NotificationPreferences,
-} from '@/features/settings';
+} from '@/features/settings/light';
 
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { ActivityInfo } from './lib/activityHighlight';
@@ -16,10 +16,10 @@ import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
-import { awaitActivityBody } from './lib/awaitActivityBody';
-const log = debug.create('BackgroundInsight');
+import { BACKGROUND_INSIGHT_TASK } from './backgroundInsightRegistration';
 
-export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
+export { BACKGROUND_INSIGHT_TASK } from './backgroundInsightRegistration';
+const log = debug.create('BackgroundInsight');
 
 const PREFS_KEY = 'veloq-notification-preferences';
 
@@ -92,13 +92,13 @@ async function indexActivity(
     const summary = engine.indexNewActivity(activityId) as {
       matchedSections: number;
       insertedPortions: number;
-      regrouped: boolean;
+      regroupScheduled: boolean;
     } | null;
     await appendTaskRun({
       stage: 'indexed',
       activityId,
       detail: summary
-        ? `${summary.matchedSections} sections, ${summary.insertedPortions} portions, regrouped=${summary.regrouped}, ${Date.now() - start}ms`
+        ? `${summary.matchedSections} sections, ${summary.insertedPortions} portions, regroupScheduled=${summary.regroupScheduled}, ${Date.now() - start}ms`
         : 'indexing failed',
     });
   } catch (e) {
@@ -139,6 +139,8 @@ async function fetchAndIngestActivity(
 
     const { engine } = require('veloqrs');
     const { DownloadPriority } = require('veloqrs') as typeof import('veloqrs');
+    const { awaitActivityBody } =
+      require('./lib/awaitActivityBody') as typeof import('./lib/awaitActivityBody');
 
     const activity = await awaitActivityBody(engine, activityId, ACTIVITY_DETAIL_TIMEOUT_MS);
     if (!activity) return null;
@@ -226,8 +228,10 @@ async function fetchAndIngestActivity(
  *   5. Generate insights (now including the new activity)
  *   6. Replace the placeholder with the enriched body via the same identifier
  */
-log.log('Task module loaded, defining task');
-TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
+export async function handleBackgroundInsightTask({
+  data,
+  error,
+}: TaskManager.TaskManagerTaskBody): Promise<void> {
   log.log('Task fired (entry)');
   if (error) {
     log.error('Background insight error:', error.message);
@@ -418,7 +422,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     log.error('Background insight task failed:', e);
     await appendTaskRun({ stage: 'error', detail: e instanceof Error ? e.message : String(e) });
   }
-});
+}
 
 /**
  * Register the background notification task with expo-notifications.

@@ -3,7 +3,7 @@
 //! Scenario: a library already has detected sections, then one new activity
 //! arrives over the same corridor (the background push handler path).
 //! Expected behaviour: index_new_activity attaches the activity to the
-//! existing sections via junction rows, regroups incrementally, and is
+//! existing sections via junction rows, schedules regroup, and is
 //! idempotent on re-delivery, all without a full re-detection.
 
 #![cfg(feature = "synthetic")]
@@ -65,7 +65,7 @@ fn indexes_new_activity_against_existing_sections() {
         )
         .unwrap();
 
-    let summary = engine.index_new_activity(&new_activity.id).unwrap();
+    let (summary, _) = engine.index_new_activity(&new_activity.id).unwrap();
     assert!(
         summary.matched_sections >= 1,
         "new corridor activity should match at least one existing section; got {:?}",
@@ -77,12 +77,12 @@ fn indexes_new_activity_against_existing_sections() {
         summary
     );
     assert!(
-        summary.regrouped,
+        summary.regroup_scheduled,
         "ingest sets groups_dirty, so indexing must regroup"
     );
     assert!(
-        summary.indicators_recomputed,
-        "indicators must refresh: {:?}",
+        !summary.indicators_recomputed,
+        "the worker refreshes indicators when its groups swap: {:?}",
         summary
     );
 
@@ -103,7 +103,7 @@ fn indexes_new_activity_against_existing_sections() {
     );
 
     // Re-delivered webhook: same result, no duplicate rows.
-    let again = engine.index_new_activity(&new_activity.id).unwrap();
+    let (again, _) = engine.index_new_activity(&new_activity.id).unwrap();
     assert_eq!(again.matched_sections, summary.matched_sections);
     assert_eq!(again.inserted_portions, summary.inserted_portions);
     let attached_again = engine.get_sections_for_activity(&new_activity.id);
@@ -116,8 +116,8 @@ fn returns_empty_summary_for_unknown_or_tiny_activity() {
     let path = dir.path().join("index_empty.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
-    let summary = engine.index_new_activity("does-not-exist").unwrap();
+    let (summary, _) = engine.index_new_activity("does-not-exist").unwrap();
     assert_eq!(summary.matched_sections, 0);
     assert_eq!(summary.inserted_portions, 0);
-    assert!(!summary.regrouped);
+    assert!(!summary.regroup_scheduled);
 }

@@ -1,7 +1,7 @@
 /**
  * Widget snapshot: the small, pre-formatted JSON the home-screen widgets render.
- * Widgets run in a separate process and cannot call the engine, so everything they
- * show is baked into that file.
+ * Widget renderers use the file without reading the engine. A native refresh
+ * can open the engine and replace the file while the app UI is closed.
  *
  * The engine composes it, here and in the Android push worker, which writes it with
  * no JavaScript running. What only the app knows, the translated words, the date
@@ -66,6 +66,8 @@ export const WIDGET_STRING_KEYS = [
   'metrics.rhr',
   'metrics.week',
   'recording.startActivity',
+  'systemSurfaces.refresh',
+  'systemSurfaces.refreshing',
   'metrics.ftp',
   'metrics.pace',
   'metrics.css',

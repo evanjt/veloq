@@ -28,6 +28,7 @@ import { Button, EngineReadFailure, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } f
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   usePreviewDetect,
+  getPhaseDisplayKey,
   useCutoverHeld,
   useDetectionHold,
   rescanRefusalKey,
@@ -68,6 +69,7 @@ function DetectionPreviewScreenContent() {
   const { centres, labels, error: centresReadError } = usePreviewCentres(client);
   const { status, progress, result, refusal, lapsed, start, cancel, reset } =
     usePreviewDetect(client);
+  const phaseKey = progress ? getPhaseDisplayKey(progress.phase) : null;
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
   // So the cutover hold that refuses every real detect does not reach it, and
@@ -268,7 +270,9 @@ function DetectionPreviewScreenContent() {
               <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
                 {progress?.phase === 'loading'
                   ? t('settings.previewRunning', { count: progress.total })
-                  : (progress?.displayName ?? t('settings.previewRun'))}
+                  : phaseKey
+                    ? t(phaseKey)
+                    : (progress?.phase ?? t('settings.previewRun'))}
               </Text>
             </View>
             <View style={[styles.progressTrack, { backgroundColor: border }]}>

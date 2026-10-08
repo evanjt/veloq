@@ -3,6 +3,7 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple, SearchBar } from '@/shared/ui';
+import { formatShortDateWithYear } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
 
@@ -37,7 +38,7 @@ export function MapNameSearch({ needle, onChangeNeedle, results, onChoose }: Map
                 {a.name}
               </Text>
               <Text style={[styles.resultDate, isDark && styles.resultDateDark]}>
-                {a.date.slice(0, 10)}
+                {formatShortDateWithYear(new Date(a.date))}
               </Text>
             </Pressable>
           ))}

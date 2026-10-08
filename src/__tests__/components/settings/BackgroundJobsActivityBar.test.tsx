@@ -69,4 +69,31 @@ describe('BackgroundJobsActivityBar', () => {
     tree.rerender(<BackgroundJobsActivityBar />);
     expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
   });
+
+  it('shows translated cutover and detection phases in the active locale', async () => {
+    await changeLanguage('de-DE');
+    mockUseBackgroundJobs.mockReturnValue([
+      job('cutover', { state: 'running', phase: 'draining' }),
+      job('detection', { state: 'running', phase: 'analyzing', percent: 40 }),
+    ]);
+    const tree = render(<BackgroundJobsActivityBar />);
+
+    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
+      'Katalog vorbereiten'
+    );
+    expect(tree.getByTestId('background-job-detection-detail')).toHaveTextContent(
+      'Aktivitäten analysieren · 40 %'
+    );
+  });
+
+  it('shows an unknown engine phase without a translation', () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('cutover', { state: 'running', phase: 'new_phase' }),
+    ]);
+    const tree = render(<BackgroundJobsActivityBar />);
+
+    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe('new_phase');
+  });
 });

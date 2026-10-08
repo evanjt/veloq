@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Indlæser ruter",
+    "analysing": "Analyserer aktiviteter",
+    "saving": "Gemmer strækninger",
+    "recomputingIndicators": "Beregner indikatorer",
+    "diffing": "Sammenligner kataloger",
+    "complete": "Fuldført",
+    "cancelled": "Annulleret",
+    "draining": "Forbereder katalog",
+    "archiving": "Arkiverer strækninger",
+    "detecting": "Registrerer strækninger"
+  },
   "about": {
     "dataAttribution": "Datakilder",
     "description": "En hurtig, offline-først mobilklient til intervals.icu med fokus på kort og visuel analyse.",
@@ -19,6 +31,7 @@
     "version": "Versionsnummer"
   },
   "activity": {
+    "terrainRow": "3D-terræn",
     "activityStats": "Aktivitetsstatistik",
     "calories": "Kalorier",
     "chartHint": "Hold for at skrubbe • Hold chip for akse",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatur fra vejrdata eller din enheds sensor.",
       "energy": "Estimeret energiforbrug fra puls, kraft og varighed.",
-      "fitnessImpact": "Sammenlignet med en hviledag øger denne aktivitet fitness med træningsbelastningen divideret med 42 og træthed med belastningen divideret med 7. Påvirkningen af formen er fitness minus træthed. Tidskonstanterne er henholdsvis 42 og 7 dage.",
+      "fitnessImpact": "Sammenlignet med en hviledag øger denne aktivitet fitness med belastning × (1 − e^(−1/42)) og træthed med belastning × (1 − e^(−1/7)). Styrketræning øger kun træthed. Formpåvirkningen er fitness minus træthed.",
       "heartRate": "Gennemsnitlig puls under aktiviteten.",
       "newGround": "Andelen af kortfelter, som denne aktivitet berørte, og som ingen tidligere aktivitet havde berørt. Et felt er cirka 150 til 300 m bredt afhængigt af breddegrad, så det måler feltdækning og ikke afstand på nye veje.",
+      "activityEftp": "eFTP er intervals.icus effektmodelestimat for denne aktivitet.",
       "power": "Gennemsnitlig kraftudvikling i watt.",
       "trainingLoad": "Training Stress Score (TSS) kvantificerer træningsbelastning baseret på varighed og intensitet i forhold til din tærskel.",
       "yourForm": "Din form (TSB) på denne dag. Dette er en daglig værdi baseret på din samlede træning, ikke specifik for denne aktivitet. TSB = Fitness (CTL) minus Træthed (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Afkobling",
       "deviceSensor": "Enhedssensor",
       "efficiencyFactor": "Effektivitetsfaktor",
-      "eftpEstimated": "eFTP (estimeret)",
+      "eftpEstimated": "eFTP for denne aktivitet",
       "energy": "Energi",
       "fatigueATL": "Træthed (ATL)",
       "feelsLike": "Føles som {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Din fitness (CTL)",
       "yourForm": "Din form"
     },
+    "hrZoneTotal": "Tid med puls: {{duration}}",
+    "movingTime": "Tid i bevægelse: {{duration}}",
     "timeInHRZones": "Tid i pulszoner",
     "timeInPowerZones": "Tid i effektzoner",
     "viewDetails": "Vis detaljer",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "PR {{improvement}}",
     "lineKeyActivity": "Denne aktivitet",
     "lineKeyRoute": "Matchet rute",
     "failedToLoad": "Kunne ikke indlæse aktivitet",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "Hold dig opdateret",
-      "description": "Få besked om nye aktiviteter, synkroniseringsfremskridt og når dine data er klar til at udforske.",
+      "description": "Få besked om nye aktiviteter, personlige rekorder og formmilepæle.",
       "enable": "Aktivér",
       "dismiss": "Ikke nu",
       "settingsHint": "Du kan aktivere notifikationer når som helst i Indstillinger",
@@ -1176,6 +1193,8 @@
     "autoUpload": "Automatisk upload",
     "autoUploadDescription": "Upload optagelser til intervals.icu automatisk, når du gemmer dem. Slået fra bliver de på denne enhed, indtil du uploader fra Mine optagelser.",
     "library": {
+      "distance": "Afstand",
+      "duration": "Varighed",
       "title": "Mine optagelser",
       "empty": "Ingen optagelser endnu",
       "emptyHint": "Gemte optagelser opbevares her på denne enhed.",
@@ -1250,6 +1269,7 @@
     "tomorrow": "I MORGEN"
   },
   "routes": {
+    "timeMethod": "Rutetider bruger bevægelsestid uden stop.",
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "targetPace": "Tempo",
@@ -1273,8 +1293,12 @@
     "noMatchingRoutes": "Ingen matchende ruter fundet",
     "noRoutesYet": "Ingen ruter endnu",
     "noSectionsMatchFilter": "Ingen sektioner matcher filteret",
+    "placeJourney": "{{start}} til {{end}}",
+    "placeLoop": "{{place}} rundtur",
     "pointCountHint_one": "{{count}} GPS-punkt",
     "pointCountHint_other": "{{count}} GPS-punkter",
+    "renameFailedTitle": "Navnet kunne ikke gemmes",
+    "renameFailedMessage": "Rutenavnet blev ikke gemt. Prøv igen.",
     "routeNamePlaceholder": "Rutenavn",
     "routeWord": "Rute",
     "routesWillAppear": "Ruter vises efter dine aktiviteter er analyseret",
@@ -1296,7 +1320,9 @@
     "standingBest": "Din hurtigste af {{total}}",
     "standingRank": "Nr. {{rank}} af {{total}}, {{gap}} fra din bedste",
     "standingRankPercentile": "Nr. {{rank}} af {{total}}, hurtigere end {{percent}} % af dem, {{gap}} fra din bedste",
-    "largeSectionPerformanceWarning": "Store sektioner kan tage længere tid at behandle."
+    "largeSectionPerformanceWarning": "Store sektioner kan tage længere tid at behandle.",
+    "resetReference": "Nulstil reference",
+    "resetReferenceConfirm": "Gå tilbage til automatisk valg af reference? Matchprocenterne for denne rute beregnes igen."
   },
   "routesScreen": {
     "computingRoutes": "Beregner ruter...",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "Udvid datointerval"
   },
   "sections": {
+    "timeMethod": "Sektionstider er forløbet tid inklusive stop.",
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "avg": "Gns",
@@ -1333,6 +1360,9 @@
     "legendReverse": "Modsat",
     "legendThisActivity": "Denne aktivitet",
     "legendOutsideBand": "Uden for rutens distanceinterval",
+    "legendTrend": "Gaussisk trend",
+    "legendTrendBand": "Spredningsbånd",
+    "legendTrendMethod": "Linjen bruger Gaussisk kerneudjævning med lokal lineær tilpasning. Båndet viser den vægtede spredning af forsøg omkring den tilpassede linje.",
     "plotScatter": "Spredning",
     "plotHistogram": "Histogram",
     "histogramBinned": "Forsøg i søjlerne: {{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "Udeluk Omgang {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D-terræn: {{mode}}",
     "developerDashboard": "Udvikleroversigt",
     "account": "Konto",
     "activities": "Aktiviteter",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "Strækninger er deterministiske og former sig om, efterhånden som dine ture samler sig; fastgør en for at holde den stabil.",
       "recutRunning": "Analyserer dine strækninger igen",
       "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
-      "phasePreparing": "forbereder kataloget",
-      "phaseDetecting": "skærer nye strækninger",
-      "phaseDiffing": "sammenligner de to kataloger",
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
       "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
       "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen.",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "Åbn Veloq",
+    "refresh": "Opdater",
+    "refreshing": "Opdaterer",
     "toSeeTraining": "for at se din træning",
     "record": "Optag",
     "recordDescription": "Start optagelsen af en aktivitet.",

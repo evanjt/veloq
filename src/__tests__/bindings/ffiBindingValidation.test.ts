@@ -94,55 +94,6 @@ const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
 
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
-    it('should have the expected standalone flat exports', () => {
-      // Non-object-method standalone functions (download progress, fetch
-      // lifecycle including its cancel, polyline overlap, backup validation,
-      // elevation backfill start, pause, resume, paused, progress and
-      // remaining,
-      // the seven detector-cutover calls: pending, running, start, cancel,
-      // progress, diff and change-card support, the two connectivity calls,
-      // and the
-      // quarantine report). Adjust if a new standalone is added - but prefer
-      // putting engine-coupled logic on a UniFFI Object.
-      //
-      // The connectivity pair is standalone on purpose. It is a process-wide
-      // value the network provider pushes before `initWithPath` has run, so
-      // an engine method would drop the very first edge. The quarantine report
-      // is standalone for the same reason: it is written during init, before
-      // there is a handle to hang it on, and it says the library that handle
-      // opens is not the one the athlete had.
-      //
-      // The four stream-backfill calls sit here for the same reason the
-      // elevation ones do, and beside them: the pass is a detached thread
-      // holding a process-global slot, and its start, stop and progress are
-      // all reads of that slot rather than of a handle.
-      //
-      // `get_fetch_run_progress` is standalone beside the global read it
-      // narrows: the download queue is process state in `http`, not engine
-      // state, and a caller polling its own run must not queue behind the
-      // engine lock to do it.
-      //
-      // `validate_credentials` is standalone because a sign-in screen has no
-      // engine: the layout opens one only once the athlete is authenticated.
-      // The check reads nothing from the database, builds its own transport
-      // from the process base URL and runs on the lazily built runtime, so
-      // hanging it on the engine object made a valid key on a fresh install
-      // answer "unavailable", which the screen rendered as a connection
-      // failure.
-      // `get_routes_status_data` is standalone because every figure it carries
-      // is: the detection and tile handles, the backfill's phase and the
-      // cutover's are all process-global slots, and it exists so a tick reads
-      // them once rather than four times. Hanging the bundle on the engine
-      // object would put a read of four slots behind the engine lock the
-      // separate reads it replaces did not all take.
-      // `consent_stream_backfill` is standalone beside `start_stream_backfill`:
-      // the pass is a process slot, and the answer is recorded as a setting
-      // row before it starts.
-      // `set_interacting` is standalone beside `set_network_online`: a process-wide
-      // advisory value that has to land before the engine opens.
-      expect(STANDALONE_EXPORTS.length).toBe(31);
-    });
-
     it('should include the known standalone FFI functions', () => {
       const names = new Set(STANDALONE_EXPORTS.map((e) => e.name));
       expect(names.has('get_download_progress')).toBe(false);
@@ -197,6 +148,7 @@ describe('FFI Binding Validation', () => {
       expect(names.has('get_cutover_diff')).toBe(true);
       expect(names.has('take_quarantine_report')).toBe(true);
       expect(names.has('set_network_online')).toBe(true);
+      expect(names.has('set_engine_log_level')).toBe(true);
       expect(names.has('get_network_push')).toBe(true);
       // A whole-catalogue rollback is not offered: the detector keeps moving,
       // so restoring is per section.

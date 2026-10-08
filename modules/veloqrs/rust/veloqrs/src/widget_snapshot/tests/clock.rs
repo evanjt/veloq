@@ -243,7 +243,7 @@ fn week_bounds_on_a_monday_start_at_its_own_midnight() {
     assert_eq!(now, 1_789_373_700);
     assert_eq!(
         week_bounds(now),
-        (MONDAY_14TH, now, MONDAY_7TH, MONDAY_14TH - 1)
+        (MONDAY_14TH, now, MONDAY_7TH, now - 7 * DAY)
     );
 }
 
@@ -251,7 +251,7 @@ fn week_bounds_on_a_monday_start_at_its_own_midnight() {
 fn week_bounds_at_monday_midnight_put_that_instant_in_the_new_week() {
     assert_eq!(
         week_bounds(MONDAY_14TH),
-        (MONDAY_14TH, MONDAY_14TH, MONDAY_7TH, 1_789_343_999)
+        (MONDAY_14TH, MONDAY_14TH, MONDAY_7TH, MONDAY_7TH)
     );
 }
 
@@ -261,7 +261,7 @@ fn week_bounds_on_a_sunday_reach_back_to_the_monday_before() {
     let now = 1_789_948_799;
     assert_eq!(
         week_bounds(now),
-        (MONDAY_14TH, now, MONDAY_7TH, 1_789_343_999)
+        (MONDAY_14TH, now, MONDAY_7TH, now - 7 * DAY)
     );
 }
 
@@ -271,6 +271,69 @@ fn week_bounds_mid_week_start_on_the_monday() {
     let now = 1_789_565_400;
     assert_eq!(
         week_bounds(now),
-        (MONDAY_14TH, now, MONDAY_7TH, 1_789_343_999)
+        (
+            MONDAY_14TH,
+            now,
+            MONDAY_7TH,
+            MONDAY_7TH + (now - MONDAY_14TH)
+        )
     );
+}
+
+#[test]
+fn test_week_bounds_tuesday_matches_the_previous_elapsed_week() {
+    let now = MONDAY_14TH + DAY + 8 * 3600;
+    let (current_start, current_end, prev_start, prev_end) = week_bounds(now);
+    assert_eq!(current_end, now);
+    assert_eq!(prev_end, prev_start + (now - current_start));
+}
+
+#[test]
+fn test_week_bounds_half_hour_after_monday_midnight() {
+    let now = MONDAY_14TH + 1800;
+    let (current_start, current_end, prev_start, prev_end) = week_bounds(now);
+    assert_eq!(current_start, MONDAY_14TH);
+    assert_eq!(current_end - current_start, 1800);
+    assert_eq!(prev_end - prev_start, 1800);
+}
+
+#[test]
+fn test_widget_weekly_delta_compares_matching_elapsed_weeks() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let path = dir.path().join("widget_week_delta.db");
+    let mut engine =
+        crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let metric = |id: &str, date: i64, seconds: u32| crate::ActivityMetrics {
+        activity_id: id.to_string(),
+        name: id.to_string(),
+        date,
+        distance: 10_000.0,
+        moving_time: seconds,
+        elapsed_time: seconds,
+        elevation_gain: 0.0,
+        avg_hr: None,
+        avg_power: None,
+        sport_type: "Ride".to_string(),
+        training_load: Some(seconds as f64 / 3600.0 * 100.0),
+        ftp: None,
+        power_zone_times: None,
+        hr_zone_times: None,
+    };
+    engine
+        .set_activity_metrics(vec![
+            metric("current", MONDAY_14TH + DAY + 7 * 3600, 3600),
+            metric("previous", MONDAY_7TH + DAY + 7 * 3600, 1800),
+            metric("late", MONDAY_7TH + 3 * DAY, 27_000),
+        ])
+        .expect("metrics");
+
+    let now = MONDAY_14TH + DAY + 8 * 3600;
+    let snapshot = compose(
+        &data_from(&engine.db, at_wall(now)),
+        &context(),
+        at_wall(now),
+    );
+    assert_eq!(snapshot.weekly.delta_pct, Some(100));
+    crate::persistence::read_cache::close();
 }

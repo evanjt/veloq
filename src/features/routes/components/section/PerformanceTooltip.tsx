@@ -8,7 +8,7 @@
 
 import { useMetricSystem } from '@/shared/app';
 import React from 'react';
-import { Pressable, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -89,12 +89,12 @@ export function PerformanceTooltip({
 
   return (
     <View style={styles.tooltipContainer}>
-      <TouchableOpacity
-        style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
+      <Pressable
+        style={pressable([styles.selectedTooltip, isDark && styles.selectedTooltipDark])}
         accessibilityRole="button"
         accessibilityLabel={selectedPoint.activityName}
         onPress={() => tapTo(`/activity/${selectedPoint.activityId}`)}
-        activeOpacity={0.7}
+        android_ripple={pressRipple}
       >
         <View style={styles.tooltipLeft}>
           <View style={styles.tooltipNameRow}>
@@ -144,7 +144,9 @@ export function PerformanceTooltip({
               <Text
                 style={[
                   styles.tooltipDelta,
-                  { color: verdictColor(delta.isFaster ? 'positive' : 'negative', isDark) },
+                  {
+                    color: verdictColor(delta.isFaster ? 'positive' : 'negative', isDark),
+                  },
                 ]}
               >
                 {' \u00b7 '}
@@ -238,7 +240,7 @@ export function PerformanceTooltip({
             color={isDark ? darkColors.textSecondary : colors.border}
           />
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

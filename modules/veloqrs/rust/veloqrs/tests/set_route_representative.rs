@@ -77,6 +77,42 @@ fn set_representative_updates_memory_and_db() {
 }
 
 #[test]
+fn reset_representative_restores_automatic_choice() {
+    let (mut engine, dir) = setup_engine(5);
+    let group = engine.get_groups().iter().next().unwrap().clone();
+    let automatic = group.representative_id.clone();
+    let chosen = group
+        .activity_ids
+        .iter()
+        .find(|id| **id != automatic)
+        .unwrap();
+
+    engine
+        .set_route_representative(&group.group_id, chosen)
+        .unwrap();
+    engine.reset_route_representative(&group.group_id).unwrap();
+    engine.reset_route_representative(&group.group_id).unwrap();
+
+    let restored = engine
+        .get_groups()
+        .iter()
+        .find(|candidate| candidate.group_id == group.group_id)
+        .unwrap();
+    assert_eq!(restored.representative_id, automatic);
+
+    let conn = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
+    let (stored, chosen): (String, i64) = conn
+        .query_row(
+            "SELECT representative_id, representative_chosen FROM route_groups WHERE id = ?",
+            params![group.group_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(stored, automatic);
+    assert_eq!(chosen, 0);
+}
+
+#[test]
 fn set_representative_rejects_nonmember_activity() {
     let (mut engine, _dir) = setup_engine(5);
 

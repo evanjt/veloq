@@ -27,7 +27,7 @@ use crate::{ActivityMatchInfo, GpsPoint};
 /// Load all route signatures from the DB (standalone, no engine needed).
 /// Returns the signatures that decoded and the ones that did not, so the
 /// caller decides whether a reduced pool may be grouped over.
-fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTrack>) {
+pub(super) fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTrack>) {
     let mut stmt = match conn.prepare(
         "SELECT activity_id, points, start_point_lat, start_point_lng,
                 end_point_lat, end_point_lng, total_distance

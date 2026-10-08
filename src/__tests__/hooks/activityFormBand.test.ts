@@ -11,6 +11,8 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { colors } from '@/theme';
 import {
   getFormZone,
   FORM_ZONE_TEXT_COLORS,
@@ -45,6 +47,24 @@ function loadStat(intensity: number) {
 }
 
 describe('the activity card form band', () => {
+  it('uses the displayed form when fractional loads round across a zone boundary', () => {
+    const stat = formStat({ ctl: 50.5, atl: 45.6 } as WellnessData);
+    expect(stat?.value).toBe('+5');
+    expect(stat?.context).toBe(formZoneLabel('fresh'));
+    expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS.fresh);
+  });
+
+  it('uses rounded fitness to zone the displayed percentage', () => {
+    useFormPreference.getState().setFormAsPercent(true);
+    try {
+      const stat = formStat({ ctl: 100.49, atl: 95.49 } as WellnessData);
+      expect(stat?.value).toBe('+5%');
+      expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS.fresh);
+    } finally {
+      useFormPreference.setState({ formAsPercent: null });
+    }
+  });
+
   it.each([-35, -30, -20, -10, -5, 0, 5, 10, 25, 30])(
     'colours a TSB of %d from the fitness ladder',
     (tsb) => {
@@ -69,7 +89,21 @@ describe('the activity card form band', () => {
  * athlete through hue alone.
  */
 describe('a card that colours by band also names it', () => {
+  it('omits intensity when a stored activity has load but no intensity', () => {
+    const withLoad = { ...activity, icu_training_load: 60 } as Activity;
+    const { result } = renderHook(() => useActivityStats({ activity: withLoad, ...settings }));
+    const stat = result.current.stats.find((s) => s.title === 'activity.stats.trainingLoad');
+
+    expect(stat?.value).toBe('60');
+    expect(stat?.context).toBeUndefined();
+    expect(stat?.color).toBe(colors.textSecondary);
+    expect(
+      stat?.details?.find((detail) => detail.label === 'activity.stats.intensityFactor')
+    ).toBeUndefined();
+  });
+
   it.each([
+    [0, 'activity.stats.intensityEasy'],
     [60, 'activity.stats.intensityEasy'],
     [70, 'activity.stats.intensityEasy'],
     [78, 'activity.stats.intensityModerate'],

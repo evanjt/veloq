@@ -75,6 +75,70 @@ fn grouped_library(stored: &[(&str, f64)]) -> (u64, Vec<RouteGroup>) {
 }
 
 #[test]
+fn test_attach_tail_leaves_regroup_for_worker() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("regroup.db");
+    let path = dir.path().join("regroup.db");
+    let (install, settled) = grouped_library(&[("a", 44.0), ("b", 48.0), ("c", 52.0), ("d", 56.0)]);
+
+    let (entered, resume) = pause_next_group_write(&path, install);
+    let (scheduled, dirty) = with_persistent_engine(|engine| {
+        let (_, _, scheduled) = engine.attach_finalize(0, false);
+        (scheduled, engine.groups_are_dirty())
+    })
+    .expect("engine");
+    assert!(dirty, "the attach tail must leave grouping for the worker");
+    scheduled.expect("regroup scheduled").start();
+    entered.recv_timeout(WAIT).expect("worker reached compute");
+    let reader = std::thread::spawn(|| {
+        with_persistent_engine(|engine| engine.groups.clone()).expect("engine lock is free")
+    });
+    assert_eq!(
+        catalogue(&reader.join().expect("reader")),
+        catalogue(&settled)
+    );
+    resume.send(()).unwrap();
+    assert!(wait_for_regroup(WAIT));
+    let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
+    for member in ["a", "b", "c", "d"] {
+        assert!(holder(&groups, member).is_some(), "{member} is in no route");
+    }
+    crate::persistence::clear_persistent_engine();
+}
+
+#[test]
+fn test_index_tail_leaves_regroup_for_worker() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("regroup.db");
+    let path = dir.path().join("regroup.db");
+    let (install, settled) = grouped_library(&[("a", 44.0)]);
+
+    let (entered, resume) = pause_next_group_write(&path, install);
+    let ((summary, scheduled), dirty) = with_persistent_engine(|engine| {
+        let indexed = engine.index_new_activity("a").expect("index");
+        (indexed, engine.groups_are_dirty())
+    })
+    .expect("engine");
+    assert!(summary.regroup_scheduled);
+    assert!(!summary.indicators_recomputed);
+    assert!(dirty);
+    scheduled.expect("regroup scheduled").start();
+    entered.recv_timeout(WAIT).expect("worker reached compute");
+    let reader = std::thread::spawn(|| {
+        with_persistent_engine(|engine| engine.groups.clone()).expect("engine lock is free")
+    });
+    assert_eq!(
+        catalogue(&reader.join().expect("reader")),
+        catalogue(&settled)
+    );
+    resume.send(()).unwrap();
+    assert!(wait_for_regroup(WAIT));
+    let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
+    assert!(holder(&groups, "a").is_some());
+    crate::persistence::clear_persistent_engine();
+}
+
+#[test]
 fn test_regroup_held_in_its_compute_leaves_the_lock_to_readers() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");

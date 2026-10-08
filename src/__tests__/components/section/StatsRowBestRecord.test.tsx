@@ -19,7 +19,7 @@ function row(bestIsRecord: boolean) {
   return render(
     <StatsRow
       direction="forward"
-      stats={{ avgTime: 245, lastActivity: null, count: 2, avgSpeed: null }}
+      stats={{ avgTime: 245, lastActivity: null, count: 2, avgSpeed: null, outsideBandCount: 0 }}
       bestRecord={bestRecord}
       bestIsRecord={bestIsRecord}
       pointCount={2}
@@ -47,5 +47,23 @@ describe('StatsRow best', () => {
 
     expect(queryByTestId('stats-row-trophy-forward')).toBeNull();
     expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00 Best');
+  });
+
+  it('shows the counted attempts and the omitted distance-band attempts', () => {
+    const { getByTestId } = render(
+      <StatsRow
+        direction="forward"
+        stats={{ avgTime: 245, lastActivity: null, count: 2, avgSpeed: null, outsideBandCount: 1 }}
+        bestRecord={bestRecord}
+        bestIsRecord
+        pointCount={3}
+        color="#00aa00"
+        showPace={false}
+        isDark={false}
+      />
+    );
+
+    expect(getByTestId('stats-row-count-forward').props.children).toBe(2);
+    expect(getByTestId('stats-row-outside-band-forward')).toBeTruthy();
   });
 });

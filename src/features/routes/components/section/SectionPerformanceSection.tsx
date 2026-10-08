@@ -117,6 +117,9 @@ export function SectionPerformanceSection({
           }}
         />
       </View>
+      <Text testID="section-time-method" style={[styles.method, isDark && styles.methodDark]}>
+        {t('sections.timeMethod')}
+      </Text>
       {hasEfforts ? (
         <PerformanceChartPanel
           chartData={chartData}
@@ -185,6 +188,15 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexDirection: 'row',
     gap: spacing.xxs,
+  },
+  method: {
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  methodDark: {
+    color: darkColors.textSecondary,
   },
   emptyState: {
     height: 120,

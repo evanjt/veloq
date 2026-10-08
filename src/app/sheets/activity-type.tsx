@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, View, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -125,17 +125,20 @@ function ActivityTypeSheetContent() {
         renderItem={({ item }) => {
           const isSelected = item === selectedType;
           return (
-            <TouchableOpacity
+            <Pressable
               testID={`activity-type-option-${item}`}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
-              style={[
+              style={pressable([
                 styles.row,
-                isRecording && { borderBottomColor: border, ...styles.rowBordered },
+                isRecording && {
+                  borderBottomColor: border,
+                  ...styles.rowBordered,
+                },
                 isSelected && selectedRowStyle,
-              ]}
+              ])}
               onPress={() => resolve(item)}
-              activeOpacity={0.7}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name={getActivityIcon(item)}
@@ -153,7 +156,7 @@ function ActivityTypeSheetContent() {
                   color={brand.teal}
                 />
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         }}
       />

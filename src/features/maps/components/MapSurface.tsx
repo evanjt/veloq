@@ -20,7 +20,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ActivityIndicator, PixelRatio, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
@@ -58,7 +58,15 @@ import {
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
 import { createPendingRequests } from '@/features/maps/lib/pendingRequests';
-import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
+import {
+  holdSurfaceReleased,
+  markNativeReleasedSurface,
+  rebuildReleasedSurfaces,
+  registerReleasableSurface,
+  resumeHeldSurface,
+} from '@/features/maps/lib/mapSurfaceRegistry';
+import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
+import { pageOpensAt, type SettledCamera } from '@/features/maps/lib/settledCamera';
 import type {
   MapCameraSpec,
   MapImageSpec,
@@ -148,6 +156,11 @@ export interface MapSurfaceProps {
   zoomEnabled?: boolean | undefined;
   rotateEnabled?: boolean | undefined;
   pitchEnabled?: boolean | undefined;
+  /**
+   * Releases the page's map while true, for a screen another screen covers,
+   * and rebuilds it at the camera it settled on when it turns false.
+   */
+  released?: boolean | undefined;
   onMapReady?: (() => void) | undefined;
   /** The page cannot render a basemap. Fires once per failure, with the reason. */
   onMapFailed?: ((reason: string) => void) | undefined;
@@ -197,6 +210,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     zoomEnabled = true,
     rotateEnabled = true,
     pitchEnabled = false,
+    released = false,
     onMapReady,
     onMapFailed,
     onPress,
@@ -210,7 +224,10 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 ) {
   const { t } = useTranslation();
   const webViewRef = useRef<WebView>(null);
+  const registeredSurfaceRef = useRef<ReleasableSurface | null>(null);
   const readyRef = useRef(false);
+  const releasedRef = useRef(released);
+  releasedRef.current = released;
   const failedRef = useRef(false);
   const [unavailable, setUnavailable] = useState(false);
   const [tilesLoading, setTilesLoading] = useState(false);
@@ -243,8 +260,11 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onBearingChange,
   };
 
-  // The page is rebuilt only for gesture settings, never for data or style.
-  const initialCameraRef = useRef(initialCamera);
+  // The page is rebuilt only for gesture settings and to bring a released map
+  // back where it was, never for data or style.
+  const pageCameraRef = useRef<MapCameraSpec>(initialCamera);
+  const settledCameraRef = useRef<SettledCamera | null>(null);
+  const [pageEpoch, setPageEpoch] = useState(0);
   const initialStyleRef = useRef(mapStyle);
   // What the page is showing. A rebuilt page starts from `initialStyleRef`.
   const renderedStyleRef = useRef(mapStyle);
@@ -258,7 +278,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       buildMapSurfaceHtml({
         style: initialStyleRef.current,
         styleOptions,
-        camera: initialCameraRef.current,
+        camera: pageCameraRef.current,
         interaction: {
           scroll: scrollEnabled,
           zoom: zoomEnabled,
@@ -270,8 +290,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         longPressMs: DELIBERATE_HOLD_MS,
       }),
     // styleOptions is a plain settings object supplied as a literal by callers.
+    // `pageEpoch` moves when a released map comes back at a new camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The settings object is reconstructed by callers.
-    [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled]
+    [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled, pageEpoch]
   );
 
   const inject = useCallback((script: string) => {
@@ -327,6 +348,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     () => ({
       console: (data) => log.log(data.message),
       mapReady: () => {
+        // A page that finished loading after its screen was covered drew a
+        // map the release could not yet reach.
+        if (releasedRef.current) {
+          inject(buildReleaseMapScript());
+          return;
+        }
         readyRef.current = true;
         failedRef.current = false;
         setUnavailable(false);
@@ -364,11 +391,23 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       regionDidChange: (data) => {
         const state = toCameraState(data);
         if (state) {
+          settledCameraRef.current = {
+            center: state.center,
+            zoom: state.zoom,
+            bearing: state.bearing,
+            pitch: state.pitch,
+          };
           callbacksRef.current.onRegionDidChange?.(state, data.isUserInteraction === true);
         }
       },
       bearingChange: (data) => {
         if (typeof data.bearing === 'number') callbacksRef.current.onBearingChange?.(data.bearing);
+      },
+      nativeMapReleased: () => {
+        const surface = registeredSurfaceRef.current;
+        if (surface && markNativeReleasedSurface(surface) && AppState.currentState === 'active') {
+          rebuildReleasedSurfaces();
+        }
       },
       queryResult: (data) => resolvePending(data.requestId as string, data.features ?? []),
       clusterLeaves: (data) => resolvePending(data.requestId as string, data.features ?? []),
@@ -430,29 +469,59 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     [inject, request]
   );
 
-  // A crashed render process comes back empty, so everything has to resend.
-  const handleCrash = useCallback(() => {
+  const forgetPage = useCallback(() => {
     readyRef.current = false;
     tileGateRef.current.settled();
     patcherRef.current.forget();
     pendingRef.current.abandon();
-    webViewRef.current?.reload();
   }, []);
+
+  // A crashed render process comes back empty, so everything has to resend.
+  const handleCrash = useCallback(() => {
+    forgetPage();
+    webViewRef.current?.reload();
+  }, [forgetPage]);
+
+  // A released map comes back in the same WebView. The page opens at the
+  // camera it was built with, so one the athlete has moved since gets a new
+  // page built at the settled camera rather than a reload.
+  const rebuildPage = useCallback(() => {
+    forgetPage();
+    const settled = settledCameraRef.current;
+    if (settled && !pageOpensAt(pageCameraRef.current, settled)) {
+      pageCameraRef.current = settled;
+      setPageEpoch((epoch) => epoch + 1);
+    } else {
+      webViewRef.current?.reload();
+    }
+  }, [forgetPage]);
 
   // A surface the reclaimer releases holds no map until the reload, so the
   // patch sender is silenced the same way a crash silences it.
-  useEffect(
-    () =>
-      registerReleasableSurface({
-        release: () => {
-          readyRef.current = false;
-          pendingRef.current.abandon();
-          inject(buildReleaseMapScript());
-        },
-        rebuild: handleCrash,
-      }),
-    [inject, handleCrash]
-  );
+  useEffect(() => {
+    const surface: ReleasableSurface = {
+      release: (source) => {
+        readyRef.current = false;
+        pendingRef.current.abandon();
+        if (source === 'javascript') inject(buildReleaseMapScript());
+      },
+      rebuild: rebuildPage,
+    };
+    registeredSurfaceRef.current = surface;
+    const unregister = registerReleasableSurface(surface);
+    if (releasedRef.current) holdSurfaceReleased(surface);
+    return () => {
+      registeredSurfaceRef.current = null;
+      unregister();
+    };
+  }, [inject, rebuildPage]);
+
+  useEffect(() => {
+    const surface = registeredSurfaceRef.current;
+    if (!surface) return;
+    if (released) holdSurfaceReleased(surface);
+    else if (resumeHeldSurface(surface)) rebuildPage();
+  }, [released, rebuildPage]);
 
   useEffect(() => {
     const pending = pendingRef.current;

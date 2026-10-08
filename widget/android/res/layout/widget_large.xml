@@ -73,7 +73,7 @@
       android:contentDescription="@null" />
   </LinearLayout>
 
-  <View
+  <TextView
     android:layout_width="match_parent"
     android:layout_height="1dp"
     android:layout_marginTop="@dimen/widget_gap"
@@ -117,6 +117,8 @@
       android:maxLines="1"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
+
+    <include layout="@layout/widget_refresh_control" />
 
     <ImageView
       android:id="@+id/large_record"

@@ -650,6 +650,10 @@ pub(crate) mod test_globals {
 #[path = "tests/global_state.rs"]
 mod global_state_tests;
 
+#[cfg(test)]
+#[path = "tests/log_level.rs"]
+mod log_level_tests;
+
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
 pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {
@@ -722,7 +726,6 @@ static LOGGING_INIT: std::sync::Once = std::sync::Once::new();
 /// line that says why a job refused to start has to be `warn!`, or nobody with
 /// the phone in hand can read it. `scripts/lint-decline-visible.mjs` holds the
 /// sites that answer that question to it.
-#[cfg(any(target_os = "android", target_os = "ios"))]
 fn log_level() -> log::LevelFilter {
     if cfg!(debug_assertions) {
         log::LevelFilter::Debug
@@ -731,17 +734,19 @@ fn log_level() -> log::LevelFilter {
     }
 }
 
+#[cfg(any(target_os = "android", target_os = "ios", test))]
+fn initialise_log_level() {
+    log::set_max_level(log_level());
+}
+
 /// Initialise logging for Android
 #[cfg(target_os = "android")]
 pub(crate) fn init_logging() {
     use android_logger::Config;
 
     LOGGING_INIT.call_once(|| {
-        android_logger::init_once(
-            Config::default()
-                .with_max_level(log_level())
-                .with_tag("veloqrs"),
-        );
+        android_logger::init_once(Config::default().with_tag("veloqrs"));
+        initialise_log_level();
     });
 }
 
@@ -753,6 +758,7 @@ pub(crate) fn init_logging() {
             .level_filter(log_level())
             .init()
             .ok();
+        initialise_log_level();
     });
 }
 

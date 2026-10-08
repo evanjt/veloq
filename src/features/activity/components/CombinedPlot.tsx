@@ -45,6 +45,7 @@ export type { ChartMetricValue };
 
 interface CombinedPlotProps {
   streams: ActivityStreams;
+  elevationGain: number | null | undefined;
   selectedCharts: ChartTypeId[];
   chartConfigs: Record<ChartTypeId, ChartConfig>;
   height?: number | undefined;
@@ -72,6 +73,7 @@ const xOf = (d: Record<string, number>) => d.x;
 
 export const CombinedPlot = React.memo(function CombinedPlot({
   streams,
+  elevationGain,
   selectedCharts,
   chartConfigs,
   height = 180,
@@ -160,8 +162,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Calculate averages for display when not scrubbing
   // Compute averages for ALL available chart types (not just selected)
   const allAverages = useMemo(
-    () => computeAllAverages(chartConfigs, streams, isMetric),
-    [chartConfigs, streams, isMetric]
+    () => computeAllAverages(chartConfigs, streams, isMetric, elevationGain),
+    [chartConfigs, streams, isMetric, elevationGain]
   );
 
   const updateMetricsOnJS = useCallback(

@@ -121,6 +121,7 @@ export { isRetryableInit, hasOpened } from './delegates/init';
 export type { ElevationBackfillPhase } from './delegates/elevation';
 export type { RoutesStatus } from './delegates/routesStatus';
 export type { StreamBackfillPhase } from './delegates/streamBackfill';
+export type { SectionBoundsEdit } from './delegates/sections';
 
 // Detector cutover consumer types
 export type {

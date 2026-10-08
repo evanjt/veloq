@@ -111,18 +111,31 @@ async function runWhileHeld(script: string) {
 
 describe('Android artifact recipes wait for the build lock', () => {
   it.each([
-    ['android', 23, ['node scripts/check-toolchain.mjs', 'node scripts/bundle-android.mjs']],
+    [
+      'android',
+      23,
+      [
+        'node scripts/check-toolchain.mjs',
+        'node scripts/sync-android-widgets.mjs',
+        'node scripts/bundle-android.mjs',
+      ],
+    ],
     [
       'android:prod',
       23,
       [
         'node scripts/check-toolchain.mjs',
+        'node scripts/sync-android-widgets.mjs',
         'node scripts/build-record.js snapshot android release',
         'gradlew assembleRelease',
       ],
     ],
     ['bundle:android', 23, ['node scripts/bundle-android.mjs']],
-    ['android:debug', 23, ['node scripts/bundle-android.mjs']],
+    [
+      'android:debug',
+      23,
+      ['node scripts/sync-android-widgets.mjs', 'node scripts/bundle-android.mjs'],
+    ],
   ])(
     '%s starts no writer while the lock is held',
     async (script, status, expected) => {

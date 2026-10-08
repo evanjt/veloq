@@ -46,7 +46,6 @@ import {
   AVAILABLE_METRICS,
   type MetricId,
   type SummaryCardPreferences,
-  HERO_METRICS,
 } from '@/features/settings/stores/summaryCardPreferences';
 
 // MapPreferencesContext
@@ -125,6 +124,19 @@ describe('UnitPreferenceStore', () => {
         windSpeed: 'KMH',
       });
       expect(resolveIsMetric()).toBe(true);
+    });
+
+    it('persists the resolved unit for native notifications', async () => {
+      await useUnitPreference.getState().setUnitPreference('imperial');
+      expect(await AsyncStorage.getItem('veloq-resolved-unit-system')).toBe('imperial');
+
+      await useUnitPreference.getState().setUnitPreference('auto');
+      useUnitPreference.getState().setIntervalsPreferences({
+        measurementPreference: 'meters',
+        fahrenheit: false,
+        windSpeed: 'KMH',
+      });
+      expect(await AsyncStorage.getItem('veloq-resolved-unit-system')).toBe('metric');
     });
 
     it('falls back to locale when auto + no profile', () => {
@@ -368,7 +380,7 @@ describe('summaryCardPreferences', () => {
       await initialiseDashboardPreferences();
       expect(useDashboardPreferences.getState().summaryCard).toEqual(stored);
     });
-    it.each(['rhr', 'form', 'weekHours', 'weight'])(
+    it.each(['rhr', 'weekHours', 'weight'])(
       'rewrites a stored %s hero to fitness, keeps the rest, and persists it',
       async (hero) => {
         const supportingMetrics = ['hrv', 'rhr', 'ftp'];
@@ -396,10 +408,6 @@ describe('summaryCardPreferences', () => {
         expect(JSON.parse(persisted!)).toEqual(expected);
       }
     );
-
-    it('offers only the heroes the card can draw', () => {
-      expect([...HERO_METRICS]).toEqual(['fitness', 'hrv']);
-    });
   });
 });
 

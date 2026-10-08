@@ -6,12 +6,21 @@
  * call under its bare name, and nothing is recorded while debug is off.
  */
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import { EngineLogLevel } from '../../../modules/veloqrs/src/generated/veloqrs';
+
+const mockSetEngineLogLevel = jest.fn();
+
+jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  ...jest.requireActual('../../../modules/veloqrs/src/generated/veloqrs'),
+  setEngineLogLevel: (...args: unknown[]) => mockSetEngineLogLevel(...args),
+}));
 
 describe('EngineClient.timed', () => {
   const recorded: string[] = [];
 
   beforeEach(() => {
     recorded.length = 0;
+    mockSetEngineLogLevel.mockClear();
     EngineClient.setMetricRecorder((name) => recorded.push(name));
   });
 
@@ -32,6 +41,15 @@ describe('EngineClient.timed', () => {
     const client = EngineClient.getInstance();
     expect(client.timed('readA', () => 1, 'gesture')).toBe(1);
     expect(recorded).toEqual([]);
+  });
+
+  it('raises the engine log level with debug and restores the boot level when disabled', () => {
+    EngineClient.setDebugEnabled(true);
+    EngineClient.setDebugEnabled(false);
+    expect(mockSetEngineLogLevel.mock.calls).toEqual([
+      [EngineLogLevel.Info],
+      [EngineLogLevel.Boot],
+    ]);
   });
 });
 

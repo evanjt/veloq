@@ -51,6 +51,7 @@ const volume: MuscleVolume = {
   totalReps: 100,
   volumeKg: 3420,
   exerciseNames: [],
+  shade: 5,
 };
 
 function draw(selectedVolume: MuscleVolume | null) {

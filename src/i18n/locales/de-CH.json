@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Strecken laden",
+    "analysing": "Aktivitäten analysieren",
+    "saving": "Abschnitte speichern",
+    "recomputingIndicators": "Indikatoren berechnen",
+    "diffing": "Kataloge vergleichen",
+    "complete": "Abgeschlossen",
+    "cancelled": "Abgebrochen",
+    "draining": "Katalog vorbereiten",
+    "archiving": "Abschnitte archivieren",
+    "detecting": "Abschnitte erkennen"
+  },
   "about": {
     "dataAttribution": "Dateherkunft",
     "description": "En schnälli App für intervals.icu - mit Fokus uf Charte und Analyse. Cheibe lässig!",
@@ -19,6 +31,7 @@
     "version": "Versioon"
   },
   "activity": {
+    "terrainRow": "3D-Gländ",
     "activityStats": "Stats",
     "calories": "Kalorii",
     "chartHint": "Halte zum Scrolle • Chip halte für d Achse",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatur vom Grät oder Wetter.",
       "energy": "Verbruuchti Energie, öppe so vill.",
-      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um die Trainingsbelastung geteilt durch 42 und die Ermüdung um die Belastung geteilt durch 7. Der Formbeitrag ist Fitness minus Ermüdung. Die Zeitkonstanten betragen 42 bzw. 7 Tage.",
+      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/42)) und die Ermüdung um Belastung × (1 − e^(−1/7)). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
       "heartRate": "Schnitt-Puls währed dr Aktivität.",
       "newGround": "Der Anteil der Kartenkacheln dieser Aktivität, die keine frühere Aktivität berührt hatte. Eine Kachel ist je nach Breitengrad etwa 150 bis 300 m breit; gemessen wird also die Kachelabdeckung, nicht die Strecke auf neuen Wegen.",
+      "activityEftp": "De eFTP isch d Schätzig vom Leistigsmodell vo intervals.icu für die Aktivität.",
       "power": "Schnitt-Watt.",
       "trainingLoad": "TSS zeigt wie streng s Training gsi isch.",
       "yourForm": "Dini Form (TSB) a dem Tag. Fitness minus Müedigkeit."
@@ -55,7 +69,7 @@
       "decoupling": "Entkopplig",
       "deviceSensor": "Sensor",
       "efficiencyFactor": "Effizienz",
-      "eftpEstimated": "eFTP (gschätzt)",
+      "eftpEstimated": "eFTP vo dere Aktivität",
       "energy": "Energie",
       "fatigueATL": "Müedigkeit (ATL)",
       "feelsLike": "Gfühlt {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Dini Fitness (CTL)",
       "yourForm": "Dini Form"
     },
+    "hrZoneTotal": "Ziit mit Puls: {{duration}}",
+    "movingTime": "Beweigs-Ziit: {{duration}}",
     "timeInHRZones": "Ziit i de Pulszone",
     "timeInPowerZones": "Ziit i Leistigszone",
     "viewDetails": "Details luege",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "PB {{improvement}}",
     "lineKeyActivity": "Diese Aktivität",
     "lineKeyRoute": "Passende Route",
     "failedToLoad": "Gopferteckel, Aktivität hät nöd wele lade!",
@@ -687,13 +704,13 @@
       "periodComparisonRestDay": "Vergliicht d letscht Wuche mit dim 4-Wuche-Schnitt wenn die Wuche no kei Aktivitäte hät.",
       "ftpEstimation": "Verglicht dini neuschti tägligi eFTP mit em Wärt vo vor 30 Täg. eFTP isch d Schätzig vo intervals.icu us dinere Leischtigschurve, nid d FTP-Iistellig uf dim Konto.",
       "ftpEstimationName": "Änderige vom eFTP",
-      "criticalSpeedName": "Änderungen der kritischen Geschwindigkeit",
-      "criticalSpeedDescription": "Vergleicht deine neueste kritische Geschwindigkeit aus der 42-Tage-Tempokurve mit dem jüngsten früheren Wert innerhalb der letzten 90 Tage, der um mehr als 0,02 m/s abweicht, und zeigt die Änderung als Tempo.",
+      "criticalSpeedName": "Änderige vo de kritische Gschwindigkeit",
+      "criticalSpeedDescription": "Vergliicht dini neuschti kritischi Gschwindigkeit us de 42-Täg-Tempokurve mit em letschte früechere Wärt innert de letschte 90 Täg, wo um meh als 0,02 m/s abwiicht, und zeigt d Änderig als Tempo.",
       "fitnessPrName": "Fitness-PR Chrüüzreferänz",
       "sectionTrendName": "Leistigstrend i de Abschnitt",
       "stalePrCrossRefName": "{{metric}}-PR-Abgleich",
-      "efficiencyName": "Regression der aeroben Effizienz",
-      "efficiencyDescription": "Verfolgt die durchschnittliche Herzfrequenz mal Tempo über passende Versuche auf dem Abschnitt, mit einer linearen Regression nach der Methode der kleinsten Quadrate über die Zeit. Ein sinkender Wert bedeutet weniger Schläge beim gleichen Tempo.",
+      "efficiencyName": "Regression vo de aerobe Effizienz",
+      "efficiencyDescription": "Verfolgt di durchschnittlich Härzfrequänz mal Tempo über passendi Versüech uf em Abschnitt, mit ere lineare Regression nach de Methode vo de chliinschte Quadrat über d Ziit. En sinkende Wärt heisst weniger Schläg bim gliiche Tempo.",
       "efficiencyFormula": "Effizienz = durchschnittlechi Herzfrequänz × Pace (Sekunde pro km)",
       "routeName": "Streckenrekorde und Trends",
       "route": "Zählt Versuche auf einer Strecke in einer Sportart und Richtung, die gestoppt, nicht ausgeschlossen, nicht teilweise sind und im Distanzband der Strecke liegen. Ein Rekord ist der schnellste davon, kürzlich aufgestellt. Ein Trend vergleicht den Median der letzten drei mit den drei davor, ab sechs Versuchen."
@@ -730,10 +747,10 @@
       "trendingDown": "HRV: neueri Hälfti tiefer",
       "stable": "HRV: Hälfte innerhalb vo 2 %",
       "lastTwoDays": "HRV: letschti zwei Messige under em Durchschnitt",
-      "trendingUpBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel über der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "trendingDownBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel unter der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "stableBody": "Die beiden Hälften Ihrer letzten 7 HRV-Tage liegen weniger als 2 % auseinander. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "lastTwoDaysBody": "Das Fenster selbst blieb stabil, aber Ihre letzten beiden Messungen fielen an aufeinanderfolgenden Tagen, und die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
+      "trendingUpBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt meh als 2 % über de eltere Hälfti. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "trendingDownBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt meh als 2 % under de eltere Hälfti. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "stableBody": "Di beide Hälftene vo dine letschte 7 HRV-Täg sind weniger als 2 % usenand. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "lastTwoDaysBody": "S Fänschter sälber isch stabil blibe, aber dini letschte zwei Messige sind zwei Täg hinderenand abegheit, und di letscht, {{latest}} ms, lit under em Fänschterschnitt vo {{avg}} ms über {{days}} Messige."
     },
     "weeklyLoad": {
       "title": "Trainingsbelastig {{percent}}% {{direction}} Schnitt",
@@ -748,23 +765,23 @@
       "prMetric": "{{metric}} bim PR",
       "metricGain": "{{metric}}-Gwinn",
       "prTime": "PR-Ziit",
-      "methodology": "Verglycht Fitnesswert bim PR-Zytpunkt mit aktuelle Wert. Zeigt Sektione wo sich d'Fitnesswert sit em PR veränderet hend.",
+      "methodology": "Vergliicht dini Fitnesswärt zur PR-Ziit mit de hüttige. Zeigt Abschnitt, wo sich dini Fitness sit em PR veränderet hät.",
       "groupTitle_one": "{{count}} PR mit Fitnessänderig",
       "groupTitle_other": "{{count}} PRs mit Fitnessänderige",
       "metricCyclingEftp": "Rad-eFTP",
       "metricSwimCss": "Schwimm-CSS",
       "metricRunningCriticalSpeed": "Kritische Laufgeschwindigkeit",
-      "groupMore": "(+{{n}} weitere)",
-      "sheetHeadingPower": "Aktuelle Rad-eFTP im Vergleich zum PR-Zeitraum",
-      "sheetHeadingRun": "Aktuelle kritische Laufgeschwindigkeit im Vergleich zum PR-Zeitraum",
-      "sheetHeadingSwim": "Aktuelle Schwimm-CSS im Vergleich zum PR-Zeitraum",
-      "sheetHeadingFitness": "Aktuelle Fitness im Vergleich zum PR-Zeitraum",
-      "sheetBodyOne": "Deine aktuelle Fitness im Vergleich mit dem Stand rund um den besten Versuch auf diesem Abschnitt.",
-      "sheetBodyOneSport": "{{sport}}: deine aktuelle Fitness im Vergleich mit dem Stand rund um den besten Versuch auf diesem Abschnitt.",
-      "sheetBodyMany": "Deine aktuelle Fitness im Vergleich mit dem Stand rund um den besten Versuch auf jedem dieser Abschnitte.",
-      "sheetBodyManySport": "{{sport}}: deine aktuelle Fitness im Vergleich mit dem Stand rund um den besten Versuch auf jedem dieser Abschnitte.",
-      "sheetMetaOne": "Öffne den Abschnitt unten für den Verlauf der zugrunde liegenden Versuche.",
-      "sheetMetaMany": "Öffne einen der Abschnitte unten für den Verlauf der zugrunde liegenden Versuche."
+      "groupMore": "(+{{n}} wiiteri)",
+      "sheetHeadingPower": "Dini Velo-eFTP hüt gäge d PR-Ziit",
+      "sheetHeadingRun": "Dini kritischi Laufgschwindigkeit hüt gäge d PR-Ziit",
+      "sheetHeadingSwim": "Dini Schwimm-CSS hüt gäge d PR-Ziit",
+      "sheetHeadingFitness": "Dini Fitness hüt gäge d PR-Ziit",
+      "sheetBodyOne": "Wie fit du hüt bisch, vergliche mit em Stand rund um din beschte Versuech uf dem Abschnitt.",
+      "sheetBodyOneSport": "{{sport}}: wie fit du hüt bisch, vergliche mit em Stand rund um din beschte Versuech uf dem Abschnitt.",
+      "sheetBodyMany": "Wie fit du hüt bisch, vergliche mit em Stand rund um din beschte Versuech uf jedem vo dene Abschnitt.",
+      "sheetBodyManySport": "{{sport}}: wie fit du hüt bisch, vergliche mit em Stand rund um din beschte Versuech uf jedem vo dene Abschnitt.",
+      "sheetMetaOne": "Mach de Abschnitt unde uf, dänn gsehsch de Verlauf vo de Versüech dehinder.",
+      "sheetMetaMany": "Mach eine vo de Abschnitt unde uf, dänn gsehsch de Verlauf vo de Versüech dehinder."
     },
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetrike sind Schätzige basierend uf publizierte sportwüsseschaftliche Modäll. Individuelli Reaktione variiere. Die Einblicke sind nur informativ, kei medizinische oder Coaching-Raat.",
@@ -777,10 +794,10 @@
       "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten +{{hrChange}} bpm; die gemessene Herzfrequenz kann abweichen.",
       "subtitle": "Modelliert {{hrChange}} bpm bim durchschnittlichä Tempo über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} hät sich Härzfrequänz mal Tempo verbessert. Bim durchschnittlichä Tempo entspricht das modellierte {{hrChange}} bpm; dini Härzfrequänz sälber cha unverändert si.",
-      "sheetHrCaption": "über passende Versuche",
-      "sheetHeading": "Vergleich passender Versuche",
-      "sheetBody": "Beruht auf wiederholten Versuchen auf demselben Abschnitt mit Herzfrequenz und Tempo. Vergleicht über die Zeit, was jede Passage dein Herz gekostet hat.",
-      "sheetMeta": "Öffne den Abschnitt für die zugrunde liegenden Versuche."
+      "sheetHrCaption": "über passendi Versüech",
+      "sheetHeading": "Passendi Versüech im Vergliich",
+      "sheetBody": "Basiert uf mehrere Versüech uf em gliiche Abschnitt mit Härzfrequänz und Tempo. Vergliicht über d Ziit, was jede Durchgang dis Härz gchoschtet hät.",
+      "sheetMeta": "Mach de Abschnitt uf, dänn gsehsch d Versüech dehinder."
     },
     "strengthBalance": {
       "volumeSplit": "Volume-Uffteilig",
@@ -842,25 +859,25 @@
       "body": "Der Verlauf des Abschnitts zeigt, was sich bewegt hat und welche Aktivitäten dabei waren."
     },
     "milestoneSheet": {
-      "powerHeading": "Zu dieser eFTP-Änderung",
-      "powerSummary": "Deine tägliche eFTP, die Schätzung von intervals.icu aus deiner Leistungskurve, ging von {{previous}}W vor 30 Tagen auf {{current}}W.",
-      "runHeading": "Zu dieser Änderung der kritischen Geschwindigkeit",
-      "runSummary": "Die kritische Geschwindigkeit aus deiner 42-Tage-Tempokurve ging von {{previous}} {{unit}} auf {{current}} {{unit}}. Der frühere Wert ist der jüngste innerhalb von 90 Tagen, der um mehr als 0,02 m/s abweicht.",
-      "swimHeading": "Zu dieser Änderung der kritischen Schwimmgeschwindigkeit",
-      "swimSummary": "Die kritische Schwimmgeschwindigkeit aus deiner 42-Tage-Tempokurve ging von {{previous}} {{unit}} auf {{current}} {{unit}}. Der frühere Wert ist der jüngste innerhalb von 90 Tagen, der um mehr als 0,02 m/s abweicht."
+      "powerHeading": "Zu dere eFTP-Änderig",
+      "powerSummary": "Dini täglichi eFTP, d Schätzig vo intervals.icu us dinere Leischtigschurve, isch vo {{previous}}W vor 30 Täg uf {{current}}W gange.",
+      "runHeading": "Zu dere Änderig vo de kritische Gschwindigkeit",
+      "runSummary": "D kritischi Gschwindigkeit us dinere 42-Täg-Tempokurve isch vo {{previous}} {{unit}} uf {{current}} {{unit}} gange. De früecheri Wärt isch de neuschti innert 90 Täg, wo um meh als 0,02 m/s abwiicht.",
+      "swimHeading": "Zu dere Änderig vo de kritische Schwimmgschwindigkeit",
+      "swimSummary": "D kritischi Schwimmgschwindigkeit us dinere 42-Täg-Tempokurve isch vo {{previous}} {{unit}} uf {{current}} {{unit}} gange. De früecheri Wärt isch de neuschti innert 90 Täg, wo um meh als 0,02 m/s abwiicht."
     },
     "sectionPrSheet": {
-      "fromPrevious": "−{{delta}} gegenüber der vorherigen Bestzeit",
-      "previous": "Vorher: {{time}} am {{date}}",
-      "efforts": "{{n}} Versuche",
-      "fasterThan": "Schneller als {{percent}}% der Versuche",
-      "allEfforts": "Alle Versuche ({{n}})"
+      "fromPrevious": "−{{delta}} gäge di letscht Bestziit",
+      "previous": "Devor: {{time}} am {{date}}",
+      "efforts": "{{n}} Versüech",
+      "fasterThan": "Schnäller als {{percent}}% vo de Versüech",
+      "allEfforts": "Alli Versüech ({{n}})"
     },
     "sectionTrendSheet": {
-      "heading": "Abschnittsgruppe",
-      "headingSport": "Abschnittsgruppe: {{sport}}",
-      "meta": "Klappe eine Zeile auf für die zugrunde liegenden Versuche.",
-      "noEfforts": "Keine aufgezeichneten Versuche"
+      "heading": "Abschnitts-Grüppli",
+      "headingSport": "Abschnitts-Grüppli: {{sport}}",
+      "meta": "Klapp e Ziile uf, dänn gsehsch d Versüech dehinder.",
+      "noEfforts": "No kei Versüech ufzeichnet"
     },
     "beta": "Beta",
     "recentPersonalRecord": "Aktuelle Bestwert"
@@ -899,9 +916,9 @@
     "oauthFailed": "Hät nöd klappet, probiers nomol!",
     "oauthAccessDenied": "De Zuegriff isch abglehnt worde. Erlaub de Zuegriff und probier d Aameldig nomol.",
     "oauthCodeExchangeFailed": "De Aamäldedienst hät dis Konto nöd zrugggeh. Probiers nomol.",
-    "oauthNeedsNetwork": "Die Anmeldung mit intervals.icu braucht eine Netzwerkverbindung. Verbinde dich und versuche es erneut, oder nutze einen API-Schlüssel, der dich später anmelden kann.",
-    "oauthProxyRefused": "Der Anmeldedienst hat die Anfrage nicht angenommen. Bitte versuche es gleich noch einmal.",
-    "oauthUnreachable": "Der Anmeldedienst war nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+    "oauthNeedsNetwork": "D Aamäldig mit intervals.icu bruucht Internet. Verbind di und probiers nomol, oder nimm en API-Schlüssel, wo di spöter chan aamälde.",
+    "oauthProxyRefused": "De Aamäldedienst hät d Aafrag nöd wele. Probiers grad nomol.",
+    "oauthUnreachable": "De Aamäldedienst isch nöd erreichbar gsi. Lueg dini Verbindig aa und probiers nomol.",
     "oauthInvalidCallback": "Ungültigi OAuth-Callback-URL",
     "oauthNotConfigured": "OAuth gaht nöd, nimm en Schlüssel",
     "oauthStateValidationFailed": "Sicherheitsprüefig fehlgschlage. Probiers nomol!",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "Bliib uf em Laufende",
-      "description": "Krieg Benachrichtigunge über nöii Aktivitäte, Sync-Fortschritt und wenn dini Date parat sind.",
+      "description": "Krieg Benachrichtigunge über nöii Aktivitäte, Bestleistungen und Fitness-Meilensteine.",
       "enable": "Aktiviere",
       "dismiss": "Nicht jetzt",
       "settingsHint": "Du chasch Benachrichtigunge jederzit i de Iistellige aktiviere",
@@ -1176,6 +1193,8 @@
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",
     "library": {
+      "distance": "Distanz",
+      "duration": "Duur",
       "title": "Meine Aufzeichnungen",
       "empty": "Noch keine Aufzeichnungen",
       "emptyHint": "Gespeicherte Aufzeichnungen bleiben hier auf diesem Gerät.",
@@ -1267,14 +1286,18 @@
     "duplicateNameTitle": "Name gits scho",
     "expandInSettings": "In Istellige erwitere",
     "gpsTrackNotSynced": "GPS-Date nöd verfüegbar. Wart bis de Sync fertig isch und probiers nomol.",
-    "invalidSectionRange": "Ungültige Uswahl. Probier en andere Teil usezwähle.",
+    "invalidSectionRange": "Ungültigi Uswahl. Probier en andere Teil usezwähle.",
     "match": "Match",
     "noFrequentSections": "No kei hüüfigi Abschnitt",
     "noMatchingRoutes": "Kei passendi Route gfunde",
     "noRoutesYet": "No kei Route",
     "noSectionsMatchFilter": "Kei Abschnitt passt zum Filter",
+    "placeJourney": "{{start}} uf {{end}}",
+    "placeLoop": "{{place}} Rundi",
     "pointCountHint_one": "{{count}} GPS-Punkt",
     "pointCountHint_other": "{{count}} GPS-Pünkt",
+    "renameFailedTitle": "Name konnte nicht gespeichert werden",
+    "renameFailedMessage": "Der Routenname wurde nicht gespeichert. Versuch es erneut.",
     "routeNamePlaceholder": "Routename",
     "routeWord": "Strecke",
     "routesWillAppear": "Route chömed noch de Analyse",
@@ -1333,6 +1356,9 @@
     "legendReverse": "Rückwärts",
     "legendThisActivity": "Die Aktivität",
     "legendOutsideBand": "Ausserhalb des Distanzbereichs der Route",
+    "legendTrend": "Gauss-Trend",
+    "legendTrendBand": "Streubereich",
+    "legendTrendMethod": "Die Linie verwendet eine Gauss-Kernglättung mit lokaler linearer Anpassung. Der Bereich zeigt die gewichtete Streuung der Versuche um die angepasste Linie.",
     "plotScatter": "Streuung",
     "plotHistogram": "Histogramm",
     "histogramBinned": "Versuche in den Balken: {{attempts}}",
@@ -1473,6 +1499,7 @@
     "excludeLapNumber": "Ausschließen Runde {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D-Gländ: {{mode}}",
     "developerDashboard": "Entwicklerübersicht",
     "account": "Konto",
     "activities": "Aktivitäte",
@@ -1917,9 +1944,6 @@
       "sectionsBody": "Abschnitte sind deterministisch und formen sich mit deinen Läufen neu; mit em Anheften bliibt einer stabil.",
       "recutRunning": "Deine Abschnitte werden neu analysiert",
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
-      "phasePreparing": "der Katalog wird vorbereitet",
-      "phaseDetecting": "neue Abschnitte werden geschnitten",
-      "phaseDiffing": "die beiden Kataloge werden verglichen",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
@@ -2206,6 +2230,8 @@
   },
   "systemSurfaces": {
     "openApp": "Öffne Veloq",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert",
     "toSeeTraining": "um dein Training zu sehen",
     "record": "Aufzeichnen",
     "recordDescription": "Starte die Aufzeichnung einer Aktivität.",

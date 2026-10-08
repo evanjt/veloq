@@ -9,6 +9,7 @@
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
+use super::activities::detail_body_present;
 use super::fitness::derivations::pooled::SYNC_PACE_WINDOW_DAYS;
 use super::streams::{FROM_THE_TRACK, SeriesIndex};
 
@@ -410,12 +411,12 @@ impl PersistentEngine {
         limit: usize,
         stream_types: &str,
     ) -> SqlResult<Vec<BodiesOwed>> {
-        let mut stmt = self.db.prepare(
+        let detail_body = detail_body_present("b.raw");
+        let mut stmt = self.db.prepare(&format!(
             "SELECT m.activity_id,
                     NOT EXISTS (SELECT 1 FROM activity_bodies b
                                  WHERE b.activity_id = m.activity_id
-                                   AND json_valid(b.raw)
-                                   AND COALESCE(json_extract(b.raw, '$.icu_athlete_id'), '') != ''),
+                                   AND ({detail_body})),
                     NOT EXISTS (SELECT 1 FROM interval_bodies i
                                  WHERE i.activity_id = m.activity_id),
                     m.sport_type,
@@ -427,8 +428,8 @@ impl PersistentEngine {
                                      WHERE g.activity_id = m.activity_id)
                FROM activity_metrics m
               ORDER BY m.date DESC, m.activity_id
-              LIMIT ?2",
-        )?;
+              LIMIT ?2"
+        ))?;
         let rows = stmt
             .query_map(params![stream_types, limit as i64], |r| {
                 Ok((

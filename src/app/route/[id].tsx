@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StatusBar, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -229,7 +230,10 @@ function RouteDetailScreenContent() {
               <HeroNameRow
                 name={displayName}
                 nameTestID="route-detail-name"
-                icon={{ name: getActivityIcon(displayType), color: activityColor }}
+                icon={{
+                  name: getActivityIcon(displayType),
+                  color: activityColor,
+                }}
                 editable={{
                   isEditing,
                   editName,
@@ -246,7 +250,9 @@ function RouteDetailScreenContent() {
                 testID="route-detail-stats"
                 stats={[
                   formatDistance(routeStats.distance, isMetric),
-                  t('maps.activitiesCount', { count: routeGroup.activityCount }),
+                  t('maps.activitiesCount', {
+                    count: routeGroup.activityCount,
+                  }),
                   routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-',
                 ]}
               />
@@ -276,7 +282,7 @@ function RouteDetailScreenContent() {
         {/* Content below hero */}
         <View style={styles.contentSection}>
           {/* Performance scatter chart with eye toggle */}
-          {combinedChartData.length >= 1 && (
+          {!!engineGroup?.activityIds.length && (
             <RouteDetailChart
               chartData={combinedChartData}
               trendCurves={trendCurves}
@@ -303,9 +309,9 @@ function RouteDetailScreenContent() {
 
           {/* Export GPX button */}
           {representativePoints && representativePoints.length > 0 && (
-            <TouchableOpacity
+            <Pressable
               testID="route-export-gpx"
-              style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+              style={pressable([styles.exportGpxButton, isDark && styles.exportGpxButtonDark])}
               onPress={() =>
                 exportGpx({
                   name: displayName,
@@ -320,7 +326,7 @@ function RouteDetailScreenContent() {
               accessibilityRole="button"
               accessibilityLabel={t('export.gpx')}
               accessibilityState={{ disabled: gpxExporting }}
-              activeOpacity={0.7}
+              android_ripple={pressRipple}
             >
               {gpxExporting ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />
@@ -330,7 +336,7 @@ function RouteDetailScreenContent() {
               <Text style={styles.exportGpxButtonText}>
                 {gpxExporting ? t('export.exporting') : t('export.gpx')}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {/* Data range footer */}

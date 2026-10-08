@@ -37,7 +37,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# Native projects, generated whole by Expo from app.json, app.config.js, the
+# plugins under src/plugins and the local modules. Nothing under them is tracked.
 /ios
 /android
 
@@ -101,7 +102,6 @@ modules/*/ios/build/
 # Keystores and signing
 *.keystore
 android/keystore.properties
-!android/app/debug.keystore
 coverage/
 *.log
 

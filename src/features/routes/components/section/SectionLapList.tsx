@@ -6,10 +6,11 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, getIntlLocale } from '@/shared/format/format';
 import { Button, Card } from '@/shared/ui';
 import { colors, darkColors, spacing, typography, layout, slopToMinTapTarget } from '@/theme';
@@ -151,14 +152,16 @@ export function SectionLapList({
                         </Text>
                       ) : null}
                       {excluded ? (
-                        <TouchableOpacity
+                        <Pressable
                           testID={`section-lap-undo-${id}`}
-                          style={[styles.pill, isDark && styles.pillDark]}
+                          style={pressable([styles.pill, isDark && styles.pillDark])}
                           accessibilityRole="button"
-                          accessibilityLabel={t('sections.undoExcludeLap', { n: i + 1 })}
+                          accessibilityLabel={t('sections.undoExcludeLap', {
+                            n: i + 1,
+                          })}
                           onPress={() => onIncludeLap(lap.activityId, lap.startIndex)}
-                          activeOpacity={0.7}
                           hitSlop={pillHitSlop}
+                          android_ripple={pressRipple}
                         >
                           <Text style={[styles.pillMuted, isDark && styles.textSecondaryDark]}>
                             {t('sections.lapExcluded')}
@@ -166,16 +169,18 @@ export function SectionLapList({
                           <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                             {t('sections.undoExclude')}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       ) : (
-                        <TouchableOpacity
+                        <Pressable
                           testID={`section-lap-exclude-${id}`}
-                          style={[styles.pill, isDark && styles.pillDark]}
+                          style={pressable([styles.pill, isDark && styles.pillDark])}
                           accessibilityRole="button"
-                          accessibilityLabel={t('sections.excludeLapNumber', { n: i + 1 })}
+                          accessibilityLabel={t('sections.excludeLapNumber', {
+                            n: i + 1,
+                          })}
                           onPress={() => onExcludeLap(lap.activityId, lap.startIndex)}
-                          activeOpacity={0.7}
                           hitSlop={pillHitSlop}
+                          android_ripple={pressRipple}
                         >
                           <MaterialCommunityIcons
                             name="eye-off-outline"
@@ -185,7 +190,7 @@ export function SectionLapList({
                           <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                             {t('sections.excludeLap')}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       )}
                     </View>
                   );
@@ -204,7 +209,12 @@ export function SectionLapList({
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   title: { ...typography.cardTitle, color: colors.textPrimary },
   summaryRow: {
     flexDirection: 'row',

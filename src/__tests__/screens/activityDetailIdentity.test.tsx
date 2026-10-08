@@ -30,7 +30,15 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn() },
 }));
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({
+    t: (key: string, values?: { improvement?: string }) =>
+      key === 'activityDetail.routePrBadge'
+        ? `Record${values?.improvement ? ` ${values.improvement}` : ''}`
+        : key,
+  }),
+}));
 jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
   ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
     const React = require('react');
@@ -47,7 +55,9 @@ jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 
-const capturedTabs: { current: { key: string; count?: number }[] } = { current: [] };
+const capturedTabs: { current: { key: string; count?: number; badgeText?: string }[] } = {
+  current: [],
+};
 jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
   return {
@@ -61,7 +71,7 @@ jest.mock('@/shared/ui', () => {
       tabs,
     }: {
       children: React.ReactNode;
-      tabs: { key: string; count?: number }[];
+      tabs: { key: string; count?: number; badgeText?: string }[];
     }) => {
       capturedTabs.current = tabs;
       return <>{children}</>;
@@ -110,7 +120,7 @@ jest.mock('@/features/activity/hooks', () => ({
   useDetailCoordinates: () => {
     throw new Error('Detail coordinates must follow the composed stream read');
   },
-  useActivitySectionHighlights: () => ({ routes: new Map(), newGround: new Map() }),
+  useActivitySectionHighlights: () => ({ routes: mockRouteHighlights, newGround: new Map() }),
   // The screen takes this through the feature barrel, which re-exports it from
   // this index, so the index has to hand back the same stub the module mock
   // below installs rather than one of its own.
@@ -133,6 +143,7 @@ const mockDetail: { encounters: SectionEncounter[]; [key: string]: unknown } = {
   routeGroups: [],
   activityCount: 1,
 };
+const mockRouteHighlights = new Map<string, { isPr: boolean; prImprovementSeconds?: number }>();
 jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
 }));
@@ -196,7 +207,7 @@ jest.mock('@/features/routes/hooks/useRouteMatch', () => ({
   useRouteMatch: () => ({ routeGroup: null, representativeActivityId: null }),
 }));
 jest.mock('@/features/activity/hooks/useActivitySectionHighlights', () => ({
-  useActivitySectionHighlights: () => ({ routes: new Map(), newGround: new Map() }),
+  useActivitySectionHighlights: () => ({ routes: mockRouteHighlights, newGround: new Map() }),
 }));
 let mockRouteMatchingOn = true;
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
@@ -263,8 +274,21 @@ describe('activity detail screen', () => {
     mockUseSectionOverlays.mockReset();
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
     mockDetail.encounters = [];
+    mockRouteHighlights.clear();
   });
   afterEach(() => jest.restoreAllMocks());
+
+  it('shows the translated route record badge with and without an improvement', async () => {
+    mockRouteHighlights.set('act-1', { isPr: true, prImprovementSeconds: 12 });
+    const view = render(<ActivityDetailScreen />);
+    await act(async () => {});
+    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record -12s');
+
+    mockRouteHighlights.set('act-1', { isPr: true });
+    view.rerender(<ActivityDetailScreen />);
+    await act(async () => {});
+    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record');
+  });
 
   it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
     render(<ActivityDetailScreen />);

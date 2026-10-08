@@ -21,8 +21,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
-import { useCutoverSummary } from '@/features/routes';
-import { CUTOVER_FAILURE_KEYS, CUTOVER_PHASE_KEYS } from '../lib/cutoverPhaseKeys';
+import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
+import { CUTOVER_FAILURE_KEYS } from '../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 
@@ -54,7 +54,7 @@ export function CutoverStatus() {
   const danger = isDark ? darkColors.error : colors.error;
 
   if (isRunning) {
-    const phaseKey = CUTOVER_PHASE_KEYS[phase as keyof typeof CUTOVER_PHASE_KEYS];
+    const phaseKey = getPhaseDisplayKey(phase);
     if (!phaseKey) return null;
     return (
       <View style={styles.block} testID={CUTOVER_STATUS_TEST_ID}>

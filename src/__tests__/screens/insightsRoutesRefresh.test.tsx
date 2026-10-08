@@ -48,7 +48,10 @@ jest.mock('@/features/routes/hooks/useCustomSections', () => ({
 jest.mock('@/features/routes/hooks/useRoutesScreenData', () => ({
   useRoutesScreenData: () => ({ data: { groups: [], activityCount: 0 } }),
 }));
-jest.mock('@/features/strength', () => ({ useStrengthTabState: () => 'hidden' }));
+jest.mock('@/features/strength', () => ({
+  useStrengthTabState: () => 'hidden',
+  strengthPeriodOf: () => null,
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/useUserLocation', () => ({
   useUserLocation: () => ({ location: null, requestPermission: jest.fn() }),

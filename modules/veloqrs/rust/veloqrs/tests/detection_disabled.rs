@@ -240,15 +240,15 @@ fn a_sync_while_disabled_leaves_route_groups_unbuilt() {
     );
 
     add_ride("synced");
-    let summary = with_persistent_engine(|e| e.attach_new_activities(&["synced".to_string()]))
+    let (summary, _) = with_persistent_engine(|e| e.attach_new_activities(&["synced".to_string()]))
         .expect("engine");
-    assert!(!summary.regrouped);
+    assert!(!summary.regroup_scheduled);
     assert_eq!(stored_group_rows(&dir), 0, "a sync must not rebuild groups");
     assert!(with_persistent_engine(|e| e.groups_are_dirty()).expect("engine"));
 
     add_ride("pushed");
     let pushed = with_persistent_engine(|e| e.index_new_activity("pushed")).expect("engine");
-    assert!(!pushed.expect("index").regrouped);
+    assert!(!pushed.expect("index").0.regroup_scheduled);
     assert_eq!(stored_group_rows(&dir), 0, "a push must not rebuild groups");
 
     with_persistent_engine(|e| e.set_detection_enabled(true).expect("write setting"))

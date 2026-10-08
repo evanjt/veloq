@@ -8,7 +8,7 @@ import java.io.File
 /**
  * The widget snapshot file, for a writer with no JavaScript. The app writes the
  * same file through the `VeloqWidget` module, and the providers read it from
- * `filesDir` and never compute.
+ * `filesDir` and never compute during rendering. Native workers can replace it.
  */
 internal object WidgetSnapshotFile {
   const val NAME = "widget-snapshot.json"

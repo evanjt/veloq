@@ -6,12 +6,13 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
+import { pressable, pressRipple } from './pressFeedback';
 
 export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
 
@@ -112,17 +113,17 @@ export function SignalStatus({
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <Pressable
         testID={testID}
-        style={variantStyle}
+        style={pressable(variantStyle)}
+        android_ripple={pressRipple}
         onPress={onPress}
-        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         hitSlop={variant !== 'line' ? { top: 8, bottom: 8, left: 4, right: 4 } : undefined}
       >
         {content}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 

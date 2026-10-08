@@ -14,9 +14,11 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
+use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::codec;
 
-const CURRENT_VERSION: i32 = 6;
+const CURRENT_VERSION: i32 = 7;
 
 struct Setup {
     engine: PersistentEngine,
@@ -226,6 +228,93 @@ fn indicator_rows(db: &Connection, activity_id: &str) -> Vec<(String, f64)> {
         .expect("query")
         .filter_map(|r| r.ok())
         .collect()
+}
+
+fn setup_coverage_badges() -> Setup {
+    let mut s = setup();
+    let line: Vec<GpsPoint> = (0..11)
+        .map(|index| GpsPoint {
+            latitude: 46.0 + f64::from(index) * 0.000_1,
+            longitude: 7.0,
+            elevation: None,
+        })
+        .collect();
+    for (id, date) in [
+        ("act_baseline", 1_700_000_000),
+        ("act_short", 1_700_500_000),
+        ("act_complete", 1_701_000_000),
+    ] {
+        s.engine
+            .add_activity(id.to_string(), line.clone(), "Run".to_string())
+            .expect("add activity");
+        s.raw
+            .execute(
+                "UPDATE activities SET start_date = ? WHERE id = ?",
+                params![date, id],
+            )
+            .expect("date activity");
+    }
+    insert_oval(&s.raw);
+    s.raw
+        .execute(
+            "UPDATE sections SET polyline_blob = ? WHERE id = 'sec_oval'",
+            params![codec::serialize_points(&line).expect("encode line")],
+        )
+        .expect("set section line");
+    for (id, end, time) in [
+        ("act_baseline", 11, 100.0),
+        ("act_short", 9, 80.0),
+        ("act_complete", 11, 90.0),
+    ] {
+        s.raw
+            .execute(
+                "INSERT INTO section_activities
+                 (section_id, activity_id, direction, start_index, end_index,
+                  distance_meters, lap_time, excluded)
+                 VALUES ('sec_oval', ?, 'same', 0, ?, 400.0, ?, 0)",
+                params![id, end, time],
+            )
+            .expect("insert lap");
+    }
+
+    s
+}
+
+fn assert_complete_lap_has_badge(s: &Setup) {
+    let short_coverage: f64 = s
+        .raw
+        .query_row(
+            "SELECT coverage FROM section_activities WHERE activity_id = 'act_short'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("measured coverage");
+    assert!(short_coverage < 0.9);
+    assert!(
+        indicator_rows(&s.raw, "act_short")
+            .iter()
+            .all(|(kind, _)| kind != "section_pr")
+    );
+    assert!(
+        indicator_rows(&s.raw, "act_complete")
+            .iter()
+            .any(|(kind, time)| kind == "section_pr" && *time == 90.0)
+    );
+}
+
+#[test]
+fn measuring_coverage_moves_the_badge_to_a_complete_lap() {
+    let mut s = setup_coverage_badges();
+    s.engine
+        .recompute_activity_indicators()
+        .expect("initial indicators");
+    assert!(
+        indicator_rows(&s.raw, "act_short")
+            .iter()
+            .any(|(kind, _)| kind == "section_pr")
+    );
+    assert_eq!(s.engine.backfill_section_coverage(), 3);
+    assert_complete_lap_has_badge(&s);
 }
 
 /// A first outing, then a lapped session straddling it. The fastest lap is

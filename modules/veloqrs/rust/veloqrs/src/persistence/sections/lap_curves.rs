@@ -304,11 +304,7 @@ fn reference_lap<'a>(
         .find(|lap| {
             runs_reverse(lap) == Some(reverse)
                 && lap.time == best.best_time
-                && crate::persistence::records::covers_enough_for_record(
-                    lap.coverage,
-                    lap.distance,
-                    best.section_distance,
-                )
+                && lap.counts_for_record(best.section_distance)
         })?;
     Some((lap, FfiReferenceSource::Record))
 }

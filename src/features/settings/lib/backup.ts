@@ -33,6 +33,7 @@ import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
 import { readLibraryCount } from '@/shared/native/libraryCount';
+import { queryClient } from '@/shared/query/QueryProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const log = debug.create('Backup');
@@ -185,11 +186,15 @@ function requestRecordActivities(
   }
 }
 
-/** Keep the signed-out theme and language in step with the restored SQLite settings. */
-async function mirrorSignedOutPreferences(
+/** Keep preferences needed without an open engine in step with restored SQLite settings. */
+async function mirrorRestoredPreferences(
   engine: NonNullable<ReturnType<typeof getEngine>>
 ): Promise<void> {
-  for (const key of ['veloq-theme-preference', 'veloq-language-preference']) {
+  for (const key of [
+    'veloq-theme-preference',
+    'veloq-language-preference',
+    'veloq-notification-preferences',
+  ]) {
     const value = engine.getSetting(key);
     if (value !== undefined && value !== null) {
       try {
@@ -240,8 +245,9 @@ export async function restoreRecordBackup(fileUri: string): Promise<RecordRestor
     const path = copyUri.startsWith('file://') ? copyUri.slice(7) : copyUri;
     const result = await engine.restoreRecordZip(path);
     requestRecordActivities(engine, result);
-    await mirrorSignedOutPreferences(engine);
+    await mirrorRestoredPreferences(engine);
     await reinitialiseAllStores();
+    await queryClient.invalidateQueries();
     return result;
   } finally {
     await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
@@ -263,8 +269,9 @@ export async function resumeRecordImport(): Promise<RecordRestoreOutcome | null>
   // An import of no entries carries the paused one, under the same checks.
   const restored = await engine.restoreRecordJson(JSON.stringify(EMPTY_RECORD));
   requestRecordActivities(engine, restored);
-  await mirrorSignedOutPreferences(engine);
+  await mirrorRestoredPreferences(engine);
   await reinitialiseAllStores();
+  await queryClient.invalidateQueries();
   return restored;
 }
 
@@ -610,7 +617,8 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   }
   const restored = await engine.restoreRecordJson(JSON.stringify(record));
   requestRecordActivities(engine, restored);
-  await mirrorSignedOutPreferences(engine);
+  await mirrorRestoredPreferences(engine);
   await reinitialiseAllStores();
+  await queryClient.invalidateQueries();
   return { unplacedCount: restored.unplaced };
 }

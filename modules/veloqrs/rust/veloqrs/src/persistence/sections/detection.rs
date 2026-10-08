@@ -51,7 +51,7 @@ use super::super::routes::load_groups_from_db;
 use super::super::{
     CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
 };
-use super::identity::{ReplayApplied, SectionReplay};
+use super::identity::{IdentityReplaySnapshot, ReplayApplied, SectionReplay};
 use super::track_pool::CorruptTrack;
 
 /// Share of unreadable rows above which a pool is treated as a read-path
@@ -478,22 +478,32 @@ fn apply_on_worker(
     // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
     // reader used to wait it out inside the apply.
     let encoded = encode_cache_for_apply(update.as_ref());
+    let prepared = replay_off_lock(install, &sections, update.as_ref());
     // Stamped with the install the run started against. A cancel is
     // cooperative, so a worker past its last check still arrives here after a
     // restore, and the catalogue it computed from the old library would
     // otherwise be written into the new one.
     let saved = super::super::with_persistent_engine_for(install, |e| {
-        let counts =
-            match e.apply_sections_save_with_cache_row_ranked(sections, update, encoded, false) {
-                Ok(counts) => counts,
-                Err(err) => {
-                    log::error!(
-                        "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
-                        err
-                    );
-                    return false;
-                }
-            };
+        let replay = prepared.and_then(|prepared| {
+            let version =
+                e.db.query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0));
+            (super::super::ENGINE_ACCESS_EPOCH.load(Ordering::Acquire)
+                == prepared.epoch.wrapping_add(1)
+                && version.ok() == Some(prepared.data_version))
+            .then_some((prepared.identity, prepared.applied))
+        });
+        let counts = match e.apply_sections_save_with_cache_row_ranked_prepared(
+            sections, update, encoded, false, replay,
+        ) {
+            Ok(counts) => counts,
+            Err(err) => {
+                log::error!(
+                    "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
+                    err
+                );
+                return false;
+            }
+        };
         if let Err(err) = e.save_processed_activity_ids(activity_ids) {
             // Non-fatal: the sections WERE saved above. The consequence is
             // that the next sync re-detects these activities, which is wasted
@@ -546,6 +556,53 @@ fn apply_on_worker(
         e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
     });
     true
+}
+
+struct PreparedReplay {
+    epoch: u64,
+    data_version: i64,
+    identity: super::identity::SectionIdentity,
+    applied: ReplayApplied,
+}
+
+fn replay_off_lock(
+    install: u64,
+    sections: &[FrequentSection],
+    update: Option<&CacheUpdate>,
+) -> Option<PreparedReplay> {
+    let (snapshot, path, epoch, data_version) =
+        super::super::with_persistent_engine_for(install, |engine| {
+            let path = engine.db.path()?.to_owned();
+            let data_version = engine
+                .db
+                .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
+                .ok()?;
+            Some((
+                IdentityReplaySnapshot::capture(engine),
+                path,
+                super::super::ENGINE_ACCESS_EPOCH.load(Ordering::Acquire),
+                data_version,
+            ))
+        })
+        .flatten()?;
+    let conn = Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    if let Err(error) = conn.busy_timeout(std::time::Duration::from_secs(5)) {
+        log::warn!("veloqrs: [detection] replay connection unavailable: {error}");
+        return None;
+    }
+    let boundaries = update.map_or(&[][..], |cache| cache.boundaries.as_slice());
+    let (identity, applied) =
+        snapshot.replay(&conn, SectionReplay::whole(sections.to_vec()), boundaries);
+    Some(PreparedReplay {
+        epoch,
+        data_version,
+        identity,
+        applied,
+    })
 }
 
 /// Record that the run which started against `install` ended without applying,
@@ -812,8 +869,9 @@ impl PersistentEngine {
         // The worker mutates its clone and ships it back via `cache_tx`; the
         // cache-aware apply stores it only if the save succeeds, so `self`'s
         // cache can never advance past the applied catalogue.
-        let cache_at_spawn = self.section_evidence_cache.clone();
-        let folded_at_spawn = self.cache_folded_ids.clone();
+        let (cache, folded) = self.evidence_cache();
+        let cache_at_spawn = cache.clone();
+        let folded_at_spawn = folded.clone();
 
         // Create shared progress tracker
         let progress = SectionDetectionProgress::new();
@@ -899,7 +957,7 @@ impl PersistentEngine {
         // available echo.
         if new_activity_ids.is_empty()
             && !existing_sections.is_empty()
-            && self.section_evidence_cache.dirty_clusters() == 0
+            && self.evidence_cache().0.dirty_clusters() == 0
         {
             log::info!(
                 "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
@@ -1442,7 +1500,8 @@ impl PersistentEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        self.apply_sections_save_ranked(sections, true).map(|_| ())
+        self.apply_sections_save_ranked(sections, true, None)
+            .map(|_| ())
     }
 
     /// `apply_sections_save`, with ranking left to the caller when `rank` is
@@ -1453,6 +1512,7 @@ impl PersistentEngine {
         &mut self,
         sections: Vec<FrequentSection>,
         rank: bool,
+        prepared: Option<(super::identity::SectionIdentity, ReplayApplied)>,
     ) -> SqlResult<super::identity::SectionChangeCounts> {
         // A detected section with no portions at all is a producer bug, not an
         // input to handle: the detector cannot draw a line nobody traversed.
@@ -1473,12 +1533,17 @@ impl PersistentEngine {
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
-        let mut trial_identity = self.identity.clone();
+        let (trial_identity, applied) = prepared.unwrap_or_else(|| {
+            let mut identity = self.identity.clone();
+            let applied =
+                self.section_identity_apply_into(&mut identity, SectionReplay::whole(sections));
+            (identity, applied)
+        });
         let ReplayApplied {
             mut visible,
             events,
             raw: raw_for_convergence,
-        } = self.section_identity_apply_into(&mut trial_identity, SectionReplay::whole(sections));
+        } = applied;
         let counts = super::identity::SectionChangeCounts::from_events(&events);
         // A section whose every portion belongs to an activity the pool no
         // longer holds gets zero junction rows, so no trigger fires and it renders
@@ -1608,6 +1673,19 @@ impl PersistentEngine {
         encoded: Option<EvidenceRow>,
         rank: bool,
     ) -> SqlResult<super::identity::SectionChangeCounts> {
+        self.apply_sections_save_with_cache_row_ranked_prepared(
+            sections, update, encoded, rank, None,
+        )
+    }
+
+    fn apply_sections_save_with_cache_row_ranked_prepared(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+        encoded: Option<EvidenceRow>,
+        rank: bool,
+        prepared: Option<(super::identity::SectionIdentity, ReplayApplied)>,
+    ) -> SqlResult<super::identity::SectionChangeCounts> {
         // A checkpoint is a mid-fold snapshot, never the record of what was
         // persisted: adopting one as the final cache silently poisons the next
         // detect. The callers drain to the real update, so reaching here with
@@ -1620,13 +1698,14 @@ impl PersistentEngine {
             .as_ref()
             .map(|u| u.boundaries.clone())
             .unwrap_or_default();
-        let saved = self.apply_sections_save_ranked(sections, rank);
+        let saved = self.apply_sections_save_ranked(sections, rank, prepared);
         self.fork_records.clear();
         match saved {
             Ok(counts) => {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;
                     self.cache_folded_ids = u.folded_ids;
+                    self.evidence_cache_restored = true;
                     match encoded {
                         // An empty fold has nothing to file, and the row that
                         // is there describes a cache this apply just replaced.
@@ -1741,6 +1820,7 @@ pub struct EvidenceRow {
     pub digest: String,
     pub folded_blob: Vec<u8>,
     pub cache_blob: Vec<u8>,
+    pub dirty_clusters: usize,
 }
 
 /// Encode the cache and its folded-id shadow. No engine, so a caller holding
@@ -1783,6 +1863,7 @@ pub fn encode_evidence_row(
         digest,
         folded_blob,
         cache_blob,
+        dirty_clusters: cache.dirty_clusters(),
     })
 }
 
@@ -1804,9 +1885,9 @@ impl PersistentEngine {
     /// rebatch.
     ///
     /// `benches/evidence_cache_write_cost.rs` takes the write figures and
-    /// `benches/evidence_cache_decode_cost.rs` the sizes and what the launch
-    /// pays to read them back.
+    /// `benches/evidence_cache_decode_cost.rs` the sizes and first-read cost.
     pub(crate) fn persist_evidence_cache(&mut self) {
+        self.ensure_evidence_cache_restored();
         if self.cache_folded_ids.is_empty() {
             self.clear_persisted_evidence_cache();
             return;
@@ -1833,17 +1914,16 @@ impl PersistentEngine {
     }
 
     /// Clusters the cache still owes a cut, a restored checkpoint's debt.
-    pub fn evidence_cache_dirty_clusters(&self) -> usize {
-        self.section_evidence_cache.dirty_clusters()
+    pub fn evidence_cache_dirty_clusters(&mut self) -> usize {
+        self.evidence_cache_debt()
     }
 
     /// Whether a stored activity or a restored checkpoint still needs detection.
-    pub fn detection_owed(&self) -> bool {
-        self.section_evidence_cache.dirty_clusters() > 0
-            || self
-                .activity_metadata
-                .keys()
-                .any(|id| !self.processed_activity_ids.contains(id))
+    pub fn detection_owed(&mut self) -> bool {
+        self.activity_metadata
+            .keys()
+            .any(|id| !self.processed_activity_ids.contains(id))
+            || self.evidence_cache_debt() > 0
     }
 
     fn persist_evidence_blob(
@@ -1873,14 +1953,15 @@ impl PersistentEngine {
             .unwrap_or(0);
 
         if let Err(e) = self.db.execute(
-            "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
-             VALUES (1, ?1, ?2, ?3, ?4)
+            "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at, dirty_clusters)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(id) DO UPDATE SET
                  config_digest = excluded.config_digest,
                  folded_ids = excluded.folded_ids,
                  cache = excluded.cache,
-                 updated_at = excluded.updated_at",
-            params![row.digest, row.folded_blob, row.cache_blob, now],
+                 updated_at = excluded.updated_at,
+                 dirty_clusters = excluded.dirty_clusters",
+            params![row.digest, row.folded_blob, row.cache_blob, now, row.dirty_clusters],
         ) {
             log::warn!("veloqrs: evidence cache not written, staying cold: {e}");
         }
@@ -1895,6 +1976,49 @@ impl PersistentEngine {
         }
     }
 
+    pub(crate) fn mark_evidence_cache_unrestored(&mut self) {
+        self.forget_evidence_cache_in_memory();
+        self.evidence_cache_restored = false;
+    }
+
+    fn ensure_evidence_cache_restored(&mut self) {
+        if !self.evidence_cache_restored {
+            self.restore_evidence_cache();
+        }
+    }
+
+    pub(crate) fn evidence_cache(&mut self) -> (&SectionEvidenceCache, &HashSet<String>) {
+        self.ensure_evidence_cache_restored();
+        (&self.section_evidence_cache, &self.cache_folded_ids)
+    }
+
+    fn evidence_cache_debt(&mut self) -> usize {
+        if self.evidence_cache_restored {
+            return self.section_evidence_cache.dirty_clusters();
+        }
+        let row: Option<(String, Option<i64>)> = self
+            .db
+            .query_row(
+                "SELECT config_digest, dirty_clusters FROM evidence_cache WHERE id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .ok();
+        match row {
+            None => {
+                self.evidence_cache_restored = true;
+                0
+            }
+            Some((digest, _)) if digest != super::section_config_digest(&self.section_config) => {
+                self.clear_persisted_evidence_cache();
+                self.evidence_cache_restored = true;
+                0
+            }
+            Some((_, Some(count))) => usize::try_from(count).unwrap_or(0),
+            Some((_, None)) => self.evidence_cache().0.dirty_clusters(),
+        }
+    }
+
     /// Adopt the persisted evidence cache if it was folded under the config
     /// now in force. Returns whether it was adopted.
     ///
@@ -1902,6 +2026,7 @@ impl PersistentEngine {
     /// which is the state every engine started in before this row existed.
     /// The row is deleted in that case so the next write is a clean insert.
     pub(crate) fn restore_evidence_cache(&mut self) -> bool {
+        self.evidence_cache_restored = true;
         let digest = super::section_config_digest(&self.section_config);
 
         let row: Option<(String, Vec<u8>, Vec<u8>)> = self
@@ -1923,6 +2048,7 @@ impl PersistentEngine {
             return false;
         }
 
+        self.evidence_cache_decodes += 1;
         let decoded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &cache_blob)
             .ok_or_else(|| "cache blob tag".to_string())
             .and_then(codec::deserialize_gps_composite::<SectionEvidenceCache>)

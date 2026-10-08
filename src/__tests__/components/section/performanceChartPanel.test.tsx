@@ -94,6 +94,21 @@ const barsOf = (drawn: Record<string, unknown>[]) =>
 describe('PerformanceChartPanel', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it('shows the trend key only for the direction with a drawn curve', () => {
+    const trend = [
+      { time: 1, value: 5, upper: 5.2, lower: 4.8 },
+      { time: 2, value: 5.1, upper: 5.3, lower: 4.9 },
+    ];
+    const tree = render(panel({ trendCurves: { forwardSpeed: trend } }));
+
+    expect(tree.getByText('sections.legendTrend')).toBeTruthy();
+    expect(tree.getByText('sections.legendTrendBand')).toBeTruthy();
+
+    fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
+    expect(tree.queryByText('sections.legendTrend')).toBeNull();
+    expect(tree.queryByText('sections.legendTrendBand')).toBeNull();
+  });
+
   it('opens on the scatter and switches to the histogram and back', () => {
     const tree = render(panel());
 

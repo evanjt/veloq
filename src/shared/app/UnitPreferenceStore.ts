@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '@/shared/storage';
 import { getLocales } from 'expo-localization';
 
 const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
+const RESOLVED_UNIT_SYSTEM_KEY = 'veloq-resolved-unit-system';
 
 export type UnitPreference = 'auto' | 'metric' | 'imperial';
 
@@ -64,17 +65,24 @@ export const useUnitPreference = create<UnitPreferenceState>((set) => ({
     } catch {
       set({ isLoaded: true });
     }
+    await persistResolvedUnitSystem();
   },
 
   setUnitPreference: async (pref: UnitPreference) => {
     await setSetting(UNIT_PREFERENCE_KEY, pref);
     set({ unitPreference: pref });
+    await persistResolvedUnitSystem();
   },
 
   setIntervalsPreferences: (prefs: IntervalsUnitPreferences) => {
     set({ intervalsPreferences: prefs });
+    void persistResolvedUnitSystem().catch(() => {});
   },
 }));
+
+function persistResolvedUnitSystem(): Promise<void> {
+  return setSetting(RESOLVED_UNIT_SYSTEM_KEY, resolveIsMetric() ? 'metric' : 'imperial');
+}
 
 /**
  * Resolve current unit preference to boolean.

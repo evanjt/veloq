@@ -166,7 +166,7 @@ export const ActivityPopup = memo(function ActivityPopup({
             color={config?.color ?? colors.primary}
           />
           <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {selected?.activity.type ?? ''}
+            {activityType ? t(`activityTypes.${activityType}`, activityType) : ''}
           </Text>
         </View>
         <View style={styles.popupStat}>

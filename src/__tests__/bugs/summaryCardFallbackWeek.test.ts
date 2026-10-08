@@ -5,13 +5,12 @@
  * UTC last Sunday evening's ride counted in this week, west of it a Monday
  * morning ride counted in the last.
  *
- * Expected behaviour: the fallback read asks for the same four wall-clock
- * stamps the feed's bundle does, whatever the device offset.
+ * Expected behaviour: the fallback read gives the engine wall-clock now so
+ * the engine resolves both matching elapsed-week windows.
  */
 
 import { renderHook } from '@testing-library/react-native';
 
-import { currentAndPreviousWeek } from '@/features/fitness/lib/weekWindow';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
@@ -31,7 +30,7 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const engine = {
-  getSummaryCardData: jest.fn((..._bounds: number[]) => null),
+  getSummaryCardData: jest.fn((_now: number) => null),
   getWellnessSparklines: jest.fn(() => null),
   subscribe: jest.fn(() => () => {}),
 };
@@ -59,29 +58,10 @@ describe.each([
     restoreClock = installUtcOffset(offset, NOW);
   });
 
-  it('asks for the same wall-clock weeks as the bundle', () => {
+  it('asks the engine to resolve the weeks from wall-clock now', () => {
     renderHook(() => useSummaryCardData());
 
-    const week = currentAndPreviousWeek(new Date());
-    expect(engine.getSummaryCardData).toHaveBeenCalledWith(
-      week.weekStartTs,
-      week.weekEndTs,
-      week.prevStartTs,
-      week.prevEndTs
-    );
-  });
-
-  it("puts last Sunday's evening ride in the previous week and Monday morning's in this one", () => {
-    renderHook(() => useSummaryCardData());
-
-    const [weekStart, weekEnd, prevStart, prevEnd] = engine.getSummaryCardData.mock.calls[0];
-    const sundayEvening = startDateLocalToEpochSeconds('2026-09-20T18:00:00')!;
-    const mondayMorning = startDateLocalToEpochSeconds('2026-09-21T03:00:00')!;
-    const thisSundayAfternoon = startDateLocalToEpochSeconds('2026-09-27T15:00:00')!;
-
-    expect(sundayEvening).toBeGreaterThanOrEqual(prevStart);
-    expect(sundayEvening).toBeLessThanOrEqual(prevEnd);
-    expect(mondayMorning).toBeGreaterThanOrEqual(weekStart);
-    expect(thisSundayAfternoon).toBeLessThanOrEqual(weekEnd);
+    const localTime = offset === 10 ? '2026-09-23T22:00:00' : '2026-09-23T05:00:00';
+    expect(engine.getSummaryCardData).toHaveBeenCalledWith(startDateLocalToEpochSeconds(localTime));
   });
 });

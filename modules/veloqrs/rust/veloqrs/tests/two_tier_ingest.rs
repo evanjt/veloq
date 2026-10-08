@@ -5,7 +5,7 @@
 //! Scenario: a library already has detected sections, then a sync stores a
 //! batch of new activities over the same corridor.
 //! Expected behaviour: attach_new_activities inserts junction rows for every
-//! stored activity and refreshes groups/indicators once for the whole batch,
+//! stored activity and schedules one group and indicator refresh for the batch,
 //! without creating or destroying any section.
 
 #![cfg(feature = "synthetic")]
@@ -77,7 +77,7 @@ fn attach_batch_inserts_junctions_without_detection() {
         new_ids.push(a.id.clone());
     }
 
-    let summary = engine.attach_new_activities(&new_ids);
+    let (summary, _) = engine.attach_new_activities(&new_ids);
 
     for a in &corridor {
         assert!(
@@ -93,7 +93,7 @@ fn attach_batch_inserts_junctions_without_detection() {
     );
     assert!(summary.inserted_portions >= 2, "{:?}", summary);
     assert!(
-        summary.regrouped,
+        summary.regroup_scheduled,
         "ingest sets groups_dirty, so the batch tail must regroup once"
     );
     assert!(
@@ -107,7 +107,7 @@ fn attach_batch_inserts_junctions_without_detection() {
         "attach never creates or destroys sections"
     );
 
-    let again = engine.attach_new_activities(&new_ids);
+    let (again, _) = engine.attach_new_activities(&new_ids);
     assert_eq!(again.attached_activities, summary.attached_activities);
     assert_eq!(
         again.inserted_portions, summary.inserted_portions,
@@ -128,7 +128,7 @@ fn attach_ignores_unknown_and_tiny_activities() {
     });
     let mut engine = engine_with_sections(&dir, &corpus);
 
-    let summary = engine.attach_new_activities(&["missing".to_string()]);
+    let (summary, _) = engine.attach_new_activities(&["missing".to_string()]);
     assert_eq!(summary.attached_activities, 0);
     assert_eq!(summary.inserted_portions, 0);
 }
@@ -244,7 +244,7 @@ fn attach_inserts_a_junction_row_for_every_lap() {
 
     let base = &corpus.bucket_c_single;
     store(&mut engine, "act_lapped", base.lapped(3), base);
-    let summary = engine.attach_new_activities(&["act_lapped".to_string()]);
+    let (summary, _) = engine.attach_new_activities(&["act_lapped".to_string()]);
 
     assert_eq!(summary.attached_activities, 1);
 
@@ -305,9 +305,9 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
 
     let base = &corpus.bucket_c_single;
     store(&mut engine, "act_lapped", base.lapped(3), base);
-    let first = engine.attach_new_activities(&["act_lapped".to_string()]);
+    let (first, _) = engine.attach_new_activities(&["act_lapped".to_string()]);
     let once = passes_per_section(&mut engine, "act_lapped", &base.gps_points);
-    let again = engine.attach_new_activities(&["act_lapped".to_string()]);
+    let (again, _) = engine.attach_new_activities(&["act_lapped".to_string()]);
 
     assert_eq!(
         again.inserted_portions, first.inserted_portions,

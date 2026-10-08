@@ -104,6 +104,7 @@ import * as recordingDelegates from './delegates/recordings';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
 import * as sectionDelegates from './delegates/sections';
+import type { SectionBoundsEdit } from './delegates/sections';
 import * as settingsDelegates from './delegates/settings';
 import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
@@ -126,6 +127,12 @@ export type {
 
 /** Pre-computed daily activity intensity from Rust heatmap cache. Re-exported from delegates. */
 export type { HeatmapDay };
+
+function setEngineDebugLogging(enabled: boolean): void {
+  generated.setEngineLogLevel(
+    enabled ? generated.EngineLogLevel.Info : generated.EngineLogLevel.Boot
+  );
+}
 
 /**
  * The channels Rust announces on, one per `EngineObserver` method.
@@ -303,10 +310,21 @@ class EngineClient implements DelegateHost {
     return result;
   }
 
+  async timedAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    if (!EngineClient.debugEnabled) return fn();
+    const start = performance.now();
+    try {
+      return await fn();
+    } finally {
+      EngineClient.recordMetric(name, performance.now() - start);
+    }
+  }
+
   private static debugEnabled = false;
   private static recordMetric: (name: string, ms: number) => void = () => {};
 
   static setDebugEnabled(enabled: boolean): void {
+    setEngineDebugLogging(enabled);
     EngineClient.debugEnabled = enabled;
   }
 
@@ -826,6 +844,9 @@ class EngineClient implements DelegateHost {
   setRouteRepresentative = (routeId: string, activityId: string): boolean =>
     routeDelegates.setRouteRepresentative(this, routeId, activityId);
 
+  resetRouteRepresentative = (routeId: string): boolean =>
+    routeDelegates.resetRouteRepresentative(this, routeId);
+
   setSectionName = (
     sectionId: string,
     name: string
@@ -938,6 +959,13 @@ class EngineClient implements DelegateHost {
   ): routeDelegates.RouteDetailData | undefined =>
     routeDelegates.getRouteDetailData(this, groupId, currentActivityId, minGroupActivities);
 
+  getRouteDetailPerformance = (
+    groupId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): FfiSectionPerformanceData | undefined =>
+    routeDelegates.getRouteDetailPerformance(this, groupId, timeRangeDays, sportFilter);
+
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);
 
@@ -993,13 +1021,8 @@ class EngineClient implements DelegateHost {
   getRoutesScreenData = (query: FfiRoutesScreenQuery): FfiRoutesScreenData | undefined =>
     routeDelegates.getRoutesScreenData(this, query);
 
-  getSummaryCardData = (
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number
-  ): FfiSummaryCardData =>
-    fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
+  getSummaryCardData = (nowWallSeconds: number): FfiSummaryCardData =>
+    fitnessDelegates.getSummaryCardData(this, nowWallSeconds);
 
   getInsightsData = (params: FfiInsightsParams): FfiInsightsData | undefined =>
     fitnessDelegates.getInsightsData(this, params);
@@ -1346,12 +1369,16 @@ class EngineClient implements DelegateHost {
 
   async restoreRecordZip(path: string): Promise<FfiRecordRestoreResult> {
     if (!this.ready) throw new Error('Engine not initialised');
-    return this.engine.restoreRecordZip(path);
+    const result = await this.engine.restoreRecordZip(path);
+    this.notifyAll('activities', 'groups', 'sections', 'sync');
+    return result;
   }
 
   async restoreRecordJson(json: string): Promise<FfiRecordRestoreResult> {
     if (!this.ready) throw new Error('Engine not initialised');
-    return this.engine.restoreRecordJson(json);
+    const result = await this.engine.restoreRecordJson(json);
+    this.notifyAll('activities', 'groups', 'sections', 'sync');
+    return result;
   }
 
   /** Drops the paused import, leaving the library and the waiting records. */
@@ -1454,15 +1481,9 @@ class EngineClient implements DelegateHost {
   // Section Bounds Trimming
   // ==========================================================================
 
-  trimSection = (
-    sectionId: string,
-    startIndex: number,
-    endIndex: number
-  ): FfiDepartedRide[] | null =>
-    sectionDelegates.trimSection(this, sectionId, startIndex, endIndex);
-
-  resetSectionBounds = (sectionId: string): FfiDepartedRide[] | null =>
-    sectionDelegates.resetSectionBounds(this, sectionId);
+  /** Trim, reset or expand a section's bounds off the JS thread. */
+  runSectionBoundsEdit = (edit: SectionBoundsEdit): Promise<FfiDepartedRide[] | null> =>
+    sectionDelegates.runSectionBoundsEdit(this, edit);
 
   getSectionExtensionTrack = (
     sectionId: string
@@ -1471,14 +1492,6 @@ class EngineClient implements DelegateHost {
     sectionStartIdx: number;
     sectionEndIdx: number;
   } | null => sectionDelegates.getSectionExtensionTrack(this, sectionId);
-
-  expandSectionBounds = (
-    sectionId: string,
-    activityId: string,
-    startIndex: number,
-    endIndex: number
-  ): FfiDepartedRide[] | null =>
-    sectionDelegates.expandSectionBounds(this, sectionId, activityId, startIndex, endIndex);
 
   getFetchRunProgress(run: number): DownloadProgressResult {
     return this.timed('getFetchRunProgress', () => generated.getFetchRunProgress(run));
@@ -1677,7 +1690,10 @@ class EngineClient implements DelegateHost {
         post('syncSettled');
         post('sync');
       },
-      activitiesStored: () => post('activitiesStored'),
+      activitiesStored: () => {
+        post('activitiesStored');
+        this.triggerRefresh('activities');
+      },
       bodyStored: (kind, activityId) => post('bodyStored', { kind, activityId }),
       timeStreamsStored: (activityIds) => post('timeStreamsStored', { activityIds }),
       gpsTrackStored: (activityId) => post('gpsTrackStored', { activityId }),

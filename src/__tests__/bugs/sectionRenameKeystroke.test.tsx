@@ -52,12 +52,12 @@ const highlight = createMapHighlightStore();
 
 const rootRendered = jest.fn();
 
-function Root() {
+function Root({ currentSection = section }: { currentSection?: FrequentSection }) {
   rootRendered();
   const actions = useSectionActions({
-    id: section.id,
+    id: currentSection.id,
     isCustomId: true,
-    section,
+    section: currentSection,
     isSectionDisabled: false,
     onSectionRefresh: jest.fn(),
     sectionRefreshKey: 0,
@@ -65,7 +65,7 @@ function Root() {
   });
   return (
     <SectionHeader
-      section={section}
+      section={currentSection}
       insetTop={0}
       activityColor="#000000"
       iconName="bike"
@@ -123,8 +123,8 @@ describe('renaming a section', () => {
     expect(screen.getByText('New loop')).toBeTruthy();
   });
 
-  it('saves nothing for a blank name and closes the input', async () => {
-    render(<Root />);
+  it('clears a name and shows the numbered label returned by the engine', async () => {
+    const tree = render(<Root />);
     fireEvent.press(screen.getByTestId('section-rename-button'));
     fireEvent.changeText(screen.getByTestId('section-rename-input'), '   ');
 
@@ -132,9 +132,10 @@ describe('renaming a section', () => {
       fireEvent.press(screen.getByTestId('section-rename-save'));
     });
 
-    expect(mockRenameSection).not.toHaveBeenCalled();
+    expect(mockRenameSection).toHaveBeenCalledWith('s1', '');
+    tree.rerender(<Root currentSection={{ ...section, name: 'Section 1' }} />);
     expect(screen.queryByTestId('section-rename-input')).toBeNull();
-    expect(screen.getByText('Old climb')).toBeTruthy();
+    expect(screen.getByText('Section 1')).toBeTruthy();
   });
 
   it('keeps the old name when the edit is cancelled, and starts the next edit from it', () => {

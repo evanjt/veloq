@@ -5,6 +5,7 @@ use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params, 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use super::geocoded_names::{NamedKind, queue_new_route, shown_geocoded_names};
 use super::record_restore::HELD_NUMBER_PREFIX;
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
@@ -108,6 +109,32 @@ pub(crate) fn groups_match_rule_changed(
             true
         }
     }
+}
+
+fn has_ungrouped_usable_signature(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<bool> {
+    let members: HashSet<&str> = groups
+        .iter()
+        .flat_map(|group| group.activity_ids.iter().map(String::as_str))
+        .collect();
+    let mut stmt = conn.prepare("SELECT activity_id FROM signatures")?;
+    let mut unmatched = false;
+    for row in stmt.query_map([], |row| row.get::<_, String>(0))? {
+        if !members.contains(row?.as_str()) {
+            unmatched = true;
+            break;
+        }
+    }
+    if !unmatched {
+        return Ok(false);
+    }
+
+    let (signatures, corrupt) = super::regroup::load_all_signatures(conn);
+    if !super::sections::detection::pool_is_usable(signatures.len(), corrupt.len()) {
+        return Ok(false);
+    }
+    Ok(signatures
+        .iter()
+        .any(|signature| !members.contains(signature.activity_id.as_str())))
 }
 
 #[cfg(test)]
@@ -455,6 +482,10 @@ mod match_percentage_regressions;
 #[path = "tests/live_route_overlap.rs"]
 mod live_route_overlap_tests;
 
+#[cfg(test)]
+#[path = "tests/regroup_on_reopen.rs"]
+mod regroup_on_reopen_tests;
+
 /// Each route whose representative the athlete chose, with that representative.
 /// A writer that deletes and reinserts the groups reads this first and hands it
 /// to [`mark_chosen_representatives`] after.
@@ -603,18 +634,33 @@ fn numbered_label(route_word: &str, number: u32) -> String {
 }
 
 /// The name every route is shown under: the one the athlete typed, otherwise
-/// its number behind `route_word`.
+/// its geocoded name while geocoding is on, otherwise its number behind
+/// `route_word`.
 fn route_display_names(conn: &Connection, route_word: &str) -> SqlResult<HashMap<String, String>> {
     let mut names = stored_route_names(conn)?;
+    let geocoded = shown_geocoded_names(conn, NamedKind::Route);
     for (route_id, number) in stored_route_numbers(conn)? {
-        if route_id.starts_with(HELD_NUMBER_PREFIX) {
+        if route_id.starts_with(HELD_NUMBER_PREFIX) || names.contains_key(&route_id) {
             continue;
         }
-        names
-            .entry(route_id)
-            .or_insert_with(|| numbered_label(route_word, number));
+        let shown = untyped_label(&geocoded, &route_id, route_word, number);
+        names.insert(route_id, shown);
     }
     Ok(names)
+}
+
+/// The label of a route with no typed name: its geocoded name in `geocoded`,
+/// else its number behind `route_word`.
+fn untyped_label(
+    geocoded: &HashMap<String, String>,
+    route_id: &str,
+    route_word: &str,
+    number: u32,
+) -> String {
+    geocoded
+        .get(route_id)
+        .cloned()
+        .unwrap_or_else(|| numbered_label(route_word, number))
 }
 
 /// `route_display_names` for `ids` alone, so a page of the list reads the
@@ -644,14 +690,18 @@ fn route_display_names_for(
             numbers.push(row?);
         }
     }
+    let geocoded = if numbers.iter().any(|(id, _)| !names.contains_key(id)) {
+        shown_geocoded_names(conn, NamedKind::Route)
+    } else {
+        HashMap::new()
+    };
     for (route_id, number) in numbers {
         let route_id: String = route_id;
-        if route_id.starts_with(HELD_NUMBER_PREFIX) {
+        if route_id.starts_with(HELD_NUMBER_PREFIX) || names.contains_key(&route_id) {
             continue;
         }
-        names
-            .entry(route_id)
-            .or_insert_with(|| numbered_label(route_word, number));
+        let shown = untyped_label(&geocoded, &route_id, route_word, number);
+        names.insert(route_id, shown);
     }
     Ok(names)
 }
@@ -666,6 +716,9 @@ fn route_display_names_for(
 /// number first when it is free, so a label kept from a released build never
 /// shows beside an unnamed route minted to the same number. Every other group
 /// takes the lowest number no route has held, in member-count order.
+///
+/// A group numbered here is one the engine has not seen before, so it is also
+/// queued for a geocoded name while geocoding is on.
 pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
     let numbers = stored_route_numbers(conn)?;
     let names = stored_route_names(conn)?;
@@ -686,6 +739,7 @@ pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> Sq
         match kept {
             Some(number) if taken.insert(number) => {
                 insert.execute(params![group.group_id, number])?;
+                queue_new_route(conn, &group.group_id)?;
             }
             _ => rest.push(group),
         }
@@ -696,6 +750,7 @@ pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> Sq
             candidate += 1;
         }
         insert.execute(params![group.group_id, candidate])?;
+        queue_new_route(conn, &group.group_id)?;
         taken.insert(candidate);
     }
     Ok(())
@@ -779,6 +834,10 @@ impl PersistentEngine {
                 "veloqrs: Forcing groups recompute: the match rule changed since they were made"
             );
             self.set_groups_dirty(true);
+        } else if has_ungrouped_usable_signature(&self.db, &self.groups)? {
+            if !self.groups_dirty {
+                self.set_groups_dirty(true);
+            }
         } else {
             self.set_groups_dirty(false);
         }
@@ -881,7 +940,7 @@ impl PersistentEngine {
 
     /// Put each group's shown name on the in-memory groups, in the current
     /// route word, and drop cached groups that carry the previous one.
-    pub(super) fn apply_route_names(&mut self) -> SqlResult<()> {
+    pub(crate) fn apply_route_names(&mut self) -> SqlResult<()> {
         let route_word = get_route_word();
         let names = route_display_names(&self.db, &route_word)?;
         for group in &mut self.groups {
@@ -1496,7 +1555,8 @@ impl PersistentEngine {
 
     /// Set the name the athlete typed for a route. `None`, or the route's own
     /// numbered label in the current language, clears it, so the route is
-    /// shown under its number again and that label follows the language.
+    /// shown under its geocoded name or its number again and that label
+    /// follows the language.
     pub fn set_route_name(&mut self, route_id: &str, name: Option<&str>) -> SqlResult<()> {
         let route_word = get_route_word();
         let number: Option<u32> = self
@@ -1523,9 +1583,10 @@ impl PersistentEngine {
                 )?;
             }
         }
-        let shown = typed
-            .map(str::to_string)
-            .or_else(|| number.map(|n| numbered_label(&route_word, n)));
+        let shown = match typed {
+            Some(name) => Some(name.to_string()),
+            None => route_display_names_for(&self.db, &route_word, &[route_id])?.remove(route_id),
+        };
         if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
             group.custom_name = shown;
         }
@@ -1600,7 +1661,7 @@ impl PersistentEngine {
     ) -> Result<(), String> {
         const ATTEMPTS: usize = 3;
         for _ in 0..ATTEMPTS {
-            match self.try_set_route_representative(route_id, activity_id)? {
+            match self.try_set_route_representative(route_id, activity_id, true)? {
                 RepresentativeWrite::Written => return Ok(()),
                 RepresentativeWrite::Superseded => {}
             }
@@ -1610,10 +1671,50 @@ impl PersistentEngine {
         ))
     }
 
+    /// Restore the representative chosen by route grouping for the current members.
+    pub fn reset_route_representative(&mut self, route_id: &str) -> Result<(), String> {
+        const ATTEMPTS: usize = 3;
+        for _ in 0..ATTEMPTS {
+            self.follow_committed_groups();
+            let automatic = self.automatic_route_representative(route_id)?;
+            match self.try_set_route_representative(route_id, &automatic, false)? {
+                RepresentativeWrite::Written => return Ok(()),
+                RepresentativeWrite::Superseded => {}
+            }
+        }
+        Err(format!(
+            "Route groups kept changing while resetting the representative for {route_id}"
+        ))
+    }
+
+    fn automatic_route_representative(&mut self, route_id: &str) -> Result<String, String> {
+        let members = self
+            .groups
+            .iter()
+            .find(|group| group.group_id == route_id)
+            .ok_or_else(|| format!("Route group {route_id} not found"))?
+            .activity_ids
+            .clone();
+        let signatures: Vec<RouteSignature> = members
+            .iter()
+            .map(|id| {
+                self.get_signature(id)
+                    .map(|signature| signature.as_ref().clone())
+                    .ok_or_else(|| format!("Route signature {id} not found"))
+            })
+            .collect::<Result<_, _>>()?;
+        let groups = tracematch::group_signatures(&signatures, &self.match_config);
+        if groups.len() != 1 || groups[0].activity_ids.len() != members.len() {
+            return Err(format!("Route group {route_id} has changed during reset"));
+        }
+        Ok(groups[0].representative_id.clone())
+    }
+
     fn try_set_route_representative(
         &mut self,
         route_id: &str,
         activity_id: &str,
+        chosen: bool,
     ) -> Result<RepresentativeWrite, String> {
         self.follow_committed_groups();
         let member = self
@@ -1638,7 +1739,7 @@ impl PersistentEngine {
             .unwrap_or_default();
 
         let Some(generation) =
-            self.write_representative_selection(route_id, activity_id, &calculated)?
+            self.write_representative_selection(route_id, activity_id, chosen, &calculated)?
         else {
             return Ok(RepresentativeWrite::Superseded);
         };
@@ -1663,6 +1764,7 @@ impl PersistentEngine {
         &mut self,
         route_id: &str,
         activity_id: &str,
+        chosen: bool,
         calculated: &[ActivityMatchInfo],
     ) -> Result<Option<u64>, String> {
         #[cfg(test)]
@@ -1683,9 +1785,9 @@ impl PersistentEngine {
             let updated = engine
                 .db
                 .execute(
-                    "UPDATE route_groups SET representative_id = ?, representative_chosen = 1
+                    "UPDATE route_groups SET representative_id = ?, representative_chosen = ?
                      WHERE id = ?",
-                    params![activity_id, route_id],
+                    params![activity_id, chosen, route_id],
                 )
                 .map_err(|error| format!("DB update failed: {error}"))?;
             if updated != 1 {
@@ -1902,6 +2004,8 @@ pub(crate) mod pooled {
     /// order read one row per group and the page alone pays for its members.
     /// The representative's distance is joined in only when `with_distances`
     /// says the order needs it, and is otherwise left for `fill_page_details`.
+    /// The groups come in the order they were written, which is the order a
+    /// tie keeps.
     pub(crate) fn group_keys(
         conn: &Connection,
         with_distances: bool,
@@ -1910,7 +2014,7 @@ pub(crate) mod pooled {
         let (distance, join) = if with_distances {
             (
                 "COALESCE(m.distance, 0.0)",
-                "LEFT JOIN activity_metrics m ON m.activity_id = g.representative_id",
+                "LEFT JOIN activity_metrics m ON m.activity_id = route_groups.representative_id",
             )
         } else {
             ("0.0", "")
@@ -1920,18 +2024,80 @@ pub(crate) mod pooled {
         } else {
             HashMap::new()
         };
+        group_summaries_where(
+            conn,
+            distance,
+            &format!("{join} ORDER BY route_groups.rowid"),
+            [],
+            &names,
+        )
+    }
+
+    /// One page of the groups with at least `min_activities` members, most
+    /// members first and ties in the order they were written, read through
+    /// the count index so the read stops at the page. Only a group with a
+    /// stored count is placed, so a caller checks `group_sizes` first.
+    pub(crate) fn group_keys_page(
+        conn: &Connection,
+        min_activities: u32,
+        offset: u32,
+        limit: u32,
+    ) -> Vec<crate::persistence::GroupSummary> {
+        group_summaries_where(
+            conn,
+            "0.0",
+            "WHERE route_groups.activity_count >= ?1
+             ORDER BY route_groups.activity_count DESC, route_groups.rowid
+             LIMIT ?2 OFFSET ?3",
+            params![min_activities, limit, offset],
+            &HashMap::new(),
+        )
+    }
+
+    /// How many groups have each member count, from the stored sizes the
+    /// group triggers keep, or `None` while a group written before the count
+    /// was stored has none.
+    pub(crate) fn group_sizes(conn: &Connection) -> Option<Vec<(u32, u32)>> {
+        let uncounted: bool = conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM route_groups WHERE activity_count IS NULL)",
+                [],
+                |row| row.get(0),
+            )
+            .ok()?;
+        if uncounted {
+            return None;
+        }
+        let mut stmt = conn
+            .prepare("SELECT activity_count, n FROM route_group_sizes WHERE n > 0")
+            .ok()?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .ok()?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .ok()
+    }
+
+    fn group_summaries_where(
+        conn: &Connection,
+        distance: &str,
+        tail: &str,
+        bound: impl rusqlite::Params,
+        names: &HashMap<String, String>,
+    ) -> Vec<crate::persistence::GroupSummary> {
         let sql = format!(
-            "SELECT g.id, g.representative_id, g.activity_count,
-                    g.bounds_min_lat, g.bounds_max_lat, g.bounds_min_lng, g.bounds_max_lng,
+            "SELECT route_groups.id, route_groups.representative_id, route_groups.activity_count,
+                    route_groups.bounds_min_lat, route_groups.bounds_max_lat,
+                    route_groups.bounds_min_lng, route_groups.bounds_max_lng,
                     {distance},
-                    CASE WHEN g.activity_count IS NULL THEN g.activity_ids END,
-                    CASE WHEN g.activity_count IS NULL THEN g.activity_ids_blob END
-             FROM route_groups g {join}"
+                    CASE WHEN route_groups.activity_count IS NULL THEN route_groups.activity_ids END,
+                    CASE WHEN route_groups.activity_count IS NULL
+                         THEN route_groups.activity_ids_blob END
+             FROM route_groups {tail}"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else {
             return Vec::new();
         };
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map(bound, |row| {
             let group_id: String = row.get(0)?;
             let activity_count = match row.get::<_, Option<u32>>(2)? {
                 Some(count) => count,
@@ -2077,9 +2243,9 @@ pub(crate) mod pooled {
         sports
     }
 
-    /// One route group by id.
+    /// One route group by id, with its own name read and no other route's.
     pub(crate) fn group_by_id(conn: &Connection, group_id: &str) -> Option<RouteGroup> {
-        let names = all_route_names(conn);
+        let names = route_names_for(conn, &[group_id]);
         conn.query_row(
             "SELECT id, representative_id, activity_ids,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
@@ -2110,8 +2276,25 @@ pub(crate) mod pooled {
         crate::persistence::activities::pooled::gps_track(conn, &representative_id)
     }
 
+    /// Whether the athlete typed a name for a route. A route that has one is
+    /// never named by the geocoder.
+    pub(crate) fn has_typed_name(conn: &Connection, route_id: &str) -> bool {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM route_names WHERE route_id = ?1)",
+            params![route_id],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|error| {
+            log::warn!("[routes] typed name of {route_id}: {error:?}");
+            // Read as typed, so a failed read never sends a lookup for a
+            // route the athlete may have named.
+            true
+        })
+    }
+
     /// The name every route is shown under, keyed by group: the one the
-    /// athlete typed, otherwise its number behind the current route word.
+    /// athlete typed, otherwise its geocoded name while geocoding is on,
+    /// otherwise its number behind the current route word.
     pub(crate) fn all_route_names(conn: &Connection) -> HashMap<String, String> {
         super::route_display_names(conn, &super::get_route_word()).unwrap_or_else(|error| {
             log::warn!("[routes] route names: {error:?}");

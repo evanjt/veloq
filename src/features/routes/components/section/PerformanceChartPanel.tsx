@@ -84,6 +84,14 @@ export function PerformanceChartPanel({
     hasReverse
   );
   const histogram = histograms[direction];
+  const trend =
+    direction === 'reverse'
+      ? useTimeAxis
+        ? scatterProps.trendCurves.reverseTime
+        : scatterProps.trendCurves.reverseSpeed
+      : useTimeAxis
+        ? scatterProps.trendCurves.forwardTime
+        : scatterProps.trendCurves.forwardSpeed;
 
   const deltas = curves?.[direction];
 
@@ -177,6 +185,8 @@ export function PerformanceChartPanel({
           <SectionScatterChart {...scatterProps} selectedDirection={direction} />
           <ScatterLegend
             isDark={isDark}
+            showTrend={!!trend && trend.length >= 2}
+            trendColor={direction === 'reverse' ? colors.reverseDirection : activityColor}
             showReverse={!!bestReverseRecord}
             showThisActivity={!!highlightedActivityId}
             showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}

@@ -4,8 +4,7 @@
  * There were three answers in the tree and the product screens used none of
  * them: 113 files rendered a `TouchableOpacity`, 55 a `Pressable`, and 124
  * distinct `StyleSheet` keys matching `button` were the variant list nobody had
- * written down. `AnimatedButton` next door is a pressed-scale wrapper with no
- * visual, and Paper's `Button` reached one screen.
+ * written down.
  *
  * **One visual on both platforms, platform feedback underneath.** The idiom
  * rule takes the platform for navigation chrome and sheets and keeps the app's

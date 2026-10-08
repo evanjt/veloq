@@ -13,8 +13,8 @@ use super::{PersistentEngine, codec};
 const TREND_DEADBAND: f64 = 0.02;
 
 /// Bump this when the indicator computation algorithm changes.
-/// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 6;
+/// On next open, a version mismatch triggers a full clean recompute.
+const INDICATOR_ALGORITHM_VERSION: i32 = 7;
 
 impl PersistentEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.

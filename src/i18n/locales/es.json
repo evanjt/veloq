@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Cargando recorridos",
+    "analysing": "Analizando actividades",
+    "saving": "Guardando secciones",
+    "recomputingIndicators": "Calculando indicadores",
+    "diffing": "Comparando catálogos",
+    "complete": "Completado",
+    "cancelled": "Cancelado",
+    "draining": "Preparando el catálogo",
+    "archiving": "Archivando secciones",
+    "detecting": "Detectando secciones"
+  },
   "about": {
     "dataAttribution": "Atribución de datos",
     "description": "Un cliente móvil rápido y offline-first para intervals.icu, enfocado en mapas y análisis visual.",
@@ -19,6 +31,7 @@
     "version": "Versión"
   },
   "activity": {
+    "terrainRow": "Terreno 3D",
     "activityStats": "Estadísticas de actividad",
     "calories": "Calorías",
     "chartHint": "Mantén para desplazarte • Mantén el chip para el eje",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatura de datos meteorológicos o del sensor de tu dispositivo.",
       "energy": "Gasto energético estimado a partir de frecuencia cardíaca, potencia y duración.",
-      "fitnessImpact": "Frente a un día de descanso, esta actividad suma la carga de entrenamiento dividida entre 42 a la condición física y dividida entre 7 a la fatiga. El impacto en la forma es la condición física menos la fatiga. Las constantes de tiempo son de 42 y 7 días, respectivamente.",
+      "fitnessImpact": "Frente a un día de descanso, esta actividad suma carga × (1 − e^(−1/42)) a la condición física y carga × (1 − e^(−1/7)) a la fatiga. El entrenamiento de fuerza solo suma fatiga. El impacto en la forma es condición física menos fatiga.",
       "heartRate": "Frecuencia cardíaca promedio durante la actividad.",
       "newGround": "El porcentaje de las teselas del mapa que recorrió esta actividad y que ninguna actividad anterior había recorrido. Las teselas miden entre 150 y 300 m según la latitud, así que es cobertura de teselas y no distancia por caminos nuevos.",
+      "activityEftp": "El eFTP es la estimación del modelo de potencia de intervals.icu para esta actividad.",
       "power": "Potencia media en vatios.",
       "trainingLoad": "Training Stress Score (TSS) cuantifica la carga de entrenamiento basándose en la duración e intensidad relativa a tu umbral.",
       "yourForm": "Tu Forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Forma física (CTL) menos Fatiga (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Desacople aeróbico",
       "deviceSensor": "Sensor del dispositivo",
       "efficiencyFactor": "Factor de eficiencia",
-      "eftpEstimated": "eFTP (estimado)",
+      "eftpEstimated": "eFTP de esta actividad",
       "energy": "Energía",
       "fatigueATL": "Fatiga (ATL)",
       "feelsLike": "Sensación {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Tu forma física (CTL)",
       "yourForm": "Tu forma"
     },
+    "hrZoneTotal": "Tiempo con frecuencia cardíaca: {{duration}}",
+    "movingTime": "Tiempo en movimiento: {{duration}}",
     "timeInHRZones": "Tiempo en zonas de FC",
     "timeInPowerZones": "Tiempo en zonas de potencia",
     "viewDetails": "Ver detalles",
@@ -108,6 +124,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "MP {{improvement}}",
     "lineKeyActivity": "Esta actividad",
     "lineKeyRoute": "Ruta coincidente",
     "failedToLoad": "Error al cargar la actividad",
@@ -1040,7 +1057,7 @@
     },
     "prompt": {
       "title": "Mantente al día",
-      "description": "Recibe notificaciones sobre nuevas actividades, progreso de sincronización y cuando tus datos estén listos para explorar.",
+      "description": "Recibe notificaciones sobre nuevas actividades, récords personales e hitos de forma.",
       "enable": "Activar",
       "dismiss": "Ahora no",
       "settingsHint": "Puedes activar las notificaciones en cualquier momento en Ajustes",
@@ -1194,6 +1211,8 @@
     "autoUpload": "Subida automática",
     "autoUploadDescription": "Subir las grabaciones a intervals.icu automáticamente al guardarlas. Si está desactivado, se quedan en este dispositivo hasta que las subas desde Mis grabaciones.",
     "library": {
+      "distance": "Distancia",
+      "duration": "Duración",
       "title": "Mis grabaciones",
       "empty": "Aún no hay grabaciones",
       "emptyHint": "Las grabaciones guardadas se conservan aquí en este dispositivo.",
@@ -1270,6 +1289,7 @@
     "tomorrow": "MAÑANA"
   },
   "routes": {
+    "timeMethod": "Los tiempos de ruta usan el tiempo en movimiento, sin incluir las paradas.",
     "activitiesCount_one": "{{count}} actividad",
     "activitiesCount_many": "{{count}} de actividades",
     "activitiesCount_other": "{{count}} actividades",
@@ -1294,9 +1314,13 @@
     "noMatchingRoutes": "No se encontraron rutas coincidentes",
     "noRoutesYet": "Sin rutas todavía",
     "noSectionsMatchFilter": "Ninguna sección coincide con el filtro",
+    "placeJourney": "De {{start}} a {{end}}",
+    "placeLoop": "Circuito de {{place}}",
     "pointCountHint_one": "{{count}} punto GPS",
     "pointCountHint_many": "{{count}} de puntos GPS",
     "pointCountHint_other": "{{count}} puntos GPS",
+    "renameFailedTitle": "No se pudo guardar el nombre",
+    "renameFailedMessage": "No se guardó el nombre de la ruta. Inténtalo de nuevo.",
     "routeNamePlaceholder": "Nombre de la ruta",
     "routeWord": "Ruta",
     "routesWillAppear": "Las rutas aparecerán después de analizar tus actividades",
@@ -1318,7 +1342,9 @@
     "standingBest": "Tu más rápido de {{total}}",
     "standingRank": "Puesto {{rank}} de {{total}}, {{gap}} de tu mejor marca",
     "standingRankPercentile": "Puesto {{rank}} de {{total}}, más rápido que el {{percent}} % de ellos, {{gap}} de tu mejor marca",
-    "largeSectionPerformanceWarning": "Los tramos grandes pueden tardar más en procesarse."
+    "largeSectionPerformanceWarning": "Los tramos grandes pueden tardar más en procesarse.",
+    "resetReference": "Restablecer referencia",
+    "resetReferenceConfirm": "¿Volver a la selección automática de referencia? Se volverán a calcular los porcentajes de coincidencia de esta ruta."
   },
   "routesScreen": {
     "computingRoutes": "Calculando rutas...",
@@ -1326,6 +1352,7 @@
     "expandDateRange": "Ampliar rango de fechas"
   },
   "sections": {
+    "timeMethod": "Los tiempos de sección son tiempo transcurrido e incluyen las paradas.",
     "activitiesCount_one": "{{count}} actividad",
     "activitiesCount_many": "{{count}} de actividades",
     "activitiesCount_other": "{{count}} actividades",
@@ -1356,6 +1383,9 @@
     "legendReverse": "Inverso",
     "legendThisActivity": "Esta actividad",
     "legendOutsideBand": "Fuera del rango de distancia de la ruta",
+    "legendTrend": "Tendencia gaussiana",
+    "legendTrendBand": "Banda de dispersión",
+    "legendTrendMethod": "La línea usa suavizado de núcleo gaussiano con ajuste lineal local. La banda muestra la dispersión ponderada de los intentos alrededor de la línea ajustada.",
     "plotScatter": "Dispersión",
     "plotHistogram": "Histograma",
     "histogramBinned": "Intentos en las barras: {{attempts}}",
@@ -1514,6 +1544,7 @@
     "excludeLapNumber": "Excluir Vuelta {{n}}"
   },
   "settings": {
+    "terrain3DMode": "Terreno 3D: {{mode}}",
     "developerDashboard": "Panel de desarrollador",
     "account": "Cuenta",
     "activities": "Actividades",
@@ -1984,9 +2015,6 @@
       "sectionsBody": "Los tramos son deterministas y se reajustan con tus salidas; fija uno para mantenerlo estable.",
       "recutRunning": "Analizando de nuevo tus tramos",
       "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
-      "phasePreparing": "preparando el catálogo",
-      "phaseDetecting": "cortando tramos nuevos",
-      "phaseDiffing": "comparando los dos catálogos",
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
       "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios.",
@@ -2284,6 +2312,8 @@
   },
   "systemSurfaces": {
     "openApp": "Abre Veloq",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando",
     "toSeeTraining": "para ver tu entrenamiento",
     "record": "Grabar",
     "recordDescription": "Empieza a grabar una actividad.",

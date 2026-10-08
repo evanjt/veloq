@@ -87,18 +87,21 @@ export function useRouteRenaming(
       return;
     }
 
-    haptics.success();
-
     // Update local state immediately for instant feedback
+    const previousName = customName;
     setCustomName(trimmedName);
 
     // Fire rename synchronously - Rust engine updates immediately
     try {
       renameRoute(id, trimmedName);
     } catch (error) {
+      setCustomName(previousName);
+      Alert.alert(t('routes.renameFailedTitle'), t('routes.renameFailedMessage'));
       if (__DEV__) console.error('Failed to save route name:', error);
+      return;
     }
-  }, [editName, id, readNames, renameRoute, t]);
+    haptics.success();
+  }, [customName, editName, id, readNames, renameRoute, t]);
 
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {

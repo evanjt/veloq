@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Carregando rotas",
+    "analysing": "Analisando atividades",
+    "saving": "Salvando seções",
+    "recomputingIndicators": "Calculando indicadores",
+    "diffing": "Comparando catálogos",
+    "complete": "Concluído",
+    "cancelled": "Cancelado",
+    "draining": "Preparando o catálogo",
+    "archiving": "Arquivando seções",
+    "detecting": "Detectando seções"
+  },
   "about": {
     "dataAttribution": "Atribuição de dados",
     "description": "Um cliente móvel rápido para intervals.icu com foco em mapas e análise visual.",
@@ -19,6 +31,7 @@
     "version": "Versão"
   },
   "activity": {
+    "terrainRow": "Terreno 3D",
     "activityStats": "Estatísticas da atividade",
     "calories": "Calorias",
     "chartHint": "Segure para deslizar • Segure o chip para o eixo",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatura dos dados meteorológicos ou do sensor do seu dispositivo.",
       "energy": "Gasto energético estimado a partir da frequência cardíaca, potência e duração.",
-      "fitnessImpact": "Em relação a um dia de descanso, esta atividade soma a carga de treino dividida por 42 ao condicionamento e dividida por 7 à fadiga. O impacto na forma é o condicionamento menos a fadiga. As constantes de tempo são de 42 e 7 dias, respectivamente.",
+      "fitnessImpact": "Em relação a um dia de descanso, esta atividade soma carga × (1 − e^(−1/42)) ao condicionamento e carga × (1 − e^(−1/7)) à fadiga. O treino de força aumenta apenas a fadiga. O impacto na forma é condicionamento menos fadiga.",
       "heartRate": "Frequência cardíaca média durante a atividade.",
       "newGround": "A parte dos blocos do mapa percorridos por esta atividade que nenhuma atividade anterior tinha percorrido. Um bloco tem cerca de 150 a 300 m, conforme a latitude, por isso mede a cobertura de blocos e não a distância em estradas novas.",
+      "activityEftp": "O eFTP é a estimativa do modelo de potência do intervals.icu para esta atividade.",
       "power": "Potência média em watts.",
       "trainingLoad": "O Training Stress Score (TSS) quantifica a carga de treino com base na duração e intensidade relativas ao seu limiar.",
       "yourForm": "Sua Forma (TSB) neste dia. Este é um valor diário baseado no seu treino geral, não específico desta atividade. TSB = Condicionamento (CTL) menos Fadiga (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Desacoplamento",
       "deviceSensor": "Sensor do dispositivo",
       "efficiencyFactor": "Fator de eficiência",
-      "eftpEstimated": "eFTP (estimado)",
+      "eftpEstimated": "eFTP desta atividade",
       "energy": "Energia",
       "fatigueATL": "Fadiga (ATL)",
       "feelsLike": "Sensação {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Seu condicionamento (CTL)",
       "yourForm": "Sua forma"
     },
+    "hrZoneTotal": "Tempo com frequência cardíaca: {{duration}}",
+    "movingTime": "Tempo em movimento: {{duration}}",
     "timeInHRZones": "Tempo nas zonas de FC",
     "timeInPowerZones": "Tempo em zonas de potência",
     "viewDetails": "Ver detalhes",
@@ -108,6 +124,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "RP {{improvement}}",
     "lineKeyActivity": "Esta atividade",
     "lineKeyRoute": "Rota correspondente",
     "failedToLoad": "Falha ao carregar atividade",
@@ -1040,7 +1057,7 @@
     },
     "prompt": {
       "title": "Fique por dentro",
-      "description": "Receba notificações sobre novas atividades, progresso de sincronização e quando seus dados estiverem prontos para explorar.",
+      "description": "Receba notificações sobre novas atividades, recordes pessoais e marcos de forma.",
       "enable": "Ativar",
       "dismiss": "Agora não",
       "settingsHint": "Você pode ativar as notificações a qualquer momento em Configurações",
@@ -1194,6 +1211,8 @@
     "autoUpload": "Envio automático",
     "autoUploadDescription": "Enviar gravações para o intervals.icu automaticamente ao salvar. Desativado, elas ficam neste dispositivo até você enviá-las em Minhas gravações.",
     "library": {
+      "distance": "Distância",
+      "duration": "Duração",
       "title": "Minhas gravações",
       "empty": "Nenhuma gravação ainda",
       "emptyHint": "As gravações salvas ficam aqui neste dispositivo.",
@@ -1270,6 +1289,7 @@
     "tomorrow": "AMANHÃ"
   },
   "routes": {
+    "timeMethod": "Os tempos da rota usam o tempo em movimento, sem paradas.",
     "activitiesCount_one": "{{count}} atividade",
     "activitiesCount_many": "{{count}} de atividades",
     "activitiesCount_other": "{{count}} atividades",
@@ -1294,9 +1314,13 @@
     "noMatchingRoutes": "Nenhuma rota correspondente encontrada",
     "noRoutesYet": "Sem rotas ainda",
     "noSectionsMatchFilter": "Nenhum trecho corresponde ao filtro",
+    "placeJourney": "De {{start}} a {{end}}",
+    "placeLoop": "Circuito de {{place}}",
     "pointCountHint_one": "{{count}} ponto GPS",
     "pointCountHint_many": "{{count}} de pontos GPS",
     "pointCountHint_other": "{{count}} pontos GPS",
+    "renameFailedTitle": "Não foi possível salvar o nome",
+    "renameFailedMessage": "O nome da rota não foi salvo. Tente novamente.",
     "routeNamePlaceholder": "Nome da rota",
     "routeWord": "Rota",
     "routesWillAppear": "As rotas aparecerão após suas atividades serem analisadas",
@@ -1318,7 +1342,9 @@
     "standingBest": "O seu mais rápido de {{total}}",
     "standingRank": "{{rank}}º de {{total}}, {{gap}} do seu melhor",
     "standingRankPercentile": "{{rank}}º de {{total}}, mais rápido que {{percent}}% deles, {{gap}} do seu melhor",
-    "largeSectionPerformanceWarning": "Seções grandes podem levar mais tempo para processar."
+    "largeSectionPerformanceWarning": "Seções grandes podem levar mais tempo para processar.",
+    "resetReference": "Redefinir referência",
+    "resetReferenceConfirm": "Voltar à seleção automática da referência? As porcentagens de correspondência desta rota serão recalculadas."
   },
   "routesScreen": {
     "computingRoutes": "Calculando rotas...",
@@ -1326,6 +1352,7 @@
     "expandDateRange": "Expandir intervalo de datas"
   },
   "sections": {
+    "timeMethod": "Os tempos da seção são tempo decorrido, incluindo paradas.",
     "activitiesCount_one": "{{count}} atividade",
     "activitiesCount_many": "{{count}} de atividades",
     "activitiesCount_other": "{{count}} atividades",
@@ -1356,6 +1383,9 @@
     "legendReverse": "Inverso",
     "legendThisActivity": "Esta atividade",
     "legendOutsideBand": "Fora da faixa de distância da rota",
+    "legendTrend": "Tendência gaussiana",
+    "legendTrendBand": "Faixa de dispersão",
+    "legendTrendMethod": "A linha usa suavização por kernel gaussiano com ajuste linear local. A faixa mostra a dispersão ponderada das tentativas em torno da linha ajustada.",
     "plotScatter": "Dispersão",
     "plotHistogram": "Histograma",
     "histogramBinned": "Tentativas nas barras: {{attempts}}",
@@ -1507,6 +1537,7 @@
     "excludeLapNumber": "Excluir Volta {{n}}"
   },
   "settings": {
+    "terrain3DMode": "Terreno 3D: {{mode}}",
     "developerDashboard": "Painel do desenvolvedor",
     "account": "Conta",
     "activities": "Atividades",
@@ -1977,9 +2008,6 @@
       "sectionsBody": "Os trechos são determinísticos e se remodelam conforme seus treinos; fixe um para mantê-lo estável.",
       "recutRunning": "Analisando seus trechos de novo",
       "recutRunningPhase": "Analisando seus trechos de novo: {{phase}}",
-      "phasePreparing": "preparando o catálogo",
-      "phaseDetecting": "cortando trechos novos",
-      "phaseDiffing": "comparando os dois catálogos",
       "diffTotals": "{{current}} trechos viraram {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
       "diffUnchanged": "Todos os {{sections}} trechos saíram da nova análise sem mudanças.",
@@ -2277,6 +2305,8 @@
   },
   "systemSurfaces": {
     "openApp": "Abra o Veloq",
+    "refresh": "Atualizar",
+    "refreshing": "Atualizando",
     "toSeeTraining": "para ver seu treino",
     "record": "Gravar",
     "recordDescription": "Comece a gravar uma atividade.",

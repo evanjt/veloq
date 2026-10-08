@@ -250,6 +250,152 @@ pub(crate) mod pooled {
     /// Visibility filter: exclude disabled and superseded sections.
     pub(crate) const VISIBLE_FILTER: &str = "disabled = 0 AND superseded_by IS NULL";
 
+    /// Whether a section is removed, disabled or superseded, as the list's
+    /// order indexes are built on it. A query reads one of them only when it
+    /// orders by this exact expression.
+    pub(crate) const SECTION_REMOVED: &str = "(disabled != 0 OR superseded_by IS NOT NULL)";
+
+    /// Whether the athlete accepted or drew a section, as the stored counts
+    /// key it.
+    pub(crate) const SECTION_USER_DEFINED: &str = "(COALESCE(is_user_defined, 0) != 0)";
+
+    /// What the sections list tells sections apart by: the kinds its filters
+    /// hide and its counters count, and the key of the stored counts.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) struct SectionKind {
+        pub custom: bool,
+        pub user_defined: bool,
+        pub removed: bool,
+    }
+
+    impl SectionKind {
+        /// Every kind there is, which a filter set narrows to the kinds shown.
+        pub(crate) const ALL: [SectionKind; 8] = {
+            let mut all = [SectionKind {
+                custom: false,
+                user_defined: false,
+                removed: false,
+            }; 8];
+            let mut i = 0;
+            while i < 8 {
+                all[i] = SectionKind {
+                    custom: i & 1 != 0,
+                    user_defined: i & 2 != 0,
+                    removed: i & 4 != 0,
+                };
+                i += 1;
+            }
+            all
+        };
+
+        pub(crate) fn of(summary: &SectionSummary) -> Self {
+            Self {
+                custom: summary.section_type == "custom",
+                user_defined: summary.is_user_defined,
+                removed: summary.disabled || summary.superseded_by.is_some(),
+            }
+        }
+
+        /// A shown auto section, which is what the two review counters count.
+        pub(crate) fn is_visible_auto(self) -> bool {
+            !self.custom && !self.removed
+        }
+
+        /// Whether the list hides this kind. A removed custom section follows
+        /// the Removed filter as well as the Custom filter.
+        pub(crate) fn hidden_by(self, filters: &crate::FfiSectionFilters) -> bool {
+            (self.custom && filters.hide_custom)
+                || (self.is_visible_auto() && filters.hide_auto)
+                || (self.removed && filters.hide_disabled)
+                || (self.is_visible_auto() && !self.user_defined && filters.hide_unaccepted)
+        }
+    }
+
+    /// How many sections of each kind the catalogue holds, from the stored
+    /// counts the section triggers keep.
+    pub(crate) fn section_kind_counts(conn: &Connection) -> Vec<(SectionKind, u32)> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT section_type = 'custom', user_defined, removed, n
+             FROM section_list_counts WHERE n > 0",
+        ) else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| {
+            Ok((
+                SectionKind {
+                    custom: row.get(0)?,
+                    user_defined: row.get(1)?,
+                    removed: row.get(2)?,
+                },
+                row.get(3)?,
+            ))
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// An order of the sections list that a stored column answers, each read
+    /// through the index laid out in it.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum StoredSectionOrder {
+        /// Most visited first.
+        Visits,
+        /// Longest first.
+        Distance,
+        /// Highest pooled rank first, an unranked section last.
+        Signature,
+    }
+
+    impl StoredSectionOrder {
+        fn key(self) -> &'static str {
+            match self {
+                Self::Visits => "visit_count DESC",
+                Self::Distance => "distance_meters DESC",
+                Self::Signature => "COALESCE(rank_score, -1.0) DESC",
+            }
+        }
+    }
+
+    /// The ids of one page of the sections of the `shown` kinds, removed ones
+    /// after every shown one and ties by id, read through the order's index so
+    /// the read stops at the page.
+    pub(crate) fn section_list_page_ids(
+        conn: &Connection,
+        order: StoredSectionOrder,
+        shown: &[SectionKind],
+        offset: u32,
+        limit: u32,
+    ) -> Vec<String> {
+        if shown.is_empty() || limit == 0 {
+            return Vec::new();
+        }
+        let kinds = shown
+            .iter()
+            .map(|k| {
+                let section_type = if k.custom { "custom" } else { "auto" };
+                format!(
+                    "('{section_type}', {}, {})",
+                    u8::from(k.user_defined),
+                    u8::from(k.removed)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT id FROM sections
+             WHERE (+section_type, {SECTION_USER_DEFINED}, {SECTION_REMOVED}) IN (VALUES {kinds})
+             ORDER BY {SECTION_REMOVED}, {}, id
+             LIMIT ?1 OFFSET ?2",
+            order.key()
+        );
+        let Ok(mut stmt) = conn.prepare(&sql) else {
+            return Vec::new();
+        };
+        stmt.query_map(params![limit, offset], |row| row.get(0))
+            .map(|rows| rows.flatten().collect())
+            .unwrap_or_default()
+    }
+
     /// One row of [`SECTION_COLUMNS`] as a catalogue record, with its activity
     /// ids. `visit_count` and `route_ids` are left for the caller, which reads
     /// them per section or in bulk depending on how many it asked for.
@@ -901,7 +1047,7 @@ pub(crate) mod pooled {
     /// triggers keep.
     pub(crate) fn section_count(conn: &Connection) -> u32 {
         conn.query_row(
-            "SELECT COALESCE(SUM(n), 0) FROM section_visible_count",
+            "SELECT COALESCE(SUM(n), 0) FROM section_list_counts WHERE removed = 0",
             [],
             |row| row.get(0),
         )
@@ -1266,3 +1412,7 @@ mod tests {
         assert!(engine.get_sections_for_activity("missing").is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "tests/list_counts.rs"]
+mod list_counts_tests;

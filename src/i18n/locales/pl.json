@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Wczytywanie tras",
+    "analysing": "Analizowanie aktywności",
+    "saving": "Zapisywanie odcinków",
+    "recomputingIndicators": "Obliczanie wskaźników",
+    "diffing": "Porównywanie katalogów",
+    "complete": "Ukończono",
+    "cancelled": "Anulowano",
+    "draining": "Przygotowywanie katalogu",
+    "archiving": "Archiwizowanie odcinków",
+    "detecting": "Wykrywanie odcinków"
+  },
   "about": {
     "dataAttribution": "Atrybucja danych",
     "description": "Szybki, offline-first mobilny klient intervals.icu z naciskiem na mapy i analizę wizualną.",
@@ -19,6 +31,7 @@
     "version": "Wersja"
   },
   "activity": {
+    "terrainRow": "Teren 3D",
     "activityStats": "Statystyki aktywności",
     "calories": "Kalorie",
     "chartHint": "Przytrzymaj, aby przewijać • Przytrzymaj chip, aby zmienić oś",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatura z danych pogodowych lub czujnika urządzenia.",
       "energy": "Szacowany wydatek energetyczny na podstawie tętna, mocy i czasu trwania.",
-      "fitnessImpact": "W porównaniu z dniem odpoczynku ta aktywność zwiększa kondycję o obciążenie treningowe podzielone przez 42, a zmęczenie o obciążenie podzielone przez 7. Wpływ na formę to kondycja minus zmęczenie. Stałe czasowe wynoszą odpowiednio 42 i 7 dni.",
+      "fitnessImpact": "W porównaniu z dniem odpoczynku ta aktywność zwiększa kondycję o obciążenie × (1 − e^(−1/42)), a zmęczenie o obciążenie × (1 − e^(−1/7)). Trening siłowy zwiększa tylko zmęczenie. Wpływ na formę to kondycja minus zmęczenie.",
       "heartRate": "Średnie tętno podczas aktywności.",
       "newGround": "Odsetek kafelków mapy, przez które przebiegała ta aktywność, a których żadna wcześniejsza aktywność nie dotknęła. Kafelek ma zależnie od szerokości geograficznej około 150–300 m, więc to pokrycie kafelków, a nie dystans po nowych drogach.",
+      "activityEftp": "eFTP to oszacowanie modelu mocy intervals.icu dla tej aktywności.",
       "power": "Średnia moc w watach.",
       "trainingLoad": "Training Stress Score (TSS) określa obciążenie treningowe na podstawie czasu trwania i intensywności względem Twojego progu.",
       "yourForm": "Twoja forma (TSB) w tym dniu. To dzienna wartość oparta na ogólnym treningu, nie specyficzna dla tej aktywności. TSB = Kondycja (CTL) minus Zmęczenie (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Rozsprzężenie",
       "deviceSensor": "Czujnik urządzenia",
       "efficiencyFactor": "Współczynnik wydajności",
-      "eftpEstimated": "eFTP (szacowany)",
+      "eftpEstimated": "eFTP tej aktywności",
       "energy": "Energia",
       "fatigueATL": "Zmęczenie (ATL)",
       "feelsLike": "Odczuwalna {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Twoja kondycja (CTL)",
       "yourForm": "Twoja forma"
     },
+    "hrZoneTotal": "Czas z pomiarem tętna: {{duration}}",
+    "movingTime": "Czas ruchu: {{duration}}",
     "timeInHRZones": "Czas w strefach HR",
     "timeInPowerZones": "Czas w strefach mocy",
     "viewDetails": "Zobacz szczegóły",
@@ -111,6 +127,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "RŻ {{improvement}}",
     "lineKeyActivity": "Ta aktywność",
     "lineKeyRoute": "Dopasowana trasa",
     "failedToLoad": "Nie udało się wczytać aktywności",
@@ -1090,7 +1107,7 @@
     },
     "prompt": {
       "title": "Bądź na bieżąco",
-      "description": "Otrzymuj powiadomienia o nowych aktywnościach, postępie synchronizacji i gdy Twoje dane są gotowe do przeglądania.",
+      "description": "Otrzymuj powiadomienia o nowych aktywnościach, rekordach życiowych i kamieniach milowych formy.",
       "enable": "Włącz",
       "dismiss": "Nie teraz",
       "settingsHint": "Możesz włączyć powiadomienia w dowolnym momencie w Ustawieniach",
@@ -1244,6 +1261,8 @@
     "autoUpload": "Automatyczne przesyłanie",
     "autoUploadDescription": "Automatycznie przesyłaj nagrania do intervals.icu podczas zapisywania. Po wyłączeniu pozostają na tym urządzeniu, dopóki nie prześlesz ich z Moich nagrań.",
     "library": {
+      "distance": "Dystans",
+      "duration": "Czas trwania",
       "title": "Moje nagrania",
       "empty": "Brak nagrań",
       "emptyHint": "Zapisane nagrania są przechowywane tutaj, na tym urządzeniu.",
@@ -1322,6 +1341,7 @@
     "tomorrow": "JUTRO"
   },
   "routes": {
+    "timeMethod": "Czasy tras to czas ruchu, bez postojów.",
     "activitiesCount_one": "{{count}} aktywność",
     "activitiesCount_few": "{{count}} aktywności",
     "activitiesCount_many": "{{count}} aktywności",
@@ -1349,10 +1369,14 @@
     "noMatchingRoutes": "Nie znaleziono pasujących tras",
     "noRoutesYet": "Brak tras",
     "noSectionsMatchFilter": "Brak odcinków pasujących do filtra",
+    "placeJourney": "{{start}} - {{end}}",
+    "placeLoop": "Pętla {{place}}",
     "pointCountHint_one": "{{count}} punkt GPS",
     "pointCountHint_few": "{{count}} punkty GPS",
     "pointCountHint_many": "{{count}} punktów GPS",
     "pointCountHint_other": "{{count}} punktu GPS",
+    "renameFailedTitle": "Nie udało się zapisać nazwy",
+    "renameFailedMessage": "Nazwa trasy nie została zapisana. Spróbuj ponownie.",
     "routeNamePlaceholder": "Nazwa trasy",
     "routeWord": "Trasa",
     "routesWillAppear": "Trasy pojawią się po przeanalizowaniu Twoich aktywności",
@@ -1374,7 +1398,9 @@
     "standingBest": "Twój najszybszy z {{total}}",
     "standingRank": "Miejsce {{rank}} z {{total}}, {{gap}} do najlepszego",
     "standingRankPercentile": "Miejsce {{rank}} z {{total}}, szybciej niż {{percent}}% z nich, {{gap}} do najlepszego",
-    "largeSectionPerformanceWarning": "Przetwarzanie dużych odcinków może potrwać dłużej."
+    "largeSectionPerformanceWarning": "Przetwarzanie dużych odcinków może potrwać dłużej.",
+    "resetReference": "Zresetuj punkt odniesienia",
+    "resetReferenceConfirm": "Przywrócić automatyczny wybór punktu odniesienia? Procenty dopasowania dla tej trasy zostaną przeliczone."
   },
   "routesScreen": {
     "computingRoutes": "Obliczanie tras...",
@@ -1382,6 +1408,7 @@
     "expandDateRange": "Rozszerz zakres dat"
   },
   "sections": {
+    "timeMethod": "Czasy odcinków to czas całkowity, wraz z postojami.",
     "activitiesCount_one": "{{count}} aktywność",
     "activitiesCount_few": "{{count}} aktywności",
     "activitiesCount_many": "{{count}} aktywności",
@@ -1417,6 +1444,9 @@
     "legendReverse": "Wstecz",
     "legendThisActivity": "Ta aktywność",
     "legendOutsideBand": "Poza zakresem dystansu trasy",
+    "legendTrend": "Trend gaussowski",
+    "legendTrendBand": "Pasmo rozrzutu",
+    "legendTrendMethod": "Linia korzysta z wygładzania jądrem Gaussa z lokalnym dopasowaniem liniowym. Pasmo pokazuje ważony rozrzut prób wokół dopasowanej linii.",
     "plotScatter": "Wykres punktowy",
     "plotHistogram": "Histogram",
     "histogramBinned": "Próby w słupkach: {{attempts}}",
@@ -1590,6 +1620,7 @@
     "excludeLapNumber": "Wyklucz Okrążenie {{n}}"
   },
   "settings": {
+    "terrain3DMode": "Teren 3D: {{mode}}",
     "developerDashboard": "Panel dewelopera",
     "account": "Konto",
     "activities": "Aktywności",
@@ -2099,9 +2130,6 @@
       "sectionsBody": "Odcinki są deterministyczne i zmieniają kształt wraz z twoimi przejazdami; przypnij jeden, aby pozostał stabilny.",
       "recutRunning": "Ponowna analiza Twoich odcinków",
       "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
-      "phasePreparing": "przygotowywanie katalogu",
-      "phaseDetecting": "wycinanie nowych odcinków",
-      "phaseDiffing": "porównywanie obu katalogów",
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
       "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian.",
@@ -2418,6 +2446,8 @@
   },
   "systemSurfaces": {
     "openApp": "Otwórz Veloq",
+    "refresh": "Odśwież",
+    "refreshing": "Odświeżanie",
     "toSeeTraining": "aby zobaczyć swój trening",
     "record": "Nagrywaj",
     "recordDescription": "Rozpocznij nagrywanie aktywności.",

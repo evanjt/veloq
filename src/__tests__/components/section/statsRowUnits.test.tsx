@@ -14,7 +14,7 @@ jest.mock('@/shared/app', () => ({
 
 const props: React.ComponentProps<typeof StatsRow> = {
   direction: 'forward' as const,
-  stats: { avgTime: 300, lastActivity: null, count: 3, avgSpeed: 3.5 },
+  stats: { avgTime: 300, lastActivity: null, count: 3, avgSpeed: 3.5, outsideBandCount: 0 },
   bestRecord: { bestPace: 4, bestTime: 250, activityDate: new Date(0) },
   bestIsRecord: true,
   pointCount: 3,

@@ -4,10 +4,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
 import { SectionNameEditor } from './SectionNameEditor';
@@ -103,14 +104,14 @@ export function SectionHeader({
             onSaveName={onSaveName}
           />
           {section.isLift && (
-            <TouchableOpacity
-              style={styles.liftBadge}
+            <Pressable
+              style={pressable(styles.liftBadge)}
               testID="section-lift-badge"
               accessibilityRole="button"
               accessibilityLabel={t('sections.notLift')}
               onPress={onUnflagLift}
               disabled={!onUnflagLift}
-              activeOpacity={0.7}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="gondola" size={12} color={colors.textOnDark} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
@@ -122,7 +123,7 @@ export function SectionHeader({
                   testID="section-lift-unflag"
                 />
               )}
-            </TouchableOpacity>
+            </Pressable>
           )}
           <HeroStatsRow
             stats={[

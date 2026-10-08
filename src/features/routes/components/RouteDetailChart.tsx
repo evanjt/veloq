@@ -1,10 +1,14 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 import type { FfiAttemptHistograms, FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, PerformanceDataPoint, RoutePoint } from '@/types';
 import { PerformanceChartPanel } from './section';
+import { ExcludedActivitiesToggle } from './section/SectionScatterChart';
 import type { SectionScatterChartProps } from './section';
 import { styles } from './RouteDetailScreen.styles';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 
 interface RouteDetailChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
@@ -51,31 +55,81 @@ export function RouteDetailChart({
   onToggleShowExcluded,
   highlightedActivityId,
 }: RouteDetailChartProps) {
+  const { t } = useTranslation();
+
   return (
     <View testID="route-detail-chart" style={styles.chartSection}>
-      <PerformanceChartPanel
-        histograms={histograms}
-        chartData={chartData}
-        trendCurves={trendCurves}
-        activityType={activityType}
-        isDark={isDark}
-        useTimeAxis
-        bestForwardRecord={bestForwardRecord}
-        bestReverseRecord={bestReverseRecord}
-        bestForwardIsRecord={bestForwardIsRecord}
-        bestReverseIsRecord={bestReverseIsRecord}
-        forwardStats={forwardStats}
-        reverseStats={reverseStats}
-        onActivitySelect={onActivitySelect}
-        onExcludeActivity={onExcludeActivity}
-        onIncludeActivity={onIncludeActivity}
-        onSetAsReference={onSetAsReference}
-        referenceActivityId={referenceActivityId}
-        showExcluded={showExcluded}
-        hasExcluded={hasExcluded}
-        onToggleShowExcluded={onToggleShowExcluded}
-        highlightedActivityId={highlightedActivityId}
-      />
+      <Text
+        testID="route-time-method"
+        style={{
+          marginBottom: spacing.sm,
+          fontSize: typography.caption.fontSize,
+          color: isDark ? darkColors.textSecondary : colors.textSecondary,
+        }}
+      >
+        {t('routes.timeMethod')}
+      </Text>
+
+      {chartData.length === 0 ? (
+        <View
+          testID="route-detail-chart-empty"
+          style={[emptyStyles.frame, isDark && emptyStyles.frameDark]}
+        >
+          {hasExcluded && (
+            <ExcludedActivitiesToggle
+              isDark={isDark}
+              showExcluded={showExcluded}
+              onToggle={onToggleShowExcluded}
+            />
+          )}
+          <Text style={[emptyStyles.text, isDark && emptyStyles.textDark]}>
+            {t('sections.noActivitiesFound')}
+          </Text>
+        </View>
+      ) : (
+        <PerformanceChartPanel
+          histograms={histograms}
+          chartData={chartData}
+          trendCurves={trendCurves}
+          activityType={activityType}
+          isDark={isDark}
+          useTimeAxis
+          bestForwardRecord={bestForwardRecord}
+          bestReverseRecord={bestReverseRecord}
+          bestForwardIsRecord={bestForwardIsRecord}
+          bestReverseIsRecord={bestReverseIsRecord}
+          forwardStats={forwardStats}
+          reverseStats={reverseStats}
+          onActivitySelect={onActivitySelect}
+          onExcludeActivity={onExcludeActivity}
+          onIncludeActivity={onIncludeActivity}
+          onSetAsReference={onSetAsReference}
+          referenceActivityId={referenceActivityId}
+          showExcluded={showExcluded}
+          hasExcluded={hasExcluded}
+          onToggleShowExcluded={onToggleShowExcluded}
+          highlightedActivityId={highlightedActivityId}
+        />
+      )}
     </View>
   );
 }
+
+const emptyStyles = StyleSheet.create({
+  frame: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadiusMd,
+    paddingVertical: spacing.md,
+  },
+  frameDark: {
+    backgroundColor: darkColors.surfaceCard,
+  },
+  text: {
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
+  },
+  textDark: {
+    color: darkColors.textSecondary,
+  },
+});

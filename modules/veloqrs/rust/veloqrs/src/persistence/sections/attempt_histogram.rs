@@ -53,7 +53,7 @@ fn bin_width(sorted: &[f64]) -> f64 {
 }
 
 /// The binned times, or `None` below `MIN_ATTEMPTS`. `edge_distance` is the
-/// length the times were taken over, when it is the same for every attempt.
+/// fixed length used to label each time edge as a speed.
 fn bin(
     times: &[f64],
     edge_distance: Option<f64>,
@@ -94,15 +94,22 @@ fn bin(
 
 /// The histograms over a section's counted attempts, each direction on its
 /// section times. A reverse attempt is one whose direction reads `reverse`;
-/// every other counts as forward.
-pub(crate) fn section_histograms(points: &[FfiSectionChartPoint]) -> FfiAttemptHistograms {
+/// every other counts as forward. A route attempt outside its distance band
+/// is not binned and is counted in `unbinned_outside_band`.
+pub(crate) fn section_histograms(
+    points: &[FfiSectionChartPoint],
+    section_distance: Option<f64>,
+) -> FfiAttemptHistograms {
     let direction = |reverse: bool| {
-        let own: Vec<&FfiSectionChartPoint> = points
+        let own = points
             .iter()
-            .filter(|p| (p.direction == "reverse") == reverse)
+            .filter(|p| (p.direction == "reverse") == reverse);
+        let outside = own.clone().filter(|p| p.outside_distance_band).count() as u32;
+        let times: Vec<f64> = own
+            .filter(|p| !p.outside_distance_band)
+            .map(|p| f64::from(p.section_time))
             .collect();
-        let times: Vec<f64> = own.iter().map(|p| f64::from(p.section_time)).collect();
-        bin(&times, own.first().map(|p| p.section_distance), 0)
+        bin(&times, section_distance, outside)
     };
     FfiAttemptHistograms {
         forward: direction(false),
@@ -134,146 +141,5 @@ pub(crate) fn route_histograms(performances: &[crate::RoutePerformance]) -> FfiA
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn point(seconds: u32, direction: &str) -> FfiSectionChartPoint {
-        FfiSectionChartPoint {
-            lap_id: format!("lap{seconds}"),
-            activity_id: format!("a{seconds}"),
-            activity_name: String::new(),
-            activity_date: 1_700_000_000.0,
-            speed: 1000.0 / f64::from(seconds),
-            section_time: seconds,
-            section_distance: 1000.0,
-            direction: direction.to_string(),
-            is_best: false,
-            avg_power: None,
-        }
-    }
-
-    fn points(times: &[u32], direction: &str) -> Vec<FfiSectionChartPoint> {
-        times.iter().map(|&t| point(t, direction)).collect()
-    }
-
-    #[test]
-    fn times_bin_at_a_readable_step_with_the_slowest_in_the_closed_last_bin() {
-        let h = section_histograms(&points(&[300, 305, 310, 330, 360], "same"));
-        let forward = h.forward.expect("five attempts");
-        assert_eq!(forward.bin_width_secs, 30.0);
-        assert_eq!(forward.start_secs, 300.0);
-        assert_eq!(forward.counts, vec![3, 2]);
-        assert_eq!(forward.binned, 5);
-        assert_eq!(forward.unbinned_outside_band, 0);
-        assert!(h.reverse.is_none());
-    }
-
-    #[test]
-    fn a_direction_needs_three_attempts() {
-        assert!(
-            section_histograms(&points(&[300, 310], "same"))
-                .forward
-                .is_none()
-        );
-        assert!(
-            section_histograms(&points(&[300, 310, 320], "same"))
-                .forward
-                .is_some()
-        );
-    }
-
-    #[test]
-    fn identical_times_give_one_bin_of_the_smallest_step() {
-        let forward = section_histograms(&points(&[400; 20], "same"))
-            .forward
-            .unwrap();
-        assert_eq!(forward.counts, vec![20]);
-        assert_eq!(forward.bin_width_secs, 1.0);
-        assert_eq!(forward.start_secs, 400.0);
-    }
-
-    #[test]
-    fn a_wide_spread_is_widened_to_at_most_twenty_bins() {
-        // Evenly spread over 12 minutes; the Freedman-Diaconis step of 10 s
-        // alone would give 72 bins.
-        let times: Vec<u32> = (0..60).map(|i| 600 + i * 12).collect();
-        let forward = section_histograms(&points(&times, "same")).forward.unwrap();
-        assert!(forward.counts.len() <= MAX_BINS, "{forward:?}");
-        assert_eq!(forward.counts.iter().sum::<u32>(), 60);
-    }
-
-    #[test]
-    fn a_reverse_attempt_counts_only_in_reverse() {
-        let mut all = points(&[300, 310, 320], "same");
-        all.extend(points(&[400, 410, 420, 430], "reverse"));
-        let h = section_histograms(&all);
-        assert_eq!(h.forward.unwrap().binned, 3);
-        assert_eq!(h.reverse.unwrap().binned, 4);
-    }
-
-    #[test]
-    fn section_edges_carry_the_speed_over_each() {
-        let forward = section_histograms(&points(&[300, 305, 310, 330, 360], "same"))
-            .forward
-            .unwrap();
-        let speeds = forward.edge_speeds.expect("a section has an edge speed");
-        assert_eq!(speeds.len(), forward.counts.len() + 1);
-        for (i, speed) in speeds.iter().enumerate() {
-            let edge = forward.start_secs + i as f64 * forward.bin_width_secs;
-            assert_eq!(*speed, 1000.0 / edge);
-        }
-    }
-
-    fn attempt(
-        duration: u32,
-        direction: &str,
-        outside: bool,
-        speed: f64,
-    ) -> crate::RoutePerformance {
-        crate::RoutePerformance {
-            activity_id: format!("a{duration}"),
-            name: String::new(),
-            date: 1_700_000_000,
-            speed,
-            duration,
-            moving_time: duration,
-            distance: 1000.0,
-            elevation_gain: 0.0,
-            avg_hr: None,
-            avg_power: None,
-            is_current: false,
-            direction: direction.to_string(),
-            match_percentage: None,
-            outside_distance_band: outside,
-            is_record: false,
-        }
-    }
-
-    #[test]
-    fn route_bins_only_in_band_complete_timed_attempts() {
-        let mut all: Vec<_> = [300, 305, 310, 330, 360]
-            .iter()
-            .map(|&d| attempt(d, "same", false, 3.0))
-            .collect();
-        all.push(attempt(340, "partial", false, 3.0));
-        all.push(attempt(900, "same", true, 1.0));
-        all.push(attempt(910, "same", false, f64::NAN));
-        let forward = route_histograms(&all).forward.unwrap();
-        assert_eq!(forward.binned, 5);
-        assert_eq!(forward.counts.iter().sum::<u32>(), 5);
-        assert_eq!(forward.unbinned_outside_band, 1);
-        assert!(forward.edge_speeds.is_none());
-    }
-
-    #[test]
-    fn route_directions_are_separate() {
-        let mut all: Vec<_> = [300, 310, 320]
-            .iter()
-            .map(|&d| attempt(d, "reverse", false, 3.0))
-            .collect();
-        all.push(attempt(305, "same", false, 3.0));
-        let h = route_histograms(&all);
-        assert!(h.forward.is_none());
-        assert_eq!(h.reverse.unwrap().binned, 3);
-    }
-}
+#[path = "tests/attempt_histogram.rs"]
+mod tests;

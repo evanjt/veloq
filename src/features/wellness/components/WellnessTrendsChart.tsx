@@ -46,8 +46,8 @@ interface MetricChartData {
 }
 
 function splitSleepDuration(hours: number): { hours: number; minutes: number } {
-  const h = Math.floor(hours);
-  return { hours: h, minutes: Math.round((hours - h) * 60) };
+  const totalMinutes = Math.round(hours * 60);
+  return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
 }
 
 const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;

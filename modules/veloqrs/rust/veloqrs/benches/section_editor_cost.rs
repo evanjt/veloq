@@ -1,17 +1,19 @@
-//! What the five section editors cost, and how much of it is the indicator tail.
+//! What the section editors cost as the section sheet calls them.
 //!
-//! One proposal moves `create`, `trim`, `reset_bounds`, `expand_bounds` and
-//! `exclude_activity` onto their own thread with progress and a terminal state. That is five
-//! handles, five polling hooks and a progress state per editor. Each of the five also tail-calls
-//! `recompute_activity_indicators`, from `objects/sections.rs` and
-//! `sections/mutations.rs`, which deletes `activity_indicators` whole and rebuilds it from
-//! every section in the library, scoped to nothing.
+//! `create` and `exclude_activity` are blocking FFI calls, so each holds the JS thread and the
+//! engine write lock for its whole duration, and the budget for a tap is 100 ms. Trim, reset and
+//! expand run off the JS thread through `run_section_bounds_edit` and still hold the write lock
+//! for theirs. Each editor runs its own scoped indicator pass on the way out, so the call timed
+//! here is the whole of what the sheet waits for.
 //!
-//! So the number that decides that proposal's size is the split: if the tail is the cost, scoping the
-//! rebuild is one file and no FFI change, and the job shape is not needed.
+//! An auto section re-cuts only the rides it holds, while a custom one rescans the library, so
+//! both kinds are timed: the busiest auto section, and a custom section cut from one of its
+//! attempts.
 //!
-//! The corpus is a real database, named by `VELOQ_DEVICE_DB`. Each editor mutates, so each gets
-//! its own copy of it. Nothing here is asserted; it prints.
+//! The corpus is a real database, named by `VELOQ_DEVICE_DB`. Every editor mutates, so every run
+//! gets its own copy, and `VELOQ_BENCH_RUNS` sets how many (default 5). Nothing here is asserted;
+//! it prints. The same binary cross-compiles for a handset, so a desktop and a phone can be timed
+//! against one corpus.
 //!
 //! Run in release, twice, on a quiet machine:
 //!   VELOQ_DEVICE_DB=/path/to/routes.db \
@@ -45,27 +47,67 @@ fn source() -> Option<PathBuf> {
     }
 }
 
-/// A fresh copy of the corpus, because every editor here writes to it.
+fn runs() -> usize {
+    std::env::var("VELOQ_BENCH_RUNS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(5)
+}
+
+/// A fresh, loaded copy of the corpus, because every editor here writes to it.
 fn fresh(src: &Path) -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     std::fs::copy(src, &path).expect("copy corpus");
-    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
+    // The app loads before the sheet can open. Without it the activity index a
+    // custom section matches against is empty, and every custom edit is free.
+    engine.load().expect("load engine");
     (engine, dir)
 }
 
-/// The most travelled section, and one of its attempts. The editors are worth
-/// measuring against the row with the most junction behind it, not the least.
-fn target(src: &Path) -> (String, String, u32, u32) {
+struct Target {
+    section: String,
+    sport: String,
+    members: i64,
+    activity: String,
+    start: u32,
+    end: u32,
+}
+
+/// The auto section with the most junction rows, and one of its attempts. The
+/// editors are worth measuring against the row with the most behind it.
+fn target(src: &Path) -> Target {
+    targets(src, 1).remove(0)
+}
+
+/// The `limit` busiest auto sections, each with one of its attempts, busiest
+/// first. An auto edit re-cuts the rides a section holds, so its cost follows
+/// the junction rows, and a spread of sizes gives the slope.
+fn targets(src: &Path, limit: usize) -> Vec<Target> {
     let db = Connection::open(src).expect("open corpus");
-    let section: String = db
-        .query_row(
-            "SELECT section_id FROM section_activities
-             GROUP BY section_id ORDER BY COUNT(*) DESC LIMIT 1",
-            [],
-            |r| r.get(0),
+    let mut busiest = db
+        .prepare(
+            "SELECT sa.section_id, s.sport_type, COUNT(*) FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE s.section_type != 'custom'
+             GROUP BY sa.section_id ORDER BY COUNT(*) DESC LIMIT ?1",
         )
-        .expect("busiest section");
+        .expect("prepare busiest");
+    let rows: Vec<(String, String, i64)> = busiest
+        .query_map(rusqlite::params![limit as i64], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .expect("busiest sections")
+        .collect::<Result<_, _>>()
+        .expect("read busiest");
+    rows.into_iter()
+        .map(|(section, sport, members)| attempt_on(&db, section, sport, members))
+        .collect()
+}
+
+fn attempt_on(db: &Connection, section: String, sport: String, members: i64) -> Target {
     let (activity, start, end): (String, u32, u32) = db
         .query_row(
             "SELECT activity_id, start_index, end_index FROM section_activities
@@ -74,7 +116,23 @@ fn target(src: &Path) -> (String, String, u32, u32) {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .expect("an attempt on it");
-    (section, activity, start, end)
+    // A pooled section can hold another sport's ride, and a custom section
+    // cut from it matches the sport of the ride it was cut from.
+    let sport: String = db
+        .query_row(
+            "SELECT sport_type FROM activities WHERE id = ?1",
+            rusqlite::params![activity],
+            |r| r.get(0),
+        )
+        .unwrap_or(sport);
+    Target {
+        section,
+        sport,
+        members,
+        activity,
+        start,
+        end,
+    }
 }
 
 fn counts(src: &Path) -> (i64, i64, i64, i64) {
@@ -88,143 +146,180 @@ fn counts(src: &Path) -> (i64, i64, i64, i64) {
     )
 }
 
-/// The tail every editor calls, timed twice on one engine. The first pass pays
-/// `backfill_null_lap_times`, which finds nothing on the second, so the
-/// difference is the backfill and the second run is the rebuild alone.
-fn time_tail(engine: &PersistentEngine) -> (Duration, Duration) {
-    let t0 = Instant::now();
-    engine.recompute_activity_indicators().expect("recompute");
-    let first = t0.elapsed();
-    let t1 = Instant::now();
-    engine.recompute_activity_indicators().expect("recompute");
-    let second = t1.elapsed();
-    (first, second)
+/// A custom section cut from the target's attempt, which is what a hand-made
+/// section over the same ground looks like.
+fn make_custom(engine: &mut PersistentEngine, t: &Target) -> String {
+    let track = engine.get_gps_track(&t.activity).expect("attempt track");
+    let polyline = track[t.start as usize..=t.end as usize].to_vec();
+    engine
+        .create_section(veloqrs::sections::CreateSectionParams {
+            sport_type: t.sport.clone(),
+            polyline,
+            distance_meters: 0.0,
+            name: Some("bench".to_string()),
+            source_activity_id: Some(t.activity.clone()),
+            start_index: Some(t.start),
+            end_index: Some(t.end),
+        })
+        .expect("create custom")
 }
 
-fn report(label: &str, editor: Duration, tail: Duration) {
-    let total = editor + tail;
-    let verdict = if ms(total) > TAP_BUDGET_MS {
-        "OVER"
-    } else {
-        "ok"
-    };
+/// A tenth off each end, which is the shape of a real trim.
+fn trim_range(engine: &PersistentEngine, section: &str) -> (u32, u32) {
+    let points = (engine.get_section_polyline(section).len() / 2) as u32;
+    (points / 10, points - points / 10 - 1)
+}
+
+/// Times one editor `runs` times, each on a fresh corpus. `prepare` sets the
+/// copy up and returns the section to edit; only `edit` is timed.
+fn time_editor(
+    src: &Path,
+    label: &str,
+    prepare: impl Fn(&mut PersistentEngine) -> String,
+    edit: impl Fn(&mut PersistentEngine, &str) -> Result<(), String>,
+) {
+    let mut samples = Vec::new();
+    for _ in 0..runs() {
+        let (mut engine, _dir) = fresh(src);
+        let section = prepare(&mut engine);
+        // The sheet is open on the section before the tap, so its line is read.
+        let _ = engine.get_section_polyline(&section);
+        let t = Instant::now();
+        let done = edit(&mut engine, &section);
+        samples.push(ms(t.elapsed()));
+        if let Err(e) = done {
+            println!("  ({label} refused: {e})");
+        }
+    }
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let median = samples[samples.len() / 2];
+    let verdict = if median > TAP_BUDGET_MS { "OVER" } else { "ok" };
+    let all: Vec<String> = samples.iter().map(|s| format!("{s:.1}")).collect();
     println!(
-        "{label:<20} editor {:>8.1}ms  tail {:>8.1}ms  total {:>8.1}ms  {verdict}",
-        ms(editor),
-        ms(tail),
-        ms(total)
+        "{label:<24} min {:>7.1}ms  median {:>7.1}ms  max {:>7.1}ms  {verdict}  [{}]",
+        samples[0],
+        median,
+        samples[samples.len() - 1],
+        all.join(" ")
     );
 }
 
 #[test]
 #[ignore]
-fn section_editor_split_by_editor() {
+fn section_editor_cost_as_called() {
     let Some(src) = source() else { return };
     let (activities, sections, junction, indicators) = counts(&src);
+    let t = target(&src);
     println!(
         "corpus: {activities} activities, {sections} sections, {junction} junction rows, \
-         {indicators} indicators; tap budget {TAP_BUDGET_MS:.0} ms"
+         {indicators} indicators; {} runs each; tap budget {TAP_BUDGET_MS:.0} ms",
+        runs()
+    );
+    println!(
+        "target: auto section {} ({}, {} junction rows), attempt {} over [{}, {}]\n",
+        t.section, t.sport, t.members, t.activity, t.start, t.end
     );
 
-    let (section, activity, start, end) = target(&src);
-    println!("target: section {section}, attempt {activity} over [{start}, {end}]\n");
-
-    // The tail on its own, first, since it is what every editor below adds.
     {
-        let (engine, _dir) = fresh(&src);
-        let (first, second) = time_tail(&engine);
-        println!(
-            "recompute_activity_indicators  first {:>8.1}ms  again {:>8.1}ms  \
-             (the difference is backfill_null_lap_times)\n",
-            ms(first),
-            ms(second)
+        let (mut engine, dir) = fresh(&src);
+        let id = make_custom(&mut engine, &t);
+        drop(engine);
+        let db = Connection::open(dir.path().join("routes.db")).expect("reopen");
+        let held: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?1",
+                rusqlite::params![id],
+                |r| r.get(0),
+            )
+            .unwrap_or(-1);
+        println!("custom section cut from the attempt holds {held} junction rows\n");
+    }
+
+    let auto = |_: &mut PersistentEngine| t.section.clone();
+    let custom = |e: &mut PersistentEngine| make_custom(e, &t);
+    let trim = |e: &mut PersistentEngine, s: &str| {
+        let (a, b) = trim_range(e, s);
+        e.trim_section(s, a, b).map(|_| ())
+    };
+    let trimmed = |e: &mut PersistentEngine, s: String| {
+        let (a, b) = trim_range(e, &s);
+        e.trim_section(&s, a, b).expect("trim first");
+        s
+    };
+    let reset = |e: &mut PersistentEngine, s: &str| e.reset_section_bounds(s).map(|_| ());
+    let expand = |e: &mut PersistentEngine, s: &str| {
+        e.expand_section_bounds(s, &t.activity, t.start, t.end)
+            .map(|_| ())
+    };
+
+    time_editor(&src, "trim auto", auto, trim);
+    time_editor(
+        &src,
+        "reset_bounds auto",
+        |e| {
+            let s = auto(e);
+            trimmed(e, s)
+        },
+        reset,
+    );
+    time_editor(&src, "expand_bounds auto", auto, expand);
+    time_editor(&src, "exclude_activity auto", auto, |e, s| {
+        e.exclude_activity_from_section(s, &t.activity)
+            .map_err(|e| e.to_string())
+    });
+    time_editor(&src, "create custom", auto, |e, _| {
+        make_custom(e, &t);
+        Ok(())
+    });
+    time_editor(&src, "trim custom", custom, trim);
+    time_editor(
+        &src,
+        "reset_bounds custom",
+        |e| {
+            let s = custom(e);
+            trimmed(e, s)
+        },
+        reset,
+    );
+    time_editor(&src, "expand_bounds custom", custom, expand);
+}
+
+/// The auto editors against sections of several sizes, so the cost per junction
+/// row can be read off rather than projected from one section.
+#[test]
+#[ignore]
+fn section_editor_cost_by_size() {
+    let Some(src) = source() else { return };
+    let (activities, sections, junction, _) = counts(&src);
+    println!(
+        "corpus: {activities} activities, {sections} sections, {junction} junction rows; \
+         {} runs each; tap budget {TAP_BUDGET_MS:.0} ms\n",
+        runs()
+    );
+    for t in targets(&src, 6) {
+        let label = |editor: &str| format!("{editor} {}r", t.members);
+        let auto = |_: &mut PersistentEngine| t.section.clone();
+        time_editor(&src, &label("trim"), auto, |e, s| {
+            let (a, b) = trim_range(e, s);
+            e.trim_section(s, a, b).map(|_| ())
+        });
+        time_editor(&src, &label("expand_bounds"), auto, |e, s| {
+            // A junction row's end can sit one past the track's last point.
+            let last = e
+                .get_gps_track(&t.activity)
+                .map_or(0, |p| p.len() as u32 - 1);
+            e.expand_section_bounds(s, &t.activity, t.start, t.end.min(last))
+                .map(|_| ())
+        });
+        time_editor(
+            &src,
+            &label("reset_bounds"),
+            |e| {
+                let (a, b) = trim_range(e, &t.section);
+                e.trim_section(&t.section, a, b).expect("trim first");
+                t.section.clone()
+            },
+            |e, s| e.reset_section_bounds(s).map(|_| ()),
         );
-    }
-
-    {
-        let (mut engine, _dir) = fresh(&src);
-        let line = engine.get_section_polyline(&section);
-        let points = (line.len() / 2) as u32;
-        // A tenth off each end, which is the shape of a real trim.
-        let (s, e) = (points / 10, points - points / 10 - 1);
-        let t = Instant::now();
-        engine.trim_section(&section, s, e).expect("trim");
-        let editor = t.elapsed();
-        let t = Instant::now();
-        engine.recompute_activity_indicators().expect("recompute");
-        report("trim", editor, t.elapsed());
-    }
-
-    {
-        let (mut engine, _dir) = fresh(&src);
-        let line = engine.get_section_polyline(&section);
-        let points = (line.len() / 2) as u32;
-        engine
-            .trim_section(&section, points / 10, points - points / 10 - 1)
-            .expect("trim first");
-        let t = Instant::now();
-        engine.reset_section_bounds(&section).expect("reset");
-        let editor = t.elapsed();
-        let t = Instant::now();
-        engine.recompute_activity_indicators().expect("recompute");
-        report("reset_bounds", editor, t.elapsed());
-    }
-
-    {
-        let (mut engine, _dir) = fresh(&src);
-        let t = Instant::now();
-        let done = engine.expand_section_bounds(&section, &activity, start, end);
-        let editor = t.elapsed();
-        let t = Instant::now();
-        engine.recompute_activity_indicators().expect("recompute");
-        report("expand_bounds", editor, t.elapsed());
-        if let Err(e) = done {
-            println!("  (expand refused this range: {e})");
-        }
-    }
-
-    {
-        let (mut engine, _dir) = fresh(&src);
-        let t = Instant::now();
-        engine
-            .exclude_activity_from_section(&section, &activity)
-            .expect("exclude");
-        let editor = t.elapsed();
-        let t = Instant::now();
-        engine.recompute_activity_indicators().expect("recompute");
-        report("exclude_activity", editor, t.elapsed());
-    }
-
-    {
-        let (mut engine, _dir) = fresh(&src);
-        let line = engine.get_section_polyline(&section);
-        let polyline: Vec<tracematch::GpsPoint> = line
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|c| tracematch::GpsPoint {
-                latitude: c[0],
-                longitude: c[1],
-                elevation: None,
-            })
-            .collect();
-        let params = veloqrs::sections::CreateSectionParams {
-            sport_type: "Ride".to_string(),
-            polyline,
-            distance_meters: 0.0,
-            name: Some("bench".to_string()),
-            source_activity_id: Some(activity.clone()),
-            start_index: Some(start),
-            end_index: Some(end),
-        };
-        let t = Instant::now();
-        let made = engine.create_section(params);
-        let editor = t.elapsed();
-        let t = Instant::now();
-        engine.recompute_activity_indicators().expect("recompute");
-        report("create", editor, t.elapsed());
-        if let Err(e) = made {
-            println!("  (create refused: {e})");
-        }
     }
 }

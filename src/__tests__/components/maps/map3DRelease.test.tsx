@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 
 import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
@@ -92,5 +92,19 @@ describe('Map3DWebView under memory pressure', () => {
     const view = render(surface(EMPTY));
     view.unmount();
     expect(releaseMountedSurfaces()).toBe(0);
+  });
+
+  it('reloads a page after it reports a native release on return', () => {
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    const view = render(surface(EMPTY));
+    post({ type: 'mapReady' });
+    injected.length = 0;
+
+    post({ type: 'nativeMapReleased' });
+
+    expect(injected).toEqual([]);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(rebuildReleasedSurfaces()).toBe(0);
+    view.unmount();
   });
 });

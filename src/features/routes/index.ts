@@ -56,7 +56,6 @@ export {
   useExcludedActivities,
   useLedgerActivityNames,
   useRevealMapOnDraw,
-  useRevealMapOnHighlight,
   useRouteChartData,
   useRouteGroupingPreview,
   useRouteGroups,
@@ -101,7 +100,7 @@ export {
 } from './hooks/useSectionPerformances';
 export { useSectionTrim } from './hooks/useSectionTrim';
 export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';
-export { getPhaseDisplayName } from './lib/detectionProgress';
+export { getPhaseDisplayKey } from './lib/detectionProgress';
 export {
   DETECTION_PARAM_RANGES,
   isPastClamp,

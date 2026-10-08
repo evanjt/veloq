@@ -31,6 +31,7 @@ export const PREFERENCE_KEYS = [
   'veloq-theme-preference',
   'veloq-language-preference',
   'veloq-unit-preference',
+  'veloq-resolved-unit-system',
   'veloq-primary-sport',
   'veloq-map-preferences',
   'veloq-route-settings',

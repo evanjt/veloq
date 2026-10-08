@@ -32,7 +32,8 @@ import {
 } from '@/features/routes';
 import { useTheme } from '@/shared/app';
 import { useUserLocation } from '@/shared/app/useUserLocation';
-import { useStrengthTabState } from '@/features/strength';
+import { strengthPeriodOf, useStrengthTabState } from '@/features/strength';
+import type { StrengthPeriod } from '@/types';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useDebugStore } from '@/features/settings';
@@ -76,6 +77,11 @@ function RouteTabEngineState({
   );
 }
 
+function strengthPeriodLinkOf(param: string | undefined): { period: StrengthPeriod } | undefined {
+  const period = strengthPeriodOf(param);
+  return period ? { period } : undefined;
+}
+
 function InsightsScreenContent() {
   useTabFirstFrame('/insights');
   const { notice, requestRefresh } = useSyncRefreshNotice();
@@ -87,7 +93,11 @@ function InsightsScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
+  const { tab, insightId, period } = useLocalSearchParams<{
+    tab?: string;
+    insightId?: string;
+    period?: string;
+  }>();
   const { insights, failed, retry, form, markAsSeen, hrvWithheldSince } = useInsights();
   const strengthTab = useStrengthTabState();
   const hasStrength = strengthTab !== 'hidden';
@@ -232,6 +242,24 @@ function InsightsScreenContent() {
       router.setParams({ tab: undefined });
     }
   }, [availableTabKeys, tab]);
+
+  // A link's period goes to the strength tab as a new object each time the
+  // param arrives, so a second link naming the same period still applies. It is
+  // taken during render so the tab's first read is the linked period, and an
+  // unknown period leaves the tab's own choice alone.
+  const [periodParam, setPeriodParam] = useState(period);
+  const [strengthPeriodLink, setStrengthPeriodLink] = useState<
+    { period: StrengthPeriod } | undefined
+  >(() => strengthPeriodLinkOf(period));
+  if (period !== periodParam) {
+    setPeriodParam(period);
+    const link = strengthPeriodLinkOf(period);
+    if (link) setStrengthPeriodLink(link);
+  }
+
+  useEffect(() => {
+    if (period !== undefined) router.setParams({ period: undefined });
+  }, [period]);
 
   // A tab that is no longer offered falls back to insights, which is always
   // offered, so this converges on the render it runs in rather than committing
@@ -467,6 +495,7 @@ function InsightsScreenContent() {
               <StrengthTab
                 key="strength"
                 awaitingDownload={strengthTab === 'awaiting' || strengthTab === 'downloading'}
+                linkedPeriod={strengthPeriodLink}
               />
             );
           case 'routes':
@@ -483,7 +512,7 @@ function InsightsScreenContent() {
             return insightsPage;
         }
       }),
-    [tabs, insightsPage, routesPage, sectionsPage, strengthTab]
+    [tabs, insightsPage, routesPage, sectionsPage, strengthTab, strengthPeriodLink]
   );
 
   return (

@@ -9,6 +9,8 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SearchBar } from '@/shared/ui';
 import { MapNameSearch } from '@/features/maps/components/MapNameSearch';
+import { formatShortDateWithYear } from '@/shared/format/format';
+import { initialiseI18n } from '@/i18n';
 import type { ActivityBoundsItem } from '@/types';
 
 let mockIsDark = false;
@@ -54,7 +56,9 @@ describe('MapNameSearch', () => {
 
     fireEvent.press(screen.getByTestId('map-search-result-a2'));
     expect(onChoose).toHaveBeenCalledWith('a2');
-    expect(screen.getAllByText('2026-04-10')).toHaveLength(2);
+    expect(
+      screen.getAllByText(formatShortDateWithYear(new Date('2026-04-10T08:00:00Z')))
+    ).toHaveLength(2);
   });
 
   it('shows no list without results and clears the field on request', () => {
@@ -86,5 +90,21 @@ describe('MapNameSearch', () => {
     expect(input.props.autoCapitalize).toBe('none');
     expect(input.props.keyboardAppearance).toBe('dark');
     expect(screen.UNSAFE_getByType(SearchBar)).toBeTruthy();
+  });
+
+  it('shows a localised date with year in each result', async () => {
+    await initialiseI18n('en-GB');
+    const activity = { ...ride('a1', 'Morning ride'), date: '2026-10-05T07:00:00' };
+    render(
+      <MapNameSearch
+        needle="ride"
+        onChangeNeedle={jest.fn()}
+        results={[activity]}
+        onChoose={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText(formatShortDateWithYear(new Date(activity.date)))).toBeTruthy();
+    expect(screen.queryByText('2026-10-05')).toBeNull();
   });
 });

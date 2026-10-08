@@ -12,6 +12,11 @@ import { render, screen } from '@testing-library/react-native';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import type { Activity } from '@/types';
 
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({ t: (key: string) => (key === 'activity.terrainRow' ? 'Relief' : key) }),
+}));
+
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/maps', () => ({
   getCameraOverride: () => undefined,
@@ -48,5 +53,11 @@ describe('ActivityCardContextMenu', () => {
     expect(screen.getByTestId('activity-card-context-menu').props.accessibilityViewIsModal).toBe(
       true
     );
+  });
+
+  it('shows the translated terrain row label', () => {
+    render(<ActivityCardContextMenu visible onDismiss={jest.fn()} activity={activity} />);
+
+    expect(screen.getByText('Relief')).toBeTruthy();
   });
 });

@@ -16,4 +16,5 @@ export interface DirectionSummaryStats {
   lastActivity: Date | null;
   /** Number of traversals in this direction */
   count: number;
+  outsideBandCount?: number;
 }

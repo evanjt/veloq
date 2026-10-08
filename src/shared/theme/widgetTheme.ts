@@ -152,6 +152,15 @@ export const widgetRecord = {
   light: { gradientStart: brand.teal, gradientEnd: brand.tealLight },
   dark: { gradientStart: brand.tealLight, gradientEnd: brand.tealHover },
   foreground: colors.textOnDark,
+  /** The Android widget is one fixed 57dp cell, so its chrome is smaller than a card's. */
+  padding: spacing.xs,
+  glyph: 28,
+  gap: spacing.xxs,
+  /** The label shrinks between these sizes to fit a translation on one line. */
+  textMin: 8,
+  textMax: 12,
+  /** One line at `textMax`, fixed so the glyph and label centre together in a larger cell. */
+  labelHeight: 16,
 } as const;
 
 /** Per-sport tint, mirroring the app's activity-type colours. */

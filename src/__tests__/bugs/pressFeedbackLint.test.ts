@@ -147,26 +147,37 @@ it('ignores tests, which render a bare Pressable on purpose', () => {
   expect(runGuard(root).status).toBe(0);
 });
 
-it('refuses a TouchableOpacity without activeOpacity beside one that sets it', () => {
+it('refuses a rendered TouchableOpacity even with explicit feedback', () => {
+  const root = fixture({
+    'src/features/x/Action.tsx': '<TouchableOpacity activeOpacity={0.7} onPress={open} />\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Action.tsx:1');
+});
+
+it('refuses each rendered Touchable variant', () => {
   const root = fixture({
     'src/features/x/Rows.tsx': [
       '<TouchableOpacity activeOpacity={0.7} onPress={open} />',
-      '<TouchableOpacity onPress={close} />',
+      '<TouchableHighlight onPress={close} />',
+      '<TouchableWithoutFeedback onPress={close} />',
+      '<TouchableNativeFeedback onPress={close} />',
     ].join('\n'),
   });
 
   const { status, output } = runGuard(root);
 
   expect(status).toBe(1);
-  expect(output).toContain('src/features/x/Rows.tsx:2');
+  for (const line of [1, 2, 3, 4]) expect(output).toContain(`src/features/x/Rows.tsx:${line}`);
 });
 
-it('accepts an explicit opacity or a props spread on each TouchableOpacity', () => {
+it('ignores Touchable tags in tests and mocks', () => {
   const root = fixture({
-    'src/features/x/Rows.tsx': [
-      '<TouchableOpacity activeOpacity={0.7} onPress={open} />',
-      '<TouchableOpacity {...props} onPress={close} />',
-    ].join('\n'),
+    'src/__tests__/Rows.tsx': '<TouchableOpacity onPress={open} />\n',
+    'src/features/x/__mocks__/Rows.tsx': '<TouchableOpacity onPress={open} />\n',
   });
 
   expect(runGuard(root).status).toBe(0);

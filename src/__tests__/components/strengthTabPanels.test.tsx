@@ -35,18 +35,31 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+const mockDiagramProps: { bodyData?: unknown; maxWeightedSets?: number } = {};
+
 jest.mock('@/features/strength/components/StrengthBodyDiagram', () => {
   const { Pressable, Text } = require('react-native');
   return {
-    StrengthBodyDiagram: ({ onMuscleTap }: { onMuscleTap: (slug: string) => void }) => (
-      <>
-        {['hamstring', 'quadriceps'].map((slug) => (
-          <Pressable key={slug} testID={`tap-${slug}`} onPress={() => onMuscleTap(slug)}>
-            <Text>{slug}</Text>
-          </Pressable>
-        ))}
-      </>
-    ),
+    StrengthBodyDiagram: ({
+      onMuscleTap,
+      bodyData,
+      maxWeightedSets,
+    }: {
+      onMuscleTap: (slug: string) => void;
+      bodyData: unknown;
+      maxWeightedSets: number;
+    }) => {
+      Object.assign(mockDiagramProps, { bodyData, maxWeightedSets });
+      return (
+        <>
+          {['hamstring', 'quadriceps'].map((slug) => (
+            <Pressable key={slug} testID={`tap-${slug}`} onPress={() => onMuscleTap(slug)}>
+              <Text>{slug}</Text>
+            </Pressable>
+          ))}
+        </>
+      );
+    },
   };
 });
 
@@ -58,7 +71,7 @@ const engine = {
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-const volume = (slug: string, weightedSets: number) => ({
+const volume = (slug: string, weightedSets: number, shade = 1) => ({
   slug,
   primarySets: weightedSets,
   secondarySets: 0,
@@ -66,12 +79,14 @@ const volume = (slug: string, weightedSets: number) => ({
   totalReps: weightedSets * 8,
   volumeKg: weightedSets * 400,
   exerciseNames: ['Leg Curl'],
+  shade,
 });
 
 const summary = (muscleVolumes: ReturnType<typeof volume>[]) => ({
   muscleVolumes,
   activityCount: muscleVolumes.length > 0 ? 2 : 0,
   totalSets: muscleVolumes.reduce((sum, v) => sum + v.weightedSets, 0),
+  maxWeightedSets: Math.max(0, ...muscleVolumes.map((v) => v.weightedSets)),
   balance: [],
 });
 
@@ -88,7 +103,7 @@ const legCurl = {
 function screenRead(fields: Record<string, unknown> = {}) {
   const weekly = [0, 1, 2, 3].map(() => summary([volume('quadriceps', 2)]));
   return {
-    summary: summary([volume('hamstring', 12), volume('quadriceps', 8)]),
+    summary: summary([volume('hamstring', 12, 5), volume('quadriceps', 8, 4)]),
     weekly,
     progressions: [
       {
@@ -297,5 +312,94 @@ describe('a selected muscle', () => {
 
     expect(screen.getByTestId('strength-progression-card')).toBeTruthy();
     expect(screen.queryByText('strength.last4Weeks')).toBeNull();
+  });
+});
+
+describe('a period named by a link', () => {
+  /** The span in days of the period the last strength read asked for. */
+  function lastReadDays(): number {
+    const [startTs, endTs] = engine.getStrengthScreenData.mock.calls.at(-1) as [number, number];
+    return Math.round((endTs - startTs) / 86_400);
+  }
+
+  function selected(id: string): boolean {
+    return !!screen.getByTestId(`strength-period-${id}`).props.accessibilityState?.selected;
+  }
+
+  it('opens on the linked period and reads its range, never the default', async () => {
+    renderTab({ linkedPeriod: { period: '1m' } });
+
+    await waitFor(() => expect(engine.getStrengthScreenData).toHaveBeenCalled());
+    expect(selected('1m')).toBe(true);
+    expect(selected('6m')).toBe(false);
+    expect(lastReadDays()).toBe(30);
+    for (const [startTs, endTs] of engine.getStrengthScreenData.mock.calls) {
+      expect(Math.round((endTs - startTs) / 86_400)).toBe(30);
+    }
+  });
+
+  it('opens on the default period with no link', async () => {
+    renderTab();
+
+    await waitFor(() => expect(engine.getStrengthScreenData).toHaveBeenCalled());
+    expect(selected('6m')).toBe(true);
+    expect(lastReadDays()).toBe(180);
+  });
+
+  it('moves to the period a second link names while mounted', async () => {
+    const { rerender } = renderTab({ linkedPeriod: { period: '1m' } });
+    await waitFor(() => expect(selected('1m')).toBe(true));
+
+    rerender(
+      <QueryClientProvider client={client}>
+        <StrengthTab linkedPeriod={{ period: '7d' }} />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(selected('7d')).toBe(true));
+    expect(lastReadDays()).toBe(7);
+  });
+
+  it('keeps the athlete choice until a new link arrives, then follows the link', async () => {
+    const link = { period: '1m' as const };
+    const { rerender } = renderTab({ linkedPeriod: link });
+    await waitFor(() => expect(selected('1m')).toBe(true));
+
+    fireEvent.press(screen.getByTestId('strength-period-3m'));
+    rerender(
+      <QueryClientProvider client={client}>
+        <StrengthTab linkedPeriod={link} />
+      </QueryClientProvider>
+    );
+    await waitFor(() => expect(selected('3m')).toBe(true));
+
+    rerender(
+      <QueryClientProvider client={client}>
+        <StrengthTab linkedPeriod={{ period: '1m' }} />
+      </QueryClientProvider>
+    );
+    await waitFor(() => expect(selected('1m')).toBe(true));
+  });
+});
+
+describe('the body diagram', () => {
+  it('draws the shades and the scale top the engine read carries', async () => {
+    engine.getStrengthScreenData.mockReturnValue(
+      screenRead({
+        summary: {
+          ...summary([volume('hamstring', 12, 2), volume('quadriceps', 8, 1)]),
+          maxWeightedSets: 30,
+        },
+      })
+    );
+    renderTab();
+
+    await waitFor(() =>
+      expect(mockDiagramProps.bodyData).toEqual([
+        { slug: 'hamstring', intensity: 2 },
+        { slug: 'quadriceps', intensity: 1 },
+      ])
+    );
+    expect(mockDiagramProps.maxWeightedSets).toBe(30);
   });
 });

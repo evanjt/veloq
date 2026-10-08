@@ -14,6 +14,22 @@ use crate::objects::observer::Announcement;
 
 use crate::objects::sync::TIME_STREAM_CONCURRENCY;
 
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum EngineLogLevel {
+    Boot,
+    Info,
+}
+
+/// Set the engine's process-wide log level after logger initialisation.
+#[uniffi::export]
+pub fn set_engine_log_level(level: EngineLogLevel) {
+    init_logging();
+    log::set_max_level(match level {
+        EngineLogLevel::Boot => crate::log_level(),
+        EngineLogLevel::Info => log::LevelFilter::Info,
+    });
+}
+
 async fn park_track_auth_failure(
     result: &crate::http::ActivityMapResult,
     transport: &crate::net::Transport,
@@ -991,7 +1007,7 @@ fn start_fetch_and_store_run(
                 None
             } else {
                 crate::persistence::with_persistent_engine_for(install, |engine| {
-                    engine.attach_finalize(total_attached_portions)
+                    engine.attach_finalize(total_attached_portions, true)
                 })
             };
             if finalised.is_none() {
@@ -1002,6 +1018,18 @@ fn start_fetch_and_store_run(
             // app after the fact.
             if finalised.is_some() {
                 conditioning::condition_pending_for_install(install);
+            }
+            if finalised.is_some()
+                && let Some(scheduled) =
+                    crate::persistence::with_persistent_engine_for(install, |engine| {
+                        engine
+                            .detection_enabled()
+                            .then(|| engine.schedule_regroup())
+                            .flatten()
+                    })
+                    .flatten()
+            {
+                scheduled.start();
             }
         }
 
@@ -1098,8 +1126,6 @@ fn start_fetch_and_store_run(
 static FETCH_AND_STORE_RESULTS: std::sync::Mutex<Vec<(u64, FetchAndStoreResult)>> =
     std::sync::Mutex::new(Vec::new());
 
-static NEXT_FETCH_RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
 /// How many finished-but-unread results are kept. A caller that unmounts before
 /// reading leaves one behind, so this is bounded rather than growing for the
 /// life of the process. The oldest goes first: a result nobody has read after
@@ -1107,7 +1133,7 @@ static NEXT_FETCH_RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU
 const MAX_UNREAD_FETCH_RESULTS: usize = 8;
 
 fn next_fetch_run() -> u64 {
-    NEXT_FETCH_RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    crate::http::next_download_run()
 }
 
 fn store_fetch_run_result(run: u64, result: FetchAndStoreResult) {
@@ -1701,7 +1727,7 @@ pub(crate) fn fetch_and_index_activity_for(
         });
     }
 
-    let summary = crate::persistence::with_persistent_engine_for(install, |engine| {
+    let (summary, scheduled) = crate::persistence::with_persistent_engine_for(install, |engine| {
         let summary = engine.index_new_activity(&activity_id);
         // Inside the take that indexed, so this costs no second one. A
         // foreground engine in another process is now behind the file by a
@@ -1719,6 +1745,9 @@ pub(crate) fn fetch_and_index_activity_for(
     })
     .ok_or(crate::VeloqError::NotInitialized)?
     .map_err(|msg| crate::VeloqError::Database { msg })?;
+    if let Some(scheduled) = scheduled {
+        scheduled.start();
+    }
 
     info!(
         "[RUST: fetch_and_index_activity] {} ({} points) in {} ms",
@@ -2094,10 +2123,13 @@ mod tests {
         .expect("engine");
         assert_eq!(after_store, 0, "the store wrote no junction rows");
 
-        let summary = crate::persistence::with_persistent_engine(|engine| {
+        let (summary, scheduled) = crate::persistence::with_persistent_engine(|engine| {
             engine.index_new_activity("pushed").unwrap()
         })
         .expect("engine");
+        if let Some(scheduled) = scheduled {
+            scheduled.start();
+        }
         assert!(summary.matched_sections >= 1, "{summary:?}");
         let after_index = crate::persistence::with_persistent_engine(|engine| {
             engine.get_sections_for_activity("pushed").len()

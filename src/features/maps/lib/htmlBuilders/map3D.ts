@@ -258,6 +258,7 @@ ${terrainVisibilityScript()}
       return opts;
     }
 
+    window._veloqReleasableMap = true;
     try {
     var styleJSON = ${styleConfig};
     window._rn_log('creating map with inline style');

@@ -147,7 +147,6 @@ describe('usePreviewDetect', () => {
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
     expect(result.current.progress).toMatchObject({
       phase: 'loading',
-      displayName: 'Loading tracks',
       completed: 3,
       total: 12,
       percent: 25,

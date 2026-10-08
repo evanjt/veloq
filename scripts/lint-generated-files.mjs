@@ -42,10 +42,17 @@ const IGNORED_BY_RULE = [
   'modules/veloqrs/android/src/main/jniLibs/',
   'modules/veloqrs/build/',
   'modules/veloqrs/ios/Frameworks/',
-  // Expo's prebuild output. The tracked parts are named in .gitignore.
+  // Expo's prebuild output, whole: see NATIVE_PROJECTS.
   'android/',
   'ios/',
 ];
+
+// The native projects Expo generates from app.json, app.config.js, the
+// plugins under src/plugins and the local modules. Nothing under them is
+// tracked: a hand-kept copy of a generated file drifts from the config that
+// generates it, and a fresh clone then builds whichever of the two it happens
+// to read. Native source belongs in a module or in a tree a plugin copies.
+const NATIVE_PROJECTS = ['android/', 'ios/'];
 
 // What a generated file looks like here: the `.generated.` convention, plus the
 // two directories whose whole contents are bindgen output.
@@ -86,6 +93,20 @@ function main() {
   const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
   const tracked = new Set(git(root, ['ls-files']).split('\n').filter(Boolean));
+
+  const handKept = [...tracked]
+    .filter((path) => NATIVE_PROJECTS.some((prefix) => path.startsWith(prefix)))
+    .sort();
+  if (handKept.length > 0) {
+    console.error('A file under a generated native project is tracked:');
+    console.error('');
+    for (const path of handKept) console.error(`  ${path}`);
+    console.error('');
+    console.error('Expo generation owns android/ and ios/. Express the change in app.json,');
+    console.error('a plugin under src/plugins or a local module, then remove the file from');
+    console.error('the index with git rm --cached.');
+    process.exit(1);
+  }
 
   // Untracked first: a generated file nobody added is as uncommitted as an
   // ignored one, and `--others` reports both once `--ignored` is asked for.

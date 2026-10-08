@@ -85,36 +85,44 @@ export function useActivityStats({
       const load = activity.icu_training_load;
       // The icon's colour bands the session, and colour alone cannot say which
       // band it is, so the context line names it and the icon is decoration.
-      const intensity = activity.icu_intensity || 0;
+      const intensity = activity.icu_intensity;
       const loadColor =
-        intensity > 100
-          ? colors.error
-          : intensity > 85
-            ? amber
-            : intensity > 70
-              ? colors.chartYellow
-              : green;
+        intensity == null
+          ? isDark
+            ? darkColors.textSecondary
+            : colors.textSecondary
+          : intensity > 100
+            ? colors.error
+            : intensity > 85
+              ? amber
+              : intensity > 70
+                ? colors.chartYellow
+                : green;
       const intensityBand =
-        intensity > 100
-          ? t('activity.stats.intensityVeryHard')
-          : intensity > 85
-            ? t('activity.stats.intensityHard')
-            : intensity > 70
-              ? t('activity.stats.intensityModerate')
-              : t('activity.stats.intensityEasy');
+        intensity == null
+          ? undefined
+          : intensity > 100
+            ? t('activity.stats.intensityVeryHard')
+            : intensity > 85
+              ? t('activity.stats.intensityHard')
+              : intensity > 70
+                ? t('activity.stats.intensityModerate')
+                : t('activity.stats.intensityEasy');
 
       result.push({
         title: t('activity.stats.trainingLoad'),
         value: `${Math.round(load)}`,
         icon: 'lightning-bolt',
         color: loadColor,
-        context: `IF ${Math.round(intensity)}% · ${intensityBand}`,
+        context: intensity == null ? undefined : `IF ${Math.round(intensity)}% · ${intensityBand}`,
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
-          {
-            label: t('activity.stats.intensityFactor'),
-            value: `${Math.round(activity.icu_intensity || 0)}%`,
-          },
+          intensity == null
+            ? null
+            : {
+                label: t('activity.stats.intensityFactor'),
+                value: `${Math.round(intensity)}%`,
+              },
           activity.trimp
             ? {
                 label: t('activity.stats.trimp'),
@@ -328,17 +336,17 @@ export function useActivityStats({
 
     // Form from wellness (TSB = CTL - ATL)
     if (wellness?.ctl != null && wellness?.atl != null) {
-      const tsb = wellness.ctl - wellness.atl;
+      const form = formFromLoads(wellness.ctl, wellness.atl);
+      const fitness = Math.round(wellness.ctl);
       const asPercent = formAsPercent();
-      const formZone = getFormZone(tsb, wellness.ctl, asPercent);
+      const formZone = getFormZone(form, fitness, asPercent);
       const formColor = formZone
         ? formZoneTextColor(formZone, isDark)
         : isDark
           ? darkColors.textPrimary
           : colors.textPrimary;
-      const form = formFromLoads(wellness.ctl, wellness.atl);
       const formText = `${form > 0 ? '+' : ''}${form}`;
-      const formValue = formatForm(form, wellness.ctl, asPercent) ?? '';
+      const formValue = formatForm(form, fitness, asPercent) ?? '';
 
       result.push({
         title: t('activity.stats.yourForm'),
@@ -355,7 +363,7 @@ export function useActivityStats({
           },
           {
             label: t('activity.stats.fitnessCTL'),
-            value: `${Math.round(wellness.ctl)}`,
+            value: `${fitness}`,
           },
           {
             label: t('activity.stats.fatigueATL'),
@@ -388,13 +396,15 @@ export function useActivityStats({
         icon: 'lightning-bolt-circle',
         color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
         context: eftp
-          ? `eFTP ${Math.round(eftp)}W`
+          ? `${t('activity.stats.eftpEstimated')} ${Math.round(eftp)}W`
           : activity.icu_pm_p_max
             ? t('activity.stats.max', {
                 value: Math.round(activity.icu_pm_p_max),
               }) + 'W'
             : undefined,
-        explanation: t(METRIC_EXPLANATION_KEYS['Power'] as never),
+        explanation: eftp
+          ? `${t(METRIC_EXPLANATION_KEYS['Power'] as never)} ${t('activity.explanations.activityEftp')}`
+          : t(METRIC_EXPLANATION_KEYS['Power'] as never),
         details: [
           {
             label: t('activity.stats.average'),

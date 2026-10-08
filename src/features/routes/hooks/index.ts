@@ -20,7 +20,7 @@ export { useSectionActions, type UseSectionActionsResult } from './useSectionAct
 export { useSectionDataRefresh } from './useSectionDataRefresh';
 export { useSectionMergeFlow } from './useSectionMergeFlow';
 export { useSectionUIState } from './useSectionUIState';
-export { useRevealMapOnDraw, useRevealMapOnHighlight } from './useRevealMapOnDraw';
+export { useRevealMapOnDraw } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
 export { useSportTypeFilter } from './useSportTypeFilter';

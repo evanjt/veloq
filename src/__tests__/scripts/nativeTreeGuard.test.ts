@@ -192,7 +192,7 @@ describe('the native build tree check', () => {
       'ios:prod',
     ]) {
       const script = packageJson.scripts[name];
-      const check = script.indexOf('node scripts/check-native-tree.mjs && ');
+      const check = script.search(/node scripts\/check-native-tree\.mjs( --installation)? && /);
 
       expect(check).toBeGreaterThanOrEqual(0);
       expect(check).toBeLessThan(script.search(builds));

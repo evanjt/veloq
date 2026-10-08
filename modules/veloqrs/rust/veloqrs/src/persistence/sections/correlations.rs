@@ -51,7 +51,10 @@ pub(crate) fn section_correlations(
     let mut out = Vec::new();
     for direction in ["same", "reverse"] {
         let mut fastest: HashMap<&str, (f64, i64)> = HashMap::new();
-        for p in points.iter().filter(|p| p.direction == direction) {
+        for p in points
+            .iter()
+            .filter(|p| p.direction == direction && !p.outside_distance_band)
+        {
             let entry = fastest
                 .entry(p.activity_id.as_str())
                 .or_insert((p.speed, p.activity_date as i64));
@@ -129,6 +132,8 @@ mod tests {
             avg_power: None,
             coverage,
             excluded: false,
+            outside_distance_band: false,
+            match_percentage: None,
         }
     }
 

@@ -9,7 +9,7 @@ use crate::{
     SectionLap, SectionPerformanceResult,
 };
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentEngine;
 
@@ -44,22 +44,16 @@ pub(crate) fn direction_best_laps(
     section_distance: f64,
 ) -> (Option<&SectionLap>, Option<&SectionLap>) {
     let eligible = |lap: &&SectionLap| {
-        lap.time.is_finite()
-            && lap.time > 0.0
-            && crate::persistence::records::covers_enough_for_record(
-                lap.coverage,
-                lap.distance,
-                section_distance,
-            )
+        lap.time.is_finite() && lap.time > 0.0 && lap.counts_for_record(section_distance)
     };
     let forward = laps
         .iter()
         .filter(|lap| lap.direction == "same" && eligible(lap))
-        .max_by(|a, b| a.pace.total_cmp(&b.pace));
+        .min_by(|a, b| a.time.total_cmp(&b.time));
     let reverse = laps
         .iter()
         .filter(|lap| lap.direction == "reverse" && eligible(lap))
-        .max_by(|a, b| a.pace.total_cmp(&b.pace));
+        .min_by(|a, b| a.time.total_cmp(&b.time));
     (forward, reverse)
 }
 
@@ -89,6 +83,10 @@ pub(crate) mod laps {
         pub avg_power: Option<f64>,
         pub coverage: Option<f64>,
         pub excluded: bool,
+        /// Outside a route's distance band; false for a section's portion.
+        pub outside_distance_band: bool,
+        /// A route attempt's match; `None` for a section's portion.
+        pub match_percentage: Option<f64>,
     }
 
     /// Which junction rows a portion read takes: the ones that count, or the
@@ -161,6 +159,8 @@ pub(crate) mod laps {
                     avg_power: row.get(8)?,
                     coverage: row.get(9)?,
                     excluded: row.get::<_, i64>(10)? != 0,
+                    outside_distance_band: false,
+                    match_percentage: None,
                 })
             });
             match rows {
@@ -354,6 +354,8 @@ pub(crate) mod laps {
                             avg_power: portion.avg_power,
                             coverage: portion.coverage,
                             excluded: portion.excluded,
+                            outside_distance_band: portion.outside_distance_band,
+                            match_percentage: portion.match_percentage,
                         })
                     })
                     .collect();
@@ -423,14 +425,10 @@ pub(crate) mod laps {
 
         for (i, record) in records.iter().enumerate() {
             for lap in &record.laps {
-                if lap.direction == "partial" {
+                if lap.direction == "partial" || !lap.time.is_finite() || lap.time <= 0.0 {
                     continue;
                 }
-                if !crate::persistence::records::covers_enough_for_record(
-                    lap.coverage,
-                    lap.distance,
-                    section_distance,
-                ) {
+                if !lap.counts_for_record(section_distance) {
                     continue;
                 }
                 let (times, distance, last_date, best) = if lap.direction == "reverse" {
@@ -453,7 +451,7 @@ pub(crate) mod laps {
                 *last_date = Some(
                     last_date.map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                 );
-                if best.is_none_or(|(_, speed, _)| lap.pace > speed) {
+                if best.is_none_or(|(_, _, time)| lap.time < time) {
                     *best = Some((i, lap.pace, lap.time));
                 }
             }
@@ -469,8 +467,7 @@ pub(crate) mod laps {
             })
         };
         // The average speed is the counted laps' own distance over their own
-        // time, the basis each lap's best pace uses, never the section's
-        // length over a mean time.
+        // time.
         let stats_of = |times: &[f64], distance: f64, last: Option<i64>| {
             if times.is_empty() {
                 return None;
@@ -482,6 +479,7 @@ pub(crate) mod laps {
                 last_activity: last,
                 count,
                 avg_speed: (total_time > 0.0).then(|| distance / total_time),
+                outside_band_count: 0,
             })
         };
 
@@ -870,15 +868,24 @@ impl PersistentEngine {
     /// library's trackless portions are not reread for the life of the install.
     /// Returns the number of rows it looked at.
     pub fn backfill_section_coverage(&mut self) -> usize {
-        let unmeasured: Vec<(String, String, u32, u32)> = match self.db.prepare(
-            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index
+        let unmeasured: Vec<(String, String, u32, u32, f64, Option<f64>)> = match self.db.prepare(
+            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+                    sa.distance_meters, s.distance_meters
              FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
              JOIN gps_tracks g ON g.activity_id = sa.activity_id
              WHERE sa.coverage IS NULL AND sa.excluded = 0",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
                 })
                 .ok()
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -893,7 +900,7 @@ impl PersistentEngine {
         // Read the lines from the table rather than the in-memory catalogue: the
         // backfill runs before the catalogue is loaded on a cold open.
         let mut lines: HashMap<String, Vec<crate::GpsPoint>> = HashMap::new();
-        for (section_id, _, _, _) in &unmeasured {
+        for (section_id, _, _, _, _, _) in &unmeasured {
             if lines.contains_key(section_id) {
                 continue;
             }
@@ -907,7 +914,7 @@ impl PersistentEngine {
 
         let ids: Vec<String> = unmeasured
             .iter()
-            .map(|(_, activity_id, _, _)| activity_id.clone())
+            .map(|(_, activity_id, _, _, _, _)| activity_id.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
@@ -924,22 +931,62 @@ impl PersistentEngine {
             return 0;
         };
         let mut measured = 0u32;
-        for (section_id, activity_id, start_index, end_index) in &unmeasured {
+        let mut changed_sections = HashSet::new();
+        let mut indicator_sections = HashSet::new();
+        for (section_id, activity_id, start_index, end_index, distance, section_distance) in
+            &unmeasured
+        {
             let (Some(line), Some(track)) = (lines.get(section_id), tracks.get(activity_id)) else {
                 continue;
             };
             let Some(coverage) = portion_coverage(line, track, *start_index, *end_index) else {
                 continue;
             };
-            let _ = tx.execute(
-                "UPDATE section_activities SET coverage = ?
+            if tx
+                .execute(
+                    "UPDATE section_activities SET coverage = ?
                  WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-                params![coverage, section_id, activity_id, start_index],
-            );
-            measured += 1;
+                    params![coverage, section_id, activity_id, start_index],
+                )
+                .is_ok()
+            {
+                measured += 1;
+                changed_sections.insert(section_id.clone());
+                let section_distance = section_distance.unwrap_or(0.0);
+                let old_eligible = crate::persistence::records::covers_enough_for_record(
+                    None,
+                    *distance,
+                    section_distance,
+                );
+                let new_eligible = crate::persistence::records::covers_enough_for_record(
+                    Some(coverage),
+                    *distance,
+                    section_distance,
+                );
+                if old_eligible != new_eligible {
+                    indicator_sections.insert(section_id.clone());
+                }
+            }
         }
         if tx.commit().is_err() {
             return 0;
+        }
+
+        if !changed_sections.is_empty() {
+            self.invalidate_perf_cache();
+            crate::persistence::read_cache::clear();
+            for section_id in &changed_sections {
+                self.invalidate_section_cache(section_id);
+            }
+            for section_id in &indicator_sections {
+                if let Err(error) = self.recompute_indicators_for_section(section_id) {
+                    log::warn!(
+                        "veloqrs: [Backfill] Could not recompute indicators for {}: {}",
+                        section_id,
+                        error
+                    );
+                }
+            }
         }
 
         if measured > 0 {
@@ -1143,16 +1190,35 @@ pub(crate) fn excluded_route_performances_of(
     if excluded_ids.is_empty() {
         return empty_route_performances();
     }
-    let match_info = routes::match_info(conn, route_group_id);
+    excluded_route_performances(
+        &group.activity_ids,
+        &routes::match_info(conn, route_group_id),
+        &excluded_ids,
+        |id| activities::metrics_of(conn, id),
+        sport_type_filter,
+    )
+}
 
+/// [`excluded_route_performances_of`] over a membership and metrics already
+/// loaded, the way [`route_performances`] takes them.
+pub(crate) fn excluded_route_performances<F>(
+    activity_ids: &[String],
+    match_info: &[crate::ActivityMatchInfo],
+    excluded_ids: &[String],
+    metrics_of: F,
+    sport_type_filter: Option<&str>,
+) -> RoutePerformanceResult
+where
+    F: Fn(&str) -> Option<ActivityMetrics>,
+{
     let mut performances: Vec<RoutePerformance> = Vec::new();
     let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
 
-    for id in &group.activity_ids {
+    for id in activity_ids {
         if !excluded_ids.contains(id) {
             continue;
         }
-        let Some(metrics) = activities::metrics_of(conn, id) else {
+        let Some(metrics) = metrics_of(id) else {
             continue;
         };
         if let Some(filter) = sport_type_filter
@@ -1199,6 +1265,52 @@ pub(crate) fn excluded_route_performances_of(
         attempt_count,
         ..empty_route_performances()
     }
+}
+
+/// A route's attempts in a section's shape, so the section's arithmetic
+/// answers the route screen too: each attempt is one lap over the whole
+/// activity, timed on the moving time the route ranks on.
+///
+/// The route's own verdicts travel on the lap: the distance band, decided by
+/// [`route_performances`] over the included attempts, and the match. An
+/// attempt with no moving time or no distance has nothing to rank and is left
+/// out, and every lap covers the route, so the band alone decides what counts.
+pub(crate) fn route_attempts(
+    attempts: &RoutePerformanceResult,
+    route_distance: f64,
+    rows: laps::Rows,
+) -> SectionPerformanceResult {
+    let portions = attempts
+        .performances
+        .iter()
+        .filter(|p| p.moving_time > 0 && p.distance > 0.0)
+        .map(|p| laps::Portion {
+            activity_id: p.activity_id.clone(),
+            direction: p.direction.clone(),
+            start_index: 0,
+            end_index: 0,
+            distance_meters: p.distance,
+            lap_time: Some(f64::from(p.moving_time)),
+            lap_pace: Some(p.speed),
+            avg_hr: p.avg_hr.map(f64::from),
+            avg_power: p.avg_power.map(f64::from),
+            coverage: Some(1.0),
+            excluded: rows == laps::Rows::Excluded,
+            outside_distance_band: p.outside_distance_band,
+            match_percentage: p.match_percentage,
+        })
+        .collect();
+    let meta: HashMap<&str, (String, i64)> = attempts
+        .performances
+        .iter()
+        .map(|p| (p.activity_id.as_str(), (p.name.clone(), p.date)))
+        .collect();
+    laps::performances(
+        route_distance,
+        portions,
+        |id| meta.get(id).cloned(),
+        |_| None,
+    )
 }
 
 /// Where `point` falls along `line`, as a fraction of the line's length.
@@ -1474,71 +1586,8 @@ where
         )
     });
 
-    // Compute forward direction stats
-    let forward_perfs: Vec<_> = performances
-        .iter()
-        .filter(|p| p.direction == "same")
-        .collect();
-    let forward_stats = if forward_perfs.is_empty() {
-        None
-    } else {
-        let count = forward_perfs.len() as u32;
-        let avg_time = forward_perfs
-            .iter()
-            .map(|p| p.moving_time as f64)
-            .sum::<f64>()
-            / count as f64;
-        let valid_speeds: Vec<f64> = forward_perfs
-            .iter()
-            .map(|p| p.speed)
-            .filter(|s| s.is_finite() && *s > 0.0)
-            .collect();
-        let avg_speed = if valid_speeds.is_empty() {
-            None
-        } else {
-            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-        };
-        let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-        Some(DirectionStats {
-            avg_time: Some(avg_time),
-            last_activity,
-            count,
-            avg_speed,
-        })
-    };
-
-    // Compute reverse direction stats
-    let reverse_perfs: Vec<_> = performances
-        .iter()
-        .filter(|p| p.direction == "reverse")
-        .collect();
-    let reverse_stats = if reverse_perfs.is_empty() {
-        None
-    } else {
-        let count = reverse_perfs.len() as u32;
-        let avg_time = reverse_perfs
-            .iter()
-            .map(|p| p.moving_time as f64)
-            .sum::<f64>()
-            / count as f64;
-        let valid_speeds: Vec<f64> = reverse_perfs
-            .iter()
-            .map(|p| p.speed)
-            .filter(|s| s.is_finite() && *s > 0.0)
-            .collect();
-        let avg_speed = if valid_speeds.is_empty() {
-            None
-        } else {
-            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-        };
-        let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-        Some(DirectionStats {
-            avg_time: Some(avg_time),
-            last_activity,
-            count,
-            avg_speed,
-        })
-    };
+    let forward_stats = best_sport.and_then(|_| route_direction_stats(&performances, "same"));
+    let reverse_stats = best_sport.and_then(|_| route_direction_stats(&performances, "reverse"));
 
     let (attempt_count, percentile_rank) = attempt_standing(&comparable, current_activity_id);
 
@@ -1555,6 +1604,43 @@ where
         attempt_count,
         percentile_rank,
     }
+}
+
+fn route_direction_stats(
+    performances: &[RoutePerformance],
+    direction: &str,
+) -> Option<DirectionStats> {
+    let directed: Vec<_> = performances
+        .iter()
+        .filter(|p| p.direction == direction)
+        .collect();
+    if directed.is_empty() {
+        return None;
+    }
+    let outside_band_count = directed.iter().filter(|p| p.outside_distance_band).count() as u32;
+    let counted: Vec<_> = directed
+        .into_iter()
+        .filter(|p| p.moving_time > 0 && p.distance > 0.0 && !p.outside_distance_band)
+        .collect();
+    if counted.is_empty() {
+        return Some(DirectionStats {
+            avg_time: None,
+            avg_speed: None,
+            last_activity: None,
+            count: 0,
+            outside_band_count,
+        });
+    }
+    let count = counted.len() as u32;
+    Some(DirectionStats {
+        avg_time: Some(
+            counted.iter().map(|p| p.moving_time as f64).sum::<f64>() / f64::from(count),
+        ),
+        avg_speed: Some(counted.iter().map(|p| p.speed).sum::<f64>() / f64::from(count)),
+        last_activity: counted.iter().map(|p| p.date).max(),
+        count,
+        outside_band_count,
+    })
 }
 
 /// What a route with no group answers: nothing, rather than a shape with
@@ -1582,6 +1668,10 @@ mod stream_tests;
 #[cfg(test)]
 #[path = "tests/section_average_pace.rs"]
 mod section_average_pace;
+
+#[cfg(test)]
+#[path = "tests/section_record_time.rs"]
+mod section_record_time;
 
 #[cfg(test)]
 #[path = "tests/route_record_band.rs"]
@@ -1934,7 +2024,7 @@ mod tests {
         assert_eq!(traced::lap_scans(), 0, "the ingest path scans nothing");
 
         traced::reset();
-        engine.attach_finalize(0);
+        engine.attach_finalize(0, false);
         assert_eq!(traced::lap_scans(), 1, "the batch tail scans once");
 
         engine.db.trace(None);

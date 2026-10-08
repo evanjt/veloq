@@ -40,7 +40,6 @@ import {
   SectionTrimOverlay,
   SportTypeSelector,
   useRevealMapOnDraw,
-  useRevealMapOnHighlight,
   createMapHighlightStore,
   SectionHeader,
   SectionActionRow,
@@ -233,10 +232,8 @@ function SectionDetailScreenContent() {
   const refusalKey = rescanRefusalKey(rescanRefusal);
 
   const scrollRef = useRef<ScrollView>(null);
-  // The chart's scrub lives outside this component, so a new index renders the
-  // map and not the screen. Nothing here reads it.
+  // The chart's scrub renders the map without moving the page or screen root.
   const [highlight] = useState(createMapHighlightStore);
-  useRevealMapOnHighlight(scrollRef, highlight);
   useRevealMapOnDraw(scrollRef, shownVersion);
 
   // Section times come from activity streams, so wait for the gap the bundle
@@ -291,6 +288,8 @@ function SectionDetailScreenContent() {
     showExcluded,
     excludedPoints,
     preComputedCalendarSummary: performance?.calendarSummary ?? null,
+    bestForwardRecord,
+    bestReverseRecord,
   });
 
   // The chart's own laps at every range, so the header and the chart under it

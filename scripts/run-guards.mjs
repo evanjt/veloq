@@ -34,6 +34,19 @@ const tsx = (script, ...args) => ['npx', 'tsx', `scripts/${script}`, ...args];
 // nothing to compare at commit.
 const GUARDS = [
   {
+    name: 'check:install-scripts',
+    kind: 'correctness',
+    cmd: node('check-install-scripts.mjs'),
+    catches: 'an unreviewed dependency install script leaving native package binaries absent',
+  },
+  {
+    name: 'check:background-task-entry',
+    kind: 'correctness',
+    cmd: node('check-background-task-entry.mjs'),
+    catches:
+      'a background task defined only inside the route tree and absent from a headless runtime',
+  },
+  {
     name: 'check:bindings-fresh',
     kind: 'build',
     cmd: node('check-bindings-fresh.mjs'),
@@ -72,13 +85,6 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('check-expo-sdk.mjs'),
     catches: 'an Expo package on a different SDK major than expo, which breaks the native build',
-  },
-  {
-    name: 'check:android-prebuild',
-    kind: 'correctness',
-    cmd: node('check-android-prebuild.mjs'),
-    catches:
-      'the tracked Android build files losing the dev id, version, release signing or Google services a prebuild overwrites',
   },
   {
     name: 'check:debug-push-receiver',
@@ -647,7 +653,7 @@ const GUARDS = [
     name: 'lint:press-feedback',
     kind: 'style',
     cmd: node('lint-press-feedback.mjs'),
-    catches: 'a pressable with no pressed state',
+    catches: 'a pressable with no pressed state or a rendered Touchable control',
   },
   {
     name: 'lint:haptics-owner',
@@ -744,7 +750,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-widget-layouts.mjs'),
     catches:
-      'a widget layout where a match_parent child beside weighted columns squeezes them to 0 wide, leaving a card with one line',
+      'a widget layout where a match_parent child squeezes weighted columns to 0 wide, or a bare View makes RemoteViews fail to inflate',
   },
   {
     name: 'lint:widget-kotlin-arity',

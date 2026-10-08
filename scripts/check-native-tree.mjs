@@ -21,6 +21,8 @@ import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { SYNC as SYNC_WIDGETS, hasWidgetTree, widgetDrift } from './lib/androidWidgetSources.mjs';
+
 export const SETUP = 'npm run setup:native';
 
 /** The router app root: expo-router reads `src/app` when the directory exists. */
@@ -160,10 +162,30 @@ export function requireNativeTree(root) {
   process.exit(1);
 }
 
+/**
+ * Exit 1 naming what differs when the build tree's widget sources are not the tracked ones.
+ * A tree with no Android project or no tracked widgets has nothing to compare.
+ */
+export async function requireWidgetSources(root) {
+  if (!hasWidgetTree(root)) return;
+  const lines = await widgetDrift(root);
+  if (lines.length === 0) return;
+  console.error('The Android build tree holds widget sources that are not the tracked ones.');
+  for (const line of lines.slice(0, 10)) console.error(`  ${line}`);
+  if (lines.length > 10) console.error(`  and ${lines.length - 10} more`);
+  console.error('A build here would install widgets from whenever they were last copied.');
+  console.error('Copy them, then build again:');
+  console.error(`  ${SYNC_WIDGETS}`);
+  process.exit(1);
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2);
   const at = argv.indexOf('--root');
   const root = resolve(at === -1 ? process.cwd() : argv[at + 1]);
   // Only a refusal prints, so a build log carries nothing from a tree that passed.
   requireNativeTree(root);
+  // A recipe that holds the build lock copies the widgets itself and checks the result, so
+  // its early installation check, made before it waits for the lock, leaves them out.
+  if (!argv.includes('--installation')) await requireWidgetSources(root);
 }

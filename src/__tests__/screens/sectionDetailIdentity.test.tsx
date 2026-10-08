@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 import SectionDetailScreen from '@/app/section/[id]';
 
@@ -93,6 +94,7 @@ const mockUseSectionActions = jest.fn((_options: Record<string, unknown>) => ({}
 const mockUseSectionTrim = jest.fn((..._args: unknown[]) => ({}));
 
 let capturedSaveName: ((name: string) => void) | undefined;
+let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
 
 jest.mock('@/features/routes', () => {
   const React = require('react');
@@ -119,7 +121,6 @@ jest.mock('@/features/routes', () => {
     rescanRefusalKey: () => null,
     shouldShowSportChips: () => false,
     useRevealMapOnDraw: noop,
-    useRevealMapOnHighlight: noop,
     createMapHighlightStore: jest.requireActual('@/features/routes/lib/mapHighlight')
       .createMapHighlightStore,
     useMergeSections: () => ({ merge: noop, previewDropped: false }),
@@ -165,7 +166,10 @@ jest.mock('@/features/routes', () => {
     SectionTrimOverlay: component,
     SportTypeSelector: component,
     SectionActionRow: component,
-    SectionContentArea: component,
+    SectionContentArea: (props: { onActivitySelect: (activityId: string | null) => void }) => {
+      capturedActivitySelect = props.onActivitySelect;
+      return null;
+    },
     SectionDebugPanel: component,
     SectionDetailLinks: component,
     useSectionMergeFlow: () => noop,
@@ -180,6 +184,7 @@ describe('section detail screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     capturedSaveName = undefined;
+    capturedActivitySelect = undefined;
   });
 
   it('keeps what it hands its hooks stable across a rename', async () => {
@@ -212,5 +217,27 @@ describe('section detail screen', () => {
     expect(mockUseSectionLedger.mock.calls.at(-1)?.[1]).toBe(ledgerBefore?.[1]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[0]).toBe(streamsBefore?.[0]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[1]).toBe(streamsBefore?.[1]);
+  });
+
+  it('keeps the chart in place through a scrub and a dot tap', async () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    try {
+      render(<SectionDetailScreen />);
+      await act(async () => {});
+      expect(capturedActivitySelect).toBeDefined();
+      scrollTo.mockClear();
+
+      await act(async () => {
+        for (const id of ['attempt-a', 'attempt-b', 'attempt-c']) {
+          capturedActivitySelect?.(id);
+        }
+      });
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      await act(async () => capturedActivitySelect?.('attempt-d'));
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      scrollTo.mockRestore();
+    }
   });
 });

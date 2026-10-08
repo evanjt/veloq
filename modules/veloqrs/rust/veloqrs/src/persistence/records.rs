@@ -177,8 +177,7 @@ pub fn section_record_rival(
         .filter(|other| other.activity_id != record.activity_id)
         .flat_map(|other| &other.laps)
         .filter(|lap| {
-            lap.direction == record.direction
-                && covers_enough_for_record(lap.coverage, lap.distance, record.section_distance)
+            lap.direction == record.direction && lap.counts_for_record(record.section_distance)
         })
         .map(|lap| lap.time)
         .filter(|time| time.is_finite() && *time > 0.0)

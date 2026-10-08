@@ -3,8 +3,10 @@
  * weighted columns (0dp wide) and gains a `match_parent`-wide child beside them. The wide child
  * takes the whole row, the columns measure 0 wide, and the widget draws only that child.
  *
- * Expected behaviour: the guard fails on that shape and names the layout, and passes when the
- * wide child sits in a vertical container below the columns.
+ * A bare View separator also fails in a widget host because RemoteViews cannot inflate it.
+ *
+ * Expected behaviour: the guard names either failing layout, and passes when the wide child
+ * sits in a vertical container or a supported view draws the separator.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -81,4 +83,15 @@ it('passes when the wide child is itself weighted', () => {
     `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal">${COLUMN}<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_weight="1" /></LinearLayout>`
   );
   expect(runGuard(root).status).toBe(0);
+});
+
+it('fails when a widget layout uses a View that RemoteViews cannot inflate', () => {
+  const root = tree(
+    'widget_separator.xml',
+    `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"><View android:layout_width="match_parent" android:layout_height="1dp" /></LinearLayout>`
+  );
+  const { status, output } = runGuard(root);
+  expect(status).not.toBe(0);
+  expect(output).toContain('widget_separator.xml');
+  expect(output).toContain('RemoteViews');
 });

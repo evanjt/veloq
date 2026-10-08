@@ -35,7 +35,7 @@ class ActivityPushWorker(context: Context, params: WorkerParameters) : Worker(co
   override fun doWork(): Result {
     val activityId = inputData.getString(KEY_ACTIVITY_ID) ?: return Result.failure()
     val athleteId = inputData.getString(KEY_ATHLETE_ID) ?: return Result.failure()
-    val gate = ActivityPushResponse.gate(PushCredential.read(applicationContext), athleteId)
+    val gate = ActivityPushResponse.gate(NativeWidgetSnapshot.credential(applicationContext), athleteId)
     if (gate == ActivityPushResponse.Gate.Silent) {
       Log.w(TAG, "signed out or another athlete's push for $activityId, posting nothing")
       return Result.success()
@@ -89,13 +89,9 @@ class ActivityPushWorker(context: Context, params: WorkerParameters) : Worker(co
    */
   private fun refreshWidget(activityId: String) {
     try {
-      val json = PushBridge.widgetSnapshot()
-      if (json == null) {
+      if (!NativeWidgetSnapshot.current(applicationContext)) {
         Log.w(TAG, "no widget snapshot after $activityId, keeping the last one")
-        return
       }
-      WidgetSnapshotFile.write(applicationContext, json)
-      WidgetSnapshotFile.redraw(applicationContext)
     } catch (e: Exception) {
       Log.w(TAG, "widget refresh after $activityId failed", e)
     }

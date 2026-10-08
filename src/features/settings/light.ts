@@ -10,3 +10,6 @@ export {
   useDashboardPreferences,
   type SummaryCardPreferences,
 } from './stores/summaryCardPreferences';
+export { presentActivityNotification } from './lib/notificationService';
+export { refreshPushTokenRegistration } from './lib/pushTokenRegistration';
+export type { NotificationPreferences } from './stores/NotificationPreferencesStore';

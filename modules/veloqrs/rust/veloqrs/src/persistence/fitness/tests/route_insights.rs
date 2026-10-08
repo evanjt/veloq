@@ -7,6 +7,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use tracematch::Direction;
+
 use crate::persistence::fitness::derivations::highlights::{
     self, Effort, GroupView, RouteInsightWindow,
 };
@@ -21,7 +23,7 @@ struct Attempt {
     distance: f64,
     moving_time: u32,
     days_ago: i64,
-    reverse: bool,
+    direction: Direction,
 }
 
 fn run(id: &str, days_ago: i64, moving_time: u32) -> Attempt {
@@ -31,7 +33,7 @@ fn run(id: &str, days_ago: i64, moving_time: u32) -> Attempt {
         distance: 5_000.0,
         moving_time,
         days_ago,
-        reverse: false,
+        direction: Direction::Same,
     }
 }
 
@@ -54,11 +56,11 @@ fn read(
         group_id: "g",
         activity_ids: &ids,
     }];
-    let by_activity: HashMap<&str, bool> = attempts
+    let by_activity: HashMap<&str, Direction> = attempts
         .iter()
-        .map(|a| (a.id.as_str(), !a.reverse))
+        .map(|a| (a.id.as_str(), a.direction))
         .collect();
-    let directions: HashMap<&str, HashMap<&str, bool>> = HashMap::from([("g", by_activity)]);
+    let directions: HashMap<&str, HashMap<&str, Direction>> = HashMap::from([("g", by_activity)]);
     let excluded: HashMap<String, HashSet<String>> = HashMap::from([(
         "g".to_string(),
         non_attempts.iter().map(|s| s.to_string()).collect(),
@@ -178,11 +180,39 @@ fn a_shortcut_is_in_neither_the_record_nor_the_trend_series() {
 fn excluded_and_partial_attempts_are_in_neither() {
     let mut attempts = series(&[1000, 1000, 1020], 5);
     attempts.push(run("excluded", 1, 800));
-    attempts.push(run("partial", 2, 700));
+    attempts.push(Attempt {
+        direction: Direction::Partial,
+        ..run("partial", 2, 700)
+    });
 
-    let rows = read(&attempts, &["excluded", "partial"], &window());
+    let rows = read(&attempts, &["excluded"], &window());
 
     assert!(rows.is_empty(), "{rows:?}");
+}
+
+#[test]
+fn partial_match_does_not_displace_a_reverse_route_record() {
+    let attempts = vec![
+        Attempt {
+            direction: Direction::Reverse,
+            ..run("reverse_best", 2, 900)
+        },
+        Attempt {
+            direction: Direction::Reverse,
+            ..run("reverse_other", 3, 950)
+        },
+        Attempt {
+            direction: Direction::Partial,
+            ..run("overlap", 1, 600)
+        },
+    ];
+
+    let rows = read(&attempts, &[], &window());
+
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].is_reverse);
+    assert_eq!(rows[0].best_time, 900.0);
+    assert_eq!(rows[0].attempt_count, 2);
 }
 
 #[test]
@@ -196,7 +226,7 @@ fn each_sport_and_each_direction_is_its_own_bucket() {
     }
     for (i, t) in [1100, 1110, 1090, 1040].into_iter().enumerate() {
         attempts.push(Attempt {
-            reverse: true,
+            direction: Direction::Reverse,
             ..run(&format!("v{i}"), 3 + (3 - i as i64), t)
         });
     }
@@ -227,7 +257,7 @@ fn records_come_before_trends_and_then_newest_first() {
     let mut b = series(&[1010, 1020, 1000, 950], 6);
     for x in &mut b {
         x.id = format!("r{}", x.id);
-        x.reverse = true;
+        x.direction = Direction::Reverse;
     }
     a.extend(b);
 

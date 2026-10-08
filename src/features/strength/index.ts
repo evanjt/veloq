@@ -18,7 +18,7 @@ export {
   readExerciseDetailData,
 } from './hooks/useStrengthScreenData';
 export { generateStrengthInsights } from './hooks/strengthInsights';
-export { STRENGTH_PERIODS } from './periods';
+export { STRENGTH_PERIODS, strengthPeriodOf } from './periods';
 
 export { type MuscleSlug } from './lib/exerciseMuscleMap';
 export { MUSCLE_NAME_KEYS, muscleName, balancePairName } from './lib/muscleNames';

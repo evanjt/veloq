@@ -194,9 +194,8 @@ export function indexNewActivity(
     const summary = host.timed('indexNewActivity', () =>
       host.engine.sections().indexNewActivity(activityId)
     );
-    if (summary.insertedPortions > 0 || summary.regrouped) {
+    if (summary.insertedPortions > 0) {
       host.notify('sections');
-      host.notify('groups');
     }
     return summary;
   } catch (e) {

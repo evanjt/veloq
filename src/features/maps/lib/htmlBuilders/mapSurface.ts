@@ -227,6 +227,7 @@ ${tileProtocolsScript()}
 
 ${surfaceRuntimeScript(config)}
 
+    window._veloqReleasableMap = true;
     try {
       var _style = ${styleJSON};
       if (_style) {

@@ -141,6 +141,8 @@ const PHRASE_SLOTS = { app: '${applicationName}', sport: '${sport}' };
 /** The Android resources, by name, and the bundle path each reads. */
 const ANDROID_STRINGS = [
   { name: 'widget_open_app', path: 'systemSurfaces.openApp' },
+  { name: 'widget_refresh', path: 'systemSurfaces.refresh' },
+  { name: 'widget_refreshing', path: 'systemSurfaces.refreshing' },
   { name: 'widget_to_see_training', path: 'systemSurfaces.toSeeTraining' },
   { name: 'widget_record', path: 'systemSurfaces.record' },
   { name: 'widget_summary_label', path: 'systemSurfaces.summary' },

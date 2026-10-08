@@ -1,4 +1,16 @@
 {
+  "phaseNames": {
+    "loading": "Routes laden",
+    "analysing": "Activiteiten analyseren",
+    "saving": "Secties opslaan",
+    "recomputingIndicators": "Indicatoren berekenen",
+    "diffing": "Catalogi vergelijken",
+    "complete": "Voltooid",
+    "cancelled": "Geannuleerd",
+    "draining": "Catalogus voorbereiden",
+    "archiving": "Secties archiveren",
+    "detecting": "Secties detecteren"
+  },
   "about": {
     "dataAttribution": "Data-attributie",
     "description": "Een snelle, offline-first mobiele client voor intervals.icu met focus op kaarten en visuele analyses.",
@@ -19,6 +31,7 @@
     "version": "Versie"
   },
   "activity": {
+    "terrainRow": "3D-terrein",
     "activityStats": "Activiteitsstatistieken",
     "calories": "Calorieën",
     "chartHint": "Houd vast om te scrubben • Houd chip vast voor as",
@@ -27,9 +40,10 @@
     "explanations": {
       "conditions": "Temperatuur uit weergegevens of je apparaatsensor.",
       "energy": "Geschat energieverbruik uit hartslag, vermogen en duur.",
-      "fitnessImpact": "Vergeleken met een rustdag verhoogt deze activiteit de fitheid met de trainingsbelasting gedeeld door 42 en de vermoeidheid met de belasting gedeeld door 7. De invloed op de vorm is fitheid min vermoeidheid. De tijdconstanten zijn respectievelijk 42 en 7 dagen.",
+      "fitnessImpact": "Vergeleken met een rustdag verhoogt deze activiteit de fitheid met belasting × (1 − e^(−1/42)) en de vermoeidheid met belasting × (1 − e^(−1/7)). Krachttraining verhoogt alleen de vermoeidheid. De invloed op de vorm is fitheid min vermoeidheid.",
       "heartRate": "Gemiddelde hartslag tijdens de activiteit.",
       "newGround": "Het aandeel kaarttegels van deze activiteit dat geen eerdere activiteit had aangeraakt. Een tegel is afhankelijk van de breedtegraad ongeveer 150 tot 300 m breed, dus dit meet tegeldekking en niet de afstand over nieuwe wegen.",
+      "activityEftp": "De eFTP is de schatting van het vermogensmodel van intervals.icu voor deze activiteit.",
       "power": "Gemiddeld vermogen in watt.",
       "trainingLoad": "Training Stress Score (TSS) kwantificeert de trainingsbelasting op basis van duur en intensiteit ten opzichte van je drempel.",
       "yourForm": "Je vorm (TSB) op deze dag. Dit is een dagwaarde gebaseerd op je totale training, niet specifiek voor deze activiteit. TSB = Fitheid (CTL) min Vermoeidheid (ATL)."
@@ -55,7 +69,7 @@
       "decoupling": "Ontkoppeling",
       "deviceSensor": "Apparaatsensor",
       "efficiencyFactor": "Efficiëntiefactor",
-      "eftpEstimated": "eFTP (geschat)",
+      "eftpEstimated": "eFTP van deze activiteit",
       "energy": "Energie",
       "fatigueATL": "Vermoeidheid (ATL)",
       "feelsLike": "Voelt als {{temp}}",
@@ -94,6 +108,8 @@
       "yourFitness": "Jouw fitheid (CTL)",
       "yourForm": "Jouw vorm"
     },
+    "hrZoneTotal": "Tijd met hartslag: {{duration}}",
+    "movingTime": "Beweegtijd: {{duration}}",
     "timeInHRZones": "Tijd in HF-zones",
     "timeInPowerZones": "Tijd in vermogenszones",
     "viewDetails": "Details bekijken",
@@ -107,6 +123,7 @@
     }
   },
   "activityDetail": {
+    "routePrBadge": "PR {{improvement}}",
     "lineKeyActivity": "Deze activiteit",
     "lineKeyRoute": "Gekoppelde route",
     "failedToLoad": "Activiteit laden mislukt",
@@ -1022,7 +1039,7 @@
     },
     "prompt": {
       "title": "Blijf op de hoogte",
-      "description": "Ontvang meldingen over nieuwe activiteiten, synchronisatievoortgang en wanneer je gegevens klaar zijn om te verkennen.",
+      "description": "Ontvang meldingen over nieuwe activiteiten, persoonlijke records en fitnessmijlpalen.",
       "enable": "Inschakelen",
       "dismiss": "Niet nu",
       "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen",
@@ -1176,6 +1193,8 @@
     "autoUpload": "Automatisch uploaden",
     "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",
     "library": {
+      "distance": "Afstand",
+      "duration": "Duur",
       "title": "Mijn opnamen",
       "empty": "Nog geen opnamen",
       "emptyHint": "Opgeslagen opnamen blijven hier op dit apparaat.",
@@ -1250,6 +1269,7 @@
     "tomorrow": "MORGEN"
   },
   "routes": {
+    "timeMethod": "Routetijden gebruiken bewegingstijd, zonder stops.",
     "activitiesCount_one": "{{count}} activiteit",
     "activitiesCount_other": "{{count}} activiteiten",
     "targetPace": "Tempo",
@@ -1273,8 +1293,12 @@
     "noMatchingRoutes": "Geen overeenkomende routes gevonden",
     "noRoutesYet": "Nog geen routes",
     "noSectionsMatchFilter": "Geen secties komen overeen met filter",
+    "placeJourney": "{{start}} naar {{end}}",
+    "placeLoop": "Rondje {{place}}",
     "pointCountHint_one": "{{count}} GPS-punt",
     "pointCountHint_other": "{{count}} GPS-punten",
+    "renameFailedTitle": "Naam kon niet worden opgeslagen",
+    "renameFailedMessage": "De routenaam is niet opgeslagen. Probeer het opnieuw.",
     "routeNamePlaceholder": "Routenaam",
     "routeWord": "Route",
     "routesWillAppear": "Routes verschijnen nadat je activiteiten zijn geanalyseerd",
@@ -1296,7 +1320,9 @@
     "standingBest": "Je snelste van {{total}}",
     "standingRank": "Plaats {{rank}} van {{total}}, {{gap}} van je beste",
     "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",
-    "largeSectionPerformanceWarning": "Grote secties kunnen langer duren om te verwerken."
+    "largeSectionPerformanceWarning": "Grote secties kunnen langer duren om te verwerken.",
+    "resetReference": "Referentie herstellen",
+    "resetReferenceConfirm": "Teruggaan naar automatische referentiekeuze? De overeenkomstpercentages voor deze route worden opnieuw berekend."
   },
   "routesScreen": {
     "computingRoutes": "Routes berekenen...",
@@ -1304,6 +1330,7 @@
     "expandDateRange": "Datumbereik uitbreiden"
   },
   "sections": {
+    "timeMethod": "Sectietijden zijn verstreken tijd, inclusief stops.",
     "activitiesCount_one": "{{count}} activiteit",
     "activitiesCount_other": "{{count}} activiteiten",
     "avg": "Gem",
@@ -1333,6 +1360,9 @@
     "legendReverse": "Omgekeerd",
     "legendThisActivity": "Deze activiteit",
     "legendOutsideBand": "Buiten het afstandsbereik van de route",
+    "legendTrend": "Gaussische trend",
+    "legendTrendBand": "Spreidingsband",
+    "legendTrendMethod": "De lijn gebruikt Gaussische kernelvereffening met een lokale lineaire aanpassing. De band toont de gewogen spreiding van pogingen rond de aangepaste lijn.",
     "plotScatter": "Spreiding",
     "plotHistogram": "Histogram",
     "histogramBinned": "Pogingen in de balken: {{attempts}}",
@@ -1480,6 +1510,7 @@
     "excludeLapNumber": "Uitsluiten Ronde {{n}}"
   },
   "settings": {
+    "terrain3DMode": "3D-terrein: {{mode}}",
     "developerDashboard": "Ontwikkelaarsdashboard",
     "account": "Account",
     "activities": "Activiteiten",
@@ -1931,9 +1962,6 @@
       "sectionsBody": "Stukken zijn deterministisch en vormen zich opnieuw naarmate je ritten zich opstapelen; zet er een vast om hem stabiel te houden.",
       "recutRunning": "Je stukken worden opnieuw geanalyseerd",
       "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
-      "phasePreparing": "de catalogus wordt voorbereid",
-      "phaseDetecting": "nieuwe stukken worden gesneden",
-      "phaseDiffing": "de twee catalogi worden vergeleken",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
       "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
@@ -2220,6 +2248,8 @@
   },
   "systemSurfaces": {
     "openApp": "Veloq openen",
+    "refresh": "Vernieuwen",
+    "refreshing": "Bezig met vernieuwen",
     "toSeeTraining": "om je training te zien",
     "record": "Opnemen",
     "recordDescription": "Begin met het opnemen van een activiteit.",

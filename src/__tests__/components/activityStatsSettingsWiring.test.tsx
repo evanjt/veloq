@@ -85,14 +85,14 @@ describe('HRZonesChart', () => {
   const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 190, seconds: 60, percent: 100 }];
 
   it('shows the max HR the heart rate card divides by', () => {
-    const { getByText } = render(<HRZonesChart hrZones={hrZones} maxHR={185} />);
+    const { getByText } = render(<HRZonesChart hrZones={hrZones} maxHR={185} movingTime={60} />);
     expect(getByText('activity.maxHR:{"value":185}')).toBeTruthy();
     const card = render(<InsightfulStats activity={ride} maxHR={185} />);
     expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":81}')).toBeTruthy();
   });
 
   it('takes the default with no max HR from the screen read, as the card does', () => {
-    const { getByText } = render(<HRZonesChart hrZones={hrZones} />);
+    const { getByText } = render(<HRZonesChart hrZones={hrZones} movingTime={60} />);
     expect(getByText(`activity.maxHR:{"value":${DEFAULT_MAX_HR}}`)).toBeTruthy();
     const card = render(<InsightfulStats activity={ride} />);
     expect(

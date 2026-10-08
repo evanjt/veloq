@@ -721,6 +721,10 @@ fn add_to_group(group: &mut FfiExerciseGroup, set: &FfiExerciseSet) {
 #[path = "tests/strength_history.rs"]
 mod history_tests;
 
+#[cfg(test)]
+#[path = "tests/strength_shade.rs"]
+mod shade_tests;
+
 struct MuscleContribution {
     sets: f64,
     reps: f64,
@@ -739,6 +743,21 @@ fn muscle_contribution(set: &fit::FitExerciseSet, intensity: u8) -> MuscleContri
         reps,
         volume_kg: set.weight_kg.unwrap_or(0.0) * reps,
     }
+}
+
+/// The number of shades the body diagram steps through, one per colour of
+/// the strength ramp the front end draws them in.
+pub const DIAGRAM_SHADES: u8 = 5;
+
+/// A muscle's body-diagram shade: its weighted sets as a share of the most
+/// trained muscle's, rounded up to one of `DIAGRAM_SHADES` steps. Every
+/// trained muscle is at least the lightest shade, so none drawn disappears.
+pub fn diagram_shade(weighted_sets: f64, max_weighted_sets: f64) -> u8 {
+    if max_weighted_sets <= 0.0 || !weighted_sets.is_finite() {
+        return 1;
+    }
+    let steps = (weighted_sets / max_weighted_sets * DIAGRAM_SHADES as f64).ceil();
+    steps.clamp(1.0, DIAGRAM_SHADES as f64) as u8
 }
 
 /// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
@@ -800,6 +819,7 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
                 total_reps: agg.total_reps,
                 volume_kg: agg.volume_kg,
                 exercise_names: names,
+                shade: 1,
             }
         })
         .collect();
@@ -810,6 +830,11 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    let max_weighted_sets = muscle_volumes.first().map_or(0.0, |m| m.weighted_sets);
+    for muscle in &mut muscle_volumes {
+        muscle.shade = diagram_shade(muscle.weighted_sets, max_weighted_sets);
+    }
+
     let balance = balance_pairs(&muscle_volumes);
 
     FfiStrengthSummary {
@@ -818,6 +843,7 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
         activity_count: activity_ids.len() as u32,
         total_sets: total_active_sets,
         balance,
+        max_weighted_sets,
     }
 }
 
@@ -1605,12 +1631,14 @@ mod tests {
             total_reps: 0.0,
             volume_kg: 0.0,
             exercise_names: Vec::new(),
+            shade: 1,
         }
     }
 
     fn summary(volumes: Vec<FfiMuscleVolume>) -> FfiStrengthSummary {
         FfiStrengthSummary {
             start_ts: 0.0,
+            max_weighted_sets: volumes.first().map_or(0.0, |m| m.weighted_sets),
             balance: balance_pairs(&volumes),
             muscle_volumes: volumes,
             activity_count: 1,

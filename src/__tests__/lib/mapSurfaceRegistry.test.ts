@@ -2,12 +2,16 @@
  * Scenario: the memory reclaimer needs every mounted map, including the ones
  * behind a frozen tab that no render will reach.
  * Expected behaviour: a mounted surface is released once, rebuilt once on the
- * next foreground, and forgotten the moment it unmounts.
+ * next foreground, and forgotten the moment it unmounts. A surface whose
+ * screen is covered stays released through a foreground until it is shown.
  */
 import {
+  holdSurfaceReleased,
+  markNativeReleasedSurface,
   registerReleasableSurface,
   releaseMountedSurfaces,
   rebuildReleasedSurfaces,
+  resumeHeldSurface,
 } from '@/features/maps/lib/mapSurfaceRegistry';
 
 function surface() {
@@ -87,5 +91,104 @@ describe('map surface registry', () => {
     expect(fine.release).toHaveBeenCalledTimes(1);
     offBroken();
     offFine();
+  });
+
+  it('rebuilds only the page that reported a native release', () => {
+    const released = surface();
+    const untouched = surface();
+    const offReleased = registerReleasableSurface(released);
+    const offUntouched = registerReleasableSurface(untouched);
+
+    expect(markNativeReleasedSurface(released)).toBe(true);
+    expect(markNativeReleasedSurface(released)).toBe(false);
+    expect(rebuildReleasedSurfaces()).toBe(1);
+    expect(released.release).toHaveBeenCalledWith('native');
+    expect(released.rebuild).toHaveBeenCalledTimes(1);
+    expect(untouched.release).not.toHaveBeenCalled();
+    expect(untouched.rebuild).not.toHaveBeenCalled();
+    offReleased();
+    offUntouched();
+  });
+
+  it('ignores a native release report from an unmounted page', () => {
+    const dropped = surface();
+    const unregister = registerReleasableSurface(dropped);
+    unregister();
+
+    expect(markNativeReleasedSurface(dropped)).toBe(false);
+    expect(rebuildReleasedSurfaces()).toBe(0);
+    expect(dropped.release).not.toHaveBeenCalled();
+  });
+
+  it('releases a held surface alone and keeps it through a foreground', () => {
+    const covered = surface();
+    const shown = surface();
+    const offCovered = registerReleasableSurface(covered);
+    const offShown = registerReleasableSurface(shown);
+
+    expect(holdSurfaceReleased(covered)).toBe(true);
+    expect(covered.release).toHaveBeenCalledWith('javascript');
+    expect(shown.release).not.toHaveBeenCalled();
+
+    expect(rebuildReleasedSurfaces()).toBe(0);
+    expect(covered.rebuild).not.toHaveBeenCalled();
+
+    expect(resumeHeldSurface(covered)).toBe(true);
+    expect(covered.rebuild).not.toHaveBeenCalled();
+    expect(rebuildReleasedSurfaces()).toBe(0);
+    offCovered();
+    offShown();
+  });
+
+  it('neither releases a held surface twice nor rebuilds it on a trim cycle', () => {
+    const covered = surface();
+    const shown = surface();
+    const offCovered = registerReleasableSurface(covered);
+    const offShown = registerReleasableSurface(shown);
+
+    holdSurfaceReleased(covered);
+    expect(releaseMountedSurfaces()).toBe(1);
+    expect(markNativeReleasedSurface(covered)).toBe(false);
+    expect(covered.release).toHaveBeenCalledTimes(1);
+
+    expect(rebuildReleasedSurfaces()).toBe(1);
+    expect(shown.rebuild).toHaveBeenCalledTimes(1);
+    expect(covered.rebuild).not.toHaveBeenCalled();
+
+    expect(resumeHeldSurface(covered)).toBe(true);
+    expect(resumeHeldSurface(covered)).toBe(false);
+    offCovered();
+    offShown();
+  });
+
+  it('holds a surface a trim already released without releasing it again', () => {
+    const a = surface();
+    const off = registerReleasableSurface(a);
+
+    releaseMountedSurfaces();
+    expect(holdSurfaceReleased(a)).toBe(false);
+    expect(a.release).toHaveBeenCalledTimes(1);
+    expect(rebuildReleasedSurfaces()).toBe(0);
+    expect(resumeHeldSurface(a)).toBe(true);
+    off();
+  });
+
+  it('has nothing to rebuild when the hold lifts on a page never released', () => {
+    const a = surface();
+    const off = registerReleasableSurface(a);
+
+    expect(resumeHeldSurface(a)).toBe(false);
+    off();
+  });
+
+  it('forgets a hold when the surface unmounts', () => {
+    const a = surface();
+    const off = registerReleasableSurface(a);
+
+    holdSurfaceReleased(a);
+    off();
+    expect(resumeHeldSurface(a)).toBe(false);
+    expect(holdSurfaceReleased(a)).toBe(false);
+    expect(a.release).toHaveBeenCalledTimes(1);
   });
 });

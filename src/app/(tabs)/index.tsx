@@ -211,6 +211,7 @@ function FeedScreenContent() {
     heroValue,
     heroLabel,
     heroColor,
+    heroZone,
     heroTrend,
     fitnessData,
     fitnessDelta,
@@ -701,6 +702,7 @@ function FeedScreenContent() {
             heroValue={heroValue}
             heroLabel={heroLabel}
             heroColor={heroColor}
+            heroZone={heroZone}
             heroTrend={heroTrend}
             onHeroPress={navigateToHeroMetric}
             fitnessData={fitnessData}

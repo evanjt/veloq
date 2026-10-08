@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SectionPerformanceSection, type SectionStreamsState } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
@@ -120,12 +121,12 @@ export function SectionContentArea({
     <View style={styles.contentSection}>
       {/* Disabled banner */}
       {isSectionDisabled && (
-        <TouchableOpacity
-          style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+        <Pressable
+          style={pressable([styles.disabledBanner, isDark && styles.disabledBannerDark])}
           accessibilityRole="button"
           accessibilityLabel={t('sections.restoreSection')}
           onPress={onToggleDisable}
-          activeOpacity={0.8}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons
             name="delete-outline"
@@ -140,17 +141,17 @@ export function SectionContentArea({
           >
             {t('sections.removed')} - {t('sections.restoreSection')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Merge candidates banner */}
       {mergeCandidates.length > 0 && (
-        <TouchableOpacity
-          style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
+        <Pressable
+          style={pressable([styles.mergeBanner, isDark && styles.mergeBannerDark])}
           accessibilityRole="button"
           accessibilityLabel={t('sections.mergeCandidatesTitle')}
           onPress={onMergePress}
-          activeOpacity={0.8}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
           <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
@@ -163,7 +164,7 @@ export function SectionContentArea({
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Performance chart with eye toggle */}

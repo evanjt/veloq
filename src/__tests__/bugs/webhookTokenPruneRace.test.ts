@@ -29,7 +29,9 @@ describe('webhook dead-token pruning', () => {
     let stored: string | null = JSON.stringify(initial);
     let registered = false;
     const tokens = {
-      get: jest.fn(async () => (stored ? JSON.parse(stored) : null)),
+      get: jest.fn(async (key: string) =>
+        key.startsWith('athlete:') && stored ? JSON.parse(stored) : null
+      ),
       put: jest.fn(async (_key: string, value: string) => {
         stored = value;
       }),
@@ -74,7 +76,7 @@ describe('webhook dead-token pruning', () => {
         (device) => device.token
       )
     );
-    expect(tokens.get).toHaveBeenCalledTimes(2);
+    expect(tokens.get.mock.calls.filter(([key]) => key === 'athlete:athlete-1')).toHaveLength(2);
     expect(tokens.delete).not.toHaveBeenCalled();
   });
 });

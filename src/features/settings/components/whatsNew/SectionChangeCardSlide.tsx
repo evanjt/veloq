@@ -11,8 +11,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { useCutoverSummary } from '@/features/routes';
-import { CUTOVER_FAILURE_KEYS, CUTOVER_PHASE_KEYS } from '../../lib/cutoverPhaseKeys';
+import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
+import { CUTOVER_FAILURE_KEYS } from '../../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { CutoverSettings, CutoverSettingsReset } from 'veloqrs';
 
@@ -51,7 +51,7 @@ export function SectionChangeCardSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { phase, isRunning, counts, settingsReset } = useCutoverSummary();
-  const phaseKey = CUTOVER_PHASE_KEYS[phase as keyof typeof CUTOVER_PHASE_KEYS];
+  const phaseKey = getPhaseDisplayKey(phase);
   // A failed run leaves the stored diff as the previous run's, so reporting it
   // would dress a failure up as a settled result.
   const failure = isRunning

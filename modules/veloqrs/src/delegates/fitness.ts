@@ -43,13 +43,7 @@ const EMPTY_PACE_TREND: FfiPaceTrend = { sampleCount: 0, history: [] };
 /** No library yet: every number zero or absent, and no arrow to draw. */
 const EMPTY_WELLNESS_SUMMARY: FfiWellnessSummary = { fitness: 0, form: 0 };
 
-export function getSummaryCardData(
-  host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number
-): FfiSummaryCardData {
+export function getSummaryCardData(host: DelegateHost, nowWallSeconds: number): FfiSummaryCardData {
   if (!host.ready) {
     return {
       wellness: EMPTY_WELLNESS_SUMMARY,
@@ -61,7 +55,7 @@ export function getSummaryCardData(
     };
   }
   return host.timed('getSummaryCardData', () =>
-    host.engine.fitness().getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd)
+    host.engine.fitness().getSummaryCardData(nowWallSeconds)
   );
 }
 

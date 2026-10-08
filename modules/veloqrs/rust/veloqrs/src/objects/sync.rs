@@ -1685,16 +1685,14 @@ pub(crate) async fn perform_sync(
         sync_newest_activities(install, &transport, &athlete_id, windows, &cancelled).await
     );
     let (head, rest) = windows.split_at(windows.len().min(1));
-    let spans_days = head.first().is_some_and(|w| w.range.0 != w.range.1);
+    let has_first_use_window = first_use_window(windows).is_some();
     let head_landed = step!(
         FfiSyncStep::Activities,
         async {
             sync_activity_windows(install, &transport, &athlete_id, head, &cancelled).await?;
-            // A window that is not a count-limited request ahead of this one
-            // lands its rows here, so the newest five owe bodies only now. The
-            // spanning case was readied behind its own request, and this
-            // window has just replaced those detail bodies with list rows.
-            if !spans_days {
+            // A window without a count-limited request ahead of it lands the
+            // newest rows here, so those activities owe bodies only now.
+            if !has_first_use_window {
                 ready_newest_activities(install, &transport, &cancelled).await?;
             }
             Ok(())
@@ -1750,6 +1748,7 @@ pub(crate) async fn perform_sync(
     svc.finish(SyncState::Idle, last_error, success);
     if success {
         crate::net::stream_backfill::autostart_stream_backfill();
+        crate::net::place_names::name_new_items();
     }
 }
 
@@ -2094,17 +2093,34 @@ async fn sync_activity_windows(
 /// out entirely.
 const FIRST_USE_ACTIVITIES: u32 = 5;
 
-/// The newest few activities, ahead of the window they sit in.
+fn first_use_window(windows: &[ActivityWindow]) -> Option<ActivityWindow> {
+    let head = windows.first()?;
+    let owed: Vec<_> = windows
+        .iter()
+        .filter(|window| window.eligible_ids.is_none())
+        .collect();
+    if owed.is_empty() {
+        // A refetch keeps its eligible ids so the count cannot add unknown rows.
+        return (head.range.0 != head.range.1).then(|| ActivityWindow {
+            range: head.range.clone(),
+            eligible_ids: head.eligible_ids.clone(),
+        });
+    }
+    if owed.len() == 1 && owed[0].range.0 == owed[0].range.1 {
+        return None;
+    }
+    let oldest = owed.iter().map(|window| window.range.0.as_str()).min()?;
+    let newest = owed.iter().map(|window| window.range.1.as_str()).max()?;
+    Some(ActivityWindow {
+        range: (oldest.to_string(), newest.to_string()),
+        eligible_ids: None,
+    })
+}
+
+/// The newest few activities across the planned owed span, ahead of its windows.
 ///
-/// A fresh install owes one run of days, which collapses to a single window
-/// covering the whole library, so the step that lifts the standby was a
-/// request for everything. Five minutes into a first launch the OnePlus was
-/// still on curves at 6 of 8 with no card on screen.
-///
-/// Asked for only when the newest owed window spans more than a day. An
-/// ordinary launch owes one day, and a count-limited request there would fetch
-/// the rows the window is about to fetch anyway, for a second round trip that
-/// buys nothing.
+/// A single owed day uses its ordinary window. A span or several windows uses
+/// one count-limited request so rest days do not exclude newer activities.
 async fn sync_newest_activities(
     install: u64,
     transport: &Transport,
@@ -2115,14 +2131,14 @@ async fn sync_newest_activities(
     // Readiness is owed by the bodies the newest rows still lack, not by the
     // summary windows: a failed body leaves the census advanced, so the next
     // sync owes no window at all and would otherwise never ask again.
-    let Some(window) = windows.first().filter(|w| w.range.0 != w.range.1) else {
+    let Some(window) = first_use_window(windows) else {
         return ready_newest_activities(install, transport, cancelled).await;
     };
     let outcome = sync_planned_activity_window(
         install,
         transport,
         athlete_id,
-        window,
+        &window,
         Some(FIRST_USE_ACTIVITIES),
         cancelled,
     )
@@ -2192,6 +2208,7 @@ async fn ready_newest_activities(
     transport: &Transport,
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<(), NetError> {
+    let _download_slot = crate::http::claim_interactive_download();
     let owed = crate::persistence::with_persistent_engine_blocking_for(install, |engine| {
         engine
             .newest_activities_owing_bodies(FIRST_USE_ACTIVITIES as usize, DETAIL_STREAM_TYPES_KEY)
@@ -2295,6 +2312,10 @@ async fn ready_newest_activities(
         None => Ok(()),
     }
 }
+
+#[cfg(test)]
+#[path = "tests/first_use_queue.rs"]
+mod first_use_queue_tests;
 
 /// Store the track, time series and stream series a fetched streams body
 /// carries, and attach the activity to the catalogue, so the activity opens
@@ -2609,6 +2630,10 @@ async fn sync_planned_activity_window(
             && delta != 0.0
             && eftp.is_finite()
             && delta.is_finite()
+            && record
+                .activity_type
+                .as_deref()
+                .is_some_and(crate::sport::is_cycling)
         {
             eftp_changes.push((
                 record.id.clone(),
@@ -4475,6 +4500,13 @@ mod tests {
     /// answered. `matches` runs after the path matcher, so a mock only ever
     /// notes a request that was going to it.
     fn mock_ordered_profile_slice(server: &MockServer) {
+        mock_ordered_profile_slice_with_activities(server, json!([]));
+    }
+
+    fn mock_ordered_profile_slice_with_activities(
+        server: &MockServer,
+        activities: serde_json::Value,
+    ) {
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1").matches(note_athlete);
             then.status(200).json_body(json!({"id": "i1", "name": "x"}));
@@ -4495,7 +4527,7 @@ mod tests {
             when.method(GET)
                 .path("/athlete/i1/activities")
                 .matches(note_activities);
-            then.status(200).json_body(json!([]));
+            then.status(200).json_body(activities);
         });
     }
 
@@ -4569,8 +4601,137 @@ mod tests {
         );
     }
 
-    /// The five's bodies come before the window behind them and every bulk
-    /// request, and the run still completes.
+    fn assert_first_use_across_windows(offsets: &[i64]) {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_first_use_rest_days.db");
+        let today = chrono::Local::now().date_naive();
+        let days: Vec<String> = offsets
+            .iter()
+            .map(|offset| (today - chrono::Duration::days(*offset)).to_string())
+            .collect();
+        let oldest = days.last().expect("days").clone();
+        let census: Vec<crate::net::types::ActivityCensusEntry> = days
+            .iter()
+            .enumerate()
+            .map(|(i, date)| crate::net::types::ActivityCensusEntry {
+                id: format!("r{i}"),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: true,
+                has_series: true,
+            })
+            .collect();
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine
+                .record_activity_census("i1", &census)
+                .expect("census");
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        let newest: Vec<_> = days
+            .iter()
+            .take(FIRST_USE_ACTIVITIES as usize)
+            .enumerate()
+            .map(|(i, day)| {
+                json!({"id": format!("r{i}"), "type": "Ride", "name": "Loop",
+                       "start_date_local": format!("{day}T08:30:00"), "distance": 9000.0})
+            })
+            .collect();
+        let first = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", oldest.clone())
+                .query_param("newest", today.to_string())
+                .query_param("limit", FIRST_USE_ACTIVITIES.to_string())
+                .matches(note_activities);
+            then.status(200).json_body(json!(newest));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path_matches(
+                httpmock::Regex::new(r"^/activity/r\d/streams\.json$").expect("pattern"),
+            );
+            let lat: Vec<f64> = (0..40).map(|i| 46.0 + i as f64 * 0.0005).collect();
+            let lng: Vec<f64> = (0..40).map(|i| 7.0 + i as f64 * 0.0005).collect();
+            let time: Vec<usize> = (0..40).collect();
+            then.status(200).json_body(json!([
+                {"type": "latlng", "data": lat, "data2": lng},
+                {"type": "time", "data": time},
+            ]));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_matches(httpmock::Regex::new(r"^/activity/r\d/intervals$").expect("pattern"));
+            then.status(200).json_body(json!({"icu_intervals": []}));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_matches(httpmock::Regex::new(r"^/activity/r\d$").expect("pattern"));
+            then.status(200).json_body(json!({
+                "icu_athlete_id": "i1", "start_date_local": format!("{}T08:30:00", days[0]),
+                "type": "Ride"
+            }));
+        });
+        mock_ordered_profile_slice(&server);
+        taken_requests();
+
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(SYNC_SERVICE.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &SYNC_SERVICE,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        SYNC_SERVICE.clear_credentials();
+
+        first.assert_hits(1);
+        let names = taken_request_order();
+        assert_eq!(
+            names.get(4),
+            Some(&format!("activities {oldest} limit {FIRST_USE_ACTIVITIES}")),
+            "first-use request crosses rest days: {names:?}"
+        );
+        for i in 0..FIRST_USE_ACTIVITIES {
+            let id = format!("r{i}");
+            crate::persistence::with_persistent_engine(|engine| {
+                assert!(engine.get_activity_body(&id).is_some(), "{id} detail");
+                assert!(
+                    engine
+                        .get_stream_body(&id, DETAIL_STREAM_TYPES_KEY)
+                        .expect("streams")
+                        .is_some(),
+                    "{id} streams"
+                );
+                assert!(engine.get_gps_track(&id).is_some(), "{id} track");
+                assert!(
+                    engine.get_interval_body(&id).expect("intervals").is_some(),
+                    "{id} intervals"
+                );
+            })
+            .expect("engine");
+        }
+    }
+
+    #[test]
+    fn first_use_readies_five_across_rest_days() {
+        assert_first_use_across_windows(&[0, 1, 3, 4, 6, 9]);
+    }
+
+    #[test]
+    fn first_use_readies_five_with_a_single_day_head() {
+        assert_first_use_across_windows(&[0, 2, 3, 5, 7, 9]);
+    }
+
+    #[test]
+    fn first_use_readies_five_with_a_collapsed_head() {
+        let offsets: Vec<i64> = (0..31).map(|i| i * 2).collect();
+        assert_first_use_across_windows(&offsets);
+    }
+
+    /// The five's bodies come before the window behind them and survive its
+    /// list rows when the run completes.
     #[test]
     fn a_first_launch_readies_the_five_before_any_bulk_request() {
         let _guard = crate::test_globals::serial_global_state();
@@ -4600,7 +4761,24 @@ mod tests {
         .expect("engine");
 
         let server = MockServer::start();
-        let landed: Vec<serde_json::Value> = (0..2)
+        let summary: Vec<serde_json::Value> = days
+            .iter()
+            .enumerate()
+            .map(|(i, date)| {
+                json!({"id": format!("r{i}"), "type": "Ride", "name": "Loop",
+                       "start_date_local": format!("{date}T08:30:00"),
+                       "icu_sync_date": format!("{date}T09:00:00Z")})
+            })
+            .collect();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", "2000-01-01")
+                .query_param_exists("fields")
+                .matches(note_activities);
+            then.status(200).json_body(json!(summary));
+        });
+        let landed: Vec<serde_json::Value> = (0..5)
             .map(|i| {
                 json!({"id": format!("r{i}"), "type": "Ride", "name": "Loop",
                        "start_date_local": format!("{}T08:30:00", days[i]),
@@ -4612,7 +4790,7 @@ mod tests {
                 .path("/athlete/i1/activities")
                 .query_param("limit", FIRST_USE_ACTIVITIES.to_string())
                 .matches(note_activities);
-            then.status(200).json_body(json!(landed));
+            then.status(200).json_body(json!(landed.clone()));
         });
         server.mock(|when, then| {
             when.method(GET)
@@ -4625,11 +4803,12 @@ mod tests {
                 .path_matches(httpmock::Regex::new(r"^/activity/r\d$").expect("pattern"))
                 .matches(note_activity_body);
             then.status(200).json_body(json!({
+                "id": "r0",
                 "icu_athlete_id": "i1",
                 "start_date_local": format!("{}T08:30:00", days[0]),
             }));
         });
-        mock_ordered_profile_slice(&server);
+        mock_ordered_profile_slice_with_activities(&server, json!(landed));
         taken_requests();
 
         SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
@@ -4653,12 +4832,17 @@ mod tests {
             .filter(|(_, n)| n.as_str() == "activity-body")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(bodies.len(), 6, "three bodies for each of two: {names:?}");
+        let early_bodies: Vec<_> = bodies.iter().filter(|i| **i < first_bulk).collect();
+        assert_eq!(
+            early_bodies.len(),
+            15,
+            "three bodies for each of five: {names:?}"
+        );
         assert!(
-            bodies.iter().all(|i| *i < first_bulk && *i > 4),
+            early_bodies.iter().all(|i| **i > 4),
             "after the newest rows, before the bulk window: {names:?}"
         );
-        for id in ["r0", "r1"] {
+        for id in ["r0", "r1", "r2", "r3", "r4"] {
             assert!(
                 crate::persistence::with_persistent_engine(|engine| engine.get_interval_body(id))
                     .expect("engine")
@@ -4666,6 +4850,11 @@ mod tests {
                     .is_some(),
                 "{id} opens with its laps"
             );
+            let raw =
+                crate::persistence::with_persistent_engine(|engine| engine.get_activity_body(id))
+                    .expect("engine")
+                    .expect("detail body");
+            assert!(raw.contains("icu_athlete_id"), "{id} opens with its detail");
         }
     }
 
@@ -5039,6 +5228,7 @@ mod tests {
                 "sport-settings".to_string(),
                 "wellness".to_string(),
                 "census".to_string(),
+                format!("activities {older} limit {FIRST_USE_ACTIVITIES}"),
                 format!("activities {newest}"),
                 format!("activities {older}"),
             ]
@@ -5106,6 +5296,10 @@ mod tests {
                 ),
                 ("wellness".to_string(), Some(FfiSyncStep::Wellness)),
                 ("census".to_string(), Some(FfiSyncStep::Census)),
+                (
+                    format!("activities {older} limit {FIRST_USE_ACTIVITIES}"),
+                    Some(FfiSyncStep::FirstActivities)
+                ),
                 (
                     format!("activities {newest}"),
                     Some(FfiSyncStep::Activities)
@@ -6206,6 +6400,12 @@ mod tests {
                 {"id": "moved", "type": "Ride", "name": "Hill repeats",
                  "start_date_local": "2025-01-15T08:30:00", "distance": 28400.0,
                  "icu_rolling_ftp": 367.0, "icu_rolling_ftp_delta": 20.0},
+                {"id": "run", "type": "Run", "name": "Track repeats",
+                 "start_date_local": "2025-01-15T09:30:00",
+                 "icu_rolling_ftp": 400.0, "icu_rolling_ftp_delta": 20.0},
+                {"id": "row", "type": "Rowing", "name": "Lake intervals",
+                 "start_date_local": "2025-01-15T10:30:00",
+                 "icu_rolling_ftp": 300.0, "icu_rolling_ftp_delta": 10.0},
                 {"id": "steady", "type": "Ride", "name": "Commute",
                  "start_date_local": "2025-01-16T08:30:00", "distance": 9000.0,
                  "icu_rolling_ftp": 367.0, "icu_rolling_ftp_delta": 0.0},
@@ -6228,6 +6428,12 @@ mod tests {
             &|| false,
         ))
         .expect("window");
+
+        crate::runtime::block_on(crate::persistence::with_persistent_engine_blocking(
+            |engine| engine.set_eftp_change("run", 1_736_931_400, 400.0, 20.0, "Track repeats"),
+        ))
+        .expect("engine")
+        .expect("old marker");
 
         let markers = crate::runtime::block_on(
             crate::persistence::with_persistent_engine_blocking(|engine| engine.eftp_changes()),

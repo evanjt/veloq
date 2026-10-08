@@ -196,6 +196,9 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
     // constructor is allowed to complete the run before it returns.
     let mut interrupted = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     interrupted.load().expect("load");
+    assert_eq!(interrupted.evidence_cache_decode_count(), 0);
+    assert!(interrupted.detection_owed());
+    assert_eq!(interrupted.evidence_cache_decode_count(), 0);
     assert_eq!(
         interrupted.evidence_cache_dirty_clusters(),
         2,

@@ -78,6 +78,7 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
     engine.revert_section_to_version(&id, 1).expect("pin");
     let history_before = engine.section_history(&id).len();
     assert!(history_before >= 2);
+    engine.backfill_section_coverage();
     drop(engine);
 
     // Write the id the clock would have minted, across every table, and

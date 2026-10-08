@@ -23,7 +23,6 @@ import {
   type PreviewPollStatus,
   type PreviewResult,
 } from 'veloqrs';
-import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import { createAwakeClock } from '@/shared/app/awakeClock';
 import { attemptEngineRead, engineErrorTag } from '@/shared/native/engineError';
 
@@ -44,7 +43,6 @@ export const PREVIEW_LAPSE_AFTER_MS = 45_000;
 
 export interface PreviewProgress {
   phase: string;
-  displayName: string;
   completed: number;
   total: number;
   percent: number;
@@ -122,7 +120,6 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     if (!p) return;
     setProgress({
       phase: p.phase,
-      displayName: getPhaseDisplayName(p.phase),
       completed: p.completed,
       total: p.total,
       percent: p.percent,

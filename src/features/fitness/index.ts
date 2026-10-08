@@ -54,4 +54,3 @@ export {
   type PrimarySport,
 } from './stores';
 export { resolveThresholdPace } from './lib/thresholdPace';
-export { currentAndPreviousWeek } from './lib/weekWindow';

@@ -36,9 +36,9 @@ jest.mock('@/features/activity/components/CombinedPlot', () => {
   const { View } = require('react-native');
   return { CombinedPlot: () => <View testID="combined-plot" /> };
 });
-const mockHRZonesChart = jest.fn((_props: { maxHR?: number }) => null);
+const mockHRZonesChart = jest.fn((_props: { maxHR?: number; movingTime: number }) => null);
 jest.mock('@/features/activity/components/HRZonesChart', () => ({
-  HRZonesChart: (props: { maxHR?: number }) => mockHRZonesChart(props),
+  HRZonesChart: (props: { maxHR?: number; movingTime: number }) => mockHRZonesChart(props),
 }));
 jest.mock('@/features/activity/components/PowerZonesChart', () => {
   const { View } = require('react-native');
@@ -66,6 +66,7 @@ const activity = {
   name: 'Morning ride',
   start_date_local: '2026-09-12T07:00:00',
   average_heartrate: 150,
+  moving_time: 4090,
 } as unknown as ActivityDetail;
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
@@ -97,5 +98,6 @@ it('gives the zones chart and the stat card the one max HR the screen read resol
   expect(mockHRZonesChart).toHaveBeenCalled();
   expect(mockInsightfulStats).toHaveBeenCalled();
   expect(mockHRZonesChart.mock.calls.every(([props]) => props.maxHR === 185)).toBe(true);
+  expect(mockHRZonesChart.mock.calls.every(([props]) => props.movingTime === 4090)).toBe(true);
   expect(mockInsightfulStats.mock.calls.every(([props]) => props.maxHR === 185)).toBe(true);
 });
