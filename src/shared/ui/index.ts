@@ -1,4 +1,4 @@
-export { Shimmer, ActivityCardSkeleton, ChartSkeleton, StatsPillSkeleton } from './Shimmer';
+export { Shimmer, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export { AnimatedPressable } from './AnimatedPressable';
@@ -27,6 +27,7 @@ export { SyncProgressStrip } from './SyncProgressStrip';
 export { SyncErrorBanner } from './SyncErrorBanner';
 export { EngineReadFailure } from './EngineReadFailure';
 export { EngineReadFailureRetry } from './EngineReadFailureRetry';
+export { BodyNotDownloaded } from './BodyNotDownloaded';
 export { TrackFetchNotice } from './TrackFetchNotice';
 export { TrackPreview, normaliseTrackPoints, type NormalisedPoint } from './TrackPreview';
 export { ShaderWarmup } from './ShaderWarmup';
@@ -43,4 +44,13 @@ export { ScreenScrollView, screenListInsets } from './ScreenScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
 export { pressable, pressRipple, PRESS_OPACITY } from './pressFeedback';
+export { CircleOptionRow, circleOptionSize } from './CircleOption';
+export type { CircleOption, CircleOptionRowProps } from './CircleOption';
 export { SearchBar, type SearchBarProps } from './SearchBar';
+export {
+  ExplanationCard,
+  type Explanation,
+  type ExplanationLink,
+  type ExplanationRow,
+} from './ExplanationCard';
+export { LanguageList } from './LanguageList';

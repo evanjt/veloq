@@ -33,7 +33,10 @@ jest.mock('@tanstack/react-query', () => ({
   }),
 }));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useIsOnline: () => true,
+}));
 
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ isDemoMode: false }),

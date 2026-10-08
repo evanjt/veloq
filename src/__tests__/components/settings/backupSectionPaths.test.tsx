@@ -7,6 +7,7 @@ import { BackupSection } from '@/features/settings/components/BackupSection';
 import { performBackup } from '@/features/settings/lib/autobackup';
 import {
   discardRecordImport,
+  discardUnplacedRecords,
   restoreRecordBackup,
   restoreDatabaseBackup,
   resumeRecordImport,
@@ -31,6 +32,17 @@ let mockWebdavUrl: string | null = null;
 let mockFolderName: string | null = null;
 let mockFailures: Record<string, { kind: string; status: number | null; at: number }> = {};
 let mockAutoEnabled = true;
+let mockDestinationStamps: Record<string, number> = {};
+let mockLocalBackups: unknown[] = [];
+const FOLDER_BACKUPS = [
+  {
+    id: 'veloq-2026-10-01T06-00-00-000Z.zip',
+    timestamp: '2026-10-01T06:00:00.000Z',
+    sizeBytes: 2048,
+    appVersion: '',
+  },
+];
+let mockFolderBackups: unknown[] = FOLDER_BACKUPS;
 const mockSetAutoEnabled = jest.fn();
 const mockPickFolder = jest.fn(async (): Promise<string | null> => null);
 const mockForgetFolder = jest.fn();
@@ -56,6 +68,9 @@ jest.mock('@/features/settings/lib/backup', () => ({
   restoreDatabaseBackup: jest.fn(),
   resumeRecordImport: jest.fn(async () => ({ placed: 2, unplaced: 0, missingActivityIds: [] })),
   discardRecordImport: jest.fn(async () => {}),
+  // Settings is reached signed in, so nothing is held for a sign-in.
+  importWaitsForSignIn: () => false,
+  discardUnplacedRecords: jest.fn(async () => {}),
 }));
 jest.mock('@/features/settings/components/ExportPrivacyRow', () => ({
   ExportPrivacyRow: () => null,
@@ -101,6 +116,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   isAutoBackupEnabled: () => mockAutoEnabled,
   setAutoBackupEnabled: (value: boolean) => mockSetAutoEnabled(value),
   getLastBackupTimestamp: () => null,
+  getDestinationLastBackup: (id: string) => mockDestinationStamps[id] ?? null,
   getUnplacedBackupRecords: async () => mockUnplaced(),
   getLastBackupFailure: () => null,
   getBackupFailures: () => mockFailures,
@@ -114,14 +130,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
     id: 'folder',
     name: 'Folder',
     isAvailable: async () => mockFolderName !== null,
-    listBackups: async () => [
-      {
-        id: 'veloq-2026-10-01T06-00-00-000Z.zip',
-        timestamp: '2026-10-01T06:00:00.000Z',
-        sizeBytes: 2048,
-        appVersion: '',
-      },
-    ],
+    listBackups: async () => mockFolderBackups,
     download: (id: string, path: string) => mockDownload(id, path),
   },
   failureMessageKey: (kind: string) =>
@@ -131,7 +140,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
     id: 'local',
     name: 'Local',
     isAvailable: async () => true,
-    listBackups: () => mockListBackups(),
+    listBackups: async () => mockLocalBackups,
     download: (id: string, path: string) => mockDownload(id, path),
   },
   webdavBackend: {
@@ -154,6 +163,9 @@ beforeEach(() => {
   mockFolderName = null;
   mockFailures = {};
   mockAutoEnabled = true;
+  mockDestinationStamps = {};
+  mockLocalBackups = [];
+  mockFolderBackups = FOLDER_BACKUPS;
   mockSetAutoEnabled.mockClear();
   mockPickFolder.mockReset();
   mockPickFolder.mockResolvedValue(null);
@@ -173,6 +185,7 @@ beforeEach(() => {
   (restoreDatabaseBackup as jest.Mock).mockReset();
   (resumeRecordImport as jest.Mock).mockClear();
   (discardRecordImport as jest.Mock).mockClear();
+  (discardUnplacedRecords as jest.Mock).mockClear();
 });
 
 afterEach(() => {
@@ -234,13 +247,29 @@ it('names the WebDAV server as the destination after Back Up Now', async () => {
   );
 });
 
-it('lists restored records still waiting for placement', async () => {
+it('shows records still waiting for placement as one line with their count', async () => {
+  mockUnplaced.mockReturnValue(
+    Array.from({ length: 114 }, () => ({
+      kind: 'section_history',
+      name: null,
+      reason: 'ground_not_detected',
+    }))
+  );
   render(<BackupSection />);
 
-  expect(await screen.findByText(/Alpine climb/)).toHaveTextContent(
-    /backup.unplacedActivityUnavailable/
-  );
-  expect(screen.getByText(/River bend/)).toHaveTextContent(/backup.unplacedGroundNotDetected/);
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+  expect(screen.getAllByText('backup.unplacedRecords:{"count":114}')).toHaveLength(1);
+  expect(screen.queryAllByText(/backup.unplacedGroundNotDetected/)).toHaveLength(0);
+  expect(screen.queryAllByText(/backup.unplacedHistory/)).toHaveLength(0);
+});
+
+it('names no waiting record on its own line', async () => {
+  render(<BackupSection />);
+
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+  expect(screen.getAllByText('backup.unplacedRecords:{"count":2}')).toHaveLength(1);
+  expect(screen.queryByText(/Alpine climb/)).toBeNull();
+  expect(screen.queryByText(/River bend/)).toBeNull();
 });
 
 it('collapses restored records waiting on an activity into one line, never one per record', async () => {
@@ -289,7 +318,7 @@ it('shows no bar when the sync is on another step', async () => {
 
 it('clears the waiting list after detection places the records', async () => {
   const view = render(<BackupSection />);
-  expect(await screen.findByText(/Alpine climb/)).toBeTruthy();
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   mockUnplaced.mockReturnValue([]);
   mockGeneration += 1;
@@ -314,7 +343,7 @@ it('reports when the waiting list cannot be read', async () => {
 
 it('refreshes the waiting list after importing a record archive', async () => {
   render(<BackupSection />);
-  expect(await screen.findByText(/Alpine climb/)).toBeTruthy();
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
   expect(mockUnplaced).toHaveBeenCalledTimes(1);
 
   await act(async () => {
@@ -327,7 +356,7 @@ it('refreshes the waiting list after importing a record archive', async () => {
 it('refreshes the waiting list after an import that failed', async () => {
   mockImportBackup.mockResolvedValueOnce(null as never);
   render(<BackupSection />);
-  expect(await screen.findByText(/Alpine climb/)).toBeTruthy();
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   await act(async () => {
     fireEvent.press(screen.getByTestId('backup-import-button'));
@@ -453,6 +482,65 @@ it('says so when the discard fails, and keeps the import paused', async () => {
   });
   expect(alert).toHaveBeenCalledWith('common.error', 'backup.discardImportError');
   expect(screen.getByTestId('backup-import-paused')).toBeTruthy();
+});
+
+/** The buttons of the one confirmation discarding the waiting records raised. */
+function discardWaitingButtons(alert: jest.SpyInstance): AlertButtons {
+  const call = alert.mock.calls.find(([title]) => title === 'backup.discardWaitingTitle');
+  expect(call).toBeDefined();
+  return call![2] as AlertButtons;
+}
+
+it('discards the waiting records only once the athlete confirms, then reads the list again', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<BackupSection />);
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+  });
+  expect(discardUnplacedRecords).not.toHaveBeenCalled();
+  const buttons = discardWaitingButtons(alert);
+  expect(buttons.map((button) => button.style)).toEqual(['cancel', 'destructive']);
+
+  mockUnplaced.mockReturnValue([]);
+  await act(async () => {
+    buttons[1].onPress?.();
+  });
+  expect(discardUnplacedRecords).toHaveBeenCalledTimes(1);
+  expect(discardRecordImport).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('backup-unplaced-records')).toBeNull();
+});
+
+it('keeps the waiting records when their discard is declined', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<BackupSection />);
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+  });
+  await act(async () => {
+    discardWaitingButtons(alert)[0].onPress?.();
+  });
+  expect(discardUnplacedRecords).not.toHaveBeenCalled();
+  expect(screen.getByTestId('backup-unplaced-records')).toBeTruthy();
+});
+
+it('says so when discarding the waiting records fails, and keeps them', async () => {
+  (discardUnplacedRecords as jest.Mock).mockRejectedValueOnce(new Error('disk I/O error'));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<BackupSection />);
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+  });
+  await act(async () => {
+    discardWaitingButtons(alert)[1].onPress?.();
+  });
+  expect(alert).toHaveBeenCalledWith('common.error', 'backup.discardWaitingError');
+  expect(screen.getByTestId('backup-unplaced-records')).toBeTruthy();
 });
 
 it('downloads and restores a selected archive from WebDAV', async () => {
@@ -615,6 +703,42 @@ describe('carriers', () => {
     expect(screen.getByTestId('backup-carrier-failed-folder')).toBeTruthy();
   });
 
+  it('says a WebDAV copy skipped offline was not written and goes once the device is online', async () => {
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    mockAutoEnabled = false;
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { webdav: { status: 'skipped', reason: 'no-radio' } },
+    });
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    expect(screen.getByTestId('backup-success-message')).not.toHaveTextContent(
+      /backup\.recordSavedWebdav/
+    );
+    const owed = screen.getByTestId('backup-carrier-owed-webdav');
+    expect(owed).toHaveTextContent(/backup\.carrierNotWritten/);
+    expect(owed).toHaveTextContent(/backup\.carrierSentWhenOnline/);
+  });
+
+  it('says nothing about a carrier that is not set up', async () => {
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { folder: { status: 'skipped', reason: 'unavailable' } },
+    });
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    expect(screen.queryByTestId('backup-carrier-owed-folder')).toBeNull();
+    expect(screen.queryByTestId('backup-carrier-failed-folder')).toBeNull();
+  });
+
   it('shows the chosen folder, and Remove clears only the folder', async () => {
     mockPickFolder.mockImplementation(async () => {
       mockFolderName = 'Records';
@@ -684,6 +808,100 @@ describe('carriers', () => {
       'veloq-2026-10-01T06-00-00-000Z.zip',
       expect.stringMatching(/restore-selected-\d+\.zip$/)
     );
+  });
+});
+
+describe('restoring with only the device backup', () => {
+  it('says the device backup comes back on a new phone rather than that nothing was found', async () => {
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    const message = screen.getByTestId('backup-none-found');
+    expect(message).toHaveTextContent(/^backup\.noBrowsableDestination/);
+    expect(message).not.toHaveTextContent(/backup\.noBackupsAtDestination/);
+    expect(mockListBackups).not.toHaveBeenCalled();
+  });
+
+  it('still lists older backups kept on this device', async () => {
+    mockLocalBackups = [
+      { id: 'older.zip', timestamp: '2026-03-01T10:00:00.000Z', sizeBytes: 1, appVersion: '' },
+    ];
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    expect(screen.getByTestId('backup-entry-local-older.zip')).toBeTruthy();
+    expect(screen.queryByTestId('backup-none-found')).toBeNull();
+  });
+
+  it.each([
+    ['WebDAV', () => (mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete')],
+    ['a folder', () => (mockFolderName = 'Records')],
+  ])('reports nothing found when %s is set up and empty', async (_name, setUp) => {
+    setUp();
+    mockListBackups.mockResolvedValueOnce([]);
+    mockFolderBackups = [];
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    expect(screen.getByTestId('backup-none-found')).toHaveTextContent(
+      /^backup\.noBackupsAtDestination/
+    );
+  });
+
+  it('says on the device backup row that it is restored when a new phone is set up', () => {
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-device')).toHaveTextContent(
+      /backup\.carrierDeviceRestore/
+    );
+  });
+});
+
+describe('each destination shows when it last received a backup', () => {
+  it('dates every destination that has received one', () => {
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    mockFolderName = 'Records';
+    mockDestinationStamps = {
+      device: Date.parse('2026-05-04T06:30:00Z'),
+      webdav: Date.parse('2026-05-03T06:30:00Z'),
+      folder: Date.parse('2026-05-02T06:30:00Z'),
+    };
+    render(<BackupSection />);
+
+    for (const id of ['device', 'webdav', 'folder']) {
+      expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
+        /^backup\.lastBackup:\{"date":".+"\}$/
+      );
+    }
+  });
+
+  it('says a set up destination has not received one yet', () => {
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    mockFolderName = 'Records';
+    render(<BackupSection />);
+
+    for (const id of ['device', 'webdav', 'folder']) {
+      expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
+        'backup.lastBackupNever'
+      );
+    }
+  });
+
+  it('shows no date on a destination that is not set up', () => {
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-last-device')).toBeTruthy();
+    expect(screen.queryByTestId('backup-carrier-last-webdav')).toBeNull();
+    expect(screen.queryByTestId('backup-carrier-last-folder')).toBeNull();
   });
 });
 

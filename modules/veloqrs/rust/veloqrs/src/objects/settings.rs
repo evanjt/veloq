@@ -60,18 +60,28 @@ pub struct SettingsManager {
     pub(crate) _private: (),
 }
 
+/// Write settings rows on their own connection, never behind the engine
+/// lock: a preference is written from the JavaScript thread, and the engine
+/// lock can be held for a whole sync batch.
+fn with_settings_writer<T>(
+    write: impl FnOnce(&rusqlite::Connection) -> rusqlite::Result<T>,
+) -> Result<T, VeloqError> {
+    crate::persistence::settings_conn::with_settings_conn(write)
+        .ok_or(VeloqError::NotInitialized)?
+        .map_err(|error| VeloqError::Database {
+            msg: format!("{}", error),
+        })
+}
+
 fn write_setting_and_start(
     key: &str,
     value: &str,
     start_backfill: impl FnOnce(),
 ) -> Result<(), VeloqError> {
-    with_engine(|engine| {
-        engine
-            .set_setting(key, value)
-            .map_err(|error| VeloqError::Database {
-                msg: format!("{}", error),
-            })
-    })??;
+    with_settings_writer(|conn| {
+        crate::persistence::settings::set_settings_on(conn, &[(key.to_string(), value.to_string())])
+            .map(|_| ())
+    })?;
     if key == crate::persistence::settings::settings_keys::DETECTION_ENABLED && value == "1" {
         start_backfill();
     }
@@ -213,15 +223,11 @@ impl SettingsManager {
     /// Set several user preferences in one transaction, skipping each pair
     /// whose value is already stored. Returns how many were written.
     fn set_settings(&self, pairs: Vec<SettingPair>) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            let owned: Vec<(String, String)> =
-                pairs.into_iter().map(|p| (p.key, p.value)).collect();
-            e.set_settings(&owned)
+        let owned: Vec<(String, String)> = pairs.into_iter().map(|p| (p.key, p.value)).collect();
+        with_settings_writer(|conn| {
+            crate::persistence::settings::set_settings_on(conn, &owned)
                 .map(|written| written as u32)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
+        })
     }
 
     /// Hand the engine the notification templates for the locale the app is
@@ -340,11 +346,7 @@ impl SettingsManager {
 
     /// Delete a single user preference.
     fn delete_setting(&self, key: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.delete_setting(&key).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
-        })?
+        with_settings_writer(|conn| crate::persistence::settings::delete_setting_on(conn, &key))
     }
 }
 
@@ -454,6 +456,128 @@ mod tests {
                 .unwrap()
                 .activity_year_counts
                 .is_empty()
+        );
+    }
+
+    /// Run `write` on its own thread while another thread holds the engine
+    /// write lock, and answer whether it returned before that lock was let go.
+    /// The holder lets go once the write returns or the hang guard runs out,
+    /// so a write that waits on the lock fails here rather than hanging.
+    fn returns_while_the_engine_is_held(write: impl FnOnce() + Send + 'static) -> bool {
+        const HANG_GUARD: std::time::Duration = std::time::Duration::from_secs(10);
+        let (held_tx, held_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            crate::persistence::with_persistent_engine(|_| {
+                held_tx.send(()).unwrap();
+                let _ = release_rx.recv_timeout(HANG_GUARD);
+            })
+        });
+        held_rx.recv().unwrap();
+
+        let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+        let writer = std::thread::spawn(move || {
+            write();
+            let _ = done_tx.send(());
+        });
+        let returned = done_rx.recv_timeout(HANG_GUARD).is_ok();
+        let _ = release_tx.send(());
+        holder.join().unwrap();
+        writer.join().unwrap();
+        returned
+    }
+
+    /// Scenario: the athlete flips a preference, such as a card's 3D switch,
+    /// while a sync or a detection run holds the engine write lock for as long
+    /// as its batch takes.
+    ///
+    /// Expected behaviour: every settings write returns while the lock is still
+    /// held, and lands. A preference is a row no engine state mirrors, so the
+    /// write has no reason to queue behind the engine, and on the JavaScript
+    /// thread queuing is a frozen screen for the whole length of the batch.
+    #[test]
+    fn settings_writes_do_not_wait_for_the_engine_lock() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings_off_the_lock.db");
+
+        assert!(
+            returns_while_the_engine_is_held(|| {
+                SettingsManager::new()
+                    .set_settings(vec![SettingPair {
+                        key: "overrides".into(),
+                        value: "{\"a1\":{\"terrain3D\":false}}".into(),
+                    }])
+                    .unwrap();
+            }),
+            "a batch write waited for the engine lock"
+        );
+        assert!(
+            returns_while_the_engine_is_held(|| {
+                SettingsManager::new()
+                    .set_setting("theme".into(), "dark".into())
+                    .unwrap();
+            }),
+            "a single write waited for the engine lock"
+        );
+
+        let settings = SettingsManager::new();
+        assert_eq!(
+            settings.get_setting("overrides".into()).unwrap().as_deref(),
+            Some("{\"a1\":{\"terrain3D\":false}}")
+        );
+        assert_eq!(
+            settings.get_setting("theme".into()).unwrap().as_deref(),
+            Some("dark")
+        );
+
+        assert!(
+            returns_while_the_engine_is_held(|| {
+                SettingsManager::new()
+                    .delete_setting("theme".into())
+                    .unwrap();
+            }),
+            "a delete waited for the engine lock"
+        );
+        assert_eq!(settings.get_setting("theme".into()).unwrap(), None);
+        assert_eq!(
+            crate::persistence::with_persistent_engine(|e| e.get_setting("overrides").unwrap())
+                .flatten()
+                .as_deref(),
+            Some("{\"a1\":{\"terrain3D\":false}}"),
+            "the engine's own connection sees the write"
+        );
+    }
+
+    /// Scenario: another connection holds a write transaction for a moment
+    /// when a preference is written.
+    ///
+    /// Expected behaviour: the write waits for it and lands, rather than
+    /// failing at once with the database busy and leaving SQLite on the old
+    /// value, which is the one the next launch reads.
+    #[test]
+    fn a_settings_write_waits_out_a_short_write_on_another_connection() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("settings_busy.db");
+        let path = tmp.path().join("settings_busy.db");
+
+        let other = rusqlite::Connection::open(&path).unwrap();
+        other.execute_batch("BEGIN IMMEDIATE").unwrap();
+        let committer = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            other.execute_batch("COMMIT").unwrap();
+        });
+
+        let settings = SettingsManager::new();
+        settings
+            .set_settings(vec![SettingPair {
+                key: "language".into(),
+                value: "fr".into(),
+            }])
+            .unwrap();
+        committer.join().unwrap();
+        assert_eq!(
+            settings.get_setting("language".into()).unwrap().as_deref(),
+            Some("fr")
         );
     }
 

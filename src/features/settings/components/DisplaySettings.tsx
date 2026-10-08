@@ -1,25 +1,19 @@
 import React, { memo } from 'react';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { type PrimarySport } from '@/features/fitness';
-import {
-  getAvailableLanguages,
-  languageLabel,
-  isEnglishVariant,
-  getEnglishVariantValue,
-  isLanguageVariant,
-} from '@/shared/app/LanguageStore';
+import { languageLabel } from '@/shared/app/LanguageStore';
 import { type ThemePreference } from '@/shared/app/ThemeProvider';
 import {
   type UnitPreference,
   type IntervalsUnitPreferences,
   getIntervalsUnitSystem,
 } from '@/shared/app/UnitPreferenceStore';
-import { ToggleButtonRow, pressable, pressRipple } from '@/shared/ui';
+import { LanguageList, ToggleButtonRow } from '@/shared/ui';
 
 // LanguageChoice from useLanguageStore (always a string now, no System option)
 type LanguageChoice = string;
@@ -49,7 +43,6 @@ function DisplaySettingsComponent({
 }: DisplaySettingsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const availableLanguages = getAvailableLanguages();
 
   const currentLanguageLabel = languageLabel(language).label;
 
@@ -150,112 +143,8 @@ function DisplaySettingsComponent({
         >
           {currentLanguageLabel}
         </Text>
-        {(language === 'en-AU' || language === 'de-CH') && (
-          <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
-            <Text style={[styles.dialectLegendText, isDark && settingsStyles.textSecondary]}>
-              {t('settings.dialect')}
-            </Text>
-          </View>
-        )}
       </View>
-      <View>
-        {availableLanguages.flatMap((group, groupIndex) =>
-          group.languages.map((lang, langIndex) => {
-            const index = groupIndex * 100 + langIndex;
-            const isSelected = language === lang.value;
-            const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
-            const showCheck = isSelected || isVariantOfThisLanguage;
-
-            return (
-              <View
-                key={lang.value}
-                style={[
-                  styles.languageRow,
-                  index > 0 && styles.languageRowBorder,
-                  isDark && styles.languageRowDark,
-                ]}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={lang.label}
-                  accessibilityState={{
-                    selected: isSelected || isVariantOfThisLanguage,
-                  }}
-                  onPress={() => {
-                    // For languages with variants, use the defaultVariant (or first variant)
-                    const valueToUse =
-                      lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
-                    onLanguageChange(valueToUse);
-                  }}
-                  style={pressable(styles.languageLabelContainer)}
-                  android_ripple={pressRipple}
-                >
-                  <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
-                    {lang.label}
-                  </Text>
-                </Pressable>
-                {lang.variants && (
-                  <View style={styles.variantChips}>
-                    {lang.variants.map((variant) => {
-                      const isVariantSelected =
-                        language === variant.value ||
-                        (lang.value === 'en' &&
-                          isEnglishVariant(language) &&
-                          getEnglishVariantValue(language) === variant.value);
-                      return (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={variant.label}
-                          accessibilityState={{ selected: isVariantSelected }}
-                          key={variant.value}
-                          style={pressable([
-                            styles.variantChip,
-                            isDark && styles.variantChipDark,
-                            // Non-selected dialect: gold dotted border
-                            variant.isDialect && !isVariantSelected && styles.variantChipDialect,
-                            variant.isDialect &&
-                              !isVariantSelected &&
-                              isDark &&
-                              styles.variantChipDialectDark,
-                            // Selected: teal background
-                            isVariantSelected && styles.variantChipSelected,
-                            isVariantSelected && isDark && styles.variantChipSelectedDark,
-                            // Selected dialect: keep gold dotted border with teal background
-                            variant.isDialect &&
-                              isVariantSelected &&
-                              styles.variantChipDialectSelected,
-                            variant.isDialect &&
-                              isVariantSelected &&
-                              isDark &&
-                              styles.variantChipDialectSelectedDark,
-                          ])}
-                          android_ripple={pressRipple}
-                          onPress={() => {
-                            onLanguageChange(variant.value);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.variantChipText,
-                              isVariantSelected && styles.variantChipTextSelected,
-                              isDark && !isVariantSelected && settingsStyles.textSecondary,
-                            ]}
-                          >
-                            {variant.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-                {showCheck && !lang.variants && (
-                  <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-                )}
-              </View>
-            );
-          })
-        )}
-      </View>
+      <LanguageList language={language} onSelect={onLanguageChange} />
     </>
   );
 
@@ -344,92 +233,6 @@ const styles = StyleSheet.create({
   },
   dividerDark: {
     backgroundColor: darkColors.border,
-  },
-  languageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  languageRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  languageRowDark: {
-    borderTopColor: darkColors.border,
-  },
-  languageLabelContainer: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-  },
-  languageLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  variantChips: {
-    flexDirection: 'row',
-    gap: spacing.xsPlus,
-    marginLeft: 'auto',
-  },
-  variantChip: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm + 4,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  variantChipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  variantChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  variantChipSelectedDark: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  variantChipDialect: {
-    borderColor: brand.gold,
-  },
-  variantChipDialectDark: {
-    borderColor: brand.goldLight,
-  },
-  variantChipDialectSelected: {
-    borderColor: brand.gold,
-    borderWidth: 2,
-  },
-  variantChipDialectSelectedDark: {
-    borderColor: brand.goldLight,
-    borderWidth: 2,
-  },
-  variantChipText: {
-    ...typography.bodyCompact,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  variantChipTextSelected: {
-    color: colors.textOnPrimary,
-  },
-  dialectLegendChip: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm + 4,
-    borderWidth: 1.5,
-    borderColor: brand.gold,
-    backgroundColor: colors.background,
-    marginRight: spacing.sm,
-  },
-  dialectLegendChipDark: {
-    borderColor: brand.goldLight,
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  dialectLegendText: {
-    ...typography.captionBold,
-    color: colors.textSecondary,
   },
   embeddedHint: {
     ...typography.caption,

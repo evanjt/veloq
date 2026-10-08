@@ -1,13 +1,15 @@
 /**
  * The one place a running sync reports its step.
  *
- * It floats over the page just above the tab bar, so showing or hiding it
- * moves nothing underneath. The mark turns slowly, the text line has a fixed
- * height and the steps cross-fade inside it, so a new message never changes
- * the strip's size or position.
+ * A slim pill in the app colour, centred just under the top safe-area inset so
+ * it clears the camera cutout and the status bar. It floats over the page and
+ * passes touches through, so showing or hiding it moves nothing underneath. The
+ * mark turns slowly, the line holds one row with the label giving way before
+ * the counts, and each step stays on screen for a minimum time and cross-fades
+ * into the next, so a burst of quick steps reads as a few calm changes.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
@@ -20,6 +22,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SyncState } from 'veloqrs';
 
@@ -27,15 +30,48 @@ import { useTheme } from '@/shared/app';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
-import { colorWithOpacity, colors, darkColors, spacing, typography } from '@/theme';
+import { colorWithOpacity, colors, darkColors, layout, spacing, typography } from '@/theme';
 
 const MARK_SIZE = typography.bodyCompact.lineHeight;
 const TURN_MS = 2400;
-const FADE_IN_MS = 400;
-const FADE_OUT_MS = 250;
+const FADE_IN_MS = 700;
+const FADE_OUT_MS = 500;
 
-/** One text line, so it fits the fade zone above the tab bar's icons. */
-export const SYNC_STRIP_HEIGHT = typography.bodyCompact.lineHeight;
+/** The least time one step's line stays on screen before the next replaces it. */
+export const SYNC_MESSAGE_HOLD_MS = 1500;
+
+interface SyncLine {
+  label: string;
+  counts: string | null;
+}
+
+/**
+ * The line to draw, held for `SYNC_MESSAGE_HOLD_MS` before a new step, or the
+ * end of the sync, replaces it. Steps that arrive inside the hold are skipped
+ * for the latest one. A new count inside the same step follows at once, since
+ * it moves the same line on rather than replacing it.
+ */
+function useHeldLine(latest: SyncLine | null): SyncLine | null {
+  const [shown, setShown] = useState<SyncLine | null>(null);
+  // Whether the shown step has had its time, so the next one may replace it.
+  const [free, setFree] = useState(true);
+
+  const label = latest?.label ?? null;
+  const shownLabel = shown?.label ?? null;
+
+  if (label !== shownLabel && (free || shownLabel === null)) {
+    setShown(latest);
+    setFree(latest === null);
+  }
+
+  useEffect(() => {
+    if (free) return undefined;
+    const timer = setTimeout(() => setFree(true), SYNC_MESSAGE_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [shownLabel, free]);
+
+  return label === shownLabel ? latest : shown;
+}
 
 function SyncMark({ color }: { color: string }) {
   const reduceMotion = useReducedMotion();
@@ -68,45 +104,51 @@ function SyncMark({ color }: { color: string }) {
 export function SyncProgressStrip() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const status = useSyncStatus();
 
   const syncing = status?.state === SyncState.Syncing;
-  useAnnounceOnAppear(syncing ? (t('settings.syncActivities') as string) : null);
+  const line = useHeldLine(syncing ? formatSyncProgressParts(status, t) : null);
+  useAnnounceOnAppear(line ? (t('settings.syncActivities') as string) : null);
 
-  if (!syncing) return null;
+  if (!line) return null;
 
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const { label, counts } = formatSyncProgressParts(status, t);
+  const fill = (isDark ? darkColors : colors).appColourPillBackground;
+  const ink = colors.textOnDark;
+  const { label, counts } = line;
 
   return (
     <View
       testID="sync-progress-strip"
-      style={styles.strip}
+      style={[styles.strip, { top: insets.top + spacing.xs }]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
     >
-      <SyncMark color={textSecondary} />
-      <View testID="sync-progress-line" style={styles.line}>
-        <Animated.Text
-          key={label}
-          entering={FadeIn.duration(FADE_IN_MS)}
-          exiting={FadeOut.duration(FADE_OUT_MS)}
-          style={[styles.text, { color: textSecondary }]}
-          numberOfLines={1}
-          testID="sync-progress-message"
-        >
-          {label}
-        </Animated.Text>
+      <View testID="sync-progress-pill" style={[styles.pill, { backgroundColor: fill }]}>
+        <SyncMark color={ink} />
+        <View testID="sync-progress-line" style={styles.line}>
+          <Animated.Text
+            key={label}
+            entering={FadeIn.duration(FADE_IN_MS)}
+            exiting={FadeOut.duration(FADE_OUT_MS)}
+            style={[styles.text, { color: ink }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            testID="sync-progress-message"
+          >
+            {label}
+          </Animated.Text>
+        </View>
+        {counts !== null && (
+          <Animated.Text
+            style={[styles.text, styles.counts, { color: ink }]}
+            numberOfLines={1}
+            testID="sync-progress-counts"
+          >
+            {counts}
+          </Animated.Text>
+        )}
       </View>
-      {counts !== null && (
-        <Animated.Text
-          style={[styles.text, styles.counts, { color: textSecondary }]}
-          numberOfLines={1}
-          testID="sync-progress-counts"
-        >
-          {counts}
-        </Animated.Text>
-      )}
     </View>
   );
 }
@@ -114,15 +156,19 @@ export function SyncProgressStrip() {
 const styles = StyleSheet.create({
   strip: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: SYNC_STRIP_HEIGHT,
+    left: spacing.md,
+    right: spacing.md,
+    zIndex: 1000,
+    alignItems: 'center',
+  },
+  pill: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusFull,
   },
   mark: {
     width: MARK_SIZE / 1.5,
@@ -134,16 +180,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     height: typography.bodyCompact.lineHeight,
     justifyContent: 'center',
-    // Wide enough for the longest step line, so the mark and counts keep still.
-    minWidth: '55%',
   },
   text: {
     fontSize: typography.bodyCompact.fontSize,
     lineHeight: typography.bodyCompact.lineHeight,
   },
   counts: {
+    flexShrink: 0,
     fontVariant: ['tabular-nums'],
-    minWidth: spacing.xxl + spacing.lg,
-    textAlign: 'right',
   },
 });

@@ -58,11 +58,12 @@ const SPELLING = [
   'settings.reanalyzeSections',
   'settings.unitsMetricHint',
   'whatsNew.v022.fitnessBody',
-  'whatsNew.v030.insightsBody',
   'whatsNew.v030.strengthBody',
   'whatsNew.v040.recutFailedAfterApply',
   'whatsNew.v040.recutRunning',
   'whatsNew.v040.recutRunningPhase',
+  'whatsNew.v040.sectionPageLine',
+  'whatsNew.v040.sectionPageTip',
 ];
 
 /** Different words for the same thing, or a different register. */

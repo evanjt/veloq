@@ -129,6 +129,8 @@ interface UseGroupSummariesOptions {
   minActivities?: number;
   /** Sort order - 'count' (default) or 'name' (alphabetical by groupId) */
   sortBy?: 'count' | 'name';
+  /** Whether to run the hook (default: true). When false, skips FFI calls and returns empty defaults. */
+  enabled?: boolean;
 }
 
 interface UseGroupSummariesResult {
@@ -146,10 +148,11 @@ interface UseGroupSummariesResult {
  * Data is queried fresh from Rust/SQLite on each render.
  */
 export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGroupSummariesResult {
-  const { minActivities = 2, sortBy = 'count' } = options;
+  const { minActivities = 2, sortBy = 'count', enabled = true } = options;
   const readGroups = useEngineRead(['groups']);
 
   return useMemo(() => {
+    if (!enabled) return { totalCount: 0, summaries: [] };
     try {
       const engine = readGroups((open) => open);
       if (!engine) return { totalCount: 0, summaries: [] };
@@ -159,7 +162,7 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
     } catch (error) {
       return { totalCount: 0, summaries: [], error };
     }
-  }, [readGroups, minActivities, sortBy]);
+  }, [readGroups, minActivities, sortBy, enabled]);
 }
 
 // ============================================================================

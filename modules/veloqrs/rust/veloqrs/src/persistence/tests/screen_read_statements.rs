@@ -238,7 +238,7 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         (
             "startup_data",
             Box::new(move |_, e| {
-                consume(e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[], NOW))
+                consume(e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[]))
             }),
         ),
         (

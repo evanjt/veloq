@@ -63,6 +63,13 @@ describe('route engine hooks', () => {
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
+  it('useGroupSummaries reads nothing while disabled', () => {
+    const { result } = renderHook(() => useGroupSummaries({ enabled: false }));
+    expect(engine.getFilteredGroupSummaries).not.toHaveBeenCalled();
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.summaries).toEqual([]);
+  });
+
   it('useSectionDetail reports a thrown read rather than not found', () => {
     const { result } = renderHook(() => useSectionDetail('s1'));
     expect(result.current.section).toBeNull();

@@ -8,15 +8,23 @@ import {
   isOAuthConfigured,
   getAppRedirectUri,
   recordGrantedScope,
+  oauthFailureKey,
   OAUTH,
 } from '@/features/auth';
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import { clearPermissionBlocked } from '@/features/recording/lib/storage/recordingLibrary';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('PermissionUpgrade');
 
+/** How one upgrade ended: `error` is null when it was granted or cancelled. */
+export interface PermissionUpgradeResult {
+  granted: boolean;
+  error: string | null;
+}
+
 export interface UsePermissionUpgrade {
-  upgradePermissions: () => Promise<boolean>;
+  upgradePermissions: () => Promise<PermissionUpgradeResult>;
   isUpgrading: boolean;
   error: string | null;
 }
@@ -25,11 +33,22 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
   const { t } = useTranslation();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isOnline = useIsOnline();
 
-  const upgradePermissions = useCallback(async (): Promise<boolean> => {
+  const upgradePermissions = useCallback(async (): Promise<PermissionUpgradeResult> => {
+    const fail = (message: string): PermissionUpgradeResult => {
+      setError(message);
+      return { granted: false, error: message };
+    };
+
     if (!isOAuthConfigured()) {
-      setError(t('login.oauthNotConfigured', { defaultValue: 'OAuth is not configured' }));
-      return false;
+      return fail(t('login.oauthNotConfigured', { defaultValue: 'OAuth is not configured' }));
+    }
+
+    // The flow registers with the proxy before the browser opens, so offline
+    // it can only fail, and what it fails with is the platform's English.
+    if (!isOnline) {
+      return fail(t('login.oauthUnreachable'));
     }
 
     setIsUpgrading(true);
@@ -41,16 +60,14 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
       if (result.type === 'success' && result.url) {
         const expectedPrefix = getAppRedirectUri();
         if (!result.url.startsWith(expectedPrefix)) {
-          setError(t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback' }));
-          return false;
+          return fail(t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback' }));
         }
 
         const tokenResponse = await handleOAuthCallback(result.url);
         const currentAthleteId = useAuthStore.getState().athleteId;
         const consentedAthleteId = String(tokenResponse.athlete_id);
         if (consentedAthleteId !== currentAthleteId) {
-          setError(`${t('alerts.accountChangeTitle')} (${consentedAthleteId})`);
-          return false;
+          return fail(`${t('alerts.accountChangeTitle')} (${consentedAthleteId})`);
         }
         await useAuthStore
           .getState()
@@ -64,32 +81,29 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         // string means write was NOT confirmed, regardless of what we asked for.
         const granted = recordGrantedScope(tokenResponse.scope);
 
-        if (granted) {
-          // Requeue this athlete's permission-blocked entries, and nobody
-          // else's; the queue processor re-drains when needsUpgrade flips false.
-          await clearPermissionBlocked(consentedAthleteId);
-          log.log('Successfully upgraded to write scope');
-        } else {
-          setError(
+        if (!granted) {
+          return fail(
             t('recording.writeScopeNotGranted', {
               defaultValue: 'Write permission was not granted',
             })
           );
         }
-        return granted;
+        // Requeue this athlete's permission-blocked entries, and nobody
+        // else's; the queue processor re-drains when needsUpgrade flips false.
+        await clearPermissionBlocked(consentedAthleteId);
+        log.log('Successfully upgraded to write scope');
+        return { granted: true, error: null };
       }
 
       // User cancelled - preserve API key auth
-      return false;
+      return { granted: false, error: null };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'OAuth failed';
-      setError(msg);
-      log.warn(`Permission upgrade failed: ${msg}`);
-      return false;
+      log.warn(`Permission upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+      return fail(t(oauthFailureKey(err)));
     } finally {
       setIsUpgrading(false);
     }
-  }, [t]);
+  }, [t, isOnline]);
 
   return { upgradePermissions, isUpgrading, error };
 }

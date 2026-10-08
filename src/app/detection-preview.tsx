@@ -2,9 +2,10 @@
  * Detection preview: test new section settings on one riding area before
  * applying them everywhere. The screen opens on the live catalogue for the
  * chosen area, so the map shows what the detector holds today. The five
- * sliders are pure local state; nothing is cut until the Preview button runs a
- * sandboxed detect against that catalogue, and only Keep writes the config and
- * re-analyses the library.
+ * sliders are local state, and releasing one runs a sandboxed detect against
+ * that catalogue, superseding a run still going. The Preview button runs the
+ * same detect on demand, for the first look at an area and for a retry after a
+ * refusal. Only Keep writes the config and re-analyses the library.
  *
  * The column itself does not scroll. Tuning a slider you cannot see the map for
  * defeats the screen, so the map and the controls share one fixed column. That
@@ -67,7 +68,7 @@ function DetectionPreviewScreenContent() {
 
   const client = useMemo(() => getEngine(), []);
   const { centres, labels, error: centresReadError } = usePreviewCentres(client);
-  const { status, progress, result, refusal, lapsed, start, cancel, reset } =
+  const { status, progress, result, refusal, lapsed, start, request, cancel, reset } =
     usePreviewDetect(client);
   const phaseKey = progress ? getPhaseDisplayKey(progress.phase) : null;
   // The preview is a settings sandbox: it loads a subset, runs the detector to
@@ -160,6 +161,17 @@ function DetectionPreviewScreenContent() {
     setSelected(null);
     start(selectedCentre.lat, selectedCentre.lng, params);
   }, [selectedCentre, running, start, params]);
+
+  // A settled value regenerates on its own. The sliders stay live during a
+  // run, so a release mid-run supersedes it rather than waiting on it.
+  const handleCommit = useCallback(
+    (next: PreviewParams) => {
+      if (!selectedCentre) return;
+      setSelected(null);
+      request(selectedCentre.lat, selectedCentre.lng, next);
+    },
+    [selectedCentre, request]
+  );
 
   const handleKeep = useCallback(() => {
     Alert.alert(t('settings.previewKeepTitle'), t('settings.previewKeepWarning'), [
@@ -257,7 +269,7 @@ function DetectionPreviewScreenContent() {
           />
         </View>
 
-        <PreviewParamPanel params={params} onChange={setParams} disabled={running} />
+        <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
 
         {result && <PreviewDiffStrip counts={result.counts} />}
 

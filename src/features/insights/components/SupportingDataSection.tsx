@@ -21,6 +21,7 @@ import {
   verdictFill,
 } from '@/theme';
 import { DataPointRow } from './DataPointRow';
+import { InsightSeriesChart } from './InsightSeriesChart';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
@@ -116,6 +117,11 @@ function buildSparklineAreaPath(
   return `${linePath} L ${lastX} ${height} L 0 ${height} Z`;
 }
 
+/** A series that carries no unit of its own prints its value bare, as precise as its range needs. */
+function formatSeriesValue(value: number, decimals: number): string {
+  return value.toFixed(decimals);
+}
+
 export const SupportingDataSection = React.memo(function SupportingDataSection({
   data,
 }: SupportingDataSectionProps) {
@@ -125,12 +131,15 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const dataPoints = data.dataPoints?.length ? data.dataPoints : null;
   const history = data.history?.kind === 'line' ? null : data.history;
   const points = history?.series[0]?.points;
-  const sparkline =
-    points && points.length >= 3
-      ? points.map((point) => point.value)
-      : data.sparklineData && data.sparklineData.length >= 3
-        ? data.sparklineData
-        : null;
+  const samples = useMemo(
+    () =>
+      points && points.length >= 3
+        ? points
+        : data.sparklineData && data.sparklineData.length >= 3
+          ? data.sparklineData.map((value) => ({ value }))
+          : null,
+    [points, data.sparklineData]
+  );
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
 
@@ -149,20 +158,19 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         ? dataPoints.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
         : null}
 
-      {/* Sparkline - Skia Canvas with gradient fill */}
-      {sparkline ? (
+      {samples ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
-          <View style={styles.sparklineHeader}>
-            {history?.series[0]?.label || data.sparklineLabel ? (
-              <Text style={[styles.sparklineLabel, isDark && styles.sparklineLabelDark]}>
-                {history?.series[0]?.label ?? data.sparklineLabel}
-              </Text>
-            ) : null}
-            {trendGlyph && trendGlyph !== 'minus' ? (
-              <MaterialCommunityIcons name={trendGlyph} size={18} color={trendColor} />
-            ) : null}
-          </View>
-          <SparklineChart data={sparkline} color={trendColor} />
+          <InsightSeriesChart
+            samples={samples}
+            title={history?.series[0]?.label ?? data.sparklineLabel ?? ''}
+            color={trendColor}
+            formatValue={formatSeriesValue}
+            accessory={
+              trendGlyph && trendGlyph !== 'minus' ? (
+                <MaterialCommunityIcons name={trendGlyph} size={18} color={trendColor} />
+              ) : null
+            }
+          />
         </View>
       ) : null}
 
@@ -347,19 +355,6 @@ const styles = StyleSheet.create({
   },
   sparklineCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  sparklineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  sparklineLabel: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  sparklineLabelDark: {
-    color: darkColors.textSecondary,
   },
   // Comparison
   comparisonCard: {

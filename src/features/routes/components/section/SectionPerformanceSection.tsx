@@ -8,6 +8,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { PerformanceChartPanel } from './PerformanceChartPanel';
+import { SectionStreamsNotice } from './SectionStreamsNotice';
 import { ExcludedActivitiesToggle } from './SectionScatterChart';
 import type {
   DirectionBestRecord,
@@ -20,12 +21,26 @@ import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import { ChipSelector, Shimmer, EngineReadFailureRetry } from '@/shared/ui';
 import { FLOW_EXPAND, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
+import type { UseSectionTimeStreamSyncResult } from '@/features/routes/hooks/useSectionPerformances';
 
 /** Where the time streams the section's lap times depend on stand. */
 export type SectionStreamsState =
   | { status: 'ready'; onRetry: () => void }
   | { status: 'loading'; onRetry: () => void }
+  /** The wait ended with streams missing: the efforts read are a partial set. */
+  | { status: 'partial'; outstanding: number; onRetry: () => void }
   | { status: 'failed'; error: unknown; onRetry: () => void };
+
+/** The stream state a section screen draws from its time-stream sync. */
+export function sectionStreamsState(
+  sync: Pick<UseSectionTimeStreamSyncResult, 'ready' | 'error' | 'outstanding' | 'refetch'>
+): SectionStreamsState {
+  const onRetry = sync.refetch;
+  if (sync.error) return { status: 'failed', error: sync.error, onRetry };
+  if (!sync.ready) return { status: 'loading', onRetry };
+  if (sync.outstanding > 0) return { status: 'partial', outstanding: sync.outstanding, onRetry };
+  return { status: 'ready', onRetry };
+}
 
 export const PERFORMANCE_PLACEHOLDER_HEIGHT = 120;
 
@@ -131,6 +146,13 @@ export function SectionPerformanceSection({
       <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
         {t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod')}
       </Text>
+      {streams?.status === 'partial' ? (
+        <SectionStreamsNotice
+          isDark={isDark}
+          outstanding={streams.outstanding}
+          onRetry={streams.onRetry}
+        />
+      ) : null}
       {hasEfforts ? (
         <PerformanceChartPanel
           chartData={chartData}
@@ -167,7 +189,7 @@ export function SectionPerformanceSection({
           error={streams.error}
           onRetry={streams.onRetry}
         />
-      ) : (
+      ) : streams?.status === 'partial' ? null : (
         <View testID="section-performance-empty" style={styles.emptyState}>
           {/* Every attempt excluded leaves no chart to carry the eye, so it stays here. */}
           {hasExcluded && onToggleShowExcluded && (

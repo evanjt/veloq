@@ -61,13 +61,13 @@ export { useRangeActivities } from './hooks/useActivities';
 export { FeedFilterChips } from './components/FeedFilterChips';
 export { storableTimeStreams } from '@/shared/demo/activity/streams';
 export { ESTIMATED_SEARCH_SECTION_HEIGHT, searchOffsetCorrection } from './lib/feedSearchOffset';
+export { CARD_MARGIN } from './lib/cardLayout';
 export type { FeedGroup } from './lib/feedActivityGroups';
 export { groupSectionEncounters, sectionRowLabels } from './lib/groupSectionEncounters';
 export { decouplingSource, storedDecoupling } from './lib/decoupling';
 export type { DecouplingSource } from './lib/decoupling';
 export type { SectionEncounterGroup } from './lib/groupSectionEncounters';
 export { setVisibleRange } from './lib/previewRange';
-export { ringsLeavingView } from './lib/ringsLeavingView';
 
 export type { ActivityType } from './types';
 

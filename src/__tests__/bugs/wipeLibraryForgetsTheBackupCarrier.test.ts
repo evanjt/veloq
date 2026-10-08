@@ -740,6 +740,12 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'it holds no athlete data, and it cancels itself when the last widget is removed',
   },
   {
+    where: 'the periodic widget data refresh, a WorkManager schedule on Android',
+    writers: ['modules/veloqrs/android/src/main/java/com/veloq/WidgetDataRefreshWorker.kt'],
+    holds: 'nothing: a six-hour schedule that runs the native widget refresh',
+    kept: 'it holds no athlete data, and it cancels itself once signed out or no widget is placed',
+  },
+  {
     where: 'veloq_panic.log beside the database',
     writers: [`${RUST}/persistence/mod.rs`, 'src/features/settings/lib/databaseSidecars.ts'],
     holds: "every engine panic's message, which can name an activity or a section",
@@ -829,9 +835,10 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { files: ['file:///cache/restores/restore-temp.zip'] },
   },
   {
-    where: 'Documents/veloq-held-import.veloq or .zip, an older backup picked while signed out',
+    where:
+      'Documents/veloq-held-import.veloq or .zip, a backup picked or downloaded while signed out',
     writers: ['src/features/settings/lib/heldImport.ts'],
-    holds: "an older backup's names and settings, waiting for a sign-in",
+    holds: "a backup's record or an older backup's names and settings, waiting for a sign-in",
     kept: 'it exists only while nobody is signed in, so the wipe meets it only for the athlete picking it, at their sign-in or a demo entry, and the first signed-in launch restores and deletes it',
   },
   {
@@ -1139,7 +1146,8 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
-    where: 'the backup backend, toggle, last run and last failure',
+    where:
+      "the backup backend, toggle, last run, last failure, the carriers still owed and each destination's last backup",
     writers: ['src/features/settings/lib/autobackup/autoBackup.ts'],
     holds: "where and when the athlete's records were sent",
     wiped: {
@@ -1148,6 +1156,8 @@ const DEVICE_WRITES: DeviceWrite[] = [
         '__auto_backup_enabled',
         '__last_auto_backup',
         '__last_backup_failure',
+        '__backup_owed_carriers',
+        '__last_backup_by_destination',
       ],
     },
   },

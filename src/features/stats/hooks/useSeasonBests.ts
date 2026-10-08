@@ -49,7 +49,8 @@ interface UseSeasonBestsOptions {
   days: number;
 }
 
-const API_TYPE: Record<PrimarySport, BestEffortsSport> = {
+/** The engine's name for each sport the bests are read under. */
+export const BEST_EFFORTS_SPORT: Record<PrimarySport, BestEffortsSport> = {
   Cycling: 'Ride',
   Running: 'Run',
   Swimming: 'Swim',
@@ -60,7 +61,7 @@ export function bestEffortsOf(
   data: BestEffortsData | null | undefined,
   sport: PrimarySport
 ): BestEffort[] {
-  const row = data?.sports.find((s) => s.sport === API_TYPE[sport]);
+  const row = data?.sports.find((s) => s.sport === BEST_EFFORTS_SPORT[sport]);
   return (row?.efforts ?? []).map((e) => ({
     label: e.label,
     value: e.value ?? null,
@@ -75,7 +76,7 @@ export function climbBestsOf(
   data: BestEffortsData | null | undefined,
   sport: PrimarySport
 ): ClimbBest[] {
-  const row = data?.climbing.find((c) => c.sport === API_TYPE[sport]);
+  const row = data?.climbing.find((c) => c.sport === BEST_EFFORTS_SPORT[sport]);
   return (row?.bests ?? []).map((b) => ({
     label: b.label,
     windowS: b.windowS,
@@ -90,13 +91,13 @@ export function climbStatusOf(
   data: BestEffortsData | null | undefined,
   sport: PrimarySport
 ): ClimbStatus {
-  const row = data?.climbing.find((c) => c.sport === API_TYPE[sport]);
+  const row = data?.climbing.find((c) => c.sport === BEST_EFFORTS_SPORT[sport]);
   return { owed: row?.owed ?? 0, sourceExcluded: row?.sourceExcluded ?? 0 };
 }
 
 export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeasonBestsResult {
   const isMetric = useMetricSystem();
-  const shown = useMemo(() => [API_TYPE[sport]], [sport]);
+  const shown = useMemo(() => [BEST_EFFORTS_SPORT[sport]], [sport]);
   const { data, isLoading } = useBestEfforts(days, shown);
 
   const efforts = useMemo((): BestEffort[] => bestEffortsOf(data, sport), [data, sport]);

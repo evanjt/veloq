@@ -18,6 +18,7 @@ import { SupportingDataSection } from '@/features/insights/components/Supporting
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
 import type { InsightSupportingData } from '@/types';
 import { verdictColor } from '@/theme';
+import { CurveChart } from '@/shared/charts';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -50,7 +51,7 @@ type Node = { type: { displayName?: string }; props: Record<string, unknown> };
 /**
  * The sparkline's glyph, if it drew one, and the colour of its line. The native
  * mocks forward no style props to the host view, so these are read off the
- * icon and the Skia path as the component handed them over.
+ * icon and the chart as the component handed them over.
  */
 function drawn(data: InsightSupportingData) {
   const { UNSAFE_root } = render(<SupportingDataSection data={data} />);
@@ -58,7 +59,7 @@ function drawn(data: InsightSupportingData) {
   const glyphs = all.filter(
     (n) => n.type.displayName === 'MaterialCommunityIcons' && TRENDING.has(n.props.name as string)
   );
-  const line = all.find((n) => n.type.displayName === 'Path' && n.props.style === 'stroke');
+  const line = all.find((n) => (n.type as unknown) === CurveChart);
   return {
     glyph: glyphs[0]?.props as { name: string; color: string } | undefined,
     glyphCount: glyphs.length,

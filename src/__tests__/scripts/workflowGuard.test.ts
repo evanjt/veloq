@@ -871,6 +871,8 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
 ${steps}`,
   });
 
@@ -927,6 +929,8 @@ on:
 jobs:
   sim:
     runs-on: macos-latest
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
 ${steps}`,
   });
 
@@ -980,6 +984,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
     steps:
       - uses: actions/checkout@v4
       - name: Hash native inputs
@@ -1112,6 +1118,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
     steps:
       - uses: actions/checkout@v4
       - name: Restore Rust libraries
@@ -1282,5 +1290,203 @@ jobs:
     );
     const { status } = runGuard(fixture(files));
     expect(status).toBe(0);
+  });
+});
+
+/**
+ * Scenario: a build definition uploads an artifact restored from the cache, or
+ * built by a step that read the Expo configuration without the variant, and
+ * nothing reads the identity the file carries.
+ *
+ * Expected behaviour: every artifact a build definition uploads is preceded by
+ * the identity check against the selected variant, and one such check runs on
+ * a cache hit too.
+ */
+describe('artifact identity', () => {
+  const DEFINITION = `name: Build Android
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore built APK
+        id: apk-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-app-\${{ inputs.variant }}
+      - name: Build APK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: cd android && ./gradlew assembleRelease --no-daemon
+      - name: Check artifact identity
+        run: node scripts/build-record.js identity android/app/build/outputs/apk/release/app-release.apk --variant "$APP_VARIANT"
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log
+          path: build.log
+`;
+  const CHECK =
+    '      - name: Check artifact identity\n        run: node scripts/build-record.js identity android/app/build/outputs/apk/release/app-release.apk --variant "$APP_VARIANT"\n';
+  const files = (definition = DEFINITION) => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': definition,
+  });
+
+  it('passes an upload preceded by the identity check', () => {
+    const { status, output } = runGuard(fixture(files()));
+    expect(output).toContain('each platform builds in one place');
+    expect(status).toBe(0);
+  });
+
+  it('refuses a definition with the identity step removed', () => {
+    const output = refused(files(DEFINITION.replace(CHECK, '')));
+    expect(output).toContain(
+      '.github/workflows/build-android.yml (job build step Upload APK artifact)'
+    );
+    expect(output).toContain('build-record.js identity');
+  });
+
+  it('refuses an identity check placed after the upload', () => {
+    const output = refused(
+      files(
+        DEFINITION.replace(CHECK, '').replace(
+          '      - name: Upload build log',
+          `${CHECK}      - name: Upload build log`
+        )
+      )
+    );
+    expect(output).toContain('(job build step Upload APK artifact)');
+  });
+
+  it('refuses an identity check that a cache hit skips', () => {
+    const output = refused(
+      files(
+        DEFINITION.replace(
+          '      - name: Check artifact identity\n',
+          "      - name: Check artifact identity\n        if: steps.apk-cache.outputs.cache-hit != 'true'\n"
+        )
+      )
+    );
+    expect(output).toContain('(job build)');
+    expect(output).toContain('cache hit');
+  });
+
+  it('refuses an identity check that names no variant', () => {
+    const output = refused(files(DEFINITION.replace(' --variant "$APP_VARIANT"', '')));
+    expect(output).toContain('(job build step Upload APK artifact)');
+  });
+});
+
+/**
+ * Scenario: a build definition sets the variant on the prebuild command alone,
+ * so Gradle, the bundler and fastlane read the Expo configuration again
+ * without it and embed the Dev identity in a production build.
+ *
+ * Expected behaviour: a job that builds natively in a definition carries
+ * `APP_VARIANT: ${{ inputs.variant }}` in its own or the workflow's env, and no
+ * step sets the variant for itself.
+ */
+describe('the variant holds for the whole job', () => {
+  const JOB_ENV = '    env:\n      APP_VARIANT: ${{ inputs.variant }}\n';
+  const DEFINITION = `name: Build Android
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+${JOB_ENV}    steps:
+      - uses: actions/checkout@v4
+      - name: Prebuild
+        run: npx expo prebuild --platform android
+      - name: Build APK
+        run: cd android && ./gradlew assembleRelease --no-daemon
+`;
+  const files = (definition = DEFINITION) => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': definition,
+  });
+
+  it('passes a variant set on the job', () => {
+    const { status, output } = runGuard(fixture(files()));
+    expect(output).toContain('each platform builds in one place');
+    expect(status).toBe(0);
+  });
+
+  it('passes a variant set on the workflow', () => {
+    const definition = DEFINITION.replace(JOB_ENV, '').replace(
+      'jobs:\n',
+      'env:\n  APP_VARIANT: ${{ inputs.variant }}\njobs:\n'
+    );
+    const { status } = runGuard(fixture(files(definition)));
+    expect(status).toBe(0);
+  });
+
+  it('refuses a native build with no variant in its environment', () => {
+    const output = refused(files(DEFINITION.replace(JOB_ENV, '')));
+    expect(output).toContain('.github/workflows/build-android.yml (job build)');
+    expect(output).toContain('APP_VARIANT');
+  });
+
+  it('refuses a variant the job fixes instead of taking from the caller', () => {
+    const output = refused(files(DEFINITION.replace('${{ inputs.variant }}', 'production')));
+    expect(output).toContain('(job build)');
+    expect(output).toContain('inputs.variant');
+  });
+
+  it('refuses the variant set on the prebuild command alone', () => {
+    const output = refused(
+      files(
+        DEFINITION.replace(JOB_ENV, '').replace(
+          'run: npx expo prebuild',
+          'run: APP_VARIANT=production npx expo prebuild'
+        )
+      )
+    );
+    expect(output).toContain('(job build step Prebuild)');
+    expect(output).toContain('holds for this step alone');
+  });
+
+  it('refuses the variant exported inside one step', () => {
+    const output = refused(
+      files(
+        DEFINITION.replace(
+          'run: npx expo prebuild --platform android',
+          'run: |\n          export APP_VARIANT=dev\n          npx expo prebuild --platform android'
+        )
+      )
+    );
+    expect(output).toContain('(job build step Prebuild)');
+  });
+
+  it('refuses a step env that overrides the job variant', () => {
+    const output = refused(
+      files(
+        DEFINITION.replace(
+          '      - name: Build APK\n',
+          '      - name: Build APK\n        env:\n          APP_VARIANT: dev\n'
+        )
+      )
+    );
+    expect(output).toContain('(job build step Build APK)');
+    expect(output).toContain('holds for this step alone');
   });
 });

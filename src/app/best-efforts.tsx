@@ -4,6 +4,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
+  BodyNotDownloaded,
   EngineReadFailure,
   pressable,
   pressRipple,
@@ -14,6 +15,7 @@ import {
 import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
 import {
+  BEST_EFFORTS_SPORT,
   BEST_EFFORTS_DEFAULT_PERIOD,
   BEST_EFFORTS_PERIODS,
   bestEffortsDays,
@@ -22,6 +24,7 @@ import {
   climbStatusOf,
   useBestEfforts,
   type BestEffort,
+  type BestEffortsCurve,
   type ClimbBest,
   type ClimbStatus,
 } from '@/features/stats';
@@ -54,11 +57,13 @@ function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.gly
 interface SportSectionProps {
   sport: PrimarySport;
   efforts: BestEffort[];
+  /** The curve behind the efforts, which says whether no values means none were fetched. */
+  curve: BestEffortsCurve | undefined;
   isLoading: boolean;
   isDark: boolean;
 }
 
-function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) {
+function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSectionProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   // The rows name at most fourteen activities, so they are read by id. The
@@ -71,6 +76,7 @@ function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) 
   const sportColor = SPORT_COLORS[sport];
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
   const hasAnyValue = efforts.some((e) => e.value !== null);
+  const notFetched = curve !== undefined && !curve.fetched;
 
   const sectionTitle =
     sport === 'Cycling'
@@ -95,10 +101,19 @@ function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) 
         <EngineReadFailure error={labelsError} testID={`best-efforts-labels-failed-${sport}`} />
       )}
 
-      {isLoading ? (
+      {isLoading || (notFetched && curve.status === 'waiting') ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
+      ) : notFetched ? (
+        <BodyNotDownloaded
+          testID={`best-efforts-not-downloaded-${sport}`}
+          style={styles.emptyContainer}
+          textStyle={[styles.emptyText, isDark && styles.emptyTextDark]}
+          message={t('statsScreen.curveNotDownloaded')}
+          status={curve.status}
+          onRetry={curve.retry}
+        />
       ) : !hasAnyValue ? (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
@@ -245,7 +260,7 @@ function BestEffortsScreenContent() {
   const [period, setPeriod] = useState<Period>(BEST_EFFORTS_DEFAULT_PERIOD);
 
   const days = bestEffortsDays(period);
-  const { data, isLoading, error } = useBestEfforts(days, SHOWN);
+  const { data, isLoading, error, curves } = useBestEfforts(days, SHOWN);
   const effortsBySport = useMemo(
     () => new Map(SPORTS.map((sport) => [sport, bestEffortsOf(data, sport)])),
     [data]
@@ -293,6 +308,7 @@ function BestEffortsScreenContent() {
             key={sport}
             sport={sport}
             efforts={effortsBySport.get(sport) ?? []}
+            curve={curves[BEST_EFFORTS_SPORT[sport]]}
             isLoading={isLoading}
             isDark={isDark}
           />

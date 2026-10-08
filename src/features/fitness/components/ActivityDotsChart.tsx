@@ -8,7 +8,8 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { getActivityColor, sortByDateId } from '@/shared/activity/activityUtils';
+import { sortByDateId } from '@/shared/activity/activityUtils';
+import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
@@ -49,6 +50,11 @@ interface DotData {
   fitness: number;
   fatigue: number;
   form: number;
+}
+
+/** A sport group's colour, the one its map filter chip carries. */
+function groupColor(group: string): string {
+  return ACTIVITY_CATEGORIES[group]?.color ?? colors.textSecondary;
 }
 
 export const ActivityDotsChart = React.memo(function ActivityDotsChart({
@@ -293,9 +299,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const readoutDate = displayData?.date ?? persisted?.date ?? null;
   const readout = readoutDate ? dayLoadReadout(loadByDate.get(readoutDate)) : null;
 
-  // Get activity color for the pill - use first activity's type color
-  const activityPillColor =
-    displayActivities.length > 0 ? getActivityColor(displayActivities[0].type) : colors.primary;
+  // The pill takes the first activity's sport group colour, as its mark does.
+  const firstActivity = displayActivities[0];
+  const activityPillColor = firstActivity
+    ? groupColor(getActivityCategory(firstActivity.type))
+    : colors.primary;
 
   const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
   const keyTextStyle = [styles.keyText, isDark && styles.noActivityLabelDark];
@@ -370,7 +378,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 {marks.map((mark) => {
                   const total = mark.height * height;
                   let top = height - total;
-                  return markFills(mark, mutedColor, getActivityColor).map((fill, n) => {
+                  return markFills(mark, mutedColor, groupColor).map((fill, n) => {
                     const y = top;
                     const fillHeight = fill.fraction * total;
                     top += fillHeight;
@@ -395,14 +403,16 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         </View>
       </GestureDetector>
 
-      {(key.sports.length > 0 || key.noLoad) && (
+      {(key.groups.length > 0 || key.noLoad) && (
         <View>
           <View style={styles.keyRow}>
-            {key.sports.map((type) => (
-              <View key={type} testID={`fitness-strip-key-${type}`} style={styles.keyItem}>
-                <View style={[styles.keySwatch, { backgroundColor: getActivityColor(type) }]} />
+            {key.groups.map((group) => (
+              <View key={group} testID={`fitness-strip-key-${group}`} style={styles.keyItem}>
+                <View style={[styles.keySwatch, { backgroundColor: groupColor(group) }]} />
                 <Text style={keyTextStyle}>
-                  {t(`activityTypes.${type}`, { defaultValue: type })}
+                  {t(
+                    `maps.activityTypes.${ACTIVITY_CATEGORIES[group]?.labelKey ?? 'other'}` as 'maps.activityTypes.ride'
+                  )}
                 </Text>
               </View>
             ))}

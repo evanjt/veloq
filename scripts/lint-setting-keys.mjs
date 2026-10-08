@@ -33,6 +33,8 @@ const ENGINE_ONLY_KEYS = new Map([
   ['__backup_backend', 'Engine-only backup preference'],
   ['__auto_backup_enabled', 'Engine-only backup preference'],
   ['__last_backup_failure', 'Engine backup diagnostic'],
+  ['__backup_owed_carriers', 'Engine backup state: the carriers still owed the last zip'],
+  ['__last_backup_by_destination', 'Engine backup history, per destination'],
   ['__backup_folder', 'Engine-only backup folder grant, bound to this device'],
   ['__backup_folder_name', 'Engine-only backup folder grant, bound to this device'],
   ['__platform_record_answered', 'Engine library restore marker'],

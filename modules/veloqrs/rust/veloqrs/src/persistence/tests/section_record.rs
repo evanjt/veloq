@@ -60,7 +60,7 @@ fn detail(records: Vec<crate::SectionPerformanceRecord>) -> crate::FfiSectionPer
         None,
         0,
         |_, _| Vec::new(),
-        |_| std::sync::Arc::new(None),
+        |_| Some(std::sync::Arc::new(None)),
         |_| None,
         |_, rows| match rows {
             laps::Rows::Included => all.clone(),

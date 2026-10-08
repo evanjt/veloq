@@ -8,11 +8,6 @@
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./src/assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#5B9BD5"
-    },
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": true,
@@ -96,6 +91,7 @@
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
+      "./src/plugins/with-android-new-intent",
       "./src/plugins/with-app-groups",
       "./src/plugins/with-android-widget",
       "./src/plugins/with-ios-widget",
@@ -115,7 +111,19 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#5B9BD5",
+          "dark": {
+            "image": "./src/assets/splash-icon.png",
+            "backgroundColor": "#5B9BD5"
+          }
+        }
+      ],
       "expo-web-browser",
       "expo-secure-store",
       "react-native-iap",

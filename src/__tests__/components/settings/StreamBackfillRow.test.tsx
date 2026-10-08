@@ -58,7 +58,7 @@ describe('StreamBackfillRow', () => {
     const tree = row();
 
     expect(tree.getByTestId('settings-stream-backfill-refusal').props.children).toBe(
-      'No connection. Try again when you are online.'
+      "No connection. Have another go once you're online."
     );
   });
 

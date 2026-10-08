@@ -1268,6 +1268,79 @@ describe('detection preview sensitivity controls', () => {
     expect(tree.queryByTestId('preview-keep-button')).toBeNull();
     expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
   });
+
+  describe('regenerating when a slider is released', () => {
+    const mockRequest = jest.fn();
+    let mockStatus = 'done';
+
+    beforeEach(() => {
+      mockRequest.mockClear();
+      mockStatus = 'done';
+      mockEnv.detect = () => ({
+        status: mockStatus,
+        progress: null,
+        result: mockResult,
+        refusal: null,
+        start: mockStart,
+        request: mockRequest,
+        cancel: jest.fn(),
+        reset: jest.fn(),
+      });
+    });
+
+    it('asks for a run nowhere but on the release', () => {
+      const tree = render(<DetectionPreviewScreen />);
+      fireEvent(sliders(tree)[0], 'valueChange', 120);
+      fireEvent(sliders(tree)[0], 'valueChange', 150);
+      expect(mockRequest).not.toHaveBeenCalled();
+
+      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+      expect(mockRequest).toHaveBeenCalledWith(-37.8, 144.9, {
+        ...previewedConfig,
+        proximityThreshold: 150,
+      });
+      expect(mockStart).not.toHaveBeenCalled();
+    });
+
+    it('carries the values already moved on other sliders', () => {
+      const tree = render(<DetectionPreviewScreen />);
+      fireEvent(sliders(tree)[0], 'valueChange', 150);
+      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      fireEvent(sliders(tree)[3], 'valueChange', 6);
+      fireEvent(sliders(tree)[3], 'slidingComplete', 6);
+      expect(mockRequest).toHaveBeenLastCalledWith(-37.8, 144.9, {
+        ...previewedConfig,
+        proximityThreshold: 150,
+        minActivities: 6,
+      });
+    });
+
+    it('asks for a run when a preset is chosen', () => {
+      const tree = render(<DetectionPreviewScreen />);
+      fireEvent.press(tree.getByTestId('preset-strict'));
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the sliders live during a run, so a release can supersede it', () => {
+      mockStatus = 'running';
+      const tree = render(<DetectionPreviewScreen />);
+      for (const slider of sliders(tree)) expect(slider.props.disabled).toBeFalsy();
+      fireEvent(sliders(tree)[1], 'slidingComplete', 900);
+      expect(mockRequest).toHaveBeenCalledWith(
+        -37.8,
+        144.9,
+        expect.objectContaining({ minSectionLength: 900 })
+      );
+    });
+
+    it('asks for nothing with no area to run against', () => {
+      mockEnv.centres = { centres: [], labels: {} };
+      const tree = render(<DetectionPreviewScreen />);
+      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      expect(mockRequest).not.toHaveBeenCalled();
+    });
+  });
 });
 
 /**

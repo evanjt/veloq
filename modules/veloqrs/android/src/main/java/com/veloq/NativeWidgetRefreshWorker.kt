@@ -11,19 +11,7 @@ import androidx.work.WorkerParameters
 /** A widget tap's native refresh, scheduled once while a run is active. */
 class NativeWidgetRefreshWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
   override fun doWork(): Result {
-    val started = NativeWidgetSnapshot.startedAt(applicationContext)
-    var wrote = false
-    try {
-      val credential = NativeWidgetSnapshot.credential(applicationContext)
-      if (credential is PushCredential.Stored.Ready) {
-        wrote = NativeWidgetSnapshot.refresh(applicationContext, credential.credential)
-      }
-    } catch (e: Exception) {
-      Log.w(TAG, "native widget refresh failed; keeping the last snapshot", e)
-    } finally {
-      NativeWidgetSnapshot.finish(applicationContext)
-      NativeWidgetSnapshot.logRun(started, wrote)
-    }
+    NativeWidgetSnapshot.run(applicationContext)
     return Result.success()
   }
 

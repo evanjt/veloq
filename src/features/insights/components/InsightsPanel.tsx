@@ -8,11 +8,18 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { TodayBanner } from '@/features/routes';
 import { InsightListCard } from './InsightListCard';
 import { InsightDebugPanel } from './InsightDebugPanel';
-import { ErrorStatePreset, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import {
+  ErrorStatePreset,
+  ExplanationCard,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
+import { insightsExplanation } from '../lib/aboutCopy';
 
 interface InsightsPanelProps {
   insights: Insight[];
@@ -129,6 +136,9 @@ export const InsightsPanel = React.memo(function InsightsPanel({
             })}
           </Text>
         ) : null}
+        <View style={styles.explanation} testID="insights-explanation">
+          <ExplanationCard {...insightsExplanation(t)} />
+        </View>
       </ScrollView>
       <InsightDebugPanel visible={debugOpen} onClose={() => setDebugOpen(false)} />
     </View>
@@ -142,6 +152,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
+  },
+  explanation: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   cardList: {
     paddingTop: spacing.sm,

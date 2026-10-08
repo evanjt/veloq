@@ -157,46 +157,49 @@ describe.each(['veloq-backup-2026-09-30.zip', 'older.veloqdb'])('a picked %s', (
   });
 });
 
-describe.each(['old.veloq', 'older.veloqdb'])('a %s picked while signed out', (name) => {
-  beforeEach(() => {
-    (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
-      canceled: false,
-      assets: [{ uri: `file:///cache/DocumentPicker/${name}`, name }],
-    });
-    (holdImportWhileSignedOut as jest.Mock).mockResolvedValueOnce(true);
-    mockEngineState.ready = false;
-  });
-
-  it('is held for sign-in after the confirmation, and restores nothing', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-    const { result } = renderHook(() => useImportDatabaseBackup());
-    let pending!: Promise<unknown>;
-    await act(async () => {
-      pending = result.current.importDatabaseBackup();
-      await Promise.resolve();
-    });
-    expect(holdImportWhileSignedOut).not.toHaveBeenCalled();
-
-    await act(async () => {
-      pressButton(i18n.t('backup.importBackup'));
-      await pending;
+describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
+  'a %s picked while signed out',
+  (name) => {
+    beforeEach(() => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: `file:///cache/DocumentPicker/${name}`, name }],
+      });
+      (holdImportWhileSignedOut as jest.Mock).mockResolvedValueOnce(true);
+      mockEngineState.ready = false;
     });
 
-    expect(holdImportWhileSignedOut).toHaveBeenCalledWith(
-      `file:///cache/DocumentPicker/${name}`,
-      name
-    );
-    expect(restoreBackup).not.toHaveBeenCalled();
-    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenLastCalledWith(
-      i18n.t('backup.importBackup'),
-      i18n.t('backup.heldUntilSignIn')
-    );
-    expect(Alert.alert).not.toHaveBeenCalledWith(i18n.t('common.error'), expect.anything());
-  });
-});
+    it('is held for sign-in after the confirmation, and restores nothing', async () => {
+      jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+      const { result } = renderHook(() => useImportDatabaseBackup());
+      let pending!: Promise<unknown>;
+      await act(async () => {
+        pending = result.current.importDatabaseBackup();
+        await Promise.resolve();
+      });
+      expect(holdImportWhileSignedOut).not.toHaveBeenCalled();
 
-describe.each(['veloq-backup-2026-09-30.zip'])('a picked %s while signed out', (name) => {
+      await act(async () => {
+        pressButton(i18n.t('backup.importBackup'));
+        await pending;
+      });
+
+      expect(holdImportWhileSignedOut).toHaveBeenCalledWith(
+        `file:///cache/DocumentPicker/${name}`,
+        name
+      );
+      expect(restoreBackup).not.toHaveBeenCalled();
+      expect(restoreDatabaseBackup).not.toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenLastCalledWith(
+        i18n.t('backup.importBackup'),
+        i18n.t('backup.heldUntilSignIn')
+      );
+      expect(Alert.alert).not.toHaveBeenCalledWith(i18n.t('common.error'), expect.anything());
+    });
+  }
+);
+
+describe.each(['notes.json'])('a picked %s while signed out', (name) => {
   it('shows the sign-in prompt without a confirmation or a restore', async () => {
     mockEngineState.ready = false;
     (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({

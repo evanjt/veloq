@@ -7,6 +7,7 @@ import { useTheme } from '@/shared/app';
 import {
   DetailFallback,
   SectionLapList,
+  SectionStreamsNotice,
   RANGE_DAYS,
   type SectionTimeRange,
   useSectionDetailData,
@@ -14,6 +15,7 @@ import {
   useSectionTimeStreamSync,
   toPerformanceRecord,
   useSectionLaps,
+  withoutRecordMarks,
 } from '@/features/routes';
 import { colors, darkColors, layout, spacing } from '@/theme';
 import { Button, EngineReadFailure, ScreenScrollView } from '@/shared/ui';
@@ -41,6 +43,7 @@ function SectionLapsScreenContent() {
   const {
     ready,
     error: streamsError,
+    outstanding,
     refetch: refetchStreams,
   } = useSectionTimeStreamSync(activityIds, detail?.missingTimeStreamIds);
   const { data: performance, error: performanceError } = useSectionDetailPerformance(
@@ -50,10 +53,10 @@ function SectionLapsScreenContent() {
     ready,
     refreshKey
   );
-  const records = useMemo(
-    () => performance?.lapRecords.map(toPerformanceRecord) ?? [],
-    [performance]
-  );
+  const records = useMemo(() => {
+    const read = performance?.lapRecords.map(toPerformanceRecord) ?? [];
+    return outstanding > 0 ? withoutRecordMarks(read) : read;
+  }, [performance, outstanding]);
   const laps = useSectionLaps(id);
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
   const excludeLap = useCallback(
@@ -92,6 +95,13 @@ function SectionLapsScreenContent() {
             <EngineReadFailure error={streamsError} testID="section-laps-stream-failure" />
             <Button label={t('common.retry')} variant="secondary" onPress={refetchStreams} />
           </View>
+        )}
+        {!streamsError && ready && outstanding > 0 && (
+          <SectionStreamsNotice
+            isDark={isDark}
+            outstanding={outstanding}
+            onRetry={refetchStreams}
+          />
         )}
         {performanceError !== undefined && (
           <EngineReadFailure error={performanceError} testID="section-laps-performance-failure" />

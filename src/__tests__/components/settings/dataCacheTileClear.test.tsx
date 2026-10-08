@@ -40,7 +40,12 @@ jest.mock('@tanstack/react-query', () => ({
   }),
 }));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+let mockIsOnline = true;
+
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useIsOnline: () => mockIsOnline,
+}));
 
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ isDemoMode: false }),
@@ -239,6 +244,38 @@ describe('clear cache haptic', () => {
     await buttons.find((button) => button.style === 'destructive')?.onPress?.();
     expect(haptics.medium).toHaveBeenCalledTimes(1);
     alert.mockRestore();
+  });
+});
+
+describe('the clear cache confirm', () => {
+  let alert: jest.SpyInstance;
+
+  beforeEach(() => {
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    alert.mockRestore();
+    mockIsOnline = true;
+  });
+
+  it('warns while offline that the library stays empty until the network returns', () => {
+    mockIsOnline = false;
+    render(<DataCacheSection />);
+
+    mockPanels.onClearCache?.();
+
+    expect(alert.mock.calls[0][1]).toBe('alerts.clearCacheMessage\n\nalerts.clearCacheOffline');
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    expect(buttons.some((button) => button.style === 'destructive')).toBe(true);
+  });
+
+  it('reads as before while online', () => {
+    render(<DataCacheSection />);
+
+    mockPanels.onClearCache?.();
+
+    expect(alert.mock.calls[0][1]).toBe('alerts.clearCacheMessage');
   });
 });
 

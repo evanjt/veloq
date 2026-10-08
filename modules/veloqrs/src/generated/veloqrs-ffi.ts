@@ -851,11 +851,6 @@ interface NativeModuleInterface {
     endTs: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
-    uniffiSelf: bigint,
-    event: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
     uniffiSelf: bigint,
     sportType: Uint8Array,
@@ -1103,6 +1098,12 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     groupIds: Uint8Array,
     coordinates: Uint8Array,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
+    uniffiSelf: bigint,
+    groupId: Uint8Array,
+    timeRangeDays: number,
+    sportFilter: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
     uniffiSelf: bigint,
@@ -1673,6 +1674,7 @@ interface NativeModuleInterface {
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_discard_record_import(
     uniffiSelf: bigint,
+    waiting: number,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness(
     uniffiSelf: bigint,
@@ -1682,10 +1684,6 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-    uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1914,7 +1912,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_latest_date(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_set_widget_context(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness(): number;
@@ -1963,6 +1960,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_load_detail_performance(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
@@ -2078,7 +2076,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_discard_record_import(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(): number;
-  ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_unplaced_backup_records(): number;

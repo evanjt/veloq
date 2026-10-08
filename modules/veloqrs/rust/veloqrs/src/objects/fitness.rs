@@ -1,13 +1,6 @@
 use super::error::{VeloqError, with_engine, with_reader};
 use std::sync::Arc;
 
-fn unix_now() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
 fn with_week_bounds(mut params: crate::FfiInsightsParams) -> crate::FfiInsightsParams {
     let (current_start, current_end, prev_start, prev_end, chronic_start) =
         insights_week_bounds(crate::ffi_types::int_from_wire(params.current_end));
@@ -378,10 +371,8 @@ impl FitnessManager {
         // Off the engine lock: the feed's first paint is committed rows and
         // nothing the engine holds in memory, so a sync page mid-transaction
         // does not hold the first screen the athlete sees.
-        let now = unix_now();
         let params = with_week_bounds(params);
         with_reader(|conn| {
-            let snapshot = crate::persistence::feed_rings::feed_ring_snapshot(conn, now);
             crate::persistence::screens::pooled::startup_data(
                 conn,
                 params.current_start as i64,
@@ -389,20 +380,8 @@ impl FitnessManager {
                 params.prev_start as i64,
                 params.prev_end as i64,
                 &preview_activity_ids,
-                snapshot,
             )
         })
-    }
-
-    /// Tell the engine the feed opened, closed or had rings dismissed. It
-    /// writes one settings row and decides every ring the next
-    /// `get_startup_data` returns.
-    fn record_feed_seen(&self, event: crate::FfiFeedSeen) -> Result<(), VeloqError> {
-        let now = unix_now();
-        with_engine(|e| {
-            e.record_feed_seen(&event.into(), now)
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
     }
 
     /// The home-screen widget snapshot, as the JSON the widgets read, composed

@@ -19,8 +19,16 @@ const DISMISS_AFTER_MS = 6000;
  *
  * It clears itself, because the athlete cannot act on it while offline and a
  * pill that has to be dismissed is worse than the silence it replaced.
+ *
+ * `bottom` lifts it clear of whatever the host draws over the foot of its map.
  */
-export function TerrainUnavailableNotice({ onDismiss }: { onDismiss: () => void }) {
+export function TerrainUnavailableNotice({
+  onDismiss,
+  bottom,
+}: {
+  onDismiss: () => void;
+  bottom?: number | undefined;
+}) {
   const { t } = useTranslation();
 
   // Callers pass a fresh arrow each render, so keying the timer on it would restart the clock.
@@ -36,7 +44,7 @@ export function TerrainUnavailableNotice({ onDismiss }: { onDismiss: () => void 
 
   return (
     <Pressable
-      style={pressable(styles.wrapper)}
+      style={pressable([styles.wrapper, bottom !== undefined && { bottom }])}
       android_ripple={pressRipple}
       onPress={onDismiss}
       accessibilityRole="button"

@@ -14,6 +14,7 @@
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::{PersistentEngine, codec};
+use crate::net::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::types::StreamDto;
 
 /// What is kept when the athlete has never chosen: everything.
@@ -162,6 +163,15 @@ pub(crate) fn stream_gap_count_sql() -> String {
 /// from the track without looking for a stored copy. Anything outside this set
 /// only arrives as a fetched body.
 pub const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+
+/// Whether the fetches that stock an activity with a track ask upstream for
+/// `kind`. The wide sync and the stream pass both ask for the whole
+/// [`DEFAULT_STREAM_TYPES`] set and store every non-empty series in the
+/// answer, so for an activity they stocked, a series in that set with no row
+/// is one upstream does not hold. A series outside it was never asked about.
+pub(crate) fn stocking_asks_for(kind: &str) -> bool {
+    DEFAULT_STREAM_TYPES.split(',').any(|asked| asked == kind)
+}
 
 /// The index one activity's stored series are addressed by.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

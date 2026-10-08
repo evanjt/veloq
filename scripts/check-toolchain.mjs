@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Refuse a native build that is missing a stated prerequisite, and say which.
 //
-// A fresh clone builds with Node, Rust with cargo-ndk and the Android targets,
-// a JDK, and the npm, crates.io and Maven registries. Without this check a
+// A fresh clone builds Android with Node, Rust with cargo-ndk and the Android
+// targets, a JDK, and the npm, crates.io and Maven registries. It builds iOS
+// with Node, Rust with the Apple targets the Xcode phase compiles, and Xcode,
+// on a Mac that need hold none of the Android pieces. Without this check a
 // missing piece surfaces deep inside the Expo plugin: an empty tracematch
 // directory fails inside cargo, and no Rust at all prints a warning while the
 // build carries on. It prints one line per missing prerequisite and nothing
@@ -15,6 +17,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TRACEMATCH = 'modules/veloqrs/rust/tracematch';
+const PLATFORMS = ['android', 'ios'];
+const APPLE_TARGETS = ['aarch64-apple-ios', 'aarch64-apple-ios-sim'];
 
 function run(command, args, options) {
   return spawnSync(command, args, { encoding: 'utf8', ...options });
@@ -38,8 +42,9 @@ function isEmpty(dir) {
   return !existsSync(dir) || readdirSync(dir).length === 0;
 }
 
-/** One line per prerequisite `root` lacks, after trying to init an empty submodule. */
-export function missing(root, env = process.env) {
+/** One line per prerequisite `root` lacks to build `platform`, after trying to init an empty submodule. */
+export function missing(root, env, platform) {
+  if (!PLATFORMS.includes(platform)) throw new Error(`unknown platform: ${platform}`);
   if (env.CI) return [];
   const lines = [];
 
@@ -57,18 +62,31 @@ export function missing(root, env = process.env) {
 
   const hasCargo = works('cargo', ['--version'], env);
   if (!hasCargo) lines.push('cargo not found: install Rust from https://rustup.rs');
-  if (hasCargo && !works('cargo', ['ndk', '--version'], env)) {
-    lines.push('cargo ndk not found: cargo install cargo-ndk');
-  }
-  if (hasCargo && works('rustup', ['--version'], env)) {
-    const installed = run('rustup', ['target', 'list', '--installed'], { env }).stdout ?? '';
-    if (!/-linux-android/.test(installed)) {
+  const installed =
+    hasCargo && works('rustup', ['--version'], env)
+      ? (run('rustup', ['target', 'list', '--installed'], { env }).stdout ?? '').split('\n')
+      : null;
+
+  if (platform === 'android') {
+    if (hasCargo && !works('cargo', ['ndk', '--version'], env)) {
+      lines.push('cargo ndk not found: cargo install cargo-ndk');
+    }
+    if (installed && !installed.some((target) => target.includes('-linux-android'))) {
       lines.push(
         'no Android Rust target installed: rustup target add aarch64-linux-android x86_64-linux-android'
       );
     }
+    if (!env.JAVA_HOME) lines.push('JAVA_HOME is not set: point it at a JDK');
+  } else {
+    for (const target of APPLE_TARGETS) {
+      if (installed && !installed.includes(target)) {
+        lines.push(`Apple Rust target ${target} not installed: rustup target add ${target}`);
+      }
+    }
+    if (!works('xcodebuild', ['-version'], env)) {
+      lines.push('xcodebuild not found: install Xcode and run xcode-select --install');
+    }
   }
-  if (!env.JAVA_HOME) lines.push('JAVA_HOME is not set: point it at a JDK');
 
   return lines;
 }
@@ -77,7 +95,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const argv = process.argv.slice(2);
   const at = argv.indexOf('--root');
   const root = resolve(at === -1 ? process.cwd() : argv[at + 1]);
-  const lines = missing(root);
+  const platform = argv[argv.indexOf('--platform') + 1];
+  if (!argv.includes('--platform') || !PLATFORMS.includes(platform)) {
+    console.error('usage: check-toolchain.mjs --platform android|ios [--root DIR]');
+    process.exit(2);
+  }
+  const lines = missing(root, process.env, platform);
   if (lines.length > 0) {
     console.error('This clone cannot build the app yet:');
     for (const line of lines) console.error(`  ${line}`);

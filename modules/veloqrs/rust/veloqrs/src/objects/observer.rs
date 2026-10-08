@@ -14,7 +14,7 @@
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::LazyLock;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -166,6 +166,11 @@ fn first_unobserved() -> bool {
 static OBSERVER: LazyLock<RwLock<Option<Arc<dyn EngineObserver>>>> =
     LazyLock::new(|| RwLock::new(None));
 
+/// The JavaScript runtime the registration belongs to, moved on when that
+/// runtime is torn down. Written only under the `OBSERVER` write lock, so a
+/// push reads it consistently with the handle it clones.
+static RUNTIME: AtomicU64 = AtomicU64::new(0);
+
 /// An announcement and the observer that was registered when it was pushed.
 ///
 /// Delivery goes to that handle, so replacing or clearing the registration
@@ -174,11 +179,31 @@ static OBSERVER: LazyLock<RwLock<Option<Arc<dyn EngineObserver>>>> =
 struct Queued {
     observer: Arc<dyn EngineObserver>,
     announcement: Announcement,
+    runtime: u64,
+}
+
+impl Queued {
+    /// False once the runtime that registered the handle has been torn down.
+    fn is_live(&self) -> bool {
+        self.runtime == RUNTIME.load(Ordering::SeqCst)
+    }
+
+    /// Let go of the handle. One from a torn-down runtime is leaked rather
+    /// than dropped, because dropping a foreign handle is a call through the
+    /// binding, and the slots it calls through belong to whichever runtime is
+    /// installed by then.
+    fn release(self) {
+        if !self.is_live() {
+            std::mem::forget(self.observer);
+        }
+    }
 }
 
 impl PartialEq for Queued {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.observer, &other.observer) && self.announcement == other.announcement
+        Arc::ptr_eq(&self.observer, &other.observer)
+            && self.announcement == other.announcement
+            && self.runtime == other.runtime
     }
 }
 
@@ -239,7 +264,10 @@ impl Announcer {
             };
 
             for queued in batch {
-                deliver(&queued);
+                if queued.is_live() {
+                    deliver(&queued);
+                }
+                queued.release();
             }
 
             self.pending
@@ -308,6 +336,31 @@ pub fn set_observer(observer: Option<Arc<dyn EngineObserver>>) {
     UNOBSERVED_LOGGED.store(false, Ordering::Relaxed);
 }
 
+/// The JavaScript runtime that registered the observer is being torn down.
+/// Each platform's native module calls this from its `invalidate`.
+///
+/// A reload frees the runtime without running `clearObserver`, and the next
+/// runtime installs its own vtable over the same slots and numbers its handles
+/// from one again. A handle from the old runtime is then a stale number in the
+/// new one: releasing it removes the new observer's entry, and a call through
+/// it is read as a Rust pointer and cloned, which is a segfault.
+///
+/// So the registration is dropped without releasing it, and every queued
+/// announcement under it is skipped on the announce thread. This never waits
+/// on a delivery: the runtime's thread has already stopped, so a call parked
+/// on it may never return.
+#[unsafe(no_mangle)]
+pub extern "C" fn veloq_runtime_torn_down() {
+    crate::ffi_refuse_on_panic("runtime teardown", (), || {
+        let mut observer = OBSERVER.write().unwrap_or_else(|e| e.into_inner());
+        RUNTIME.fetch_add(1, Ordering::SeqCst);
+        if let Some(observer) = observer.take() {
+            std::mem::forget(observer);
+        }
+        UNOBSERVED_LOGGED.store(false, Ordering::Relaxed);
+    })
+}
+
 /// Announcements that came back as a panic from the foreign side.
 static OBSERVER_PANICS: AtomicU32 = AtomicU32::new(0);
 
@@ -322,15 +375,17 @@ pub fn observer_panics() -> u32 {
 /// Queue an announcement and return. The delivery happens on the announce
 /// thread, so the caller never waits on the JavaScript thread.
 pub(crate) fn notify(announcement: Announcement) {
-    let observer = OBSERVER
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .map(Arc::clone);
-    if let Some(observer) = observer {
+    let registered = {
+        let observer = OBSERVER.read().unwrap_or_else(|e| e.into_inner());
+        observer
+            .as_ref()
+            .map(|observer| (Arc::clone(observer), RUNTIME.load(Ordering::SeqCst)))
+    };
+    if let Some((observer, runtime)) = registered {
         ANNOUNCER.push(Queued {
             observer,
             announcement,
+            runtime,
         });
     } else if first_unobserved() {
         log::warn!(
@@ -718,6 +773,83 @@ mod tests {
 
             assert_eq!(slow.events(), vec!["sync_settled", "activities_stored"]);
             assert!(replacement.events().is_empty());
+        }
+
+        /// Scenario: a reload tears down the JavaScript runtime while one
+        /// delivery is parked inside it and two more are queued behind it. The
+        /// runtime's thread has stopped, so the parked call may never return,
+        /// and the next runtime installs its own vtable over the same slots.
+        ///
+        /// Expected behaviour: the teardown returns without waiting, nothing
+        /// queued reaches the old observer, its handle is never released into
+        /// whichever runtime is installed by then, and the next registration
+        /// hears what follows.
+        #[test]
+        fn a_torn_down_runtime_is_never_called_again() {
+            let _guard = serial_global_state();
+            let (gated, was_entered, release) = Slow::gated();
+            let slow = Arc::new(gated);
+            let old = Arc::downgrade(&slow);
+            set_observer(Some(slow.clone()));
+
+            notify(Announcement::SyncSettled);
+            was_entered
+                .recv_timeout(Duration::from_secs(5))
+                .expect("the announcement never reached the observer");
+            notify(Announcement::ActivitiesStored);
+            notify(Announcement::SyncProgress);
+
+            let (returned, was_returned) = channel();
+            let teardown = std::thread::spawn(move || {
+                veloq_runtime_torn_down();
+                let _ = returned.send(());
+            });
+            let waited = was_returned.recv_timeout(Duration::from_secs(2));
+            let _ = release.send(());
+            teardown.join().unwrap();
+            notify(Announcement::SyncProgress);
+            flush();
+
+            let next = Recorder::new();
+            set_observer(Some(next.clone()));
+            notify(Announcement::SyncSettled);
+            let heard_next = next.events();
+            set_observer(None);
+            flush();
+
+            assert!(
+                waited.is_ok(),
+                "the teardown waited on a delivery parked in the runtime it tears down"
+            );
+            assert_eq!(
+                slow.events(),
+                vec!["sync_settled"],
+                "a queued announcement reached the observer of a torn-down runtime"
+            );
+            drop(slow);
+            assert!(
+                old.upgrade().is_some(),
+                "the handle of a torn-down runtime was released through the binding"
+            );
+            assert_eq!(heard_next, vec!["sync_settled"]);
+        }
+
+        /// A teardown with nothing registered, and a second one behind it, are
+        /// both no-ops: a reload can follow a sign-out that already cleared it.
+        #[test]
+        fn a_teardown_with_no_observer_is_a_no_op() {
+            let _guard = serial_global_state();
+            set_observer(None);
+            veloq_runtime_torn_down();
+            veloq_runtime_torn_down();
+
+            let next = Recorder::new();
+            set_observer(Some(next.clone()));
+            notify(Announcement::SyncSettled);
+            let heard = next.events();
+            set_observer(None);
+
+            assert_eq!(heard, vec!["sync_settled"]);
         }
 
         /// `sync_progress` carries no payload and the reader takes one status

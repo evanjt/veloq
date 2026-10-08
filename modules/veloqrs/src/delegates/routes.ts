@@ -192,7 +192,8 @@ export function getRouteDetailData(
 /**
  * The route detail reads that answer one sport and one range, in the section
  * performance read's shape: chart, calendar, ranged bests, trend, histogram,
- * correlations, sport counts and excluded attempts.
+ * correlations, sport counts and excluded attempts. The delta curves come only
+ * once held, and `curvesPending` says when they are owed.
  */
 export function getRouteDetailPerformance(
   host: DelegateHost,
@@ -203,5 +204,21 @@ export function getRouteDetailPerformance(
   if (!host.ready || !groupId) return undefined;
   return host.timed('getRouteDetailPerformance', () =>
     host.engine.routes().getDetailPerformance(groupId, timeRangeDays, sportFilter)
+  );
+}
+
+/**
+ * The same read with the delta curves computed, on a Rust thread. Rejects with
+ * the engine's message when the read fails.
+ */
+export async function loadRouteDetailPerformance(
+  host: DelegateHost,
+  groupId: string,
+  timeRangeDays: number,
+  sportFilter?: string
+): Promise<FfiSectionPerformanceData | undefined> {
+  if (!host.ready || !groupId) return undefined;
+  return host.timedAsync('loadRouteDetailPerformance', () =>
+    host.engine.routes().loadDetailPerformance(groupId, timeRangeDays, sportFilter)
   );
 }

@@ -106,11 +106,13 @@ jest.mock('@/features/routes/hooks/useRouteDetailData', () => ({
       routeNames: { r_9: 'Strecke 4' },
       excludedActivityIds: [],
       mapSignatures: [],
+      missingTimeStreamIds: [],
       canNameFromPlaces: mockCanNameFromPlaces(),
     },
   }),
 }));
 jest.mock('@/features/routes/components/section/SectionPerformanceSection', () => ({
+  ...jest.requireActual('@/features/routes/components/section/SectionPerformanceSection'),
   SectionPerformanceSection: () => null,
 }));
 jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
@@ -138,6 +140,12 @@ jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useSectionChartDataEnriched'),
   ...jest.requireActual('@/features/routes/hooks/useSectionMapData'),
   useRouteMapSignatures: () => ({}),
+  useSectionTimeStreamSync: () => ({
+    ready: true,
+    isFetching: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
   useRouteReference: () => ({ effectiveRepresentativeId: 'a1', handleSetAsReference: jest.fn() }),
   useExcludedActivities: () => ({
     showExcluded: false,

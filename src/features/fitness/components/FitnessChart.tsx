@@ -23,6 +23,8 @@ import {
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay } from '../lib/pinnedDay';
+import { formatForm, formZoneTextColor, getFormZone } from '../lib';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 
 interface FitnessChartProps {
@@ -46,6 +48,8 @@ interface ChartDataPoint {
   fitness: number;
   fatigue: number;
   form: number;
+  /** Fitness points a week as the wellness row logs it, null when it logs none. */
+  rampRate: number | null;
 }
 
 const CHART_PADDING = { top: 8, bottom: 20 } as const;
@@ -78,7 +82,8 @@ export const FitnessChart = React.memo(function FitnessChart({
   onInteractionChange,
 }: FitnessChartProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
+  const { isDark, colors: themeColors } = useTheme();
+  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
   const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [visibleLines, setVisibleLines] = useState({
@@ -123,6 +128,7 @@ export const FitnessChart = React.memo(function FitnessChart({
         fitness,
         fatigue,
         form,
+        rampRate: day.rampRate ?? null,
       });
     });
 
@@ -189,6 +195,12 @@ export const FitnessChart = React.memo(function FitnessChart({
     selected: tooltipData,
     newest: chartData[chartData.length - 1],
   });
+  const formZone = displayData
+    ? getFormZone(displayData.form, displayData.fitness, asPercent)
+    : null;
+  const formText =
+    (displayData ? formatForm(displayData.form, displayData.fitness, asPercent) : null) ?? '-';
+  const rampRate = displayData?.rampRate ?? null;
   const yDomain: [number, number] = [0, maxFitness * 1.1];
   const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
   const markerIndices = markerIndicesOf(chartData, markers);
@@ -245,6 +257,52 @@ export const FitnessChart = React.memo(function FitnessChart({
                 {displayData ? Math.round(displayData.fatigue) : '-'}
               </Text>
             </View>
+            <View style={styles.valueItem}>
+              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+                {t('metrics.form')}
+              </Text>
+              <Text
+                testID="fitness-form-value"
+                style={[
+                  styles.valueNumber,
+                  {
+                    color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
+                  },
+                ]}
+              >
+                {formText}
+              </Text>
+            </View>
+            {rampRate != null && (
+              <View style={styles.valueItem}>
+                <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+                  {t('fitnessScreen.rampRate')}
+                </Text>
+                <View style={styles.rampValue}>
+                  <Text
+                    testID="fitness-ramp-value"
+                    style={[
+                      styles.valueNumber,
+                      {
+                        color:
+                          rampRate >= 0
+                            ? isDark
+                              ? darkColors.fitnessBlueText
+                              : colors.fitnessBlueText
+                            : isDark
+                              ? darkColors.fatiguePurpleText
+                              : colors.fatiguePurpleText,
+                      },
+                    ]}
+                  >
+                    {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
+                  </Text>
+                  <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+                    {t('fitnessScreen.perWeek')}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -444,6 +502,10 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xxs,
+  },
+  rampValue: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   valueNumber: {
     fontSize: typography.cardTitle.fontSize,

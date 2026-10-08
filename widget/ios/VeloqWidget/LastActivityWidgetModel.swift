@@ -31,19 +31,19 @@ struct LastActivityDot {
 /// and a snapshot with nothing for it look alike to the view.
 struct LastActivityContent {
   /// The activity's name; nil where the comparison takes its place.
-  let name: String?
+  var name: String?
   let showsRoute: Bool
   /// The route's name, or the word for load, above the hero.
-  let heroLabel: String?
+  var heroLabel: String?
   let hero: String?
   let detail: String?
   let dots: [LastActivityDot]
   /// Distance and time, drawn only when the snapshot has no comparison to lead with.
   let figures: String?
-  let sectionPrs: String?
-  let load: String?
-  let form: LastActivityForm?
-  let date: String?
+  var sectionPrs: String?
+  var load: String?
+  var form: LastActivityForm?
+  var date: String?
 }
 
 enum LastActivityWidgetModel {
@@ -51,10 +51,12 @@ enum LastActivityWidgetModel {
     guard let snapshot = snapshot, let latest = snapshot.latest else { return nil }
     let headline = latest.headline.flatMap { $0.hero.isEmpty ? nil : $0 }
     let small = size == .small
+    let name = small && headline != nil ? nil : latest.name
     return LastActivityContent(
-      name: small && headline != nil ? nil : latest.name,
+      name: name,
       showsRoute: !small && (latest.routePreview?.points.count ?? 0) >= 2,
-      heroLabel: nonEmpty(headline?.label),
+      // A route that carries the activity's own name is not named twice.
+      heroLabel: nonEmpty(headline?.label).flatMap { $0 == name ? nil : $0 },
       hero: headline?.hero,
       detail: nonEmpty(headline?.detail),
       dots: (headline?.dots ?? []).map {
@@ -70,6 +72,27 @@ enum LastActivityWidgetModel {
       load: small || headline?.kind == "load" ? nil : nonEmpty(latest.loadText),
       form: small ? nil : formChange(snapshot),
       date: small || headline == nil ? nonEmpty(latest.dateLabel) : nil)
+  }
+
+  /// The content, then the same with one more line left out each time, for a widget whose words
+  /// run too long for its family to show them all whole. Lines go in the reverse of the order
+  /// they matter: form, load, date, section records, the label above the hero, then the name
+  /// where a comparison leads. The comparison itself, its dots and the figures stay in every one.
+  static func fallbacks(_ content: LastActivityContent) -> [LastActivityContent] {
+    var shorter = content
+    var all = [content]
+    func drop<Line>(_ line: WritableKeyPath<LastActivityContent, Line?>) {
+      guard shorter[keyPath: line] != nil else { return }
+      shorter[keyPath: line] = nil
+      all.append(shorter)
+    }
+    drop(\.form)
+    drop(\.load)
+    drop(\.date)
+    drop(\.sectionPrs)
+    drop(\.heroLabel)
+    if content.hero != nil { drop(\.name) }
+    return all
   }
 
   private static func formChange(_ snapshot: WidgetSnapshot) -> LastActivityForm? {

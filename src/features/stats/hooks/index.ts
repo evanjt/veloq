@@ -2,6 +2,7 @@ export { usePaceCurve, getIndexAtDistance, getTimeAtDistance } from './usePaceCu
 export { usePowerCurve, getIndexAtDuration } from './usePowerCurve';
 export {
   useSeasonBests,
+  BEST_EFFORTS_SPORT,
   bestEffortsOf,
   climbBestsOf,
   climbStatusOf,
@@ -10,4 +11,4 @@ export {
   type ClimbBest,
   type UseSeasonBestsResult,
 } from './useSeasonBests';
-export { useBestEfforts, type BestEffortsSport } from './useBestEfforts';
+export { useBestEfforts, type BestEffortsCurve, type BestEffortsSport } from './useBestEfforts';

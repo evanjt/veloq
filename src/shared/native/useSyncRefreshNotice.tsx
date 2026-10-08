@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { Snackbar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { StartOutcome } from 'veloqrs';
 
-import { useTheme } from '@/shared/app';
-import { spacing } from '@/theme';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/BottomTabBar';
 
 import { requestSyncRefresh } from './syncRefresh';
+
+/** A refused pull is feedback to the gesture, so it shows briefly and goes. */
+const NOTICE_MS = 3000;
 
 type NoticeKey =
   | 'refresh.busy'
@@ -53,22 +55,36 @@ export function useSyncRefreshNotice() {
     setNotice(message);
     if (!message) return;
     AccessibilityInfo.announceForAccessibility(message);
-    timer.current = setTimeout(() => setNotice(null), 5000);
+    timer.current = setTimeout(() => setNotice(null), NOTICE_MS);
   }, [t]);
 
   return { notice, requestRefresh };
 }
 
+/**
+ * The refused pull as a snackbar above the tab bar. Render it as the screen's
+ * last child so it draws over the content. The hook owns its time, so a second
+ * pull restarts the one snackbar rather than queueing another.
+ */
 export function SyncRefreshNotice({ message }: { message: string | null }) {
-  const { colors } = useTheme();
-  if (!message) return null;
+  // Kept through the hide animation, which runs after the message has cleared.
+  const [shown, setShown] = useState(message);
+  if (message && message !== shown) setShown(message);
   return (
-    <View style={styles.line}>
-      <Text style={{ color: colors.textSecondary }}>{message}</Text>
-    </View>
+    <Snackbar
+      testID="sync-refresh-snackbar"
+      visible={message !== null}
+      onDismiss={noop}
+      duration={Number.POSITIVE_INFINITY}
+      wrapperStyle={styles.aboveTabBar}
+    >
+      {shown}
+    </Snackbar>
   );
 }
 
+function noop() {}
+
 const styles = StyleSheet.create({
-  line: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  aboveTabBar: { bottom: TAB_BAR_SAFE_PADDING },
 });

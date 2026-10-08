@@ -168,7 +168,7 @@ impl ActivityManager {
             })
     }
 
-    fn get_count(&self) -> Result<u32, VeloqError> {
+    pub fn get_count(&self) -> Result<u32, VeloqError> {
         with_reader(crate::persistence::activities::pooled::activity_count).and_then(|r| {
             r.map_err(|e| VeloqError::Database {
                 msg: format!("{}", e),

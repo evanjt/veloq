@@ -21,8 +21,12 @@ export interface TerrainCameraResult {
   elevationRange?: number;
 }
 
-/** Minimum elevation range (meters) to use elevation-aware camera */
-const FLAT_THRESHOLD = 30;
+/**
+ * Height in metres between a route's lowest and highest point from which smart
+ * mode draws it in 3D, and the total gain asked of an activity whose altitude
+ * stream has not loaded. The settings and tour copy quote it.
+ */
+export const SMART_3D_MIN_RELIEF_M = 30;
 
 /** Elevation ranges for adaptive pitch */
 const MEDIUM_ELEVATION = 100;
@@ -228,7 +232,7 @@ function computeElevationCamera(
   if (validCount < 2 || !isFinite(minAlt) || !isFinite(maxAlt)) return null;
 
   const elevationRange = maxAlt - minAlt;
-  if (elevationRange < FLAT_THRESHOLD) return null;
+  if (elevationRange < SMART_3D_MIN_RELIEF_M) return null;
 
   const meanAlt = altSum / validCount;
 
@@ -277,7 +281,8 @@ export function isLikelyInterestingTerrain(
   totalElevationGain: number,
   distanceMeters: number
 ): boolean {
-  if (!Number.isFinite(totalElevationGain) || totalElevationGain < 30) return false;
+  if (!Number.isFinite(totalElevationGain) || totalElevationGain < SMART_3D_MIN_RELIEF_M)
+    return false;
   if (Number.isFinite(distanceMeters) && distanceMeters > 1000) {
     const gainPerKm = totalElevationGain / (distanceMeters / 1000);
     if (gainPerKm < 3) return false;

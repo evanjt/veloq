@@ -44,7 +44,8 @@ export {
   SectionHistoryPanel,
   SectionLapList,
   SectionPerformanceSection,
-  type SectionStreamsState,
+  sectionStreamsState,
+  SectionStreamsNotice,
 } from './components/section';
 export { SectionSparkline } from './components/section/SectionSparkline';
 export { type SectionsSortOption } from './components/SectionsList';
@@ -80,7 +81,7 @@ export {
 export { useActivityRematch } from './hooks/useActivityRematch';
 export { useCutoverSummary, type CutoverSummary } from './hooks/useCutoverSummary';
 export { useElevationBackfill } from './hooks/useElevationBackfill';
-export { useRepresentativeRoute, useSectionSummaries } from './hooks/useEngine';
+export { useGroupSummaries, useRepresentativeRoute, useSectionSummaries } from './hooks/useEngine';
 export { useMergeSections } from './hooks/useMergeSections';
 export { type NamedCorridor, useNamedCorridors } from './hooks/useNamedCorridors';
 export { usePreviewCentres } from './hooks/usePreviewCentres';
@@ -102,6 +103,7 @@ export {
   toPerformanceRecord,
   toPerformanceView,
   useSectionTimeStreamSync,
+  withoutRecordMarks,
 } from './hooks/useSectionPerformances';
 export { useSectionTrim } from './hooks/useSectionTrim';
 export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';

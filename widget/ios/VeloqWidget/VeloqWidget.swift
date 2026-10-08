@@ -197,4 +197,19 @@ extension View {
       background(style)
     }
   }
+
+  // From iOS 17 the Home Screen keeps its own margin inside every widget, so padding there too
+  // spends the room twice. Only 15/16, which keep none, get this padding.
+  @ViewBuilder
+  func widgetPadding(_ edges: Edge.Set, _ length: CGFloat) -> some View {
+    if #available(iOS 17.0, *) {
+      self
+    } else {
+      padding(edges, length)
+    }
+  }
+
+  func widgetPadding(_ length: CGFloat) -> some View {
+    widgetPadding(.all, length)
+  }
 }

@@ -7,7 +7,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { SectionPerformanceSection } from '@/features/routes/components/section/SectionPerformanceSection';
+import {
+  SectionPerformanceSection,
+  sectionStreamsState,
+} from '@/features/routes/components/section/SectionPerformanceSection';
 import { RANGE_DAYS, type SectionTimeRange } from '@/features/routes/constants';
 import type { PerformanceDataPoint } from '@/types';
 import enGB from '@/i18n/locales/en-GB.json';
@@ -184,6 +187,99 @@ describe('SectionPerformanceSection while time streams download', () => {
     );
 
     expect(queryByTestId('section-performance-pending')).toBeNull();
+  });
+});
+
+/// Scenario: offline, the wait for the section's time streams ended with two
+/// activities still missing, and the chart drew the rest as the whole history.
+///
+/// Expected behaviour: the screen plots what it has, says how many are not
+/// downloaded, and offers a retry, and an empty chart is never "no activities".
+describe('SectionPerformanceSection with time streams still missing', () => {
+  const base = {
+    isDark: false,
+    sportType: 'Ride',
+    trendCurves: {},
+    forwardStats: null,
+    reverseStats: null,
+    bestForwardRecord: null,
+    bestReverseRecord: null,
+    bestForwardIsRecord: false,
+    bestReverseIsRecord: false,
+    onActivitySelect: jest.fn(),
+    sectionTimeRange: 'all' as SectionTimeRange,
+    onTimeRangeChange: jest.fn(),
+  };
+
+  it('plots what landed, names the count missing and retries on press', () => {
+    const onRetry = jest.fn();
+    const { getByTestId, getByText, queryByTestId } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[{ ...effort(1), x: 0 }]}
+        streams={{ status: 'partial', outstanding: 2, onRetry }}
+      />
+    );
+
+    expect(getByText('sections.effortsNotDownloaded:2')).toBeTruthy();
+    expect(getByTestId('section-streams-partial')).toBeTruthy();
+    expect(queryByTestId('section-performance-empty')).toBeNull();
+    fireEvent.press(getByText('common.retry'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call an empty chart no activities while streams are missing', () => {
+    const { getByTestId, queryByTestId } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[]}
+        streams={{ status: 'partial', outstanding: 1, onRetry: jest.fn() }}
+      />
+    );
+
+    expect(getByTestId('section-streams-partial')).toBeTruthy();
+    expect(queryByTestId('section-performance-empty')).toBeNull();
+  });
+
+  it('says nothing about missing streams once every one is stored', () => {
+    const { queryByTestId } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[{ ...effort(1), x: 0 }]}
+        streams={{ status: 'ready', onRetry: jest.fn() }}
+      />
+    );
+
+    expect(queryByTestId('section-streams-partial')).toBeNull();
+  });
+});
+
+describe('sectionStreamsState', () => {
+  const refetch = jest.fn();
+  const sync = { ready: true, error: null, outstanding: 0, refetch };
+
+  it('is partial when the wait ended with streams missing', () => {
+    expect(sectionStreamsState({ ...sync, outstanding: 3 })).toEqual({
+      status: 'partial',
+      outstanding: 3,
+      onRetry: refetch,
+    });
+  });
+
+  it('is ready when nothing is missing', () => {
+    expect(sectionStreamsState(sync)).toEqual({ status: 'ready', onRetry: refetch });
+  });
+
+  it('is loading until the wait ends', () => {
+    expect(sectionStreamsState({ ...sync, ready: false }).status).toBe('loading');
+  });
+
+  it('is failed when the sync threw, whatever is missing', () => {
+    expect(sectionStreamsState({ ...sync, error: 'boom', outstanding: 2 })).toEqual({
+      status: 'failed',
+      error: 'boom',
+      onRetry: refetch,
+    });
   });
 });
 

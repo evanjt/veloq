@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
 import com.veloq.WidgetAgeRefreshWorker
+import com.veloq.WidgetDataRefreshWorker
 
 /**
  * Strength widget: the training load of one window drawn on the body, the front on a small
@@ -20,10 +21,16 @@ class VeloqStrengthWidgetProvider : AppWidgetProvider() {
     val snap = WidgetSnapshot.read(context)
     for (id in ids) update(context, manager, snap, id)
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
   }
 
   override fun onEnabled(context: Context) {
     WidgetAgeRefreshWorker.schedule(context)
+    WidgetDataRefreshWorker.widgetPlaced(context)
+  }
+
+  override fun onDisabled(context: Context) {
+    WidgetDataRefreshWorker.reconcile(context)
   }
 
   override fun onAppWidgetOptionsChanged(

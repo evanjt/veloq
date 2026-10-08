@@ -1,15 +1,19 @@
 /**
- * Scenario: en-AU used to be a casual-voice rewrite of the whole bundle, so a
- * destructive button read "Chuck it all & Reload" and a heart-rate label read
- * "Ticker". That is ruled out: destructive and factual strings read as en-GB
- * does, and personality survives only in empty states and celebrations.
+ * Scenario: en-AU is written as Australian English for fun, tongue in cheek
+ * and never mocking. An athlete who picks it reads Australian voice on the
+ * screens they see most, and plain British English where a playful word would
+ * get in the way of a fact or a decision.
  *
- * Expected behaviour: the next jokey string fails this suite rather than
- * shipping. `src/i18n/CLAUDE.md` carries the rule in prose.
+ * Voiced: prose, notices, empty states, celebrations, notifications, widget
+ * copy and the message of a confirmation. As en-GB: labels (one or two words,
+ * or Title Case), the title and button of every destructive confirmation, and
+ * every placeholder. A confirmation still names everything en-GB names.
  *
- * Spelling is not register and is guarded separately in `britishSpelling`.
- * en-GB is British, so Australian and British orthography coincide across
- * these strings and the assertion here is plain equality.
+ * Expected behaviour: a voiced label, a dropped placeholder, a softened
+ * warning, a string too long for its layout or a retired slang term fails here.
+ *
+ * Spelling is not register and is guarded separately: en-GB is British, and
+ * Australian and British orthography coincide across these strings.
  */
 import { resolvedLocale } from './resolvedLocale';
 import enGB from '@/i18n/locales/en-GB.json';
@@ -17,41 +21,32 @@ import enGB from '@/i18n/locales/en-GB.json';
 const enAU = resolvedLocale('en-AU');
 
 /**
- * Confirmations and labels for an action that loses data. Listed rather than
- * matched on a pattern: a key whose name stops containing "delete" is still
- * destructive.
+ * Titles and buttons for an action that loses data. Listed rather than matched
+ * on a pattern: a key whose name stops containing "delete" is still destructive.
  */
-const DESTRUCTIVE_KEYS = [
+const DESTRUCTIVE_LABELS = [
   'activity.resetToDefault',
-  'alerts.clearCacheMessage',
   'alerts.clearCacheTitle',
   'alerts.clearReload',
   'alerts.disconnect',
   'alerts.disconnectAndClearConfirm',
-  'alerts.disconnectAndClearMessage',
   'alerts.disconnectAndClearTitle',
-  'alerts.disconnectMessage',
   'alerts.disconnectTitle',
+  'alerts.accountChangeContinue',
   'backup.clearAndSync',
   'backup.deviceLibraryDifferentAccount',
   'common.delete',
   'common.remove',
   'common.reset',
   'namedCorridors.delete',
-  'namedCorridors.deleteConfirm',
   'namedCorridors.deleteTitle',
   'recording.discard',
   'recording.library.delete',
-  'recording.library.deleteConfirmMessage',
   'recording.library.deleteConfirmTitle',
   'sections.deleteSection',
-  'sections.deleteSectionConfirm',
   'sections.removeSection',
-  'sections.removeSectionConfirm',
   'sections.resetBounds',
-  'sections.resetBoundsConfirm',
   'sections.resetReference',
-  'sections.resetReferenceConfirm',
   'sensors.forget',
   'settings.clearAllReload',
   'settings.clearCache',
@@ -61,57 +56,86 @@ const DESTRUCTIVE_KEYS = [
   'settings.streamHistoryReset',
 ];
 
-/** Empty states, where nothing has gone wrong and nothing is being decided. */
-const VOICE_IN_EMPTY_STATES = [
+/**
+ * What each voiced confirmation must still name, read off its en-GB wording:
+ * the kinds of data it deletes and where they come back from.
+ */
+const CONFIRMATION_NAMES: Record<string, RegExp[]> = {
+  'alerts.clearCacheMessage': [/activity data/, /tracks/, /route matching/, /reload/],
+  'alerts.disconnectMessage': [/API credentials/, /again/],
+  'alerts.disconnectAndClearMessage': [
+    /signs you out/,
+    /activities/,
+    /GPS tracks/,
+    /sections/,
+    /route data/,
+    /intervals\.icu/,
+  ],
+  'namedCorridors.deleteConfirm': [/generated name/],
+  'recording.library.deleteConfirmMessage': [/recording/, /this device/],
+  'recording.resumePreviousMessage': [/moving time/],
+};
+
+/** Short strings that are an empty state or a celebration, not a label. */
+const SHORT_VOICE = [
   'activity.noDataAvailable',
   'activityDetail.noMatchedSections',
-  'activityDetail.noMatchedSectionsDescription',
-  'feed.noActivities',
-  'feed.noMatchingActivities',
-  'fitness.noData',
-  'routes.noFrequentSections',
-  'routes.noMatchingRoutes',
-  'routes.noRoutesYet',
-  'routes.noSectionsMatchFilter',
-  'routes.routesWithTwoPlus',
-  'sections.noActivitiesFound',
-  'settings.noData',
-  'stats.completeActivitiesHeatmap',
-  'stats.completeActivitiesHr',
-  'stats.completeActivitiesPower',
-  'stats.completeActivitiesYearComparison',
-  'stats.completeDecouplingHint',
-  'stats.completePowerActivities',
-  'stats.noActivitiesInPeriod',
-  'stats.noActivityData',
-  'stats.noDecouplingData',
-  'stats.noFtpData',
-  'stats.noPaceData',
-  'stats.noPowerData',
-  'stats.noSwimPaceData',
-  'stats.noZoneData',
-  'wellness.noTrendData',
-];
-
-/** Copy that thanks or congratulates, where the voice is the point. */
-const VOICE_IN_CELEBRATIONS = [
   'backup.restoreComplete',
-  'cache.allActivitiesSynced',
   'fitness.restDay',
-  'support.thankYou',
+  'routes.noRoutesYet',
+  'settings.noData',
+  'support.noCrashLog',
 ];
 
 /**
  * Not register. en-GB's word names a different thing in Australian English, so
- * flattening it would be a mistranslation: football is a different sport here.
+ * keeping it would be a mistranslation: football is a different sport here.
  */
 const AUSTRALIAN_VOCABULARY = ['activityTypes.Soccer'];
 
-const MAY_DIFFER = new Set([
-  ...VOICE_IN_EMPTY_STATES,
-  ...VOICE_IN_CELEBRATIONS,
-  ...AUSTRALIAN_VOCABULARY,
-]);
+/**
+ * One string from each surface an athlete sees most. Each must read as en-AU,
+ * so a bundle that falls back to en-GB on these screens fails here.
+ */
+const MOST_SEEN = [
+  'feed.firstSyncTitle',
+  'feed.firstSyncBody',
+  'feed.noActivities',
+  'feed.failedToLoad',
+  'activity.noHeartRateData',
+  'activityDetail.noRouteMatchDescription',
+  'activitySummary.downloading',
+  'cache.syncedActivities_other',
+  'cache.offlineUsingCached',
+  'refresh.offline',
+  'refresh.busy',
+  'emptyState.offline.description',
+  'emptyState.syncError.title',
+  'emptyState.syncError.reason.network',
+  'emptyState.error.title',
+  'errorState.defaultTitle',
+  'routes.noRoutesYet',
+  'stats.noPowerData',
+  'alerts.clearCacheMessage',
+  'alerts.disconnectAndClearMessage',
+  'recording.resumePreviousMessage',
+  'notifications.prompt.title',
+  'notifications.prompt.description',
+  'notifications.activityBody.fasterOnRoute',
+  'systemSurfaces.toSeeTraining',
+  'systemSurfaces.insightsEmpty',
+  'systemSurfaces.recordDescription',
+  'settings.syncStep.activities',
+  'backup.restoreComplete',
+  'support.thankYou',
+];
+
+/** A warning of permanent loss keeps a word as strong as en-GB's. */
+const PERMANENT_GB = /permanently|cannot be undone/i;
+const PERMANENT_AU = /permanently|for good|cannot be undone|can't be undone/i;
+
+/** Words a playful string may not use, because the rest of the UI does not. */
+const RETIRED = /\bticker|\bsquiz|\bkip\b|\bcooked\b|\bchuck/i;
 
 function flatten(node: unknown, path: string[] = []): [string, string][] {
   if (typeof node === 'string') return [[path.join('.'), node]];
@@ -121,35 +145,88 @@ function flatten(node: unknown, path: string[] = []): [string, string][] {
   );
 }
 
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((match) => match[1]).sort();
+}
+
+/** One or two words, or every word capitalised: a label rather than prose. */
+function isLabel(value: string): boolean {
+  if (placeholders(value).length > 0) return false;
+  const words = value.trim().split(/\s+/);
+  if (words.length <= 2) return true;
+  return words.every((word) => !/^\p{Ll}/u.test(word));
+}
+
 const au = new Map(flatten(enAU));
 const gb = new Map(flatten(enGB));
+const voiced = [...au.entries()].filter(([key, value]) => gb.has(key) && gb.get(key) !== value);
 
 describe('en-AU register', () => {
-  it.each(DESTRUCTIVE_KEYS)('%s reads the same as en-GB', (key) => {
+  it.each(DESTRUCTIVE_LABELS)('%s reads the same as en-GB', (key) => {
     expect(gb.get(key)).toBeDefined();
     expect(au.get(key)).toBe(gb.get(key));
   });
 
-  it('lets nothing else differ, so a new jokey string fails here', () => {
-    const differing = [...au.entries()]
-      .filter(([key, value]) => gb.has(key) && gb.get(key) !== value)
-      .map(([key]) => key)
-      .filter((key) => !MAY_DIFFER.has(key));
-    expect(differing).toEqual([]);
+  it.each(Object.entries(CONFIRMATION_NAMES))('%s still names what it deletes', (key, names) => {
+    for (const name of names) expect(gb.get(key)).toMatch(name);
+    const message = au.get(key) ?? '';
+    expect(names.filter((name) => !name.test(message))).toEqual([]);
   });
 
-  it('keeps the voice where the rule allows it', () => {
-    const kept = [...MAY_DIFFER].filter((key) => au.get(key) !== gb.get(key));
-    expect(kept.sort()).toEqual([...MAY_DIFFER].sort());
+  it('keeps every label as en-GB, bar the listed short voice and vocabulary', () => {
+    const allowed = new Set([...SHORT_VOICE, ...AUSTRALIAN_VOCABULARY]);
+    const offenders = voiced
+      .filter(([key]) => !allowed.has(key) && isLabel(gb.get(key) ?? ''))
+      .map(([key, value]) => `${key}: ${gb.get(key)} -> ${value}`);
+    expect(offenders).toEqual([]);
   });
 
-  it('drops every term the flattened bundle no longer uses', () => {
-    // An empty state may be casual, but not in a word the rest of the UI has
-    // stopped using: "No ticker data yet" beside a "Heart Rate" label is worse
-    // than either voice on its own.
-    const retired = /\bticker|\bsquiz|\bkip\b|\bcooked\b|\bchuck/i;
+  it('reads Australian on the surfaces an athlete sees most', () => {
+    const plain = MOST_SEEN.filter((key) => au.get(key) === gb.get(key));
+    expect(plain).toEqual([]);
+  });
+
+  it('keeps the short voice and the vocabulary', () => {
+    const plain = [...SHORT_VOICE, ...AUSTRALIAN_VOCABULARY].filter(
+      (key) => au.get(key) === gb.get(key)
+    );
+    expect(plain).toEqual([]);
+  });
+
+  it('carries exactly the placeholders en-GB carries', () => {
+    const offenders = voiced
+      .filter(([key, value]) => {
+        const expected = placeholders(gb.get(key) ?? '');
+        return placeholders(value).join(',') !== expected.join(',');
+      })
+      .map(([key, value]) => `${key}: ${value}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps a warning of permanent loss as strong as en-GB', () => {
+    const offenders = voiced
+      .filter(([key, value]) => PERMANENT_GB.test(gb.get(key) ?? '') && !PERMANENT_AU.test(value))
+      .map(([key, value]) => `${key}: ${value}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it('fits the layout en-GB fits', () => {
+    const offenders = voiced
+      .filter(([key, value]) => value.length > (gb.get(key) ?? '').length * 1.25 + 8)
+      .map(([key, value]) => `${key}: ${gb.get(key)} -> ${value}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps the line breaks en-GB has', () => {
+    const offenders = voiced
+      .filter(([key, value]) => value.split('\n').length !== (gb.get(key) ?? '').split('\n').length)
+      .map(([key]) => key);
+    expect(offenders).toEqual([]);
+  });
+
+  it('drops every retired slang term', () => {
     const offenders = [...au.entries()]
-      .filter(([, value]) => retired.test(value))
+      .filter(([, value]) => RETIRED.test(value))
       .map(([key, value]) => `${key}: ${value}`);
     expect(offenders).toEqual([]);
   });

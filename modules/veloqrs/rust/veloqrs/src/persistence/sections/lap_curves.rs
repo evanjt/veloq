@@ -8,6 +8,16 @@
 //! A lap's delta at a grid point is its time since the start of the stretch it
 //! shares with the reference, less the reference's over the same stretch.
 //!
+//! A line can pass over the same ground twice: a loop starts and finishes on
+//! one spot, and an out-and-back returns down its own road. A point there is
+//! as near one pass as the other, so it is placed on the pass nearer where the
+//! lap had got to, rather than on whichever is a metre nearer. A lap runs
+//! forward, so a pass behind that progress counts as further from it than a
+//! pass the same distance ahead.
+//!
+//! A route is measured the same way, its representative activity's track as
+//! the line and each attempt one lap over the whole activity.
+//!
 //! Nothing here is stored. The curves are derived from the track, the stream
 //! and the line, so the read cache holds them until the database moves rather
 //! than a column holding them across a migration.
@@ -31,6 +41,26 @@ pub(crate) const SPLIT_STEP_M: f64 = 100.0;
 /// arithmetic but not quite in floating point.
 const EPSILON_M: f64 = 1e-6;
 
+/// How much further from a point a second pass of the line may be and still be
+/// the pass the point is placed on. Wider than the two sides of a road and the
+/// error of a GPS fix, narrower than a road running beside it.
+const PASS_SLACK_M: f64 = 25.0;
+
+/// How far along the line two of its nearest places must be apart to be two
+/// passes rather than one stretch of a line GPS noise wrinkled.
+const PASS_GAP_M: f64 = 20.0;
+
+/// How many metres ahead one metre behind a lap's progress counts as, when
+/// choosing between two passes.
+const BACKWARD_WEIGHT: f64 = 3.0;
+
+/// Side of a square of the index that finds the segments near a point.
+const CELL_M: f64 = 50.0;
+
+/// Rings of cells searched before every segment is measured instead, for a
+/// point far off the line.
+const MAX_RING: i32 = 8;
+
 /// The section's line in local planar metres, with the distance along it at
 /// each vertex and the grid every curve is sampled on.
 struct Axis {
@@ -40,6 +70,27 @@ struct Axis {
     along: Vec<f64>,
     length: f64,
     grid: Vec<f64>,
+    /// The segments each square of `CELL_M` touches, a segment `i` running
+    /// from vertex `i - 1` to vertex `i`.
+    cells: HashMap<(i32, i32), Vec<u32>>,
+}
+
+/// Where a point falls on one segment of the line.
+#[derive(Clone, Copy)]
+struct Foot {
+    segment: usize,
+    /// Squared planar distance from the point.
+    squared: f64,
+    /// The segment parameter, 0 at its first vertex and 1 at its last.
+    t: f64,
+    along: f64,
+}
+
+fn cell_of(xy: (f64, f64)) -> (i32, i32) {
+    (
+        (xy.0 / CELL_M).floor() as i32,
+        (xy.1 / CELL_M).floor() as i32,
+    )
 }
 
 impl Axis {
@@ -61,6 +112,7 @@ impl Axis {
             along: Vec::with_capacity(line.len()),
             length: 0.0,
             grid: Vec::new(),
+            cells: HashMap::new(),
         };
         let mut run = 0.0;
         for point in line {
@@ -78,6 +130,14 @@ impl Axis {
         let steps = (run / GRID_STEP_M - EPSILON_M).ceil() as usize;
         axis.grid = (0..steps).map(|k| k as f64 * GRID_STEP_M).collect();
         axis.grid.push(run);
+        for i in 1..axis.vertices.len() {
+            let (a, b) = (cell_of(axis.vertices[i - 1]), cell_of(axis.vertices[i]));
+            for cx in a.0.min(b.0)..=a.0.max(b.0) {
+                for cy in a.1.min(b.1)..=a.1.max(b.1) {
+                    axis.cells.entry((cx, cy)).or_default().push(i as u32);
+                }
+            }
+        }
         Some(axis)
     }
 
@@ -88,30 +148,125 @@ impl Axis {
         )
     }
 
-    /// Distance along the line to the point on it nearest `point`.
-    fn along(&self, point: &GpsPoint) -> f64 {
-        let (x, y) = self.planar(point);
-        let mut best = (f64::INFINITY, 0.0);
-        for i in 1..self.vertices.len() {
-            let (ax, ay) = self.vertices[i - 1];
-            let (bx, by) = self.vertices[i];
-            let (dx, dy) = (bx - ax, by - ay);
-            let span = dx * dx + dy * dy;
-            let t = if span > 0.0 {
-                (((x - ax) * dx + (y - ay) * dy) / span).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let (px, py) = (ax + t * dx, ay + t * dy);
-            let squared = (x - px).powi(2) + (y - py).powi(2);
-            if squared < best.0 {
-                best = (
-                    squared,
-                    self.along[i - 1] + t * (self.along[i] - self.along[i - 1]),
-                );
+    fn foot(&self, (x, y): (f64, f64), segment: usize) -> Foot {
+        let (ax, ay) = self.vertices[segment - 1];
+        let (bx, by) = self.vertices[segment];
+        let (dx, dy) = (bx - ax, by - ay);
+        let span = dx * dx + dy * dy;
+        let t = if span > 0.0 {
+            (((x - ax) * dx + (y - ay) * dy) / span).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let (px, py) = (ax + t * dx, ay + t * dy);
+        Foot {
+            segment,
+            squared: (x - px).powi(2) + (y - py).powi(2),
+            t,
+            along: self.along[segment - 1] + t * (self.along[segment] - self.along[segment - 1]),
+        }
+    }
+
+    /// Where `xy` falls on every segment within `reach` of it, and on some
+    /// further ones. `None` when the index cannot vouch for `reach`.
+    fn feet_within(&self, xy: (f64, f64), reach: f64) -> Option<Vec<Foot>> {
+        // A segment within `ring * CELL_M` of the point touches a cell at most
+        // `ring` cells from the point's own.
+        let ring = (reach / CELL_M).ceil().max(1.0) as i32;
+        if ring > MAX_RING {
+            return None;
+        }
+        let home = cell_of(xy);
+        let mut feet = Vec::new();
+        for cx in home.0 - ring..=home.0 + ring {
+            for cy in home.1 - ring..=home.1 + ring {
+                if let Some(segments) = self.cells.get(&(cx, cy)) {
+                    feet.extend(segments.iter().map(|&i| self.foot(xy, i as usize)));
+                }
             }
         }
-        best.1
+        Some(feet)
+    }
+
+    /// Whether the line comes no nearer the point on either side of `foot`: a
+    /// foot inside its segment, or one on a vertex both segments meeting there
+    /// end on. A foot on a vertex the next segment runs on past is no place of
+    /// its own, only the end of the segment before.
+    fn is_local_nearest(&self, xy: (f64, f64), foot: &Foot) -> bool {
+        if foot.t > 0.0 && foot.t < 1.0 {
+            return true;
+        }
+        let last = self.vertices.len() - 1;
+        if foot.t <= 0.0 {
+            foot.segment == 1 || self.foot(xy, foot.segment - 1).t >= 1.0
+        } else {
+            foot.segment == last || self.foot(xy, foot.segment + 1).t <= 0.0
+        }
+    }
+
+    /// Distance along the line to the point on it nearest `point`, or, where
+    /// the line passes that ground more than once, to the nearest point on the
+    /// pass closest to `reached`, the progress a lap travelling the way
+    /// `reverse` says has made so far.
+    fn along(&self, point: &GpsPoint, reached: f64, reverse: bool) -> f64 {
+        let xy = self.planar(point);
+        // Ties go to the earlier segment, as a scan from the start would have it.
+        let nearest_of = |feet: &[Foot]| {
+            feet.iter().copied().reduce(|a, b| {
+                if (b.squared, b.segment) < (a.squared, a.segment) {
+                    b
+                } else {
+                    a
+                }
+            })
+        };
+        // Widen the search until it holds every segment within the slack of
+        // the nearest, and measure them all when that is too far for the index.
+        let mut reach = CELL_M;
+        let (nearest, feet) = loop {
+            let Some(feet) = self.feet_within(xy, reach) else {
+                let feet: Vec<Foot> = (1..self.vertices.len()).map(|i| self.foot(xy, i)).collect();
+                match nearest_of(&feet) {
+                    Some(nearest) => break (nearest, feet),
+                    None => return 0.0,
+                }
+            };
+            match nearest_of(&feet) {
+                Some(nearest) if nearest.squared.sqrt() + PASS_SLACK_M <= reach => {
+                    break (nearest, feet);
+                }
+                Some(nearest) => reach = nearest.squared.sqrt() + PASS_SLACK_M,
+                None => reach += CELL_M,
+            }
+        };
+        let within = (nearest.squared.sqrt() + PASS_SLACK_M).powi(2);
+        let away = |foot: &Foot| {
+            let progress = if reverse {
+                self.length - foot.along
+            } else {
+                foot.along
+            };
+            let ahead = progress - reached;
+            if ahead >= 0.0 {
+                ahead
+            } else {
+                -ahead * BACKWARD_WEIGHT
+            }
+        };
+        feet.into_iter()
+            .filter(|foot| {
+                (foot.along - nearest.along).abs() > PASS_GAP_M
+                    && foot.squared <= within
+                    && self.is_local_nearest(xy, foot)
+            })
+            .fold(nearest, |chosen, foot| {
+                if away(&foot) < away(&chosen) {
+                    foot
+                } else {
+                    chosen
+                }
+            })
+            .along
     }
 }
 
@@ -148,7 +303,7 @@ fn lap_clock(axis: &Axis, track: &[GpsPoint], times: &[u32], reverse: bool) -> O
     let mut progress = Vec::with_capacity(track.len());
     let mut furthest = f64::NEG_INFINITY;
     for point in track {
-        let along = axis.along(point);
+        let along = axis.along(point, furthest.max(0.0), reverse);
         let oriented = if reverse { axis.length - along } else { along };
         furthest = furthest.max(oriented);
         progress.push(furthest);
@@ -474,7 +629,7 @@ pub(crate) mod pooled {
 
     use rusqlite::Connection;
 
-    use crate::FfiSectionLapCurves;
+    use crate::{FfiSectionLapCurves, SectionPerformanceResult};
 
     thread_local! {
         static COMPUTATIONS: Cell<usize> = const { Cell::new(0) };
@@ -517,6 +672,75 @@ pub(crate) mod pooled {
         crate::persistence::read_cache::lap_curves(conn, &key, || {
             lap_curves(conn, section_id, sport_type_filter)
         })
+    }
+
+    /// Whether a read computes the curves it does not hold, or leaves them
+    /// owed. A route's whole-activity curves can take longer than a tap may
+    /// block, so the route screen's own read only serves them once held.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum CurveRead {
+        Held,
+        Computed,
+    }
+
+    /// One route's curves under one sport filter, over the included attempts
+    /// `attempts` reads, cached until the database moves. `None` when `read`
+    /// is [`CurveRead::Held`] and they are not held.
+    pub(crate) fn cached_route_lap_curves(
+        conn: &Connection,
+        route_id: &str,
+        sport_type_filter: Option<&str>,
+        read: CurveRead,
+        attempts: impl FnOnce() -> SectionPerformanceResult,
+    ) -> Option<Arc<Option<FfiSectionLapCurves>>> {
+        // Keyed apart from the sections, whose ids a route's may share.
+        let key = match sport_type_filter {
+            Some(sport) => format!("route:{route_id}:{sport}"),
+            None => format!("route:{route_id}"),
+        };
+        match read {
+            CurveRead::Held => crate::persistence::read_cache::held_lap_curves(conn, &key),
+            CurveRead::Computed => Some(crate::persistence::read_cache::lap_curves(
+                conn,
+                &key,
+                || route_lap_curves(conn, route_id, attempts()),
+            )),
+        }
+    }
+
+    /// A route's curves along its representative's track, each attempt one
+    /// lap over its whole activity. The reference the athlete set is the
+    /// representative they chose; one the grouping picked is no choice.
+    fn route_lap_curves(
+        conn: &Connection,
+        route_id: &str,
+        mut attempts: SectionPerformanceResult,
+    ) -> Option<FfiSectionLapCurves> {
+        use crate::persistence::fitness::performances::laps;
+        use crate::persistence::routes::pooled as routes;
+        count(&COMPUTATIONS);
+        if attempts.records.is_empty() {
+            return None;
+        }
+        let line = routes::representative_route(conn, route_id)?;
+        // An attempt's lap runs to the end of whatever track it has.
+        for lap in attempts.records.iter_mut().flat_map(|r| r.laps.iter_mut()) {
+            lap.end_index = u32::MAX;
+        }
+        let athlete_set = routes::chosen_representative(conn, route_id);
+        super::lap_curves(
+            &line,
+            &attempts,
+            athlete_set.as_deref(),
+            |id| {
+                count(&DECODES);
+                crate::persistence::activities::pooled::gps_track(conn, id)
+            },
+            |id| {
+                count(&DECODES);
+                laps::time_stream(conn, id).map(|(times, _)| times)
+            },
+        )
     }
 
     fn lap_curves(

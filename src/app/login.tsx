@@ -12,7 +12,7 @@ import { colors, darkColors, spacing, layout, typography, colorWithOpacity } fro
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { useImportDatabaseBackup } from '@/features/settings';
+import { RestoreChooser } from '@/features/settings';
 import {
   useAuthStore,
   INTERVALS_URLS,
@@ -42,7 +42,7 @@ function LoginScreenContent() {
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
-  const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
+  const [showRestore, setShowRestore] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -192,15 +192,11 @@ function LoginScreenContent() {
           {/* Restore from Backup */}
           <Button
             testID="login-restore-button"
-            label={
-              isRestoring
-                ? t('backup.importing')
-                : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })
-            }
+            label={t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
             variant="ghost"
             size="sm"
-            onPress={importDatabaseBackup}
-            disabled={isLoading || isApiKeyLoading || isRestoring}
+            onPress={() => setShowRestore((shown) => !shown)}
+            disabled={isLoading || isApiKeyLoading}
             style={styles.restoreButton}
             icon={
               <MaterialCommunityIcons
@@ -210,6 +206,11 @@ function LoginScreenContent() {
               />
             }
           />
+          {showRestore && (
+            <View style={styles.restoreChooser}>
+              <RestoreChooser />
+            </View>
+          )}
 
           {/* API Key Login */}
           <ApiKeyLoginForm
@@ -391,6 +392,9 @@ const styles = StyleSheet.create({
   },
   restoreButton: {
     marginTop: spacing.sm,
+  },
+  restoreChooser: {
+    marginTop: spacing.md,
   },
   newUserTitle: {
     fontSize: typography.body.fontSize,

@@ -34,6 +34,10 @@ data class PushCredential(val method: String, val secret: String, val athleteId:
       athleteStored = SecureStoreReader.isStored(context, ATHLETE_ID)
     )
 
+    /** Whether anyone is signed in, read without decrypting, since sign-out deletes the athlete id. */
+    @JvmStatic
+    fun isSignedIn(context: Context): Boolean = SecureStoreReader.isStored(context, ATHLETE_ID)
+
     /** `choose` told apart by whether an athlete id envelope exists at all. */
     @JvmStatic
     fun classify(

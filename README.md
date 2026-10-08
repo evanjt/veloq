@@ -5,7 +5,7 @@
 <h1 align="center">Veloq</h1>
 
 <p align="center">
-  <strong>Open-source mobile client for <a href="https://intervals.icu">Intervals.icu</a></strong><br>
+  <strong>Open-source mobile client for <a href="https://intervals.icu">intervals.icu</a></strong><br>
   Maps, charts, and fitness tracking, open source, your data stays yours.
 </p>
 
@@ -47,7 +47,7 @@ See [veloq.fit](https://veloq.fit) for the full feature list.
 ## Getting Started
 
 1. Install from the [App Store](https://apps.apple.com/us/app/veloq/id6757836732) or [Google Play](https://play.google.com/store/apps/details?id=com.veloq.app)
-2. Sign in with **OAuth** or use an **API key** from [Intervals.icu Settings](https://intervals.icu/settings)
+2. Sign in with **OAuth** or use an **API key** from [intervals.icu Settings](https://intervals.icu/settings)
 
 ## Alternative Installation
 
@@ -66,15 +66,24 @@ See [Development](#development) below.
 ```bash
 npm install
 
-npm run android         # Build, install and run the Android Dev app; then start Metro
-npm run ios             # Build and run the iOS Dev app
+npm run android             # Veloq Dev, debug build, then start Metro
+npm run android:standalone  # Veloq Dev, release build with its JavaScript, no Metro
+npm run android:prod        # Veloq, release build
+npm run ios                 # Veloq Dev, Debug, served by Metro
+npm run ios:standalone      # Veloq Dev, Release
+npm run ios:prod            # Veloq, Release
 ```
 
-Set `ANDROID_SERIAL` when more than one Android device is attached. `npm run android`
-builds first, then installs and launches on that device before starting Metro. For a
-build without an install, use `npm run android:debug`; install that verified APK
-later with `npm run install:android debug`. Regenerate bindings after changing a
-Rust export with `npm run ffi:generate`.
+Each command names its identity, so `APP_VARIANT` in the shell changes none of them.
+Both Dev builds sign with the debug key and replace each other in place, keeping the
+app's data.
+
+Set `ANDROID_SERIAL` when more than one Android device is attached. The Android commands
+build first, then install and launch on that device. For a build without an install,
+use `npm run android:debug`; install that verified APK later with
+`npm run install:android debug`, or a release APK with
+`npm run install:android -- release --identity dev` (or `production`). Regenerate
+bindings after changing a Rust export with `npm run ffi:generate`.
 
 Native Rust builds use Cargo's `release` profile by default. For local Dev
 iteration, set `VELOQRS_RUST_PROFILE=release-dev` before the build. Android's

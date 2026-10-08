@@ -11,7 +11,8 @@ import type { SectionWithPolyline } from 'veloqrs';
  * the named corridors.
  *
  * Expected behaviour: each is a named button on the list, and pressing it
- * opens its screen.
+ * opens its screen. The list closes on the card that says what a section is
+ * and where its times come from.
  */
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -105,5 +106,13 @@ describe('SectionsList footer links', () => {
 
     expect(link).toBe(tree.getByTestId('sections-named-corridors-link'));
     expect(router.push).toHaveBeenCalledWith('/named-corridors');
+  });
+
+  it('closes on the card that explains sections', () => {
+    const tree = renderList();
+
+    const card = tree.getByTestId('sections-explanation');
+    expect(card).toHaveTextContent(new RegExp(i18n.t('routes.explanation.sectionsTitle')));
+    expect(card).toHaveTextContent(new RegExp(i18n.t('routes.explanation.sectionsWhatLabel')));
   });
 });

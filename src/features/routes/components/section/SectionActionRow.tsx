@@ -48,7 +48,7 @@ export function SectionActionRow({
   });
 
   return (
-    <View style={styles.actionRow}>
+    <View testID="section-action-row" style={styles.actionRow}>
       <Button
         testID="section-trim-button"
         variant="secondary"

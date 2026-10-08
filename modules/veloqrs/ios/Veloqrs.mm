@@ -1,6 +1,9 @@
 // Custom iOS TurboModule implementation for veloqrs
 // This file is preserved by the build system - do not let uniffi-bindgen overwrite it
 #import "Veloqrs.h"
+#import <React/RCTInvalidating.h>
+
+extern "C" void veloq_runtime_torn_down(void);
 
 #ifdef RCT_NEW_ARCH_ENABLED
 #import <React/RCTBridge+Private.h>
@@ -55,8 +58,19 @@ private:
 } // namespace facebook::react
 #endif
 
+@interface Veloqrs () <RCTInvalidating>
+@end
+
 @implementation Veloqrs
 RCT_EXPORT_MODULE()
+
+// The engine outlives the JavaScript runtime, and a reload frees the runtime
+// without running clearObserver, so the observer it registered is let go
+// here, before the next runtime installs its own.
+- (void)invalidate
+{
+    veloq_runtime_torn_down();
+}
 
 #ifdef RCT_NEW_ARCH_ENABLED
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

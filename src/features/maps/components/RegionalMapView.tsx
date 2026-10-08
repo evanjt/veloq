@@ -5,7 +5,7 @@ import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, controlHeight } from '@/theme';
 import { getActivityTypeConfig } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
@@ -16,7 +16,11 @@ import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
-import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
+import {
+  useSectionAutoToggle,
+  useTerrainFallback,
+  useVisibilityToggles,
+} from '@/features/maps/hooks';
 import {
   createRouteLineCache,
   type RouteLineLayerInput,
@@ -126,6 +130,11 @@ export function RegionalMapView({
     toggleHeatmap,
     toggle3D,
   } = useVisibilityToggles();
+  // The info bar covers the foot of the map, so the notice sits where the popups do.
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(
+    () => setIs3DMode(false),
+    insets.bottom + 250
+  );
   // The overlay carries six fields per section. The popup wants the whole
   // record, so it is read for the one section that was tapped.
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
@@ -602,6 +611,7 @@ export function RegionalMapView({
             onSectionClick={handle3DSectionClick}
             onMapClick={handleEmptyPress}
             onActivityClick={handle3DActivityClick}
+            onTerrainUnavailable={onTerrainUnavailable}
           />
         </ComponentErrorBoundary>
       ) : (
@@ -638,12 +648,14 @@ export function RegionalMapView({
         />
       )}
 
+      {terrainNotice}
+
       {/* Style toggle */}
       <IconButton
         style={[
           styles.button,
           styles.styleButton,
-          { top: insets.top + 12 },
+          { top: insets.top + spacing.smPlus },
           isDark && styles.buttonDark,
         ]}
         onPress={toggleStyle}
@@ -652,13 +664,13 @@ export function RegionalMapView({
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
-          size={24}
+          size={20}
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </IconButton>
-      {/* Control button stack - positioned in middle of right side */}
+      {/* The control column, one rung below the style toggle. */}
       <MapControlStack
-        top={insets.top + 64}
+        top={insets.top + spacing.smPlus + controlHeight.button + spacing.sm}
         isDark={isDark}
         is3DMode={is3DMode}
         can3D={can3D}
@@ -727,9 +739,9 @@ const styles = StyleSheet.create({
   },
   button: {
     position: 'absolute',
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
+    width: controlHeight.button,
+    height: controlHeight.button,
+    borderRadius: layout.borderRadiusFull,
     ...shadows.mapOverlay,
   },
   buttonDark: {

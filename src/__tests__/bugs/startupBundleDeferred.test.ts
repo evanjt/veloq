@@ -128,15 +128,13 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  it('carries the summary card, preview tracks, sparklines and ring state', () => {
+  it('carries the summary card, preview tracks and sparklines, and nothing else', () => {
     const { result } = renderHook(() => useStartupData([]));
     flushInteractions();
 
     expect(engine.getStartupData).toHaveBeenCalledTimes(1);
     expect(result.current.data?.previewTracks.size).toBe(0);
     expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
-      'newActivityIds',
-      'nextRingExpiryAt',
       'previewTracks',
       'sparklines',
       'summaryCardData',

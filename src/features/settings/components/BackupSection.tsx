@@ -20,6 +20,7 @@ import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupTimestamp,
+  getDestinationLastBackup,
   getUnplacedBackupRecords,
   getBackupFailures,
   failureMessageKey,
@@ -31,12 +32,17 @@ import {
   getBackupFolderName,
   forgetBackupFolder,
   getWebdavConfig,
+  type BackupDestination,
   type BackupFailure,
   type BackupRunResult,
   type BackupBackend,
   type BackupEntry,
 } from '@/features/settings/lib/autobackup';
-import { discardRecordImport, resumeRecordImport } from '@/features/settings/lib/backup';
+import {
+  discardRecordImport,
+  discardUnplacedRecords,
+  resumeRecordImport,
+} from '@/features/settings/lib/backup';
 import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
 import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
@@ -67,29 +73,6 @@ function carrierName(t: TFunction, id: string): string {
   }
 }
 
-function unplacedKindKey(kind: string) {
-  switch (kind) {
-    case 'section_pins':
-      return 'backup.unplacedPin';
-    case 'section_history':
-      return 'backup.unplacedHistory';
-    case 'section_intents':
-    case 'legacy_section_disabled':
-    case 'legacy_section_superseded':
-      return 'backup.unplacedSectionSetting';
-    case 'sections':
-      return 'backup.unplacedSection';
-    case 'legacy_section_name':
-      return 'backup.unplacedSectionName';
-    case 'settings':
-      return 'backup.unplacedSetting';
-    case 'route_names':
-      return 'backup.unplacedRouteName';
-    default:
-      return 'backup.unplacedRecord';
-  }
-}
-
 /** The failure a carrier's last run left, in words the athlete can act on. */
 function CarrierFailure({
   failure,
@@ -111,6 +94,19 @@ function CarrierFailure({
   );
 }
 
+/** When one destination last took a backup, or that it has not yet. */
+function DestinationLastBackup({ at, testID }: { at: number | null; testID: string }) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  return (
+    <Text testID={testID} style={[styles.detail, isDark && settingsStyles.textSecondary]}>
+      {at === null
+        ? t('backup.lastBackupNever')
+        : t('backup.lastBackup', { date: new Date(at).toLocaleDateString(getIntlLocale()) })}
+    </Text>
+  );
+}
+
 export function BackupSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -121,6 +117,9 @@ export function BackupSection() {
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backendBackups, setBackendBackups] = useState<CarrierEntries[] | null>(null);
+  // Whether the last listing read a destination the athlete set up, rather
+  // than only the older backups on this device.
+  const [listedSetUpDestination, setListedSetUpDestination] = useState(false);
   const [webdavSet, setWebdavSet] = useState(() => getWebdavConfig() !== null);
   const [folderName, setFolderName] = useState(() => getBackupFolderName());
   const [runResult, setRunResult] = useState<BackupRunResult | null>(null);
@@ -157,6 +156,16 @@ export function BackupSection() {
   const lastBackupTs = useMemo(
     () => readBackupState(() => getLastBackupTimestamp()) ?? null,
     [readBackupState]
+  );
+  const destinationStamps = useMemo<Record<BackupDestination, number | null>>(
+    () =>
+      readBackupState(() => ({
+        device: getDestinationLastBackup('device'),
+        webdav: webdavSet ? getDestinationLastBackup('webdav') : null,
+        folder: folderName ? getDestinationLastBackup('folder') : null,
+      })) ?? { device: null, webdav: null, folder: null },
+    // A carrier set up or removed changes which stamp applies.
+    [readBackupState, webdavSet, folderName]
   );
   // A failure the user has to act on survives leaving the screen, so an
   // unattended backup that was rejected is not invisible.
@@ -247,6 +256,7 @@ export function BackupSection() {
         }
       }
       setBackendBackups(groups);
+      setListedSetUpDestination(candidates.some((backend) => backend.id !== 'local'));
       if (firstError) Alert.alert(t('common.error'), describeBackupError(firstError));
     } finally {
       setLoadingBackups(false);
@@ -268,8 +278,8 @@ export function BackupSection() {
       }
       setRestoringEntry(entry.id);
       try {
-        const messages = await restoreBackendEntry(backend, entry, t);
-        Alert.alert(t('backup.restoreComplete'), messages.join('\n'));
+        const notice = await restoreBackendEntry(backend, entry, t);
+        Alert.alert(notice.title, notice.message);
         setBackendBackups(null);
       } catch (error) {
         Alert.alert(
@@ -318,6 +328,28 @@ export function BackupSection() {
             await discardRecordImport();
           } catch {
             Alert.alert(t('common.error'), t('backup.discardImportError'));
+          } finally {
+            restoreRunning.current = false;
+            setRestoreGeneration((generation) => generation + 1);
+          }
+        },
+      },
+    ]);
+  }, [t]);
+
+  const handleDiscardWaiting = useCallback(() => {
+    Alert.alert(t('backup.discardWaitingTitle'), t('backup.discardWaitingMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('backup.discardImport'),
+        style: 'destructive',
+        onPress: async () => {
+          if (restoreRunning.current) return;
+          restoreRunning.current = true;
+          try {
+            await discardUnplacedRecords();
+          } catch {
+            Alert.alert(t('common.error'), t('backup.discardWaitingError'));
           } finally {
             restoreRunning.current = false;
             setRestoreGeneration((generation) => generation + 1);
@@ -438,15 +470,29 @@ export function BackupSection() {
               </Text>
             )}
             {backupResult === 'success' &&
-              Object.entries(runResult?.carriers ?? {}).map(([id, outcome]) =>
-                outcome.status === 'failed' ? (
-                  <Text key={id} testID={`backup-carrier-failed-${id}`} style={errorStyle}>
-                    {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
-                    {'\n'}
-                    {t(failureMessageKey(outcome.kind === 'unknown' ? 'transport' : outcome.kind))}
-                  </Text>
-                ) : null
-              )}
+              Object.entries(runResult?.carriers ?? {}).map(([id, outcome]) => {
+                if (outcome.status === 'failed') {
+                  return (
+                    <Text key={id} testID={`backup-carrier-failed-${id}`} style={errorStyle}>
+                      {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
+                      {'\n'}
+                      {t(
+                        failureMessageKey(outcome.kind === 'unknown' ? 'transport' : outcome.kind)
+                      )}
+                    </Text>
+                  );
+                }
+                if (outcome.status === 'skipped' && outcome.reason === 'no-radio') {
+                  return (
+                    <Text key={id} testID={`backup-carrier-owed-${id}`} style={errorStyle}>
+                      {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
+                      {'\n'}
+                      {t('backup.carrierSentWhenOnline')}
+                    </Text>
+                  );
+                }
+                return null;
+              })}
             {backupResult === 'error' && (
               <Text testID="backup-error-message" style={errorStyle}>
                 {backupError}
@@ -484,8 +530,12 @@ export function BackupSection() {
         </Row>
         {backendBackups?.every((group) => group.entries.length === 0) && (
           <Row>
+            {/* The device backup cannot be read from here: the platform hands it
+                back only while a new phone is set up. */}
             <Text testID="backup-none-found" style={detailStyle}>
-              {t('backup.noBackupsAtDestination')}
+              {listedSetUpDestination
+                ? t('backup.noBackupsAtDestination')
+                : t('backup.noBrowsableDestination')}
             </Text>
           </Row>
         )}
@@ -600,14 +650,16 @@ export function BackupSection() {
                 <Text style={labelStyle}>
                   {t('backup.unplacedRecords', { count: waitingRecords.length })}
                 </Text>
-                {waitingRecords.map((record, index) => (
-                  <Text key={`${record.kind}-${record.name ?? ''}-${index}`} style={detailStyle}>
-                    {record.name ?? t(unplacedKindKey(record.kind))}:{' '}
-                    {record.reason === 'activity_unavailable'
-                      ? t('backup.unplacedActivityUnavailable')
-                      : t('backup.unplacedGroundNotDetected')}
-                  </Text>
-                ))}
+                <View style={styles.actions}>
+                  <Button
+                    testID="backup-unplaced-discard-button"
+                    label={t('backup.discardImport')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={handleDiscardWaiting}
+                    disabled={anyBusy}
+                  />
+                </View>
               </View>
             </Row>
           </>
@@ -627,9 +679,16 @@ export function BackupSection() {
       <Card variant="flat" padding="none">
         <Row testID="backup-carrier-device">
           <MaterialCommunityIcons name="cellphone" size={22} color={iconColor} />
-          <Text style={labelStyle}>
-            {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
-          </Text>
+          <View style={styles.fill}>
+            <Text style={labelStyle}>
+              {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
+            </Text>
+            <Text style={detailStyle}>{t('backup.carrierDeviceRestore')}</Text>
+            <DestinationLastBackup
+              at={destinationStamps.device}
+              testID="backup-carrier-last-device"
+            />
+          </View>
           <InfoButton
             testID="backup-info-destinations"
             title={t('backup.sectionDestinations')}
@@ -647,6 +706,12 @@ export function BackupSection() {
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.carrierFolder')}</Text>
               <Text style={detailStyle}>{folderName ?? t('backup.carrierFolderNone')}</Text>
+              {folderName && (
+                <DestinationLastBackup
+                  at={destinationStamps.folder}
+                  testID="backup-carrier-last-folder"
+                />
+              )}
             </View>
             {folderName && (
               <Button
@@ -678,7 +743,15 @@ export function BackupSection() {
         <View testID="backup-carrier-webdav">
           <Row>
             <MaterialCommunityIcons name="server-network" size={22} color={iconColor} />
-            <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
+            <View style={styles.fill}>
+              <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
+              {webdavSet && (
+                <DestinationLastBackup
+                  at={destinationStamps.webdav}
+                  testID="backup-carrier-last-webdav"
+                />
+              )}
+            </View>
           </Row>
           {carrierFailures.webdav && (
             <View style={styles.failure}>

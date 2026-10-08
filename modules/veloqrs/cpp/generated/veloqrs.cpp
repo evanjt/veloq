@@ -337,13 +337,11 @@ void uniffi_veloqrs_fn_method_veloqengine_destroy(
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_detection(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_discard_record_import(
-    /*handle*/ uint64_t ptr);
+    /*handle*/ uint64_t ptr, int8_t waiting);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_fitness(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
-uint32_t uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
@@ -459,8 +457,6 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
     /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer zone_type,
     double start_ts, double end_ts, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
-    /*handle*/ uint64_t ptr, RustBuffer event, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
     /*handle*/ uint64_t ptr, RustBuffer sport_type, double critical_speed,
     RustBuffer d_prime, RustBuffer r2, double date, double window_days,
@@ -646,6 +642,10 @@ void uniffi_veloqrs_fn_method_routemanager_include_activity(
     RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_routemanager_live_overlaps(
     /*handle*/ uint64_t ptr, RustBuffer group_ids, RustBuffer coordinates);
+/*handle*/ uint64_t
+uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
+    /*handle*/ uint64_t ptr, RustBuffer group_id, uint32_t time_range_days,
+    RustBuffer sport_filter);
 void uniffi_veloqrs_fn_method_routemanager_set_name(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
@@ -1215,7 +1215,6 @@ uint16_t uniffi_veloqrs_checksum_method_veloqengine_discard_record_import();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_fitness();
 uint16_t
 uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_stats();
 uint16_t
@@ -1270,7 +1269,6 @@ uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_latest_date();
 uint16_t
 uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution();
-uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_set_widget_context();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness();
@@ -1335,6 +1333,7 @@ uint16_t uniffi_veloqrs_checksum_method_routemanager_get_screen_data();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_summaries();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_include_activity();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_live_overlaps();
+uint16_t uniffi_veloqrs_checksum_method_routemanager_load_detail_performance();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_name();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_representative();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_accept();
@@ -6403,7 +6402,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                         "veloqengine_discard_record_import"),
-          1,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -6433,19 +6432,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7017,19 +7003,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot"] =
@@ -7940,6 +7913,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_routemanager_load_detail_performance"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "routemanager_load_detail_performance"),
+          4,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_routemanager_set_name"] =
@@ -11195,18 +11180,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_get_activity_count"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11748,18 +11721,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "fitnessmanager_record_feed_seen"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_"
         "snapshot"] = jsi::Function::createFromHostFunction(
       rt,
@@ -12465,6 +12426,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_load_detail_"
+        "performance"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "routemanager_load_detail_performance"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_routemanager_load_detail_performance(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -15616,7 +15589,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_discard_record_import(
     size_t count) {
   auto value = uniffi_veloqrs_fn_method_veloqengine_discard_record_import(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]));
+                                                        args[0]),
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[1]));
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);
@@ -15651,21 +15625,6 @@ jsi::Value NativeVeloqrs::
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
@@ -16385,22 +16344,6 @@ jsi::Value NativeVeloqrs::
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_fitnessmanager_record_feed_seen(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
@@ -17575,6 +17518,20 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]));
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);
@@ -20979,14 +20936,6 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -21360,14 +21309,6 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_fitnessmanager_record_feed_seen();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -21855,6 +21796,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_routemanager_live_overlaps();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_routemanager_load_detail_performance(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_routemanager_load_detail_performance();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -10,7 +10,7 @@
 
 import { SyncState } from 'veloqrs';
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { StrengthTab } from '@/features/insights/components/StrengthTab';
@@ -401,5 +401,16 @@ describe('the body diagram', () => {
       ])
     );
     expect(mockDiagramProps.maxWeightedSets).toBe(30);
+  });
+});
+
+describe('the explanation card', () => {
+  it('closes a period with workouts, saying how sets count and where they come from', async () => {
+    renderTab();
+
+    const card = await screen.findByTestId('strength-explanation');
+    expect(within(card).getByText('insights.explanation.strengthTitle')).toBeTruthy();
+    expect(within(card).getByText('strength.infoWeighting')).toBeTruthy();
+    expect(within(card).getByText(/strength\.disclaimer$/)).toBeTruthy();
   });
 });

@@ -165,6 +165,34 @@ describe('the build record', () => {
     expect(verify(root, { applicationId: 'com.veloq.app' }).problems).toEqual([]);
   });
 
+  it('refuses to record an APK of another identity than the build asked for', () => {
+    const apk = build(root, { applicationId: 'com.veloq.app' });
+
+    expect(() =>
+      record.writeRecord(root, apk, { variant: 'debug', identity: 'com.veloq.app.dev' })
+    ).toThrow(/the build asked for com\.veloq\.app\.dev, the APK declares com\.veloq\.app\b/);
+    expect(
+      record.writeRecord(root, apk, { variant: 'debug', identity: 'com.veloq.app' }).application.id
+    ).toBe('com.veloq.app');
+  });
+
+  it('installs the identity the record names unless one is asked for, whatever APP_VARIANT holds', () => {
+    record.writeRecord(root, build(root, { applicationId: 'com.veloq.app' }), { variant: 'debug' });
+
+    const ambient = parse(['verify', 'debug'], { APP_VARIANT: 'dev' });
+    expect(ambient.expect.applicationId).toBeNull();
+    expect(verify(root, ambient.expect).problems).toEqual([]);
+
+    const dev = parse(['verify', 'debug', '--identity', 'dev'], { APP_VARIANT: 'production' });
+    const production = parse(['verify', 'debug', '--identity', 'production'], {});
+    expect(verify(root, dev.expect).problems.join('\n')).toMatch(/asked for com\.veloq\.app\.dev/);
+    expect(verify(root, production.expect).problems).toEqual([]);
+  });
+
+  it('refuses an identity it does not know', () => {
+    expect(() => parse(['verify', 'release', '--identity', 'staging'], {})).toThrow(/staging/);
+  });
+
   it('refuses to record an APK whose embedded configuration names another package', () => {
     const apk = build(root, { applicationId: 'com.veloq.app', configPackage: 'com.veloq.app.dev' });
 

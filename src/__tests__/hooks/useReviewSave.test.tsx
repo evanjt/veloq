@@ -59,9 +59,11 @@ jest.mock('@/features/auth', () => ({
   isOAuthConfigured: () => true,
 }));
 
+const mockUpgradeOutcome = jest.fn<Promise<{ granted: boolean; error: string | null }>, []>();
+
 jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
   usePermissionUpgrade: () => ({
-    upgradePermissions: jest.fn(),
+    upgradePermissions: mockUpgradeOutcome,
     isUpgrading: false,
     error: null,
   }),
@@ -242,6 +244,60 @@ describe('useReviewSave', () => {
     expect(result.current.errorMessage).toBe('recording.permissionExplanation');
     expect(result.current.showPermissionFix).toBe(true);
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('shows why the permission grant failed and keeps the fix on screen', async () => {
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleUpgradeToOAuth());
+
+    expect(result.current.errorMessage).toBe('login.oauthUnreachable');
+    expect(result.current.showPermissionFix).toBe(true);
+    expect(mockUploadRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the second failure of a repeated permission grant', async () => {
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleUpgradeToOAuth());
+    act(() => result.current.setErrorMessage(null));
+    await act(() => result.current.handleUpgradeToOAuth());
+
+    expect(result.current.errorMessage).toBe('login.oauthUnreachable');
+    expect(result.current.showPermissionFix).toBe(true);
+  });
+
+  it('leaves the permission explanation and its fix when the grant is cancelled', async () => {
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUpgradeOutcome.mockResolvedValue({ granted: false, error: null });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleUpgradeToOAuth());
+
+    expect(result.current.errorMessage).toBe('recording.permissionExplanation');
+    expect(result.current.showPermissionFix).toBe(true);
+    expect(mockUploadRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries the upload once the permission is granted', async () => {
+    mockUploadRecording
+      .mockResolvedValueOnce({ outcome: UploadOutcome.PermissionBlocked })
+      .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded, activityId: 'i1' });
+    mockUpgradeOutcome.mockResolvedValue({ granted: true, error: null });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleUpgradeToOAuth());
+
+    expect(result.current.showPermissionFix).toBe(false);
+    expect(mockUploadRecording).toHaveBeenCalledTimes(2);
   });
 
   it('treats network failure as saved-and-queued, not an error', async () => {

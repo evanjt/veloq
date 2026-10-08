@@ -23,4 +23,4 @@ Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-n
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 
-Kræver en Intervals.icu-konto for livedata. Ikke tilknyttet Intervals.icu.
+Kræver en intervals.icu-konto for livedata. Ikke tilknyttet intervals.icu.

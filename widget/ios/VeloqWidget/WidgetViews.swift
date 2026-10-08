@@ -393,7 +393,7 @@ struct EmptyWidgetView: View {
         .multilineTextAlignment(.center)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .padding(WidgetTheme.Layout.padding)
+    .widgetPadding(WidgetTheme.Layout.padding)
   }
 }
 
@@ -556,7 +556,7 @@ struct SummaryWidgetView: View {
           SnapshotAgeLine(snapshot: snapshot, palette: palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(WidgetTheme.Layout.padding)
+        .widgetPadding(WidgetTheme.Layout.padding)
       case .medium, .large:
         VStack(alignment: .leading, spacing: 6) {
           HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
@@ -581,7 +581,7 @@ struct SummaryWidgetView: View {
           SnapshotAgeLine(snapshot: snapshot, palette: palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(WidgetTheme.Layout.padding)
+        .widgetPadding(WidgetTheme.Layout.padding)
       }
     } else {
       EmptyWidgetView(palette: palette)

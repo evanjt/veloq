@@ -361,6 +361,17 @@ jobs:
         id: producer
         run: echo "commit=$(cat artifacts/producer-commit)" >> "$GITHUB_OUTPUT"
 
+      # On every path, built or restored: the zip is what gets uploaded, so the
+      # app inside it is judged rather than the build directory a cache hit
+      # never fills.
+      - name: Check simulator app identity
+        run: |
+          rm -rf /tmp/simulator-identity
+          mkdir -p /tmp/simulator-identity
+          unzip -q artifacts/simulator-app.zip -d /tmp/simulator-identity
+          node scripts/build-record.js identity "/tmp/simulator-identity/$SCHEME.app" --variant "$APP_VARIANT"
+          rm -rf /tmp/simulator-identity
+
       - name: Name simulator artifact
         id: simulator-artifact
         env:
@@ -527,7 +538,6 @@ jobs:
         if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         env:
           EXPECTED_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-          EXPECTED_BUNDLE_ID: "com.veloq.app"
         run: |
           echo "=== Verifying IPA code signature ==="
           IPA_FILE="artifacts/${{ steps.version.outputs.filename }}.ipa"
@@ -561,11 +571,11 @@ jobs:
             exit 1
           fi
 
-          ACTUAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP_PATH/Info.plist" 2>/dev/null)
-          if [ "$ACTUAL_BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
-            echo "::error::Bundle ID mismatch!"
+          # The app, its embedded Expo configuration and every extension.
+          node scripts/build-record.js identity "$IPA_FILE" --variant "$APP_VARIANT" || {
+            echo "::error::The IPA carries another identity than $APP_VARIANT"
             exit 1
-          fi
+          }
 
           codesign --verify --deep --strict "$APP_PATH" 2>&1 || {
             echo "::error::Code signature verification failed"
@@ -573,7 +583,7 @@ jobs:
           }
 
           rm -rf /tmp/ipa_verify
-          echo "IPA signed correctly by team $ACTUAL_TEAM with bundle ID $ACTUAL_BUNDLE_ID"
+          echo "IPA signed correctly by team $ACTUAL_TEAM"
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'

@@ -346,9 +346,10 @@ function generators(root) {
  * A build whose JavaScript Gradle bundles itself (the release variant) leaves
  * no bundle record, so it passes the identity taken before Gradle started as
  * `snapshot`: the inputs must not have moved since, and the bundle hash is
- * read from the APK, which is the only place that bundle exists.
+ * read from the APK, which is the only place that bundle exists. `identity`
+ * is the package the build was asked for, when the caller knows it.
  */
-function writeRecord(root, apk, { variant, snapshot = null }) {
+function writeRecord(root, apk, { variant, snapshot = null, identity = null }) {
   const problems = [];
   const file = recordPath(apk);
   fs.rmSync(file, { force: true });
@@ -390,6 +391,9 @@ function writeRecord(root, apk, { variant, snapshot = null }) {
     );
   }
   if (!facts.applicationId) problems.push('the APK declares no package');
+  else if (identity && facts.applicationId !== identity) {
+    problems.push(`the build asked for ${identity}, the APK declares ${facts.applicationId}`);
+  }
   problems.push(...identityProblems(apkIdentity(facts)));
 
   let rust = null;
@@ -473,7 +477,7 @@ function verifyRecord(root, apk, expect) {
   if (!fs.existsSync(file)) {
     return {
       problems: [
-        `no build record at ${file}: build with npm run android:debug or npm run android:prod`,
+        `no build record at ${file}: build with npm run android:debug, npm run android:standalone or npm run android:prod`,
       ],
       record: null,
       summary: '',

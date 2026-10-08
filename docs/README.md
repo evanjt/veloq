@@ -1,8 +1,8 @@
 # Veloq
 
-Open-source mobile client for viewing your Intervals.icu data.
+Open-source mobile client for viewing your intervals.icu data.
 
-Not affiliated with Intervals.icu.
+Not affiliated with intervals.icu.
 
 ## Screenshots
 

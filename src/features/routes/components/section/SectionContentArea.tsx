@@ -134,6 +134,7 @@ export function SectionContentArea({
       {/* Disabled banner */}
       {isSectionDisabled && onToggleDisable && (
         <Pressable
+          testID="section-disabled-banner"
           style={pressable([styles.disabledBanner, isDark && styles.disabledBannerDark])}
           accessibilityRole="button"
           accessibilityLabel={t('sections.restoreSection')}
@@ -159,6 +160,7 @@ export function SectionContentArea({
       {/* Merge candidates banner */}
       {mergeCandidates && mergeCandidates.length > 0 && onMergePress && (
         <Pressable
+          testID="section-merge-banner"
           style={pressable([styles.mergeBanner, isDark && styles.mergeBannerDark])}
           accessibilityRole="button"
           accessibilityLabel={t('sections.mergeCandidatesTitle')}

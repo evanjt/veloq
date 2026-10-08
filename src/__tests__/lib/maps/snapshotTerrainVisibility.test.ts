@@ -66,6 +66,33 @@ describe('terrain visibility check', () => {
     expect(page.posted.some((m) => m.type === 'snapshot')).toBe(true);
   });
 
+  it('turns when a valley side right beside the road hides it', () => {
+    // From the request eye, about 2 km south and 1.2 km up, the line of sight
+    // to the road is 52 m up at 90 m short of it, so an 80 m bank from 20 to
+    // 90 m south of the road covers every point. The bank sits nearer the road
+    // than a sixteenth of the way to the eye.
+    const bank = jest.fn(([, lat]: [number, number]) => {
+      const north = (lat - LAT) * M_PER_DEG_LAT;
+      return north < -20 && north > -90 ? 80 : 0;
+    });
+    const page = bootWorkerPage({ queryTerrainElevation: bank });
+    renderAndSettle(page, request());
+    const camera = page.map.jumpTo.mock.calls.at(-1)?.[0];
+    expect(page.map.jumpTo.mock.calls.length).toBeGreaterThan(1);
+    expect(camera.bearing).toBe(180);
+    expect(page.posted.some((m) => m.type === 'snapshot')).toBe(true);
+  });
+
+  it('keeps the request camera when the bank is behind the road', () => {
+    const bank = jest.fn(([, lat]: [number, number]) => {
+      const north = (lat - LAT) * M_PER_DEG_LAT;
+      return north > 20 && north < 90 ? 80 : 0;
+    });
+    const page = bootWorkerPage({ queryTerrainElevation: bank });
+    renderAndSettle(page, request());
+    expect(page.map.jumpTo).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the request camera over flat ground', () => {
     const page = bootWorkerPage({ queryTerrainElevation: jest.fn(() => 0) });
     renderAndSettle(page, request());

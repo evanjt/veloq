@@ -108,7 +108,7 @@ struct LatestActivityView: View {
     let tint = Color(hex: latest.tintHex)
     if size == .small {
       lines(latest, content, palette, tint)
-        .padding(WidgetTheme.Layout.gap + 4)
+        .widgetPadding(WidgetTheme.Layout.gap + 4)
     } else {
       HStack(spacing: WidgetTheme.Layout.gap) {
         if content.showsRoute {
@@ -118,14 +118,27 @@ struct LatestActivityView: View {
         lines(latest, content, palette, tint)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(.horizontal, WidgetTheme.Layout.padding)
-      .padding(.vertical, WidgetTheme.Layout.gap + 4)
+      .widgetPadding(.horizontal, WidgetTheme.Layout.padding)
+      .widgetPadding(.vertical, WidgetTheme.Layout.gap + 4)
     }
   }
 
   /// The comparison and what it rests on, in the order they are read. A line with nothing to say
-  /// is left out, and none of them truncates: a long one wraps or scales.
+  /// is left out, and none of them truncates: a long one wraps, and where the family has no room
+  /// for every line whole the lines read last give way, from `LastActivityWidgetModel.fallbacks`.
+  /// Nothing here caps a line's count, because the choice reads each line's whole height.
   private func lines(
+    _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color
+  ) -> some View {
+    let choices = LastActivityWidgetModel.fallbacks(content)
+    return ViewThatFits(in: .vertical) {
+      ForEach(0..<choices.count, id: \.self) { index in
+        column(latest, choices[index], palette, tint)
+      }
+    }
+  }
+
+  private func column(
     _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color
   ) -> some View {
     VStack(alignment: .leading, spacing: 2) {
@@ -135,7 +148,6 @@ struct LatestActivityView: View {
             .measuredText("activity name")
             .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
             .foregroundColor(tint)
-            .lineLimit(2)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
           }
@@ -146,7 +158,6 @@ struct LatestActivityView: View {
           .measuredText("hero label")
           .font(.system(size: WidgetTheme.TypeScale.caption))
           .foregroundColor(palette.textSecondary)
-          .lineLimit(2)
       }
       if let hero = content.hero {
         Text(hero)
@@ -157,61 +168,56 @@ struct LatestActivityView: View {
           .minimumScaleFactor(0.7)
       }
       if let detail = content.detail {
-        Text(detail)
-          .measuredText("detail")
-          .font(.system(size: WidgetTheme.TypeScale.label))
-          .foregroundColor(palette.textSecondary)
-          .lineLimit(2)
+        captionLine("detail", detail, palette)
       }
       if !content.dots.isEmpty {
         AttemptDotsView(dots: content.dots, tint: tint, palette: palette)
           .padding(.top, 2)
       }
       if let figures = content.figures {
-        captionLine("figures", figures, palette, lines: 2)
+        captionLine("figures", figures, palette)
       }
       if let prs = content.sectionPrs {
-        captionLine("section records", prs, palette, lines: 1)
+        captionLine("section records", prs, palette)
       }
       if let load = content.load {
         Text(load)
           .measuredText("load")
           .font(.system(size: WidgetTheme.TypeScale.label))
           .foregroundColor(palette.textPrimary)
-          .lineLimit(1)
       }
       if let form = content.form {
         formLine(form, palette)
       }
       if let date = content.date {
-        captionLine("date", date, palette, lines: 2)
+        captionLine("date", date, palette)
       }
       DemoLabelLine(snapshot: entry.snapshot, palette: palette)
     }
   }
 
-  private func captionLine(_ name: String, _ text: String, _ palette: WidgetPalette, lines: Int)
-    -> some View
-  {
+  private func captionLine(_ name: String, _ text: String, _ palette: WidgetPalette) -> some View {
     Text(text)
       .measuredText(name)
       .font(.system(size: WidgetTheme.TypeScale.label))
       .foregroundColor(palette.textSecondary)
-      .lineLimit(lines)
   }
 
-  /// Form before and after, each side in the colour of the zone it sits in.
+  /// Form before and after, each side in the colour of the zone it sits in. The figures keep their
+  /// width and a long word for form wraps beside them.
   private func formLine(_ form: LastActivityForm, _ palette: WidgetPalette) -> some View {
-    HStack(spacing: 4) {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
       Text(form.label).measuredText("form label").foregroundColor(palette.textSecondary)
-      Text(form.before).fontWeight(.semibold).measuredText("form before")
-        .foregroundColor(palette.formTextColor(form.beforeZone))
-      Text(verbatim: "→").measuredText("form arrow").foregroundColor(palette.textSecondary)
-      Text(form.after).fontWeight(.semibold).measuredText("form after")
-        .foregroundColor(palette.formTextColor(form.afterZone))
+      Group {
+        Text(form.before).fontWeight(.semibold).measuredText("form before")
+          .foregroundColor(palette.formTextColor(form.beforeZone))
+        Text(verbatim: "→").measuredText("form arrow").foregroundColor(palette.textSecondary)
+        Text(form.after).fontWeight(.semibold).measuredText("form after")
+          .foregroundColor(palette.formTextColor(form.afterZone))
+      }
+      .fixedSize()
     }
     .font(.system(size: WidgetTheme.TypeScale.label))
-    .lineLimit(1)
   }
 
   private func activityURL(_ latest: WidgetLatest) -> URL? {

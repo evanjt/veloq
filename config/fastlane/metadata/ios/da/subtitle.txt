@@ -1,1 +1,1 @@
-Intervals.icu mobilklient
+intervals.icu mobilklient

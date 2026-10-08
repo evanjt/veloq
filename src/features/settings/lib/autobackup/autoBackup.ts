@@ -9,6 +9,12 @@
  * 1. After sync completion (new data arrived)
  * 2. App backgrounding (if last backup > 24h)
  * 3. App foregrounding (if last backup > 7d)
+ * 4. Reconnecting, which only sends a copy a carrier is still owed
+ *
+ * A copy a carrier could not take for a reason that passes, a dead radio or a
+ * server that did not answer, is owed. Every trigger sends it to that carrier
+ * once the radio is up, whether or not automatic backup is on, because the
+ * athlete asked for it with Back Up Now or the schedule did.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -23,6 +29,8 @@ import type { BackupEntry } from './backends/types';
 import { backupCarriers } from './backends/carriers';
 import { forgetBackupFolder } from './backends/folderBackend';
 import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
+import { getWebdavConfig } from './webdavConfig';
+import { heldBackupFolder } from '@/shared/native/backupFolder';
 import { TIME } from '@/shared/app/time';
 
 const log = debug.create('AutoBackup');
@@ -34,8 +42,12 @@ const SETTING_RETIRED_BACKEND_ID = '__backup_backend';
 const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
 // Diagnostic state rather than a preference, so deliberately not in PREFERENCE_KEYS
 const SETTING_LAST_FAILURE = '__last_backup_failure';
+/** When each destination last took a backup, and which server or folder that was. */
+const SETTING_DESTINATION_STAMPS = '__last_backup_by_destination';
 /** Set once the platform zip is this library's own, or its offer was answered. */
 const SETTING_PLATFORM_RECORD_ANSWERED = '__platform_record_answered';
+/** The carrier ids still owed the last zip, as a JSON array. */
+const SETTING_OWED_CARRIERS = '__backup_owed_carriers';
 
 const MIN_INTERVAL_MS = TIME.DAY; // 24 hours
 const STALE_INTERVAL_MS = 7 * TIME.DAY; // 7 days
@@ -76,6 +88,8 @@ export function forgetBackupCarrier(): void {
     SETTING_AUTO_BACKUP_ENABLED,
     SETTING_LAST_BACKUP,
     SETTING_LAST_FAILURE,
+    SETTING_OWED_CARRIERS,
+    SETTING_DESTINATION_STAMPS,
   ]) {
     engine?.deleteSetting(key);
   }
@@ -97,6 +111,60 @@ export function getLastBackupTimestamp(): number | null {
   const engine = getEngine();
   const value = engine?.getSetting(SETTING_LAST_BACKUP);
   return value != null ? Number(value) : null;
+}
+
+/** A place a run writes to: the device backup's zip, or one of the carriers. */
+export type BackupDestination = 'device' | 'webdav' | 'folder';
+
+interface DestinationStamp {
+  at: number;
+  to: string;
+}
+
+/**
+ * The server or folder a destination writes to now, or null when it is not set
+ * up. A stamp is shown only while this still matches, so a new server or folder
+ * starts with no date rather than the old one's.
+ */
+function destinationTarget(id: string): string | null {
+  switch (id) {
+    case 'device':
+      return 'device';
+    case 'webdav':
+      return getWebdavConfig()?.url ?? null;
+    case 'folder':
+      return heldBackupFolder();
+    default:
+      return null;
+  }
+}
+
+function readDestinationStamps(): Record<string, DestinationStamp> {
+  const raw = getEngine()?.getSetting(SETTING_DESTINATION_STAMPS);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, DestinationStamp>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function stampDestination(id: string, at: number): void {
+  const to = destinationTarget(id);
+  if (to === null) return;
+  getEngine()?.setSetting(
+    SETTING_DESTINATION_STAMPS,
+    JSON.stringify({ ...readDestinationStamps(), [id]: { at, to } })
+  );
+}
+
+/** When this destination, as it is set up now, last took a backup, or null. */
+export function getDestinationLastBackup(id: BackupDestination): number | null {
+  const stamp = readDestinationStamps()[id];
+  const to = destinationTarget(id);
+  if (!stamp || to === null || stamp.to !== to || typeof stamp.at !== 'number') return null;
+  return stamp.at;
 }
 
 /** Read records awaiting a matching activity or ground for the backup screen. */
@@ -163,20 +231,48 @@ function recordBackupFailure(carrierId: string, error: unknown): void {
   });
 }
 
-/**
- * Check if a backup should run based on throttling.
- * `force` skips the time-based throttling and still checks that auto-backup is enabled.
- */
-function shouldBackup(force = false): boolean {
-  // Manual "Backup Now" should always work regardless of auto-backup setting
-  if (force) return true;
+/** The carriers a run could not hand the zip to for a reason that passes. */
+function getOwedCarriers(): string[] {
+  const raw = getEngine()?.getSetting(SETTING_OWED_CARRIERS);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
+function writeOwedCarriers(ids: string[]): void {
+  const value = ids.length === 0 ? '' : JSON.stringify(ids);
+  const engine = getEngine();
+  if ((engine?.getSetting(SETTING_OWED_CARRIERS) ?? '') === value) return;
+  engine?.setSetting(SETTING_OWED_CARRIERS, value);
+}
+
+/** Whether the automatic schedule is due a run. */
+function isScheduledBackupDue(): boolean {
   if (!isAutoBackupEnabled()) return false;
 
   const lastBackup = getLastBackupTimestamp();
   if (!lastBackup) return true; // Never backed up
 
   return Date.now() - lastBackup >= MIN_INTERVAL_MS;
+}
+
+/**
+ * Which carriers a run hands the zip to: every one, only the owed ones, or
+ * none when the run is skipped.
+ *
+ * Back Up Now and a due schedule reach every carrier. Otherwise a run only
+ * pays what is owed, and only once the radio is up, so a trigger while the
+ * device is offline writes no archive.
+ */
+async function carriersToRun(force: boolean): Promise<'all' | Set<string> | null> {
+  if (force || isScheduledBackupDue()) return 'all';
+  const owed = getOwedCarriers();
+  if (owed.length === 0 || !(await isRadioUp())) return null;
+  return new Set(owed);
 }
 
 /** What one carrier did in a run. */
@@ -196,11 +292,12 @@ const NOTHING_WRITTEN: BackupRunResult = { wroteZip: false, carriers: {} };
 /**
  * The backup this process is already doing, if any.
  *
- * Three triggers reach here, a settled sync, a backgrounding and a foreground,
- * and two of them can arrive a second apart. The last-backup stamp is not
- * written until the carriers have been tried, so both would pass `shouldBackup`
- * and both would ask Rust for an archive. Rust holds one backup handle and
- * refuses the second outright. The second caller joins the first instead.
+ * Four triggers reach here, a settled sync, a backgrounding, a foreground and
+ * a reconnect, and two of them can arrive a second apart. The last-backup stamp
+ * and the owed carriers are not written until the carriers have been tried, so
+ * both would pass `carriersToRun` and both would ask Rust for an archive. Rust
+ * holds one backup handle and refuses the second outright. The second caller
+ * joins the first instead.
  */
 let inFlight: Promise<BackupRunResult> | null = null;
 
@@ -217,11 +314,11 @@ export async function performBackup(force = false): Promise<BackupRunResult> {
 }
 
 async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
-  if (!shouldBackup(force)) return NOTHING_WRITTEN;
-
   const engine = getEngine();
   if (!engine) return NOTHING_WRITTEN;
 
+  // Read before the first await, so a wipe while the run is choosing its
+  // carriers already counts as a move.
   const install = engine.engineInstall();
   // A read that fails cannot say this is still the library the backup started
   // on, so it counts as moved and nothing more is written or uploaded.
@@ -232,6 +329,9 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       return true;
     }
   };
+
+  const targets = await carriersToRun(force);
+  if (!targets || libraryMoved()) return NOTHING_WRITTEN;
 
   const recordPath = platformRecordUri();
   if (!recordPath) throw new Error('Device documents directory not available');
@@ -248,6 +348,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     if (libraryMoved()) return NOTHING_WRITTEN;
     // This library wrote the zip, so a later launch never offers it back.
     markPlatformRecordAnswered();
+    stampDestination('device', Date.now());
 
     const fileInfo = await FileSystem.getInfoAsync(recordPath);
     if (!fileInfo.exists) {
@@ -260,13 +361,14 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       appVersion: APP_VERSION,
     };
 
-    // A carrier that cannot be tried now leaves the stamp unwritten so a later
-    // trigger retries it. A permanent failure is shown to the athlete instead,
-    // and the stamp is not written when nothing at all took the zip.
-    let retryLater = false;
+    // A carrier that cannot be tried now is owed the zip, and leaves the stamp
+    // unwritten. A permanent failure is shown to the athlete instead, and the
+    // stamp is not written when nothing at all took the zip.
+    const owed: string[] = [];
     let anyFailed = false;
     let anyWritten = false;
     for (const carrier of backupCarriers) {
+      if (targets !== 'all' && !targets.has(carrier.id)) continue;
       if (libraryMoved()) return { wroteZip: false, carriers: {} };
       if (!(await carrier.isAvailable())) {
         log.log(`${carrier.id} not set up, skipping`);
@@ -277,7 +379,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       if (carrier.isRemote && !(await isRadioUp())) {
         log.log(`Radio is down, keeping platform archive for a later ${carrier.id} upload`);
         carriers[carrier.id] = { status: 'skipped', reason: 'no-radio' };
-        retryLater = true;
+        owed.push(carrier.id);
         continue;
       }
       try {
@@ -290,16 +392,18 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         const kind = isBackupTransferError(error) ? error.kind : 'unknown';
         carriers[carrier.id] = { status: 'failed', kind };
         anyFailed = true;
-        if (!isBackupTransferError(error) || !error.permanent) retryLater = true;
+        if (!isBackupTransferError(error) || !error.permanent) owed.push(carrier.id);
         continue;
       }
       if (libraryMoved()) return NOTHING_WRITTEN;
       clearBackupFailure(carrier.id);
+      stampDestination(carrier.id, Date.now());
       carriers[carrier.id] = { status: 'written' };
       anyWritten = true;
     }
 
-    if (!retryLater && (anyWritten || !anyFailed))
+    writeOwedCarriers(owed);
+    if (owed.length === 0 && (anyWritten || !anyFailed))
       engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
     if (libraryMoved()) return NOTHING_WRITTEN;
     log.log(`Record backup complete: ${entry.sizeBytes} bytes`);
@@ -344,14 +448,25 @@ export function onAppBackground(): void {
 
 /**
  * Trigger: call when app comes to foreground.
- * Only backs up if last backup is > 7 days old.
+ * Backs up if the last backup is > 7 days old, or sends a copy still owed.
  */
 export function onAppForeground(): void {
-  if (!isAutoBackupEnabled()) return;
+  if (getOwedCarriers().length === 0) {
+    if (!isAutoBackupEnabled()) return;
 
-  const lastBackup = getLastBackupTimestamp();
-  if (lastBackup && Date.now() - lastBackup < STALE_INTERVAL_MS) return;
+    const lastBackup = getLastBackupTimestamp();
+    if (lastBackup && Date.now() - lastBackup < STALE_INTERVAL_MS) return;
+  }
 
+  performBackup().catch(() => {});
+}
+
+/**
+ * Trigger: call when the device comes back online.
+ * Runs only while a copy is still owed.
+ */
+export function onBackupReconnect(): void {
+  if (getOwedCarriers().length === 0) return;
   performBackup().catch(() => {});
 }
 

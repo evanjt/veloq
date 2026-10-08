@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
 import { RangeCoverage } from 'veloqrs';
+import { BodyNotDownloaded } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -75,6 +76,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     error,
     coverage,
     bodyStatus,
+    retryBody,
   } = usePaceCurve({ sport: 'Swim', days });
 
   // Process curve data - use distances directly from API
@@ -140,11 +142,20 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {coverage === RangeCoverage.NotFetched
-              ? t('stats.rangeNotDownloaded')
-              : t('stats.noSwimPaceData')}
-          </Text>
+          {coverage === RangeCoverage.NotFetched ? (
+            <BodyNotDownloaded
+              testID="swim-pace-curve-not-downloaded"
+              style={styles.notDownloaded}
+              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              message={t('stats.rangeNotDownloaded')}
+              status={bodyStatus}
+              onRetry={retryBody}
+            />
+          ) : (
+            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+              {t('stats.noSwimPaceData')}
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -246,6 +257,9 @@ const styles = StyleSheet.create({
   emptyState: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notDownloaded: {
     alignItems: 'center',
   },
   emptyText: {

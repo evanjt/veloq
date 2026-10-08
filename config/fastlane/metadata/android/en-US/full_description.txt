@@ -23,4 +23,4 @@ All data stays on your device. No analytics, no tracking. Optional push notifica
 
 Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+Requires an intervals.icu account for live data. Not affiliated with intervals.icu.

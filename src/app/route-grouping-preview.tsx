@@ -9,11 +9,16 @@
  * opaque, a pair this setting would merge in the merge colour, a route whose
  * ride falls out of every group faded.
  *
+ * It opens on a riding area, the same ranked areas the section preview offers,
+ * and draws the routes nearest it. The grouping still runs over the whole
+ * library; the area decides only which of its routes are drawn and framed, so
+ * an athlete with rides on several continents never opens on the world.
+ *
  * The column does not scroll. Tuning a knob you cannot see the map for defeats
  * the screen, so the map and the two rows share one fixed column.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Text } from 'react-native-paper';
@@ -26,15 +31,17 @@ import { useTheme } from '@/shared/app/useTheme';
 import { Button, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
-import { GroupSort, SectionSort, hasStarted } from 'veloqrs';
+import { GroupSort, SectionSort, hasStarted, type PreviewCentre } from 'veloqrs';
 import {
   groupingParamsOf,
   GroupingParamPanel,
   GroupingPreviewMap,
+  PreviewCentrePicker,
   paintPreview,
   rescanRefusalKey,
   useRouteGroupingPreview,
   useSectionRescan,
+  usePreviewCentres,
   type GroupingParams,
   type GroupingRoute,
 } from '@/features/routes';
@@ -42,9 +49,9 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapBack } from '@/shared/app/navigation';
 
 /**
- * How many of today's routes are drawn. They arrive sorted by ride count
- * descending, so this is the athlete's most-ridden ground rather than an
- * arbitrary slice, and it bounds one blocking read at mount.
+ * How many of today's routes are drawn. They arrive nearest the selected area
+ * first, or by ride count when the library has no area yet, and the cap bounds
+ * one blocking read per area.
  */
 const ROUTES_DRAWN = 60;
 
@@ -52,7 +59,7 @@ interface RouteRow extends GroupingRoute {
   representativeId: string;
 }
 
-function readRoutes(): RouteRow[] {
+function readRoutes(centre: PreviewCentre | null): RouteRow[] {
   const engine = getEngine();
   if (!engine?.getRoutesScreenData) return [];
   let data: ReturnType<typeof engine.getRoutesScreenData>;
@@ -63,7 +70,7 @@ function readRoutes(): RouteRow[] {
       sectionLimit: 0,
       sectionOffset: 0,
       minGroupActivityCount: 2,
-      groupSort: GroupSort.Activities,
+      groupSort: centre ? GroupSort.Nearby : GroupSort.Activities,
       groupSearch: '',
       sectionSort: SectionSort.Visits,
       sectionSearch: '',
@@ -73,8 +80,8 @@ function readRoutes(): RouteRow[] {
         hideDisabled: false,
         hideUnaccepted: false,
       },
-      userLat: Number.NaN,
-      userLng: Number.NaN,
+      userLat: centre?.lat ?? Number.NaN,
+      userLng: centre?.lng ?? Number.NaN,
     });
   } catch {
     return [];
@@ -105,10 +112,28 @@ function RouteGroupingPreviewScreenContent() {
   const { rescan } = useSectionRescan();
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const { status, groups, refused, request } = useRouteGroupingPreview(client);
+  const { centres, labels } = usePreviewCentres(client);
+  const [centre, setCentre] = useState<PreviewCentre | null>(null);
+  const selectedCentre = centre ?? centres[0] ?? null;
 
   // The routes screen's blocking read waits for the push transition.
-  // The lines stay fixed while grouping changes on this screen.
-  useAfterNavigationTransition(useCallback(() => setRoutes(readRoutes()), []));
+  // The lines stay fixed while grouping changes on this screen, and are read
+  // again only when another area is chosen. The mount read takes the area
+  // through a ref so a chip tap does not re-arm the transition wait.
+  const centreRef = useRef(selectedCentre);
+  useEffect(() => {
+    centreRef.current = selectedCentre;
+  }, [selectedCentre]);
+  useAfterNavigationTransition(useCallback(() => setRoutes(readRoutes(centreRef.current)), []));
+
+  const handleSelectCentre = useCallback(
+    (next: PreviewCentre) => {
+      if (next.binKey === selectedCentre?.binKey) return;
+      setCentre(next);
+      setRoutes(readRoutes(next));
+    },
+    [selectedCentre]
+  );
 
   // The knobs open on what is applied, so the first paint is the answer for
   // that rather than an empty map waiting for a drag.
@@ -183,11 +208,23 @@ function RouteGroupingPreviewScreenContent() {
         <View style={styles.mapWrap}>
           <GroupingPreviewMap
             routes={routes}
+            centre={selectedCentre}
             painted={diff?.routes ?? []}
             mergedCount={diff?.mergedCount ?? 0}
             mapStyle={isDark ? 'dark' : 'light'}
           />
         </View>
+
+        {centres.length > 0 && (
+          <View style={styles.pickerWrap}>
+            <PreviewCentrePicker
+              centres={centres}
+              labels={labels}
+              selectedBinKey={selectedCentre?.binKey ?? null}
+              onSelect={handleSelectCentre}
+            />
+          </View>
+        )}
 
         <View style={styles.statusRow}>
           {status === 'running' && <ActivityIndicator size="small" color={textSecondary} />}
@@ -236,6 +273,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   column: { flex: 1, padding: spacing.md, gap: spacing.sm },
   mapWrap: { flex: 1, borderRadius: layout.borderRadius, overflow: 'hidden' },
+  pickerWrap: { marginHorizontal: -spacing.md },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statusText: { ...typography.bodyMedium },
   note: { ...typography.caption },

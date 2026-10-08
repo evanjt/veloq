@@ -1,6 +1,6 @@
 /**
- * Scenario: the fitness header and the form chart print one Form number under
- * the percentage preference.
+ * Scenario: the fitness chart's corner and the form chart print one Form number
+ * under the percentage preference.
  *
  * Expected behaviour: -8 against fitness 40 reads -20% on both, a day with no
  * fitness prints no number, and the preference off restores the absolute value.
@@ -9,7 +9,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { FitnessHeaderStats } from '@/features/fitness/components/FitnessHeaderStats';
+import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
@@ -19,36 +19,27 @@ jest.mock('@/shared/app', () => ({
 
 afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
-function header(fitness: number, form: number) {
+function cornerForm(fitness: number, form: number) {
   render(
-    <FitnessHeaderStats
-      displayDate="2026-09-12"
-      displayValues={{ fitness, fatigue: fitness - form, form }}
-      formZone={null}
-      isDark={false}
-      rampRate={null}
-    />
+    <FitnessChart data={[{ id: '2026-09-12', ctl: fitness, atl: fitness - form }] as never} />
   );
+  return screen.getByTestId('fitness-form-value');
 }
 
-describe('the fitness header form', () => {
+describe('the fitness chart corner form', () => {
   it('prints a signed percentage of fitness', () => {
     useFormPreference.setState({ formAsPercent: true });
-    header(40, -8);
-    expect(screen.getByText('-20%')).toBeTruthy();
+    expect(cornerForm(40, -8)).toHaveTextContent('-20%', { exact: true });
   });
 
   it('prints no number when fitness is zero', () => {
     useFormPreference.setState({ formAsPercent: true });
-    header(0, -8);
-    expect(screen.queryByText('-8')).toBeNull();
-    expect(screen.queryByText(/%/)).toBeNull();
+    expect(cornerForm(0, -8)).toHaveTextContent('-', { exact: true });
   });
 
   it('prints the absolute number with the preference off', () => {
     useFormPreference.setState({ formAsPercent: false });
-    header(40, -8);
-    expect(screen.getByText('-8')).toBeTruthy();
+    expect(cornerForm(40, -8)).toHaveTextContent('-8', { exact: true });
   });
 });
 

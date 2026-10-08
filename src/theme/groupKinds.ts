@@ -194,6 +194,11 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     pairs: [{ ground: 'bg', on: ['text'], bar: 'text' }],
     // The border, as in amberBanner, edges a filled banner and is not measured.
   },
+  offlinePill: {
+    kind: 'pair',
+    reason: 'the offline pill floats over either scheme, so it carries its own fill and ink',
+    pairs: [{ ground: 'bg', on: ['text'], bar: 'text' }],
+  },
   contributionRamp: {
     kind: 'series',
     reason: 'five activity steps per mode, read as a ramp against the step beside it',

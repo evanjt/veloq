@@ -12,15 +12,17 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { APK, build, checkout, write } from '../__shared__/apkFixture';
+import { APK, RELEASE_APK, build, checkout, write } from '../__shared__/apkFixture';
 import { gitFreeEnv } from '../__shared__/gitFixture';
 
 const record = require('../../../scripts/lib/build-record.js');
+const { sourceIdentity } = require('../../../scripts/lib/build-stamp.js');
 
 const SCRIPTS = [
   'scripts/install-apk.sh',
   'scripts/build-record.js',
   'scripts/lib/app-identity.js',
+  'scripts/lib/artifact-identity.js',
   'scripts/lib/build-record.js',
   'scripts/lib/build-record-ios.js',
   'scripts/lib/build-stamp.js',
@@ -40,7 +42,8 @@ function install(
   args: string[] = [],
   abis = 'arm64-v8a,armeabi-v7a',
   target = 'debug',
-  cwd?: string
+  cwd?: string,
+  env: Record<string, string> = {}
 ) {
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin, { recursive: true });
@@ -57,6 +60,7 @@ function install(
       PATH: `${bin}:${process.env.PATH}`,
       // The handset lock is the caller's, as under `device-lock-shell.sh`.
       VELOQ_DEVICE_LOCK_HELD: '1',
+      ...env,
     },
   });
   const log = path.join(root, 'adb.log');
@@ -209,6 +213,71 @@ describe('install-apk.sh', () => {
       expect(result.status).toBe(1);
       expect(result.installs).toEqual([]);
       expect(result.stderr).toContain('nope.apk');
+    });
+  });
+
+  describe('the identity', () => {
+    const release = (applicationId: string) => {
+      const snapshot = sourceIdentity(root);
+      const apk = build(root, { applicationId, gradleBundle: true });
+      record.writeRecord(root, apk, { variant: 'release', snapshot });
+    };
+
+    it.each([
+      ['dev', 'com.veloq.app.dev', 'com.veloq.app'],
+      ['production', 'com.veloq.app', 'com.veloq.app.dev'],
+    ])(
+      'installs a %s release asked for by --identity and refuses the other',
+      (identity, own, other) => {
+        release(own);
+        const asked = install(root, ['--identity', identity], undefined, 'release');
+        expect(asked.status).toBe(0);
+        expect(asked.installs).toEqual([`install -r ${RELEASE_APK}`]);
+
+        release(other);
+        fs.rmSync(path.join(root, 'adb.log'));
+        const refused = install(root, ['--identity', identity], undefined, 'release');
+        expect(refused.status).toBe(1);
+        expect(refused.installs).toEqual([]);
+        expect(refused.stderr).toContain(`the install asked for ${own}`);
+      }
+    );
+
+    it('installs the recorded identity when none is asked for, whatever APP_VARIANT holds', () => {
+      release('com.veloq.app.dev');
+
+      const result = install(root, [], undefined, 'release', undefined, {
+        APP_VARIANT: 'production',
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.installs).toEqual([`install -r ${RELEASE_APK}`]);
+    });
+
+    it('refuses an identity it does not know, and reaches no handset', () => {
+      release('com.veloq.app.dev');
+
+      for (const args of [
+        ['--identity', 'staging'],
+        ['--identity', 'staging', '--stale'],
+      ]) {
+        const result = install(root, args, undefined, 'release');
+
+        expect(result.status).toBe(2);
+        expect(result.installs).toEqual([]);
+        expect(result.stderr).toContain('--identity staging names no identity');
+      }
+    });
+
+    it('names the standalone build when it refuses a release APK', () => {
+      release('com.veloq.app.dev');
+      write(root, 'src/app.ts', 'export const greeting = "later";\n');
+
+      const result = install(root, [], undefined, 'release');
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('npm run android:standalone');
+      expect(result.stderr).not.toContain('android:debug');
     });
   });
 

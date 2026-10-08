@@ -19,7 +19,7 @@ describe('WhatsNewStore.dismissTour', () => {
   it('marks a version with no slides seen after a tour left from the exploring state', async () => {
     const store = useWhatsNewStore.getState();
     store.startTour('whatsNew');
-    store.showMe(2, 'tip');
+    store.showMe(1, 2, 'tip');
     await useWhatsNewStore.getState().dismissTour('9.9.9');
     expect(mockSetSetting).toHaveBeenCalledWith('veloq-whats-new-seen', '9.9.9');
     expect(useWhatsNewStore.getState().lastSeenVersion).toBe('9.9.9');

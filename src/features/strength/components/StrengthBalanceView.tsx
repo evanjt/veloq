@@ -10,9 +10,7 @@ import {
   colors,
   darkColors,
   spacing,
-  opacity,
   layout,
-  brand,
   verdictColor,
   verdictFill,
   typography,
@@ -27,6 +25,7 @@ import {
   type BalanceCopyKey,
 } from '../lib/formatting';
 import { IconButton } from '@/shared/ui';
+import { StrengthBalanceScale } from './StrengthBalanceScale';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
@@ -154,16 +153,10 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             </Text>
           </View>
 
-          <View style={[styles.balanceScale, isDark && styles.balanceScaleDark]}>
-            <View
-              style={[styles.balanceScaleSide, { flex: Math.max(pair.leftWeightedSets, 0.2) }]}
-            />
-            <View style={styles.balanceScaleGap} />
-            <View
-              style={[
-                styles.balanceScaleSideSecondary,
-                { flex: Math.max(pair.rightWeightedSets, 0.2) },
-              ]}
+          <View style={styles.balanceScale}>
+            <StrengthBalanceScale
+              leftWeightedSets={pair.leftWeightedSets}
+              rightWeightedSets={pair.rightWeightedSets}
             />
           </View>
 
@@ -282,29 +275,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   balanceScale: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 10,
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
-    backgroundColor: opacity.overlay.light,
     marginTop: spacing.xs,
-  },
-  balanceScaleDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  balanceScaleSide: {
-    height: '100%',
-    backgroundColor: brand.tealLight,
-  },
-  balanceScaleSideSecondary: {
-    height: '100%',
-    backgroundColor: brand.tealDark,
-  },
-  balanceScaleGap: {
-    width: 2,
-    height: '100%',
-    backgroundColor: colors.surface,
   },
   balanceRatioText: {
     fontSize: typography.caption.fontSize,

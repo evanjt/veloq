@@ -11,7 +11,7 @@ import { createInstance } from 'i18next';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
-const KEYS = ['time.yearsCount', 'time.daysCount', 'time.daysAgo'] as const;
+const KEYS = ['time.yearsCount', 'time.daysCount'] as const;
 
 const locales = fs
   .readdirSync(LOCALES_DIR)
@@ -37,7 +37,6 @@ const SINGULAR_BY_LANGUAGE: Record<string, Record<(typeof KEYS)[number], string>
   en: {
     'time.yearsCount': '1 year',
     'time.daysCount': '1 day',
-    'time.daysAgo': '1 day ago',
   },
 };
 

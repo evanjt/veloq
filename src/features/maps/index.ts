@@ -49,14 +49,17 @@ export { useDrawnMapStyle } from './hooks/useDrawnMapStyle';
 export { useMapFullscreen } from './hooks/useMapFullscreen';
 export { useLocateUser } from './hooks/useLocateUser';
 export { useThrottledValue } from './hooks/useThrottledValue';
+export { useTerrainFallback } from './hooks/useTerrainFallback';
 export {
   calculateFlatCamera,
   calculateTerrainCamera,
   resolveTerrain3D,
+  SMART_3D_MIN_RELIEF_M,
   type TerrainCamera,
 } from './lib/cameraAngle';
 export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
+export { filterSheetExpandedAfterDrag } from './lib/filterSheet';
 export {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationCollection,

@@ -51,7 +51,12 @@ it('carries every widget test and both fixtures beside the package manifest', ()
   );
   expect(tracked).toContain('WidgetCaptureTests.swift');
   expect(readdirSync(tests).sort()).toEqual([...tracked, 'fixtures'].sort());
-  expect(readdirSync(join(tests, 'fixtures')).sort()).toEqual(['demo.json', 'long-text.json']);
+  expect(readdirSync(join(tests, 'fixtures')).sort()).toEqual([
+    'demo.json',
+    'empty.json',
+    'long-text.json',
+    'no-wellness.json',
+  ]);
   expect(readFileSync(join(out, 'Package.swift'), 'utf8')).toContain(
     'resources: [.copy("fixtures")]'
   );

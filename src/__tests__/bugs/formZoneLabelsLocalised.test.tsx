@@ -1,6 +1,6 @@
 /**
  * Scenario: the form zone label is drawn on the summary card, the today
- * banner, the fitness header and the form chart, and the widget draws the
+ * banner and the form chart, and the widget draws the
  * same zone from the same catalogue of names.
  *
  * Expected behaviour: every one of them reads the athlete's language. The
@@ -13,14 +13,14 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
-import { FitnessHeaderStats } from '@/features/fitness/components/FitnessHeaderStats';
+import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
 import { formZoneLabel } from '@/features/fitness/lib/fitness';
+import type { WellnessData } from '@/types';
 
-jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ colors: { textSecondary: '#888' } }),
-}));
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-const values = { fitness: 40, fatigue: 55, form: -15 };
+/** Form -3 on fitness 40 sits in the grey zone. */
+const DAYS = [{ id: '2026-09-12', ctl: 40, atl: 43 }] as WellnessData[];
 
 describe('the form zone label', () => {
   beforeAll(async () => {
@@ -31,37 +31,21 @@ describe('the form zone label', () => {
     await changeLanguage('en-AU');
   });
 
-  it('reads the athlete language on the fitness header', async () => {
+  it('reads the athlete language on the form chart', async () => {
     await changeLanguage('de-DE');
 
-    render(
-      <FitnessHeaderStats
-        displayDate="2026-09-12"
-        displayValues={values}
-        formZone="greyZone"
-        isDark={false}
-        rampRate={null}
-      />
-    );
+    render(<FormZoneChart data={DAYS} />);
 
-    expect(screen.getByText('Grauzone')).toBeTruthy();
+    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grauzone', { exact: true });
     expect(screen.queryByText('Grey Zone')).toBeNull();
   });
 
   it('answers in English when that is the language', async () => {
     await changeLanguage('en-AU');
 
-    render(
-      <FitnessHeaderStats
-        displayDate="2026-09-12"
-        displayValues={values}
-        formZone="greyZone"
-        isDark={false}
-        rampRate={null}
-      />
-    );
+    render(<FormZoneChart data={DAYS} />);
 
-    expect(screen.getByText('Grey Zone')).toBeTruthy();
+    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grey Zone', { exact: true });
   });
 
   it('names every zone in the athlete language, not just the one on screen', async () => {

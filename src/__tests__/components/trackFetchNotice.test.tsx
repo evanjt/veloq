@@ -44,7 +44,7 @@ describe('the missing-tracks notice', () => {
     const { getByTestId, getByText } = render(<TrackFetchNotice />);
 
     expect(getByTestId('track-fetch-notice')).toBeTruthy();
-    expect(getByText("3 routes didn't download")).toBeTruthy();
+    expect(getByText("3 routes didn't come down")).toBeTruthy();
   });
 
   it('counts one route in the singular', () => {
@@ -52,7 +52,7 @@ describe('the missing-tracks notice', () => {
 
     const { getByText } = render(<TrackFetchNotice />);
 
-    expect(getByText("1 route didn't download")).toBeTruthy();
+    expect(getByText("1 route didn't come down")).toBeTruthy();
   });
 
   it('comes down when the athlete closes it', () => {

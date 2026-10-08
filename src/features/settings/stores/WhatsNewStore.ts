@@ -5,6 +5,8 @@ const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 
 interface TourState {
   mode: 'whatsNew' | 'tutorial';
+  /** The slide whose Show Me was used, or null before any was. */
+  shownIndex: number | null;
   resumeIndex: number;
   exploring: boolean;
   tip: string | null;
@@ -19,7 +21,7 @@ interface WhatsNewState {
   markSeen: (version: string) => Promise<void>;
 
   startTour: (mode: 'whatsNew' | 'tutorial') => void;
-  showMe: (nextIndex: number, tip?: string) => void;
+  showMe: (shownIndex: number, nextIndex: number, tip?: string) => void;
   resumeTour: () => void;
   endTour: () => void;
   dismissTour: (currentVersion: string) => Promise<void>;
@@ -49,15 +51,16 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   },
 
   startTour: (mode) => {
-    set({ tourState: { mode, resumeIndex: 0, exploring: false, tip: null } });
+    set({ tourState: { mode, shownIndex: null, resumeIndex: 0, exploring: false, tip: null } });
   },
 
-  showMe: (nextIndex, tip) => {
+  showMe: (shownIndex, nextIndex, tip) => {
     set((state) => {
       if (!state.tourState) return state;
       return {
         tourState: {
           ...state.tourState,
+          shownIndex,
           resumeIndex: nextIndex,
           exploring: true,
           tip: tip ?? null,

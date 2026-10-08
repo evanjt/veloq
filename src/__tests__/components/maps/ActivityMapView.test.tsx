@@ -26,6 +26,15 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+const mockCached = new Set<string>();
+jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
+  ...jest.requireActual('@/features/maps/lib/storage/terrainPreviewCache'),
+  hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
+    mockCached.has(`${id}-${style}-${is3D}`),
+  getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>
+    `file:///previews/${id}-${style}-${is3D}.jpg`,
+}));
+
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
@@ -55,6 +64,10 @@ function renderActivityMap(props: Partial<React.ComponentProps<typeof ActivityMa
     </SafeAreaProvider>
   );
 }
+
+beforeEach(() => {
+  mockCached.clear();
+});
 
 describe('ActivityMapView', () => {
   it('mounts a map from a coordinate array', () => {
@@ -398,6 +411,68 @@ describe('ActivityMapView', () => {
 
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
       expect(screen.queryByTestId('webview')).toBeNull();
+    });
+
+    describe('with the feed poster cached', () => {
+      const ACTIVITY_ID = 'ride-poster';
+
+      function post2D(message: Record<string, unknown>) {
+        fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+          nativeEvent: { data: JSON.stringify(message) },
+        });
+      }
+
+      beforeEach(() => {
+        mockCached.add(`${ACTIVITY_ID}-light-true`);
+      });
+
+      it('builds only the terrain page while the poster covers the hero', () => {
+        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+
+        expect(screen.getByTestId('activity-map-poster')).toBeTruthy();
+        expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
+        expect(screen.getAllByTestId('webview')).toHaveLength(1);
+
+        post({ type: 'mapReady' });
+
+        expect(screen.queryByTestId('activity-map-poster')).toBeNull();
+        expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
+      });
+
+      it('mounts the 2D surface while a crashed terrain page reloads', () => {
+        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+        post({ type: 'mapReady' });
+
+        fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+
+        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+      });
+
+      it('mounts the 2D surface when the terrain page fails before it is ready', () => {
+        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+
+        post({ type: 'mapFailed', reason: 'load timeout' });
+
+        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+        expect(screen.queryByTestId('webview')).toBeNull();
+      });
+
+      it('keeps a 2D map already on screen while the toggled terrain page boots', () => {
+        renderActivityMap({ activityId: ACTIVITY_ID });
+        post2D({ type: 'mapReady' });
+
+        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+
+        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+        expect(screen.getByTestId('webview')).toBeTruthy();
+      });
+    });
+
+    it('mounts the 2D surface under a booting terrain page with no poster to show', () => {
+      renderActivityMap({ activityId: 'ride-uncached', initial3DCamera: CAMERA_3D });
+
+      expect(screen.queryByTestId('activity-map-poster')).toBeNull();
+      expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
     });
 
     it('tolerates unmounting while the terrain page is still loading', () => {

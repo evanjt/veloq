@@ -1,78 +1,119 @@
 /**
- * Control button stack for RegionalMapView.
- * Contains 3D toggle, compass, location, and layer controls.
+ * Control column for RegionalMapView: 3D, compass, locate and one layers
+ * control. The layer toggles and fit-all sit in the menu the layers control
+ * opens, so the column stays four controls tall however much the map holds.
+ *
+ * Each control is drawn at the icon-button size and reaches the platform tap
+ * minimum through hit slop, as `IconButton` does everywhere else.
  */
 
-import React from 'react';
-import { View, Pressable, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Pressable, StyleSheet, Text, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, spacing, shadows, layout, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  shadows,
+  layout,
+  controlHeight,
+  colorWithOpacity,
+  ink,
+  typography,
+} from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 
-/** Reusable layer toggle button inside a LayerToggleGroup. */
-function LayerToggleButton({
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+/** The glyph inside a column control. */
+const COLUMN_ICON_SIZE = 20;
+/** The glyph beside a menu row's label. */
+const MENU_ICON_SIZE = 18;
+/** Controls above the layers control, which the menu lines up beside. */
+const CONTROLS_ABOVE_LAYERS = 3;
+
+/** One round control in the column, on a disc that carries the map shadow. */
+function ColumnButton({
   testID,
-  icon,
-  active,
   isDark,
+  active = false,
+  disabled = false,
+  expanded,
   onPress,
   accessibilityLabel,
+  children,
 }: {
   testID: string;
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  active: boolean;
   isDark: boolean;
+  active?: boolean;
+  disabled?: boolean;
+  expanded?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
+  children: React.ReactNode;
 }) {
+  return (
+    <View style={[styles.columnDisc, isDark && styles.surfaceDark]}>
+      <IconButton
+        testID={testID}
+        variant="ghost"
+        style={[styles.columnButton, active && styles.columnButtonActive]}
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityLabel={accessibilityLabel}
+        {...(expanded === undefined ? {} : { accessibilityState: { expanded } })}
+      >
+        {children}
+      </IconButton>
+    </View>
+  );
+}
+
+/** One row of the layers menu: a toggle when `checked` is given, else an action. */
+function MenuRow({
+  testID,
+  icon,
+  label,
+  checked,
+  isDark,
+  onPress,
+}: {
+  testID: string;
+  icon: IconName;
+  label: string;
+  checked?: boolean;
+  isDark: boolean;
+  onPress: () => void;
+}) {
+  const palette = isDark ? darkColors : colors;
+  const isToggle = checked !== undefined;
   return (
     <Pressable
       testID={testID}
-      style={pressable([styles.layerToggleItem, active && styles.controlButtonActive])}
+      style={pressable(styles.menuRow)}
       onPress={onPress}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityRole={isToggle ? 'checkbox' : 'button'}
+      accessibilityState={isToggle ? { checked } : undefined}
       android_ripple={pressRipple}
     >
       <MaterialCommunityIcons
         name={icon}
-        size={18}
-        color={active ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary}
+        size={MENU_ICON_SIZE}
+        color={checked ? palette.primary : palette.textSecondary}
       />
+      <Text style={[styles.menuLabel, { color: palette.textPrimary }]}>{label}</Text>
+      {isToggle && (
+        <MaterialCommunityIcons
+          name="check"
+          size={MENU_ICON_SIZE}
+          color={checked ? palette.primary : 'transparent'}
+        />
+      )}
     </Pressable>
-  );
-}
-
-/**
- * Container for layer toggle buttons. Renders visible children with dividers
- * between them and rounds the first/last corners automatically.
- */
-function LayerToggleGroup({ isDark, children }: { isDark: boolean; children: React.ReactNode }) {
-  // Filter to only truthy children (conditionally rendered buttons)
-  const items = React.Children.toArray(children).filter(Boolean);
-  if (items.length === 0) return null;
-
-  return (
-    <View style={[styles.layerToggleContainer, isDark && styles.layerToggleContainerDark]}>
-      {items.map((child, index) => (
-        <React.Fragment key={index}>
-          {index > 0 && (
-            <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
-          )}
-          <View
-            style={[
-              items.length === 1 && styles.layerToggleSingle,
-              items.length > 1 && index === 0 && styles.layerToggleTop,
-              items.length > 1 && index === items.length - 1 && styles.layerToggleBottom,
-            ]}
-          >
-            {child}
-          </View>
-        </React.Fragment>
-      ))}
-    </View>
   );
 }
 
@@ -148,171 +189,166 @@ export function MapControlStack({
   onFitAll,
 }: MapControlStackProps) {
   const { t } = useTranslation();
+  const [layersOpen, setLayersOpen] = useState(false);
   const show3D = is3DMode && can3D;
+  const iconColor = isDark ? colors.textOnDark : colors.textSecondary;
+
+  const hasActivities = activityCount > 0;
+  const sectionsToggle = sectionCount > 0 ? onToggleSections : undefined;
+  const routesToggle = routeCount > 0 ? onToggleRoutes : undefined;
+  const hasLayers = hasActivities || !!sectionsToggle || !!onToggleHeatmap || !!routesToggle;
+  const menuOpen = layersOpen && hasLayers;
+
+  // Any other control, and fit-all, closes the menu on the way: the athlete has
+  // gone back to the map.
+  const closing = (action: () => void) => () => {
+    setLayersOpen(false);
+    action();
+  };
 
   return (
-    <View style={[styles.controlStack, { top }]}>
-      {/* 3D Toggle - only active when activity with route is selected */}
-      <Pressable
-        testID="map-toggle-3d"
-        style={pressable([
-          styles.controlButton,
-          isDark && styles.controlButtonDark,
-          show3D && styles.controlButtonActive,
-          !can3D && styles.controlButtonDisabled,
-        ])}
-        onPress={can3D ? onToggle3D : undefined}
-        disabled={!can3D}
-        accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !can3D }}
-        android_ripple={pressRipple}
-      >
-        <MaterialCommunityIcons
-          name="terrain"
-          size={22}
-          color={
-            show3D
-              ? colors.textOnDark
-              : can3D
-                ? isDark
-                  ? colors.textOnDark
-                  : colors.textSecondary
-                : isDark
-                  ? darkColors.textSecondary
-                  : colors.textDisabled
-          }
-        />
-      </Pressable>
-
-      {/* North Arrow - tap to reset orientation */}
-      <Pressable
-        testID="map-compass"
-        style={pressable([styles.controlButton, isDark && styles.controlButtonDark])}
-        onPress={onResetOrientation}
-        accessibilityLabel={t('maps.resetOrientation')}
-        accessibilityRole="button"
-        android_ripple={pressRipple}
-      >
-        <CompassArrow
-          size={22}
-          rotation={bearingAnim}
-          northColor={colors.error}
-          southColor={isDark ? colors.textOnDark : colors.textSecondary}
-        />
-      </Pressable>
-
-      {/* Combined location + fit-all button
-          Shows both icons stacked: location on top, fit-all on bottom
-          Tap top half = go to location, tap bottom half = fit all */}
-      <View style={styles.dualButtonContainer}>
-        {/* Top: Location */}
+    <>
+      {menuOpen && (
+        // press-feedback: none, an invisible scrim over the map that only closes the menu
         <Pressable
-          testID="map-location"
-          style={pressable([
-            styles.dualButtonHalf,
-            isDark && styles.controlButtonDark,
-            userLocationActive && styles.controlButtonActive,
-            styles.dualButtonTop,
-          ])}
-          onPress={locationLoading ? undefined : onGetLocation}
-          disabled={locationLoading}
-          accessibilityLabel={t('maps.goToLocation')}
+          testID="map-layers-backdrop"
+          style={StyleSheet.absoluteFill}
+          onPress={() => setLayersOpen(false)}
+          accessibilityLabel={t('common.close')}
           accessibilityRole="button"
-          android_ripple={pressRipple}
+        />
+      )}
+      <View style={[styles.controlStack, { top }]}>
+        <ColumnButton
+          testID="map-toggle-3d"
+          isDark={isDark}
+          active={show3D}
+          disabled={!can3D}
+          onPress={closing(onToggle3D)}
+          accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
+        >
+          <MaterialCommunityIcons
+            name="terrain"
+            size={COLUMN_ICON_SIZE}
+            color={show3D ? colors.textOnDark : iconColor}
+          />
+        </ColumnButton>
+
+        <ColumnButton
+          testID="map-compass"
+          isDark={isDark}
+          onPress={closing(onResetOrientation)}
+          accessibilityLabel={t('maps.resetOrientation')}
+        >
+          <CompassArrow
+            size={COLUMN_ICON_SIZE}
+            rotation={bearingAnim}
+            northColor={colors.error}
+            southColor={iconColor}
+          />
+        </ColumnButton>
+
+        <ColumnButton
+          testID="map-location"
+          isDark={isDark}
+          active={userLocationActive}
+          disabled={locationLoading}
+          onPress={closing(onGetLocation)}
+          accessibilityLabel={t('maps.goToLocation')}
         >
           {locationLoading ? (
-            <ActivityIndicator
-              size="small"
-              color={isDark ? colors.textOnDark : colors.textSecondary}
-            />
+            <ActivityIndicator size="small" color={iconColor} />
           ) : (
             <MaterialCommunityIcons
               name="crosshairs-gps"
-              size={18}
-              color={
-                userLocationActive
-                  ? colors.textOnDark
-                  : isDark
-                    ? colors.textOnDark
-                    : colors.textSecondary
-              }
+              size={COLUMN_ICON_SIZE}
+              color={userLocationActive ? colors.textOnDark : iconColor}
             />
           )}
-        </Pressable>
-        {/* Divider line */}
-        <View style={[styles.dualButtonDivider, isDark && styles.dualButtonDividerDark]} />
-        {/* Bottom: Fit All */}
-        {activityCount > 0 && (
-          <Pressable
-            testID="map-fit-all"
-            style={pressable([
-              styles.dualButtonHalf,
-              isDark && styles.controlButtonDark,
-              styles.dualButtonBottom,
-            ])}
-            onPress={onFitAll}
-            accessibilityLabel={t('maps.fitAll')}
-            accessibilityRole="button"
-            android_ripple={pressRipple}
+        </ColumnButton>
+
+        {hasLayers && (
+          <ColumnButton
+            testID="map-layers"
+            isDark={isDark}
+            active={menuOpen}
+            expanded={menuOpen}
+            onPress={() => setLayersOpen((open) => !open)}
+            accessibilityLabel={t('maps.layers')}
           >
             <MaterialCommunityIcons
-              name="fit-to-screen-outline"
-              size={18}
-              color={isDark ? colors.textOnDark : colors.textSecondary}
+              name="layers-outline"
+              size={COLUMN_ICON_SIZE}
+              color={menuOpen ? colors.textOnDark : iconColor}
             />
-          </Pressable>
+          </ColumnButton>
         )}
       </View>
 
-      {/* Combined layer toggles - stacked when multiple exist */}
-      {(activityCount > 0 || sectionCount > 0 || routeCount > 0) && (
-        <LayerToggleGroup isDark={isDark}>
-          {activityCount > 0 && (
-            <LayerToggleButton
+      {menuOpen && (
+        <View
+          testID="map-layers-menu"
+          style={[
+            styles.menu,
+            isDark && styles.surfaceDark,
+            { top: top + CONTROLS_ABOVE_LAYERS * (controlHeight.button + spacing.sm) },
+          ]}
+        >
+          {hasActivities && (
+            <MenuRow
               testID="map-toggle-activities"
               icon="map-marker-multiple"
-              active={showActivities}
+              label={t('maps.layerActivities')}
+              checked={showActivities}
               isDark={isDark}
               onPress={onToggleActivities}
-              accessibilityLabel={
-                showActivities ? t('maps.hideActivities') : t('maps.showActivities')
-              }
             />
           )}
-          {sectionCount > 0 && onToggleSections && (
-            <LayerToggleButton
+          {sectionsToggle && (
+            <MenuRow
               testID="map-toggle-sections"
               icon="road-variant"
-              active={showSections}
+              label={t('maps.layerSections')}
+              checked={showSections}
               isDark={isDark}
-              onPress={onToggleSections}
-              accessibilityLabel={showSections ? t('maps.hideSections') : t('maps.showSections')}
+              onPress={sectionsToggle}
             />
           )}
           {onToggleHeatmap && (
-            <LayerToggleButton
+            <MenuRow
               testID="map-toggle-heatmap"
               icon="fire"
-              active={showHeatmap}
+              label={t('maps.layerHeatmap')}
+              checked={showHeatmap}
               isDark={isDark}
               onPress={onToggleHeatmap}
-              accessibilityLabel={showHeatmap ? t('maps.hideHeatmap') : t('maps.showHeatmap')}
             />
           )}
-          {routeCount > 0 && onToggleRoutes && (
-            <LayerToggleButton
+          {routesToggle && (
+            <MenuRow
               testID="map-toggle-routes"
               icon="map-marker-path"
-              active={showRoutes}
+              label={t('maps.layerRoutes')}
+              checked={showRoutes}
               isDark={isDark}
-              onPress={onToggleRoutes}
-              accessibilityLabel={showRoutes ? t('maps.hideRoutes') : t('maps.showRoutes')}
+              onPress={routesToggle}
             />
           )}
-        </LayerToggleGroup>
+          {hasActivities && (
+            <>
+              <View style={[styles.menuDivider, isDark && styles.menuDividerDark]} />
+              <MenuRow
+                testID="map-fit-all"
+                icon="fit-to-screen-outline"
+                label={t('maps.fitAll')}
+                isDark={isDark}
+                onPress={closing(onFitAll)}
+              />
+            </>
+          )}
+        </View>
       )}
-    </View>
+    </>
   );
 }
 
@@ -322,80 +358,49 @@ const styles = StyleSheet.create({
     right: spacing.md,
     gap: spacing.sm,
   },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
+  columnDisc: {
+    width: controlHeight.button,
+    height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
     ...shadows.mapOverlay,
   },
-  controlButtonDark: {
+  surfaceDark: {
     backgroundColor: darkColors.surfaceCard,
   },
-  controlButtonActive: {
+  columnButton: {
+    width: controlHeight.button,
+    height: controlHeight.button,
+    borderRadius: layout.borderRadiusFull,
+  },
+  columnButtonActive: {
     backgroundColor: colors.primary,
   },
-  controlButtonDisabled: {
-    opacity: 0.5,
-  },
-  // Dual button styles (location + fit-all combined)
-  dualButtonContainer: {
-    width: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
+  menu: {
+    position: 'absolute',
+    right: spacing.md + controlHeight.button + spacing.sm,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
-    overflow: 'hidden',
+    paddingVertical: spacing.xs,
     ...shadows.mapOverlay,
   },
-  dualButtonHalf: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    justifyContent: 'center',
+  menuRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.smPlus,
+    minHeight: layout.minTapTarget,
+    paddingHorizontal: spacing.md,
   },
-  dualButtonTop: {
-    borderTopLeftRadius: layout.borderRadiusXl,
-    borderTopRightRadius: layout.borderRadiusXl,
+  menuLabel: {
+    ...typography.bodySmall,
+    flexShrink: 1,
   },
-  dualButtonBottom: {
-    borderBottomLeftRadius: layout.borderRadiusXl,
-    borderBottomRightRadius: layout.borderRadiusXl,
-  },
-  dualButtonDivider: {
-    height: 1,
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
     backgroundColor: colorWithOpacity(ink.black, 0.1),
-    marginHorizontal: spacing.sm,
+    marginVertical: spacing.xs,
   },
-  dualButtonDividerDark: {
+  menuDividerDark: {
     backgroundColor: colorWithOpacity(ink.white, 0.1),
-  },
-  // Layer toggle styles (activities/sections/routes combined)
-  layerToggleContainer: {
-    width: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    overflow: 'hidden',
-    ...shadows.mapOverlay,
-  },
-  layerToggleContainerDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  layerToggleItem: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  layerToggleSingle: {
-    borderRadius: layout.borderRadiusXl,
-  },
-  layerToggleTop: {
-    borderTopLeftRadius: layout.borderRadiusXl,
-    borderTopRightRadius: layout.borderRadiusXl,
-  },
-  layerToggleBottom: {
-    borderBottomLeftRadius: layout.borderRadiusXl,
-    borderBottomRightRadius: layout.borderRadiusXl,
   },
 });

@@ -242,6 +242,8 @@ const ROUTES_NAMES = [
   'SectionsList',
   'sectionSortFor',
   'SectionSparkline',
+  'SectionStreamsNotice',
+  'sectionStreamsState',
   'SectionTrimOverlay',
   'shouldShowSportChips',
   'SportTypeSelector',
@@ -296,6 +298,7 @@ const ROUTES_NAMES = [
   'useSectionTimeStreamSync',
   'useSectionTrim',
   'useSectionUIState',
+  'withoutRecordMarks',
 ];
 
 describe('the routes barrel evaluates whole, whichever end the app enters from', () => {

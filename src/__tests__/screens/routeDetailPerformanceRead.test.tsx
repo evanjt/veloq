@@ -176,6 +176,7 @@ const mockEngine = {
     routeNames: {},
     excludedActivityIds: ['h3'],
     mapSignatures: [],
+    missingTimeStreamIds: [],
   })),
   getRouteDetailPerformance: jest.fn((_group: string, _days: number, sport?: string) =>
     performanceRead(mockSportCounts, sport)

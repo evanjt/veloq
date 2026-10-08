@@ -221,6 +221,11 @@ export const colors = {
   secondary: brand.blueDark, // Darker blue for light mode
   secondaryLight: brand.blue,
 
+  // The sync pill's fill, the app colour of the icon and splash, kept here so
+  // it changes in one place. White on brand.blue itself is 2.96:1, under the
+  // 4.5:1 text owes, so it takes the blue's darker step, which holds 4.51:1.
+  appColourPillBackground: brand.blueDark,
+
   // Surfaces
   surface: '#FFFFFF',
   background: '#F8F9FA',
@@ -642,6 +647,15 @@ export const redBanner = {
   text: '#991B1B',
 } as const;
 
+// The offline pill floating under the status bar. A neutral grey, so it reads
+// apart from the sync pill's blue, the same in both schemes because it floats
+// over either. Dark ink, because white on this grey is 2.56:1: the title is
+// 6.91:1 and the description at 0.8 is 4.90:1.
+export const offlinePill = {
+  bg: '#A1A1AA',
+  text: '#18181B',
+} as const;
+
 // GitHub-style contribution ramp for the activity heatmap grid: five steps
 // from "no activity" upward, one set per mode.
 export const contributionRamp = {
@@ -737,6 +751,9 @@ export const darkColors = {
   // Secondary - Blue (charts, data)
   secondary: brand.blue, // Full blue for dark mode
   secondaryLight: brand.blueLight,
+
+  // The same fill in both themes, see `colors`.
+  appColourPillBackground: brand.blueDark,
 
   // Surfaces (near-black, premium feel)
   background: '#0D0D0F',

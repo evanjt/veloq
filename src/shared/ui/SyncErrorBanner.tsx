@@ -54,9 +54,9 @@ export function SyncErrorBanner() {
   const padsStatusBar = useBannerPadsStatusBar('syncError');
   const { lastError, lastErrorReason, lastSuccessAt } = useSyncHealth();
 
-  // The offline banner already owns the no-connection case, and both live in the
-  // same top slot, so this one gives way when that one shows and not before: an
-  // offline reading still inside the offline banner's hold leaves it up. A
+  // The offline pill already owns the no-connection case, and a sync cannot
+  // progress offline, so this one gives way when the pill shows and not before:
+  // an offline reading still inside the pill's hold leaves it up. A
   // logged-out user has no sync to report on, and the engine keeps the error
   // from the session that just ended. Demo data needs no account sync.
   const reasonKey = lastErrorReason === null ? undefined : REASON_KEY[lastErrorReason];

@@ -22,6 +22,8 @@ export { INSIGHTS_CONFIG, confidenceFrom } from './lib/config';
 
 export { stalePROpportunityToInsight } from './generators/stalePr';
 export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';
+export { generateSectionPRInsights } from './generators/sectionPR';
+export { generateFitnessMilestoneInsights } from './generators/fitnessMilestone';
 
 export {
   useInsightsStore,
@@ -46,6 +48,7 @@ export type {
   PaceTrend,
   SectionPR,
   SectionTrendData,
+  SeriesPoint,
   TFunc,
 } from './types';
 

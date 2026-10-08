@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
+import com.veloq.WidgetDataRefreshWorker
 
 /**
  * Last activity widget: how the most recent activity compared (its rank among the attempts at
@@ -14,6 +15,15 @@ class VeloqActivityWidgetProvider : AppWidgetProvider() {
   override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
     val snap = WidgetSnapshot.read(context)
     for (id in ids) update(context, manager, snap, id)
+    WidgetDataRefreshWorker.widgetPlaced(context)
+  }
+
+  override fun onEnabled(context: Context) {
+    WidgetDataRefreshWorker.widgetPlaced(context)
+  }
+
+  override fun onDisabled(context: Context) {
+    WidgetDataRefreshWorker.reconcile(context)
   }
 
   override fun onAppWidgetOptionsChanged(

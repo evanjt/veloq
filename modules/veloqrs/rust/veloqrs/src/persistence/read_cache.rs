@@ -218,6 +218,24 @@ pub fn lap_curves(
     cached_by_key(conn, &READ_CACHE.lap_curves, key, fill)
 }
 
+/// One route's or section's lap delta curves if they are held for the
+/// database as it stands, without computing them. `None` when they are not
+/// held, or when the cache cannot vouch for `conn`.
+pub fn held_lap_curves(
+    conn: &Connection,
+    key: &str,
+) -> Option<Arc<Option<crate::FfiSectionLapCurves>>> {
+    if !serves(conn) {
+        return None;
+    }
+    let generation = cache_generation()?;
+    let mut cache = lock(&READ_CACHE.lap_curves);
+    if !generation_current(generation) {
+        return None;
+    }
+    cache.get(key).map(Arc::clone)
+}
+
 /// Serve one keyed entry, filling it on a miss, under the same rules as
 /// [`cached`].
 fn cached_by_key<V>(

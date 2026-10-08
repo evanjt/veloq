@@ -52,7 +52,6 @@
     "heartRate": "Heart Rate",
     "mapStyle": "Map Style",
     "maxHR": "Max: {{value}} bpm",
-    "newActivity": "New",
     "newGround": "New ground",
     "mostlyNewGround": "Mostly new",
     "noDataAvailable": "No data available",
@@ -208,6 +207,7 @@
   "alerts": {
     "cacheCleared": "Cache Cleared",
     "clearCacheMessage": "This will clear all cached activity data, activity tracks, and route matching data, then start reloading. This may take a few minutes.",
+    "clearCacheOffline": "You are offline. The reload needs a connection, so your activities, maps and routes will stay empty until the network returns.",
     "clearCacheTitle": "Clear & Reload Cache",
     "clearReload": "Clear & Reload",
     "disconnect": "Disconnect",
@@ -254,6 +254,7 @@
     "carrierDeviceIos": "iCloud backup",
     "carrierDeviceAndroid": "Google backup",
     "carrierDeviceDescription": "Kept by your device backup. Nothing to set up here.",
+    "carrierDeviceRestore": "Comes back when you set up a new phone",
     "carrierFolder": "Folder",
     "carrierFolderNone": "No folder chosen",
     "carrierFolderChoose": "Choose",
@@ -274,13 +275,6 @@
     "differentAccountMessage_one": "This device holds {{count}} activity from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes it. To keep it, cancel and sign in to that account instead.",
     "differentAccountMessage_other": "This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To keep them, cancel and sign in to that account instead.",
     "clearAndSync": "Clear & Sync",
-    "unplacedPin": "Pinned section",
-    "unplacedHistory": "Section history",
-    "unplacedSectionSetting": "Section setting",
-    "unplacedSection": "Section",
-    "unplacedSectionName": "Section name",
-    "unplacedSetting": "Setting",
-    "unplacedRouteName": "Route name",
     "unplacedReadError": "Could not load records waiting to be placed.",
     "importPaused": "An import was interrupted before it finished, and nothing from it has been applied yet. It resumes on its own at the next launch.",
     "importPausedError": "The import could not finish and is still paused. Nothing from it has been applied.",
@@ -288,20 +282,22 @@
     "discardImportTitle": "Discard the paused import?",
     "discardImportMessage": "Nothing from it has been applied, and your library stays as it is. To bring it in later, import the file again.",
     "discardImportError": "The paused import could not be discarded. It is still paused.",
-    "unplacedRecord": "Record",
-    "unplacedActivityUnavailable": "Referenced activity is unavailable",
+    "discardWaitingTitle": "Discard the items still waiting?",
+    "discardWaitingMessage": "They are removed from this device, and everything already restored stays. They remain in the backup file, so importing it again brings them back.",
+    "discardWaitingError": "The waiting items could not be discarded. They are still waiting.",
     "unplacedActivityPending": "Fetching the activities your backup refers to",
-    "unplacedGroundNotDetected": "Waiting for matching ground",
     "platformRestorePath": "Your device backup can carry the latest record archive and settings. Restore Veloq during device setup, then sign in to sync activities.",
     "recordContents": "Record archive: settings, names, pins, cuts, exclusions and section history. Activities sync again after restore.",
     "recordSavedLocal": "Record archive saved to Veloq storage on this device.",
     "recordSavedWebdav": "Record archive saved to {{destination}}.",
     "carrierNotWritten": "Not saved to {{destination}}.",
+    "carrierSentWhenOnline": "It will be sent when this device is back online.",
     "recordSavedFolder": "Record archive saved to the folder {{destination}}.",
     "localRestorePath": "Restore a saved copy with Restore from destination below.",
     "webdavRestorePath": "On a new device, configure this WebDAV server in Backup settings, then use Restore from destination below.",
     "restoreFromDestination": "Restore from destination",
     "noBackupsAtDestination": "No backups found at this destination.",
+    "noBrowsableDestination": "The device backup comes back only when you set up a new phone, so it cannot be restored from here. To restore on this phone, add WebDAV or a folder below, or import a backup file.",
     "restorePromptTitle": "Restore your library",
     "restorePromptMessage": "No backup was found on this phone. If you have one in a file or on a WebDAV server, you can restore it now.",
     "restoreFromFile": "Restore from a file",
@@ -577,11 +573,8 @@
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
     "daysTrained": "Days trained",
-    "fatAbbrev": "Fat",
     "fatigueATL": "Fatigue (ATL)",
-    "fitAbbrev": "Fit",
     "fitnessCTL": "Fitness (CTL)",
-    "formTSB": "Form (TSB)",
     "loadPartial": "Partial",
     "loadUnavailable": "Unavailable",
     "noData": "No fitness data available",
@@ -594,7 +587,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "current": "Current",
     "failedToLoad": "Failed to load fitness data",
     "fatigueDescription": "is a 7-day exponentially weighted moving average of your training load.",
     "fitnessAndFatigue": "Fitness & Fatigue",
@@ -605,7 +597,6 @@
     "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "title": "Fitness & Form",
-    "tsb": "TSB",
     "understandingMetrics": "Understanding the Metrics",
     "rampRate": "Ramp",
     "perWeek": "/wk"
@@ -784,6 +775,41 @@
     },
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
+    "explanation": {
+      "title": "Understanding Insights",
+      "foundLabel": "Method",
+      "found": "Veloq compares your latest activities and wellness with your own history, on this phone, and shows a card for each record, change or trend it finds.",
+      "kinds": {
+        "sectionsAndRoutes": {
+          "label": "Sections and routes",
+          "text": "A new record, a run of faster or slower times, or a change in heart rate at the same pace, on a section or route you repeat."
+        },
+        "fitness": {
+          "label": "eFTP and critical speed",
+          "text": "A change in your eFTP or critical speed, and the section records you set when it was lower."
+        },
+        "week": {
+          "label": "This week",
+          "text": "Training time and load so far this week against the same point last week."
+        },
+        "hrv": {
+          "label": "Heart rate variability",
+          "text": "Your HRV over the last 7 days, the newer readings against the older."
+        },
+        "strength": {
+          "label": "Strength",
+          "text": "A muscle group's weighted sets rising or easing off, and the balance between opposing muscle groups."
+        },
+        "sectionChanges": {
+          "label": "Section changes",
+          "text": "A section that was re-cut, split, restored or put back to an earlier version."
+        }
+      },
+      "orderLabel": "Order",
+      "sourcesLabel": "Sources",
+      "sources": "Times, distances, heart rate and power come from your activities. eFTP, critical speed and HRV are the values intervals.icu holds for you. Open a card and tap “{{howCalculated}}” for its method and data.",
+      "strengthTitle": "Understanding Strength"
+    },
     "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it.",
     "efficiencyTrend": {
       "seriesLabel": "Heart rate per unit of pace, oldest effort to newest",
@@ -929,7 +955,7 @@
     "sessionKeyRejected": "Your API key was rejected.",
     "sessionRestore": "Sign in again to get them back.",
     "sessionRestoreAthlete": "Sign in again as {{athleteId}} to get them back.",
-    "subtitle": "Connect to Intervals.icu",
+    "subtitle": "Connect to intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
     "tryDemo": "Try Demo",
@@ -941,7 +967,9 @@
     "activitySummary_one": "{{count}} activity · {{mapped}} on the map",
     "activitySummary_other": "{{count}} activities · {{mapped}} on the map",
     "expandRange": "Expand range",
-    "distanceAny": "Any"
+    "distanceAny": "Any",
+    "showFilters": "Show all filters",
+    "hideFilters": "Show fewer filters"
   },
   "maps": {
     "threeDUnavailable": "Terrain needs a connection. Showing the flat map.",
@@ -969,16 +997,14 @@
     "enable3D": "Enable 3D view",
     "fitAll": "Fit all activities",
     "goToLocation": "Go to my location",
-    "hideActivities": "Hide activities",
-    "hideHeatmap": "Hide heatmap",
-    "hideRoutes": "Hide routes",
-    "hideSections": "Hide sections",
+    "layerActivities": "Activities",
+    "layerHeatmap": "Heatmap",
+    "layerRoutes": "Routes",
+    "layerSections": "Sections",
+    "layers": "Map layers",
     "openFullscreen": "Open full screen",
     "resetOrientation": "Reset map orientation",
     "sectionSelected": "Section selected",
-    "showActivities": "Show activities",
-    "showHeatmap": "Show heatmap",
-    "showRoutes": "Show routes",
     "showSections": "Show sections",
     "tapSelectEnd": "Tap to select end point",
     "tapSelectStart": "Tap to select start point",
@@ -1311,6 +1337,15 @@
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will appear here",
     "sectionCreationFailed": "Failed to create section. Please try again.",
     "sectionWord": "Section",
+    "explanation": {
+      "routesTitle": "Understanding Routes",
+      "routesWhatLabel": "Grouping",
+      "routesWhat": "Activities in one sport that follow a similar path from start to finish are grouped into a route. Veloq matches them on this phone from their GPS tracks.",
+      "routesSources": "Each attempt's time and distance come from its activity. Records and trends compare your attempts on the route with each other.",
+      "sectionsTitle": "Understanding Sections",
+      "sectionsWhatLabel": "Detection",
+      "sectionsSources": "Each time is measured over the part of an activity's GPS track that matches the section, so it can differ from the activity's own laps."
+    },
     "sectionsDescription": "Sections are detected when you travel the same roads multiple times, even on different routes",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
@@ -1335,6 +1370,8 @@
   },
   "sections": {
     "timeMethod": "Section times are elapsed time, including stops.",
+    "effortsNotDownloaded_one": "Times for {{count}} activity are not downloaded yet, so the best may change.",
+    "effortsNotDownloaded_other": "Times for {{count}} activities are not downloaded yet, so the best may change.",
     "acceptSection": "Accept",
     "acceptAllSections": "Accept All",
     "acceptAllConfirm_one": "Accept all {{count}} auto-detected section? It will be preserved during future re-detection.",
@@ -1558,6 +1595,7 @@
     "terrain3DOff": "Off",
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Always",
+    "terrain3DSmartHint": "Smart draws feed cards and activity maps in 3D on its own when a route has {{height}} or more between its lowest and highest point.",
     "noData": "No data",
     "permissions": "Permissions",
     "placeNames": {
@@ -1748,6 +1786,8 @@
     "exportPrivacySuggested_other": "Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.",
     "exportPrivacyConfirm": "Use it as home",
     "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is.",
+    "exportPrivacyNeedsHome": "Off until a home is set. Use the suggested place below, or tap the map.",
+    "exportPrivacyNeedsHomeNoSuggestion": "Off until a home is set.",
     "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
     "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
     "exportPrivacyRadius": "{{metres}} m",
@@ -1870,8 +1910,6 @@
   "time": {
     "asOfLastSync": "As of last sync",
     "current": "Current",
-    "daysAgo_one": "{{count}} day ago",
-    "daysAgo_other": "{{count}} days ago",
     "daysCount_one": "{{count}} day",
     "daysCount_other": "{{count}} days",
     "now": "Now",
@@ -1933,37 +1971,32 @@
     "closeTour": "Close",
     "v022": {
       "mapStylesTitle": "3D Maps & Styles",
+      "mapStylesTip": "Choose light, dark or satellite for your activity maps any time in Settings, under Maps.",
       "mapStylesBody": "Choose light, dark, or satellite map styles with smart 3D terrain for hilly activities.",
-      "mapStylesHint": "High-res satellite covers Switzerland and France. Smart 3D activates for activities with 30 m+ gain and 3 m/km+ gradient.",
+      "mapStylesHint": "High-res satellite covers Switzerland and France.",
       "heatmapTitle": "Activity Heatmap",
       "heatmapBody": "Your training calendar on the Health page, showing a year of training. Press and hold the wellness chart to highlight that day on the calendar.",
       "heatmapTip": "Press and hold on the health metrics to see the values. The activity heatmap updates to match.",
       "fitnessTitle": "Fitness Overview",
+      "fitnessTip": "Press and hold the chart, then slide along it to read fitness, fatigue and form for any day.",
       "fitnessBody": "Track your fitness, fatigue, and form with colour-coded zones."
     },
     "v030": {
       "insightsTitle": "Daily Insights",
-      "insightsBody": "Personalised daily insights based on your training: section PRs, efficiency trends, fitness milestones, and HRV patterns.",
+      "insightsTip": "Tap an insight to open it and see the data behind it.",
+      "insightsBody": "An insight is a card for something that moved in your training, like a section record or a rise in your eFTP.",
+      "insightsHow": "Each one is worked out on your phone by comparing your latest training data with your own history, and opens to show the numbers and the method behind it.",
       "strengthTitle": "Strength Tracking",
+      "strengthTip": "Tap a muscle group on the body diagram to see the exercises and sets behind it.",
       "strengthBody": "Visualise muscle group volume with body diagrams. Track balance between antagonist pairs and monitor progression over time.",
-      "strengthChest": "Chest",
-      "strengthBack": "Back",
-      "strengthShoulders": "Shoulders",
-      "strengthLegs": "Legs",
-      "strengthThisWeek": "This week",
-      "strengthLastWeek": "Last week",
-      "sectionTrimTitle": "Section Editing",
-      "sectionTrimBody": "Fine-tune section boundaries with a dual-handle slider. Trim to narrow the range, or switch to expand mode to extend beyond the auto-detected limits when detection missed part of the route. Changes are reflected on the map in real time.",
       "backupTitle": "Backup & Restore",
-      "backupBody": "Back up your settings and decisions in a small file, then share it from your device. Restoring fetches activities again and applies your decisions where they match.",
-      "insightsSectionPrs": "Section PRs",
-      "insightsEfficiency": "Efficiency trends",
-      "insightsMilestones": "Fitness milestones",
-      "insightsHrv": "HRV trends"
+      "backupTip": "Tap Back Up Now to write a backup, or turn on Automatic backup to keep one current.",
+      "backupBody": "Back up your settings and decisions in a small file, then share it from your device. Restoring fetches activities again and applies your decisions where they match."
     },
     "v040": {
       "sectionsTitle": "Sections that follow your runs",
       "sectionsBody": "Sections are deterministic and reshape as your runs add up; pin one to hold it stable.",
+      "sectionsTip": "The map shows your sections as they are now. Move a slider and tap Preview to see which sections it would cut; nothing changes until you tap Keep.",
       "recutRunning": "Re-analysing your sections",
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
       "diffTotals": "{{current}} sections became {{proposed}}.",
@@ -1977,7 +2010,18 @@
       "settingsResetMinLength": "minimum length",
       "settingsResetMaxLength": "longest section",
       "settingsResetMinActivities": "minimum visits",
-      "settingsResetDivergence": "divergence"
+      "settingsResetDivergence": "divergence",
+      "sectionPageTitle": "Every attempt at a section, compared",
+      "sectionPageBody": "Open a section to see each attempt against the others. Trim, extend, rename or pin it from the same page.",
+      "sectionPageTrend": "Every attempt by date, with the trend",
+      "sectionPageTrendR": "Pearson r {{r}}",
+      "sectionPageHistogram": "The spread of your times",
+      "sectionPageDelta": "Seconds ahead or behind along it",
+      "sectionPageLine": "The line coloured where time was won or lost",
+      "routesTitle": "Routes you repeat",
+      "routesBody": "Activities over the same course are grouped into a route, with every attempt charted against the others.",
+      "sectionPageTip": "Scroll down the section page for the trend, the spread of your times and the line coloured by where time was won or lost.",
+      "routesTip": "Scroll down the route page to see every attempt over the course charted against the others."
     }
   },
   "strength": {
@@ -2279,7 +2323,7 @@
     "insightsMore": "+{{rest}} more",
     "insightKinds": "Kinds",
     "insightKindsDescription": "Choose which kinds of insight the widget lists. Choosing none lists every kind.",
-    "strengthDescription": "Your training load on the body, muscle by muscle.",
+    "strengthDescription": "The muscles you trained, shaded by sets.",
     "strengthWindowDescription": "Choose which period the widget shows.",
     "insightKind": {
       "sectionPr": "Section PRs",
@@ -2294,7 +2338,6 @@
       "efficiencyTrend": "Efficiency trends",
       "sectionChanged": "Changed sections"
     },
-    "strengthDescription": "The muscles you trained, shaded by sets.",
     "strengthPeriod": "Period",
     "strengthPeriodDescription": "Choose which days the widget shades.",
     "latest": {

@@ -25,6 +25,7 @@ jest.mock('@/shared/ui', () => {
         <Text>{label}</Text>
       </Pressable>
     ),
+    BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,

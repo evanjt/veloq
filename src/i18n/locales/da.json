@@ -52,7 +52,6 @@
     "heartRate": "Puls",
     "mapStyle": "Kortstil",
     "maxHR": "Maks: {{value}} bpm",
-    "newActivity": "Ny",
     "newGround": "Nyt terræn",
     "mostlyNewGround": "Mest nyt",
     "noDataAvailable": "Ingen data tilgængelig",
@@ -208,6 +207,7 @@
   "alerts": {
     "cacheCleared": "Cache ryddet",
     "clearCacheMessage": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter.",
+    "clearCacheOffline": "Du er offline. Genindlæsningen kræver en forbindelse, så dine aktiviteter, kort og ruter forbliver tomme, indtil netværket er tilbage.",
     "clearCacheTitle": "Ryd og genindlæs cache",
     "clearReload": "Ryd og genindlæs",
     "disconnect": "Afbryd",
@@ -254,6 +254,7 @@
     "carrierDeviceIos": "iCloud-sikkerhedskopi",
     "carrierDeviceAndroid": "Google-sikkerhedskopi",
     "carrierDeviceDescription": "Gemmes af enhedens sikkerhedskopi. Her er intet at sætte op.",
+    "carrierDeviceRestore": "Kommer tilbage, når du sætter en ny telefon op",
     "carrierFolder": "Mappe",
     "carrierFolderNone": "Ingen mappe valgt",
     "carrierFolderChoose": "Vælg",
@@ -274,13 +275,6 @@
     "differentAccountMessage_one": "Denne enhed har {{count}} aktivitet fra en anden konto ({{cachedAthleteId}}). Hvis du rydder og synkroniserer, slettes den permanent. Annuller og log i stedet ind på den konto for at beholde den.",
     "differentAccountMessage_other": "Denne enhed har {{count}} aktiviteter fra en anden konto ({{cachedAthleteId}}). Hvis du rydder og synkroniserer, slettes de permanent. Annuller og log i stedet ind på den konto for at beholde dem.",
     "clearAndSync": "Ryd & Synk",
-    "unplacedPin": "Fastgjort sektion",
-    "unplacedHistory": "Sektionshistorik",
-    "unplacedSectionSetting": "Sektionsindstilling",
-    "unplacedSection": "Sektion",
-    "unplacedSectionName": "Sektionsnavn",
-    "unplacedSetting": "Indstilling",
-    "unplacedRouteName": "Rutenavn",
     "unplacedReadError": "Poster, der venter på placering, kunne ikke indlæses.",
     "importPaused": "En import blev afbrudt, før den var færdig, og intet fra den er anvendt endnu. Den fortsætter af sig selv ved næste start.",
     "importPausedError": "Importen kunne ikke gøres færdig og er stadig sat på pause. Intet fra den er anvendt.",
@@ -288,20 +282,22 @@
     "discardImportTitle": "Kassér importen på pause?",
     "discardImportMessage": "Intet fra den er anvendt, og dit bibliotek forbliver som det er. Importér filen igen for at hente den senere.",
     "discardImportError": "Importen på pause kunne ikke kasseres. Den er stadig sat på pause.",
-    "unplacedRecord": "Post",
-    "unplacedActivityUnavailable": "Tilknyttet aktivitet er ikke tilgængelig",
+    "discardWaitingTitle": "Kassér de ventende poster?",
+    "discardWaitingMessage": "De fjernes fra denne enhed, og alt, der allerede er gendannet, bliver. De ligger stadig i sikkerhedskopien, så de kommer tilbage, hvis du importerer den igen.",
+    "discardWaitingError": "De ventende poster kunne ikke kasseres. De venter stadig.",
     "unplacedActivityPending": "Henter de aktiviteter, din sikkerhedskopi henviser til",
-    "unplacedGroundNotDetected": "Venter på matchende strækning",
     "platformRestorePath": "Enhedens backup kan medtage det nyeste dataarkiv og indstillinger. Gendan Veloq under opsætningen, og log derefter ind for at synkronisere aktiviteter.",
     "recordContents": "Dataarkiv: indstillinger, navne, markeringer, beskæringer, udelukkelser og sektionshistorik. Aktiviteter synkroniseres igen efter gendannelse.",
     "recordSavedLocal": "Dataarkiv gemt i Veloqs lager på denne enhed.",
     "recordSavedWebdav": "Dataarkiv gemt på {{destination}}.",
     "carrierNotWritten": "Ikke gemt i {{destination}}.",
+    "carrierSentWhenOnline": "Den sendes, når enheden er online igen.",
     "recordSavedFolder": "Dataarkiv gemt i mappen {{destination}}.",
     "localRestorePath": "Gendan en gemt kopi med ”Gendan fra destination” nedenfor.",
     "webdavRestorePath": "Konfigurer denne WebDAV-server i backupindstillingerne på en ny enhed, og vælg derefter ”Gendan fra destination”.",
     "restoreFromDestination": "Gendan fra destination",
     "noBackupsAtDestination": "Ingen backups fundet på denne destination.",
+    "noBrowsableDestination": "Enhedens sikkerhedskopi kommer kun tilbage, når du sætter en ny telefon op, så den kan ikke gendannes herfra. For at gendanne på denne telefon skal du tilføje WebDAV eller en mappe nedenfor eller importere en backupfil.",
     "restorePromptTitle": "Gendan dit bibliotek",
     "restorePromptMessage": "Der blev ikke fundet en backup på denne telefon. Har du en i en fil eller på en WebDAV-server, kan du gendanne den nu.",
     "restoreFromFile": "Gendan fra en fil",
@@ -577,11 +573,8 @@
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "daysTrained": "Træningsdage",
-    "fatAbbrev": "Træ",
     "fatigueATL": "Træthed (ATL)",
-    "fitAbbrev": "Fit",
     "fitnessCTL": "Kondition (CTL)",
-    "formTSB": "Form-balance (TSB)",
     "loadPartial": "Delvis",
     "loadUnavailable": "Ikke tilgængelig",
     "noData": "Ingen fitnessdata tilgængelig",
@@ -594,7 +587,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "current": "Nuværende",
     "failedToLoad": "Kunne ikke indlæse fitnessdata",
     "fatigueDescription": "er et 7-dages eksponentielt vægtet glidende gennemsnit af din træningsbelastning.",
     "fitnessAndFatigue": "Fitness og træthed",
@@ -605,7 +597,6 @@
     "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "title": "Fitness og form",
-    "tsb": "TSB",
     "understandingMetrics": "Forstå målingerne",
     "rampRate": "Stigningsrate",
     "perWeek": "/uge"
@@ -785,6 +776,41 @@
     },
     "aboutTitle": "Om indsigt",
     "aboutBody": "Træningsmålinger er estimater baseret på publicerede sportsvidenskabelige modeller. Individuelle reaktioner varierer betydeligt. Disse indsigter er kun informative, ikke medicinsk rådgivning eller træningsrådgivning.",
+    "explanation": {
+      "title": "Forstå indsigterne",
+      "foundLabel": "Metode",
+      "found": "Veloq sammenligner dine seneste aktiviteter og din velvære med din egen historik, på denne telefon, og viser et kort for hver rekord, ændring eller tendens, den finder.",
+      "kinds": {
+        "sectionsAndRoutes": {
+          "label": "Sektioner og ruter",
+          "text": "En ny rekord, en række hurtigere eller langsommere tider eller en ændret puls ved samme tempo, på en sektion eller rute, du gentager."
+        },
+        "fitness": {
+          "label": "eFTP og kritisk fart",
+          "text": "En ændring i din eFTP eller kritiske fart og de sektionsrekorder, du satte, da den var lavere."
+        },
+        "week": {
+          "label": "Denne uge",
+          "text": "Træningstid og -belastning i denne uge indtil nu sammenlignet med samme tidspunkt sidste uge."
+        },
+        "hrv": {
+          "label": "Pulsvariabilitet",
+          "text": "Din HRV over de seneste 7 dage, de nyere målinger mod de ældre."
+        },
+        "strength": {
+          "label": "Styrke",
+          "text": "En muskelgruppes vægtede sæt, der stiger eller falder, og balancen mellem modsatte muskelgrupper."
+        },
+        "sectionChanges": {
+          "label": "Sektionsændringer",
+          "text": "En sektion, der er skåret om, delt, gendannet eller sat tilbage til en tidligere version."
+        }
+      },
+      "orderLabel": "Rækkefølge",
+      "sourcesLabel": "Kilder",
+      "sources": "Tider, distancer, puls og watt kommer fra dine aktiviteter. eFTP, kritisk fart og HRV er de værdier, intervals.icu har for dig. Åbn et kort, og tryk på “{{howCalculated}}” for metode og data.",
+      "strengthTitle": "Forstå styrke"
+    },
     "aboutRanking": "Kortene sorteres efter, hvor meget hvert af dem har at sige: hvor nyt det er, hvor meget det skiller sig ud fra dit saedvanlige, hvor meget det har flyttet sig, og hvor ofte du goer det.",
     "efficiencyTrend": {
       "seriesLabel": "Puls per tempoenhed, ældste forsøg til nyeste",
@@ -929,7 +955,7 @@
     "sessionKeyRejected": "Din API-nøgle blev afvist.",
     "sessionRestore": "Log ind igen for at få dem tilbage.",
     "sessionRestoreAthlete": "Log ind igen som {{athleteId}} for at få dem tilbage.",
-    "subtitle": "Opret forbindelse til Intervals.icu",
+    "subtitle": "Opret forbindelse til intervals.icu",
     "termsOfService": "Servicevilkår",
     "title": "Veloq",
     "tryDemo": "Prøv demo",
@@ -941,7 +967,9 @@
     "activitySummary_one": "{{count}} aktivitet · {{mapped}} på kortet",
     "activitySummary_other": "{{count}} aktiviteter · {{mapped}} på kortet",
     "expandRange": "Udvid interval",
-    "distanceAny": "Alle"
+    "distanceAny": "Alle",
+    "showFilters": "Vis alle filtre",
+    "hideFilters": "Vis færre filtre"
   },
   "maps": {
     "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
@@ -968,16 +996,14 @@
     "enable3D": "Aktivér 3D-visning",
     "fitAll": "Tilpas alle aktiviteter",
     "goToLocation": "Gå til min placering",
-    "hideActivities": "Skjul aktiviteter",
-    "hideHeatmap": "Skjul heatmap",
-    "hideRoutes": "Skjul ruter",
-    "hideSections": "Skjul sektioner",
+    "layerActivities": "Aktiviteter",
+    "layerHeatmap": "Heatmap",
+    "layerRoutes": "Ruter",
+    "layerSections": "Sektioner",
+    "layers": "Kortlag",
     "openFullscreen": "Åbn fuldskærm",
     "resetOrientation": "Nulstil kortorientering",
     "sectionSelected": "Sektion valgt",
-    "showActivities": "Vis aktiviteter",
-    "showHeatmap": "Vis heatmap",
-    "showRoutes": "Vis ruter",
     "showSections": "Vis sektioner",
     "tapSelectEnd": "Tryk for at vælge slutpunkt",
     "tapSelectStart": "Tryk for at vælge startpunkt",
@@ -1309,6 +1335,15 @@
     "routesWithTwoPlus": "Ruter med 2+ aktiviteter på lignende stier vises her",
     "sectionCreationFailed": "Kunne ikke oprette sektion. Prøv venligst igen.",
     "sectionWord": "Afsnit",
+    "explanation": {
+      "routesTitle": "Forstå ruter",
+      "routesWhatLabel": "Gruppering",
+      "routesWhat": "Aktiviteter i én sport, der følger en lignende vej fra start til mål, samles i en rute. Veloq matcher dem på denne telefon ud fra deres GPS-spor.",
+      "routesSources": "Hvert forsøgs tid og distance kommer fra dets aktivitet. Rekorder og tendenser sammenligner dine forsøg på ruten med hinanden.",
+      "sectionsTitle": "Forstå sektioner",
+      "sectionsWhatLabel": "Registrering",
+      "sectionsSources": "Hver tid måles over den del af en aktivitets GPS-spor, der passer til sektionen, så den kan afvige fra aktivitetens egne omgange."
+    },
     "sectionsDescription": "Sektioner registreres, når du rejser de samme veje flere gange, selv på forskellige ruter",
     "setAsReference": "Brug som reference",
     "setAsReferenceConfirm": "Brug denne aktivitet som ruterference? Match-procenter beregnes i forhold til reference-aktiviteten.",
@@ -1335,6 +1370,8 @@
   },
   "sections": {
     "timeMethod": "Sektionstider er forløbet tid inklusive stop.",
+    "effortsNotDownloaded_one": "Tider for {{count}} aktivitet er ikke hentet endnu, så den bedste tid kan ændre sig.",
+    "effortsNotDownloaded_other": "Tider for {{count}} aktiviteter er ikke hentet endnu, så den bedste tid kan ændre sig.",
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "avg": "Gns",
@@ -1558,6 +1595,7 @@
     "terrain3DOff": "Fra",
     "terrain3DSmart": "Intelligent",
     "terrain3DAlways": "Altid",
+    "terrain3DSmartHint": "Intelligent tegner kort i forsiden og på aktiviteter i 3D af sig selv, når en rute har {{height}} eller mere mellem sit laveste og højeste punkt.",
     "noData": "Ingen data",
     "permissions": "Tilladelser",
     "placeNames": {
@@ -1748,6 +1786,8 @@
     "exportPrivacySuggested_other": "De fleste af dine ture starter nær ét sted, {{count}} af dem. {{share}} % af alle turenes slutpunkter.",
     "exportPrivacyConfirm": "Brug det som hjem",
     "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er.",
+    "exportPrivacyNeedsHome": "Slået fra, indtil et hjem er sat. Brug det foreslåede sted nedenfor, eller tryk på kortet.",
+    "exportPrivacyNeedsHomeNoSuggestion": "Slået fra, indtil et hjem er sat.",
     "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
     "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
     "exportPrivacyRadius": "{{metres}} m",
@@ -1870,8 +1910,6 @@
   "time": {
     "asOfLastSync": "Data fra seneste synkronisering",
     "current": "Nuværende",
-    "daysAgo_one": "{{count}} dag siden",
-    "daysAgo_other": "{{count}} dage siden",
     "daysCount_one": "{{count}} dag",
     "daysCount_other": "{{count}} dage",
     "now": "Nu",
@@ -1933,37 +1971,32 @@
     "closeTour": "Luk",
     "v022": {
       "mapStylesTitle": "3D-kort og stilarter",
+      "mapStylesTip": "Vælg lys, mørk eller satellit til dine aktivitetskort når som helst under Indstillinger, Kort.",
       "mapStylesBody": "Vælg lys, mørk eller satellit-kortstil med smart 3D-terræn til kuperede aktiviteter.",
-      "mapStylesHint": "Højopløselig satellit dækker Schweiz og Frankrig. Smart 3D aktiveres ved aktiviteter med 30 m+ stigning og 3 m/km+ hældning.",
+      "mapStylesHint": "Højopløselig satellit dækker Schweiz og Frankrig.",
       "heatmapTitle": "Aktivitets-heatmap",
       "heatmapBody": "Din træningskalender på Sundhedssiden med et års træning. Hold velvære-diagrammet nede for at fremhæve dagen i kalenderen.",
       "heatmapTip": "Hold sundhedsmetrikker nede for at se værdierne. Aktivitetsheatmappet opdateres tilsvarende.",
       "fitnessTitle": "Fitnessoversigt",
+      "fitnessTip": "Hold diagrammet nede, og glid langs det for at aflæse kondition, træthed og formstatus for enhver dag.",
       "fitnessBody": "Følg din kondition, træthed og form med farvekodede zoner."
     },
     "v030": {
       "insightsTitle": "Daglig indsigt",
-      "insightsBody": "Personlige daglige indsigter baseret på din træning: sektions-PR, effektivitetstendenser, fitnessmilepæle og HRV-mønstre.",
+      "insightsTip": "Tryk på en indsigt for at åbne den og se dataene bag den.",
+      "insightsBody": "En indsigt er et kort om noget, der har ændret sig i din træning, som en sektionsrekord eller en stigning i din eFTP.",
+      "insightsHow": "Hver indsigt beregnes på din telefon ved at sammenligne dine seneste træningsdata med din egen historik og åbner med tallene og metoden bag.",
       "strengthTitle": "Styrketræningssporing",
+      "strengthTip": "Tryk på en muskelgruppe på kropsdiagrammet for at se øvelserne og sættene bag den.",
       "strengthBody": "Visualisér muskelgruppevolumen med kropsdiagrammer. Følg balancen mellem antagonistpar og overvåg fremskridt over tid.",
-      "strengthChest": "Bryst",
-      "strengthBack": "Ryg",
-      "strengthShoulders": "Skuldre",
-      "strengthLegs": "Ben",
-      "strengthThisWeek": "Denne uge",
-      "strengthLastWeek": "Sidste uge",
-      "sectionTrimTitle": "Redigering af sektioner",
-      "sectionTrimBody": "Finjustér sektionsgrænser med en dobbelt-håndtag-skyder. Trim for at indsnævre området, eller skift til udvidelsestilstand for at strække ud over de automatisk registrerede grænser, når detektionen manglede en del af ruten. Ændringer afspejles på kortet i realtid.",
       "backupTitle": "Sikkerhedskopiering og gendannelse",
-      "backupBody": "Gem dine indstillinger og valg som en lille sikkerhedskopi, og del den fra din enhed. Når du gendanner den, hentes aktiviteterne igen, og dine valg anvendes, hvor de passer.",
-      "insightsSectionPrs": "Strækningsrekorder",
-      "insightsEfficiency": "Effektivitetstendenser",
-      "insightsMilestones": "Fitnessmilepæle",
-      "insightsHrv": "HRV-tendenser"
+      "backupTip": "Tryk på Sikkerhedskopiér nu for at lave en sikkerhedskopi, eller slå Automatisk sikkerhedskopi til for at holde en opdateret.",
+      "backupBody": "Gem dine indstillinger og valg som en lille sikkerhedskopi, og del den fra din enhed. Når du gendanner den, hentes aktiviteterne igen, og dine valg anvendes, hvor de passer."
     },
     "v040": {
       "sectionsTitle": "Strækninger, der følger dine ture",
       "sectionsBody": "Strækninger er deterministiske og former sig om, efterhånden som dine ture samler sig; fastgør en for at holde den stabil.",
+      "sectionsTip": "Kortet viser dine sektioner, som de er nu. Flyt en skyder og tryk på Forhåndsvisning for at se, hvilke sektioner den ville skære; intet ændres, før du trykker på Behold.",
       "recutRunning": "Analyserer dine strækninger igen",
       "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
@@ -1977,7 +2010,18 @@
       "settingsResetMinLength": "minimumslængde",
       "settingsResetMaxLength": "længste sektion",
       "settingsResetMinActivities": "minimum besøg",
-      "settingsResetDivergence": "afvigelse"
+      "settingsResetDivergence": "afvigelse",
+      "sectionPageTitle": "Hvert forsøg på en sektion, sammenlignet",
+      "sectionPageBody": "Åbn en sektion for at se hvert forsøg mod de andre. Trim, udvid, omdøb eller fastgør den fra samme side.",
+      "sectionPageTrend": "Hvert forsøg efter dato, med tendensen",
+      "sectionPageTrendR": "Pearsons r {{r}}",
+      "sectionPageHistogram": "Hvordan dine tider fordeler sig",
+      "sectionPageDelta": "Sekunder foran eller bagud undervejs",
+      "sectionPageLine": "Linjen farvet efter hvor tid blev vundet eller tabt",
+      "routesTitle": "Ruter du gentager",
+      "routesBody": "Aktiviteter på samme strækning samles i en rute, med hvert forsøg vist mod de andre.",
+      "sectionPageTip": "Rul ned på afsnitssiden for tendensen, spredningen af dine tider og linjen farvet efter, hvor tid blev vundet eller tabt.",
+      "routesTip": "Rul ned på rutesiden for at se hvert forsøg på strækningen sammenlignet med de andre."
     }
   },
   "strength": {
@@ -2279,7 +2323,7 @@
     "insightsMore": "+{{rest}} flere",
     "insightKinds": "Typer",
     "insightKindsDescription": "Vælg hvilke typer indsigt widgetten viser. Vælges ingen, vises alle typer.",
-    "strengthDescription": "Din træningsbelastning på kroppen, muskel for muskel.",
+    "strengthDescription": "Musklerne du har trænet, skraveret efter sæt.",
     "strengthWindowDescription": "Vælg hvilken periode widgetten viser.",
     "insightKind": {
       "sectionPr": "Strækningsrekorder",
@@ -2294,7 +2338,6 @@
       "efficiencyTrend": "Effektivitetstendenser",
       "sectionChanged": "Ændrede strækninger"
     },
-    "strengthDescription": "Musklerne du har trænet, skraveret efter sæt.",
     "strengthPeriod": "Periode",
     "strengthPeriodDescription": "Vælg hvilke dage widgetten skraverer.",
     "latest": {

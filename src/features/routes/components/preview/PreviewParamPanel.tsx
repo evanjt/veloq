@@ -14,9 +14,14 @@
  * slider grows to whatever was typed so it never draws a value that is not the
  * one in force.
  *
- * The card scrolls, and it is the only thing on the screen that does. A run
- * disables the sliders one by one rather than the card, or the rows below the
- * fold would be unreachable exactly when the diff strip squeezes the column.
+ * `onChange` follows every movement and `onCommit` only a settled value: a
+ * slider released, a preset chosen or a value typed. A drag is a stream of
+ * values nobody has chosen yet, so only the second is worth a run.
+ *
+ * The card scrolls, and it is the only thing on the screen that does. A
+ * disabled panel disables the sliders one by one rather than the card, or the
+ * rows below the fold would be unreachable exactly when the diff strip
+ * squeezes the column.
  */
 
 import React from 'react';
@@ -45,6 +50,7 @@ import { distanceEditorUnit, toEditorText, type EditorUnit } from '../../lib/par
 interface PreviewParamPanelProps {
   params: PreviewParams;
   onChange: (params: PreviewParams) => void;
+  onCommit?: ((params: PreviewParams) => void) | undefined;
   disabled?: boolean | undefined;
 }
 
@@ -57,7 +63,12 @@ function editorUnitOf(key: DetectionParamKey, isMetric: boolean): EditorUnit | n
   return null;
 }
 
-export function PreviewParamPanel({ params, onChange, disabled = false }: PreviewParamPanelProps) {
+export function PreviewParamPanel({
+  params,
+  onChange,
+  onCommit,
+  disabled = false,
+}: PreviewParamPanelProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -67,6 +78,12 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
 
   const set = (key: keyof PreviewParams) => (value: number) =>
     onChange({ ...params, [key]: value });
+  const settle = (next: PreviewParams) => {
+    onChange(next);
+    onCommit?.(next);
+  };
+  const release = (key: keyof PreviewParams) => (value: number) =>
+    settle({ ...params, [key]: value });
 
   const open = (key: DetectionParamKey, label: string) => async () => {
     if (disabled) return;
@@ -81,7 +98,7 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
     };
     const result = await openSheet<ParamEditorSheetInput, number>('sheets/param-editor', input);
     if (result.kind === 'selected' && result.value !== params[key]) {
-      onChange({ ...params, [key]: result.value });
+      settle({ ...params, [key]: result.value });
     }
   };
 
@@ -93,6 +110,7 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
       label={label}
       value={params[key]}
       onChange={set(key)}
+      onRelease={release(key)}
       onEdit={open(key, label)}
       isDark={isDark}
       disabled={disabled}
@@ -146,7 +164,7 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
             name={name}
             label={t(PRESET_LABELS[name])}
             active={active === name}
-            onPress={() => onChange({ ...DETECTION_PRESETS[name] })}
+            onPress={() => settle({ ...DETECTION_PRESETS[name] })}
             isDark={isDark}
             disabled={disabled}
           />
@@ -167,6 +185,7 @@ function ParamRow({
   label,
   value,
   onChange,
+  onRelease,
   onEdit,
   isDark,
   disabled = false,
@@ -175,6 +194,7 @@ function ParamRow({
   label: string;
   value: number;
   onChange: (v: number) => void;
+  onRelease: (v: number) => void;
   onEdit: () => void;
   isDark: boolean;
   disabled?: boolean;
@@ -205,6 +225,7 @@ function ParamRow({
         maximumValue={Math.max(max, value)}
         step={step}
         onValueChange={onChange}
+        onSlidingComplete={onRelease}
         minimumTrackTintColor={brand.tealLight}
         maximumTrackTintColor={trackBg}
         thumbTintColor={brand.tealLight}

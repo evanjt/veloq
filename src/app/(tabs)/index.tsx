@@ -37,11 +37,9 @@ import {
   useFeedSearch,
   useActivitySectionHighlights,
   ActivityCard,
-  ringsLeavingView,
   setVisibleRange,
 } from '@/features/activity';
 import { useStrengthCardData } from '@/features/strength';
-import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useTheme, useStableBy } from '@/shared/app';
 import type { Activity } from '@/types';
@@ -65,6 +63,7 @@ import {
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import {
+  CARD_MARGIN,
   ESTIMATED_SEARCH_SECTION_HEIGHT,
   FeedFilterChips,
   feedRangeForPreset,
@@ -404,14 +403,6 @@ function FeedScreenContent() {
     [rawPreviewTracks]
   );
   const previewTracks = useStableBy(rawPreviewTracks, previewTracksKey);
-  const newActivityIds = startupData?.newActivityIds;
-  const currentNewActivityIds = useRef(newActivityIds);
-  // eslint-disable-next-line react-hooks/refs
-  currentNewActivityIds.current = newActivityIds;
-  const currentRefreshStartupData = useRef(refreshStartupData);
-  // eslint-disable-next-line react-hooks/refs
-  currentRefreshStartupData.current = refreshStartupData;
-  const seenNewActivityIds = useRef(new Set<string>());
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -425,8 +416,6 @@ function FeedScreenContent() {
         routeHighlight={routeHighlightsMap.get(item.id)}
         newGround={newGroundMap.get(item.id)}
         strengthData={strengthCards.get(item.id)}
-        isNew={newActivityIds?.has(item.id) ?? false}
-        onNewDismissed={refreshStartupData}
       />
     ),
     [
@@ -437,8 +426,6 @@ function FeedScreenContent() {
       newGroundMap,
       strengthCards,
       previewTracks,
-      newActivityIds,
-      refreshStartupData,
     ]
   );
 
@@ -448,28 +435,13 @@ function FeedScreenContent() {
   // is one of them. The identity has to stay put or the list rejects it, which
   // is what the empty dependency list is for.
   const onViewableItemsChanged = useCallback(
-    ({
-      viewableItems,
-      changed,
-    }: {
-      viewableItems: { index: number | null }[];
-      changed: { key: string; isViewable: boolean }[];
-    }) => {
+    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
       const indices = viewableItems
         .map((item) => item.index)
         .filter((index): index is number => index !== null);
       setVisibleRange(
         indices.length > 0 ? { first: Math.min(...indices), last: Math.max(...indices) } : null
       );
-      const leaving = ringsLeavingView(
-        changed,
-        seenNewActivityIds.current,
-        currentNewActivityIds.current ?? new Set<string>()
-      );
-      if (leaving.length > 0) {
-        reportFeedDismissed(leaving);
-        currentRefreshStartupData.current();
-      }
     },
     []
   );
@@ -517,7 +489,11 @@ function FeedScreenContent() {
     () => (
       <>
         {/* Search bar + filter chips - initially hidden by scrollToOffset */}
-        <View style={styles.searchSection} onLayout={handleSearchSectionLayout}>
+        <View
+          testID="home-search-section"
+          style={styles.searchSection}
+          onLayout={handleSearchSectionLayout}
+        >
           <View style={styles.searchContainer}>
             <SearchBar
               testID="home-search-input"
@@ -688,9 +664,8 @@ function FeedScreenContent() {
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenSafeAreaView style={shared.container} testID="home-screen">
-      <SyncRefreshNotice message={notice} />
       <StreamConsentCard />
-      <View style={styles.homeCards}>
+      <View testID="home-pinned-cards" style={styles.homeCards}>
         <NotificationOptInCard />
         <SupportCard />
         <PendingUploadsCard />
@@ -764,13 +739,17 @@ function FeedScreenContent() {
           <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
         </ComponentErrorBoundary>
       )}
+      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // The list opens with its search section scrolled exactly past, so the gap
+  // above the first activity card is this padding, outside the scroll.
   homeCards: {
     paddingHorizontal: layout.screenPadding,
+    paddingBottom: CARD_MARGIN,
     gap: spacing.sm,
   },
   textLight: {
@@ -781,9 +760,10 @@ const styles = StyleSheet.create({
   },
 
   // Search section (inside ListHeaderComponent, initially scrolled past)
+  // Shown, it keeps the card spacing on both sides: the pinned cards' padding
+  // above, its own below.
   searchSection: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingBottom: CARD_MARGIN,
   },
   searchContainer: {
     flexDirection: 'row',

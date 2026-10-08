@@ -1,0 +1,664 @@
+{
+  "display": {
+    "formZone": "Grey Zone",
+    "impactLine": null,
+    "metricLabels": {
+      "fatigue": "Fatigue",
+      "fitness": "Fitness",
+      "form": "Form",
+      "hrv": "HRV",
+      "ramp": "Ramp",
+      "rhr": "RHR"
+    },
+    "perWeekSuffix": "/wk",
+    "recordLabel": "Start Activity",
+    "refreshLabel": "Refresh",
+    "refreshingLabel": "Refreshing",
+    "weekLabel": "Week"
+  },
+  "emptyLibrary": false,
+  "formHistory": null,
+  "generatedAt": 1733360000,
+  "impact": null,
+  "insights": [],
+  "latest": {
+    "activityId": "bare-1",
+    "date": 1733356400.0,
+    "dateLabel": "Yesterday",
+    "distanceLabel": "42.2 km",
+    "distanceM": 42195.0,
+    "durationLabel": "1:30:00",
+    "headline": {
+      "detail": "1:23 off your best",
+      "dots": [
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": true,
+          "record": true
+        }
+      ],
+      "hero": "2 of 14",
+      "kind": "route",
+      "label": "Harbour Loop"
+    },
+    "isPr": true,
+    "loadText": "Load 88",
+    "loadVsTypical": null,
+    "movingTimeS": 5400.0,
+    "name": "Harbour Loop",
+    "route": {
+      "attemptCount": 14,
+      "attemptSeconds": [
+        5900,
+        5750,
+        5820,
+        5700,
+        5660,
+        5610,
+        5800,
+        5590,
+        5640,
+        5577,
+        5720,
+        5680,
+        5600
+      ],
+      "gapLabel": "1:23",
+      "gapSeconds": 83,
+      "name": "Harbour Loop",
+      "rank": 2
+    },
+    "routePreview": {
+      "aspect": 1.43,
+      "points": [
+        [
+          1.0,
+          0.5
+        ],
+        [
+          0.998,
+          0.428
+        ],
+        [
+          0.994,
+          0.358
+        ],
+        [
+          0.986,
+          0.291
+        ],
+        [
+          0.976,
+          0.23
+        ],
+        [
+          0.962,
+          0.174
+        ],
+        [
+          0.946,
+          0.126
+        ],
+        [
+          0.926,
+          0.086
+        ],
+        [
+          0.905,
+          0.053
+        ],
+        [
+          0.88,
+          0.029
+        ],
+        [
+          0.854,
+          0.013
+        ],
+        [
+          0.825,
+          0.003
+        ],
+        [
+          0.794,
+          0.0
+        ],
+        [
+          0.761,
+          0.001
+        ],
+        [
+          0.727,
+          0.006
+        ],
+        [
+          0.691,
+          0.013
+        ],
+        [
+          0.655,
+          0.021
+        ],
+        [
+          0.617,
+          0.029
+        ],
+        [
+          0.578,
+          0.035
+        ],
+        [
+          0.539,
+          0.039
+        ],
+        [
+          0.5,
+          0.041
+        ],
+        [
+          0.461,
+          0.039
+        ],
+        [
+          0.422,
+          0.035
+        ],
+        [
+          0.383,
+          0.029
+        ],
+        [
+          0.345,
+          0.021
+        ],
+        [
+          0.309,
+          0.013
+        ],
+        [
+          0.273,
+          0.006
+        ],
+        [
+          0.239,
+          0.001
+        ],
+        [
+          0.206,
+          0.0
+        ],
+        [
+          0.175,
+          0.003
+        ],
+        [
+          0.146,
+          0.013
+        ],
+        [
+          0.12,
+          0.029
+        ],
+        [
+          0.095,
+          0.053
+        ],
+        [
+          0.074,
+          0.086
+        ],
+        [
+          0.054,
+          0.126
+        ],
+        [
+          0.038,
+          0.174
+        ],
+        [
+          0.024,
+          0.23
+        ],
+        [
+          0.014,
+          0.291
+        ],
+        [
+          0.006,
+          0.358
+        ],
+        [
+          0.002,
+          0.428
+        ],
+        [
+          0.0,
+          0.5
+        ],
+        [
+          0.002,
+          0.572
+        ],
+        [
+          0.006,
+          0.642
+        ],
+        [
+          0.014,
+          0.709
+        ],
+        [
+          0.024,
+          0.77
+        ],
+        [
+          0.038,
+          0.826
+        ],
+        [
+          0.054,
+          0.874
+        ],
+        [
+          0.074,
+          0.914
+        ],
+        [
+          0.095,
+          0.947
+        ],
+        [
+          0.12,
+          0.971
+        ],
+        [
+          0.146,
+          0.987
+        ],
+        [
+          0.175,
+          0.997
+        ],
+        [
+          0.206,
+          1.0
+        ],
+        [
+          0.239,
+          0.999
+        ],
+        [
+          0.273,
+          0.994
+        ],
+        [
+          0.309,
+          0.987
+        ],
+        [
+          0.345,
+          0.979
+        ],
+        [
+          0.383,
+          0.971
+        ],
+        [
+          0.422,
+          0.965
+        ],
+        [
+          0.461,
+          0.961
+        ],
+        [
+          0.5,
+          0.959
+        ],
+        [
+          0.539,
+          0.961
+        ],
+        [
+          0.578,
+          0.965
+        ],
+        [
+          0.617,
+          0.971
+        ],
+        [
+          0.655,
+          0.979
+        ],
+        [
+          0.691,
+          0.987
+        ],
+        [
+          0.727,
+          0.994
+        ],
+        [
+          0.761,
+          0.999
+        ],
+        [
+          0.794,
+          1.0
+        ],
+        [
+          0.825,
+          0.997
+        ],
+        [
+          0.854,
+          0.987
+        ],
+        [
+          0.88,
+          0.971
+        ],
+        [
+          0.905,
+          0.947
+        ],
+        [
+          0.926,
+          0.914
+        ],
+        [
+          0.946,
+          0.874
+        ],
+        [
+          0.962,
+          0.826
+        ],
+        [
+          0.976,
+          0.77
+        ],
+        [
+          0.986,
+          0.709
+        ],
+        [
+          0.994,
+          0.642
+        ],
+        [
+          0.998,
+          0.572
+        ]
+      ]
+    },
+    "sectionPrs": 3,
+    "sectionPrsText": "Section PRs 3",
+    "sportType": "Ride",
+    "stats": [
+      {
+        "id": "distance",
+        "label": "Distance",
+        "value": "42.2 km"
+      },
+      {
+        "id": "movingTime",
+        "label": "Moving Time",
+        "value": "1:30:00"
+      },
+      {
+        "id": "elevationGain",
+        "label": "Elev. Gain",
+        "value": "310 m"
+      }
+    ],
+    "tintHex": "#3B82F6",
+    "trainingLoad": 88.0
+  },
+  "launcherShortcuts": [],
+  "locale": "en-AU",
+  "metrics": {
+    "fatigue": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "fitness": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "form": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat",
+      "zone": "greyZone"
+    },
+    "hrv": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    },
+    "rampRate": {
+      "value": 0.0
+    },
+    "rhr": {
+      "text": "-",
+      "trendDir": "flat",
+      "value": 0.0,
+      "verdict": "flat"
+    }
+  },
+  "recordShortcuts": [],
+  "schemaVersion": 15,
+  "sparklines": {
+    "fatigue": [],
+    "fitness": [],
+    "form": [],
+    "hrv": []
+  },
+  "strength": {
+    "body": "male",
+    "url": "veloq://insights?tab=strength&period=1m",
+    "windows": {
+      "last30": {
+        "activityCount": 0,
+        "emptyText": "No gym sessions in the last 1 month",
+        "label": "1 month",
+        "maxWeightedSets": 0.0,
+        "muscles": [],
+        "owedCount": 0,
+        "top": [],
+        "totalSets": 0
+      },
+      "month": {
+        "activityCount": 0,
+        "emptyText": "No gym sessions this month",
+        "label": "December",
+        "maxWeightedSets": 0.0,
+        "muscles": [],
+        "owedCount": 0,
+        "top": [],
+        "totalSets": 0
+      }
+    }
+  },
+  "summaryCard": {
+    "entries": [
+      {
+        "colorKey": "blue",
+        "id": "fitness",
+        "label": "Fitness",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "formZone",
+        "id": "form",
+        "label": "Form",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "rhr",
+        "label": "RHR",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      }
+    ],
+    "hero": {
+      "colorKey": "default",
+      "id": "hrv",
+      "label": "HRV",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    "heroSparkline": [],
+    "sparkline": "hrv"
+  },
+  "summaryMetrics": [
+    {
+      "colorKey": "default",
+      "id": "hrv",
+      "label": "HRV",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "rhr",
+      "label": "RHR",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekHours",
+      "label": "Week",
+      "trendDir": "up",
+      "value": "1.5h",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekCount",
+      "label": "#",
+      "trendDir": "up",
+      "value": "1",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "ftp",
+      "label": "FTP",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "thresholdPace",
+      "label": "Pace",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "css",
+      "label": "CSS",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "blue",
+      "id": "fitness",
+      "label": "Fitness",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Form",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    }
+  ],
+  "theme": {},
+  "weekly": {
+    "count": 1,
+    "deltaPct": null,
+    "distanceLabel": "42.2 km",
+    "distanceM": 42195.0,
+    "durationLabel": "1:30:00",
+    "durationS": 5400.0,
+    "tss": 88
+  }
+}

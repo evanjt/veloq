@@ -426,6 +426,16 @@ jobs:
         id: producer
         run: echo "commit=$(cat android/app/build/outputs/producer-commit)" >> "$GITHUB_OUTPUT"
 
+      # On every path, built or restored: the file is judged on its contents,
+      # so a cache entry or a step that read the Expo configuration without
+      # the variant cannot ship the other identity in the manifest or config.
+      - name: Check artifact identity
+        run: |
+          node scripts/build-record.js identity android/app/build/outputs/apk/release/app-release.apk --variant "$APP_VARIANT"
+          if [ "$RELEASE_BUILD" = true ]; then
+            node scripts/build-record.js identity android/app/build/outputs/bundle/release/app-release.aab --variant "$APP_VARIANT"
+          fi
+
       - name: Copy APK
         id: apk
         env:

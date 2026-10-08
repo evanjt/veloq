@@ -1,9 +1,10 @@
 /**
- * An older backup picked while nobody is signed in, kept until someone is.
+ * A backup picked or downloaded while nobody is signed in, kept until someone is.
  *
  * A record is checked against the signed-in athlete, so the engine places none
- * before a sign-in. The file is read and converted when it is picked, which
- * refuses an unreadable one before anything is kept, and the result waits in
+ * before a sign-in. An older file is read and converted when it is picked, and
+ * a record zip must open as a zip archive, which refuses an unreadable one
+ * before anything is kept. The result waits in
  * the documents directory, where no cache purge reaches it. The first
  * signed-in launch restores it through the record path and says what came
  * back. One is held at a time: a later pick replaces it.
@@ -28,8 +29,10 @@ const log = debug.create('HeldImport');
 
 /** The held `.veloq` file, kept as picked, since its conversion is cheap and repeatable. */
 const HELD_LEGACY_JSON = 'veloq-held-import.veloq';
-/** The record zip a held `.veloqdb` file converted to. */
+/** The record zip held as it came, or the one a held `.veloqdb` file converted to. */
 const HELD_RECORD_ZIP = 'veloq-held-import.zip';
+/** A zip archive's local file header signature, PK\x03\x04, as its first base64 characters. */
+const ZIP_SIGNATURE_BASE64 = 'UEsDB';
 
 function heldUri(name: string): string | null {
   const docDir = FileSystem.documentDirectory;
@@ -50,11 +53,22 @@ async function discardHeld(): Promise<void> {
 
 /** Whether a file of this name is held for sign-in rather than refused while signed out. */
 export function isHeldWhileSignedOut(fileName: string): boolean {
-  return fileName.endsWith('.veloq') || fileName.endsWith('.veloqdb');
+  return fileName.endsWith('.veloq') || fileName.endsWith('.veloqdb') || fileName.endsWith('.zip');
+}
+
+/** Refuse a file that does not open as a zip archive, since only the engine can read further. */
+async function requireZipArchive(fileUri: string): Promise<void> {
+  const head = await FileSystem.readAsStringAsync(fileUri, {
+    encoding: FileSystem.EncodingType.Base64,
+    position: 0,
+    length: 4,
+  });
+  if (!head.startsWith(ZIP_SIGNATURE_BASE64)) throw new Error('Invalid backup file format');
 }
 
 /**
- * Hold a picked `.veloq` or `.veloqdb` file for the first signed-in launch.
+ * Hold a picked or downloaded backup for the first signed-in launch. The
+ * source is copied, never moved, so the caller still deletes its own file.
  * Resolves false, keeping nothing, while the engine is open or for any other
  * file, which the caller imports as usual. Rejects, keeping nothing, for a
  * file that cannot be read or converted.
@@ -79,9 +93,14 @@ export async function holdImportWhileSignedOut(
     return true;
   }
 
-  const recordUri = await restoreCopyUri(`hold-legacy-${Date.now()}.zip`);
+  const recordUri = await restoreCopyUri(`hold-record-${Date.now()}.zip`);
   try {
-    await convertLegacyDatabaseFile(fileUri, recordUri);
+    if (fileName.endsWith('.zip')) {
+      await requireZipArchive(fileUri);
+      await FileSystem.copyAsync({ from: fileUri, to: recordUri });
+    } else {
+      await convertLegacyDatabaseFile(fileUri, recordUri);
+    }
     await discardHeld();
     await FileSystem.moveAsync({ from: recordUri, to: zipUri });
   } finally {

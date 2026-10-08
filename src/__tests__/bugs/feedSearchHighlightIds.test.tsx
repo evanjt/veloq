@@ -64,7 +64,6 @@ let mockFeedData = { pages: [activities] };
 let mockHasPreviousPage = false;
 let mockIsRefetching = false;
 let mockSummaryRefetch = jest.fn();
-const mockRecordFeedSeen = jest.fn();
 const mockRefreshStartupData = jest.fn();
 const mockFetchPreviousPage = jest.fn();
 const mockSyncListeners = new Map<string, Set<() => void>>();
@@ -147,7 +146,6 @@ let mockStartupData:
           altitude: undefined;
         }
       >;
-      newActivityIds?: ReadonlySet<string>;
     }
   | undefined;
 
@@ -207,14 +205,12 @@ beforeEach(() => {
   mockHasPreviousPage = false;
   mockIsRefetching = false;
   mockSummaryRefetch = jest.fn();
-  mockRecordFeedSeen.mockClear();
   mockFeedFocused = true;
   mockSyncCompleted = 0;
   mockSyncListeners.clear();
   mockGetEngine.mockReturnValue({
     getActivityHighlightsBundle,
     searchActivityBodies,
-    recordFeedSeen: mockRecordFeedSeen,
     // The feed reads the sync state to decide whether an empty library is a
     // first launch standing by or a library with nothing in it.
     getSyncStatus: jest.fn(() => ({
@@ -232,65 +228,6 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof getEngine>);
   useRouteSettings.setState((s) => ({ settings: { ...s.settings, enabled: true } }));
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
-});
-
-it('dismisses a new card when it leaves view and keeps the callback stable', async () => {
-  mockStartupData = { previewTracks: new Map(), newActivityIds: new Set(['a1']) };
-  const feed = renderFeed();
-  const list = await screen.findByTestId('home-activity-list');
-  const callback = list.props.onViewableItemsChanged;
-
-  act(() => {
-    callback({
-      viewableItems: [{ key: 'a1', index: 0, isViewable: true }],
-      changed: [{ key: 'a1', index: 0, isViewable: true }],
-    });
-    callback({
-      viewableItems: [],
-      changed: [{ key: 'a1', index: 0, isViewable: false }],
-    });
-  });
-
-  expect(mockRecordFeedSeen).toHaveBeenCalledWith({
-    tag: 'Dismissed',
-    inner: { activityIds: ['a1'] },
-  });
-  feed.rerenderFeed();
-  expect(screen.getByTestId('home-activity-list').props.onViewableItemsChanged).toBe(callback);
-});
-
-it('dismisses a card that was visible before startup IDs arrived', async () => {
-  const feed = renderFeed();
-  const list = await screen.findByTestId('home-activity-list');
-  const callback = list.props.onViewableItemsChanged;
-
-  act(() => {
-    callback({
-      viewableItems: [{ key: 'a1', index: 0, isViewable: true }],
-      changed: [{ key: 'a1', index: 0, isViewable: true }],
-    });
-  });
-  mockStartupData = { previewTracks: new Map(), newActivityIds: new Set(['a1']) };
-  feed.rerenderFeed();
-  expect(screen.getByTestId('home-activity-list').props.onViewableItemsChanged).toBe(callback);
-
-  act(() => {
-    callback({
-      viewableItems: [],
-      changed: [{ key: 'a1', index: 0, isViewable: false }],
-    });
-    callback({
-      viewableItems: [],
-      changed: [{ key: 'a1', index: 0, isViewable: false }],
-    });
-  });
-
-  expect(mockRecordFeedSeen).toHaveBeenCalledTimes(1);
-  expect(mockRecordFeedSeen).toHaveBeenCalledWith({
-    tag: 'Dismissed',
-    inner: { activityIds: ['a1'] },
-  });
-  expect(mockRefreshStartupData).toHaveBeenCalledTimes(1);
 });
 
 it('replaces a startup preview when its track moves under the same activity id', async () => {

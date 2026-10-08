@@ -20,6 +20,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Heatmap on.
 - tapOn:
     id: "map-toggle-heatmap"

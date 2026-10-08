@@ -24,6 +24,7 @@ import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
+import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import {
   featureCollection,
@@ -37,7 +38,6 @@ import { SECTION_END_ICON, SECTION_START_ICON, TROPHY_ICON } from '@/features/ma
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
@@ -201,7 +201,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   // A screen covered by another keeps its WebViews but releases their maps,
   // which hold the GL context and every tile texture in it.
@@ -411,6 +410,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   useEffect(() => {
     if (!is3DMode) {
       setIs3DReady(false);
+      setMap3DCrashed(false);
       map3DOpacity.setValue(0);
     }
   }, [is3DMode, map3DOpacity]);
@@ -463,15 +463,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     setIs3DMode(false);
   }, []);
 
-  // The page drew, it just had no DEM tiles, so the "3D" view is the flat map
-  // with a wasted WebView on top of it. Same landing, plus a reason.
-  const handleTerrainUnavailable = useCallback(() => {
-    modeFromFailureRef.current = true;
-    userChose3DRef.current = true;
-    setIs3DReady(false);
-    setIs3DMode(false);
-    setTerrainUnavailable(true);
-  }, []);
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(handleMap3DFailed);
 
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
@@ -483,17 +475,15 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
+  // A page that crashed once may crash again, so from then on the 2D map
+  // stands behind it rather than the poster alone.
+  const [map3DCrashed, setMap3DCrashed] = useState(false);
   const handleMap3DReloading = useCallback(() => {
     map3DOpacity.stopAnimation();
     map3DOpacity.setValue(0);
     setIs3DReady(false);
+    setMap3DCrashed(true);
   }, [map3DOpacity]);
-
-  // The 3D layer draws over the 2D one once it is ready, and fullscreen draws
-  // over both, so in either case the inline 2D surface is invisible and comes
-  // down rather than being hidden. Where it was is captured on the way out, so
-  // the remount opens there instead of fitting the track again.
-  const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen;
 
   // The card that was just tapped was drawn from a JPEG of this activity, in
   // this style and this camera, and it is already on disk. The surface behind
@@ -514,6 +504,16 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
     return null;
   }, [activityId, mapStyle, is3DMode]);
+
+  // The 3D layer draws over the 2D one once it is ready, and fullscreen draws
+  // over both, so in either case the inline 2D surface is invisible and comes
+  // down rather than being hidden. Where it was is captured on the way out, so
+  // the remount opens there instead of fitting the track again. While the 3D
+  // page boots the poster covers the hero, so a 2D page not already on screen
+  // is not built behind it: creating that WebView costs the tap's first frames.
+  const posterCovers3DBoot =
+    is3DMode && !is3DReady && posterUri !== null && !(mapReady || mapFailed) && !map3DCrashed;
+  const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot;
 
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
@@ -868,7 +868,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 onMapReady={handleMap3DReady}
                 onMapReloading={handleMap3DReloading}
                 onMapFailed={handleMap3DFailed}
-                onTerrainUnavailable={handleTerrainUnavailable}
+                onTerrainUnavailable={onTerrainUnavailable}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
@@ -889,9 +889,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           </View>
         )}
 
-        {terrainUnavailable && (
-          <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
-        )}
+        {terrainNotice}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
         {(showAttribution || isFullscreen) && (

@@ -2,7 +2,7 @@ export { SectionHeader } from './SectionHeader';
 export type { SectionHeaderProps } from './SectionHeader';
 export { SectionStatsCards } from './SectionStatsCards';
 export type { SectionStatsCardsProps, CalendarSummary } from './SectionStatsCards';
-export { SectionPerformanceSection } from './SectionPerformanceSection';
+export { SectionPerformanceSection, sectionStreamsState } from './SectionPerformanceSection';
 export type {
   SectionPerformanceSectionProps,
   SectionStreamsState,
@@ -29,5 +29,6 @@ export { styles as sectionDetailStyles } from './SectionDetail.styles';
 export { SectionHistoryPanel } from './SectionHistoryPanel';
 export type { SectionHistoryPanelProps } from './SectionHistoryPanel';
 export { SectionLapList } from './SectionLapList';
+export { SectionStreamsNotice } from './SectionStreamsNotice';
 export type { SectionLapListProps } from './SectionLapList';
 export { SectionDetailLinks } from './SectionDetailLinks';

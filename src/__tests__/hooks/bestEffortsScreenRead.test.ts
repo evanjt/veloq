@@ -126,6 +126,18 @@ describe('the Best Efforts screen read', () => {
     expect(engine.getBestEffortsData).toHaveBeenCalledTimes(1);
   });
 
+  it('hands back each curve wait, so the screen can tell never fetched from no efforts', async () => {
+    const { result } = renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), { wrapper });
+
+    await waitFor(() => expect(result.current.curves.Ride.status).toBe('waiting'));
+    expect(result.current.curves.Ride.fetched).toBe(false);
+    expect(result.current.curves.Run).toMatchObject({ fetched: true, status: 'idle' });
+
+    engine.syncPowerCurve.mockClear();
+    result.current.curves.Ride.retry();
+    await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 0));
+  });
+
   it('carries a failed read as an error rather than as empty bests', async () => {
     engine.getBestEffortsData.mockImplementation(() => {
       throw new Error('database is locked');

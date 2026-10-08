@@ -8,3 +8,4 @@ export { useSectionAutoToggle } from './useSectionAutoToggle';
 export { useSectionCreation } from './useSectionCreation';
 export { useVisibilityToggles } from './useVisibilityToggles';
 export { useDrawnMapStyle } from './useDrawnMapStyle';
+export { useTerrainFallback } from './useTerrainFallback';

@@ -94,20 +94,20 @@ describe('ElevationBackfillStatus retry line', () => {
 
   it('reads as a singular when one track failed', () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(1));
-    expect(statusText()).toBe('1 activity track could not be updated. It will be retried later.');
+    expect(statusText()).toBe("1 activity track couldn't be updated. It'll get another go later.");
   });
 
   it('reads as a plural when more than one track failed', () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(4));
     expect(statusText()).toBe(
-      '4 activity tracks could not be updated. They will be retried later.'
+      "4 activity tracks couldn't be updated. They'll get another go later."
     );
   });
 
   it('drops the count entirely when nothing failed', () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     expect(statusText()).toBe(
-      'Some activity tracks still need elevation. They will be retried later.'
+      "Some activity tracks still need elevation. They'll get another go later."
     );
   });
 

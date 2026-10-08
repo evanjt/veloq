@@ -2168,7 +2168,6 @@ impl PersistentEngine {
             super::cutover::CUTOVER_ARCHIVE_KEY,
             super::settings_keys::SECTION_CONFIG_JSON,
             super::settings_keys::ATHLETE_ID,
-            super::settings_keys::FEED_RINGS,
             super::settings_keys::SECTION_PROXIMITY_THRESHOLD,
             super::settings_keys::SECTION_MIN_LENGTH,
             super::settings_keys::SECTION_MIN_ACTIVITIES,

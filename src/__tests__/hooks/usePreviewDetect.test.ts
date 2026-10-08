@@ -9,6 +9,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { isRetryableStart, StartOutcome, type StartVerdict } from 'veloqrs';
 import {
+  PREVIEW_DEBOUNCE_MS,
   PREVIEW_LAPSE_AFTER_MS,
   PREVIEW_POLL_INTERVAL_MS,
   usePreviewDetect,
@@ -834,6 +835,194 @@ describe('usePreviewDetect', () => {
         jest.advanceTimersByTime(1);
       });
       expect(result.current.lapsed).toBe(true);
+    });
+  });
+
+  describe('regenerating on a settled slider', () => {
+    const NEXT: PreviewParams = { ...PARAMS, minActivities: 7 };
+    const LAST: PreviewParams = { ...PARAMS, minActivities: 9 };
+
+    it('starts nothing until the values have stood still, then runs the last of them', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.request(10, 20, NEXT);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS - 1);
+      });
+      act(() => {
+        result.current.request(10, 20, LAST);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS - 1);
+      });
+      expect(client.startPreviewDetect).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(client.startPreviewDetect).toHaveBeenCalledWith(10, 20, { ...LIVE_CONFIG, ...LAST });
+      expect(result.current.status).toBe('running');
+    });
+
+    it('cancels the run in flight and starts the new values once it has ended', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
+      const client = makeClient({ pollPreviewDetect });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      // The engine cancel is cooperative, so the old run still holds the slot
+      // and a start now would be refused as busy.
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe('running');
+
+      pollPreviewDetect.mockReturnValue('cancelled');
+      fireFinished();
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
+      expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
+        ...LIVE_CONFIG,
+        ...NEXT,
+      });
+      expect(result.current.status).toBe('running');
+    });
+
+    it('discards a superseded run that completed rather than painting it', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
+      const takePreviewResult = jest.fn((): PreviewResult | null => RESULT);
+      const client = makeClient({ pollPreviewDetect, takePreviewResult });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      pollPreviewDetect.mockReturnValue('complete');
+      fireFinished();
+
+      expect(takePreviewResult).not.toHaveBeenCalled();
+      expect(result.current.result).toBeNull();
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
+
+      const second = { ...RESULT, config: NEXT };
+      takePreviewResult.mockReturnValue(second);
+      fireFinished();
+
+      expect(result.current.status).toBe('complete');
+      expect(result.current.result).toBe(second);
+    });
+
+    it('asks the engine to cancel once however many values land while it winds down', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      act(() => {
+        result.current.request(10, 20, LAST);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+
+      (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
+      fireFinished();
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
+      expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
+        ...LIVE_CONFIG,
+        ...LAST,
+      });
+    });
+
+    it('starts nothing after the athlete cancels, whether the request was waiting or queued', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.request(10, 20, NEXT);
+      });
+      act(() => {
+        result.current.cancel();
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      expect(client.startPreviewDetect).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      act(() => {
+        result.current.cancel();
+      });
+      (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
+      fireFinished();
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe('cancelled');
+    });
+
+    it('drops a waiting request on reset and on unmount', () => {
+      const client = makeClient();
+      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        result.current.reset();
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      expect(client.startPreviewDetect).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.request(10, 20, NEXT);
+      });
+      unmount();
+      jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      expect(client.startPreviewDetect).not.toHaveBeenCalled();
+    });
+
+    it('reads no progress from a superseded run', () => {
+      const getPreviewProgress = jest.fn(() => ({
+        phase: 'loading',
+        completed: 3,
+        total: 12,
+        percent: 25,
+      }));
+      const client = makeClient({ getPreviewProgress });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.request(10, 20, NEXT);
+        jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
+      });
+      firePhase();
+
+      expect(getPreviewProgress).not.toHaveBeenCalled();
+      expect(result.current.progress).toBeNull();
     });
   });
 });

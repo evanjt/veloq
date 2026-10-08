@@ -51,7 +51,11 @@ ${dropRetiredTileCachesScript()}
  * the eye for a camera (centre on the terrain, the viewport's half height over
  * tan(fov / 2) pixels back along the view), walks the ray from it to up to 200
  * route points and counts a point hidden when the rendered terrain along the
- * ray rises 3 m above it. `queryTerrainElevation` already includes the
+ * ray rises 3 m above it. The ray is read outward from the point at distances
+ * growing with the square of the step, so the first read is a 256th of the way
+ * to the eye: the ground beside the road, a valley side or a slope the road
+ * runs behind, is what hides it most often, and the ray is low there, while
+ * near the eye it is high enough that only a wide mountain reaches it. `queryTerrainElevation` already includes the
  * exaggeration, so heights are compared as read. A point with no loaded DEM is
  * clear. The request camera stays at 5% hidden or less. Otherwise the least
  * hidden of its turns of 180, 90 and 270 degrees (centre moved 8% of the span
@@ -98,7 +102,7 @@ export function terrainVisibilityScript(): string {
         for (var p = 0; p < pts.length; p++) {
           var pe = (pts[p].lng - centre0[0]) * mPerDegLng, pn = (pts[p].lat - centre0[1]) * mPerDegLat;
           for (var s = 1; s < RAY_STEPS; s++) {
-            var t = s / RAY_STEPS;
+            var t = 1 - (s / RAY_STEPS) * (s / RAY_STEPS);
             var te = eye.e + (pe - eye.e) * t, tn = eye.n + (pn - eye.n) * t;
             var terrain = height(centre0[0] + te / mPerDegLng, centre0[1] + tn / mPerDegLat);
             if (terrain !== null && terrain > eye.z + (pts[p].z - eye.z) * t + CLEARANCE_M) { count++; break; }

@@ -1,21 +1,31 @@
 const { withAppBuildGradle } = require("expo/config-plugins");
 
+const { IDENTITIES } = require("../../scripts/lib/app-identity.js");
+
 /**
- * Expo config plugin that configures release signing from keystore.properties.
+ * Expo config plugin that signs a production release with the release key.
  *
  * This plugin modifies android/app/build.gradle to:
- * 1. Load keystore.properties file if it exists (for CI builds)
+ * 1. Load keystore.properties file if it exists
  * 2. Add a release signing config using those properties
  * 3. Use the release signing config for release builds
  *
- * The keystore.properties file is created by the CI pipeline and contains:
+ * keystore.properties sits beside the generated project on any machine that
+ * holds the release key, CI and local alike, and contains:
  * - storeFile=release.keystore
  * - storePassword=<from secrets>
  * - keyAlias=<from secrets>
  * - keyPassword=<from secrets>
+ *
+ * Veloq Dev keeps Expo's debug signing for release too. A Dev release signed
+ * with the release key could not replace a Dev debug install, and the only way
+ * past a signature mismatch is an uninstall, which wipes the library.
  */
 
 function withReleaseSigning(config) {
+  if (config.android?.package !== IDENTITIES.production.appId) {
+    return config;
+  }
   return withAppBuildGradle(config, (config) => {
     const contents = config.modResults.contents;
 

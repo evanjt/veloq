@@ -784,7 +784,8 @@ impl super::PersistentEngine {
     }
 
     /// The route detail reads that answer one sport and one range, in the
-    /// section performance read's shape and by its arithmetic.
+    /// section performance read's shape and by its arithmetic. The delta
+    /// curves come only once held, as the screen's own read serves them.
     pub fn route_detail_performance(
         &self,
         group_id: &str,
@@ -796,6 +797,7 @@ impl super::PersistentEngine {
             group_id,
             time_range_days,
             sport_filter,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
     }
 
@@ -828,18 +830,14 @@ impl super::PersistentEngine {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
-        now: i64,
     ) -> crate::FfiStartupData {
-        let conn = self.cold_connection();
-        let snapshot = crate::persistence::feed_rings::feed_ring_snapshot(conn, now);
         pooled::startup_data(
-            conn,
+            self.cold_connection(),
             current_start,
             current_end,
             prev_start,
             prev_end,
             preview_activity_ids,
-            snapshot,
         )
     }
 
@@ -1166,7 +1164,7 @@ fn section_detail_from<R>(
     requested: Option<&str>,
     time_range_days: u32,
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
-    curves_of: impl FnOnce(Option<&str>) -> std::sync::Arc<Option<crate::FfiSectionLapCurves>>,
+    curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
     efficiency_of: impl FnOnce(&str) -> Option<crate::FfiEfficiencyTrend>,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
@@ -1258,11 +1256,14 @@ where
     let correlations =
         crate::persistence::sections::correlations::section_correlations(&all, cutoff, &wellness);
     // Computed over the whole history against its reference, so a range only
-    // filters which laps are drawn.
-    let curves = curves_of(filter.as_deref())
-        .as_ref()
-        .as_ref()
-        .and_then(|curves| crate::persistence::sections::lap_curves::in_range(curves, cutoff));
+    // filters which laps are drawn. `None` from the source leaves them owed.
+    let whole_curves = curves_of(filter.as_deref());
+    let curves_pending = whole_curves.is_none();
+    let curves = whole_curves.as_deref().and_then(|curves| {
+        curves
+            .as_ref()
+            .and_then(|curves| crate::persistence::sections::lap_curves::in_range(curves, cutoff))
+    });
     // Over the whole record, like the calendar: a range only filters the chart.
     let efficiency_trend = sport_type.as_deref().and_then(efficiency_of);
 
@@ -1282,6 +1283,7 @@ where
         correlations,
         correlation_floor: crate::persistence::sections::correlations::MIN_PAIRS as u32,
         curves,
+        curves_pending,
         efficiency_trend,
     }
 }
@@ -1706,8 +1708,10 @@ pub mod pooled {
                     .unwrap_or_default()
             },
             |sport| {
-                crate::persistence::sections::lap_curves::pooled::cached_lap_curves(
-                    conn, section_id, sport,
+                Some(
+                    crate::persistence::sections::lap_curves::pooled::cached_lap_curves(
+                        conn, section_id, sport,
+                    ),
                 )
             },
             |sport| {
@@ -1941,6 +1945,10 @@ pub mod pooled {
             route_names: routes::all_route_names(conn),
             excluded_activity_ids: excluded,
             map_signatures: activities::map_signatures_for_ids(conn, &activity_ids),
+            missing_time_stream_ids: activities::activities_missing_time_streams(
+                conn,
+                &activity_ids,
+            ),
             can_name_from_places: group.is_some()
                 && crate::persistence::geocoded_names::can_name_from_places(
                     conn,
@@ -1958,8 +1966,9 @@ pub mod pooled {
     /// whole activity, so the calendar, the chart, the ranged bests, the trend,
     /// the histogram, the correlations and the sport counts are the section's
     /// arithmetic. What the route judges for itself travels on the attempt:
-    /// the distance band [`route_performances`] decides and the match. A route
-    /// has no lap curves.
+    /// the distance band [`route_performances`] decides and the match. The lap
+    /// curves run along the route's representative line, and `curves` says
+    /// whether this read computes them or serves them only once held.
     ///
     /// [`route_performances`]: crate::persistence::fitness::performances::route_performances
     pub fn route_detail_performance(
@@ -1967,6 +1976,7 @@ pub mod pooled {
         group_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        curves: crate::persistence::sections::lap_curves::pooled::CurveRead,
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::activities::pooled as activities;
         use crate::persistence::fitness::derivations::{Effort, efficiency_trend};
@@ -2011,6 +2021,29 @@ pub mod pooled {
         }
         sports.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
+        // A sport's included or excluded attempts, each one lap over the whole
+        // activity.
+        let attempts_of = |sport: Option<&str>, rows: laps::Rows| {
+            let attempts = match rows {
+                laps::Rows::Included => route_performances(
+                    &activity_ids,
+                    Some(&match_info),
+                    &excluded,
+                    metrics_of,
+                    None,
+                    sport,
+                ),
+                laps::Rows::Excluded => excluded_route_performances(
+                    &activity_ids,
+                    &match_info,
+                    &excluded,
+                    metrics_of,
+                    sport,
+                ),
+            };
+            route_attempts(&attempts, route_distance, rows)
+        };
+
         super::section_detail_from(
             &sports,
             None,
@@ -2020,7 +2053,15 @@ pub mod pooled {
                 crate::persistence::wellness::pooled::wellness_days(conn, oldest, newest)
                     .unwrap_or_default()
             },
-            |_| std::sync::Arc::new(None),
+            |sport| {
+                crate::persistence::sections::lap_curves::pooled::cached_route_lap_curves(
+                    conn,
+                    group_id,
+                    sport,
+                    curves,
+                    || attempts_of(sport, laps::Rows::Included),
+                )
+            },
             |sport| {
                 let attempts = route_performances(
                     &activity_ids,
@@ -2049,26 +2090,7 @@ pub mod pooled {
                     .unwrap_or("Route");
                 efficiency_trend(group_id, sport, name, &efforts)
             },
-            |sport, rows| {
-                let attempts = match rows {
-                    laps::Rows::Included => route_performances(
-                        &activity_ids,
-                        Some(&match_info),
-                        &excluded,
-                        metrics_of,
-                        None,
-                        sport,
-                    ),
-                    laps::Rows::Excluded => excluded_route_performances(
-                        &activity_ids,
-                        &match_info,
-                        &excluded,
-                        metrics_of,
-                        sport,
-                    ),
-                };
-                std::sync::Arc::new(route_attempts(&attempts, route_distance, rows))
-            },
+            |sport, rows| std::sync::Arc::new(attempts_of(sport, rows)),
         )
     }
 
@@ -2830,7 +2852,6 @@ pub mod pooled {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
-        rings: crate::persistence::feed_rings::RingSnapshot,
     ) -> crate::FfiStartupData {
         crate::FfiStartupData {
             summary_card: summary_card(conn, current_start, current_end, prev_start, prev_end),
@@ -2845,9 +2866,6 @@ pub mod pooled {
             )
             .ok()
             .flatten(),
-            new_activity_ids: rings.ids,
-            next_ring_expiry_at: rings.next_expiry_at.map(|at| at as f64),
-            ring_stamp_required: rings.unstamped,
         }
     }
 
@@ -3175,7 +3193,7 @@ mod tests {
             None,
             30,
             |_, _| Vec::new(),
-            |_| std::sync::Arc::new(None),
+            |_| Some(std::sync::Arc::new(None)),
             |_| None,
             |_, rows| match rows {
                 laps::Rows::Included => all.clone(),
@@ -5169,21 +5187,9 @@ mod tests {
         let ids: Vec<String> = Vec::new();
 
         assert!(
-            pooled::startup_data(
-                &engine.db,
-                window.0,
-                window.1,
-                window.2,
-                window.3,
-                &ids,
-                crate::persistence::feed_rings::RingSnapshot {
-                    ids: vec![],
-                    next_expiry_at: None,
-                    unstamped: false,
-                }
-            )
-            .sparklines
-            .is_none(),
+            pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids,)
+                .sparklines
+                .is_none(),
             "an athlete with no wellness has no line to draw"
         );
 
@@ -5196,19 +5202,7 @@ mod tests {
             )
             .expect("wellness");
 
-        let data = pooled::startup_data(
-            &engine.db,
-            window.0,
-            window.1,
-            window.2,
-            window.3,
-            &ids,
-            crate::persistence::feed_rings::RingSnapshot {
-                ids: vec![],
-                next_expiry_at: None,
-                unstamped: false,
-            },
-        );
+        let data = pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids);
         let lines = data.sparklines.expect("a day of wellness");
         assert_eq!(lines.fitness, vec![70]);
         assert_eq!(lines.form, vec![10], "form is fitness less fatigue");

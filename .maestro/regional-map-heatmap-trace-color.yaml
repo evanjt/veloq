@@ -20,6 +20,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Ensure heatmap is OFF for the baseline screenshot (demo default).
 - runFlow:
     when:
@@ -33,6 +36,10 @@ tags:
     id: "map-fit-all"
 - waitForAnimationToEnd:
     timeout: 2500
+
+# Fit-all closed the menu, so open it again for the heatmap toggle.
+- runFlow:
+    file: helpers/open-map-layers.yaml
 
 # Select the first visible activity marker via the demo fixture's known
 # coordinates. Tapping a marker on the map is fragile, easier to deep-link

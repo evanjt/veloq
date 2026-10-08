@@ -22,6 +22,7 @@ import {
 } from '@/features/maps';
 import { StaticCompassArrow } from '@/shared/ui';
 import { useIsOnline } from '@/shared/app/NetworkContext';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
@@ -202,6 +203,18 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     return onPreviewRangeChange(update);
   }, [index]);
 
+  // A render that failed offline failed for want of tiles, and nothing in the
+  // pipeline asks again when they become reachable. The reconnect edge clears
+  // the mark and re-runs the request below for a card that would ask at all:
+  // in range, with no stored preview and a redraw that is not itself broken.
+  // The pool keeps its own cap, so a feed of failed cards does not flood it.
+  const [reconnects, setReconnects] = useState(0);
+  useReconnect(() => {
+    if (!snapshotFailed || !inRange || terrainImageUri || brokenImages > 1) return;
+    setSnapshotFailed(false);
+    setReconnects((n) => n + 1);
+  });
+
   useEffect(() => {
     if (!screenFocused) return;
     if (!inRange) return;
@@ -251,6 +264,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     hasActivityOverride,
     inRange,
     brokenImages,
+    reconnects,
   ]);
 
   if (__DEV__ && mapPreviewStart && index < 3) {
@@ -328,7 +342,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           }}
         />
         {Math.abs(bearing) > 5 && (
-          <View style={styles.compassOverlay}>
+          <View style={styles.compassOverlay} testID="activity-map-preview-compass">
             <StaticCompassArrow
               bearing={bearing}
               size={16}

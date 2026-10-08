@@ -23,4 +23,4 @@
 
 支持骑行、跑步、游泳及20多种活动类型。无需账户即可体验内置演示模式。
 
-实时数据需要Intervals.icu账户。与Intervals.icu无隶属关系。
+实时数据需要intervals.icu账户。与intervals.icu无隶属关系。

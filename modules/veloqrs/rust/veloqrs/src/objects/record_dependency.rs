@@ -40,6 +40,17 @@ pub(crate) async fn fetch_owed_record_activities(
     .ok_or(NetError::EngineClosed)?
     .map_err(NetError::Storage)?;
     if owed.is_empty() {
+        // Nothing to fetch, but rows an earlier pass kept may since have
+        // become rows that never place, and this is the pass that drops them.
+        let restored = crate::persistence::with_persistent_engine_blocking_for(install, |engine| {
+            engine.retry_record_restore()
+        })
+        .await
+        .ok_or(NetError::EngineClosed)?
+        .map_err(NetError::Storage)?;
+        if restored.placed > 0 || restored.not_restored > 0 {
+            observer::notify(Announcement::DetectionApplied);
+        }
         return Ok(());
     }
     let mut fetched = 0u32;
@@ -109,7 +120,7 @@ pub(crate) async fn fetch_owed_record_activities(
     if fetched > 0 {
         observer::notify(Announcement::ActivitiesStored);
     }
-    if restored.placed > 0 {
+    if restored.placed > 0 || restored.not_restored > 0 {
         observer::notify(Announcement::DetectionApplied);
     }
     Ok(())
@@ -332,6 +343,51 @@ mod tests {
         crate::objects::sync::clear_test_credentials();
         // Delivered on the announce thread: drained under the serial lock so
         // the next test's observer does not hear this one's notices.
+        crate::objects::observer::flush();
+    }
+
+    /// Scenario: an earlier build left history waiting that no section can
+    /// take, and nothing is owed, so no fetch runs.
+    ///
+    /// Expected behaviour: the sync's step still reconsiders the waiting rows
+    /// and gives up the ones that can never place.
+    #[test]
+    fn test_owed_step_with_nothing_owed_clears_rows_that_never_place() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("owed-none.db");
+        let held = json!([{
+            "table": "section_history",
+            "values": {"section_id": "gone-id", "at": "2025-01-01 00:00:00",
+                "kind": "dissolved", "details": "{}"}
+        }]);
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_setting(
+                    crate::persistence::record_restore::PENDING_KEY,
+                    &held.to_string(),
+                )
+                .unwrap();
+            assert_eq!(engine.unplaced_records().unwrap().len(), 1);
+        })
+        .unwrap();
+        let server = MockServer::start();
+        let governor = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
+                .unwrap();
+        let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
+            crate::persistence::engine_install(),
+            &transport,
+            "i1",
+            &|| false,
+            &|_, _| {},
+        ));
+        assert!(outcome.is_ok());
+        crate::persistence::with_persistent_engine(|engine| {
+            assert!(engine.unplaced_records().unwrap().is_empty());
+            assert_eq!(engine.not_restored_history_count().unwrap(), 1);
+        })
+        .unwrap();
         crate::objects::observer::flush();
     }
 

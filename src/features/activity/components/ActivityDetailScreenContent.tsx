@@ -40,6 +40,7 @@ import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
+import { waitEnded } from '@/shared/native/engineBodies';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import {
   resolveTerrain3D,
@@ -115,7 +116,12 @@ export function ActivityDetailScreenContent() {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Fetch intervals data
-  const { data: intervalsData, outcome: intervalsOutcome } = useActivityIntervals(id || '');
+  const {
+    data: intervalsData,
+    outcome: intervalsOutcome,
+    bodyStatus: intervalsStatus,
+    retryBody: retryIntervals,
+  } = useActivityIntervals(id || '');
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -424,7 +430,7 @@ export function ActivityDetailScreenContent() {
   // then retries the download. Only a failed read of the stored row is a load
   // failure, and its retry re-reads that row.
   if (!error && !activity) {
-    const timedOut = bodyStatus === 'timedOut' || bodyStatus === 'refused';
+    const timedOut = waitEnded(bodyStatus);
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
@@ -574,6 +580,8 @@ export function ActivityDetailScreenContent() {
           onRetryStreams={retryStreams}
           intervalsData={intervalsData}
           intervalsOutcome={intervalsOutcome}
+          intervalsStatus={intervalsStatus}
+          onRetryIntervals={retryIntervals}
           activityWellness={activityWellness}
           coordinates={coordinates}
           isDark={isDark}

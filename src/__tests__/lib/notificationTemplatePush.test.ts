@@ -51,7 +51,7 @@ describe('pushNotificationTemplates', () => {
       templates.map((pair: { key: string; value: string }) => [pair.key, pair.value])
     );
     expect(byKey.get('notifications.activityBody.fasterOnRoute')).toBe(
-      'Faster than usual on {{name}}'
+      'Quicker than usual on {{name}}'
     );
     expect(byKey.get('notifications.activityBody.routePrDelta')).toBe(
       'Route PR on {{name}} ({{delta}} faster)'
@@ -78,7 +78,7 @@ describe('pushNotificationTemplates', () => {
     const fasterOnRoute = templates.find(
       (pair: { key: string }) => pair.key === 'notifications.activityBody.fasterOnRoute'
     );
-    expect(fasterOnRoute.value).not.toBe('Faster than usual on {{name}}');
+    expect(fasterOnRoute.value).not.toBe('Quicker than usual on {{name}}');
     expect(fasterOnRoute.value).not.toBe('notifications.activityBody.fasterOnRoute');
   });
 

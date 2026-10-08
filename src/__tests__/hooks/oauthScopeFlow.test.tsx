@@ -27,9 +27,10 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({}),
 }));
 jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
+let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true }),
-  useIsOnline: () => true,
+  useNetwork: () => ({ isOnline: mockIsOnline }),
+  useIsOnline: () => mockIsOnline,
 }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: () => jest.fn(),
@@ -84,6 +85,7 @@ function requestedScopes() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsOnline = true;
   global.fetch = jest.fn().mockResolvedValue({ ok: true });
   useAuthStore.setState({
     authMethod: 'oauth',
@@ -161,7 +163,7 @@ describe('OAuth write scope boundary', () => {
     );
     const { result } = renderHook(() => usePermissionUpgrade());
     await act(async () => {
-      expect(await result.current.upgradePermissions()).toBe(false);
+      expect((await result.current.upgradePermissions()).granted).toBe(false);
     });
     expect(useAuthStore.getState().setOAuthCredentials).not.toHaveBeenCalled();
     expect(useUploadPermissionStore.getState().grantedScopes).toBe('ACTIVITY:READ');
@@ -175,10 +177,41 @@ describe('OAuth write scope boundary', () => {
     );
     const { result } = renderHook(() => usePermissionUpgrade());
     await act(async () => {
-      expect(await result.current.upgradePermissions()).toBe(true);
+      expect((await result.current.upgradePermissions()).granted).toBe(true);
     });
     expect(clearPermissionBlocked).toHaveBeenCalledTimes(1);
     expect(clearPermissionBlocked).toHaveBeenCalledWith('123');
+  });
+
+  it("names an unreachable proxy in the athlete's language, not the platform error", async () => {
+    useAuthStore.setState({ athleteId: '123' });
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
+    const { result } = renderHook(() => usePermissionUpgrade());
+    await act(async () => {
+      expect((await result.current.upgradePermissions()).granted).toBe(false);
+    });
+    expect(result.current.error).toBe('login.oauthUnreachable');
+    expect(result.current.isUpgrading).toBe(false);
+  });
+
+  it('refuses the upgrade offline without opening the flow', async () => {
+    mockIsOnline = false;
+    const { result } = renderHook(() => usePermissionUpgrade());
+    await act(async () => {
+      expect((await result.current.upgradePermissions()).granted).toBe(false);
+    });
+    expect(result.current.error).toBe('login.oauthUnreachable');
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockBrowser).not.toHaveBeenCalled();
+  });
+
+  it('stays silent when the athlete cancels the upgrade', async () => {
+    mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
+    const { result } = renderHook(() => usePermissionUpgrade());
+    await act(async () => {
+      expect((await result.current.upgradePermissions()).granted).toBe(false);
+    });
+    expect(result.current.error).toBeNull();
   });
 
   it('reserves write access for the explicit upgrade', () => {

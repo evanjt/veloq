@@ -40,6 +40,14 @@
 //              the job writes into the checkout, so a compiled library, a
 //              generated project or node_modules never keys a cache
 //   profile    workflows build the shipped Rust profile, including E2E builds
+//   identity   every artifact a build definition uploads is preceded by
+//              `build-record.js identity --variant`, and one such check runs
+//              on a cache hit too, so a restored or mixed-identity artifact is
+//              judged on its contents before it leaves the job
+//   variant    a job that builds natively in a definition takes APP_VARIANT
+//              from inputs.variant in its own or the workflow's env, and no
+//              step sets it, since Gradle, the bundler and fastlane read the
+//              Expo configuration again after prebuild
 //   deploys    a workflow only a tag starts never skips a store deploy: no step sets
 //              `skip=true` for a missing credential and no job runs only when an
 //              earlier job found its artefact, so a green run means an upload
@@ -457,6 +465,73 @@ function checkSimulatorEntitlements(file, where, step) {
   }
 }
 
+const IDENTITY_CHECK = /\bbuild-record\.js\s+identity\b[^\n]*--variant\s+\S/;
+const isIdentityCheck = (step) => IDENTITY_CHECK.test(text(step.run));
+// A step whose condition requires failure() uploads logs, never an app.
+const onFailureOnly = (step) =>
+  /(^|[^!\w])failure\(\)/.test(text(step.if)) && !/\|\|/.test(text(step.if));
+
+/**
+ * In a build definition, each upload of an artifact (logs uploaded on failure
+ * aside) follows a step that checks the artifact's identity against the
+ * selected variant, and at least one such check carries no cache-hit
+ * condition, so a restored artifact is judged as a built one is.
+ */
+function checkArtifactIdentity(file, id, steps) {
+  if (!BUILD_DEFINITIONS.includes(file)) return;
+  let checked = false;
+  for (const [i, step] of steps.entries()) {
+    if (isIdentityCheck(step)) checked = true;
+    if (action(step) !== 'actions/upload-artifact' || onFailureOnly(step) || checked) continue;
+    fail(
+      file,
+      `job ${id} step ${step.name ?? step.uses ?? i + 1}`,
+      'the artifact is uploaded before any step runs node scripts/build-record.js identity <artifact> --variant <variant>, so one carrying the other identity leaves the job.'
+    );
+  }
+  const uploads = steps.some((s) => action(s) === 'actions/upload-artifact' && !onFailureOnly(s));
+  const everyPath = steps.some((s) => isIdentityCheck(s) && !/cache-hit/.test(text(s.if)));
+  if (uploads && checked && !everyPath) {
+    fail(
+      file,
+      `job ${id}`,
+      'every identity check is skipped on a cache hit, so a restored artifact is uploaded unjudged. Run one on every path.'
+    );
+  }
+}
+
+const VARIANT_FROM_CALLER = /^\$\{\{\s*inputs\.variant\s*\}\}$/;
+const SETS_VARIANT = /(^|[\s;&|(])APP_VARIANT=/m;
+
+/**
+ * In a build definition, the identity is the job's, never a step's: a value
+ * set on one command is gone by the next one that evaluates the Expo
+ * configuration, which then builds the Dev identity.
+ */
+function checkVariant(file, id, job, workflowEnv) {
+  if (!BUILD_DEFINITIONS.includes(file)) return;
+  const steps = job.steps ?? [];
+  for (const [i, step] of steps.entries()) {
+    const setsInEnv = step.env && Object.hasOwn(step.env, 'APP_VARIANT');
+    if (!setsInEnv && !SETS_VARIANT.test(text(step.run))) continue;
+    fail(
+      file,
+      `job ${id} step ${step.name ?? step.uses ?? i + 1}`,
+      'sets APP_VARIANT, which holds for this step alone, so a later step that reads the Expo configuration builds another identity. Set it once in the job env from inputs.variant.'
+    );
+  }
+  if (!steps.some((step) => nativeBuild(step.run) !== null)) return;
+  const value = job.env?.APP_VARIANT ?? workflowEnv?.APP_VARIANT;
+  if (VARIANT_FROM_CALLER.test(text(value).trim())) return;
+  fail(
+    file,
+    `job ${id}`,
+    value === undefined
+      ? 'builds natively with no APP_VARIANT in the job or workflow env, so every step after prebuild reads the Dev identity. Set APP_VARIANT: ${{ inputs.variant }} on the job.'
+      : `sets APP_VARIANT to ${text(value)}, not \${{ inputs.variant }}, so the caller's choice of identity is not the one built.`
+  );
+}
+
 function checkBenchesChecked(file, workflow) {
   if (file !== BENCH_CHECKED) return;
   const runs = Object.values(workflow.jobs ?? {}).flatMap((job) =>
@@ -795,6 +870,8 @@ for (const [file, { doc, isAction }] of parsed) {
     stepsOf(file, job.steps, `job ${id} `, isBenchWorkflow, isDefinition);
     checkKeys(file, id, job.steps ?? []);
     checkRustSaves(file, id, job.steps ?? []);
+    checkArtifactIdentity(file, id, job.steps ?? []);
+    checkVariant(file, id, job, doc.env);
     checkCall(file, id, job, workflows);
     if (startsOnTagOnly(triggers)) checkTagDeploys(file, id, job);
   }

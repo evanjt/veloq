@@ -3,9 +3,11 @@ export {
   onSyncComplete,
   onAppBackground,
   onAppForeground,
+  onBackupReconnect,
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupTimestamp,
+  getDestinationLastBackup,
   getUnplacedBackupRecords,
   isPlatformRecordAnswered,
   markPlatformRecordAnswered,
@@ -31,6 +33,7 @@ export {
 export { failureMessageKey, isBackupTransferError } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';
 export type {
+  BackupDestination,
   BackupFailure,
   BackupRunResult,
   CarrierOutcome,

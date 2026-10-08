@@ -42,6 +42,7 @@ export function SportTypeSelector({
         return (
           <Pressable
             key={type}
+            testID={`sport-pill-${type}`}
             style={pressable([
               styles.pill,
               isDark && styles.pillDark,

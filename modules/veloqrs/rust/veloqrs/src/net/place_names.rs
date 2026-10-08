@@ -7,9 +7,10 @@
 //! bulk geocoding. A route or section that loops is named after its start,
 //! one that ends in another place after both, and one that ends in the place
 //! it started in without closing the loop after its start alone. A lookup
-//! that finds no place or fails leaves the numbered label and is not asked
-//! again. A lookup that could not be sent leaves the item queued for the next
-//! pass.
+//! the provider answers with no place or an error leaves the numbered label
+//! and is not asked again. A lookup that never reached the provider, because
+//! it could not be sent or the network was absent, leaves the item queued for
+//! the next pass, and no pass runs while the device is offline.
 //!
 //! An item that existed before the switch is never queued, and one numbered
 //! since over rides that all started before it is never asked about. Either is
@@ -51,14 +52,18 @@ struct Plan {
 /// Name every queued item, asking `geocoder` at `endpoint`. Answers how many
 /// were given a name.
 ///
-/// Sends nothing while geocoding is off or before the app has stored the
-/// words a name is put together with. Stops at the first lookup that could
-/// not be sent, so a missing endpoint or a switch turned off mid-pass leaves
-/// the rest queued as they were.
+/// Sends nothing while the device is offline, while geocoding is off or
+/// before the app has stored the words a name is put together with. Stops at
+/// the first lookup that never reached the provider, so a missing endpoint, a
+/// dead network or a switch turned off mid-pass leaves the rest queued as they
+/// were.
 pub async fn name_queued<T: GeocodeTransport>(
     geocoder: &Geocoder<T>,
     endpoint: Option<&str>,
 ) -> usize {
+    if super::connectivity::is_offline() {
+        return 0;
+    }
     let install = engine_install();
     let Some(plan) = with_read_conn(read_plan).flatten() else {
         return 0;
@@ -307,6 +312,11 @@ pub fn name_new_items() {
     crate::runtime::ASYNC_RUNTIME.spawn(async {
         loop {
             while ASKED_AGAIN.swap(false, Ordering::SeqCst) {
+                // Offline the endpoint fetch would go into a dead network too,
+                // and the queue keeps until a later sync or detection run.
+                if super::connectivity::is_offline() {
+                    continue;
+                }
                 match Geocoder::new() {
                     Ok(geocoder) => {
                         let endpoint = geocoder.configured_endpoint().await;

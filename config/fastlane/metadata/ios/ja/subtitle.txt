@@ -1,1 +1,1 @@
-Intervals.icu モバイルクライアント
+intervals.icu モバイルクライアント

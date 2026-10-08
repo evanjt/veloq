@@ -9,12 +9,13 @@
  */
 
 import React from 'react';
-import { render, renderHook, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
 import { useActivityIntervals } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
+import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { ActivityDetail, ActivityInterval } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -26,9 +27,14 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/ui', () => {
-  const { View, Text } = require('react-native');
+  const { View, Pressable, Text } = require('react-native');
   return {
-    Button: ({ label }: { label: string }) => <Text>{label}</Text>,
+    Button: ({ label, onPress }: { label: string; onPress: () => void }) => (
+      <Pressable onPress={onPress}>
+        <Text>{label}</Text>
+      </Pressable>
+    ),
+    BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -97,6 +103,8 @@ function activity(): ActivityDetail {
 function renderSection(props: {
   intervalsData?: { icu_intervals: ActivityInterval[] };
   intervalsOutcome?: 'loaded' | 'empty' | 'pending';
+  intervalsStatus?: EngineBodyStatus;
+  onRetryIntervals?: () => void;
 }) {
   return render(
     <ActivityChartsSection
@@ -105,6 +113,8 @@ function renderSection(props: {
       streams={undefined}
       intervalsData={props.intervalsData}
       intervalsOutcome={props.intervalsOutcome}
+      intervalsStatus={props.intervalsStatus}
+      onRetryIntervals={props.onRetryIntervals}
       activityWellness={null}
       coordinates={[]}
       isDark={false}
@@ -158,6 +168,16 @@ describe('the intervals hook', () => {
     await waitFor(() => expect(result.current.outcome).toBe('loaded'));
   });
 
+  it('hands back the wait for a body never fetched, and a retry that asks again', async () => {
+    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.bodyStatus).toBe('waiting'));
+    expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(1);
+
+    result.current.retryBody();
+    await waitFor(() => expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(2));
+  });
+
   /** A body that will not parse is a corrupt row, and re-asking is what fixes it. */
   it('says pending for a body that will not parse', async () => {
     engine.getIntervalBody.mockReturnValue('{not json');
@@ -174,6 +194,32 @@ describe('the charts section with no intervals', () => {
 
     expect(getByTestId('intervals-not-downloaded')).toBeTruthy();
     expect(queryByTestId('activity-interval-table')).toBeNull();
+  });
+
+  it.each<EngineBodyStatus>(['timedOut', 'refused'])(
+    'offers a Retry that asks again once the wait is %s',
+    (status) => {
+      const onRetryIntervals = jest.fn();
+      const { getByTestId } = renderSection({
+        intervalsOutcome: 'pending',
+        intervalsStatus: status,
+        onRetryIntervals,
+      });
+
+      fireEvent.press(getByTestId('intervals-not-downloaded-retry'));
+      expect(onRetryIntervals).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('offers no Retry while the laps are still being fetched', () => {
+    const { getByTestId, queryByTestId } = renderSection({
+      intervalsOutcome: 'pending',
+      intervalsStatus: 'waiting',
+      onRetryIntervals: jest.fn(),
+    });
+
+    expect(getByTestId('intervals-not-downloaded')).toBeTruthy();
+    expect(queryByTestId('intervals-not-downloaded-retry')).toBeNull();
   });
 
   it('says nothing at all for a ride the server settled as lapless', () => {

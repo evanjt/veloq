@@ -51,6 +51,9 @@ tags:
       id: "map-screen"
     timeout: 30000
 
+- runFlow:
+    file: helpers/open-map-layers.yaml
+
 # Only assert section toggle if sections were actually detected
 - runFlow:
     when:

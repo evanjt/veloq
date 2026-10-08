@@ -35,8 +35,6 @@ const DENSE_SURFACES = [
   'src/shared/charts/CurveChart.tsx',
   'src/features/fitness/components/FitnessChart.tsx',
   'src/features/fitness/components/FormZoneChart.tsx',
-  'src/features/insights/components/content/HrvTrendContent.tsx',
-  'src/features/insights/components/content/SectionPerformanceTimeline.tsx',
   'src/features/routes/components/section/AttemptHistogramChart.tsx',
   'src/features/routes/components/section/SectionDeltaChart.tsx',
   'src/features/routes/components/section/SectionScatterChart.tsx',

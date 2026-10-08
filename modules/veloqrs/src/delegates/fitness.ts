@@ -11,7 +11,6 @@ import type {
   FfiBestEffortsData,
   FfiDayLoad,
   FfiExerciseSet,
-  FfiFeedSeen,
   FfiFitnessScreenData,
   FfiFtpTrend,
   FfiInsightsData,
@@ -77,11 +76,6 @@ export function getStartupData(
   return host.timed('getStartupData', () =>
     host.engine.fitness().getStartupData(params, previewActivityIds)
   );
-}
-
-export function recordFeedSeen(host: DelegateHost, event: FfiFeedSeen): void {
-  if (!host.ready) return;
-  host.timed('recordFeedSeen', () => host.engine.fitness().recordFeedSeen(event));
 }
 
 export function getZoneDistribution(

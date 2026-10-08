@@ -1,11 +1,8 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -17,47 +14,12 @@ import {
   insightToneColor,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { polylineSvgPath, useChartColors } from '@/shared/charts';
+import { InsightSeriesChart } from '../InsightSeriesChart';
 import type { Insight } from '@/types';
-import type { LayoutChangeEvent } from 'react-native';
-import type { TFunction } from 'i18next';
 
-const CHART_HEIGHT = 140;
-const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
+const CHART_HEIGHT = 180;
 
-function buildPath(
-  data: number[],
-  width: number,
-  height: number,
-  padding: typeof CHART_PADDING,
-  yMin: number,
-  yMax: number
-): string {
-  if (data.length < 2) return '';
-  const drawW = width - padding.left - padding.right;
-  const drawH = height - padding.top - padding.bottom;
-  const yRange = yMax - yMin || 1;
-  const stepX = drawW / (data.length - 1);
-  const points = data.map((v, i) => ({
-    x: padding.left + i * stepX,
-    y: padding.top + drawH - ((v - yMin) / yRange) * drawH,
-  }));
-  return polylineSvgPath(points);
-}
-
-function buildAreaPath(
-  linePath: string,
-  data: number[],
-  width: number,
-  height: number,
-  padding: typeof CHART_PADDING
-): string {
-  if (!linePath) return '';
-  const drawW = width - padding.left - padding.right;
-  const lastX = padding.left + (data.length - 1) * (drawW / (data.length - 1));
-  const bottomY = height - padding.bottom;
-  return `${linePath} L ${lastX} ${bottomY} L ${padding.left} ${bottomY} Z`;
-}
+const formatHrv = (value: number) => `${Math.round(value)} ms`;
 
 interface HrvTrendContentProps {
   insight: Insight;
@@ -66,20 +28,10 @@ interface HrvTrendContentProps {
 export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
-  const { t } = useTranslation();
   const { isDark } = useTheme();
-  const chartColors = useChartColors();
-  const [chartWidth, setChartWidth] = useState(0);
-
-  const onChartLayout = useCallback((e: LayoutChangeEvent) => {
-    setChartWidth(e.nativeEvent.layout.width);
-  }, []);
 
   const history = insight.supportingData?.history;
-  const sparklineData =
-    history && history.kind !== 'line'
-      ? history.series[0]?.points.map((point) => point.value)
-      : undefined;
+  const series = history && history.kind !== 'line' ? history.series[0] : undefined;
   const avgPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvAverage');
   const latestPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvLatest');
 
@@ -87,35 +39,6 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   const latestValue = typeof latestPoint?.value === 'number' ? latestPoint.value : null;
 
   const trendColor = insightToneColor(insight.iconTone, isDark);
-
-  const { linePath, areaPath, yMin, yMax, yTicks } = useMemo(() => {
-    if (!sparklineData || sparklineData.length < 2 || chartWidth <= 0) {
-      return { linePath: '', areaPath: '', yMin: 0, yMax: 100, yTicks: [] };
-    }
-    const min = Math.min(...sparklineData);
-    const max = Math.max(...sparklineData);
-    const range = max - min || 10;
-    const padded = { min: min - range * 0.1, max: max + range * 0.1 };
-    const lp = buildPath(
-      sparklineData,
-      chartWidth,
-      CHART_HEIGHT,
-      CHART_PADDING,
-      padded.min,
-      padded.max
-    );
-    const ap = buildAreaPath(lp, sparklineData, chartWidth, CHART_HEIGHT, CHART_PADDING);
-
-    // Y-axis ticks: 3-4 evenly spaced values
-    const tickCount = 3;
-    const step = range / (tickCount - 1);
-    const ticks = Array.from({ length: tickCount }, (_, i) => Math.round(min + i * step));
-
-    return { linePath: lp, areaPath: ap, yMin: padded.min, yMax: padded.max, yTicks: ticks };
-  }, [sparklineData, chartWidth]);
-
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const gridColor = chartColors.gridFaint;
 
   return (
     <View style={styles.container}>
@@ -139,106 +62,21 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
         </View>
       </View>
 
-      {/* Chart with axis labels */}
-      {sparklineData && sparklineData.length >= 2 ? (
+      {series && series.points.length >= 2 ? (
         <ChartErrorBoundary height={CHART_HEIGHT}>
           <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-            {history && history.kind !== 'line' ? (
-              <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-                {history.series[0]?.label}
-              </Text>
-            ) : null}
-            <View style={styles.chartWrapper} onLayout={onChartLayout}>
-              {linePath ? (
-                <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-                  {/* Horizontal grid lines */}
-                  {yTicks.map((tick, i) => {
-                    const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-                    const yRange = yMax - yMin || 1;
-                    const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
-                    return (
-                      <SkiaLine
-                        key={`grid-${i}`}
-                        p1={vec(CHART_PADDING.left, y)}
-                        p2={vec(chartWidth - CHART_PADDING.right, y)}
-                        color={gridColor}
-                        strokeWidth={1}
-                      />
-                    );
-                  })}
-                  {/* Area fill */}
-                  <Path path={areaPath} style="fill">
-                    <LinearGradient
-                      start={vec(0, CHART_PADDING.top)}
-                      end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                      colors={[`${trendColor}30`, `${trendColor}05`]}
-                    />
-                  </Path>
-                  {/* Line */}
-                  <Path path={linePath} style="stroke" strokeWidth={2} color={trendColor} />
-                </Canvas>
-              ) : null}
-
-              {/* Y-axis labels */}
-              {yTicks.map((tick, i) => {
-                const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-                const yRange = yMax - yMin || 1;
-                const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
-                return (
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    key={`y-${i}`}
-                    style={[
-                      styles.axisLabel,
-                      {
-                        position: 'absolute',
-                        left: 0,
-                        top: y - 6,
-                        width: CHART_PADDING.left - 4,
-                        textAlign: 'right',
-                      },
-                      { color: textSecondary },
-                    ]}
-                  >
-                    {tick}
-                  </Text>
-                );
-              })}
-
-              {/* X-axis date labels */}
-              {sparklineData && sparklineData.length >= 2 ? (
-                <View
-                  style={[
-                    styles.xAxisRow,
-                    { left: CHART_PADDING.left, right: CHART_PADDING.right },
-                  ]}
-                >
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[styles.axisLabel, { color: textSecondary }]}
-                  >
-                    {formatDaysAgo(t, sparklineData.length - 1)}
-                  </Text>
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[styles.axisLabel, { color: textSecondary }]}
-                  >
-                    {t('time.today')}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+            <InsightSeriesChart
+              samples={series.points}
+              title={series.label}
+              color={trendColor}
+              formatValue={formatHrv}
+            />
           </View>
         </ChartErrorBoundary>
       ) : null}
     </View>
   );
 });
-
-function formatDaysAgo(t: TFunction, days: number): string {
-  if (days <= 1) return t('time.yesterday');
-  return t('time.daysAgo', { count: days });
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -294,27 +132,5 @@ const styles = StyleSheet.create({
   },
   chartCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  chartLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  chartLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  chartWrapper: {
-    position: 'relative',
-    height: CHART_HEIGHT,
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '500',
-  },
-  xAxisRow: {
-    position: 'absolute',
-    bottom: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
 });

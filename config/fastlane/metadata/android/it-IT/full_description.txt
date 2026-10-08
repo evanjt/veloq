@@ -23,4 +23,4 @@ Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. 
 
 Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attivit. Prova la modalit demo integrata per esplorare senza un account.
 
-Richiede un account Intervals.icu per i dati in tempo reale. Non affiliato a Intervals.icu.
+Richiede un account intervals.icu per i dati in tempo reale. Non affiliato a intervals.icu.

@@ -34,7 +34,7 @@ let package = Package(
 )
 `;
 
-const FIXTURES = ['demo.json', 'long-text.json'];
+const FIXTURES = ['demo.json', 'empty.json', 'long-text.json', 'no-wellness.json'];
 
 export function writeWidgetCapturePackage(out) {
   const plugin = require(join(root, 'src', 'plugins', 'with-ios-widget.js'));

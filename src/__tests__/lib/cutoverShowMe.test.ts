@@ -44,9 +44,11 @@ describe('cutoverHasChangesToShow', () => {
 });
 
 describe('the 0.4.0 slide', () => {
-  it('offers Show Me whatever the re-analysis did, since the detector settings always have content', () => {
-    const [slide] = WHATS_NEW_SLIDES['0.4.0'];
-    expect(slide.showMeRoute).toBe('/detection-settings');
-    expect(slide.showMeWhen).toBeUndefined();
+  it('offers Show Me whatever the re-analysis did, since the section preview always has content', () => {
+    const slide = WHATS_NEW_SLIDES['0.4.0'].find(
+      (s) => s.titleKey === 'whatsNew.v040.sectionsTitle'
+    );
+    expect(slide?.showMeRoute).toBe('/detection-preview');
+    expect(slide?.showMeWhen).toBeUndefined();
   });
 });

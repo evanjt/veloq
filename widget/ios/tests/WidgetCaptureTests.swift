@@ -5,11 +5,11 @@ import XCTest
 @testable import VeloqWidget
 
 /// Scenario: every widget is drawn at every family it supports, in the smallest and the largest
-/// box an iPhone gives that family, in light and dark, with the sample library and with the
-/// longest words the locales have.
+/// box an iPhone gives that family, in light and dark, with the sample library, with the longest
+/// words the locales have, with an empty library and with rides and no wellness reading.
 ///
 /// Expected behaviour: no text is truncated, squeezed to fewer lines than it needs or pushed out
-/// of the widget. Every placement is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a failure can
+/// of the widget, and an empty library draws the open-the-app prompt. Every placement is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a failure can
 /// be looked at rather than only read.
 ///
 /// Runs on the iOS simulator: `ImageRenderer` lays the views out with the platform's own text.
@@ -84,9 +84,10 @@ final class WidgetCaptureTests: XCTestCase {
   func testEveryWidgetDrawsEveryTextWholeAtEveryFamily() throws {
     let out = try capturesDirectory()
     var failures: [String] = []
-    for fixture in ["demo", "long-text"] {
+    for fixture in ["demo", "long-text", "empty", "no-wellness"] {
       let snapshot = try self.snapshot(fixture)
       for widget in widgets {
+        let expected = fixture == "empty" && widget.name != "record" ? "empty title" : nil
         for family in widget.families {
           for box in boxes(family) {
             for scheme in [ColorScheme.light, .dark] {
@@ -95,7 +96,7 @@ final class WidgetCaptureTests: XCTestCase {
                 scheme == .dark ? "dark" : "light",
               ].joined(separator: "-")
               let view = widget.draw(snapshot, family, Date())
-              failures += capture(name, view, snapshot, box.size, scheme, out)
+              failures += capture(name, view, snapshot, box.size, scheme, out, expected)
             }
           }
         }
@@ -103,7 +104,7 @@ final class WidgetCaptureTests: XCTestCase {
     }
     XCTAssert(
       failures.isEmpty,
-      "Cut-off text in \(failures.count) places, captures in \(out.path):\n"
+      "Cut-off or missing text in \(failures.count) places, captures in \(out.path):\n"
         + failures.joined(separator: "\n"))
   }
 
@@ -186,7 +187,7 @@ final class WidgetCaptureTests: XCTestCase {
   /// Draws one placement on the widget's own ground, saves it, and lists what it cuts off.
   private func capture(
     _ name: String, _ widget: AnyView, _ snapshot: WidgetSnapshot, _ size: CGSize,
-    _ scheme: ColorScheme, _ out: URL
+    _ scheme: ColorScheme, _ out: URL, _ expected: String? = nil
   ) -> [String] {
     let palette = WidgetPalette.resolve(snapshot, scheme)
     let ground =
@@ -202,7 +203,11 @@ final class WidgetCaptureTests: XCTestCase {
       .clipShape(RoundedRectangle(cornerRadius: WidgetTheme.Layout.radius * 1.4))
       .environment(\.colorScheme, scheme)
     let fits = measure(placed, size, save: out.appendingPathComponent("\(name).png"))
-    return cutOff(fits, in: size).map { "\(name): \($0)" }
+    var found = cutOff(fits, in: size).map { "\(name): \($0)" }
+    if let expected, !fits.contains(where: { $0.name == expected }) {
+      found.append("\(name): draws no \(expected)")
+    }
+    return found
   }
 
   private final class Log {

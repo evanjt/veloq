@@ -1,9 +1,9 @@
 /**
- * Scenario: the top slot holds one banner and three conditions compete for it.
+ * Scenario: the top slot holds one banner and several conditions compete for it.
  *
- * Expected behaviour: offline wins whoever is signed in, including nobody. The
- * athlete signed out on a plane is the one the banner is for, and gating it on
- * a session is what withheld it from them.
+ * Expected behaviour: the offline pill floats and takes no slot, so offline
+ * leaves the slot to whatever else claims it, except a failing sync, which has
+ * nothing to report while the device is offline and gives the slot up.
  */
 import { pickTopBanner, padsStatusBar, type TopBannerState } from '@/shared/app/topBanner';
 
@@ -22,31 +22,24 @@ function state(overrides: Partial<TopBannerState> = {}): TopBannerState {
 }
 
 describe('pickTopBanner', () => {
-  it('claims the slot for a startup error above an offline banner', () => {
+  it('claims the slot for a startup error whether or not the device is offline', () => {
     expect(pickTopBanner(state({ startupErrorShown: true }))).toBe('startupError');
     expect(pickTopBanner(state({ startupErrorShown: true, offlineBannerShown: true }))).toBe(
       'startupError'
     );
   });
 
-  it('shows offline to a signed-out athlete', () => {
-    expect(pickTopBanner(state({ offlineBannerShown: true, isAuthenticated: false }))).toBe(
-      'offline'
-    );
+  it('claims the slot for nothing when offline is all there is, signed in or out', () => {
+    expect(pickTopBanner(state({ offlineBannerShown: true }))).toBeNull();
+    expect(pickTopBanner(state({ offlineBannerShown: true, isAuthenticated: false }))).toBeNull();
   });
 
-  it('shows offline to a signed-in athlete', () => {
-    expect(pickTopBanner(state({ offlineBannerShown: true }))).toBe('offline');
+  it('leaves the demo ribbon its slot under the offline pill', () => {
+    expect(pickTopBanner(state({ offlineBannerShown: true, isDemoMode: true }))).toBe('demo');
   });
 
-  it('shows offline in demo mode rather than the demo ribbon', () => {
-    expect(pickTopBanner(state({ offlineBannerShown: true, isDemoMode: true }))).toBe('offline');
-  });
-
-  it('prefers offline over a stale sync error', () => {
-    expect(pickTopBanner(state({ offlineBannerShown: true, lastError: 'HTTP 503' }))).toBe(
-      'offline'
-    );
+  it('gives up the slot for a stale sync error while the offline pill shows', () => {
+    expect(pickTopBanner(state({ offlineBannerShown: true, lastError: 'HTTP 503' }))).toBeNull();
   });
 
   it('shows the sync error when connected', () => {
@@ -67,18 +60,14 @@ describe('pickTopBanner', () => {
   });
 
   /**
-   * While the offline banner's delay runs the device reads offline and the
-   * offline banner is not up yet. The sync-error banner stays up through that
-   * delay, so the slot stays its own until the offline banner takes it.
+   * While the offline pill's delay runs the device reads offline and the pill
+   * is not up yet. The sync-error banner stays up through that delay, so the
+   * slot stays its own until the pill shows.
    */
-  it('keeps the slot for a sync error while the offline banner is still held back', () => {
+  it('keeps the slot for a sync error while the offline pill is still held back', () => {
     expect(pickTopBanner(state({ offlineBannerShown: false, lastError: 'HTTP 503' }))).toBe(
       'syncError'
     );
-  });
-
-  it('leaves the demo ribbon its slot while the offline banner is still held back', () => {
-    expect(pickTopBanner(state({ offlineBannerShown: false, isDemoMode: true }))).toBe('demo');
   });
 
   it('claims the slot for nothing when connected with no error', () => {
@@ -104,8 +93,8 @@ describe('banners the pick used to leave out', () => {
 
 describe('padsStatusBar', () => {
   it('pads only the banner the pick chose, so a stack carries one inset', () => {
-    const active = pickTopBanner(state({ offlineBannerShown: true, isDemoMode: true }));
-    expect(padsStatusBar(active, 'offline')).toBe(true);
+    const active = pickTopBanner(state({ isDemoMode: true, trackFetchNoticeShown: true }));
+    expect(padsStatusBar(active, 'trackFetch')).toBe(true);
     expect(padsStatusBar(active, 'demo')).toBe(false);
   });
 

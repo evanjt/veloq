@@ -101,13 +101,14 @@
       "fitnessBody": "Track your fitness, fatigue, and form with color-coded zones."
     },
     "v030": {
-      "insightsBody": "Personalized daily insights based on your training: section PRs, efficiency trends, fitness milestones, and HRV patterns.",
       "strengthBody": "Visualize muscle group volume with body diagrams. Track balance between antagonist pairs and monitor progression over time."
     },
     "v040": {
       "recutRunning": "Re-analyzing your sections",
       "recutRunningPhase": "Re-analyzing your sections: {{phase}}",
-      "recutFailedAfterApply": "Your sections were re-analyzed, but the summary of what changed was not saved. It is written again next launch."
+      "recutFailedAfterApply": "Your sections were re-analyzed, but the summary of what changed was not saved. It is written again next launch.",
+      "sectionPageLine": "The line colored where time was won or lost",
+      "sectionPageTip": "Scroll down the section page for the trend, the spread of your times and the line colored by where time was won or lost."
     }
   },
   "sectionHistory": {

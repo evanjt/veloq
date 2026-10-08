@@ -1,5 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,6 +15,7 @@ import Animated, {
   Easing,
   FadeIn,
   FadeOut,
+  useReducedMotion,
   type SharedValue,
 } from 'react-native-reanimated';
 import Constants from 'expo-constants';
@@ -17,10 +24,12 @@ import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useMapPreferenceActions } from '../../stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { useCutoverSummary } from '@/features/routes';
+import { useCutoverSummary, useGroupSummaries, useSectionSummaries } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
+import { resolveShowMeRoute, SHOW_ME_MIN_VISITS } from '@/features/settings/lib/tourShowMe';
+import { TOUR_CARD_HEIGHT_RATIO, tourSlideAreaHeight } from '../../lib/tourSlideFit';
+import { tourResumeMotion } from '../../lib/tourResume';
 import { getAllSlides, getSlidesSince, type WhatsNewSlideDefinition } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 import { Button, pressable, pressRipple } from '@/shared/ui';
@@ -28,21 +37,32 @@ import { Button, pressable, pressRipple } from '@/shared/ui';
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
 const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
+const ENTER_FADE_MS = 300;
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const ALL_SLIDES = getAllSlides();
 
 function withoutShowMe(slide: WhatsNewSlideDefinition): WhatsNewSlideDefinition {
-  const { showMeRoute: _route, ...rest } = slide;
-  return rest;
+  const {
+    showMeRoute: _route,
+    showMeTip: _tip,
+    showMeWhen: _when,
+    showMeAction: _action,
+    ...content
+  } = slide;
+  return content;
 }
 
 export function WhatsNewModal() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [overlayHeight, setOverlayHeight] = useState(0);
+  const [chromeHeight, setChromeHeight] = useState(0);
+  const slideAreaHeight = tourSlideAreaHeight(overlayHeight || windowHeight, chromeHeight);
   const contentWidth = windowWidth - MODAL_HORIZONTAL_PADDING * 2;
   const swipeThreshold = windowWidth * SWIPE_THRESHOLD_RATIO;
+  const reduceMotion = useReducedMotion();
   const isLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
   const tourState = useWhatsNewStore((s) => s.tourState);
@@ -50,11 +70,21 @@ export function WhatsNewModal() {
   const startTour = useWhatsNewStore((s) => s.startTour);
   const showMe = useWhatsNewStore((s) => s.showMe);
   const dismissTour = useWhatsNewStore((s) => s.dismissTour);
-  const { setDefaultStyle, setTerrain3DMode } = useMapPreferenceActions();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const cutover = useCutoverSummary();
   const cutoverChanged = cutoverHasChangesToShow(cutover);
+  // Read only while the card is up, so a closed tour costs the routes reads nothing.
+  const tourOpen = !!tourState && !tourState.exploring;
+  const busiestSectionId = useSectionSummaries({
+    minVisits: SHOW_ME_MIN_VISITS,
+    enabled: tourOpen,
+  }).summaries[0]?.id;
+  const busiestRouteId = useGroupSummaries({
+    minActivities: SHOW_ME_MIN_VISITS,
+    sortBy: 'count',
+    enabled: tourOpen,
+  }).summaries[0]?.groupId;
 
   const currentVersion = Constants.expoConfig?.version ?? '';
   const allSlides = ALL_SLIDES;
@@ -103,23 +133,6 @@ export function WhatsNewModal() {
   const translateX = useSharedValue(0);
   const activeIndex = useSharedValue(0);
 
-  // Reset carousel position when tourState changes (resume or mode switch)
-  const prevResumeIndex = useRef<number | null>(null);
-  const prevMode = useRef<string | null>(null);
-  useEffect(() => {
-    if (!tourState || tourState.exploring) return;
-    const modeChanged = prevMode.current !== null && prevMode.current !== tourState.mode;
-    const resumeChanged =
-      prevResumeIndex.current !== null && prevResumeIndex.current !== tourState.resumeIndex;
-    if (modeChanged || resumeChanged) {
-      const idx = modeChanged ? 0 : tourState.resumeIndex;
-      activeIndex.value = idx;
-      translateX.value = withTiming(-contentWidth * idx, TIMING_CONFIG);
-    }
-    prevResumeIndex.current = tourState.resumeIndex;
-    prevMode.current = tourState.mode;
-  }, [tourState, translateX, activeIndex, contentWidth]);
-
   const dismiss = useCallback(() => {
     dismissTour(currentVersion);
   }, [currentVersion, dismissTour]);
@@ -131,6 +144,60 @@ export function WhatsNewModal() {
     },
     [translateX, activeIndex, contentWidth]
   );
+
+  // The card fades in before the carousel moves, so the slide across is seen.
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelResumeSlide = useCallback(() => {
+    if (resumeTimer.current !== null) clearTimeout(resumeTimer.current);
+    resumeTimer.current = null;
+  }, []);
+  useEffect(() => cancelResumeSlide, [cancelResumeSlide]);
+
+  // Place the carousel when the tour opens, switches mode or comes back from Show Me.
+  const prevMode = useRef<string | null>(null);
+  const wasExploring = useRef(false);
+  useEffect(() => {
+    if (!tourState) {
+      cancelResumeSlide();
+      prevMode.current = null;
+      wasExploring.current = false;
+      return;
+    }
+    if (tourState.exploring) {
+      cancelResumeSlide();
+      wasExploring.current = true;
+      return;
+    }
+    const opened = prevMode.current === null;
+    const modeChanged = !opened && prevMode.current !== tourState.mode;
+    const resumed = wasExploring.current;
+    prevMode.current = tourState.mode;
+    wasExploring.current = false;
+
+    if (modeChanged) {
+      goToSlide(0);
+    } else if (opened || resumed) {
+      const { openOn, slideTo } = tourResumeMotion(tourState, reduceMotion);
+      activeIndex.value = openOn;
+      translateX.value = -contentWidth * openOn;
+      if (slideTo !== null) {
+        cancelResumeSlide();
+        resumeTimer.current = setTimeout(() => {
+          resumeTimer.current = null;
+          // A swipe or tap during the fade has already moved the card on.
+          if (activeIndex.value === openOn) goToSlide(slideTo);
+        }, ENTER_FADE_MS);
+      }
+    }
+  }, [
+    tourState,
+    reduceMotion,
+    translateX,
+    activeIndex,
+    contentWidth,
+    goToSlide,
+    cancelResumeSlide,
+  ]);
 
   const handleNext = useCallback(() => {
     const next = activeIndex.value + 1;
@@ -146,16 +213,13 @@ export function WhatsNewModal() {
     const slide = slides[current];
     if (!slide?.showMeRoute) return;
 
-    // Execute pre-navigation actions
-    if (slide.showMeAction === 'enableSatellite3D') {
-      setDefaultStyle('satellite');
-      setTerrain3DMode(null, 'smart');
-    }
-
+    const route =
+      resolveShowMeRoute(slide, { sectionId: busiestSectionId, routeId: busiestRouteId }) ??
+      slide.showMeRoute;
     const nextIndex = Math.min(current + 1, slideCount - 1);
-    showMe(nextIndex, slide.showMeTip);
-    navigateTab(slide.showMeRoute);
-  }, [activeIndex, slides, slideCount, showMe, setDefaultStyle, setTerrain3DMode]);
+    showMe(current, nextIndex, slide.showMeTip);
+    navigateTab(route);
+  }, [activeIndex, slides, slideCount, showMe, busiestSectionId, busiestRouteId]);
 
   const handleModeToggle = useCallback(() => {
     const newMode = tourState?.mode === 'tutorial' ? 'whatsNew' : 'tutorial';
@@ -212,8 +276,9 @@ export function WhatsNewModal() {
   return (
     <Animated.View
       style={styles.overlay}
-      entering={FadeIn.duration(300)}
+      entering={FadeIn.duration(ENTER_FADE_MS)}
       exiting={FadeOut.duration(200)}
+      onLayout={(event: LayoutChangeEvent) => setOverlayHeight(event.nativeEvent.layout.height)}
     >
       <Pressable
         accessibilityRole="button"
@@ -224,7 +289,7 @@ export function WhatsNewModal() {
       />
       <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>
         <GestureDetector gesture={panGesture}>
-          <View style={styles.slideArea}>
+          <View style={[styles.slideArea, { maxHeight: slideAreaHeight }]}>
             <Animated.View
               style={[styles.slideRow, { width: contentWidth * slideCount }, contentStyle]}
             >
@@ -234,6 +299,7 @@ export function WhatsNewModal() {
                   icon={slide.icon}
                   title={t(slide.titleKey as never)}
                   body={t(slide.bodyKey as never)}
+                  availableHeight={slideAreaHeight}
                 >
                   <slide.Component />
                 </WhatsNewSlide>
@@ -242,46 +308,50 @@ export function WhatsNewModal() {
           </View>
         </GestureDetector>
 
-        {/* Mode toggle + dot indicators */}
-        <View style={styles.indicators}>
-          {canToggleMode && (
-            <Button
-              label={
-                tourState?.mode === 'tutorial'
-                  ? t('whatsNew.justWhatsNew')
-                  : t('whatsNew.seeAllFeatures')
-              }
-              onPress={handleModeToggle}
-              variant="secondary"
-              size="sm"
-            />
-          )}
-          <View style={styles.dots}>
-            {slides.map((_, index) => (
-              <DotIndicator
-                key={index}
-                index={index}
-                activeIndex={activeIndex}
-                primaryColor={primaryColor}
-                mutedColor={mutedColor}
+        <View
+          onLayout={(event: LayoutChangeEvent) => setChromeHeight(event.nativeEvent.layout.height)}
+        >
+          {/* Mode toggle + dot indicators */}
+          <View style={styles.indicators}>
+            {canToggleMode && (
+              <Button
+                label={
+                  tourState?.mode === 'tutorial'
+                    ? t('whatsNew.justWhatsNew')
+                    : t('whatsNew.seeAllFeatures')
+                }
+                onPress={handleModeToggle}
+                variant="secondary"
+                size="sm"
               />
-            ))}
+            )}
+            <View style={styles.dots}>
+              {slides.map((_, index) => (
+                <DotIndicator
+                  key={index}
+                  index={index}
+                  activeIndex={activeIndex}
+                  primaryColor={primaryColor}
+                  mutedColor={mutedColor}
+                />
+              ))}
+            </View>
           </View>
-        </View>
 
-        {/* Navigation buttons: Skip | Show Me | Next/Done */}
-        <NavigationButtons
-          activeIndex={activeIndex}
-          slides={slides}
-          slideCount={slideCount}
-          onSkip={dismiss}
-          onNext={handleNext}
-          onShowMe={handleShowMe}
-          skipLabel={t('whatsNew.skipButton')}
-          nextLabel={t('whatsNew.nextButton')}
-          doneLabel={t('whatsNew.doneButton')}
-          showMeLabel={t('whatsNew.showMeButton')}
-        />
+          {/* Navigation buttons: Skip | Show Me | Next/Done */}
+          <NavigationButtons
+            activeIndex={activeIndex}
+            slides={slides}
+            slideCount={slideCount}
+            onSkip={dismiss}
+            onNext={handleNext}
+            onShowMe={handleShowMe}
+            skipLabel={t('whatsNew.skipButton')}
+            nextLabel={t('whatsNew.nextButton')}
+            doneLabel={t('whatsNew.doneButton')}
+            showMeLabel={t('whatsNew.showMeButton')}
+          />
+        </View>
       </View>
     </Animated.View>
   );
@@ -390,7 +460,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: layout.borderRadius,
     overflow: 'hidden',
-    maxHeight: '80%',
+    maxHeight: `${TOUR_CARD_HEIGHT_RATIO * 100}%`,
   },
   slideArea: {
     overflow: 'hidden',

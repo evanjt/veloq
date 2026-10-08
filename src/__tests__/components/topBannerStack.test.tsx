@@ -1,9 +1,10 @@
 /**
- * Scenario: a demo session loses the network, so the offline and demo banners
- * stack under one status bar.
+ * Scenario: banners stack under one status bar, and a demo session can lose the
+ * network while they do.
  *
  * Expected behaviour: the topmost banner carries the status-bar inset and the
- * one beneath it sits flush, so no blank band opens between them.
+ * one beneath it sits flush, so no blank band opens between them. The offline
+ * pill floats rather than stacking, so it takes no part in the inset.
  */
 
 import React from 'react';
@@ -56,7 +57,7 @@ describe('top banner stack', () => {
     useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   });
 
-  it('pads the startup error above offline and removes the screen top edge', () => {
+  it('pads the startup error with the offline pill floating beside it', () => {
     const { getByTestId } = render(
       <TopSafeAreaProvider startupErrorShown>
         <StartupErrorBanner areas={['preferences']} onDismiss={() => {}} />
@@ -65,10 +66,10 @@ describe('top banner stack', () => {
     );
 
     expect(paddingTop(getByTestId('startup-error-banner'))).toBe(40 + spacing.sm);
-    expect(paddingTop(getByTestId('offline-banner'))).toBe(0);
+    expect(getByTestId('offline-banner')).toBeTruthy();
   });
 
-  it('pads the status bar once for demo under offline', () => {
+  it('pads the demo banner for the status bar while the offline pill floats over it', () => {
     const { getByTestId } = render(
       <QueryClientProvider client={new QueryClient()}>
         <TopSafeAreaProvider>
@@ -78,8 +79,8 @@ describe('top banner stack', () => {
       </QueryClientProvider>
     );
 
-    expect(paddingTop(getByTestId('offline-banner'))).toBe(40);
-    expect(paddingTop(getByTestId('demo-mode-banner'))).toBe(0);
+    expect(getByTestId('offline-banner')).toBeTruthy();
+    expect(paddingTop(getByTestId('demo-mode-banner'))).toBe(40);
   });
 
   it('pads the track notice when it is the only banner', () => {

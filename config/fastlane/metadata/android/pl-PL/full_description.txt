@@ -23,4 +23,4 @@ Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia.
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 
-Wymaga konta Intervals.icu do danych na żywo. Nie jest powiązany z Intervals.icu.
+Wymaga konta intervals.icu do danych na żywo. Nie jest powiązany z intervals.icu.
