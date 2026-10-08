@@ -14,8 +14,6 @@ import {
   startStreamBackfill as ffiStartStreamBackfill,
   stopStreamBackfill as ffiStopStreamBackfill,
   consentStreamBackfill as ffiConsentStreamBackfill,
-  getStreamBackfillProgress as ffiGetStreamBackfillProgress,
-  getStreamBackfillRemaining as ffiGetStreamBackfillRemaining,
   type StreamBackfillProgress,
   FfiStartOutcome,
 } from '../generated/veloqrs';
@@ -83,21 +81,4 @@ export function stopStreamBackfill(host: DelegateHost): void {
   } catch (e) {
     console.error('[Engine] stopStreamBackfill threw:', e);
   }
-}
-
-/**
- * How many activities the pass still has to ask about. Zero is the library
- * fully stocked for the window as it stands, so an engine that is not ready
- * answers null rather than zero: the row offers the download off this number
- * and must not hide it because the engine was late.
- */
-export function getStreamBackfillRemaining(host: DelegateHost): number | null {
-  if (!host.ready) return null;
-  return host.timed('getStreamBackfillRemaining', () => ffiGetStreamBackfillRemaining());
-}
-
-/** Read the pass's progress. Null when the engine is not ready. */
-export function getStreamBackfillProgress(host: DelegateHost): StreamBackfillProgress | null {
-  if (!host.ready) return null;
-  return host.timed('getStreamBackfillProgress', () => ffiGetStreamBackfillProgress());
 }

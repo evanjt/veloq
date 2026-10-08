@@ -101,6 +101,128 @@ fn day_load(date: &str, loads: &[Option<f64>]) -> crate::FfiDayLoad {
     }
 }
 
+/// One effort over a section or a route: its time, its average heart rate,
+/// the distance it covered and the day it was taken.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Effort {
+    pub(crate) time_secs: f64,
+    pub(crate) avg_hr: f64,
+    pub(crate) distance_meters: f64,
+    pub(crate) date: i64,
+}
+
+/// Aerobic efficiency over one sport's efforts on one piece of ground: heart
+/// rate per unit of speed for each effort, oldest first, and its regression.
+///
+/// A section hands in its complete traversals and a route its counted
+/// attempts, so the two pages draw one series by one rule. Fewer than three
+/// efforts with a plausible pace is no trend.
+pub(crate) fn efficiency_trend(
+    subject_id: &str,
+    sport_type: &str,
+    subject_name: &str,
+    efforts: &[Effort],
+) -> Option<crate::FfiEfficiencyTrend> {
+    // Need at least 3 data points for a meaningful trend
+    if efforts.len() < 3 {
+        return None;
+    }
+
+    // Build efficiency points
+    let mut points: Vec<crate::FfiEfficiencyPoint> = efforts
+        .iter()
+        .filter_map(|effort| {
+            // Pace over the distance the effort covered
+            let distance_km = effort.distance_meters / 1000.0;
+            if distance_km <= 0.0 {
+                return None;
+            }
+            let pace_secs_per_km = effort.time_secs / distance_km;
+            // Sanity check: pace should be reasonable (1 min/km to 30 min/km)
+            if !(60.0..=1800.0).contains(&pace_secs_per_km) {
+                return None;
+            }
+            // Heart rate per unit of speed. Dividing by seconds per km
+            // had pace the wrong way up: a slower effort carries more
+            // seconds per km, so the same heart rate over a slower effort
+            // read as a lower cost and the card called it an adaptation.
+            let hr_pace_ratio = effort.avg_hr * pace_secs_per_km;
+            Some(crate::FfiEfficiencyPoint {
+                date: effort.date as f64,
+                pace_secs_per_km,
+                avg_hr: effort.avg_hr,
+                hr_pace_ratio,
+            })
+        })
+        .collect();
+
+    if points.len() < 3 {
+        return None;
+    }
+    points.sort_by(|a, b| a.date.total_cmp(&b.date));
+
+    // Linear regression on hr_pace_ratio over time
+    // x = days since first effort, y = hr_pace_ratio
+    let first_date = points[0].date;
+    let regression_points: Vec<(f64, f64)> = points
+        .iter()
+        .map(|p| {
+            let days = (p.date - first_date) / 86400.0;
+            (days, p.hr_pace_ratio)
+        })
+        .collect();
+
+    let (slope, _intercept) = linear_regression(&regression_points);
+
+    // Time range in days
+    let time_range_days = regression_points.last().map(|(x, _)| *x).unwrap_or(0.0);
+
+    // The ratio is heart rate times seconds per km, so heart rate at a
+    // given pace is the ratio divided by it: at the mean pace, HR change
+    // is slope / mean_pace over the window. It is the ratio's own movement
+    // restated in beats, not a measured heart rate delta, so an effort set
+    // that only changed pace still moves it. A card states the direction
+    // of this modelled change after the regression clears its threshold.
+    let mean_pace: f64 =
+        points.iter().map(|p| p.pace_secs_per_km).sum::<f64>() / points.len() as f64;
+    let hr_change_bpm = slope * time_range_days / mean_pace;
+
+    // Improving when the cost of a given speed is falling by a fifth of a
+    // percent a day, which is the rate the old absolute -0.001 stood for
+    // on the ratio it was written against: a heart rate of 150 over 300
+    // seconds per km gave 0.5, and -0.001 of that is -0.2% a day.
+    const IMPROVING_FRACTION_PER_DAY: f64 = 0.002;
+    let mean_ratio: f64 = points.iter().map(|p| p.hr_pace_ratio).sum::<f64>() / points.len() as f64;
+    let direction = if slope < -IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
+        crate::EfficiencyDirection::Improving
+    } else if slope > IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
+        crate::EfficiencyDirection::Worsening
+    } else {
+        crate::EfficiencyDirection::Flat
+    };
+
+    // The newest matched effort against the mean of the series it belongs
+    // to. One ratio per effort is the only spread there is, and the ranker
+    // reads the distance rather than the ratios.
+    let effort_count = points.len() as u32;
+    let ratios: Vec<f64> = points.iter().map(|p| p.hr_pace_ratio).collect();
+    let signal_delta = crate::signal::mean(&ratios).and_then(|mean| {
+        crate::signal::signal_delta(*ratios.last().expect("points is not empty"), mean, &ratios)
+    });
+
+    Some(crate::FfiEfficiencyTrend {
+        section_id: subject_id.to_string(),
+        sport_type: sport_type.to_string(),
+        section_name: subject_name.to_string(),
+        points,
+        trend_slope: slope,
+        direction,
+        hr_change_bpm,
+        effort_count,
+        signal_delta,
+    })
+}
+
 pub(crate) mod pooled {
 
     /// The efficiency trend for one section, with its name and length handed
@@ -113,10 +235,7 @@ pub(crate) mod pooled {
         section_name: &str,
         section_distance_meters: f64,
     ) -> Option<crate::FfiEfficiencyTrend> {
-        let section_name = section_name.to_string();
-        let section_distance_km = section_distance_meters / 1000.0;
-
-        if section_distance_km <= 0.0 {
+        if section_distance_meters <= 0.0 {
             return None;
         }
 
@@ -150,17 +269,10 @@ pub(crate) mod pooled {
             })
             .ok()?;
 
-        struct EffortRow {
-            lap_time: f64,
-            avg_hr: f64,
-            distance_meters: f64,
-            date: i64,
-        }
-
-        let rows: Vec<EffortRow> = stmt
+        let rows: Vec<super::Effort> = stmt
             .query_map(rusqlite::params![section_id, sport_type], |row| {
-                Ok(EffortRow {
-                    lap_time: row.get(0)?,
+                Ok(super::Effort {
+                    time_secs: row.get(0)?,
                     avg_hr: row.get(1)?,
                     distance_meters: row.get(2)?,
                     date: row.get(3)?,
@@ -180,105 +292,9 @@ pub(crate) mod pooled {
             })
             .collect();
 
-        // Need at least 3 data points for a meaningful trend
-        if rows.len() < 3 {
-            return None;
-        }
-
-        // Build efficiency points
-        let points: Vec<crate::FfiEfficiencyPoint> = rows
-            .iter()
-            .filter_map(|row| {
-                // Use actual traversal distance for pace calculation
-                let distance_km = row.distance_meters / 1000.0;
-                if distance_km <= 0.0 {
-                    return None;
-                }
-                let pace_secs_per_km = row.lap_time / distance_km;
-                // Sanity check: pace should be reasonable (1 min/km to 30 min/km)
-                if !(60.0..=1800.0).contains(&pace_secs_per_km) {
-                    return None;
-                }
-                // Heart rate per unit of speed. Dividing by seconds per km
-                // had pace the wrong way up: a slower effort carries more
-                // seconds per km, so the same heart rate over a slower effort
-                // read as a lower cost and the card called it an adaptation.
-                let hr_pace_ratio = row.avg_hr * pace_secs_per_km;
-                Some(crate::FfiEfficiencyPoint {
-                    date: row.date as f64,
-                    pace_secs_per_km,
-                    avg_hr: row.avg_hr,
-                    hr_pace_ratio,
-                })
-            })
-            .collect();
-
-        if points.len() < 3 {
-            return None;
-        }
-
-        // Linear regression on hr_pace_ratio over time
-        // x = days since first effort, y = hr_pace_ratio
-        let first_date = points[0].date;
-        let regression_points: Vec<(f64, f64)> = points
-            .iter()
-            .map(|p| {
-                let days = (p.date - first_date) / 86400.0;
-                (days, p.hr_pace_ratio)
-            })
-            .collect();
-
-        let (slope, _intercept) = super::linear_regression(&regression_points);
-
-        // Time range in days
-        let time_range_days = regression_points.last().map(|(x, _)| *x).unwrap_or(0.0);
-
-        // The ratio is heart rate times seconds per km, so heart rate at a
-        // given pace is the ratio divided by it: at the mean pace, HR change
-        // is slope / mean_pace over the window. It is the ratio's own movement
-        // restated in beats, not a measured heart rate delta, so an effort set
-        // that only changed pace still moves it. A card states the direction
-        // of this modelled change after the regression clears its threshold.
-        let mean_pace: f64 =
-            points.iter().map(|p| p.pace_secs_per_km).sum::<f64>() / points.len() as f64;
-        let hr_change_bpm = slope * time_range_days / mean_pace;
-
-        // Improving when the cost of a given speed is falling by a fifth of a
-        // percent a day, which is the rate the old absolute -0.001 stood for
-        // on the ratio it was written against: a heart rate of 150 over 300
-        // seconds per km gave 0.5, and -0.001 of that is -0.2% a day.
-        const IMPROVING_FRACTION_PER_DAY: f64 = 0.002;
-        let mean_ratio: f64 =
-            points.iter().map(|p| p.hr_pace_ratio).sum::<f64>() / points.len() as f64;
-        let direction = if slope < -IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
-            crate::EfficiencyDirection::Improving
-        } else if slope > IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
-            crate::EfficiencyDirection::Worsening
-        } else {
-            crate::EfficiencyDirection::Flat
-        };
-
-        // The newest matched effort against the mean of the series it belongs
-        // to. One ratio per effort is the only spread there is, and the ranker
-        // reads the distance rather than the ratios.
-        let effort_count = points.len() as u32;
-        let ratios: Vec<f64> = points.iter().map(|p| p.hr_pace_ratio).collect();
-        let signal_delta = crate::signal::mean(&ratios).and_then(|mean| {
-            crate::signal::signal_delta(*ratios.last().expect("points is not empty"), mean, &ratios)
-        });
-
-        Some(crate::FfiEfficiencyTrend {
-            section_id: section_id.to_string(),
-            sport_type: sport_type.to_string(),
-            section_name,
-            points,
-            trend_slope: slope,
-            direction,
-            hr_change_bpm,
-            effort_count,
-            signal_delta,
-        })
+        super::efficiency_trend(section_id, sport_type, section_name, &rows)
     }
+
     use std::collections::HashSet;
 
     /// Every section this activity traversed, with the history each traversal
@@ -423,10 +439,6 @@ pub(crate) mod pooled {
 
             let mut history_times: Vec<f64> = Vec::new();
             let mut history_ids: Vec<String> = Vec::new();
-            // The best of the outings other than this one. This activity's own
-            // rows are excluded rather than merely out-competed, so a lapped
-            // session cannot manufacture a record against its own laps.
-            let mut rival: Option<f64> = None;
 
             if trav.direction != "partial" {
                 let mut hist_stmt = match conn.prepare(&history_query) {
@@ -438,9 +450,6 @@ pub(crate) mod pooled {
                     |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
                 ) {
                     for row in rows.flatten() {
-                        if row.1 != activity_id && rival.is_none_or(|r| row.0 < r) {
-                            rival = Some(row.0);
-                        }
                         history_times.push(row.0);
                         history_ids.push(row.1);
                     }
@@ -459,7 +468,17 @@ pub(crate) mod pooled {
             } else {
                 None
             };
-            let is_pr = rank == Some(1);
+            // This activity's own rows are not its rivals, so a lapped session
+            // cannot manufacture a record against its own laps, nor lose one.
+            let is_pr = trav.complete
+                && crate::persistence::records::holds_section_record(
+                    trav.lap_time,
+                    activity_id,
+                    history_ids
+                        .iter()
+                        .map(String::as_str)
+                        .zip(history_times.iter().copied()),
+                );
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
@@ -2006,7 +2025,7 @@ pub(crate) fn calendar_from(
         })
         .collect();
 
-    // Overall PRs by direction
+    // Overall counts and PRs by direction
     let fwd_total: u32 = all_perfs
         .iter()
         .filter(|p| !p.is_reverse)
@@ -2018,16 +2037,16 @@ pub(crate) fn calendar_from(
         .map(|p| p.laps)
         .sum();
 
-    let forward_pr = all_perfs.iter().filter(|p| !p.is_reverse).min_by(|a, b| {
-        a.best_time
-            .partial_cmp(&b.best_time)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let reverse_pr = all_perfs.iter().filter(|p| p.is_reverse).min_by(|a, b| {
-        a.best_time
-            .partial_cmp(&b.best_time)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    // The trophy is the section record's, so a tie, a lone outing or a
+    // direction nobody has beaten carries none.
+    let record_holder = |reverse: bool| {
+        let (holder, _) = crate::persistence::records::section_record_lap(perf_result, reverse)?;
+        all_perfs
+            .iter()
+            .find(|p| p.is_reverse == reverse && p.activity_id == holder.activity_id)
+    };
+    let forward_pr = record_holder(false);
+    let reverse_pr = record_holder(true);
 
     let result = crate::CalendarSummary {
         years,
@@ -2793,7 +2812,8 @@ mod tests {
     /// Scenario: one March ride laps a circuit section three times forward.
     ///
     /// Expected behaviour: the calendar counts three traversals from one
-    /// activity, not one.
+    /// activity, not one, and the outing has beaten nobody, so it carries no
+    /// trophy.
     #[test]
     fn a_three_lap_ride_is_three_traversals_from_one_activity() {
         let summary = calendar(vec![record(
@@ -2815,7 +2835,7 @@ mod tests {
         assert_eq!(year.traversal_count, 3);
         assert_eq!(year.forward.as_ref().map(|f| f.count), Some(3));
         assert_eq!(year.activity_count, 1);
-        assert_eq!(summary.forward_pr.as_ref().map(|f| f.count), Some(3));
+        assert!(summary.forward_pr.is_none());
         assert_eq!(month.forward.as_ref().map(|f| f.best_time), Some(380.0));
     }
 

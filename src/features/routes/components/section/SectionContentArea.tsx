@@ -5,7 +5,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { SectionPerformanceSection, type SectionStreamsState } from './SectionPerformanceSection';
+import {
+  SectionPerformanceSection,
+  type PerformanceSubject,
+  type SectionStreamsState,
+} from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
@@ -21,21 +25,27 @@ import type {
   FfiSectionTrendCurves,
   MergeCandidate,
 } from 'veloqrs';
-import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
+import type { DirectionStats, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
-  /** The screen bundle's efficiency trend, passed to the card. */
+  /** What the attempts are of, a section unless said otherwise. */
+  subject?: PerformanceSubject | undefined;
+  /** The performance read's efficiency trend for the sport on screen. */
   efficiencyTrend?: EfficiencyTrend | null | undefined;
   /** The engine's wellness correlations for the range and sport on screen. */
   correlations: FfiSectionCorrelation[];
   /** The pairs the engine required before a correlation carries a figure. */
   correlationFloor: number;
-  section: FrequentSection;
-  isSectionDisabled: boolean;
-  mergeCandidates: MergeCandidate[];
+  /** The section is removed; with `onToggleDisable`, a banner offers it back. */
+  isSectionDisabled?: boolean | undefined;
+  /** Sections close enough to merge; with `onMergePress`, a banner opens them. */
+  mergeCandidates?: MergeCandidate[] | undefined;
   combinedChartData: (PerformanceDataPoint & { x: number })[];
+  /** The oldest and newest included attempt in the range, as the engine dates them. */
+  firstActivityDate: Date | null;
+  lastActivityDate: Date | null;
   /** The engine's trend curves for the range and sport on screen. */
   trendCurves: FfiSectionTrendCurves;
   /** The engine's attempt-time bins for the range and sport on screen. */
@@ -68,8 +78,8 @@ export interface SectionContentAreaProps {
   onSetAsReference: (activityId: string) => void;
   onToggleShowExcluded: () => void;
   onTimeRangeChange: (range: SectionTimeRange) => void;
-  onToggleDisable: () => void;
-  onMergePress: () => void;
+  onToggleDisable?: (() => void) | undefined;
+  onMergePress?: (() => void) | undefined;
   /** The state of the time streams the lap times wait on. */
   streams?: SectionStreamsState | undefined;
   /** Rows that open the supporting detail pages. */
@@ -78,13 +88,15 @@ export interface SectionContentAreaProps {
 
 export function SectionContentArea({
   isDark,
+  subject = 'section',
   efficiencyTrend,
   correlations,
   correlationFloor,
-  section,
-  isSectionDisabled,
+  isSectionDisabled = false,
   mergeCandidates,
   combinedChartData,
+  firstActivityDate,
+  lastActivityDate,
   trendCurves,
   histograms,
   curves,
@@ -120,7 +132,7 @@ export function SectionContentArea({
   return (
     <View style={styles.contentSection}>
       {/* Disabled banner */}
-      {isSectionDisabled && (
+      {isSectionDisabled && onToggleDisable && (
         <Pressable
           style={pressable([styles.disabledBanner, isDark && styles.disabledBannerDark])}
           accessibilityRole="button"
@@ -145,7 +157,7 @@ export function SectionContentArea({
       )}
 
       {/* Merge candidates banner */}
-      {mergeCandidates.length > 0 && (
+      {mergeCandidates && mergeCandidates.length > 0 && onMergePress && (
         <Pressable
           style={pressable([styles.mergeBanner, isDark && styles.mergeBannerDark])}
           accessibilityRole="button"
@@ -169,6 +181,7 @@ export function SectionContentArea({
 
       {/* Performance chart with eye toggle */}
       <SectionPerformanceSection
+        subject={subject}
         isDark={isDark}
         sportType={effectiveSportType}
         chartData={combinedChartData}
@@ -198,7 +211,8 @@ export function SectionContentArea({
 
       {/* Summary card */}
       <SectionInfoCard
-        chartData={combinedChartData}
+        firstActivityDate={firstActivityDate}
+        lastActivityDate={lastActivityDate}
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
         forwardStats={forwardStats}
@@ -210,12 +224,7 @@ export function SectionContentArea({
       />
 
       {/* Aerobic efficiency across matched efforts, when the engine has it */}
-      <SectionEfficiencyCard
-        sectionId={section.id}
-        sportType={effectiveSportType}
-        isDark={isDark}
-        bundledTrend={efficiencyTrend}
-      />
+      <SectionEfficiencyCard trend={efficiencyTrend} isDark={isDark} />
 
       <SectionCorrelationCard
         correlations={correlations}

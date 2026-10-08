@@ -13,7 +13,7 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionFilter;
 use veloqrs::objects::sections::SectionManager;
-use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work;
 use veloqrs::persistence::with_persistent_engine;
 
 const NAMED: &str = "Col des Planches";
@@ -91,7 +91,9 @@ fn seed(dir: &TempDir) {
     .expect("insert the members");
     drop(raw);
 
-    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    assert!(persistent_engine_init_without_owed_work(
+        path.to_str().unwrap().to_string()
+    ));
 }
 
 fn seed_overlapping_auto_sections(
@@ -136,7 +138,9 @@ fn seed_overlapping_auto_sections(
     .expect("insert named trunk");
     drop(raw);
 
-    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    assert!(persistent_engine_init_without_owed_work(
+        path.to_str().unwrap().to_string()
+    ));
 }
 
 fn summary_name(id: &str) -> Option<String> {
@@ -256,7 +260,7 @@ fn the_name_survives_a_relaunch() {
     seed(&dir);
     name_it("s_auto", Some(NAMED));
 
-    assert!(persistent_engine_init(
+    assert!(persistent_engine_init_without_owed_work(
         dir.path().join("filter.db").to_str().unwrap().to_string()
     ));
 

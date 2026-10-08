@@ -8,8 +8,8 @@
  */
 
 import type { DelegateHost } from './host';
+import { FfiPlaceNameKind, FfiPlaceNameOutcome } from '../generated/veloqrs';
 import type {
-  FfiNotificationTemplates,
   SettingPair,
   SuggestedHome as FfiSuggestedHome,
   ExportPrivacyPreview as FfiExportPrivacyPreview,
@@ -170,6 +170,28 @@ export function setGeocodingEnabled(host: DelegateHost, enabled: boolean): void 
 }
 
 /**
+ * Name one route or section from the places it starts and ends in, because
+ * the athlete asked for it. Resolves once the lookup has had its turn, and a
+ * name kept is announced so the detail read shows it.
+ */
+export function nameFromPlaces(
+  host: DelegateHost,
+  kind: FfiPlaceNameKind,
+  itemId: string
+): Promise<FfiPlaceNameOutcome> {
+  if (!host.ready) return Promise.resolve(FfiPlaceNameOutcome.Failed);
+  return host.engine
+    .settings()
+    .nameFromPlaces(kind, itemId)
+    .then((outcome) => {
+      if (outcome === FfiPlaceNameOutcome.Named) {
+        host.notify(kind === FfiPlaceNameKind.Route ? 'groups' : 'sections');
+      }
+      return outcome;
+    });
+}
+
+/**
  * Write several settings in one transaction, skipping each pair whose value
  * is already stored. A batch written before the engine opens is held and
  * replayed at `initWithPath`, like every other write here. One commit is two
@@ -210,15 +232,6 @@ export function setNotificationTemplates(
     // A stored bundle that stays one locale behind beats a throw on launch.
     return false;
   }
-}
-
-/** The templates the last push left, or undefined before any push. */
-export function notificationTemplates(host: DelegateHost): FfiNotificationTemplates | undefined {
-  if (!host.ready) return undefined;
-  return (
-    host.timed('notificationTemplates', () => host.engine.settings().notificationTemplates()) ??
-    undefined
-  );
 }
 
 /**

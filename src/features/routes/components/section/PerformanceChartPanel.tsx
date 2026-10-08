@@ -64,6 +64,8 @@ export function PerformanceChartPanel({
     highlightedActivityId,
     bestForwardRecord,
     bestReverseRecord,
+    bestForwardIsRecord,
+    bestReverseIsRecord,
     onActivitySelect,
   } = scatterProps;
   const { t } = useTranslation();
@@ -109,6 +111,7 @@ export function PerformanceChartPanel({
       (point.direction === 'reverse' ? 'reverse' : 'forward') === direction
   )?.sectionTime;
   const recordTime = (direction === 'reverse' ? bestReverseRecord : bestForwardRecord)?.bestTime;
+  const recordHeld = direction === 'reverse' ? bestReverseIsRecord : bestForwardIsRecord;
   const activityColor = isDark ? darkColors.primary : colors.primary;
 
   const deltaLap =
@@ -179,6 +182,7 @@ export function PerformanceChartPanel({
           useTimeAxis={useTimeAxis}
           highlightedTime={highlightedTime}
           recordTime={recordTime}
+          recordHeld={recordHeld}
         />
       ) : (
         <>

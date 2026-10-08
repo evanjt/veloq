@@ -823,14 +823,28 @@ const CONTRACTS: Contract[] = [
     },
     b: { file: 'widget/ios/VeloqWidget/VeloqWidget.swift', has: 'let kind = "VeloqRecordWidget"' },
   },
+  // OpenURLIntent opens universal links only, and the record links are on the
+  // app's own scheme: an intent that returned one brought Veloq forward and
+  // dropped the link, so the Control and Siri landed on the Feed.
+  ...[
+    'widget/ios/shared/VeloqAppShortcuts.swift',
+    'widget/ios/shared/StartRecordingIntent.swift',
+    'widget/ios/VeloqWidget/RecordControl.swift',
+  ].map((file) => ({
+    agree: `${path.basename(file)} hands the record link to the app rather than to OpenURLIntent`,
+    a: { file, lacks: 'OpenURLIntent(' },
+    b: { file: 'widget/ios/shared/RecordDeepLink.swift' },
+  })),
   {
-    agree:
-      'below iOS 18 the Siri intent opens the record link in the running app rather than returning a bare result',
+    agree: 'the app opens the record link itself, so it lands where a widget tap does',
     a: {
       file: 'widget/ios/shared/VeloqAppShortcuts.swift',
-      has: /await UIApplication\.shared\.open\(url\)\s*return \.result\(\)/,
+      has: /enum RecordLinkOpener[\s\S]*await UIApplication\.shared\.open\(url\)/,
     },
-    b: { file: 'widget/ios/shared/RecordDeepLink.swift' },
+    b: {
+      file: 'widget/ios/shared/StartRecordingIntent.swift',
+      has: 'RecordLinkOpener.open(',
+    },
   },
   {
     agree:
@@ -981,9 +995,16 @@ function snapshotKeys(): string[] {
 /** Every key the engine's composer translates, the five form zones spelt out. */
 function widgetKeysTranslated(): string[] {
   const rust = read(WIDGET_RS);
-  const keys = [...rust.matchAll(/translate\(ctx, "([\w.]+)"\)/g)].map((m) => m[1]);
+  const keys = [...rust.matchAll(/(?:translate|phrase|fill)\(\s*ctx,\s*"([\w.]+)"/g)].map(
+    (m) => m[1]
+  );
   const zones = [...rust.matchAll(/^\s*"(highRisk|optimal|greyZone|fresh|transition)"/gm)];
-  return [...keys, ...zones.map((m) => `formZones.${m[1]}`)];
+  const setCounts = [...rust.matchAll(/"(strength\.setsCount_\w+)"/g)].map((m) => m[1]);
+  // The composer names a muscle under its slug camel-cased, `lower-back` as `lowerBack`.
+  const muscles = muscleSlugsInRust().map(
+    (slug) => `strength.muscles.${slug.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`
+  );
+  return [...keys, ...zones.map((m) => `formZones.${m[1]}`), ...setCounts, ...muscles];
 }
 
 const liveState = buildContentState({
@@ -1063,6 +1084,28 @@ function iosInsightKinds(): { model: string[]; picker: string[] } {
         /^\s*case \w+ = "([a-z_]+)"/gm
       ),
     ].map((m) => m[1]),
+  };
+}
+
+/** The strength windows the engine writes, by their snapshot keys. */
+function engineStrengthWindows(): string[] {
+  const block = /pub struct StrengthWindows \{([^}]*)\}/.exec(
+    read('modules/veloqrs/rust/veloqrs/src/widget_snapshot.rs')
+  );
+  return [...(block?.[1] ?? '').matchAll(/pub (\w+):/g)].map((m) => m[1]);
+}
+
+/** The strength windows the iOS widget reads, in its model and in its Edit Widget picker. */
+function iosStrengthWindows(): { model: string[]; picker: string[] } {
+  const cases = (file: string, type: string) => {
+    const block = new RegExp(`enum ${type}: String[^{]*\\{([^}]*)`).exec(
+      read(`widget/ios/VeloqWidget/${file}`)
+    );
+    return [...(block?.[1] ?? '').matchAll(/^\s*case (\w+)$/gm)].map((m) => m[1]);
+  };
+  return {
+    model: cases('StrengthWidgetModel.swift', 'StrengthWindowChoice'),
+    picker: cases('WidgetStrengthIntent.swift', 'StrengthPeriod'),
   };
 }
 
@@ -1309,6 +1352,20 @@ const SETS: SetContract[] = [
     b: insightCategories,
   },
   {
+    agree: 'the windows the iOS Strength widget reads are the windows the engine writes',
+    mode: 'equal',
+    atLeast: 2,
+    a: () => iosStrengthWindows().model,
+    b: engineStrengthWindows,
+  },
+  {
+    agree: 'the periods the iOS Strength widget offers in Edit Widget are the windows it reads',
+    mode: 'equal',
+    atLeast: 2,
+    a: () => iosStrengthWindows().picker,
+    b: () => iosStrengthWindows().model,
+  },
+  {
     agree: 'every category the app ranks has a name in the Android Insights picker',
     mode: 'within',
     atLeast: 11,
@@ -1370,6 +1427,8 @@ const SETS: SetContract[] = [
     [
       ['FfiCallKind', stub.CallKind],
       ['FfiUploadOutcome', stub.UploadOutcome],
+      ['FfiPlaceNameKind', stub.PlaceNameKind],
+      ['FfiPlaceNameOutcome', stub.PlaceNameOutcome],
       ['SyncState', stub.SyncState],
       ['RangeCoverage', stub.RangeCoverage],
       ['FfiSyncErrorReason', stub.SyncErrorReason],

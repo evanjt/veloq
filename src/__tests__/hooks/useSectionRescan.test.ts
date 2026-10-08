@@ -46,7 +46,6 @@ function engineWith(overrides: Record<string, unknown> = {}) {
     }),
     pollSectionDetection: jest.fn(() => 'idle'),
     pollSectionDetectionRun: jest.fn((_runId: string) => '1:idle'),
-    lastSectionDetectionOutcome: jest.fn(() => 'idle'),
     getSectionDetectionProgress: jest.fn(() => null),
     getSectionCount: jest.fn(() => 7),
     startSectionDetection: jest.fn(() => StartOutcome.Started),
@@ -189,7 +188,6 @@ describe('adopting a detect that is already running', () => {
     const engine = engineWith({
       pollSectionDetection: poll,
       getSectionDetectionProgress: getProgress,
-      lastSectionDetectionOutcome: jest.fn(() => 'error'),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 

@@ -52,7 +52,10 @@ import {
   emitSnapshotComplete,
   emitSnapshotFailed,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import {
+  buildRecycleSnapshotMapScript,
+  buildSnapshotWorkerHtml,
+} from '@/features/maps/lib/htmlBuilders';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -92,6 +95,17 @@ const RETRY_DELAY_MS = 2000;
  */
 const TILE_THROTTLE_BACKOFF_MS = 30000;
 const MAX_TILE_THROTTLE_BACKOFF_MS = 300000;
+
+/**
+ * How long the pool sits idle before each worker that drew gets a fresh map.
+ *
+ * A worker map holds the GPU state of every style it has drawn until it is
+ * removed, and the pool lives as long as the feed, so a scrolled feed kept
+ * about 50 MB of GPU driver memory for the rest of the session. A rebuild costs
+ * the next render its style load, so it waits out a scroll's burst of requests
+ * rather than running between two of them.
+ */
+const RECYCLE_IDLE_MS = 10000;
 
 /**
  * The drape, its flat stand-in and the selected flat basemap have separate
@@ -298,6 +312,7 @@ export const TerrainSnapshotWebView = forwardRef<
   // One timer for the earliest retry still waiting out its delay, and when.
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryWakeAtRef = useRef(0);
+  const recycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set on unmount. A timer or a save that outlives the pool must not render,
   // and above all must not fail a card: failures are keyed by activity alone,
   // so they reach the cards of whichever pool is mounted next.
@@ -431,6 +446,36 @@ export const TerrainSnapshotWebView = forwardRef<
       processNextRef.current?.();
     }, earliest - now);
   }, []);
+
+  // Rebuilds the map of every idle worker that has drawn since its map was
+  // built. A worker is not ready again until its new map says so, so nothing is
+  // assigned to a map mid-rebuild.
+  const recycleIdleWorkers = useCallback(() => {
+    recycleTimerRef.current = null;
+    if (disposedRef.current) return;
+    if (queueRef.current.length > 0 || workers.some((w) => w.processingRef.current)) return;
+    for (const worker of workers) {
+      if (!worker.lastRenderRef.current || !worker.mapReadyRef.current) continue;
+      traceRef.current.record({ kind: 'recycle', workerId: worker.id }, Date.now());
+      worker.mapReadyRef.current = false;
+      worker.lastRenderRef.current = null;
+      worker.mountedAtRef.current = Date.now();
+      worker.webViewRef.current?.injectJavaScript(buildRecycleSnapshotMapScript());
+    }
+  }, [workers]);
+
+  // Restarts the idle countdown whenever the pool settles with nothing to do,
+  // and stops it whenever there is work.
+  const armRecycle = useCallback(() => {
+    if (recycleTimerRef.current) {
+      clearTimeout(recycleTimerRef.current);
+      recycleTimerRef.current = null;
+    }
+    if (disposedRef.current) return;
+    if (queueRef.current.length > 0 || workers.some((w) => w.processingRef.current)) return;
+    if (!workers.some((w) => w.lastRenderRef.current)) return;
+    recycleTimerRef.current = setTimeout(recycleIdleWorkers, RECYCLE_IDLE_MS);
+  }, [workers, recycleIdleWorkers]);
 
   // A killed WebView renderer (Android reclaims background webview processes)
   // would otherwise leave the worker permanently dead: mapReady never re-fires,
@@ -615,7 +660,8 @@ export const TerrainSnapshotWebView = forwardRef<
       }, SNAPSHOT_TIMEOUT_MS);
     }
     armRetryWake();
-  }, [workers, updateWatchdog, armRetryWake, trace]);
+    armRecycle();
+  }, [workers, updateWatchdog, armRetryWake, armRecycle, trace]);
   processNextRef.current = processNext;
 
   const requestSnapshot = useCallback(
@@ -982,6 +1028,10 @@ export const TerrainSnapshotWebView = forwardRef<
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
+      }
+      if (recycleTimerRef.current) {
+        clearTimeout(recycleTimerRef.current);
+        recycleTimerRef.current = null;
       }
       for (const worker of workers) {
         if (worker.timeoutRef.current) {

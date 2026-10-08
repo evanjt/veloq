@@ -1295,6 +1295,10 @@
     "noSectionsMatchFilter": "フィルターに一致する区間がありません",
     "placeJourney": "{{start}}から{{end}}",
     "placeLoop": "{{place}}周回",
+    "placeNameButton": "地名で名前を付ける",
+    "placeNameFailedMessage": "地名を検索できなかったため、名前は変更されていません。後でもう一度お試しください。",
+    "placeNameFailedTitle": "地名がありません",
+    "placeNameNoPlaceMessage": "開始地点に地名が見つからなかったため、名前は変更されていません。",
     "pointCountHint_one": "{{count}} GPSポイント",
     "pointCountHint_other": "{{count}} GPSポイント",
     "renameFailedTitle": "名前を保存できませんでした",
@@ -1635,7 +1639,7 @@
       "title": "地名",
       "attribution": "地名 © OpenStreetMap contributors",
       "noticeTitle": "地名を使用しますか?",
-      "noticeBody": "新しいルートまたはセクションが見つかると、その開始地点と終了地点が地名の検索のために OpenStreetMap の Nominatim サービスに送信されます。既存のルートやセクション、あなたに関する情報は送信されません。サービスの利用ポリシーが適用されます。",
+      "noticeBody": "新しいルートまたはセクションが見つかったとき、または名前を付けるよう依頼したとき、その開始地点と終了地点が地名の検索のために OpenStreetMap の Nominatim サービスに送信されます。それ以外のルートやセクション、あなたに関する情報は送信されません。サービスの利用ポリシーが適用されます。",
       "readPolicy": "利用ポリシー",
       "accept": "同意する"
     },
@@ -1999,6 +2003,7 @@
     "setColumn": "セット",
     "snapshot": "筋力スナップショット",
     "noWorkouts": "直近{{period}}に筋力トレーニングがありません",
+    "noWorkoutsThisMonth": "今月は筋力トレーニングがありません",
     "noWorkoutsHint": "筋力トレーニングを完了すると、筋肉群の内訳がここに表示されます",
     "notDownloaded": "筋力トレーニングはまだダウンロードされていません",
     "notDownloadedHint": "セットのデータはワークアウトファイルと一緒に届きます。接続してダウンロードしてください。",
@@ -2274,6 +2279,8 @@
     "insightsMore": "ほか{{rest}}件",
     "insightKinds": "種類",
     "insightKindsDescription": "ウィジェットに表示するインサイトの種類を選択します。未選択の場合はすべての種類を表示します。",
+    "strengthDescription": "筋肉ごとのトレーニング負荷を体の図で表示します。",
+    "strengthWindowDescription": "ウィジェットに表示する期間を選択します。",
     "insightKind": {
       "sectionPr": "セクションのPR",
       "sectionTrend": "区間の推移",
@@ -2287,6 +2294,9 @@
       "efficiencyTrend": "効率の推移",
       "sectionChanged": "変更された区間"
     },
+    "strengthDescription": "トレーニングした筋肉をセット数で色分けします。",
+    "strengthPeriod": "期間",
+    "strengthPeriodDescription": "ウィジェットで色分けする期間を選択します。",
     "latest": {
       "rank": "{{total}} 回中 {{rank}} 位",
       "fastest": "自己最速",

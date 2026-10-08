@@ -10,8 +10,6 @@ import {
   startElevationBackfill as ffiStartElevationBackfill,
   pauseElevationBackfill as ffiPauseElevationBackfill,
   resumeElevationBackfill as ffiResumeElevationBackfill,
-  isElevationBackfillPaused as ffiIsElevationBackfillPaused,
-  getElevationBackfillProgress as ffiGetElevationBackfillProgress,
   getElevationBackfillRemaining as ffiGetElevationBackfillRemaining,
   type ElevationBackfillProgress,
   FfiStartOutcome,
@@ -80,21 +78,6 @@ export function resumeElevationBackfill(host: DelegateHost): boolean {
 }
 
 /**
- * Whether the athlete has paused the download in this process. The phase
- * carries the same fact while it is at rest, but a pass that ends after a
- * pause overwrites it, so this is the one that stays true.
- */
-export function isElevationBackfillPaused(host: DelegateHost): boolean {
-  if (!host.ready) return false;
-  try {
-    return host.timed('isElevationBackfillPaused', () => ffiIsElevationBackfillPaused());
-  } catch (e) {
-    console.error('[Engine] isElevationBackfillPaused threw:', e);
-    return false;
-  }
-}
-
-/**
  * How many stored tracks the backfill still has to ask upstream about. Zero
  * is the definitive "nothing left to do" the launch trigger stamps on, so an
  * engine that is not ready answers null, never zero. Rust raises rather than
@@ -103,10 +86,4 @@ export function isElevationBackfillPaused(host: DelegateHost): boolean {
 export function getElevationBackfillRemaining(host: DelegateHost): number | null {
   if (!host.ready) return null;
   return host.timed('getElevationBackfillRemaining', () => ffiGetElevationBackfillRemaining());
-}
-
-/** Read the backfill's progress. Null when the engine is not ready. */
-export function getElevationBackfillProgress(host: DelegateHost): ElevationBackfillProgress | null {
-  if (!host.ready) return null;
-  return host.timed('getElevationBackfillProgress', () => ffiGetElevationBackfillProgress());
 }

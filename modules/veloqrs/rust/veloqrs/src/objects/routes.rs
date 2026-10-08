@@ -165,10 +165,6 @@ impl RouteManager {
         })?
     }
 
-    fn get_all_names(&self) -> Result<std::collections::HashMap<String, String>, VeloqError> {
-        with_reader(crate::persistence::routes::pooled::all_route_names)
-    }
-
     fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         // No indicator rebuild: the flag lands on `activity_matches` and the
         // indicator table holds section rows read from `section_activities`,
@@ -186,36 +182,6 @@ impl RouteManager {
             e.include_activity_in_route(&route_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
-    }
-
-    fn get_excluded_activities(&self, route_id: String) -> Result<Vec<String>, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::routes::pooled::excluded_route_activity_ids(conn, &route_id)
-        })
-    }
-
-    fn get_excluded_performances(
-        &self,
-        route_id: String,
-        sport_type: Option<String>,
-    ) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
-        with_reader(|conn| {
-            crate::FfiRoutePerformanceResult::from(
-                crate::persistence::fitness::performances::excluded_route_performances_of(
-                    conn,
-                    &route_id,
-                    sport_type.as_deref(),
-                ),
-            )
-        })
-    }
-
-    /// Batch-query route highlights (PRs and trends) for a list of activity IDs.
-    fn get_activity_route_highlights(
-        &self,
-        activity_ids: Vec<String>,
-    ) -> Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError> {
-        with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
 
     /// Everything the route detail screen paints with: engine counts, the
@@ -298,12 +264,17 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-        assert!(routes.get_all_names().unwrap().is_empty());
         assert!(
-            routes
-                .get_excluded_activities("g1".into())
+            with_reader(crate::persistence::routes::pooled::all_route_names)
                 .unwrap()
                 .is_empty()
+        );
+        assert!(
+            with_reader(
+                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            )
+            .unwrap()
+            .is_empty()
         );
     }
 
@@ -378,17 +349,18 @@ mod tests {
         let routes = RouteManager::new();
 
         routes.set_name("g1".into(), "Home loop".into()).unwrap();
-        let names = routes.get_all_names().unwrap();
+        let names = with_reader(crate::persistence::routes::pooled::all_route_names).unwrap();
         assert_eq!(names.get("g1").map(String::as_str), Some("Home loop"));
 
         // An exclusion is a flag on a match, so an activity the route never
         // matched cannot be excluded from it.
         routes.exclude_activity("g1".into(), "a1".into()).unwrap();
         assert!(
-            routes
-                .get_excluded_activities("g1".into())
-                .unwrap()
-                .is_empty()
+            with_reader(
+                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            )
+            .unwrap()
+            .is_empty()
         );
 
         crate::with_persistent_engine(|e| {
@@ -402,15 +374,19 @@ mod tests {
         .unwrap();
         routes.exclude_activity("g1".into(), "a1".into()).unwrap();
         assert_eq!(
-            routes.get_excluded_activities("g1".into()).unwrap(),
+            with_reader(
+                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            )
+            .unwrap(),
             vec!["a1"]
         );
         routes.include_activity("g1".into(), "a1".into()).unwrap();
         assert!(
-            routes
-                .get_excluded_activities("g1".into())
-                .unwrap()
-                .is_empty()
+            with_reader(
+                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            )
+            .unwrap()
+            .is_empty()
         );
     }
 }
@@ -508,21 +484,6 @@ mod pooled_read_tests {
     }
 
     #[test]
-    fn excluded_route_performances_read_while_a_writer_holds_the_engine() {
-        let _guard = serial_global_state();
-        let _tmp = init_global_engine("routes_excluded_under_writer.db");
-        seed_route();
-        let routes = RouteManager::new();
-
-        let result = read_while_writer_holds(|| {
-            routes.get_excluded_performances("g1".into(), None).unwrap()
-        });
-
-        assert_eq!(result.performances.len(), 1);
-        assert_eq!(result.performances[0].activity_id, "a4");
-    }
-
-    #[test]
     fn the_pooled_reads_equal_the_engines_on_a_clean_grouping() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_parity.db");
@@ -563,23 +524,6 @@ mod pooled_read_tests {
                 &pooled,
                 &own,
                 &format!("performances for {current:?} in {sport:?}"),
-            );
-        }
-
-        for sport in [None, Some("Ride"), Some("Run")] {
-            let own = with_persistent_engine(|e| {
-                crate::FfiRoutePerformanceResult::from(
-                    e.get_excluded_route_performances("g1", sport),
-                )
-            })
-            .unwrap();
-            let pooled = routes
-                .get_excluded_performances("g1".into(), sport.map(str::to_string))
-                .unwrap();
-            same(
-                &pooled,
-                &own,
-                &format!("excluded performances in {sport:?}"),
             );
         }
 

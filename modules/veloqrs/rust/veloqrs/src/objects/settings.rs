@@ -8,17 +8,51 @@ pub struct SettingPair {
     pub value: String,
 }
 
-/// The notification templates for one locale, as they cross the binding.
-///
-/// A record rather than a JSON string, so a renamed key is a binding change
-/// the generated tests catch rather than a sentence that renders as its own
-/// key on a handset.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiNotificationTemplates {
-    /// The locale tag JavaScript resolved these for, e.g. `ja` or `en-AU`.
-    pub locale: String,
-    /// Every template, ordered by key.
-    pub templates: Vec<SettingPair>,
+/// What the athlete asks to have named from its places. The discriminants
+/// start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiPlaceNameKind {
+    Route = 1,
+    Section = 2,
+}
+
+impl From<FfiPlaceNameKind> for crate::persistence::geocoded_names::NamedKind {
+    fn from(kind: FfiPlaceNameKind) -> Self {
+        match kind {
+            FfiPlaceNameKind::Route => Self::Route,
+            FfiPlaceNameKind::Section => Self::Section,
+        }
+    }
+}
+
+/// What asking for one item's place name came to. The discriminants start at
+/// one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiPlaceNameOutcome {
+    /// The item now shows the name.
+    Named = 1,
+    /// The provider named no place there; the item keeps what it showed.
+    NoPlace = 2,
+    /// The lookup could not be sent or had no answer; the item keeps what it
+    /// showed.
+    Failed = 3,
+    /// Geocoding is off, the item has a typed name or it has no line. Nothing
+    /// was sent.
+    Refused = 4,
+}
+
+impl From<crate::net::place_names::OnDemand> for FfiPlaceNameOutcome {
+    fn from(outcome: crate::net::place_names::OnDemand) -> Self {
+        use crate::net::place_names::OnDemand;
+        match outcome {
+            OnDemand::Named => Self::Named,
+            OnDemand::NoPlace => Self::NoPlace,
+            OnDemand::Failed => Self::Failed,
+            OnDemand::Refused => Self::Refused,
+        }
+    }
 }
 
 #[derive(uniffi::Object)]
@@ -217,31 +251,6 @@ impl SettingsManager {
         })?
     }
 
-    /// The templates the last push left, or none on an install whose app has
-    /// never started.
-    ///
-    /// Read through the pool rather than the engine's write lock: it is one
-    /// row of SQLite and it reaches no engine state, and the caller is a push
-    /// handler that must not wait behind whatever is writing.
-    fn notification_templates(&self) -> Result<Option<FfiNotificationTemplates>, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::settings::notification_templates_from(conn)
-                .map(|held| {
-                    held.map(|held| FfiNotificationTemplates {
-                        locale: held.locale,
-                        templates: held
-                            .templates
-                            .into_iter()
-                            .map(|(key, value)| SettingPair { key, value })
-                            .collect(),
-                    })
-                })
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
-    }
-
     /// Days of stream history the athlete keeps. Zero means keep everything.
     ///
     /// This only ever evicts stored series: nothing deletes whole activities
@@ -282,6 +291,40 @@ impl SettingsManager {
                     msg: format!("{}", e),
                 })
         })?
+    }
+
+    /// Name one route or section from the places it starts and ends in,
+    /// because the athlete asked for that item, whether or not it existed
+    /// before geocoding was turned on. Refuses, sending nothing, while
+    /// geocoding is off or when the item has a typed name.
+    ///
+    /// The lookup waits its turn behind any other in the engine, so this
+    /// resolves once it has been answered, off the calling thread.
+    async fn name_from_places(
+        &self,
+        kind: FfiPlaceNameKind,
+        item_id: String,
+    ) -> FfiPlaceNameOutcome {
+        crate::runtime::ASYNC_RUNTIME
+            .spawn(async move {
+                let geocoder = match crate::net::geocode::Geocoder::new() {
+                    Ok(geocoder) => geocoder,
+                    Err(e) => {
+                        log::warn!("veloqrs: [PlaceNames] {e}");
+                        return FfiPlaceNameOutcome::Failed;
+                    }
+                };
+                crate::net::place_names::name_on_demand(
+                    &geocoder,
+                    geocoder.configured_endpoint(),
+                    kind.into(),
+                    &item_id,
+                )
+                .await
+                .into()
+            })
+            .await
+            .unwrap_or(FfiPlaceNameOutcome::Failed)
     }
 
     /// Bytes the stream store holds, for the cache readout.

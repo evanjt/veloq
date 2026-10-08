@@ -38,6 +38,8 @@ enum WidgetTheme {
     static let toneInfo = Color(hex: "#42A5F5")
     static let toneOpportunity = Color(hex: "#FF9800")
     static let border = Color(hex: "#E4E4E7")
+    static let bodyFill = Color(hex: "#3F3F3F")
+    static let strengthRamp = [Color(hex: "#CCFBF1"), Color(hex: "#99F6E4"), Color(hex: "#5EEAD4"), Color(hex: "#2DD4BF"), Color(hex: "#0D9488")]
   }
 
   enum Dark {
@@ -74,6 +76,8 @@ enum WidgetTheme {
     static let toneInfo = Color(hex: "#42A5F5")
     static let toneOpportunity = Color(hex: "#FF9800")
     static let border = Color(hex: "#27272A")
+    static let bodyFill = Color(hex: "#555555")
+    static let strengthRamp = [Color(hex: "#CCFBF1"), Color(hex: "#99F6E4"), Color(hex: "#5EEAD4"), Color(hex: "#2DD4BF"), Color(hex: "#0D9488")]
   }
 
   enum Record {
@@ -95,6 +99,8 @@ enum WidgetTheme {
     static let radiusInner: CGFloat = 8
     static let padding: CGFloat = 16
     static let gap: CGFloat = 8
+    static let heroLine: CGFloat = 44
+    static let metricLine: CGFloat = 30
   }
 
   enum TypeScale {
@@ -103,5 +109,6 @@ enum WidgetTheme {
     static let value: CGFloat = 18
     static let label: CGFloat = 12
     static let caption: CGFloat = 10
+    static let floor: CGFloat = 8
   }
 }

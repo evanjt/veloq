@@ -20,6 +20,7 @@ const record = require('../../../scripts/lib/build-record.js');
 const SCRIPTS = [
   'scripts/install-apk.sh',
   'scripts/build-record.js',
+  'scripts/lib/app-identity.js',
   'scripts/lib/build-record.js',
   'scripts/lib/build-record-ios.js',
   'scripts/lib/build-stamp.js',

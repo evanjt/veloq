@@ -24,6 +24,7 @@ import * as path from 'path';
 
 import { indexedSources as readIndex } from './lib/indexedSources.mjs';
 import {
+  CLIENT_UNREACHED_ALLOWED,
   OWNED_ELSEWHERE,
   areaOf,
   surfaceOverCeiling,
@@ -32,6 +33,7 @@ import {
   clientCallRows,
   clientMethodExports,
   clientMethodReach,
+  clientReachProblems,
   type Reach,
   callIsAttributed,
   callsIn,
@@ -287,10 +289,39 @@ function clientReport(): [string, number][] {
 if (process.argv.includes('--client')) {
   const rows = clientReport();
   const unreached = rows.filter(([, count]) => count === 0);
+  if (process.argv.includes('--check')) {
+    const { unlisted, stale } = clientReachProblems(new Map(rows), CLIENT_UNREACHED_ALLOWED);
+    if (unlisted.length === 0 && stale.length === 0) {
+      console.log(
+        `EngineClient reach: ${rows.length} methods, ${unreached.length} unreached and each listed.`
+      );
+      process.exit(0);
+    }
+    if (unlisted.length > 0) {
+      console.error('EngineClient methods no production code calls:');
+      for (const method of unlisted) console.error(`  - ${method}`);
+      console.error('');
+      console.error('Delete each, with its delegate and any export left with no TypeScript');
+      console.error('name, or add it to CLIENT_UNREACHED_ALLOWED in scripts/lib/ffiUsage.ts');
+      console.error('with the reason it stays. A method whose caller moved onto a screen');
+      console.error('read is a second reader of that fact waiting for its next caller.');
+    }
+    if (stale.length > 0) {
+      if (unlisted.length > 0) console.error('');
+      console.error('CLIENT_UNREACHED_ALLOWED lists methods that are now called or gone:');
+      for (const method of stale) console.error(`  - ${method}`);
+      console.error('');
+      console.error('Remove each entry, or the next method to lose its caller hides behind it.');
+    }
+    process.exit(1);
+  }
   console.log(`=== ENGINECLIENT METHODS (${rows.length}) ===\n`);
   console.log(`Called from the app: ${rows.length - unreached.length}`);
   console.log(`Called by nothing outside the engine layer: ${unreached.length}\n`);
-  for (const [method] of unreached) console.log(`  - ${method}`);
+  for (const [method] of unreached) {
+    const reason = CLIENT_UNREACHED_ALLOWED[method];
+    console.log(`  - ${method}${reason ? `: ${reason}` : ''}`);
+  }
   process.exit(0);
 }
 

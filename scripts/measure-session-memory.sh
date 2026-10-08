@@ -61,6 +61,10 @@ reading() {
   ' "$raw"
 }
 
+in_front() {
+  adb shell dumpsys window | grep mCurrentFocus | grep -q "$APP/"
+}
+
 flow() {
   "$HERE/with-maestro.sh" test -e APP_ID="$APP" "$@" >/dev/null
 }
@@ -116,6 +120,12 @@ browse)
       printf '%s\t%s\n' $(($(date +%s) - start)) "$(feed_return_ms)" >>"$OUT/feed-return.tsv"
     else
       printf '%s\tfailed\n' $(($(date +%s) - start)) >>"$OUT/feed-return.tsv"
+      # An app that has left the screen is trimmed by the system, so every
+      # reading after it measures the trim and not the session.
+      if ! in_front; then
+        echo "measure-session-memory: $APP left the screen in round $round, browse stopped" >&2
+        break
+      fi
       "$HERE/with-maestro.sh" test -e APP_ID="$APP" "$FLOWS/feed-return.yaml" >/dev/null || true
     fi
     if [ "$(date +%s)" -ge "$next" ]; then

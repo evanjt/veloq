@@ -51,7 +51,7 @@ object InsightsWidget {
 
   fun rowsFor(size: SummarySize): Int =
     when (size) {
-      SummarySize.SMALL -> 1
+      SummarySize.SHORT, SummarySize.SMALL -> 1
       SummarySize.MEDIUM -> 2
       SummarySize.LARGE -> 4
     }

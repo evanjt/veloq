@@ -322,9 +322,9 @@ pub struct CalendarYearSummary {
 pub struct CalendarSummary {
     /// Year summaries (newest first)
     pub years: Vec<CalendarYearSummary>,
-    /// Overall forward/same PR
+    /// The forward record's outing, absent when no outing holds the record
     pub forward_pr: Option<CalendarDirectionBest>,
-    /// Overall reverse PR
+    /// The reverse record's outing, absent when no outing holds the record
     pub reverse_pr: Option<CalendarDirectionBest>,
     /// Section distance in meters
     pub section_distance: f64,

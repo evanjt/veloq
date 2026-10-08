@@ -15,8 +15,7 @@ use std::sync::{Mutex, MutexGuard};
 use tempfile::TempDir;
 use veloqrs::ffi::{
     get_cutover_progress, get_elevation_backfill_progress, get_elevation_backfill_remaining,
-    get_routes_status_data, get_stream_backfill_progress, get_stream_backfill_remaining,
-    is_elevation_backfill_paused,
+    get_routes_status_data, get_stream_backfill_progress, is_elevation_backfill_paused,
 };
 use veloqrs::persistence::close_for_restore;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
@@ -62,10 +61,7 @@ fn one_read_answers_what_the_four_exports_answer() {
     assert_eq!(status.stream.phase, stream.phase);
     assert_eq!(status.stream.completed, stream.completed);
     assert_eq!(status.stream.stored, stream.stored);
-    assert_eq!(
-        status.stream_remaining,
-        get_stream_backfill_remaining().ok()
-    );
+    assert_eq!(status.stream_remaining, Some(0));
     assert_eq!(status.stream_remaining_bytes, Some(0.0));
 }
 

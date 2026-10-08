@@ -21,6 +21,8 @@ import type {
   FfiActivityStreams,
   FfiActivityNotification,
   FfiUploadResult,
+  FfiPlaceNameKind,
+  FfiPlaceNameOutcome,
   FfiExerciseActivities,
   FfiExerciseSession,
   FfiExerciseDetailData,
@@ -44,7 +46,6 @@ import type {
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   FfiRoutePerformanceResult,
-  FfiEfficiencyTrend,
   SectionSummary,
   GroupSummary,
   FfiSummaryCardData,
@@ -61,7 +62,6 @@ import type {
   FfiMergeDropped,
   DownloadProgressResult,
   DerivedClearCounts,
-  FfiNotificationTemplates,
   SettingPair,
   BulkExportFormat,
   FfiQuarantineReport,
@@ -81,14 +81,11 @@ import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
 import * as connectivityDelegates from './delegates/connectivity';
 import * as elevationDelegates from './delegates/elevation';
-import type { ElevationBackfillProgress } from './delegates/elevation';
 import * as streamBackfillDelegates from './delegates/streamBackfill';
-import type { StreamBackfillProgress } from './delegates/streamBackfill';
-import type { NetworkPush } from './delegates/connectivity';
 import * as cutoverDelegates from './delegates/cutover';
 import * as routesStatusDelegates from './delegates/routesStatus';
 import type { RoutesStatus } from './delegates/routesStatus';
-import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
+import type { CutoverDiff } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
 import * as routeGroupingPreviewDelegates from './delegates/routeGroupingPreview';
@@ -109,11 +106,7 @@ import * as settingsDelegates from './delegates/settings';
 import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
-import type {
-  FfiActivityRouteHighlight,
-  FfiSectionMatch,
-  HeatmapDay,
-} from './delegates/shared-types';
+import type { FfiSectionMatch, HeatmapDay } from './delegates/shared-types';
 
 // Declarations live in ./delegates/shared-types.ts; re-exported here so
 // existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
@@ -627,9 +620,6 @@ class EngineClient implements DelegateHost {
   pollSectionDetectionRun = (runId: string): string =>
     detectionDelegates.pollSectionDetectionRun(this, runId);
 
-  /** How the last finished run ended. Reads nothing the follower needs. */
-  lastSectionDetectionOutcome = (): string => detectionDelegates.lastSectionDetectionOutcome(this);
-
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
 
@@ -670,8 +660,6 @@ class EngineClient implements DelegateHost {
   setInteracting = (interacting: boolean): void =>
     connectivityDelegates.setInteracting(this, interacting);
 
-  getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
-
   /**
    * Take whatever a push handler wrote from another process while the app was
    * away, and say whether there was anything to take.
@@ -695,11 +683,6 @@ class EngineClient implements DelegateHost {
 
   pauseElevationBackfill = (): void => elevationDelegates.pauseElevationBackfill(this);
   resumeElevationBackfill = (): boolean => elevationDelegates.resumeElevationBackfill(this);
-  isElevationBackfillPaused = (): boolean => elevationDelegates.isElevationBackfillPaused(this);
-
-  getElevationBackfillProgress = (): ElevationBackfillProgress | null =>
-    elevationDelegates.getElevationBackfillProgress(this);
-
   getElevationBackfillRemaining = (): number | null =>
     elevationDelegates.getElevationBackfillRemaining(this);
 
@@ -710,12 +693,6 @@ class EngineClient implements DelegateHost {
 
   stopStreamBackfill = (): void => streamBackfillDelegates.stopStreamBackfill(this);
 
-  getStreamBackfillProgress = (): StreamBackfillProgress | null =>
-    streamBackfillDelegates.getStreamBackfillProgress(this);
-
-  getStreamBackfillRemaining = (): number | null =>
-    streamBackfillDelegates.getStreamBackfillRemaining(this);
-
   isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
 
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
@@ -725,8 +702,6 @@ class EngineClient implements DelegateHost {
   cancelDetectorCutover = (): void => cutoverDelegates.cancelDetectorCutover(this);
 
   getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
-
-  getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
 
   /**
    * Every routes background-job figure in one read, for the poller that
@@ -784,9 +759,6 @@ class EngineClient implements DelegateHost {
   /** Six fields and the encoded line, for the regional map's section overlay. */
   getMapSections = (sportType?: string, minVisits?: number): FfiMapSection[] =>
     sectionDelegates.getMapSections(this, sportType, minVisits);
-
-  getSectionsForActivity = (activityId: string): FfiSection[] =>
-    sectionDelegates.getSectionsForActivity(this, activityId);
 
   getSectionCount = (): number => sectionDelegates.getSectionCount(this);
 
@@ -864,8 +836,6 @@ class EngineClient implements DelegateHost {
   setNameTranslations = (routeWord: string, sectionWord: string): void =>
     settingsDelegates.setNameTranslations(this, routeWord, sectionWord);
 
-  getAllRouteNames = (): Record<string, string> => routeDelegates.getAllRouteNames(this);
-
   getAllSectionNames = (): Record<string, string> => sectionDelegates.getAllSectionNames(this);
 
   /** Coordinate-encoded; put it through `decodeCoords`. */
@@ -899,31 +869,11 @@ class EngineClient implements DelegateHost {
   includeActivityInRoute = (routeId: string, activityId: string): void =>
     routeDelegates.includeActivityInRoute(this, routeId, activityId);
 
-  getExcludedRouteActivityIds = (routeId: string): string[] =>
-    routeDelegates.getExcludedRouteActivityIds(this, routeId);
-
-  getExcludedRoutePerformances = (routeId: string, sportType?: string): FfiRoutePerformanceResult =>
-    routeDelegates.getExcludedRoutePerformances(this, routeId, sportType);
-
   getSectionPerformances = (sectionId: string, sportType?: string): FfiSectionPerformanceResult =>
     sectionDelegates.getSectionPerformances(this, sectionId, sportType);
 
-  /**
-   * Batched section-performance fetch - one FFI call for many section IDs.
-   * Use this anywhere a `for (id of ids) getSectionPerformances(id)` loop
-   * would otherwise pay N round-trips of FFI overhead (~10-30 ms each).
-   */
-  getPerformancesBatch = (
-    sectionIds: string[],
-    sportType?: string
-  ): { sectionId: string; result: FfiSectionPerformanceResult }[] =>
-    sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
-
   getWorkoutSections = (sportType: string, limit: number): sectionDelegates.FfiWorkoutSection[] =>
     sectionDelegates.getWorkoutSections(this, sportType, limit);
-
-  getSectionEfficiencyTrend = (sectionId: string, sportType: string): FfiEfficiencyTrend | null =>
-    sectionDelegates.getSectionEfficiencyTrend(this, sectionId, sportType);
 
   excludeActivityFromSection = (sectionId: string, activityId: string): boolean =>
     sectionDelegates.excludeActivityFromSection(this, sectionId, activityId);
@@ -1100,7 +1050,7 @@ class EngineClient implements DelegateHost {
   heatmapTilesPath: string | null = null;
 
   /** Re-apply a remembered path to a freshly opened engine. */
-  applyHeatmapTilesPath(path: string): void {
+  private applyHeatmapTilesPath(path: string): void {
     try {
       this.handle?.heatmap().setTilesPath(path);
     } catch (e) {
@@ -1324,11 +1274,12 @@ class EngineClient implements DelegateHost {
   setGeocodingEnabled = (enabled: boolean): void =>
     settingsDelegates.setGeocodingEnabled(this, enabled);
 
+  /** Name one route or section from its places, on the athlete's request. */
+  nameFromPlaces = (kind: FfiPlaceNameKind, itemId: string): Promise<FfiPlaceNameOutcome> =>
+    settingsDelegates.nameFromPlaces(this, kind, itemId);
+
   setNotificationTemplates = (locale: string, templates: SettingPair[]): boolean =>
     settingsDelegates.setNotificationTemplates(this, locale, templates);
-
-  notificationTemplates = (): FfiNotificationTemplates | undefined =>
-    settingsDelegates.notificationTemplates(this);
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
@@ -1468,12 +1419,6 @@ class EngineClient implements DelegateHost {
 
   enableSection = (sectionId: string): boolean => sectionDelegates.enableSection(this, sectionId);
 
-  setSectionReference = (sectionId: string, activityId: string): FfiDepartedRide[] | null =>
-    sectionDelegates.setSectionReference(this, sectionId, activityId);
-
-  resetSectionReference = (sectionId: string): FfiDepartedRide[] | null =>
-    sectionDelegates.resetSectionReference(this, sectionId);
-
   getSectionReferenceInfo = (sectionId: string): { activityId?: string; isUserDefined: boolean } =>
     sectionDelegates.getSectionReferenceInfo(this, sectionId);
 
@@ -1481,7 +1426,7 @@ class EngineClient implements DelegateHost {
   // Section Bounds Trimming
   // ==========================================================================
 
-  /** Trim, reset or expand a section's bounds off the JS thread. */
+  /** Trim, reset or expand a section's bounds, or set or reset its reference, off the JS thread. */
   runSectionBoundsEdit = (edit: SectionBoundsEdit): Promise<FfiDepartedRide[] | null> =>
     sectionDelegates.runSectionBoundsEdit(this, edit);
 
@@ -1609,9 +1554,6 @@ class EngineClient implements DelegateHost {
   acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
-
-  getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
-    routeDelegates.getActivityRouteHighlights(this, activityIds);
 
   forceRedetectSections = (): FfiStartResult => detectionDelegates.forceRedetectSections(this);
 

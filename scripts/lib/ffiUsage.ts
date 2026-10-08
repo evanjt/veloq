@@ -414,8 +414,82 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
  * names is the only way a method nothing calls shows up.
  */
 export function clientMethods(source: string): string[] {
-  const declaration = /^\s{2}([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\(/gm;
-  return [...withoutComments(source).matchAll(declaration)].map((m) => m[1]);
+  // Both shapes: `getSections = (` and `clearRoutes(): void {`. A private
+  // member, an accessor and the constructor are not something a caller names,
+  // so they are not surface.
+  const declaration =
+    /^ {2}(?!(?:private|protected|get|set)\s)(?:(?:public|static|async)\s+)*([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:=\s*(?:async\s*)?\(|(?:<[^>\n]*>)?\()/gm;
+  return [...withoutComments(source).matchAll(declaration)]
+    .map((m) => m[1])
+    .filter((name) => name !== 'constructor');
+}
+
+/**
+ * `EngineClient` methods no production code calls, each with the reason it is
+ * still declared. The `--client --check` report refuses any other unreached
+ * method, and any entry here whose method is now called or gone, so a method
+ * whose last caller moves onto a screen read is deleted or written down in the
+ * same change rather than left for the next caller to reach for.
+ */
+export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
+  // The delegate host surface: every delegate calls these on the client it is
+  // handed, which the scan does not count because delegates are not callers.
+  timed: 'a DelegateHost member, called by every delegate on the client it is handed',
+  timedAsync: 'a DelegateHost member, called by the async delegates on the client',
+  notify: 'a DelegateHost member, called by the write delegates to announce a change',
+  notifyAll: 'a DelegateHost member, called by the write delegates to announce several changes',
+
+  // Read by tests, which are not callers, and by nothing in the app.
+  isInitialized: 'no production caller; the engine tests read it to see that an open landed',
+  getBackupMetadata: 'no production caller; the backup tests read it',
+  computePolylineOverlap: 'no production caller; the binding tests reach the export through it',
+
+  // The routes status read carries the figure, so a second read is a second
+  // poller of one fact.
+  getElevationBackfillRemaining:
+    'no production caller; the routes status read carries the count as elevationRemaining',
+  streamRetentionDays:
+    'no production caller; the stream history row reads it from its screen data instead',
+  streamStoreBytes:
+    'no production caller; the stream history row reads it from its screen data instead',
+
+  // Starts the engine makes on its own, which no screen offers by hand.
+  startElevationBackfill: 'no production caller; the engine starts the pass itself',
+  startStreamBackfill:
+    'no production caller; the engine starts the pass itself after a settled sync',
+  startDetectorCutover: 'no production caller; the engine runs the cutover itself',
+
+  // No caller and no reason recorded yet beyond that: each is to be deleted or
+  // wired, and listed here so the check can hold every new one.
+  getChangeCardSupport: 'no production caller; not yet deleted or wired',
+  getMapSections: 'no production caller; not yet deleted or wired',
+  getAllSectionNames: 'no production caller; not yet deleted or wired',
+  getSectionHistory: 'no production caller; not yet deleted or wired',
+  getSectionGeometryVersions: 'no production caller; not yet deleted or wired',
+  getPinnedSectionVersion: 'no production caller; not yet deleted or wired',
+  getSectionReferenceInfo: 'no production caller; not yet deleted or wired',
+  queryViewport: 'no production caller; not yet deleted or wired',
+  getAvailableSportTypes: 'no production caller; not yet deleted or wired',
+  clearRecordings: 'no production caller; not yet deleted or wired',
+  getWellnessLatestDate: 'no production caller; not yet deleted or wired',
+  suggestExportHome: 'no production caller; not yet deleted or wired',
+  getActivitiesForExercise: 'no production caller; not yet deleted or wired',
+};
+
+/**
+ * What the unreached-method check refuses: an unreached method `allowed` does
+ * not hold, and an `allowed` entry that no longer earns its place because a
+ * caller reaches the method or the class dropped it.
+ */
+export function clientReachProblems(
+  reach: Map<string, number>,
+  allowed: Record<string, string>
+): { unlisted: string[]; stale: string[] } {
+  const unlisted = [...reach]
+    .filter(([method, count]) => count === 0 && !(method in allowed))
+    .map(([method]) => method);
+  const stale = Object.keys(allowed).filter((method) => (reach.get(method) ?? 1) > 0);
+  return { unlisted, stale };
 }
 
 /** Source with comments blanked, so a name inside one is not read as a call. */

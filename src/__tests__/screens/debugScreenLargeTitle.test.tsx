@@ -1,9 +1,9 @@
 /**
- * Scenario: the developer dashboard takes a collapsing large title on iOS, and its pull to refresh
- * sits against that title.
+ * Scenario: on iOS 26 the developer dashboard's refresh control stopped its large title tracking
+ * the scroll view, so the list scrolled under a title that never collapsed.
  *
- * Expected behaviour: it sets `largeTitle`, and rendered on iOS its scroll view lets the system
- * inset its content while keeping the refresh control and the tab bar clearance.
+ * Expected behaviour: it keeps the small title, and rendered on iOS its scroll view keeps the
+ * refresh control and the tab bar clearance.
  */
 
 import React from 'react';
@@ -44,12 +44,12 @@ jest.mock('veloqrs', () =>
 );
 
 describe('developer dashboard scroll view', () => {
-  it('takes a large title on iOS', () => {
-    expect(headerLargeTitle('debug', 'ios')).toBe(true);
+  it('keeps the small title on every platform', () => {
+    expect(headerLargeTitle('debug', 'ios')).toBe(false);
     expect(headerLargeTitle('debug', 'android')).toBe(false);
   });
 
-  it('insets the system way and keeps the refresh control and tab bar clearance', () => {
+  it('keeps the refresh control and tab bar clearance', () => {
     Platform.OS = 'ios';
     const { UNSAFE_getAllByType, UNSAFE_getByType } = render(<DebugScreen />);
 

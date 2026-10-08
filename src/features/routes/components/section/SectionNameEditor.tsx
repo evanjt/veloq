@@ -22,6 +22,8 @@ export interface SectionNameEditorProps {
   activityColor: string;
   /** Called with the typed name, untrimmed, when the athlete saves. */
   onSaveName: (name: string) => void;
+  /** A control drawn beside the name while it is not being edited. */
+  accessory?: React.ReactNode;
 }
 
 export function SectionNameEditor({
@@ -30,6 +32,7 @@ export function SectionNameEditor({
   iconName,
   activityColor,
   onSaveName,
+  accessory,
 }: SectionNameEditorProps) {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -75,6 +78,7 @@ export function SectionNameEditor({
         onCancel: handleCancel,
         onChange: setEditName,
       }}
+      accessory={accessory}
     />
   );
 }

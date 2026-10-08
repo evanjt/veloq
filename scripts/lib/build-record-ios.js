@@ -12,9 +12,11 @@
 // the pod's products directory, a sibling of the `.app`. The record sits beside
 // the `.app` too, never inside it, so the code signature is untouched.
 //
-// Writing refuses an archive built for another SDK than the app's, from other
-// Rust sources than the tree holds, or that no longer matches the manifest's
-// hash of it, and inputs that moved while the build ran. Verifying reads the
+// Writing refuses an app whose embedded Expo configuration names another
+// bundle identifier than its Info.plist, or whose extensions under `PlugIns/`
+// are not `<app id>.<target>`. It refuses an archive built for another SDK than
+// the app's, from other Rust sources than the tree holds, or that no longer
+// matches the manifest's hash of it, and inputs that moved while the build ran. Verifying reads the
 // app and the archive again and compares them with the record, the record's
 // inputs with the tree as it is now, and the identity with what the install
 // asked for.
@@ -25,7 +27,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { sourceIdentity } = require('./build-stamp.js');
-const { BuildRecordError } = require('./build-record.js');
+const { BuildRecordError, identityProblems } = require('./build-record.js');
 const { hashRustInputs } = require('../../modules/veloqrs/scripts/rust-inputs.js');
 
 const FORMAT = 2;
@@ -81,12 +83,32 @@ function appFacts(app) {
   const text = plistText(plist);
   const bundle = path.join(app, BUNDLE);
   const constants = readJson(path.join(app, 'EXConstants.bundle', 'app.config'));
+  const plugins = path.join(app, 'PlugIns');
+  const extensions = {};
+  if (fs.existsSync(plugins)) {
+    for (const entry of fs.readdirSync(plugins).sort()) {
+      if (!entry.endsWith('.appex')) continue;
+      const info = path.join(plugins, entry, 'Info.plist');
+      extensions[entry.slice(0, -'.appex'.length)] = fs.existsSync(info)
+        ? plistString(plistText(info), 'CFBundleIdentifier')
+        : null;
+    }
+  }
   return {
     bundleId: plistString(text, 'CFBundleIdentifier'),
     platform: plistString(text, 'DTPlatformName'),
     bundle: fs.existsSync(bundle) ? sha256(fs.readFileSync(bundle)) : null,
     stamp: constants?.extra?.buildCommit ?? null,
+    config: constants
+      ? { id: constants.ios?.bundleIdentifier ?? null, name: constants.name ?? null }
+      : null,
+    extensions,
   };
+}
+
+/** The identities an app's facts carry, in the shape `identityProblems` reads. */
+function appIdentity(facts) {
+  return { native: facts.bundleId, embedded: facts.config, extensions: facts.extensions };
 }
 
 function sdkOf(manifest) {
@@ -159,6 +181,10 @@ function writeRecord(root, app, { variant, snapshot = null }) {
   if (facts.stamp !== null && facts.stamp !== snapshot.stamp) {
     problems.push(`the app's configuration is stamped ${facts.stamp}, the tree ${snapshot.stamp}`);
   }
+  if (!facts.config && /^release$/i.test(variant)) {
+    problems.push('the app carries no embedded Expo configuration');
+  }
+  problems.push(...identityProblems(appIdentity(facts)));
   const { problems: archiveProblems, archive } = archiveFacts(root, app, facts.platform);
   problems.push(...archiveProblems);
   if (problems.length) throw new BuildRecordError(problems.join('\n'));
@@ -173,7 +199,12 @@ function writeRecord(root, app, { variant, snapshot = null }) {
       inputs: snapshot.inputs,
       stamp: snapshot.stamp,
     },
-    application: { id: facts.bundleId, platform: facts.platform },
+    application: {
+      id: facts.bundleId,
+      platform: facts.platform,
+      config: facts.config,
+      extensions: facts.extensions,
+    },
     javascript: { sha256: facts.bundle },
     archive,
   };
@@ -233,6 +264,7 @@ function verifyRecord(root, app, expect) {
       `the app is built for ${facts.platform}, the record ${record.application?.platform}`
     );
   }
+  problems.push(...identityProblems(appIdentity(facts)));
   if (record.source.stamp !== facts.stamp && facts.stamp !== null) {
     problems.push(
       `the app's configuration is stamped ${facts.stamp}, the record ${record.source.stamp}`
@@ -270,4 +302,4 @@ function verifyRecord(root, app, expect) {
   return { problems, record, summary };
 }
 
-module.exports = { appFacts, recordPath, verifyRecord, writeRecord };
+module.exports = { appFacts, appIdentity, recordPath, verifyRecord, writeRecord };

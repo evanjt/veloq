@@ -1295,6 +1295,10 @@
     "noSectionsMatchFilter": "没有匹配筛选条件的路段",
     "placeJourney": "{{start}}至{{end}}",
     "placeLoop": "{{place}}环线",
+    "placeNameButton": "按地名命名",
+    "placeNameFailedMessage": "无法查询地名,名称保持不变。请稍后重试。",
+    "placeNameFailedTitle": "没有地名",
+    "placeNameNoPlaceMessage": "起点处未找到地名,名称保持不变。",
     "pointCountHint_one": "{{count}}个GPS点",
     "pointCountHint_other": "{{count}}个GPS点",
     "renameFailedTitle": "无法保存名称",
@@ -1635,7 +1639,7 @@
       "title": "地名",
       "attribution": "地名 © OpenStreetMap 贡献者",
       "noticeTitle": "使用地名?",
-      "noticeBody": "发现新的路线或路段时,其起点和终点会发送到 OpenStreetMap 的 Nominatim 服务以查询地名。不会发送任何已有的路线或路段,也不会发送任何与您有关的信息。该服务的使用政策适用。",
+      "noticeBody": "发现新的路线或路段时,或在您要求为其命名时,其起点和终点会发送到 OpenStreetMap 的 Nominatim 服务以查询地名。不会发送任何其他路线或路段,也不会发送任何与您有关的信息。该服务的使用政策适用。",
       "readPolicy": "使用政策",
       "accept": "接受"
     },
@@ -1999,6 +2003,7 @@
     "setColumn": "组",
     "snapshot": "力量概览",
     "noWorkouts": "最近{{period}}没有力量训练",
+    "noWorkoutsThisMonth": "本月没有力量训练",
     "noWorkoutsHint": "完成一次力量训练即可在此查看肌肉群分布",
     "notDownloaded": "力量训练尚未下载",
     "notDownloadedHint": "组数数据随训练文件一起下载。请联网后获取。",
@@ -2274,6 +2279,8 @@
     "insightsMore": "另有 {{rest}} 条",
     "insightKinds": "类型",
     "insightKindsDescription": "选择小组件列出的洞察类型。未选择时列出所有类型。",
+    "strengthDescription": "按肌肉在人体图上显示你的训练负荷。",
+    "strengthWindowDescription": "选择小组件显示的时间段。",
     "insightKind": {
       "sectionPr": "路段个人纪录",
       "sectionTrend": "路段趋势",
@@ -2287,6 +2294,9 @@
       "efficiencyTrend": "效率趋势",
       "sectionChanged": "已变更的路段"
     },
+    "strengthDescription": "你训练过的肌肉，按组数着色。",
+    "strengthPeriod": "时段",
+    "strengthPeriodDescription": "选择小组件着色的日期范围。",
     "latest": {
       "rank": "{{total}} 次中第 {{rank}} 名",
       "fastest": "最快的一次",

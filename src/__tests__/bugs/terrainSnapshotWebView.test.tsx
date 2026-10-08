@@ -9,6 +9,7 @@ import {
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps/components/TerrainSnapshotWebView';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { buildRecycleSnapshotMapScript } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 import { saveTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { subscribeSnapshotFailure } from '@/features/maps/lib/terrainSnapshotEvents';
 import type { SnapshotQueueEvent } from '@/features/maps/lib/snapshotQueueTrace';
@@ -64,6 +65,7 @@ const mockWebView = React.forwardRef(function MockWebView(
       injected.push(script);
       const named = /var activityId = ["']([^"']+)["']/.exec(script);
       if (named && injectedByWorker[id]) injectedByWorker[id].push(named[1]);
+      else if (script === buildRecycleSnapshotMapScript()) injectedByWorker[id]?.push('recycle');
     },
     reload: () => {},
   }));
@@ -2116,5 +2118,106 @@ describe('the pool timers', () => {
 
       expect(failures).toEqual([]);
     });
+  });
+});
+
+/**
+ * Scenario: the feed scrolls, the pool draws a burst of previews, and then
+ * nothing more is asked of it. Each worker map holds the GPU state of every
+ * style it drew for as long as it lives, and the pool lives as long as the
+ * feed, so that memory stayed held through the rest of the session.
+ *
+ * Expected behaviour: once the pool has been idle for a while, every worker
+ * that drew since its map was last built gets a fresh map. A worker that drew
+ * nothing is left alone, work arriving first puts the recycle off, and a
+ * recycled worker takes no render until its new map reports ready.
+ */
+describe('a pool that goes quiet', () => {
+  const RECYCLE_IDLE_MS = 10000;
+  let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
+
+  const pool = () => {
+    if (!ref.current) throw new Error('the pool did not mount');
+    return ref.current;
+  };
+
+  const land = async (workerId: number, activityId: string, gen = 1) => {
+    post({ type: 'snapshot', workerId, activityId, mapStyle: 'light', base64: 'AAAA', gen });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  };
+
+  const recycles = (workerId: number) =>
+    injectedByWorker[workerId].filter((entry) => entry === 'recycle').length;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    ref = React.createRef<TerrainSnapshotWebViewRef>();
+    render(<TerrainSnapshotWebView ref={ref} />);
+    post({ type: 'mapReady', workerId: 0 });
+    post({ type: 'mapReady', workerId: 1 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('rebuilds the map of a worker that drew, once idle', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS - 1);
+    expect(recycles(0)).toBe(0);
+
+    jest.advanceTimersByTime(1);
+    expect(recycles(0)).toBe(1);
+    expect(recycles(1)).toBe(0);
+  });
+
+  it('does not rebuild a map that has drawn nothing since', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+    post({ type: 'mapReady', workerId: 0 });
+
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS * 3);
+
+    expect(recycles(0)).toBe(1);
+  });
+
+  it('puts the rebuild off while work keeps arriving', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS / 2);
+    pool().requestSnapshot(request('a1'));
+    // Past the countdown a0 started, short of a1's render timeout.
+    jest.advanceTimersByTime(SNAPSHOT_TIMEOUT_MS - 1);
+
+    expect(recycles(0) + recycles(1)).toBe(0);
+
+    // The worker that holds the light style takes the light render.
+    expect(injectedByWorker[0]).toEqual(['a0', 'a1']);
+    await land(0, 'a1', 2);
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+
+    expect(recycles(0)).toBe(1);
+    expect(recycles(1)).toBe(0);
+  });
+
+  it('gives a rebuilt worker no render until its new map is ready', async () => {
+    pool().requestSnapshot(request('a0'));
+    pool().requestSnapshot(request('a1'));
+    await land(0, 'a0');
+    await land(1, 'a1');
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+    expect(recycles(0) + recycles(1)).toBe(2);
+
+    pool().requestSnapshot(request('a2'));
+    expect(rendered()).not.toContain('a2');
+
+    post({ type: 'mapReady', workerId: 1 });
+    expect(injectedByWorker[1][injectedByWorker[1].length - 1]).toBe('a2');
   });
 });

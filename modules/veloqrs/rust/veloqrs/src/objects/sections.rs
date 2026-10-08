@@ -22,7 +22,7 @@ fn departed_rides(
         .collect()
 }
 
-/// One edit to a section's bounds.
+/// One edit to a section's line, each re-matching the section's rides.
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum FfiSectionBoundsEdit {
     /// Cut the section's own line to `start_index..=end_index`.
@@ -40,6 +40,15 @@ pub enum FfiSectionBoundsEdit {
         start_index: u32,
         end_index: u32,
     },
+    /// Take the stretch of the activity's track that runs the line as the
+    /// line, and mark the section user-defined.
+    SetReference {
+        section_id: String,
+        activity_id: String,
+    },
+    /// Put back the line the section had before its reference was set, and
+    /// hand the reference back to the detector.
+    ResetReference { section_id: String },
 }
 
 impl FfiSectionBoundsEdit {
@@ -61,6 +70,11 @@ impl FfiSectionBoundsEdit {
                 start_index,
                 end_index,
             } => engine.expand_section_bounds(section_id, activity_id, *start_index, *end_index),
+            Self::SetReference {
+                section_id,
+                activity_id,
+            } => engine.set_section_reference(section_id, activity_id),
+            Self::ResetReference { section_id } => engine.reset_section_reference(section_id),
         }
     }
 }
@@ -309,33 +323,6 @@ impl SectionManager {
         })
     }
 
-    /// Tier 3.2: batched section-performance fetch. Returns one entry per
-    /// requested section_id (in input order). Saves N FFI round-trips when
-    /// the caller (Insights, Routes list) needs perfs for many sections in
-    /// one render.
-    fn get_performances_batch(
-        &self,
-        section_ids: Vec<String>,
-        sport_type: Option<String>,
-    ) -> Result<Vec<crate::FfiSectionPerformanceBatchEntry>, VeloqError> {
-        with_reader(|conn| {
-            section_ids
-                .into_iter()
-                .map(|id| {
-                    let result = crate::persistence::fitness::performances::pooled::cached_section_performances(
-                        conn,
-                        &id,
-                        sport_type.as_deref(),
-                    );
-                    crate::FfiSectionPerformanceBatchEntry {
-                        section_id: id,
-                        result: crate::FfiSectionPerformanceResult::from(result.as_ref().clone()),
-                    }
-                })
-                .collect()
-        })
-    }
-
     fn get_reference_info(
         &self,
         section_id: String,
@@ -352,29 +339,6 @@ impl SectionManager {
                     is_user_defined: false,
                 })
         })
-    }
-
-    fn set_reference(
-        &self,
-        section_id: String,
-        activity_id: String,
-    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        with_engine(|e| {
-            e.set_section_reference(&section_id, &activity_id)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
-    fn reset_reference(
-        &self,
-        section_id: String,
-    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        with_engine(|e| {
-            e.reset_section_reference(&section_id)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
     }
 
     fn accept(&self, section_id: String) -> Result<(), VeloqError> {
@@ -654,8 +618,8 @@ impl SectionManager {
         })?
     }
 
-    /// Trim, reset or expand a section's bounds, resolving with the rides the
-    /// edit took out of it.
+    /// Trim, reset or expand a section's bounds, or set or reset its
+    /// reference, resolving with the rides the edit took out of it.
     ///
     /// `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
     /// tap may block. The write lock is still taken for the edit's length, so
@@ -667,22 +631,6 @@ impl SectionManager {
     ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
         bounds_edit_for(crate::persistence::engine_install(), edit, slot).await
-    }
-
-    fn get_efficiency_trend(
-        &self,
-        section_id: String,
-        sport_type: String,
-    ) -> Result<Option<crate::FfiEfficiencyTrend>, VeloqError> {
-        with_reader(|conn| {
-            let names = named::pooled::overlay_names(conn);
-            crate::persistence::screens::pooled::section_efficiency_trend_of(
-                conn,
-                &section_id,
-                &sport_type,
-                &names,
-            )
-        })
     }
 
     fn disable(&self, section_id: String) -> Result<(), VeloqError> {

@@ -285,6 +285,7 @@ fn data_of(raw: &Raw) -> FfiWidgetSnapshotData {
         latest_comparison: raw.comparison.clone(),
         latest_gps: Vec::new(),
         ramp_rate: raw.ramp_rate,
+        ..Default::default()
     }
 }
 

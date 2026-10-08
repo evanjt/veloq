@@ -36,10 +36,6 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/features/routes/hooks/useSectionEfficiencyTrend', () => ({
-  useSectionEfficiencyTrend: () => ({ trend: mockConstantHeartRateTrend() }),
-}));
-
 const MOCK_PACES = [340, 330, 320, 310, 300];
 
 function mockConstantHeartRateTrend(): EfficiencyTrend {
@@ -96,7 +92,7 @@ describe.each([
 
   it('does not say on the section page that heart rate fell', () => {
     const { getByTestId } = render(
-      <SectionEfficiencyCard sectionId="sec-1" sportType="Run" isDark={false} />
+      <SectionEfficiencyCard trend={mockConstantHeartRateTrend()} isDark={false} />
     );
     const detail = String(getByTestId('section-efficiency-detail').props.children);
 

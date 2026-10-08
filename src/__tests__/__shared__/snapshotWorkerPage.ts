@@ -1,4 +1,7 @@
-import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
+import {
+  buildRecycleSnapshotMapScript,
+  buildSnapshotWorkerHtml,
+} from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
@@ -7,6 +10,7 @@ type Handler = (event: Record<string, unknown>) => void;
 export interface FakeMap {
   setStyle: jest.Mock;
   jumpTo: jest.Mock;
+  remove: jest.Mock;
   queryTerrainElevation?: jest.Mock;
   /** Fire a map event the way MapLibre would, to every listener on it. */
   emit: (name: string, event?: Record<string, unknown>) => void;
@@ -15,9 +19,15 @@ export interface FakeMap {
 export interface WorkerPage {
   window: Record<string, unknown>;
   map: FakeMap;
+  /** What the page constructed its map with. */
+  mapOptions: Record<string, unknown>;
+  /** How many maps the page has constructed, the boot one included. */
+  mapsBuilt: () => number;
   /** Every result the page has posted to the host, parsed, without its log lines. */
   posted: Record<string, unknown>[];
   render: (request: SnapshotRequest, gen: number) => void;
+  /** Runs the host's recycle command in the page, as `injectJavaScript` does. */
+  recycle: () => void;
 }
 
 /**
@@ -43,6 +53,10 @@ export function bootWorkerPage(
     off: jest.fn(),
     setStyle: jest.fn(),
     jumpTo: jest.fn(),
+    // A removed map fires nothing more, so its listeners go with it.
+    remove: jest.fn(() => {
+      for (const name of Object.keys(listeners)) delete listeners[name];
+    }),
     isStyleLoaded: () => true,
     transform: { fov: 36.87, width: 360, height: 240 },
     ...(options.queryTerrainElevation
@@ -63,6 +77,8 @@ export function bootWorkerPage(
     },
   };
   const posted: Record<string, unknown>[] = [];
+  let mapOptions: Record<string, unknown> = {};
+  let built = 0;
   const win: Record<string, unknown> = {
     // A frame is a timer, since the heartbeat asks for one from inside each.
     requestAnimationFrame: (callback: () => void) => setTimeout(callback, 16),
@@ -74,7 +90,9 @@ export function bootWorkerPage(
     },
     maplibregl: {
       addProtocol: jest.fn(),
-      Map: function FakeMapConstructor() {
+      Map: function FakeMapConstructor(options: Record<string, unknown>) {
+        mapOptions = options;
+        built += 1;
         return map;
       },
     },
@@ -107,7 +125,10 @@ export function bootWorkerPage(
   return {
     window: win,
     map,
+    mapOptions,
+    mapsBuilt: () => built,
     posted,
     render: (request, gen) => run(buildRenderSnapshotScript(request, 0, gen)),
+    recycle: () => run(buildRecycleSnapshotMapScript()),
   };
 }

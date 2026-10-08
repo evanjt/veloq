@@ -72,11 +72,8 @@ function engine() {
       polls += 1;
       return state.detection;
     },
-    lastSectionDetectionOutcome: () => state.lastOutcome,
     getSectionDetectionProgress: () => state.detectionProgress,
-    getElevationBackfillProgress: () => state.backfill,
     getElevationBackfillRemaining: () => state.remaining,
-    getCutoverProgress: () => state.cutover,
     getRoutesStatusData: () =>
       routesStatus({
         detection: state.detectionProgress,

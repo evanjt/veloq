@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-// Widget layouts must fit the host's layout rules.
+// A widget layout must inflate on a launcher, and must not squeeze its own columns to nothing.
+//
+// A launcher inflates a widget through RemoteViews, which refuses every class outside a short
+// list, a plain `View` spacer included. The host then shows its own error card in place of the
+// widget, and nothing on the app's side fails. The configure screens are ordinary activities, so
+// a layout named `_configure` is not held to the list.
 //
 // A LinearLayout with no orientation, or `horizontal`, lays its children in a row. A child
 // `match_parent` wide and carrying no weight takes the whole row, so every sibling given 0dp and a
@@ -45,9 +50,38 @@ function parse(xml) {
   return top.children;
 }
 
+// What RemoteViews inflates, as the platform lists it, with the tags a layout file may also hold.
+const REMOTE_VIEWS = new Set([
+  'AdapterViewFlipper',
+  'AnalogClock',
+  'Button',
+  'CheckBox',
+  'Chronometer',
+  'FrameLayout',
+  'GridLayout',
+  'GridView',
+  'ImageButton',
+  'ImageView',
+  'LinearLayout',
+  'ListView',
+  'ProgressBar',
+  'RadioButton',
+  'RadioGroup',
+  'RelativeLayout',
+  'StackView',
+  'Switch',
+  'TextClock',
+  'TextView',
+  'ViewFlipper',
+  'ViewStub',
+  'include',
+  'merge',
+]);
+
 function violations(node, file, out) {
-  if (node.name === 'View' || node.name === 'android.view.View') {
-    out.push(`${file}: android.view.View is not allowed in RemoteViews`);
+  if (!file.includes('_configure') && !REMOTE_VIEWS.has(node.name)) {
+    const id = attr(node.rest, 'id');
+    out.push(`${file}: ${node.name}${id ? ` ${id}` : ''} cannot be inflated by a launcher`);
   }
   if (node.name === 'LinearLayout') {
     const orientation = attr(node.rest, 'orientation') ?? 'horizontal';

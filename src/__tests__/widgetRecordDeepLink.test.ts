@@ -21,6 +21,7 @@ const NO_DATES = {
   weekdays: [],
   monthDay: { parts: [], months: [] },
   monthDayYear: { parts: [], months: [] },
+  months: [],
 };
 
 function raw(overrides: Partial<WidgetContextInput> = {}): WidgetContextInput {

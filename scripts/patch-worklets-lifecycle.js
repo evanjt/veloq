@@ -46,12 +46,17 @@ function patchOriginal(source) {
   return replaceOnce(patched, REMOVE_ANCHOR, `${REMOVE_ANCHOR}${REMOVE}`);
 }
 
+/** The source with the repair taken out, which is what the package ships. */
+function unpatchSource(source) {
+  return source.replace(FIELD, '').replace(INIT, '').replace(REMOVE, '');
+}
+
 function patchSource(source, expectedHash) {
   if (source.includes(FIELD) || source.includes(INIT) || source.includes(REMOVE)) {
     if (!source.includes(FIELD) || !source.includes(INIT) || !source.includes(REMOVE)) {
       throw new Error('Worklets source changed');
     }
-    const original = source.replace(FIELD, '').replace(INIT, '').replace(REMOVE, '');
+    const original = unpatchSource(source);
     if (hash(original) !== expectedHash || patchOriginal(original) !== source) {
       throw new Error('Worklets source changed');
     }
@@ -100,4 +105,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { patchSource, applyPatch };
+module.exports = { patchSource, unpatchSource, applyPatch, FILES };

@@ -1294,6 +1294,10 @@
     "noSectionsMatchFilter": "Kei Abschnitt passt zum Filter",
     "placeJourney": "{{start}} uf {{end}}",
     "placeLoop": "{{place}} Rundi",
+    "placeNameButton": "Nach Orten benennen",
+    "placeNameFailedMessage": "Der Ortsname konnte nicht nachgeschlagen werden, der Name bleibt unverändert. Versuch es später erneut.",
+    "placeNameFailedTitle": "Kein Ortsname",
+    "placeNameNoPlaceMessage": "Am Startpunkt wurde kein Ort gefunden, der Name bleibt unverändert.",
     "pointCountHint_one": "{{count}} GPS-Punkt",
     "pointCountHint_other": "{{count}} GPS-Pünkt",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
@@ -1624,7 +1628,7 @@
       "title": "Ortsnamen",
       "attribution": "Ortsnamen © OpenStreetMap-Mitwirkende",
       "noticeTitle": "Ortsnamen verwenden?",
-      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Bestehende Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
+      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden oder bittest du darum, eine Route oder einen Abschnitt zu benennen, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Andere Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
       "readPolicy": "Nutzungsbedingungen",
       "accept": "Zustimmen"
     },
@@ -1981,6 +1985,7 @@
     "setColumn": "Satz",
     "snapshot": "Chraft-Überblick",
     "noWorkouts": "Kei Chrafttraining i de letschte {{period}}",
+    "noWorkoutsThisMonth": "Kei Chrafttraining dä Monet",
     "noWorkoutsHint": "Mach es Chrafttraining zum dini Muskelgruppe-Uffteilig da z gseh",
     "notDownloaded": "Krafttrainings noch nicht heruntergeladen",
     "notDownloadedHint": "Deine Satzdaten kommen mit den Trainingsdateien. Verbinde dich, um sie zu laden.",
@@ -2256,6 +2261,8 @@
     "insightsMore": "+{{rest}} witeri",
     "insightKinds": "Arte",
     "insightKindsDescription": "Wähl, weli Arte vo Erkenntnis s Widget zeigt. Ohni Uswahl zeigt es alli Arte.",
+    "strengthDescription": "Dini Trainingsbelaschtig am Körper, Muskle für Muskle.",
+    "strengthWindowDescription": "Wähl, weli Ziitruum s Widget zeigt.",
     "insightKind": {
       "sectionPr": "Abschnitts-PRs",
       "sectionTrend": "Abschnittstrends",
@@ -2269,6 +2276,9 @@
       "efficiencyTrend": "Effizienztrends",
       "sectionChanged": "Gänderti Abschnitt"
     },
+    "strengthDescription": "Dini trainierte Muskle, nach Sätz schattiert.",
+    "strengthPeriod": "Ziitruum",
+    "strengthPeriodDescription": "Wähl, weli Täg s Widget schattiert.",
     "latest": {
       "rank": "{{rank}} von {{total}}",
       "fastest": "Deine schnellste",

@@ -1295,6 +1295,10 @@
     "noSectionsMatchFilter": "Keine Abschnitte entsprechen dem Filter",
     "placeJourney": "{{start}} nach {{end}}",
     "placeLoop": "{{place}} Runde",
+    "placeNameButton": "Nach Orten benennen",
+    "placeNameFailedMessage": "Der Ortsname konnte nicht nachgeschlagen werden, der Name bleibt unverändert. Versuche es später erneut.",
+    "placeNameFailedTitle": "Kein Ortsname",
+    "placeNameNoPlaceMessage": "Am Startpunkt wurde kein Ort gefunden, der Name bleibt unverändert.",
     "pointCountHint_one": "{{count}} GPS-Punkt",
     "pointCountHint_other": "{{count}} GPS-Punkte",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
@@ -1635,7 +1639,7 @@
       "title": "Ortsnamen",
       "attribution": "Ortsnamen © OpenStreetMap-Mitwirkende",
       "noticeTitle": "Ortsnamen verwenden?",
-      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Bestehende Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
+      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden oder bittest du darum, eine Route oder einen Abschnitt zu benennen, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Andere Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
       "readPolicy": "Nutzungsbedingungen",
       "accept": "Zustimmen"
     },
@@ -1999,6 +2003,7 @@
     "setColumn": "Satz",
     "snapshot": "Kraft-Überblick",
     "noWorkouts": "Keine Krafttrainings in den letzten {{period}}",
+    "noWorkoutsThisMonth": "Keine Krafttrainings in diesem Monat",
     "noWorkoutsHint": "Absolviere ein Krafttraining, um deine Muskelgruppenaufteilung hier zu sehen",
     "notDownloaded": "Krafttrainings noch nicht heruntergeladen",
     "notDownloadedHint": "Deine Satzdaten kommen mit den Trainingsdateien. Verbinde dich, um sie zu laden.",
@@ -2274,6 +2279,8 @@
     "insightsMore": "+{{rest}} weitere",
     "insightKinds": "Arten",
     "insightKindsDescription": "Wähle, welche Arten von Einblicken das Widget zeigt. Ohne Auswahl zeigt es alle Arten.",
+    "strengthDescription": "Deine Trainingslast am Körper, Muskel für Muskel.",
+    "strengthWindowDescription": "Wähle, welchen Zeitraum das Widget zeigt.",
     "insightKind": {
       "sectionPr": "Abschnitts-PRs",
       "sectionTrend": "Abschnittstrends",
@@ -2287,6 +2294,9 @@
       "efficiencyTrend": "Effizienztrends",
       "sectionChanged": "Geänderte Abschnitte"
     },
+    "strengthDescription": "Deine trainierten Muskeln, nach Sätzen schattiert.",
+    "strengthPeriod": "Zeitraum",
+    "strengthPeriodDescription": "Wähle, welche Tage das Widget schattiert.",
     "latest": {
       "rank": "{{rank}} von {{total}}",
       "fastest": "Deine schnellste",

@@ -165,6 +165,44 @@ describe('the build record', () => {
     expect(verify(root, { applicationId: 'com.veloq.app' }).problems).toEqual([]);
   });
 
+  it('refuses to record an APK whose embedded configuration names another package', () => {
+    const apk = build(root, { applicationId: 'com.veloq.app', configPackage: 'com.veloq.app.dev' });
+
+    expect(() => record.writeRecord(root, apk, { variant: 'debug' })).toThrow(
+      /com\.veloq\.app\b[\s\S]*com\.veloq\.app\.dev/
+    );
+    expect(fs.existsSync(record.recordPath(apk))).toBe(false);
+  });
+
+  it('refuses to record an APK whose embedded configuration names no package', () => {
+    const apk = build(root, { configPackage: null });
+
+    expect(() => record.writeRecord(root, apk, { variant: 'debug' })).toThrow(
+      /embedded Expo configuration no identity/
+    );
+  });
+
+  it('records the package the embedded configuration names beside the manifest', () => {
+    const written = record.writeRecord(root, build(root, { applicationId: 'com.veloq.app' }), {
+      variant: 'debug',
+    });
+
+    expect(written.application).toEqual({
+      id: 'com.veloq.app',
+      config: { package: 'com.veloq.app', name: 'Veloq' },
+    });
+  });
+
+  it('refuses a recorded APK replaced by one whose configuration names another package', () => {
+    const apk = build(root);
+    record.writeRecord(root, apk, { variant: 'debug' });
+    const recorded = fs.readFileSync(record.recordPath(apk));
+    build(root, { configPackage: 'com.veloq.app' });
+    fs.writeFileSync(record.recordPath(apk), recorded);
+
+    expect(verify(root).problems.join('\n')).toMatch(/embedded Expo configuration/);
+  });
+
   it('refuses an APK with no record', () => {
     build(root);
 

@@ -41,23 +41,20 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: true }),
 }));
 
-jest.mock('@/features/routes/hooks/useSectionEfficiencyTrend', () => ({
-  useSectionEfficiencyTrend: () => ({
-    trend: {
-      sectionId: 's',
-      sectionName: 'Hill',
-      sportType: 'Ride',
-      points: [
-        { date: 1, paceSecsPerKm: 240, avgHr: 150, hrPaceRatio: 0.64 },
-        { date: 2, paceSecsPerKm: 240, avgHr: 148, hrPaceRatio: 0.62 },
-      ],
-      trendSlope: -0.0004,
-      direction: 0,
-      hrChangeBpm: -2,
-      effortCount: 2,
-    },
-  }),
-}));
+const efficiencyTrend = {
+  sectionId: 's',
+  sectionName: 'Hill',
+  sportType: 'Ride',
+  points: [
+    { date: 1, paceSecsPerKm: 240, avgHr: 150, hrPaceRatio: 0.64 },
+    { date: 2, paceSecsPerKm: 240, avgHr: 148, hrPaceRatio: 0.62 },
+    { date: 3, paceSecsPerKm: 240, avgHr: 147, hrPaceRatio: 0.61 },
+  ],
+  trendSlope: -0.0004,
+  direction: 0,
+  hrChangeBpm: -2,
+  effortCount: 3,
+} as never;
 
 const MARGINS = ['margin', 'marginTop', 'marginBottom', 'marginHorizontal', 'marginVertical'];
 
@@ -129,12 +126,8 @@ describe('the containers below the section chart', () => {
     expectFlatDarkCard(
       outermost(
         <SectionInfoCard
-          chartData={
-            [
-              { date: new Date(2026, 0, 1), x: 0 },
-              { date: new Date(2026, 2, 1), x: 1 },
-            ] as never
-          }
+          firstActivityDate={new Date(2026, 0, 1)}
+          lastActivityDate={new Date(2026, 2, 1)}
           bestForwardRecord={{ bestTime: 550, bestPace: 3, sectionDistance: 2000 } as never}
           forwardStats={{ avgTime: 600, count: 10 } as never}
           bestReverseRecord={null}
@@ -147,7 +140,7 @@ describe('the containers below the section chart', () => {
   });
 
   it('draws the efficiency card as the flat dark card, borderless', () => {
-    expectFlatDarkCard(outermost(<SectionEfficiencyCard sectionId="s" isDark />));
+    expectFlatDarkCard(outermost(<SectionEfficiencyCard trend={efficiencyTrend} isDark />));
   });
 
   it('draws the correlation card as the flat dark card', () => {

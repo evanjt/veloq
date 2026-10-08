@@ -31,6 +31,7 @@ jobs:
       variant: dev
       abis: arm64-v8a,x86_64
       allow-stub: true
+      widget-captures: true
       retention-days: 7
 
   build-ios-dev:
@@ -171,6 +172,58 @@ jobs:
         run: exit 1
 
   # ============================================
+  # Widget captures - Android
+  # ============================================
+  # Every widget at every size its provider allows, light and dark, from the
+  # sample and the long-text fixtures, failing on any cut-off line, from the
+  # engine module's test APK the Dev build makes beside the app.
+  widget-captures-android:
+    needs: build-android-dev
+    name: Widget captures (Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download widget capture test
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-android-dev.outputs.widget-captures-artifact }}
+          path: modules/veloqrs/android/build/outputs/apk/androidTest/debug
+
+      - name: Capture the widgets on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
+          disable-animations: true
+          # One `sh -c` per line, so the verdict goes through the environment.
+          script: |
+            scripts/widget-captures-android.sh widget-captures || echo "WIDGET_CAPTURES_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload widget captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widget-captures-android
+          path: widget-captures/
+          retention-days: 14
+
+      - name: Fail on cut-off text
+        if: always() && env.WIDGET_CAPTURES_FAILED == 'true'
+        run: exit 1
+
+  # ============================================
   # E2E Tests - iOS with Maestro
   # ============================================
   e2e-ios:
@@ -291,10 +344,45 @@ jobs:
         run: exit 1
 
   # ============================================
+  # Widget captures - iOS
+  # ============================================
+  # Every widget at every family it supports, in the smallest and the largest
+  # iPhone box, light and dark, from the sample and the long-text fixtures,
+  # failing on any cut-off text, from a Swift package of the extension's own
+  # sources on a simulator. It needs no app build.
+  widget-captures-ios:
+    name: Widget captures (iOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
+        with:
+          node-version: "22"
+
+      - name: Capture the widgets on a simulator
+        run: |
+          scripts/widget-captures-ios.sh widget-captures-ios || echo "WIDGET_CAPTURES_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload widget captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widget-captures-ios
+          path: widget-captures-ios/
+          retention-days: 14
+
+      - name: Fail on cut-off text
+        if: always() && env.WIDGET_CAPTURES_FAILED == 'true'
+        run: exit 1
+
+  # ============================================
   # E2E Summary
   # ============================================
   e2e-summary:
-    needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android]
+    needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android, widget-captures-android, widget-captures-ios]
     if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
     name: E2E Summary
     runs-on: ubuntu-latest
@@ -372,12 +460,16 @@ jobs:
         env:
           IOS_RESULT: ${{ needs.e2e-ios.result }}
           ANDROID_RESULT: ${{ needs.e2e-android.result }}
+          WIDGETS_RESULT: ${{ needs.widget-captures-android.result }}
+          WIDGETS_IOS_RESULT: ${{ needs.widget-captures-ios.result }}
         run: |
           red=0
-          for platform in ios android; do
+          for platform in ios android widgets widgets-ios; do
             case "$platform" in
               ios) result="$IOS_RESULT" ;;
               android) result="$ANDROID_RESULT" ;;
+              widgets) result="$WIDGETS_RESULT" ;;
+              widgets-ios) result="$WIDGETS_IOS_RESULT" ;;
             esac
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "E2E $platform: $result"

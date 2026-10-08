@@ -83,12 +83,14 @@ pub mod settings_keys {
 
     /// Whether the athlete has agreed to send points to the geocoder for place
     /// names. Absent means no: nothing leaves the device until they say so.
-    /// Not carried by a backup, so a restore never turns it on for them.
+    /// Not carried by a backup, so a restore never turns it on for them, and
+    /// cleared with the library, so the next athlete to sign in has not
+    /// agreed either.
     pub const GEOCODING_ENABLED: &str = "__geocoding_enabled";
 
-    /// When geocoding was last turned on, in epoch milliseconds. Only what
-    /// appears after this is named, so turning it on starts no pass over the
-    /// library.
+    /// When geocoding was last turned on, in epoch milliseconds. Only ground
+    /// ridden after this is named unasked, so turning it on starts no pass
+    /// over the library.
     pub const GEOCODING_ENABLED_AT: &str = "__geocoding_enabled_at";
 
     /// The last worker geocoder response and when it arrived, as one JSON row.

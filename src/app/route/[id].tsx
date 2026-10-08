@@ -1,38 +1,47 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar, Pressable, ActivityIndicator } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, ScrollView, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { isEngineReady } from '@/shared/native/engine';
 import {
-  useRoutePerformances,
   useRouteDetailData,
+  useRouteDetailPerformance,
   DataRangeFooter,
   DetailFallback,
+  PlaceNameButton,
   RouteDetailMap,
   SportTypeSelector,
-  RouteDetailChart,
+  SectionContentArea,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
   createMapHighlightStore,
-  useSportTypeFilter,
-  useRouteChartData,
+  useRouteMapSignatures,
   useRouteReference,
   useExcludedActivities,
   useRouteRenaming,
+  useSectionChartData,
+  useSectionChartDataEnriched,
+  useSectionMapData,
   buildRouteGroupBase,
   buildFinalRouteGroup,
   routeHeadline,
+  heroStats,
   toActivityType,
+  toPerformanceView,
+  EMPTY_PERFORMANCE_VIEW,
+  RANGE_DAYS,
+  isSportOffered,
+  shouldShowSportChips,
+  type SectionTimeRange,
 } from '@/features/routes';
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import {
+  Button,
   DetailHero,
   EngineReadFailure,
   HeroNameRow,
@@ -42,11 +51,26 @@ import {
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
-import { formatDistance, formatRelativeDate } from '@/shared/format/format';
-import { decodeCoords } from 'veloqrs';
-import type { FfiActivityMetrics } from 'veloqrs';
+import { decodeCoords, PlaceNameKind } from 'veloqrs';
+import type {
+  FfiAttemptHistograms,
+  FfiSectionChartPoint,
+  FfiSectionCorrelation,
+  FfiSectionSportCount,
+  FfiSectionTrendCurves,
+} from 'veloqrs';
 import { colors } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+
+const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
+const EMPTY_EXCLUDED_POINTS: FfiSectionChartPoint[] = [];
+const NO_CORRELATIONS: FfiSectionCorrelation[] = [];
+/** Until the attempt times are read there is no trend to draw. */
+const NO_TREND_CURVES: FfiSectionTrendCurves = {};
+const NO_HISTOGRAMS: FfiAttemptHistograms = {};
+
+/** A route opens on every attempt it has, whatever its age. */
+const ROUTE_DEFAULT_RANGE: SectionTimeRange = 'all';
 
 function RouteDetailScreenContent() {
   // Performance timing
@@ -88,42 +112,35 @@ function RouteDetailScreenContent() {
 
   const engineGroup = detail?.group;
 
-  // Sport pills come from the unfiltered attempts the bundle already carries.
-  const allMetrics = useMemo(() => {
-    const map = new Map<string, FfiActivityMetrics>();
-    for (const m of detail?.performances.activityMetrics ?? []) {
-      map.set(m.activityId, m);
-    }
-    return map;
-  }, [detail]);
-
-  const { selectedSportType, setSelectedSportType, availableSportTypes, sportFilter } =
-    useSportTypeFilter(allMetrics);
-
-  // Get performance data filtered by selected sport type. Without a filter the
-  // bundle's unfiltered result is the answer, so no second read is made.
-  const preComputedPerformances = useMemo(
-    () =>
-      detail
-        ? {
-            groups: detail.groups,
-            result: sportFilter ? undefined : detail.performances,
-          }
-        : undefined,
-    [detail, sportFilter]
+  // The attempt times for one sport and one range, in one read. With no pill
+  // picked, the engine answers for the sport with the most attempts and says
+  // which.
+  const [routeTimeRange, setRouteTimeRange] = useState<SectionTimeRange>(ROUTE_DEFAULT_RANGE);
+  const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
+  const { data: performance, error: performanceReadError } = useRouteDetailPerformance(
+    id,
+    RANGE_DAYS[routeTimeRange],
+    selectedSportType,
+    detailRefreshKey
   );
-  const {
-    performances,
-    best: bestPerformance,
-    bestForwardRecord,
-    bestReverseRecord,
-    bestForwardIsRecord,
-    bestReverseIsRecord,
-    forwardStats,
-    reverseStats,
-    trendCurves,
-    histograms,
-  } = useRoutePerformances(id, engineGroup?.groupId, sportFilter, preComputedPerformances);
+  if (
+    performance &&
+    selectedSportType &&
+    !isSportOffered(selectedSportType, performance.sportCounts)
+  ) {
+    setSelectedSportType(undefined);
+  }
+  const effectiveSportType = performance?.sportType ?? selectedSportType;
+  const { isRunning } = useSectionMapData(effectiveSportType, null);
+  const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
+  const showSportChips = shouldShowSportChips(sportCounts);
+
+  const { bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } = useMemo(
+    () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),
+    [performance]
+  );
+  const bestForwardIsRecord = performance?.bestForwardIsRecord ?? false;
+  const bestReverseIsRecord = performance?.bestReverseIsRecord ?? false;
 
   // Representative route points, decoded from the bundle.
   const representativePoints = useMemo(() => {
@@ -155,32 +172,31 @@ function RouteDetailScreenContent() {
     handleCancelEdit,
   } = useRouteRenaming(id, routeGroupBase?.name, t, detail?.routeNames);
 
-  // The hero describes the route, so it reads the engine's figures and the
-  // sport chip, which only filters the attempts below it, does not move them.
+  // The representative's length and climbing describe the line on the map,
+  // so the sport chip and the range do not move them.
   const routeStats = useMemo(() => routeHeadline(detail), [detail]);
 
-  const {
+  const { showExcluded, handleExcludeActivity, handleIncludeActivity, handleToggleShowExcluded } =
+    useExcludedActivities(id, refreshDetail);
+
+  const { chartData, bestTimeValue, firstActivityDate, lastActivityDate } = useSectionChartData({
+    preComputedChart: performance?.chartData ?? null,
+  });
+  const excludedPoints = performance?.excludedPoints ?? EMPTY_EXCLUDED_POINTS;
+  const { calendarSummary, combinedChartData } = useSectionChartDataEnriched({
+    chartData,
     showExcluded,
-    excludedActivityIds,
-    handleExcludeActivity,
-    handleIncludeActivity,
-    handleToggleShowExcluded,
-    excludedChartData,
-    excludedReadError,
-  } = useExcludedActivities(id, sportFilter, detail?.excludedActivityIds, refreshDetail);
+    excludedPoints,
+    preComputedCalendarSummary: performance?.calendarSummary ?? null,
+    bestForwardRecord,
+    bestReverseRecord,
+  });
 
-  const directionBests = useMemo(
-    () => ({ forward: bestForwardRecord, reverse: bestReverseRecord }),
-    [bestForwardRecord, bestReverseRecord]
-  );
+  // The chart's own attempts, so the hero and the chart under it never count
+  // different things. Absent until the attempt times are read.
+  const attemptCount = performance ? chartData.length : undefined;
 
-  const { signatures, chartData: combinedChartData } = useRouteChartData(
-    performances,
-    engineGroup,
-    excludedChartData,
-    detail?.mapSignatures,
-    directionBests
-  );
+  const signatures = useRouteMapSignatures(engineGroup, detail?.mapSignatures);
 
   // Final routeGroup with signature populated from representative points.
   const routeGroup = useMemo(
@@ -203,11 +219,10 @@ function RouteDetailScreenContent() {
 
   const displayName = customName || routeGroup.name;
 
-  // Use selected sport type for color/icon when filtering
-  const displayType = toActivityType(selectedSportType);
+  // The sport on screen colours the icon and the map.
+  const displayType = toActivityType(effectiveSportType);
   const activityColor = getActivityColor(displayType);
-  // Map data check - have activities if we have performances
-  const hasMapData = performances.length > 0;
+  const hasMapData = !!engineGroup?.activityIds.length;
 
   return (
     <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
@@ -218,8 +233,8 @@ function RouteDetailScreenContent() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {excludedReadError !== undefined ? (
-          <EngineReadFailure error={excludedReadError} testID="route-excluded-failure" />
+        {performanceReadError !== undefined ? (
+          <EngineReadFailure error={performanceReadError} testID="route-performance-failure" />
         ) : null}
 
         {/* Hero Map Section */}
@@ -245,16 +260,33 @@ function RouteDetailScreenContent() {
                   onCancel: handleCancelEdit,
                   onChange: setEditName,
                 }}
+                accessory={
+                  detail?.canNameFromPlaces ? (
+                    <PlaceNameButton
+                      kind={PlaceNameKind.Route}
+                      itemId={id}
+                      testID="route-place-name-button"
+                    />
+                  ) : undefined
+                }
               />
               <HeroStatsRow
                 testID="route-detail-stats"
-                stats={[
-                  formatDistance(routeStats.distance, isMetric),
-                  t('maps.activitiesCount', {
-                    count: routeGroup.activityCount,
-                  }),
-                  routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-',
-                ]}
+                stats={heroStats(
+                  {
+                    kind: 'route',
+                    distanceMeters: routeStats.distance,
+                    elevationGainMeters: routeStats.elevationGain,
+                  },
+                  {
+                    count: attemptCount,
+                    sport: effectiveSportType,
+                    sportsOffered: sportCounts.length,
+                    range: routeTimeRange,
+                  },
+                  t,
+                  isMetric
+                )}
               />
             </>
           }
@@ -265,53 +297,68 @@ function RouteDetailScreenContent() {
             signatures={signatures}
             hasMapData={hasMapData}
             activityColor={activityColor}
-            selectedSportType={selectedSportType ? displayType : undefined}
+            selectedSportType={effectiveSportType ? displayType : undefined}
           />
         </DetailHero>
 
-        {/* Sport type selector - shown when route has multiple sport types */}
-        {availableSportTypes.length > 1 && (
+        {showSportChips && (
           <SportTypeSelector
-            options={availableSportTypes.map((type) => ({ type }))}
-            selectedType={selectedSportType}
-            onSelect={setSelectedSportType}
+            options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
+            selectedType={effectiveSportType}
+            onSelect={(st) => {
+              // Tapping the pill already picked hands the choice back to the
+              // engine's default.
+              setSelectedSportType(selectedSportType === st ? undefined : st);
+            }}
             isDark={isDark}
           />
         )}
 
-        {/* Content below hero */}
-        <View style={styles.contentSection}>
-          {/* Performance scatter chart with eye toggle */}
-          {!!engineGroup?.activityIds.length && (
-            <RouteDetailChart
-              chartData={combinedChartData}
-              trendCurves={trendCurves}
-              histograms={histograms}
-              activityType={displayType}
-              isDark={isDark}
-              bestForwardRecord={bestForwardRecord}
-              bestReverseRecord={bestReverseRecord}
-              bestForwardIsRecord={bestForwardIsRecord}
-              bestReverseIsRecord={bestReverseIsRecord}
-              forwardStats={forwardStats}
-              reverseStats={reverseStats}
-              onActivitySelect={highlight.set}
-              onExcludeActivity={handleExcludeActivity}
-              onIncludeActivity={handleIncludeActivity}
-              onSetAsReference={handleSetAsReference}
-              referenceActivityId={effectiveRepresentativeId}
-              showExcluded={showExcluded}
-              hasExcluded={excludedActivityIds.size > 0}
-              onToggleShowExcluded={handleToggleShowExcluded}
-              highlightedActivityId={navActivityId}
-            />
-          )}
+        {!!engineGroup?.activityIds.length && (
+          <SectionContentArea
+            subject="route"
+            efficiencyTrend={performance?.efficiencyTrend}
+            isDark={isDark}
+            correlations={performance?.correlations ?? NO_CORRELATIONS}
+            correlationFloor={performance?.correlationFloor ?? 0}
+            combinedChartData={combinedChartData}
+            firstActivityDate={firstActivityDate}
+            lastActivityDate={lastActivityDate}
+            trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
+            histograms={performance?.histograms ?? NO_HISTOGRAMS}
+            forwardStats={forwardStats}
+            reverseStats={reverseStats}
+            bestForwardRecord={bestForwardRecord}
+            bestReverseRecord={bestReverseRecord}
+            bestForwardIsRecord={bestForwardIsRecord}
+            bestReverseIsRecord={bestReverseIsRecord}
+            calendarSummary={calendarSummary}
+            effectiveSportType={effectiveSportType}
+            isRunning={isRunning}
+            activityColor={activityColor}
+            navActivityId={navActivityId}
+            effectiveReferenceId={effectiveRepresentativeId}
+            showExcluded={showExcluded}
+            hasExcluded={excludedPoints.length > 0}
+            sectionTimeRange={routeTimeRange}
+            onActivitySelect={highlight.set}
+            onExcludeActivity={handleExcludeActivity}
+            onIncludeActivity={handleIncludeActivity}
+            onSetAsReference={handleSetAsReference}
+            onToggleShowExcluded={handleToggleShowExcluded}
+            onTimeRangeChange={setRouteTimeRange}
+          />
+        )}
 
-          {/* Export GPX button */}
+        <View style={styles.listFooterContainer}>
           {representativePoints && representativePoints.length > 0 && (
-            <Pressable
+            <Button
               testID="route-export-gpx"
-              style={pressable([styles.exportGpxButton, isDark && styles.exportGpxButtonDark])}
+              label={gpxExporting ? t('export.exporting') : t('export.gpx')}
+              loading={gpxExporting}
+              icon={
+                <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
+              }
               onPress={() =>
                 exportGpx({
                   name: displayName,
@@ -319,34 +366,21 @@ function RouteDetailScreenContent() {
                     latitude: p.lat,
                     longitude: p.lng,
                   })),
-                  sport: selectedSportType,
+                  sport: effectiveSportType,
                 })
               }
               disabled={gpxExporting}
-              accessibilityRole="button"
-              accessibilityLabel={t('export.gpx')}
-              accessibilityState={{ disabled: gpxExporting }}
-              android_ripple={pressRipple}
-            >
-              {gpxExporting ? (
-                <ActivityIndicator size="small" color={colors.textOnPrimary} />
-              ) : (
-                <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
-              )}
-              <Text style={styles.exportGpxButtonText}>
-                {gpxExporting ? t('export.exporting') : t('export.gpx')}
-              </Text>
-            </Pressable>
+              style={styles.exportGpxButton}
+            />
           )}
 
-          {/* Data range footer */}
           <DataRangeFooter days={cacheDays} isDark={isDark} />
 
           {debugEnabled && engineGroup && (
             <RouteDetailDebugPanel
               engineGroup={engineGroup}
               routeStats={routeStats}
-              bestPerformance={bestPerformance}
+              bestTime={bestTimeValue}
               pageMetrics={getPageMetrics()}
               isDark={isDark}
               isMetric={isMetric}

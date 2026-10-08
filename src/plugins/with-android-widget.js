@@ -26,9 +26,10 @@ const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 const { writeAndroidStrings } = require("./nativeStrings");
 
 // Summary (all sizes, hero chosen when placed), Latest Activity, Insights (kinds
-// chosen when placed), and the Quick-Record button. Excluded receivers are actively removed so an incremental
-// prebuild can't keep a stale registration. A label names the widget in the
-// gallery; one without it shows the application name.
+// chosen when placed), Strength (window chosen when placed), and the Quick-Record
+// button. Excluded receivers are actively removed so an incremental prebuild can't
+// keep a stale registration. A label names the widget in the gallery; one without
+// it shows the application name.
 const RECEIVERS = [
   {
     name: ".widget.VeloqWidgetProvider",
@@ -41,6 +42,12 @@ const RECEIVERS = [
     name: ".widget.VeloqInsightsWidgetProvider",
     info: "@xml/widget_insights_info",
     label: "@string/widget_insights_label",
+    include: true,
+  },
+  {
+    name: ".widget.VeloqStrengthWidgetProvider",
+    info: "@xml/widget_strength_info",
+    label: "@string/widget_strength_label",
     include: true,
   },
   {
@@ -183,11 +190,12 @@ function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
 }
 
 // The pickers a placed widget opens. The Record one rides the same gate as the
-// widget it configures; the Summary and Insights ones belong to widgets that are
-// always in the gallery. Both are removed rather than skipped, so an incremental prebuild cannot
+// widget it configures; the Summary, Insights and Strength ones belong to widgets
+// that are always in the gallery. Both are removed rather than skipped, so an incremental prebuild cannot
 // keep a stale registration pointing at a class that is no longer compiled.
 const SUMMARY_CONFIGURE_ACTIVITY = ".widget.SummaryWidgetConfigureActivity";
 const INSIGHTS_CONFIGURE_ACTIVITY = ".widget.InsightsWidgetConfigureActivity";
+const STRENGTH_CONFIGURE_ACTIVITY = ".widget.StrengthWidgetConfigureActivity";
 const RECORD_CONFIGURE_ACTIVITY = ".widget.RecordWidgetConfigureActivity";
 
 function configureActivity(name) {
@@ -211,6 +219,7 @@ function applyActivities(app, includeRecord = INCLUDE_RECORD_WIDGET) {
   const pickers = [
     { name: SUMMARY_CONFIGURE_ACTIVITY, include: true },
     { name: INSIGHTS_CONFIGURE_ACTIVITY, include: true },
+    { name: STRENGTH_CONFIGURE_ACTIVITY, include: true },
     { name: RECORD_CONFIGURE_ACTIVITY, include: includeRecord },
   ];
   app.activity = (app.activity || []).filter(

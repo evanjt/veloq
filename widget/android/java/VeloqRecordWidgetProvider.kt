@@ -21,16 +21,22 @@ class VeloqRecordWidgetProvider : AppWidgetProvider() {
   override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
     val snap = WidgetSnapshot.read(context)
     for (id in ids) {
-      val v = RemoteViews(context.packageName, R.layout.widget_record)
-      v.setOnClickPendingIntent(
-        R.id.record_root,
-        WidgetRenderer.recordIntent(context, snap, RecordWidgetChoice.url(context, id), id))
-      manager.updateAppWidget(id, v)
+      manager.updateAppWidget(id, render(context, snap, RecordWidgetChoice.url(context, id), id))
     }
   }
 
   /** A removed widget's choice is nobody's, and ids are reused. */
   override fun onDeleted(context: Context, appWidgetIds: IntArray) {
     RecordWidgetChoice.clear(context, appWidgetIds)
+  }
+
+  companion object {
+    /** The button for one placed instance, starting [configured] or, with none, the last sport. */
+    fun render(context: Context, snap: WidgetSnapshot?, configured: String?, id: Int): RemoteViews {
+      val v = RemoteViews(context.packageName, R.layout.widget_record)
+      v.setOnClickPendingIntent(
+        R.id.record_root, WidgetRenderer.recordIntent(context, snap, configured, id))
+      return v
+    }
   }
 }

@@ -99,6 +99,21 @@ class SummaryWidgetTest {
   }
 
   @Test
+  fun a_placement_one_row_tall_is_short_at_any_width() {
+    assertEquals(SummarySize.SHORT, SummaryWidget.sizeFor(130, 51))
+    assertEquals(SummarySize.SHORT, SummaryWidget.sizeFor(276, 51))
+    assertEquals(SummarySize.SHORT, SummaryWidget.sizeFor(276, 99))
+    assertEquals(SummarySize.MEDIUM, SummaryWidget.sizeFor(276, 100))
+    assertEquals(SummarySize.SMALL, SummaryWidget.sizeFor(130, 117))
+  }
+
+  @Test
+  fun short_shows_the_hero_and_no_supporting_entry() {
+    val c = card("form", "fitness" to "Fitness", "fatigue" to "Fatigue")
+    assertTrue(SummaryWidget.supporting(SummaryWidget.card(snapshot(c), null), SummarySize.SHORT).isEmpty())
+  }
+
+  @Test
   fun medium_and_large_list_the_cards_four_labels_in_order() {
     val snap = snapshot(ftpCard)
     val drawn = SummaryWidget.card(snap, null)

@@ -47,7 +47,6 @@ function nativeSection(id: string): SectionWithPolyline {
 beforeEach(() => {
   jest.clearAllMocks();
   (getEngine as jest.Mock).mockReturnValue({
-    getSectionsForActivity: jest.fn(() => []),
     getSectionCount: jest.fn(() => 0),
     getMapSignaturesForIds: jest.fn(() => []),
     subscribe: jest.fn(() => () => {}),

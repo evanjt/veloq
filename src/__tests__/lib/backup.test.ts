@@ -35,7 +35,6 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 const mockEngine = {
   getSectionsByType: jest.fn().mockReturnValue([]),
   getAllSectionNames: jest.fn().mockReturnValue({}),
-  getAllRouteNames: jest.fn().mockReturnValue({}),
   // Coordinate-encoded; the `decodeCoords` mock above reads the points back out.
   getGpsTrack: jest.fn().mockReturnValue({ points: [] }),
   createSectionFromIndices: jest.fn().mockReturnValue('section-1'),
@@ -204,7 +203,6 @@ beforeEach(() => {
   // Reset engine mocks to defaults
   mockEngine.getSectionsByType.mockReturnValue([]);
   mockEngine.getAllSectionNames.mockReturnValue({});
-  mockEngine.getAllRouteNames.mockReturnValue({});
   mockEngine.getGpsTrack.mockReturnValue({ points: [] });
   mockEngine.getSetting.mockReturnValue(null);
   mockEngine.createSectionFromIndices.mockReturnValue('section-1');

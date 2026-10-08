@@ -29,8 +29,10 @@
     android:orientation="vertical"
     android:gravity="center_vertical">
 
+    <!-- The row wraps its content, so the record dot follows a short name; a long name fills the
+         width, and its weight then shrinks it to leave the dot inside the card. -->
     <LinearLayout
-      android:layout_width="match_parent"
+      android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:orientation="horizontal"
       android:gravity="center_vertical">
@@ -39,6 +41,7 @@
         android:id="@+id/act_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:maxLines="2"
         android:ellipsize="end"
         android:textSize="@dimen/widget_text_label"
@@ -60,7 +63,7 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:visibility="gone"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -70,7 +73,7 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:visibility="gone"
-      android:maxLines="1"
+      android:maxLines="3"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -78,9 +81,13 @@
     <TextView
       android:id="@+id/act_hero"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
+      android:layout_height="@dimen/widget_metric_line"
       android:visibility="gone"
       android:maxLines="1"
+      android:autoSizeTextType="uniform"
+      android:autoSizeMinTextSize="@dimen/widget_text_floor"
+      android:autoSizeMaxTextSize="@dimen/widget_text_metric"
+      android:autoSizeStepGranularity="1sp"
       android:textSize="@dimen/widget_text_metric"
       android:textStyle="bold"
       android:textColor="@color/widget_text_primary" />
@@ -118,7 +125,7 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:visibility="gone"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_label"
       android:textColor="@color/widget_text_secondary" />
@@ -128,54 +135,61 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:visibility="gone"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_label"
       android:textColor="@color/widget_text_primary" />
 
+    <!-- The label takes its own line, since a translated one leaves the change no room beside it. -->
     <LinearLayout
       android:id="@+id/act_form"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:visibility="gone"
-      android:orientation="horizontal">
+      android:orientation="vertical">
 
       <TextView
         android:id="@+id/act_form_label"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:textSize="@dimen/widget_text_label"
         android:textColor="@color/widget_text_secondary" />
 
-      <TextView
-        android:id="@+id/act_form_before"
+      <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:maxLines="1"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
+        android:orientation="horizontal">
 
-      <TextView
-        android:id="@+id/act_form_arrow"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:maxLines="1"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
+        <TextView
+          android:id="@+id/act_form_before"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:maxLines="1"
+          android:textSize="@dimen/widget_text_label"
+          android:textStyle="bold"
+          android:textColor="@color/widget_text_primary" />
 
-      <TextView
-        android:id="@+id/act_form_after"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:maxLines="1"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
+        <TextView
+          android:id="@+id/act_form_arrow"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:maxLines="1"
+          android:textSize="@dimen/widget_text_label"
+          android:textColor="@color/widget_text_secondary" />
+
+        <TextView
+          android:id="@+id/act_form_after"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:maxLines="1"
+          android:textSize="@dimen/widget_text_label"
+          android:textStyle="bold"
+          android:textColor="@color/widget_text_primary" />
+      </LinearLayout>
     </LinearLayout>
 
     <TextView

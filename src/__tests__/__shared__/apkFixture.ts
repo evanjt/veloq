@@ -156,6 +156,8 @@ export interface BuildOptions {
   features?: string[];
   profile?: string;
   applicationId?: string;
+  /** The package the embedded Expo configuration names, the manifest's when unset. */
+  configPackage?: string | null;
   rustCode?: string;
   bundle?: string;
   packagedBundle?: string;
@@ -213,7 +215,17 @@ export function build(root: string, options: BuildOptions = {}) {
     'AndroidManifest.xml',
     compiledManifest(options.applicationId ?? 'com.veloq.app.dev')
   );
-  write(staging, 'assets/app.config', JSON.stringify({ extra: { buildCommit: buildStamp(root) } }));
+  const applicationId = options.applicationId ?? 'com.veloq.app.dev';
+  const configPackage = options.configPackage === undefined ? applicationId : options.configPackage;
+  write(
+    staging,
+    'assets/app.config',
+    JSON.stringify({
+      name: applicationId.endsWith('.dev') ? 'Veloq Dev' : 'Veloq',
+      ...(configPackage === null ? {} : { android: { package: configPackage } }),
+      extra: { buildCommit: buildStamp(root) },
+    })
+  );
   write(staging, 'assets/index.android.bundle', options.packagedBundle ?? bundle);
   for (const abi of abis) {
     write(staging, `lib/${abi}/libveloqrs.so`, elf(abi, options.packagedRust ?? rustCode, true));

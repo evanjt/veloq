@@ -95,6 +95,14 @@ const mockUseSectionTrim = jest.fn((..._args: unknown[]) => ({}));
 
 let capturedSaveName: ((name: string) => void) | undefined;
 let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
+let capturedEfficiencyTrend: unknown;
+let mockSelectedSport: string | undefined;
+const mockUseSectionDetailPerformance = jest.fn(
+  (..._args: unknown[]): { data: unknown; error: unknown } => ({
+    data: undefined,
+    error: undefined,
+  })
+);
 
 jest.mock('@/features/routes', () => {
   const React = require('react');
@@ -125,7 +133,7 @@ jest.mock('@/features/routes', () => {
       .createMapHighlightStore,
     useMergeSections: () => ({ merge: noop, previewDropped: false }),
     useSectionDetailData: () => ({ data: mockDetail, status: 'ready', retirement: undefined }),
-    useSectionDetailPerformance: () => ({ data: undefined, error: undefined }),
+    useSectionDetailPerformance: (...args: unknown[]) => mockUseSectionDetailPerformance(...args),
     useSectionTimeStreamSync: (...args: unknown[]) => mockUseSectionTimeStreamSync(...args),
     useSectionChartData: () => ({ chartData: [] }),
     useSectionChartDataEnriched: () => ({ calendarSummary: null, combinedChartData: [] }),
@@ -146,7 +154,7 @@ jest.mock('@/features/routes', () => {
         setMapReady,
         sectionTimeRange: '3m',
         setSectionTimeRange: noop,
-        selectedSportType: undefined,
+        selectedSportType: mockSelectedSport,
         setSelectedSportType: noop,
       };
     },
@@ -166,8 +174,12 @@ jest.mock('@/features/routes', () => {
     SectionTrimOverlay: component,
     SportTypeSelector: component,
     SectionActionRow: component,
-    SectionContentArea: (props: { onActivitySelect: (activityId: string | null) => void }) => {
+    SectionContentArea: (props: {
+      onActivitySelect: (activityId: string | null) => void;
+      efficiencyTrend?: unknown;
+    }) => {
       capturedActivitySelect = props.onActivitySelect;
+      capturedEfficiencyTrend = props.efficiencyTrend;
       return null;
     },
     SectionDebugPanel: component,
@@ -185,6 +197,8 @@ describe('section detail screen', () => {
     jest.clearAllMocks();
     capturedSaveName = undefined;
     capturedActivitySelect = undefined;
+    capturedEfficiencyTrend = undefined;
+    mockSelectedSport = undefined;
   });
 
   it('keeps what it hands its hooks stable across a rename', async () => {
@@ -239,5 +253,45 @@ describe('section detail screen', () => {
     } finally {
       scrollTo.mockRestore();
     }
+  });
+});
+
+/**
+ * Scenario: a section ridden and run, with the Run chip picked.
+ *
+ * Expected behaviour: the efficiency card is handed the trend the performance
+ * read carries for the sport it answered, not one the detail bundle took for
+ * the sport with the most outings.
+ */
+describe('section detail efficiency trend', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    capturedEfficiencyTrend = undefined;
+  });
+
+  it('hands the content area the performance read trend for the picked sport', async () => {
+    mockSelectedSport = 'Run';
+    const runTrend = { sportType: 'Run', points: [], effortCount: 3 };
+    mockUseSectionDetailPerformance.mockImplementation((...args: unknown[]) => ({
+      data: {
+        sportType: args[2],
+        sportCounts: [
+          { sportType: 'Ride', count: 4 },
+          { sportType: 'Run', count: 3 },
+        ],
+        performances: {},
+        chartData: { points: [] },
+        excludedPoints: [],
+        lapRecords: [],
+        efficiencyTrend: args[2] === 'Run' ? runTrend : undefined,
+      },
+      error: undefined,
+    }));
+
+    render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[2]).toBe('Run');
+    expect(capturedEfficiencyTrend).toBe(runTrend);
   });
 });

@@ -15,7 +15,7 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionFilter;
 use veloqrs::objects::sections::SectionManager;
-use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work;
 use veloqrs::persistence::with_persistent_engine;
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -100,7 +100,9 @@ fn seed(dir: &TempDir) {
     .expect("insert the members");
     drop(raw);
 
-    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    assert!(persistent_engine_init_without_owed_work(
+        path.to_str().unwrap().to_string()
+    ));
     with_persistent_engine(|engine| {
         engine
             .set_section_name("s_auto", Some(NAMED))

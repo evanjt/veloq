@@ -4,7 +4,10 @@
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="vertical"
-  android:padding="@dimen/widget_padding"
+  android:paddingStart="@dimen/widget_padding"
+  android:paddingEnd="@dimen/widget_padding"
+  android:paddingTop="@dimen/widget_gap"
+  android:paddingBottom="@dimen/widget_gap"
   android:background="@drawable/widget_background">
 
   <TextView
@@ -18,6 +21,8 @@
     android:textAllCaps="true"
     android:letterSpacing="0.05" />
 
+  <!-- The row wraps its content, so the trend sits beside the value until a long value fills the
+       width; then the weight shrinks the value's box and the value shrinks to fit it. -->
   <LinearLayout
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
@@ -27,8 +32,14 @@
     <TextView
       android:id="@+id/sum_value"
       android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
+      android:layout_height="@dimen/widget_hero_line"
+      android:layout_weight="1"
       android:maxLines="1"
+      android:gravity="bottom"
+      android:autoSizeTextType="uniform"
+      android:autoSizeMinTextSize="@dimen/widget_text_floor"
+      android:autoSizeMaxTextSize="@dimen/widget_text_hero"
+      android:autoSizeStepGranularity="1sp"
       android:textSize="@dimen/widget_text_hero"
       android:textStyle="bold"
       android:textColor="@color/widget_text_primary" />
@@ -66,6 +77,7 @@
     android:contentDescription="@null" />
 
   <LinearLayout
+    android:id="@+id/small_age"
     android:layout_width="match_parent"
     android:layout_height="48dp"
     android:orientation="horizontal"
@@ -75,7 +87,7 @@
       android:layout_width="0dp"
       android:layout_height="wrap_content"
       android:layout_weight="1"
-      android:maxLines="1"
+      android:maxLines="2"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
     <include layout="@layout/widget_refresh_control" />

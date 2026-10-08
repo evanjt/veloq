@@ -4,7 +4,6 @@ import { formatDistance, formatDuration } from '@/shared/format/format';
 import { DebugInfoPanel } from './DebugInfoPanel';
 import { DebugWarningBanner } from './DebugWarningBanner';
 import type { RouteHeadline } from '../lib/routeHeadline';
-import type { RoutePerformancePoint } from '../hooks/useRoutePerformances';
 
 interface FfiMetric {
   name: string;
@@ -14,7 +13,8 @@ interface FfiMetric {
 interface RouteDetailDebugPanelProps {
   engineGroup: EngineRouteGroup;
   routeStats: RouteHeadline;
-  bestPerformance: RoutePerformancePoint | null;
+  /** The best attempt's time in seconds for the sport and range on screen. */
+  bestTime: number | undefined;
   pageMetrics: FfiMetric[];
   isDark: boolean;
   isMetric: boolean;
@@ -23,7 +23,7 @@ interface RouteDetailDebugPanelProps {
 export function RouteDetailDebugPanel({
   engineGroup,
   routeStats,
-  bestPerformance,
+  bestTime,
   pageMetrics,
   isDark,
   isMetric,
@@ -79,8 +79,7 @@ export function RouteDetailDebugPanel({
           },
           {
             label: 'Best Time',
-            value:
-              bestPerformance?.duration != null ? formatDuration(bestPerformance.duration) : '-',
+            value: bestTime != null ? formatDuration(bestTime) : '-',
           },
           ...Object.entries(ffiEntries).map(([name, m]) => ({
             label: name,

@@ -19,6 +19,10 @@ const LINKED_MANIFEST = 'libveloqrs_ffi.manifest.json';
 
 export interface IosBuildOptions {
   bundleId?: string;
+  /** The bundle identifier the embedded Expo configuration names, the app's when unset. */
+  embeddedBundleId?: string;
+  /** Each extension under `PlugIns/` by target name and bundle identifier. */
+  extensions?: Record<string, string>;
   platform?: 'iphonesimulator' | 'iphoneos';
   /** The SDK the linked archive was built for, the app's own when unset. */
   archiveSdk?: string;
@@ -64,12 +68,13 @@ export function buildApp(root: string, options: IosBuildOptions = {}) {
   write(linked, ARCHIVE, archive);
   write(linked, LINKED_MANIFEST, manifest);
 
+  const bundleId = options.bundleId ?? 'com.veloq.app.dev';
   const app = path.join(parent, 'Veloq.app');
-  write(
-    app,
-    'Info.plist',
-    plist(options.bundleId ?? 'com.veloq.app.dev', options.platform ?? 'iphonesimulator')
-  );
+  write(app, 'Info.plist', plist(bundleId, platform));
+  const extensions = options.extensions ?? { VeloqWidget: `${bundleId}.VeloqWidget` };
+  for (const [name, id] of Object.entries(extensions)) {
+    write(app, `PlugIns/${name}.appex/Info.plist`, plist(id, platform));
+  }
   write(app, 'Veloq', 'executable');
   if (options.packagedBundle !== null) {
     write(app, 'main.jsbundle', options.packagedBundle ?? options.bundle ?? 'var app = "hello";');
@@ -77,7 +82,11 @@ export function buildApp(root: string, options: IosBuildOptions = {}) {
   write(
     app,
     'EXConstants.bundle/app.config',
-    JSON.stringify({ extra: { buildCommit: buildStamp(root) } })
+    JSON.stringify({
+      name: bundleId.endsWith('.dev') ? 'Veloq Dev' : 'Veloq',
+      ios: { bundleIdentifier: options.embeddedBundleId ?? bundleId },
+      extra: { buildCommit: buildStamp(root) },
+    })
   );
   return app;
 }

@@ -49,20 +49,29 @@ fn test_get_representative_route_writer_held() {
 }
 
 #[test]
-fn test_get_all_names_writer_held() {
+fn test_route_names_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_names_under_writer.db");
-    let routes = RouteManager::new();
-    assert!(read_while_writer_holds(|| routes.get_all_names().unwrap()).is_empty());
+    assert!(
+        read_while_writer_holds(|| {
+            with_reader(crate::persistence::routes::pooled::all_route_names).unwrap()
+        })
+        .is_empty()
+    );
 }
 
 #[test]
-fn test_get_excluded_activities_writer_held() {
+fn test_route_exclusions_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_excluded_under_writer.db");
-    let routes = RouteManager::new();
     assert!(
-        read_while_writer_holds(|| routes.get_excluded_activities("g1".into()).unwrap()).is_empty()
+        read_while_writer_holds(|| {
+            with_reader(|conn| {
+                crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            })
+            .unwrap()
+        })
+        .is_empty()
     );
 }
 
@@ -103,11 +112,14 @@ fn test_route_side_reads_match_the_engine() {
     );
 
     assert_eq!(
-        routes.get_all_names().unwrap(),
+        with_reader(crate::persistence::routes::pooled::all_route_names).unwrap(),
         crate::with_persistent_engine(|e| e.get_all_route_names()).unwrap()
     );
     assert_eq!(
-        routes.get_excluded_activities("g1".into()).unwrap(),
+        with_reader(
+            |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+        )
+        .unwrap(),
         vec!["a1".to_string()]
     );
 }

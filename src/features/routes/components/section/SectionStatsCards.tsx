@@ -102,7 +102,7 @@ export function SectionStatsCards({
   }
 
   return (
-    <Card variant="flat" padding="none">
+    <Card variant="flat" padding="none" testID="section-calendar">
       <View style={styles.calendarSection}>
         {calendarSummary.years.map((yearData) => {
           const isYearExpanded = expandedYears.has(yearData.year);

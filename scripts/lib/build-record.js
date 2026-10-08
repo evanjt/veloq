@@ -13,6 +13,10 @@
 // from the current Rust sources, and refuses outright when the inputs moved
 // while the build ran.
 //
+// Writing also refuses an APK whose embedded Expo configuration names another
+// package than its manifest: the app reads that configuration at run time, so
+// a mismatch ships the other identity inside a correctly signed package.
+//
 // Verifying reads the APK again and compares: its packaged outputs against
 // the record, the record's inputs against the tree as it is now, and the
 // record's identity and selection against what the install asked for. The
@@ -185,7 +189,14 @@ function stringPool(chunk) {
 function apkFacts(apk) {
   if (!fs.existsSync(apk)) throw new BuildRecordError(`no APK at ${apk}`);
   const entries = new Set(apkEntries(apk));
-  const facts = { applicationId: null, bundle: null, stamp: null, libraries: {}, bridges: {} };
+  const facts = {
+    applicationId: null,
+    config: null,
+    bundle: null,
+    stamp: null,
+    libraries: {},
+    bridges: {},
+  };
   if (entries.has('AndroidManifest.xml')) {
     facts.applicationId = manifestPackage(apkEntry(apk, 'AndroidManifest.xml'));
   }
@@ -194,9 +205,9 @@ function apkFacts(apk) {
   }
   if (entries.has('assets/app.config')) {
     try {
-      facts.stamp = JSON.parse(
-        apkEntry(apk, 'assets/app.config').toString('utf8')
-      ).extra?.buildCommit;
+      const config = JSON.parse(apkEntry(apk, 'assets/app.config').toString('utf8'));
+      facts.stamp = config.extra?.buildCommit;
+      facts.config = { package: config.android?.package ?? null, name: config.name ?? null };
     } catch {
       facts.stamp = null;
     }
@@ -234,6 +245,38 @@ function recordBundle(root, before) {
   };
   fs.writeFileSync(file, `${JSON.stringify(entry, null, 2)}\n`);
   return entry;
+}
+
+/**
+ * The reasons an artifact's identities disagree, given what
+ * `artifactIdentity` returns for it. The embedded Expo configuration must name
+ * the identity the native metadata declares, and every extension must be
+ * `<app id>.<target>`, the shape the extension plugins create.
+ */
+function identityProblems({ native, embedded, extensions = {} }) {
+  if (!native) return [];
+  const problems = [];
+  if (embedded && embedded.id !== native) {
+    problems.push(
+      `the artifact declares ${native}, its embedded Expo configuration ${embedded.id ?? 'no identity'}`
+    );
+  }
+  for (const [name, id] of Object.entries(extensions)) {
+    const suffix = id?.startsWith(`${native}.`) ? id.slice(native.length + 1) : '';
+    if (!suffix || suffix.includes('.')) {
+      problems.push(`the extension ${name} is ${id ?? 'unidentified'}, not ${native}.<target>`);
+    }
+  }
+  return problems;
+}
+
+/** The identities an APK's facts carry, in the shape `identityProblems` reads. */
+function apkIdentity(facts) {
+  return {
+    native: facts.applicationId,
+    embedded: { id: facts.config?.package ?? null, name: facts.config?.name ?? null },
+    extensions: {},
+  };
 }
 
 function sameKeys(a, b) {
@@ -347,6 +390,7 @@ function writeRecord(root, apk, { variant, snapshot = null }) {
     );
   }
   if (!facts.applicationId) problems.push('the APK declares no package');
+  problems.push(...identityProblems(apkIdentity(facts)));
 
   let rust = null;
   if (Object.keys(facts.libraries).length === 0) {
@@ -393,7 +437,7 @@ function writeRecord(root, apk, { variant, snapshot = null }) {
       inputs: source.inputs,
       stamp: source.stamp,
     },
-    application: { id: facts.applicationId },
+    application: { id: facts.applicationId, config: facts.config },
     javascript: { sha256: facts.bundle, inputs: bundle.inputs },
     rust,
     bridge: { libraries: facts.bridges },
@@ -457,6 +501,7 @@ function verifyRecord(root, apk, expect) {
   if (facts.applicationId !== record.application?.id) {
     problems.push(`the APK declares ${facts.applicationId}, the record ${record.application?.id}`);
   }
+  problems.push(...identityProblems(apkIdentity(facts)));
   if (facts.stamp !== record.source?.stamp) {
     problems.push(
       `the APK's configuration is stamped ${facts.stamp}, the record ${record.source?.stamp}`
@@ -514,6 +559,8 @@ module.exports = {
   BUNDLE_RECORD,
   BuildRecordError,
   apkFacts,
+  apkIdentity,
+  identityProblems,
   loadImageHash,
   manifestPackage,
   recordBundle,

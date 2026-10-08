@@ -197,9 +197,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_detectionmanager_poll(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -624,27 +621,13 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_all(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_all_names(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_performances(
@@ -719,9 +702,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -746,9 +726,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
@@ -795,9 +772,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -809,9 +783,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_name(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_unpin(
@@ -863,8 +834,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_fn_method_settingsmanager_notification_templates(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_name_from_places(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
@@ -1067,37 +1037,19 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_cutover_diff(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_get_cutover_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_fetch_run_progress(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_get_network_push(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_routes_status_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_get_stream_backfill_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_get_stream_backfill_remaining(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_is_cutover_pending(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_is_cutover_running(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_pause_elevation_backfill(
@@ -1351,37 +1303,19 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_cutover_diff(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_get_cutover_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_fetch_run_progress(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_get_network_push(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_routes_status_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_remaining(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_is_cutover_pending(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_pause_elevation_backfill(
@@ -1582,9 +1516,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_detectionmanager_poll(
@@ -1962,14 +1893,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_exclude_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_all(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_all_names(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_detail_data(
@@ -1977,14 +1901,6 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_performances(
@@ -2053,10 +1969,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2083,10 +1995,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -2138,9 +2046,6 @@ protected:
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -2153,9 +2058,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_name(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_unpin(
@@ -2205,7 +2107,7 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_settingsmanager_notification_templates(
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_name_from_places(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

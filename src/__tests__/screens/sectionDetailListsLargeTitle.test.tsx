@@ -1,10 +1,10 @@
 /**
- * Scenario: the section laps and section history screens, and the exercise history screen, take a
- * collapsing large title on iOS, which only holds when each screen's scroll view lets the system
- * inset its content.
+ * Scenario: the section history and exercise history screens take a collapsing large title on iOS,
+ * which only holds when each screen's scroll view lets the system inset its content. The section
+ * laps screen scrolled under a title that never collapsed on iOS 26, so it keeps the small one.
  *
- * Expected behaviour: each route sets `largeTitle`, and rendered on iOS its first scroll view has
- * `contentInsetAdjustmentBehavior: 'automatic'`.
+ * Expected behaviour: history and exercise history set `largeTitle`, laps does not, and rendered
+ * on iOS each first scroll view has `contentInsetAdjustmentBehavior: 'automatic'`.
  */
 
 import React from 'react';
@@ -65,9 +65,17 @@ const SCREENS: [route: string, load: () => React.ComponentType][] = [
 ];
 
 describe('section and exercise detail lists', () => {
-  it.each(SCREENS)('%s takes a large title on iOS', (route) => {
-    expect(headerLargeTitle(route, 'ios')).toBe(true);
-    expect(headerLargeTitle(route, 'android')).toBe(false);
+  it.each(SCREENS.filter(([route]) => route !== 'section/laps/[id]'))(
+    '%s takes a large title on iOS',
+    (route) => {
+      expect(headerLargeTitle(route, 'ios')).toBe(true);
+      expect(headerLargeTitle(route, 'android')).toBe(false);
+    }
+  );
+
+  it('keeps the small title on the section laps screen', () => {
+    expect(headerLargeTitle('section/laps/[id]', 'ios')).toBe(false);
+    expect(headerLargeTitle('section/laps/[id]', 'android')).toBe(false);
   });
 
   it.each(SCREENS)('%s lets the system inset its scroll view on iOS', (_route, load) => {

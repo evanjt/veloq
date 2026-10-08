@@ -7,7 +7,6 @@
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 import * as settings from '../../../modules/veloqrs/src/delegates/settings';
 import * as heatmap from '../../../modules/veloqrs/src/delegates/heatmap';
-import * as elevation from '../../../modules/veloqrs/src/delegates/elevation';
 import * as cutover from '../../../modules/veloqrs/src/delegates/cutover';
 import * as visibility from '../../../modules/veloqrs/src/delegates/sections/visibility';
 import * as history from '../../../modules/veloqrs/src/delegates/sections/history';
@@ -15,7 +14,6 @@ import * as history from '../../../modules/veloqrs/src/delegates/sections/histor
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   ...jest.requireActual('../../../modules/veloqrs/src/generated/veloqrs'),
   setEngineLogLevel: jest.fn(),
-  isElevationBackfillPaused: () => false,
   getChangeCardSupport: () => ({}),
   startFetchAndStore: () => 1,
   getFetchRunProgress: () => ({ active: false, completed: 0, total: 0 }),
@@ -47,7 +45,6 @@ const engine = {
 const cases: [string, (h: never) => unknown][] = [
   ['getSetting', (h) => settings.getSetting(h, 'k')],
   ['engineInstall', (h) => settings.engineInstall(h)],
-  ['notificationTemplates', (h) => settings.notificationTemplates(h)],
   ['streamRetentionDays', (h) => settings.streamRetentionDays(h)],
   ['streamStoreBytes', (h) => settings.streamStoreBytes(h)],
   ['setPriorityView', (h) => heatmap.setHeatmapPriorityView(h, 1, 2, 3)],
@@ -55,7 +52,6 @@ const cases: [string, (h: never) => unknown][] = [
   ['cancel', (h) => heatmap.cancelHeatmapWork(h)],
   ['getProgress', (h) => heatmap.getHeatmapTileProgress(h)],
   ['poll', (h) => heatmap.pollTileGeneration(h)],
-  ['isElevationBackfillPaused', (h) => elevation.isElevationBackfillPaused(h)],
   ['getChangeCardSupport', (h) => cutover.getChangeCardSupport(h)],
   ['disable', (h) => visibility.disableSection(h, 's')],
   ['enable', (h) => visibility.enableSection(h, 's')],

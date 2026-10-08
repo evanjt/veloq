@@ -1316,6 +1316,10 @@
     "noSectionsMatchFilter": "Nenhum troço corresponde ao filtro",
     "placeJourney": "De {{start}} a {{end}}",
     "placeLoop": "Circuito de {{place}}",
+    "placeNameButton": "Dar nome pelos locais",
+    "placeNameFailedMessage": "Não foi possível procurar o nome do local, por isso o nome mantém-se. Tenta novamente mais tarde.",
+    "placeNameFailedTitle": "Sem nome de local",
+    "placeNameNoPlaceMessage": "Não foi encontrado nenhum local no ponto de partida, por isso o nome mantém-se.",
     "pointCountHint_one": "{{count}} ponto GPS",
     "pointCountHint_many": "{{count}} de pontos GPS",
     "pointCountHint_other": "{{count}} pontos GPS",
@@ -1671,7 +1675,7 @@
       "title": "Nomes de locais",
       "attribution": "Nomes de locais © colaboradores do OpenStreetMap",
       "noticeTitle": "Usar nomes de locais?",
-      "noticeBody": "Quando é encontrado um novo percurso ou uma nova secção, o seu ponto de partida e de chegada são enviados ao serviço Nominatim do OpenStreetMap para procurar o nome de um local. Nenhum percurso ou secção existente é enviado, nem nada sobre si. Aplica-se a política de utilização do serviço.",
+      "noticeBody": "Quando é encontrado um novo percurso ou uma nova secção, ou quando pede para dar nome a um, o seu ponto de partida e de chegada são enviados ao serviço Nominatim do OpenStreetMap para procurar o nome de um local. Nenhum outro percurso ou secção é enviado, nem nada sobre si. Aplica-se a política de utilização do serviço.",
       "readPolicy": "Política de utilização",
       "accept": "Aceitar"
     },
@@ -2052,6 +2056,7 @@
     "setColumn": "Série",
     "snapshot": "Resumo de força",
     "noWorkouts": "Sem treinos de força no último período de {{period}}",
+    "noWorkoutsThisMonth": "Sem treinos de força este mês",
     "noWorkoutsHint": "Complete um treino de força para ver a distribuição por grupos musculares aqui",
     "notDownloaded": "Treinos de força ainda não transferidos",
     "notDownloadedHint": "Os dados das séries vêm com os ficheiros dos treinos. Liga-te para os transferir.",
@@ -2338,6 +2343,8 @@
     "insightsMore": "+{{rest}} mais",
     "insightKinds": "Tipos",
     "insightKindsDescription": "Escolha os tipos de insights que o widget mostra. Sem escolha, mostra todos os tipos.",
+    "strengthDescription": "A sua carga de treino no corpo, músculo a músculo.",
+    "strengthWindowDescription": "Escolha o período que o widget mostra.",
     "insightKind": {
       "sectionPr": "PRs de secções",
       "sectionTrend": "Tendências das secções",
@@ -2351,6 +2358,9 @@
       "efficiencyTrend": "Tendências de eficiência",
       "sectionChanged": "Secções alteradas"
     },
+    "strengthDescription": "Os músculos treinados, sombreados por séries.",
+    "strengthPeriod": "Período",
+    "strengthPeriodDescription": "Escolha os dias que o widget sombreia.",
     "latest": {
       "rank": "{{rank}} de {{total}}",
       "fastest": "O teu mais rápido",

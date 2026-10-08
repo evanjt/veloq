@@ -29,7 +29,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getAllRouteNames: () => ({ r_9: 'Strecke 4' }), setRouteName: jest.fn() }),
+  getEngine: () => ({ setRouteName: jest.fn() }),
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -52,6 +52,7 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
 jest.mock('@/shared/ui', () => {
   const hero = jest.requireActual('@/shared/ui/DetailHero');
   return {
+    Button: jest.requireActual('@/shared/ui/Button').Button,
     DetailHero: ({ overlay }: { overlay: React.ReactNode }) => overlay,
     HeroNameRow: hero.HeroNameRow,
     HeroStatsRow: () => null,
@@ -66,7 +67,6 @@ jest.mock('@/features/routes/components', () => ({
   RouteDetailMap: () => null,
   SportTypeSelector: () =>
     jest.requireActual('react').createElement('Text', { testID: 'sport-type-selector' }),
-  RouteDetailChart: () => null,
   RouteDetailDebugPanel: () => null,
   routeDetailScreenStyles: {},
 }));
@@ -99,29 +99,40 @@ jest.mock('@/features/routes/hooks/useRouteDetailData', () => ({
     },
   }),
 }));
-jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
-  useRoutePerformances: () => ({
-    performances: [],
-    best: null,
-    bestForwardRecord: null,
-    bestReverseRecord: null,
-    forwardStats: null,
-    reverseStats: null,
+jest.mock('@/features/routes/components/section/SectionPerformanceSection', () => ({
+  SectionPerformanceSection: () => null,
+}));
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
+  useRouteDetailPerformance: () => ({
+    data: {
+      sportType: 'Ride',
+      sportCounts: [{ sportType: 'Ride', count: 2 }],
+      performances: { records: [], bestForwardIsPr: false, bestReverseIsPr: false },
+      chartData: { points: [], minSpeed: 0, maxSpeed: 0, hasReverseRuns: false },
+      excludedPoints: [],
+      lapRecords: [],
+      bestForwardIsRecord: false,
+      bestReverseIsRecord: false,
+      trendCurves: {},
+      histograms: {},
+      correlations: [],
+      correlationFloor: 0,
+    },
+    error: undefined,
   }),
 }));
 jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useRouteRenaming'),
-  ...jest.requireMock('@/features/routes/hooks/useRoutePerformances'),
-  ...jest.requireActual('@/features/routes/hooks/useSportTypeFilter'),
-  useRouteChartData: () => ({ signatures: {}, chartData: [] }),
+  ...jest.requireActual('@/features/routes/hooks/useSectionChartData'),
+  ...jest.requireActual('@/features/routes/hooks/useSectionChartDataEnriched'),
+  ...jest.requireActual('@/features/routes/hooks/useSectionMapData'),
+  useRouteMapSignatures: () => ({}),
   useRouteReference: () => ({ effectiveRepresentativeId: 'a1', handleSetAsReference: jest.fn() }),
   useExcludedActivities: () => ({
     showExcluded: false,
-    excludedActivityIds: new Set(),
     handleExcludeActivity: jest.fn(),
     handleIncludeActivity: jest.fn(),
     handleToggleShowExcluded: jest.fn(),
-    excludedChartData: [],
   }),
 }));
 
@@ -152,7 +163,6 @@ it('opens the rename field on the numbered label', () => {
 it('names the GPX export with the numbered label', () => {
   const screen = render(<RouteDetailScreen />);
 
-  expect(screen.queryByTestId('sport-type-selector')).toBeNull();
   fireEvent.press(screen.getByTestId('route-export-gpx'));
 
   expect(mockExportGpx).toHaveBeenCalledWith(

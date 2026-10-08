@@ -1316,6 +1316,10 @@
     "noSectionsMatchFilter": "Nenhum trecho corresponde ao filtro",
     "placeJourney": "De {{start}} a {{end}}",
     "placeLoop": "Circuito de {{place}}",
+    "placeNameButton": "Nomear pelos lugares",
+    "placeNameFailedMessage": "Não foi possível buscar o nome do lugar, então o nome continua o mesmo. Tente novamente mais tarde.",
+    "placeNameFailedTitle": "Sem nome de lugar",
+    "placeNameNoPlaceMessage": "Nenhum lugar foi encontrado no ponto de partida, então o nome continua o mesmo.",
     "pointCountHint_one": "{{count}} ponto GPS",
     "pointCountHint_many": "{{count}} de pontos GPS",
     "pointCountHint_other": "{{count}} pontos GPS",
@@ -1664,7 +1668,7 @@
       "title": "Nomes de lugares",
       "attribution": "Nomes de lugares © colaboradores do OpenStreetMap",
       "noticeTitle": "Usar nomes de lugares?",
-      "noticeBody": "Quando uma nova rota ou seção é encontrada, o ponto de partida e o de chegada são enviados ao serviço Nominatim do OpenStreetMap para buscar o nome de um lugar. Nenhuma rota ou seção existente é enviada, nem qualquer informação sobre você. Aplica-se a política de uso do serviço.",
+      "noticeBody": "Quando uma nova rota ou seção é encontrada, ou quando você pede para nomear uma, o ponto de partida e o de chegada são enviados ao serviço Nominatim do OpenStreetMap para buscar o nome de um lugar. Nenhuma outra rota ou seção é enviada, nem qualquer informação sobre você. Aplica-se a política de uso do serviço.",
       "readPolicy": "Política de uso",
       "accept": "Aceitar"
     },
@@ -2045,6 +2049,7 @@
     "setColumn": "Série",
     "snapshot": "Resumo de força",
     "noWorkouts": "Sem treinos de força no último período de {{period}}",
+    "noWorkoutsThisMonth": "Sem treinos de força neste mês",
     "noWorkoutsHint": "Complete um treino de força para ver a distribuição por grupos musculares aqui",
     "notDownloaded": "Treinos de força ainda não baixados",
     "notDownloadedHint": "Os dados das séries vêm com os arquivos dos treinos. Conecte-se para baixá-los.",
@@ -2331,6 +2336,8 @@
     "insightsMore": "+{{rest}} mais",
     "insightKinds": "Tipos",
     "insightKindsDescription": "Escolha os tipos de insights que o widget mostra. Sem escolha, mostra todos os tipos.",
+    "strengthDescription": "Sua carga de treino no corpo, músculo por músculo.",
+    "strengthWindowDescription": "Escolha o período que o widget mostra.",
     "insightKind": {
       "sectionPr": "PRs de seções",
       "sectionTrend": "Tendências das seções",
@@ -2344,6 +2351,9 @@
       "efficiencyTrend": "Tendências de eficiência",
       "sectionChanged": "Seções alteradas"
     },
+    "strengthDescription": "Os músculos que você treinou, sombreados por séries.",
+    "strengthPeriod": "Período",
+    "strengthPeriodDescription": "Escolha quais dias o widget sombreia.",
     "latest": {
       "rank": "{{rank}} de {{total}}",
       "fastest": "O seu mais rápido",

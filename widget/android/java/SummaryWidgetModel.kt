@@ -1,7 +1,8 @@
 package __PKG__.widget
 
-/** The three layouts of the Summary widget. */
+/** The sizes every widget draws at; a placement one row tall is SHORT whatever its width. */
 enum class SummarySize {
+  SHORT,
   SMALL,
   MEDIUM,
   LARGE,
@@ -51,16 +52,25 @@ object SummaryWidget {
   private const val SUPPORTING_MAX = 4
   private val FORM_ZONES = listOf("highRisk", "optimal", "greyZone", "fresh", "transition")
 
+  /**
+   * A launcher reports a row as 51dp tall and two as 117dp, so anything under this is one row. A
+   * host that has not reported a size yet gives 0, which is not a row.
+   */
+  const val SHORT_BELOW_DP = 100
+
+  fun isShort(heightDp: Int): Boolean = heightDp in 1 until SHORT_BELOW_DP
+
   fun sizeFor(widthDp: Int, heightDp: Int): SummarySize =
     when {
+      isShort(heightDp) -> SummarySize.SHORT
       heightDp >= 200 && widthDp >= 200 -> SummarySize.LARGE
       widthDp >= 200 -> SummarySize.MEDIUM
       else -> SummarySize.SMALL
     }
 
-  /** The entries under the hero: none on Small, up to four otherwise, in the card's order. */
+  /** The entries under the hero: none on Short and Small, up to four otherwise, in the card's order. */
   fun supporting(card: SummaryCard, size: SummarySize): List<SummaryEntry> =
-    if (size == SummarySize.SMALL) emptyList() else card.entries.take(SUPPORTING_MAX)
+    if (size == SummarySize.SHORT || size == SummarySize.SMALL) emptyList() else card.entries.take(SUPPORTING_MAX)
 
   /** The card a placement draws, given what it was configured with (null follows the app). */
   fun card(snap: WidgetSnapshot, choice: String?): SummaryCard {

@@ -7,7 +7,7 @@
  * 2026-09-15 had one reset `gfxinfo` and read a frame histogram back that
  * carried the other's map load, and nothing in either run said so.
  */
-import { spawn, spawnSync } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -17,11 +17,81 @@ const script = path.join(projectRoot, 'scripts/with-device-lock.sh');
 /** Sourced by both takers of the lock, so the path is derived in one place. */
 const lockPath = path.join(projectRoot, 'scripts/device-lock-path.sh');
 
+/** Invented serials, so a lock derived from one names no handset anybody drives. */
+const PINNED = '198.51.100.7:5555';
+const OTHER = '198.51.100.8:5555';
+const PINNED_LOCK = 'veloq-device-198.51.100.7_5555.lock';
+
+/**
+ * An environment whose lock directory and `adb` are this test's own, so a taker
+ * that derives its lock path from the serial derives it under a temporary
+ * directory and reads the attached handsets from a stub rather than the machine.
+ */
+function isolated(attached: string[] = []): NodeJS.ProcessEnv {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-device-'));
+  const listing = attached.map((serial) => `${serial}\\tdevice\\n`).join('');
+  fs.writeFileSync(
+    path.join(dir, 'adb'),
+    `#!/bin/sh\nprintf 'List of devices attached\\n${listing}'\n`,
+    { mode: 0o755 }
+  );
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: `${dir}:${process.env.PATH}`,
+    VELOQ_DEVICE_LOCK_DIR: dir,
+    VELOQ_DEVICE_LOCK_HANDSET: '0',
+  };
+  for (const name of [
+    'ANDROID_SERIAL',
+    'VELOQ_DEVICE_SERIAL',
+    'VELOQ_DEVICE_LOCK',
+    'VELOQ_DEVICE_LOCK_PATH',
+    'VELOQ_DEVICE_LOCK_HELD',
+    'VELOQ_DEVICE_LOCK_AMBIGUOUS',
+  ]) {
+    delete env[name];
+  }
+  return env;
+}
+
 /** A lock of this test's own, so nothing here waits on the fleet's handset. */
 function privateLock(): NodeJS.ProcessEnv {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-device-'));
-  return { ...process.env, VELOQ_DEVICE_LOCK: path.join(dir, 'lock'), VELOQ_DEVICE_LOCK_HELD: '' };
+  const env = isolated();
+  return { ...env, VELOQ_DEVICE_LOCK: path.join(env.VELOQ_DEVICE_LOCK_DIR!, 'lock') };
 }
+
+/**
+ * Scenario: a session holds the machine's lock for a handset while this suite
+ * runs, which is the ordinary state of a machine where jobs drive phones.
+ *
+ * Expected behaviour: nothing here waits on it. The suite holds the machine's
+ * lock for the serial it pins for its whole run, so a taker that derives its
+ * path outside its temporary directory blocks and times out rather than
+ * passing on a quiet machine.
+ */
+const machineLockDir = fs.existsSync(`/tmp/claude-${os.userInfo().uid}`)
+  ? `/tmp/claude-${os.userInfo().uid}`
+  : '/tmp';
+const hasFlock = spawnSync('sh', ['-c', 'command -v flock']).status === 0;
+let machineHold: ChildProcess | undefined;
+
+beforeAll(async () => {
+  if (!hasFlock) return;
+  const held = path.join(machineLockDir, PINNED_LOCK);
+  // The holder execs into the sleep, so killing it closes the descriptor the lock is on.
+  machineHold = spawn('sh', ['-c', 'exec 9>"$1" && flock 9 && exec sleep 3600', 'sh', held], {
+    stdio: 'ignore',
+  });
+  for (let i = 0; i < 100; i++) {
+    if (spawnSync('flock', ['-n', held, 'true']).status !== 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`could not hold ${held}`);
+});
+
+afterAll(() => {
+  machineHold?.kill();
+});
 
 // Which scripts drive the handset, and that each takes this lock, is
 // `scripts/lint-device-drivers.mjs`, which finds them rather than listing them.
@@ -35,15 +105,14 @@ describe('the handset takes a lock of its own', () => {
   });
 
   it('keys the lock on the serial, so a phone and an emulator do not queue', () => {
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      ANDROID_SERIAL: '192.0.2.18:5555',
-      VELOQ_DEVICE_LOCK_HANDSET: '0',
-    };
-    delete env.VELOQ_DEVICE_LOCK;
-    delete env.VELOQ_DEVICE_LOCK_HELD;
-    const shown = spawnSync(script, ['sh', '-c', 'echo done'], { encoding: 'utf8', env });
+    const env: NodeJS.ProcessEnv = { ...isolated(), ANDROID_SERIAL: PINNED };
+    const shown = spawnSync(script, ['sh', '-c', 'printf %s "$VELOQ_DEVICE_LOCK_PATH"'], {
+      encoding: 'utf8',
+      env,
+      timeout: 10000,
+    });
     expect(shown.status).toBe(0);
+    expect(shown.stdout).toBe(path.join(env.VELOQ_DEVICE_LOCK_DIR!, PINNED_LOCK));
     // The colon cannot go into a filename, so the serial is sanitised into one.
     const source = fs.readFileSync(lockPath, 'utf8');
     expect(source).toContain('ANDROID_SERIAL');
@@ -82,16 +151,7 @@ describe('the handset takes a lock of its own', () => {
    * collision the lock exists to stop.
    */
   it('refuses to guess a serial when several handsets are attached', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-adb-'));
-    fs.writeFileSync(
-      path.join(dir, 'adb'),
-      "#!/bin/sh\nprintf 'List of devices attached\\n192.0.2.3:5555\\tdevice\\n192.0.2.18:5555\\tdevice\\n'\n"
-    );
-    fs.chmodSync(path.join(dir, 'adb'), 0o755);
-    const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${dir}:${process.env.PATH}` };
-    delete env.ANDROID_SERIAL;
-    delete env.VELOQ_DEVICE_LOCK;
-    delete env.VELOQ_DEVICE_LOCK_HELD;
+    const env = isolated([OTHER, PINNED]);
 
     for (const taker of ['scripts/with-device-lock.sh', 'scripts/device-lock-shell.sh']) {
       const run = spawnSync(path.join(projectRoot, taker), ['sh', '-c', 'echo ran'], {
@@ -101,26 +161,14 @@ describe('the handset takes a lock of its own', () => {
       });
       expect(run.stdout).not.toContain('ran');
       expect(run.status).not.toBe(0);
-      expect(run.stderr).toContain('192.0.2.3:5555');
-      expect(run.stderr).toContain('192.0.2.18:5555');
+      expect(run.stderr).toContain(OTHER);
+      expect(run.stderr).toContain(PINNED);
       expect(run.stderr).toContain('ANDROID_SERIAL');
     }
   });
 
   it('locks the pinned handset when several are attached and one is named', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-adb-'));
-    fs.writeFileSync(
-      path.join(dir, 'adb'),
-      "#!/bin/sh\nprintf 'List of devices attached\\n192.0.2.3:5555\\tdevice\\n192.0.2.18:5555\\tdevice\\n'\n"
-    );
-    fs.chmodSync(path.join(dir, 'adb'), 0o755);
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      PATH: `${dir}:${process.env.PATH}`,
-      ANDROID_SERIAL: '192.0.2.18:5555',
-    };
-    delete env.VELOQ_DEVICE_LOCK;
-    delete env.VELOQ_DEVICE_LOCK_HELD;
+    const env: NodeJS.ProcessEnv = { ...isolated([OTHER, PINNED]), ANDROID_SERIAL: PINNED };
 
     const run = spawnSync(
       path.join(projectRoot, 'scripts/with-device-lock.sh'),
@@ -128,7 +176,7 @@ describe('the handset takes a lock of its own', () => {
       { encoding: 'utf8', env, timeout: 10000 }
     );
     expect(run.status).toBe(0);
-    expect(run.stdout).toContain('veloq-device-192.0.2.18_5555.lock');
+    expect(run.stdout).toContain(PINNED_LOCK);
   });
 
   it('serialises two runs rather than letting them interleave', async () => {
@@ -140,11 +188,7 @@ describe('the handset takes a lock of its own', () => {
           ['sh', '-c', `echo ${tag}-in >> ${marker}; sleep 0.4; echo ${tag}-out >> ${marker}`],
           {
             stdio: 'ignore',
-            env: {
-              ...process.env,
-              VELOQ_DEVICE_LOCK: `${marker}.lock`,
-              VELOQ_DEVICE_LOCK_HELD: '',
-            },
+            env: { ...isolated(), VELOQ_DEVICE_LOCK: `${marker}.lock` },
           }
         );
         child.on('close', () => resolve());
@@ -202,12 +246,7 @@ describe('a hand-taken lock', () => {
   const shell = path.join(projectRoot, 'scripts/device-lock-shell.sh');
 
   it('marks itself taken, so a helper underneath runs rather than waiting', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-device-'));
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      VELOQ_DEVICE_LOCK: path.join(dir, 'lock'),
-      VELOQ_DEVICE_LOCK_HELD: '',
-    };
+    const env = privateLock();
     const run = spawnSync(shell, ['sh', '-c', `${script} echo through`], {
       encoding: 'utf8',
       env,
@@ -218,21 +257,16 @@ describe('a hand-taken lock', () => {
   });
 
   it('derives the same lock path the wrapper does', () => {
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      ANDROID_SERIAL: '192.0.2.18:5555',
-      VELOQ_DEVICE_LOCK_HANDSET: '0',
-    };
-    delete env.VELOQ_DEVICE_LOCK;
-    delete env.VELOQ_DEVICE_LOCK_HELD;
+    const env: NodeJS.ProcessEnv = { ...isolated(), ANDROID_SERIAL: PINNED };
     const show = (target: string) =>
       spawnSync(target, ['sh', '-c', 'printf %s "$VELOQ_DEVICE_LOCK_PATH"'], {
         encoding: 'utf8',
         env,
+        timeout: 10000,
       });
     const held = show(shell);
     expect(held.status).toBe(0);
-    expect(held.stdout).toContain('veloq-device-192.0.2.18_5555.lock');
+    expect(held.stdout).toBe(path.join(env.VELOQ_DEVICE_LOCK_DIR!, PINNED_LOCK));
     expect(show(script).stdout).toBe(held.stdout);
   });
 
@@ -245,11 +279,7 @@ describe('a hand-taken lock', () => {
           ['sh', '-c', `echo ${tag}-in >> ${marker}; sleep 0.4; echo ${tag}-out >> ${marker}`],
           {
             stdio: 'ignore',
-            env: {
-              ...process.env,
-              VELOQ_DEVICE_LOCK: `${marker}.lock`,
-              VELOQ_DEVICE_LOCK_HELD: '',
-            },
+            env: { ...isolated(), VELOQ_DEVICE_LOCK: `${marker}.lock` },
           }
         );
         child.on('close', () => resolve());

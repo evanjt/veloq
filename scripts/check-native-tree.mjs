@@ -14,16 +14,24 @@
 // when `node_modules`, every package in it, `veloqrs` and the router app root
 // all resolve inside this checkout, with `veloqrs` resolving to this
 // checkout's own module, and otherwise names what escapes and the command
-// that gives the tree an installation of its own.
+// that gives the tree an installation of its own. It also refuses an
+// installation the worklets lifecycle repair never reached, because that app
+// keeps a vsync loop running while Android caches it and is killed for CPU.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { SYNC as SYNC_WIDGETS, hasWidgetTree, widgetDrift } from './lib/androidWidgetSources.mjs';
 
 export const SETUP = 'npm run setup:native';
+
+const REPAIR_WORKLETS = 'node scripts/patch-worklets-lifecycle.js';
+const { applyPatch: repairWorklets } = createRequire(import.meta.url)(
+  './patch-worklets-lifecycle.js'
+);
 
 /** The router app root: expo-router reads `src/app` when the directory exists. */
 const APP_ROOT = join('src', 'app');
@@ -157,9 +165,33 @@ export function requireNativeTree(root) {
     process.exit(1);
   }
   const found = escapes(root);
-  if (found.length === 0) return;
-  report(root, found);
-  process.exit(1);
+  if (found.length > 0) {
+    report(root, found);
+    process.exit(1);
+  }
+  const problem = workletsProblem(root);
+  if (problem !== null) {
+    console.error('The installed react-native-worklets does not carry the lifecycle repair.');
+    console.error(`  ${problem}`);
+    console.error('A build here would keep scheduling frames while Android caches the app,');
+    console.error('and Android kills a cached process for that CPU. Repair it, then build again:');
+    console.error(`  ${REPAIR_WORKLETS}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Why the installed worklets package lacks the lifecycle repair, or null when it carries it.
+ * An installation without the package has nothing to repair.
+ */
+function workletsProblem(root) {
+  if (!existsSync(join(root, 'node_modules', 'react-native-worklets'))) return null;
+  try {
+    repairWorklets(root, true);
+    return null;
+  } catch (error) {
+    return error.message;
+  }
 }
 
 /**

@@ -166,30 +166,98 @@ pub fn rival_of(
     }
 }
 
+/// The best time among `laps`, given as `(activity, time)`, of any activity
+/// but `activity_id`.
+///
+/// A second lap of the same outing is not a rival: the record is the
+/// athlete's best outing over the ground, so a lapped session cannot hold it
+/// against itself, and two tied laps of one session against slower outings
+/// elsewhere are that session's record.
+pub fn best_of_other_activities<'a>(
+    laps: impl IntoIterator<Item = (&'a str, f64)>,
+    activity_id: &str,
+) -> Option<f64> {
+    laps.into_iter()
+        .filter(|(activity, time)| *activity != activity_id && time.is_finite() && *time > 0.0)
+        .map(|(_, time)| time)
+        .reduce(f64::min)
+}
+
+/// The one section record judgement: a lap of `activity_id` taking `time_secs`
+/// holds the record when it strictly beats the best of `laps`, the eligible
+/// laps of its section, sport and direction, from any other activity.
+///
+/// Every surface that marks a section record asks this: the scatter's ring,
+/// the stats row's and the calendar's trophy, the lap list, the activity's
+/// encounters and the PR notification.
+pub fn holds_section_record<'a>(
+    time_secs: f64,
+    activity_id: &str,
+    laps: impl IntoIterator<Item = (&'a str, f64)>,
+) -> bool {
+    is_personal_record(time_secs, best_of_other_activities(laps, activity_id))
+}
+
+/// The laps of a result that can hold its record in one direction: timed,
+/// included, not a `partial` overlap, and covering enough of the section.
+fn record_eligible_laps(
+    result: &crate::SectionPerformanceResult,
+    reverse: bool,
+) -> impl Iterator<Item = (&crate::SectionPerformanceRecord, &crate::SectionLap)> {
+    let direction = if reverse { "reverse" } else { "same" };
+    result.records.iter().flat_map(move |record| {
+        record
+            .laps
+            .iter()
+            .filter(move |lap| {
+                lap.direction == direction
+                    && !lap.excluded
+                    && lap.time.is_finite()
+                    && lap.time > 0.0
+                    && lap.counts_for_record(record.section_distance)
+            })
+            .map(move |lap| (record, lap))
+    })
+}
+
+/// The lap holding a section's record in one direction, with the outing it
+/// belongs to, or `None` when no lap holds one.
+///
+/// The record is the eligible lap with the shortest time, compared on its
+/// float time, and only when it [`holds_section_record`]. A tie between two
+/// outings, a lone outing and a direction with no eligible lap have none.
+/// Two tied laps of one outing are one record, held by the first of them.
+pub fn section_record_lap(
+    result: &crate::SectionPerformanceResult,
+    reverse: bool,
+) -> Option<(&crate::SectionPerformanceRecord, &crate::SectionLap)> {
+    let (record, lap) =
+        record_eligible_laps(result, reverse).min_by(|(_, a), (_, b)| a.time.total_cmp(&b.time))?;
+    let laps = record_eligible_laps(result, reverse).map(|(r, l)| (r.activity_id.as_str(), l.time));
+    holds_section_record(lap.time, &record.activity_id, laps).then_some((record, lap))
+}
+
 /// The best other outing in a section result's selected sport and direction.
 pub fn section_record_rival(
     result: &crate::SectionPerformanceResult,
     record: &crate::SectionPerformanceRecord,
 ) -> Option<f64> {
-    result
-        .records
-        .iter()
-        .filter(|other| other.activity_id != record.activity_id)
-        .flat_map(|other| &other.laps)
-        .filter(|lap| {
-            lap.direction == record.direction && lap.counts_for_record(record.section_distance)
-        })
-        .map(|lap| lap.time)
-        .filter(|time| time.is_finite() && *time > 0.0)
-        .reduce(f64::min)
+    best_of_other_activities(
+        record_eligible_laps(result, record.direction == "reverse")
+            .map(|(r, lap)| (r.activity_id.as_str(), lap.time)),
+        &record.activity_id,
+    )
 }
 
-/// Whether a section's per-direction best strictly beats another outing.
+/// Whether a section's per-direction best is that direction's record: the
+/// lap [`section_record_lap`] names.
 pub fn is_section_record_pr(
     result: &crate::SectionPerformanceResult,
     record: &crate::SectionPerformanceRecord,
 ) -> bool {
-    is_personal_record(record.best_time, section_record_rival(result, record))
+    section_record_lap(result, record.direction == "reverse").is_some_and(|(holder, lap)| {
+        holder.activity_id == record.activity_id && lap.time == record.best_time
+    })
 }
 
 /// Share of a section a traversal must cover before it can be its record.

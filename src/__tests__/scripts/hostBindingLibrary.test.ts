@@ -16,6 +16,8 @@ beforeEach(() => {
     path.join(root, 'scripts/generate-bindings.sh')
   );
   executable('scripts/fix-generated.sh', '#!/bin/sh\nexit 0\n');
+  install('1.4.0-3');
+  lock('1.4.0-3');
   executable('bin/rustc', '#!/bin/sh\nprintf "host: %s\\n" "$TEST_HOST"\n');
   executable(
     'bin/cargo',
@@ -42,6 +44,18 @@ afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 function executable(file: string, source: string) {
   fs.writeFileSync(path.join(root, file), source, { mode: 0o755 });
+}
+
+function install(version: string) {
+  const dir = path.join(root, 'node_modules/uniffi-bindgen-react-native');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ version }));
+}
+
+function lock(version: string | null) {
+  const packages: Record<string, { version: string }> = { '': { version: '0.0.0' } };
+  if (version) packages['node_modules/uniffi-bindgen-react-native'] = { version };
+  fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ packages }));
 }
 
 function generate(host: string, library: string) {
@@ -97,4 +111,60 @@ it('rejects missing host output before running the generator', () => {
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('Host library not found');
   expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(false);
+});
+
+describe('the installed generator', () => {
+  const library = () => {
+    const file = path.join(root, 'external target/debug/libveloqrs.so');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'host metadata');
+    return file;
+  };
+
+  it('refuses an install older than the lockfile before building or writing anything', () => {
+    install('1.4.0-1');
+
+    const result = generate('x86_64-unknown-linux-gnu', library());
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('1.4.0-1');
+    expect(result.stderr).toContain('1.4.0-3');
+    expect(fs.existsSync(path.join(root, 'build-args.json'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(false);
+  });
+
+  it('refuses an install newer than the lockfile', () => {
+    install('1.5.0');
+
+    const result = generate('x86_64-unknown-linux-gnu', library());
+
+    expect(result.status).not.toBe(0);
+    expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(false);
+  });
+
+  it('refuses when the lockfile records no generator', () => {
+    lock(null);
+
+    const result = generate('x86_64-unknown-linux-gnu', library());
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('uniffi-bindgen-react-native');
+    expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(false);
+  });
+
+  it('refuses when no generator is installed', () => {
+    fs.rmSync(path.join(root, 'node_modules'), { recursive: true });
+
+    const result = generate('x86_64-unknown-linux-gnu', library());
+
+    expect(result.status).not.toBe(0);
+    expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(false);
+  });
+
+  it('runs the generator when the install matches the lockfile', () => {
+    const result = generate('x86_64-unknown-linux-gnu', library());
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(root, 'selected-library'))).toBe(true);
+  });
 });

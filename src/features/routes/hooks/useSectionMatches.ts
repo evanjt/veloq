@@ -2,8 +2,8 @@
  * Hook for getting sections that an activity belongs to.
  * Used to display matched sections in the activity detail view.
  *
- * OPTIMISED: Uses getSectionsForActivity() FFI function with junction table
- * for O(1) lookup instead of loading all sections (~250-570ms → ~10-20ms).
+ * The caller passes the sections the engine already read for the activity,
+ * so this hook makes no engine call of its own.
  */
 
 import { useMemo } from 'react';
@@ -59,7 +59,7 @@ export function useSectionMatches(
   activityId: string | undefined,
   bundle: PreComputedSectionMatches
 ): UseSectionMatchesResult {
-  // Rust already filters out disabled/superseded sections in getSectionsForActivity
+  // Rust already filters out disabled and superseded sections
   const sections = useMemo(() => {
     if (!activityId) {
       return [];

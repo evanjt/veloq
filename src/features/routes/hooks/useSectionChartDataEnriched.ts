@@ -47,6 +47,8 @@ export function useSectionChartDataEnriched({
           lapCount: 1,
           isExcluded: true,
           avgPower: p.avgPower ?? undefined,
+          outsideDistanceBand: p.outsideDistanceBand,
+          matchPercentage: p.matchPercentage ?? undefined,
         },
       ];
     });

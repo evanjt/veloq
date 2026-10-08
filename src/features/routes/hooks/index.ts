@@ -10,7 +10,6 @@ export {
   type SectionLap,
   type SectionPerformanceRecord,
 } from './useSectionPerformances';
-export { useSectionEfficiencyTrend } from './useSectionEfficiencyTrend';
 export { useCustomSections } from './useCustomSections';
 export { useSections } from './useSections';
 export { useRouteDataSync } from './useRouteDataSync';
@@ -23,14 +22,18 @@ export { useSectionUIState } from './useSectionUIState';
 export { useRevealMapOnDraw } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
-export { useSportTypeFilter } from './useSportTypeFilter';
-export { useRouteChartData } from './useRouteChartData';
+export { useRouteMapSignatures } from './useRouteMapSignatures';
 export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';
 export { useRouteRenaming } from './useRouteRenaming';
+export { usePlaceNameLookup } from './usePlaceNameLookup';
 export { isElevationHold, useCutoverHeld, useDetectionHold } from './useDetectionHold';
 export { useLedgerActivityNames } from './useLedgerActivityNames';
-export { useSectionDetailData, useSectionDetailPerformance } from './useSectionDetailData';
+export {
+  useSectionDetailData,
+  useSectionDetailPerformance,
+  useRouteDetailPerformance,
+} from './useSectionDetailData';
 export { useSectionLedger } from './useSectionLedger';
 export { useSectionLaps } from './useSectionLaps';
 export { useSectionTimeStreamSync, toPerformanceRecord } from './useSectionPerformances';

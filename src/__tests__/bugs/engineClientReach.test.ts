@@ -8,7 +8,11 @@
  * class.
  */
 
-import { clientMethods, clientMethodReach } from '../../../scripts/lib/ffiUsage';
+import {
+  clientMethods,
+  clientMethodReach,
+  clientReachProblems,
+} from '../../../scripts/lib/ffiUsage';
 
 const CLASS = `
 export class EngineClient {
@@ -86,5 +90,84 @@ describe('the EngineClient method report', () => {
     ]);
 
     expect(reach.get('getSections')).toBe(1);
+  });
+
+  it('reads a member declared with method syntax, and skips what no caller can name', () => {
+    const source = `
+export class EngineClient {
+  private constructor() {}
+
+  static getInstance(): EngineClient {
+    return instance;
+  }
+
+  get ready(): boolean {
+    return true;
+  }
+
+  set handle(value: Handle | null) {
+    this.inner = value;
+  }
+
+  private ensureOpen(): boolean {
+    return true;
+  }
+
+  async runWipe(): Promise<void> {
+    await wipe(this);
+  }
+
+  timed<T>(name: string, fn: () => T): T {
+    return fn();
+  }
+
+  clearOrchards(): void {
+    if (!this.ready) return;
+  }
+
+  getHarvests = (): Harvest[] => harvestDelegates.getHarvests(this);
+}
+`;
+
+    expect(clientMethods(source)).toEqual([
+      'getInstance',
+      'runWipe',
+      'timed',
+      'clearOrchards',
+      'getHarvests',
+    ]);
+  });
+});
+
+describe('the EngineClient reach check', () => {
+  const reach = new Map([
+    ['getOrchards', 2],
+    ['getHarvests', 0],
+    ['getPruning', 0],
+  ]);
+
+  it('passes when every unreached method is listed with a reason', () => {
+    expect(clientReachProblems(reach, { getHarvests: 'why', getPruning: 'why' })).toEqual({
+      unlisted: [],
+      stale: [],
+    });
+  });
+
+  it('names an unreached method the list does not hold', () => {
+    expect(clientReachProblems(reach, { getHarvests: 'why' })).toEqual({
+      unlisted: ['getPruning'],
+      stale: [],
+    });
+  });
+
+  it('names a listed method that a caller now reaches, or that the class no longer declares', () => {
+    expect(
+      clientReachProblems(reach, {
+        getHarvests: 'why',
+        getPruning: 'why',
+        getOrchards: 'why',
+        getGrafts: 'why',
+      })
+    ).toEqual({ unlisted: [], stale: ['getOrchards', 'getGrafts'] });
   });
 });

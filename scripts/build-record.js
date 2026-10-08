@@ -16,8 +16,8 @@
 //       the same for a built `.app` (`scripts/lib/build-record-ios.js`), which
 //       needs a snapshot from before the build
 //
-// Unless told otherwise, an install asks for the Dev identity (the production
-// one when APP_VARIANT is production, as `app.config.js` reads it), the
+// Unless told otherwise, an install asks for the identity APP_VARIANT selects
+// (`scripts/lib/app-identity.js`, which `app.config.js` reads too), the
 // Rust profile in VELOQRS_RUST_PROFILE (release by default), and the features
 // in VELOQRS_CARGO_FEATURES, as the Rust build reads them.
 
@@ -25,12 +25,21 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { IdentityError, selected } = require('./lib/app-identity.js');
 const { BuildRecordError, apkFacts, verifyRecord, writeRecord } = require('./lib/build-record.js');
 const ios = require('./lib/build-record-ios.js');
 const { sourceIdentity } = require('./lib/build-stamp.js');
 
 const ROOT = path.resolve(__dirname, '..');
-const IDENTITIES = { development: 'com.veloq.app.dev', production: 'com.veloq.app' };
+
+function selectedAppId(env) {
+  try {
+    return selected(env).appId;
+  } catch (error) {
+    if (error instanceof IdentityError) throw new BuildRecordError(error.message);
+    throw error;
+  }
+}
 
 function list(text) {
   return [
@@ -50,8 +59,7 @@ function parse(argv, env) {
     variant,
     apk: path.join(ROOT, `android/app/build/outputs/apk/${variant}/app-${variant}.apk`),
     expect: {
-      applicationId:
-        env.APP_VARIANT === 'production' ? IDENTITIES.production : IDENTITIES.development,
+      applicationId: selectedAppId(env),
       profile:
         env.APP_VARIANT === 'production' || variant.toLowerCase() === 'release'
           ? 'release'
@@ -115,7 +123,7 @@ function parseIos(argv, env) {
     variant,
     app: null,
     expect: {
-      bundleId: env.APP_VARIANT === 'production' ? IDENTITIES.production : IDENTITIES.development,
+      bundleId: selectedAppId(env),
       platform: null,
     },
   };

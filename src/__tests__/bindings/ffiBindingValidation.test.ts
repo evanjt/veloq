@@ -127,16 +127,12 @@ describe('FFI Binding Validation', () => {
       // A pause with no inverse held detection for the rest of the process,
       // with a force-quit as the only exit. This is that inverse.
       expect(names.has('resume_elevation_backfill')).toBe(true);
-      expect(names.has('is_elevation_backfill_paused')).toBe(true);
-      expect(names.has('get_elevation_backfill_progress')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
       expect(names.has('start_stream_backfill')).toBe(true);
       // Tens of megabytes on the athlete's own connection, so unlike the
       // elevation pass nothing starts this at launch and the stop is the
       // control that matters.
       expect(names.has('stop_stream_backfill')).toBe(true);
-      expect(names.has('get_stream_backfill_progress')).toBe(true);
-      expect(names.has('get_stream_backfill_remaining')).toBe(true);
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
@@ -144,12 +140,18 @@ describe('FFI Binding Validation', () => {
       // and the in-flight token undid that on the next launch. This is the
       // lever.
       expect(names.has('cancel_detector_cutover')).toBe(true);
-      expect(names.has('get_cutover_progress')).toBe(true);
       expect(names.has('get_cutover_diff')).toBe(true);
       expect(names.has('take_quarantine_report')).toBe(true);
       expect(names.has('set_network_online')).toBe(true);
       expect(names.has('set_engine_log_level')).toBe(true);
-      expect(names.has('get_network_push')).toBe(true);
+      // The routes status read carries these figures. A second read of any of
+      // them is a second poller of one fact.
+      expect(names.has('is_elevation_backfill_paused')).toBe(false);
+      expect(names.has('get_elevation_backfill_progress')).toBe(false);
+      expect(names.has('get_stream_backfill_progress')).toBe(false);
+      expect(names.has('get_stream_backfill_remaining')).toBe(false);
+      expect(names.has('get_cutover_progress')).toBe(false);
+      expect(names.has('get_network_push')).toBe(false);
       // A whole-catalogue rollback is not offered: the detector keeps moving,
       // so restoring is per section.
       expect(names.has('restore_from_cutover_archive')).toBe(false);

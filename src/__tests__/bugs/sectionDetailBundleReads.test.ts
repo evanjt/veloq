@@ -1,6 +1,6 @@
 /**
  * Scenario: the section screen was built around one bundle call and grew back
- * to seven. Five of those reads are keyed on the section id alone, so they
+ * to seven. Several of those reads are keyed on the section id alone, so they
  * belong in the bundle the screen already makes.
  *
  * Expected behaviour: given the bundle's values, each hook uses them and makes
@@ -10,10 +10,8 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { useSectionLaps } from '@/features/routes/hooks/useSectionLaps';
 import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
-import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
 import * as visibility from '../../../modules/veloqrs/src/delegates/sections/visibility';
 import { getEngine } from '@/shared/native/engine';
-import type { EfficiencyTrend } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
@@ -28,7 +26,6 @@ const engine = {
   getPinnedSectionVersion: jest.fn(() => null),
   revertSectionToVersion: jest.fn(() => [] as unknown[]),
   unpinSection: jest.fn(() => true),
-  getSectionEfficiencyTrend: jest.fn(() => null),
   // The real `useEngineRead` subscribes, so the stub answers that too.
   subscribe: () => () => {},
 };
@@ -37,21 +34,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   (getEngine as jest.Mock).mockReturnValue(engine);
 });
-
-function point(date: number, ratio: number) {
-  return { date: date, paceSecsPerKm: 300, avgHr: 150, hrPaceRatio: ratio };
-}
-
-const trend: EfficiencyTrend = {
-  sectionId: 'sec1',
-  sectionName: 'Col des Planches',
-  sportType: 'Ride',
-  points: [point(1, 0.5), point(2, 0.4)],
-  trendSlope: -0.1,
-  direction: 0,
-  hrChangeBpm: -3,
-  effortCount: 4,
-};
 
 describe('the excluded laps come from the screen read', () => {
   it('reads nothing of its own: the lap list carries each lap flagged', () => {
@@ -127,36 +109,5 @@ describe('the ledger comes from the bundle', () => {
       expect(result.current.revert(1)).toBe(false);
     });
     expect(result.current.pinnedVersion).toBe(2);
-  });
-});
-
-describe('the efficiency trend comes from the bundle', () => {
-  it('uses the bundled trend and reads nothing', () => {
-    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride', trend));
-
-    expect(result.current.trend).toBe(trend);
-    expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
-  });
-
-  it('drops a bundled trend that cannot be plotted', () => {
-    const { result } = renderHook(() =>
-      useSectionEfficiencyTrend('sec1', 'Ride', { ...trend, points: [point(1, 0.5)] })
-    );
-
-    expect(result.current.trend).toBeNull();
-    expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
-  });
-
-  it('takes a bundled null as an answer, not as absent', () => {
-    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride', null));
-
-    expect(result.current.trend).toBeNull();
-    expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
-  });
-
-  it('reads for itself when the bundle carried none', () => {
-    renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride'));
-
-    expect(engine.getSectionEfficiencyTrend).toHaveBeenCalledWith('sec1', 'Ride');
   });
 });

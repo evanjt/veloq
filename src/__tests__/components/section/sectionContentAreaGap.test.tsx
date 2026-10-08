@@ -37,7 +37,6 @@ const props = {
   isDark: true,
   mergeCandidates: [],
   isSectionDisabled: false,
-  section: { id: 's' },
   combinedChartData: [],
   trendCurves: {},
   calendarSummary: null,

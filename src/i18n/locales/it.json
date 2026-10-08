@@ -1316,6 +1316,10 @@
     "noSectionsMatchFilter": "Nessun tratto corrisponde al filtro",
     "placeJourney": "Da {{start}} a {{end}}",
     "placeLoop": "Giro di {{place}}",
+    "placeNameButton": "Dai un nome dai luoghi",
+    "placeNameFailedMessage": "Non è stato possibile cercare il nome del luogo, il nome resta invariato. Riprova più tardi.",
+    "placeNameFailedTitle": "Nessun nome di luogo",
+    "placeNameNoPlaceMessage": "Non è stato trovato alcun luogo nel punto di partenza, il nome resta invariato.",
     "pointCountHint_one": "{{count}} punto GPS",
     "pointCountHint_many": "{{count}} di punti GPS",
     "pointCountHint_other": "{{count}} punti GPS",
@@ -1671,7 +1675,7 @@
       "title": "Nomi dei luoghi",
       "attribution": "Nomi dei luoghi © contributori di OpenStreetMap",
       "noticeTitle": "Usare i nomi dei luoghi?",
-      "noticeBody": "Quando viene trovato un nuovo percorso o una nuova sezione, il punto di partenza e quello di arrivo vengono inviati al servizio Nominatim di OpenStreetMap per cercare il nome di un luogo. Non viene inviato alcun percorso o sezione esistente, né alcuna informazione su di te. Si applica la politica di utilizzo del servizio.",
+      "noticeBody": "Quando viene trovato un nuovo percorso o una nuova sezione, o quando chiedi di dargli un nome, il punto di partenza e quello di arrivo vengono inviati al servizio Nominatim di OpenStreetMap per cercare il nome di un luogo. Non viene inviato nessun altro percorso o sezione, né alcuna informazione su di te. Si applica la politica di utilizzo del servizio.",
       "readPolicy": "Politica di utilizzo",
       "accept": "Accetta"
     },
@@ -2052,6 +2056,7 @@
     "setColumn": "Serie",
     "snapshot": "Panoramica forza",
     "noWorkouts": "Nessun allenamento di forza nelle ultime {{period}}",
+    "noWorkoutsThisMonth": "Nessun allenamento di forza questo mese",
     "noWorkoutsHint": "Completa un allenamento di forza per vedere la suddivisione dei gruppi muscolari",
     "notDownloaded": "Allenamenti di forza non ancora scaricati",
     "notDownloadedHint": "I dati delle serie arrivano con i file degli allenamenti. Connettiti per scaricarli.",
@@ -2338,6 +2343,8 @@
     "insightsMore": "+{{rest}} altri",
     "insightKinds": "Tipi",
     "insightKindsDescription": "Scegli quali tipi di approfondimenti mostra il widget. Senza scelta li mostra tutti.",
+    "strengthDescription": "Il tuo carico di allenamento sul corpo, muscolo per muscolo.",
+    "strengthWindowDescription": "Scegli quale periodo mostra il widget.",
     "insightKind": {
       "sectionPr": "PR delle sezioni",
       "sectionTrend": "Andamento delle sezioni",
@@ -2351,6 +2358,9 @@
       "efficiencyTrend": "Andamento dell'efficienza",
       "sectionChanged": "Sezioni modificate"
     },
+    "strengthDescription": "I muscoli che hai allenato, sfumati per serie.",
+    "strengthPeriod": "Periodo",
+    "strengthPeriodDescription": "Scegli quali giorni sfuma il widget.",
     "latest": {
       "rank": "{{rank}} su {{total}}",
       "fastest": "Il tuo più veloce",

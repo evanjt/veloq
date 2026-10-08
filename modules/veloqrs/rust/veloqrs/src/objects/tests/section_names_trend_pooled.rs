@@ -65,14 +65,15 @@ fn test_get_all_names_writer_held() {
 }
 
 #[test]
-fn test_get_efficiency_trend_writer_held() {
+fn test_efficiency_trend_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_trend_under_writer.db");
     let sections = SectionManager::new();
     assert!(
         read_while_writer_holds(|| sections
-            .get_efficiency_trend("absent".into(), "Ride".into())
+            .get_detail_performance("absent".into(), 0, Some("Ride".into()))
             .unwrap())
+        .efficiency_trend
         .is_none()
     );
 }
@@ -113,14 +114,16 @@ fn test_pooled_trend_needs_three_paced_heart_rate_laps() {
 
     let sections = SectionManager::new();
     let trend = sections
-        .get_efficiency_trend("three".into(), "Ride".into())
+        .get_detail_performance("three".into(), 0, Some("Ride".into()))
         .unwrap()
+        .efficiency_trend
         .expect("three laps make a trend");
     assert_eq!(trend.section_name, "Three laps");
     assert!(
         sections
-            .get_efficiency_trend("two".into(), "Ride".into())
+            .get_detail_performance("two".into(), 0, Some("Ride".into()))
             .unwrap()
+            .efficiency_trend
             .is_none()
     );
 }

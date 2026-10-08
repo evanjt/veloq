@@ -2,7 +2,7 @@ use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use veloqrs::FfiSectionFilter;
 use veloqrs::objects::sections::SectionManager;
-use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work;
 use veloqrs::persistence::with_persistent_engine;
 
 fn ids(filter: FfiSectionFilter) -> Vec<String> {
@@ -66,7 +66,7 @@ fn combined_filters_use_outings_sport_membership_and_pins() {
     .expect("pin");
     drop(db);
 
-    assert!(persistent_engine_init(path_string));
+    assert!(persistent_engine_init_without_owed_work(path_string));
     with_persistent_engine(|engine| engine.load().expect("load catalogue")).expect("engine");
 
     let floor = FfiSectionFilter {

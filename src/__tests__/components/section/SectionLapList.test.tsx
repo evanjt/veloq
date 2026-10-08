@@ -39,6 +39,7 @@ function record(
       avgHr: null,
       avgPower: powers[i] ?? null,
       excluded: excluded.includes(s),
+      isRecord: false,
     })),
     lapCount: starts.length,
     bestTime: 120,
@@ -123,6 +124,28 @@ describe('SectionLapList', () => {
     );
   });
 
+  it('marks the lap the engine names as the record, and not a quicker partial lap', () => {
+    const withFragment = {
+      ...record('a', [10, 40]),
+    };
+    withFragment.laps = [
+      { ...withFragment.laps[0]!, time: 40, isRecord: false },
+      { ...withFragment.laps[1]!, direction: 'same' as const, time: 95, isRecord: true },
+    ];
+    const { getByTestId, queryByTestId } = openAllRender(
+      <SectionLapList
+        isDark={false}
+        records={[withFragment, record('b', [5, 20])]}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByTestId('section-lap-record-a-40')).toBeTruthy();
+    expect(queryByTestId('section-lap-record-a-10')).toBeNull();
+    expect(queryByTestId('section-lap-record-b-5')).toBeNull();
+    expect(queryByTestId('section-lap-record-b-20')).toBeNull();
+  });
+
   it('renders nothing when no activity lapped the section', () => {
     const { queryByTestId } = render(
       <SectionLapList
@@ -200,20 +223,39 @@ describe('SectionLapList', () => {
       expect(getByTestId('section-lap-show-all')).toBeTruthy();
     });
 
-    it('keeps the most recent activities and the activity holding the best lap', () => {
-      const best = { ...many[0]!, laps: many[0]!.laps.map((l) => ({ ...l, time: 60 })) };
+    it('keeps the most recent activities and the activity holding the record lap', () => {
+      const holder = {
+        ...many[0]!,
+        laps: many[0]!.laps.map((l, i) => ({ ...l, isRecord: i === 0 })),
+      };
       const { queryByTestId } = render(
         <SectionLapList
           isDark={false}
-          records={[best, ...many.slice(1)]}
+          records={[holder, ...many.slice(1)]}
           onExcludeLap={jest.fn()}
           onIncludeLap={jest.fn()}
         />
       );
       expect(queryByTestId('section-lap-summary-a')).toBeTruthy();
+      expect(queryByTestId('section-lap-record-a')).toBeTruthy();
       expect(queryByTestId('section-lap-summary-f')).toBeTruthy();
       expect(queryByTestId('section-lap-summary-e')).toBeTruthy();
       expect(queryByTestId('section-lap-summary-b')).toBeNull();
+    });
+
+    it('keeps no activity for a quicker lap the engine does not call the record', () => {
+      // A fragment of the section is quick and never the record.
+      const fragment = { ...many[0]!, laps: many[0]!.laps.map((l) => ({ ...l, time: 30 })) };
+      const { queryByTestId } = render(
+        <SectionLapList
+          isDark={false}
+          records={[fragment, ...many.slice(1)]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(queryByTestId('section-lap-summary-a')).toBeNull();
+      expect(queryByTestId(/^section-lap-record-/)).toBeNull();
     });
 
     it('opens every lap with Show all and folds back', () => {

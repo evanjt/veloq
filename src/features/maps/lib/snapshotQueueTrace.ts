@@ -24,6 +24,8 @@ export type SnapshotQueueEventKind =
   | 'drain'
   | 'throttled'
   | 'workerGone'
+  /** An idle worker's map was rebuilt to give its GPU memory back. */
+  | 'recycle'
   | 'suspend'
   | 'resume'
   /** The watchdog reached its timeout and chose to keep waiting. */

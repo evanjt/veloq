@@ -36,7 +36,7 @@ import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   SCREEN_HEADERS,
-  headerLargeTitle,
+  largeTitleScreenOptions,
   overMapHeaderTint,
   screenAnimation,
   sheetScreenOptions,
@@ -668,7 +668,7 @@ export default function RootLayout() {
                             // no header: during a ride leaving is the stop flow, and
                             // before one starts the close control is the way off.
                             gestureEnabled: name !== 'recording/[type]',
-                            headerLargeTitle: headerLargeTitle(name, Platform.OS),
+                            ...largeTitleScreenOptions(name, Platform.OS),
                             ...sheetScreenOptions(name),
                             ...(header?.overMap && {
                               headerTransparent: true,

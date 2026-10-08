@@ -84,7 +84,7 @@ export * from './generated/veloqrs';
 // Re-export conversions, types, and utilities
 export { validateId, validateName } from './conversions';
 export { decodeCoords, decodeCoordsFlat, type LatLng, type LatLngShort } from './coords';
-export type { SectionDetectionProgress, CustomSection, FetchProgressEvent } from './conversions';
+export type { SectionDetectionProgress } from './conversions';
 
 // Re-export EngineClient and its locally-defined types
 export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
@@ -98,6 +98,8 @@ export type {
 export {
   FfiCallKind as CallKind,
   FfiUploadOutcome as UploadOutcome,
+  FfiPlaceNameKind as PlaceNameKind,
+  FfiPlaceNameOutcome as PlaceNameOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,
 } from './generated/veloqrs';

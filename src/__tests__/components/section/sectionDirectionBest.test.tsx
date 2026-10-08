@@ -18,15 +18,12 @@ import {
 
 const record = (bestTime: number) => ({ bestTime, bestPace: 3, sectionDistance: 2000 }) as never;
 const stats = (avgTime: number) => ({ avgTime, count: 10 }) as never;
-const chartData = [
-  { date: new Date(2026, 0, 1), x: 0 },
-  { date: new Date(2026, 2, 1), x: 1 },
-] as never;
 
 function card(props: Record<string, unknown>) {
   return render(
     <SectionInfoCard
-      chartData={chartData}
+      firstActivityDate={new Date(2026, 0, 1)}
+      lastActivityDate={new Date(2026, 2, 1)}
       bestForwardRecord={null}
       bestReverseRecord={null}
       forwardStats={null}

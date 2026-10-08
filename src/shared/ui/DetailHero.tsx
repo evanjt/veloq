@@ -131,9 +131,11 @@ export interface HeroNameRowProps {
     onCancel: () => void;
     onChange: (text: string) => void;
   };
+  /** A control drawn beside the name while it is not being edited. */
+  accessory?: React.ReactNode;
 }
 
-export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowProps) {
+export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: HeroNameRowProps) {
   const { t } = useTranslation();
 
   return (
@@ -211,6 +213,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           {name}
         </Text>
       )}
+      {editable?.isEditing ? null : accessory}
     </View>
   );
 }

@@ -34,6 +34,12 @@
   <color name="widget_tone_info">#42A5F5</color>
   <color name="widget_tone_opportunity">#FF9800</color>
   <color name="widget_border">#27272A</color>
+  <color name="widget_body_fill">#555555</color>
+  <color name="widget_strength_ramp_1">#CCFBF1</color>
+  <color name="widget_strength_ramp_2">#99F6E4</color>
+  <color name="widget_strength_ramp_3">#5EEAD4</color>
+  <color name="widget_strength_ramp_4">#2DD4BF</color>
+  <color name="widget_strength_ramp_5">#0D9488</color>
   <color name="widget_record_grad_start">#0D9488</color>
   <color name="widget_record_grad_end">#0F766E</color>
 </resources>

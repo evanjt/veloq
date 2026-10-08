@@ -10,7 +10,7 @@
  * container to re-fetch fresh section data from the engine.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,7 +20,7 @@ import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
-import type { StartVerdict } from 'veloqrs';
+import type { FfiDepartedRide, SectionBoundsEdit, StartVerdict } from 'veloqrs';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
@@ -61,6 +61,8 @@ export interface UseSectionActionsResult {
   // --- reference selection state ---
   /** Effective reference activity id (override > section.representativeActivityId). */
   effectiveReferenceId: string | undefined;
+  /** True while a reference edit runs; the reference action is refused until it ends. */
+  isReferenceSaving: boolean;
 
   // --- exclusion state ---
   /** Whether excluded activities are rendered on the chart. */
@@ -142,6 +144,16 @@ export function useSectionActions({
   const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
   const effectiveReferenceId: string | undefined =
     overrideReferenceId ?? section?.representativeActivityId ?? undefined;
+  const [isReferenceSaving, setIsReferenceSaving] = useState(false);
+  const referenceEditInFlight = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   // --- exclusion state ---
   const [showExcluded, setShowExcluded] = useState(false);
@@ -217,12 +229,52 @@ export function useSectionActions({
   }, [customName, id, isCustomId, removeSection, section?.name, t]);
 
   // --- reference actions ---
+  // Setting or resetting the reference re-matches every ride against the new
+  // line, so it runs as an engine edit off the JS thread. One runs at a time,
+  // and a tap while it runs is refused rather than queued.
+  const runReferenceEdit = useCallback(
+    async (edit: SectionBoundsEdit, referenceId: string | null) => {
+      if (referenceEditInFlight.current) return;
+      referenceEditInFlight.current = true;
+      setIsReferenceSaving(true);
+
+      let departed: FfiDepartedRide[] | null = null;
+      try {
+        departed = (await getEngine()?.runSectionBoundsEdit(edit)) ?? null;
+      } catch {
+        departed = null;
+      } finally {
+        referenceEditInFlight.current = false;
+        if (mounted.current) setIsReferenceSaving(false);
+      }
+
+      if (!departed) {
+        Alert.alert(
+          t('common.error'),
+          t('sections.setReferenceError', 'Failed to set reference. Please try again.')
+        );
+        return;
+      }
+
+      // The routes list reads custom sections from the query cache.
+      if (isCustomId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+      }
+      if (mounted.current) {
+        // A reset clears the override so the section's own reference shows.
+        setOverrideReferenceId(referenceId);
+        // Re-read the section for the line the edit stored.
+        onSectionRefresh();
+      }
+      announceDepartedRides(departed, t);
+    },
+    [t, isCustomId, queryClient, onSectionRefresh]
+  );
+
   const handleSetAsReference = useCallback(
     (activityId: string) => {
-      if (!id) return;
-
-      const engine = getEngine();
-      if (!engine) return;
+      if (!id || referenceEditInFlight.current) return;
+      if (!getEngine()) return;
 
       // Check if this activity is already the reference. Setting a reference
       // marks the section user-defined, and the screen read that supplied
@@ -236,63 +288,28 @@ export function useSectionActions({
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('common.reset'),
-            onPress: () => {
-              const departed = engine.resetSectionReference(id);
-              if (departed) {
-                // Reset to automatic - clear override to use section's original
-                setOverrideReferenceId(null);
-                // Force section data refresh to get recalculated polyline
-                onSectionRefresh();
-                // Also invalidate custom sections cache for routes list
-                if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-                }
-                announceDepartedRides(departed, t);
-              }
-            },
+            onPress: () => runReferenceEdit({ kind: 'resetReference', sectionId: id }, null),
           },
         ]);
       } else {
-        // Set as new reference
         Alert.alert(t('sections.setAsReference'), t('sections.setAsReferenceConfirm'), [
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('common.confirm'),
             onPress: () => {
               if (__DEV__) {
-                log.log(
-                  '[SetReference] Attempting to set reference:',
-                  'sectionId=',
-                  id,
-                  'activityId=',
-                  activityId
-                );
+                log.log('[SetReference] sectionId=', id, 'activityId=', activityId);
               }
-              const departed = engine.setSectionReference(id, activityId);
-              if (__DEV__) log.log('[SetReference] Result:', departed !== null);
-              if (departed) {
-                // Update local state immediately for responsive UI
-                setOverrideReferenceId(activityId);
-                // Force section data refresh to get updated polyline
-                onSectionRefresh();
-                // Also invalidate custom sections cache for routes list
-                if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-                }
-                announceDepartedRides(departed, t);
-              } else {
-                // Show error if operation failed
-                Alert.alert(
-                  t('common.error'),
-                  t('sections.setReferenceError', 'Failed to set reference. Please try again.')
-                );
-              }
+              return runReferenceEdit(
+                { kind: 'setReference', sectionId: id, activityId },
+                activityId
+              );
             },
           },
         ]);
       }
     },
-    [id, t, effectiveReferenceId, section?.isUserDefined, isCustomId, queryClient, onSectionRefresh]
+    [id, t, effectiveReferenceId, section?.isUserDefined, runReferenceEdit]
   );
 
   // --- disable/enable ---
@@ -399,6 +416,7 @@ export function useSectionActions({
     customName,
     // reference
     effectiveReferenceId,
+    isReferenceSaving,
     // exclusion
     showExcluded,
     excludedActivityIds,

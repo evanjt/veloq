@@ -57,23 +57,6 @@ export function pollSectionDetectionRun(host: DelegateHost, runId: string): stri
 }
 
 /**
- * How the last finished run ended, taking nothing.
- *
- * The worker applies and settles its own run, so a poll after it ends reads
- * idle and the verdict lives here. A status surface reads this and the
- * progress, and neither touches the worker's channel.
- */
-export function lastSectionDetectionOutcome(host: DelegateHost): string {
-  if (!host.ready) return 'idle';
-  try {
-    return host.timed('lastSectionDetectionOutcome', () => host.engine.detection().lastOutcome());
-  } catch (e) {
-    console.error('[Engine] lastSectionDetectionOutcome threw:', e);
-    return 'idle';
-  }
-}
-
-/**
  * How many stored activities have never been through a detect.
  *
  * The progress read answers only for a run holding the slot now, and the phase

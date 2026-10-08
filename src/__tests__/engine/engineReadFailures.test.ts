@@ -53,14 +53,9 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => {
       takeResult = fail;
     },
     takeQuarantineReport: fail,
-    getNetworkPush: fail,
-    getCutoverProgress: fail,
     getCutoverDiff: fail,
     getElevationBackfillRemaining: fail,
-    getElevationBackfillProgress: fail,
     getRoutesStatusData: fail,
-    getStreamBackfillRemaining: fail,
-    getStreamBackfillProgress: fail,
   };
 });
 
@@ -87,12 +82,9 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['pushRuns', (c) => c.pushRuns()],
   ['getActivitiesNeedingTimeStreams', (c) => c.getActivitiesNeedingTimeStreams()],
   ['getBackupMetadata', (c) => c.getBackupMetadata()],
-  ['getNetworkPush', (c) => c.getNetworkPush()],
-  ['getCutoverProgress', (c) => c.getCutoverProgress()],
   ['getCutoverDiff', (c) => c.getCutoverDiff()],
   ['sectionDetectionAwaiting', (c) => c.sectionDetectionAwaiting()],
   ['getElevationBackfillRemaining', (c) => c.getElevationBackfillRemaining()],
-  ['getElevationBackfillProgress', (c) => c.getElevationBackfillProgress()],
   ['getHeatmapTileProgress', (c) => c.getHeatmapTileProgress()],
   [
     'launchData',
@@ -121,11 +113,8 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['suggestExportHome', (c) => c.suggestExportHome()],
   ['exportPrivacyPreview', (c) => c.exportPrivacyPreview(46.5, 6.6, 200)],
   ['engineInstall', (c) => c.engineInstall()],
-  ['notificationTemplates', (c) => c.notificationTemplates()],
   ['streamRetentionDays', (c) => c.streamRetentionDays()],
   ['streamStoreBytes', (c) => c.streamStoreBytes()],
-  ['getStreamBackfillRemaining', (c) => c.getStreamBackfillRemaining()],
-  ['getStreamBackfillProgress', (c) => c.getStreamBackfillProgress()],
 ];
 
 describe('engine client reads', () => {
@@ -154,9 +143,9 @@ describe('engine client reads', () => {
     expect(engineErrorTag(thrown)).toBe('Database');
   });
 
-  // These two read a process-wide value rather than the open library, so they
-  // have no closed state to answer from.
-  const PROCESS_WIDE = ['takeQuarantineReport', 'getNetworkPush'];
+  // This one reads a process-wide value rather than the open library, so it
+  // has no closed state to answer from.
+  const PROCESS_WIDE = ['takeQuarantineReport'];
 
   it.each(READS.filter(([name]) => !PROCESS_WIDE.includes(name)))(
     '%s answers without calling the engine while it is closed',

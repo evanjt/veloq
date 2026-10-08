@@ -189,3 +189,129 @@ fn an_edit_from_a_replaced_install_writes_nothing() {
         .expect("the same edit against the open library is written");
     assert_ne!(stored_polyline(&id), before);
 }
+
+/// A ride over the same road as `a0`, sampled ten times as densely and running
+/// a little past both of its ends.
+fn add_ride_over_a0(activity_id: &str) {
+    let track: Vec<tracematch::GpsPoint> = (0..90)
+        .map(|i| tracematch::GpsPoint::new(46.1995 + f64::from(i) * 0.0001, 7.35))
+        .collect();
+    crate::persistence::with_persistent_engine(|engine| {
+        engine
+            .add_activity(activity_id.into(), track, "Ride".into())
+            .expect("add activity");
+    })
+    .expect("engine");
+}
+
+fn set_reference(section_id: &str, activity_id: &str) -> FfiSectionBoundsEdit {
+    FfiSectionBoundsEdit::SetReference {
+        section_id: section_id.into(),
+        activity_id: activity_id.into(),
+    }
+}
+
+/// Scenario: the athlete makes another ride the section's reference, then
+/// resets the reference, each through the one async edit.
+///
+/// Expected behaviour: setting it stores a stretch of that ride's track and
+/// marks the section user-defined; resetting it puts the line the section
+/// was drawn on back and clears the mark.
+#[test]
+fn set_and_reset_reference_run_as_section_edits() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    add_ride_over_a0("b0");
+    let other = track_latitudes("b0");
+    let sections = SectionManager::new();
+    let id = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("custom section");
+    let drawn = stored_polyline(&id);
+
+    crate::runtime::block_on(sections.run_section_bounds_edit(set_reference(&id, "b0")))
+        .expect("set reference");
+    let info = sections.get_reference_info(id.clone()).expect("reference");
+    assert_eq!(info.activity_id, "b0");
+    assert!(info.is_user_defined);
+    let line = latitudes(&stored_polyline(&id));
+    assert!(
+        line.len() > 8,
+        "the line is the denser ride's, got {line:?}"
+    );
+    assert!(
+        other
+            .windows(line.len())
+            .any(|stretch| stretch == line.as_slice()),
+        "the line is one stretch of the reference ride"
+    );
+
+    crate::runtime::block_on(sections.run_section_bounds_edit(
+        FfiSectionBoundsEdit::ResetReference {
+            section_id: id.clone(),
+        },
+    ))
+    .expect("reset reference");
+    assert_eq!(stored_polyline(&id), drawn);
+    assert!(
+        !sections
+            .get_reference_info(id.clone())
+            .expect("reference")
+            .is_user_defined
+    );
+}
+
+/// Scenario: a reference is set or reset while a bounds edit is waiting on
+/// the engine.
+///
+/// Expected behaviour: both are refused as busy without waiting, and the
+/// running edit still completes.
+#[test]
+fn a_reference_edit_while_a_bounds_edit_runs_is_refused() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    add_ride_over_a0("b0");
+    let sections = SectionManager::new();
+    let id = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("custom section");
+
+    let first = crate::persistence::with_persistent_engine(|_held| {
+        let first_id = id.clone();
+        let first = std::thread::spawn(move || {
+            crate::runtime::block_on(
+                SectionManager::new().run_section_bounds_edit(trim(&first_id, 0, 5)),
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !SECTION_EDIT_IN_FLIGHT.load(Ordering::SeqCst) {
+            assert!(
+                Instant::now() < deadline,
+                "the first edit never took the slot"
+            );
+            std::thread::yield_now();
+        }
+
+        for edit in [
+            set_reference(&id, "b0"),
+            FfiSectionBoundsEdit::ResetReference {
+                section_id: id.clone(),
+            },
+        ] {
+            let refused = crate::runtime::block_on(sections.run_section_bounds_edit(edit));
+            assert!(
+                matches!(refused, Err(VeloqError::Busy { .. })),
+                "a reference edit must be refused, got {refused:?}"
+            );
+        }
+        first
+    })
+    .expect("engine");
+
+    first
+        .join()
+        .expect("first edit thread")
+        .expect("first edit");
+    let info = sections.get_reference_info(id.clone()).expect("reference");
+    assert_eq!(info.activity_id, "a0");
+}

@@ -76,27 +76,22 @@ fn best_time_secs(points: &[crate::FfiSectionChartPoint]) -> Option<f64> {
     quickest(true).or_else(|| quickest(false)).map(|t| t as f64)
 }
 
-/// Marks the one point per direction that beats every other counted traversal
-/// of that direction by time. A tie or a lone traversal marks nothing, and an
-/// attempt outside a route's distance band is neither the record nor a rival.
-fn stamp_records(points: &mut [crate::FfiSectionChartPoint]) {
-    for direction in ["same", "reverse"] {
-        let mut order: Vec<usize> = (0..points.len())
-            .filter(|&i| {
-                points[i].direction == direction
-                    && points[i].section_time > 0
-                    && !points[i].outside_distance_band
-            })
-            .collect();
-        order.sort_by_key(|&i| points[i].section_time);
-        let (Some(&best), Some(&rival)) = (order.first(), order.get(1)) else {
+/// Rings the lap holding the section's record in each direction, judged on
+/// float time over the whole of `perf`. A tie, a lone outing or an attempt
+/// outside a route's distance band rings nothing.
+fn stamp_records(
+    points: &mut [crate::FfiSectionChartPoint],
+    perf: &crate::SectionPerformanceResult,
+) {
+    for reverse in [false, true] {
+        let Some((record, lap)) = crate::persistence::records::section_record_lap(perf, reverse)
+        else {
             continue;
         };
-        if crate::persistence::records::is_personal_record(
-            points[best].section_time as f64,
-            Some(points[rival].section_time as f64),
-        ) {
-            points[best].is_best = true;
+        for point in points.iter_mut() {
+            if point.lap_id == lap.id && point.activity_id == record.activity_id {
+                point.is_best = true;
+            }
         }
     }
 }
@@ -510,7 +505,7 @@ pub(crate) fn chart_from_cutoff(
     // The record is the section's, so it is judged over every included
     // traversal and only then cut to the range: a range holding no record lap
     // marks nothing.
-    stamp_records(&mut points);
+    stamp_records(&mut points, perf);
     points.retain(|p| p.activity_date >= cutoff_ts as f64);
     let has_reverse_runs = points.iter().any(|p| p.direction == "reverse");
 

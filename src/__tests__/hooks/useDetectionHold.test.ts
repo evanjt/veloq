@@ -33,16 +33,8 @@ function engineWith({
   paused = false,
 }) {
   return {
-    isElevationBackfillPaused: jest.fn(() => paused),
     isCutoverPending: jest.fn(() => cutoverPending),
     isCutoverRunning: jest.fn(() => cutoverRunning),
-    getElevationBackfillProgress: jest.fn(() => ({
-      phase,
-      completed: 0,
-      total: 0,
-      failed: 0,
-      percent: 0,
-    })),
     getElevationBackfillRemaining: jest.fn(() => remaining),
     getRoutesStatusData: jest.fn(() =>
       routesStatus({

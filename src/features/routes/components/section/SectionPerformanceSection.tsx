@@ -1,5 +1,5 @@
 /**
- * Performance chart section for the section detail page.
+ * Performance chart section for the section and route detail pages.
  * Uses a fixed-width scatter chart with a Gaussian kernel trend and a local
  * standard deviation band per direction.
  */
@@ -8,6 +8,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { PerformanceChartPanel } from './PerformanceChartPanel';
+import { ExcludedActivitiesToggle } from './SectionScatterChart';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -28,7 +29,15 @@ export type SectionStreamsState =
 
 export const PERFORMANCE_PLACEHOLDER_HEIGHT = 120;
 
+/**
+ * What the chart's attempts are: a section's laps, timed over the section, or
+ * a route's whole activities, timed on moving time and plotted as times.
+ */
+export type PerformanceSubject = 'section' | 'route';
+
 export interface SectionPerformanceSectionProps {
+  /** Absent means a section. */
+  subject?: PerformanceSubject | undefined;
   isDark: boolean;
   /** The sport whose efforts are plotted. Decides pace against speed units. */
   /** The sport on screen, absent until the engine has answered. */
@@ -64,6 +73,7 @@ export interface SectionPerformanceSectionProps {
 }
 
 export function SectionPerformanceSection({
+  subject = 'section',
   isDark,
   sportType,
   chartData,
@@ -92,6 +102,7 @@ export function SectionPerformanceSection({
 }: SectionPerformanceSectionProps) {
   const { t } = useTranslation();
   const hasEfforts = chartData.length > 0;
+  const isRoute = subject === 'route';
 
   useEffect(() => {
     completeFlowAfterFrame(FLOW_EXPAND);
@@ -117,8 +128,8 @@ export function SectionPerformanceSection({
           }}
         />
       </View>
-      <Text testID="section-time-method" style={[styles.method, isDark && styles.methodDark]}>
-        {t('sections.timeMethod')}
+      <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
+        {t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod')}
       </Text>
       {hasEfforts ? (
         <PerformanceChartPanel
@@ -129,6 +140,7 @@ export function SectionPerformanceSection({
           onDeltaLineChange={onDeltaLineChange}
           activityType={sportType as ActivityType}
           isDark={isDark}
+          useTimeAxis={isRoute}
           bestForwardRecord={bestForwardRecord}
           bestReverseRecord={bestReverseRecord}
           bestForwardIsRecord={bestForwardIsRecord}
@@ -157,6 +169,14 @@ export function SectionPerformanceSection({
         />
       ) : (
         <View testID="section-performance-empty" style={styles.emptyState}>
+          {/* Every attempt excluded leaves no chart to carry the eye, so it stays here. */}
+          {hasExcluded && onToggleShowExcluded && (
+            <ExcludedActivitiesToggle
+              isDark={isDark}
+              showExcluded={!!showExcluded}
+              onToggle={onToggleShowExcluded}
+            />
+          )}
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
             {t('sections.noActivitiesFound')}
           </Text>

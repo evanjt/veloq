@@ -2,11 +2,17 @@
 //! athlete typed.
 //!
 //! An item is queued for a name the moment the engine first numbers it, and
-//! only while geocoding is on, so turning geocoding on starts no pass over the
-//! library. Sections are queued by the numbering trigger in
+//! only while geocoding is on. Sections are queued by the numbering trigger in
 //! `sections::numbers`, which every writer of a section row goes through, and
 //! routes by `routes::mint_route_numbers`. The naming pass that fills the rows
-//! is `net::place_names`.
+//! is `net::place_names`, which also names one item, queued or not, when the
+//! athlete asks for it.
+//!
+//! Being numbered is not what makes an item new: a resync after a wipe, or a
+//! first sync still downloading the history, numbers every route and section
+//! of the library again. So the pass asks only about a queued item whose
+//! newest ride started after geocoding was last turned on (`queued`), and
+//! turning geocoding on starts no pass over the library however it arrives.
 //!
 //! What is shown is the typed name, else the geocoded name while geocoding is
 //! on, else the numbered label. Turning geocoding off keeps the rows and stops
@@ -75,6 +81,21 @@ pub(crate) fn queue_new_route(conn: &Connection, route_id: &str) -> SqlResult<()
     Ok(())
 }
 
+/// Whether the athlete typed a name for the item, which no geocoded name
+/// shows over.
+pub(crate) fn is_typed(conn: &Connection, kind: NamedKind, id: &str) -> bool {
+    match kind {
+        NamedKind::Route => super::routes::pooled::has_typed_name(conn, id),
+        NamedKind::Section => super::sections::numbers::has_own_name(conn, id),
+    }
+}
+
+/// Whether the athlete may ask for the item to be named from its places:
+/// geocoding is on and they typed no name for it.
+pub(crate) fn can_name_from_places(conn: &Connection, kind: NamedKind, id: &str) -> bool {
+    geocoding_enabled_from(conn) && !is_typed(conn, kind, id)
+}
+
 /// The geocoded name of every item of `kind` that has one, keyed by id, or
 /// nothing while geocoding is off.
 pub(crate) fn shown_geocoded_names(conn: &Connection, kind: NamedKind) -> HashMap<String, String> {
@@ -112,13 +133,40 @@ pub(crate) fn shown_geocoded_name(conn: &Connection, kind: NamedKind, id: &str) 
     })
 }
 
-/// The items still waiting for a lookup, oldest first.
+/// The items still waiting for a lookup whose newest ride started after
+/// geocoding was last turned on, oldest first.
+///
+/// An item whose rides all started before, or carry no start yet, stays
+/// queued and is not asked about: a ride the athlete adds to it later, or a
+/// start the metrics sync fills in, makes it due. With no stamp nothing is
+/// due, because the points of ground ridden before the athlete agreed are
+/// never sent unasked.
 pub(crate) fn queued(conn: &Connection) -> SqlResult<Vec<(NamedKind, String)>> {
+    let Some(enabled_at_ms) = setting_from(conn, settings_keys::GEOCODING_ENABLED_AT)?
+        .and_then(|raw| raw.parse::<i64>().ok())
+    else {
+        return Ok(Vec::new());
+    };
     let mut stmt = conn.prepare(
-        "SELECT kind, item_id FROM geocoded_names
-         WHERE named_at IS NULL ORDER BY queued_at, kind, item_id",
+        "SELECT g.kind, g.item_id FROM geocoded_names g
+         WHERE g.named_at IS NULL
+           AND ?1 < 1000 * CASE g.kind
+             WHEN 'route' THEN (
+               SELECT MAX(a.start_date)
+               FROM route_groups r, json_each(r.activity_ids) m
+               JOIN activities a ON a.id = m.value
+               WHERE r.id = g.item_id)
+             WHEN 'section' THEN (
+               SELECT MAX(a.start_date)
+               FROM section_activities sa
+               JOIN activities a ON a.id = sa.activity_id
+               WHERE sa.section_id = g.item_id)
+           END
+         ORDER BY g.queued_at, g.kind, g.item_id",
     )?;
-    let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get(1)?)))?;
+    let rows = stmt.query_map(params![enabled_at_ms], |row| {
+        Ok((row.get::<_, String>(0)?, row.get(1)?))
+    })?;
     let mut out = Vec::new();
     for row in rows {
         let (kind, id) = row?;
@@ -145,6 +193,24 @@ pub(crate) fn settle(
         params![kind.as_str(), id, name, now_ms],
     )?;
     Ok(changed > 0)
+}
+
+/// Keep the name a lookup the athlete asked for found, queued or not, over
+/// any the item had. Settles it, so a pass never asks about it again.
+pub(crate) fn keep_name(
+    conn: &Connection,
+    kind: NamedKind,
+    id: &str,
+    name: &str,
+    now_ms: i64,
+) -> SqlResult<()> {
+    conn.execute(
+        "INSERT INTO geocoded_names (kind, item_id, name, queued_at, named_at)
+         VALUES (?1, ?2, ?3, ?4, ?4)
+         ON CONFLICT (kind, item_id) DO UPDATE SET name = excluded.name, named_at = excluded.named_at",
+        params![kind.as_str(), id, name, now_ms],
+    )?;
+    Ok(())
 }
 
 /// Take an item off the queue without a lookup: it has gone, or the athlete

@@ -41,6 +41,8 @@ yarn-error.*
 # plugins under src/plugins and the local modules. Nothing under them is tracked.
 /ios
 /android
+# Release signing files set aside while scripts/prepare-native.mjs regenerates android/.
+/.native-keep/
 
 # misc
 .syncthing.*
@@ -111,6 +113,7 @@ config/fastlane/vendor/bundle
 # E2E test artifacts
 artifacts/
 screenshots/
+widget-captures/
 *.png
 !docs/badges/google-play.png 
 

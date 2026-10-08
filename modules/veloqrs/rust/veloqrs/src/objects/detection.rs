@@ -855,6 +855,24 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
     Ok(FfiStartOutcome::Started.into())
 }
 
+impl DetectionManager {
+    /// How the last finished run ended, without taking anything.
+    ///
+    /// The routes status read reports this beside the progress: progress says
+    /// whether a run holds the slot now, this says how the previous one ended.
+    /// Neither touches the worker's channel, so neither can settle a run the
+    /// follower is waiting on, which is what `poll` is for and why only the
+    /// follower calls it. Not exported: the status read is its one production
+    /// reader.
+    pub fn last_outcome(&self) -> String {
+        match LAST_DETECTION_OUTCOME.load(Ordering::Relaxed) {
+            OUTCOME_COMPLETE => "complete".to_string(),
+            OUTCOME_ERROR => "error".to_string(),
+            _ => "idle".to_string(),
+        }
+    }
+}
+
 #[uniffi::export]
 impl DetectionManager {
     #[uniffi::constructor]
@@ -864,21 +882,6 @@ impl DetectionManager {
 
     pub fn start(&self) -> Result<FfiStartResult, VeloqError> {
         start_with(|| {})
-    }
-
-    /// How the last finished run ended, without taking anything.
-    ///
-    /// A status surface reads this and `get_progress`: progress says whether a
-    /// run holds the slot now, this says how the previous one ended. Neither
-    /// touches the worker's channel, so neither can settle a run the follower
-    /// is waiting on, which is what `poll` is for and why only the follower
-    /// calls it.
-    pub fn last_outcome(&self) -> String {
-        match LAST_DETECTION_OUTCOME.load(Ordering::Relaxed) {
-            OUTCOME_COMPLETE => "complete".to_string(),
-            OUTCOME_ERROR => "error".to_string(),
-            _ => "idle".to_string(),
-        }
     }
 
     pub fn poll(&self) -> Result<String, VeloqError> {

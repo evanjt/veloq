@@ -795,13 +795,12 @@ fn test_excluded_performances_follow_a_commit_behind_the_engine() {
     .unwrap();
     assert_eq!(conn.changes(), 1, "the worker wrote the row");
 
-    let excluded =
-        with_persistent_engine(|engine| engine.get_excluded_route_performances("r_2", None))
-            .expect("engine");
-    let ids: Vec<&str> = excluded
-        .performances
+    let read = with_persistent_engine(|engine| engine.route_detail_performance("r_2", 0, None))
+        .expect("engine");
+    let ids: Vec<&str> = read
+        .excluded_points
         .iter()
-        .map(|performance| performance.activity_id.as_str())
+        .map(|point| point.activity_id.as_str())
         .collect();
     assert_eq!(ids, ["t"]);
 

@@ -34,8 +34,10 @@ export interface AttemptHistogramChartProps {
   useTimeAxis?: boolean | undefined;
   /** Time in seconds of the highlighted attempt, when it is in this direction. */
   highlightedTime?: number | null | undefined;
-  /** Time in seconds of this direction's record. */
+  /** Time in seconds of this direction's best. */
   recordTime?: number | null | undefined;
+  /** The best is the direction's record, so its line is labelled PR rather than Best. */
+  recordHeld?: boolean | undefined;
 }
 
 export function AttemptHistogramChart({
@@ -45,6 +47,7 @@ export function AttemptHistogramChart({
   useTimeAxis,
   highlightedTime,
   recordTime,
+  recordHeld = false,
 }: AttemptHistogramChartProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -158,7 +161,12 @@ export function AttemptHistogramChart({
             isDark={isDark}
           />
         )}
-        <KeyEntry color={palette.chartGoldMark} label={t('sections.legendPr')} isDark={isDark} />
+        <KeyEntry
+          testID="attempt-histogram-record-key"
+          color={palette.chartGoldMark}
+          label={recordHeld ? t('sections.legendPr') : t('sections.best')}
+          isDark={isDark}
+        />
       </View>
       <Text
         testID="attempt-histogram-caption"
@@ -180,9 +188,19 @@ export function AttemptHistogramChart({
   );
 }
 
-function KeyEntry({ color, label, isDark }: { color: string; label: string; isDark: boolean }) {
+function KeyEntry({
+  color,
+  label,
+  isDark,
+  testID,
+}: {
+  color: string;
+  label: string;
+  isDark: boolean;
+  testID?: string;
+}) {
   return (
-    <View style={styles.keyEntry}>
+    <View style={styles.keyEntry} testID={testID}>
       <View style={[styles.keySwatch, { backgroundColor: color }]} />
       <Text style={[styles.keyText, isDark && styles.axisLabelDark]}>{label}</Text>
     </View>

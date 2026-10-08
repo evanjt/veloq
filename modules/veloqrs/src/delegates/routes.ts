@@ -16,7 +16,6 @@ import type {
   GroupSummary,
   LiveRouteOverlap,
 } from '../generated/veloqrs';
-import type { FfiActivityRouteHighlight } from './shared-types';
 import { validateId, validateName } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -58,12 +57,6 @@ export function setRouteName(host: DelegateHost, routeId: string, name: string):
     host.engine.routes().setName(routeId, name);
     host.notify('groups');
   });
-}
-
-export function getAllRouteNames(host: DelegateHost): Record<string, string> {
-  if (!host.ready) return {};
-  const map = host.timed('getAllRouteNames', () => host.engine.routes().getAllNames());
-  return Object.fromEntries(map);
 }
 
 /** No track at all, in the encoded form the engine returns. */
@@ -126,26 +119,6 @@ export function includeActivityInRoute(
   });
 }
 
-export function getExcludedRouteActivityIds(host: DelegateHost, routeId: string): string[] {
-  if (!host.ready) return [];
-  return host.timed('getExcludedRouteActivityIds', () =>
-    host.engine.routes().getExcludedActivities(routeId)
-  );
-}
-
-export function getExcludedRoutePerformances(
-  host: DelegateHost,
-  routeId: string,
-  sportType?: string
-): FfiRoutePerformanceResult {
-  if (!host.ready) {
-    return EMPTY_ROUTE_PERFORMANCE_RESULT;
-  }
-  return host.timed('getExcludedRoutePerformances', () =>
-    host.engine.routes().getExcludedPerformances(routeId, sportType)
-  );
-}
-
 export function getRoutesScreenData(
   host: DelegateHost,
   query: FfiRoutesScreenQuery
@@ -192,16 +165,6 @@ export function resetRouteRepresentative(host: DelegateHost, routeId: string): b
   }
 }
 
-export function getActivityRouteHighlights(
-  host: DelegateHost,
-  activityIds: string[]
-): FfiActivityRouteHighlight[] {
-  if (!host.ready || activityIds.length === 0) return [];
-  return host.timed('getActivityRouteHighlights', () =>
-    host.engine.routes().getActivityRouteHighlights(activityIds)
-  );
-}
-
 /**
  * Everything the route detail screen paints with in one round-trip: engine
  * counts, the route and its ranking list, every attempt across sports, the
@@ -222,7 +185,7 @@ export function getRouteDetailData(
     host.engine.routes().getDetailData(groupId, currentActivityId, minGroupActivities)
   );
   if (!result) return undefined;
-  // The façade hands out plain objects for name maps, matching getAllRouteNames.
+  // The façade hands out plain objects for name maps.
   return { ...result, routeNames: Object.fromEntries(result.routeNames) };
 }
 

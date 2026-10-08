@@ -46,3 +46,32 @@ describe('the Record control is an iOS 18 ControlWidget in the existing extensio
     expect(iosPlugin.widgetSwiftFiles(projectRoot)).toContain('RecordControl.swift');
   });
 });
+
+/**
+ * Scenario: the athlete taps the Record control in Control Centre. Its intent
+ * opens the app, and iOS refuses that from an extension: chronod logs
+ * "openAppWhenRun is not supported in extensions" and nothing opens.
+ *
+ * Expected behaviour: the intent is compiled into the app as well as the
+ * extension, so the system runs it in the app, and its source is the shared
+ * directory both targets copy from.
+ */
+describe("the Record control's intent runs in the app", () => {
+  const intentFile = 'StartRecordingIntent.swift';
+
+  it('is compiled by the app target and the extension both', () => {
+    expect(iosPlugin.SHARED_APP_FILES).toContain(intentFile);
+    expect(iosPlugin.widgetSwiftFiles(projectRoot)).toContain(intentFile);
+  });
+
+  it('is written into both target directories by the prebuild', () => {
+    const native = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-control-files-'));
+    try {
+      iosPlugin.writeWidgetFiles(projectRoot, native, 'VeloqDev', false);
+      expect(fs.existsSync(path.join(native, 'VeloqDev', intentFile))).toBe(true);
+      expect(fs.existsSync(path.join(native, 'VeloqWidget', intentFile))).toBe(true);
+    } finally {
+      fs.rmSync(native, { recursive: true, force: true });
+    }
+  });
+});

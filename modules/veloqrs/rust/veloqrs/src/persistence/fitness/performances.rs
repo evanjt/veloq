@@ -1130,16 +1130,6 @@ impl PersistentEngine {
             sport_type_filter,
         )
     }
-
-    /// Get route performances for excluded activities only.
-    /// Returns a RoutePerformanceResult with only the excluded activities.
-    pub fn get_excluded_route_performances(
-        &self,
-        route_group_id: &str,
-        sport_type_filter: Option<&str>,
-    ) -> RoutePerformanceResult {
-        excluded_route_performances_of(&self.db, route_group_id, sport_type_filter)
-    }
 }
 
 /// A route's attempts as the saved grouping, match rows and metrics hold them.
@@ -1174,33 +1164,8 @@ pub(crate) fn route_performances_of(
 }
 
 /// The attempts the athlete took out of a route, oldest first and ranked
-/// against nothing.
-pub(crate) fn excluded_route_performances_of(
-    conn: &rusqlite::Connection,
-    route_group_id: &str,
-    sport_type_filter: Option<&str>,
-) -> RoutePerformanceResult {
-    use crate::persistence::activities::pooled as activities;
-    use crate::persistence::routes::pooled as routes;
-
-    let Some(group) = routes::group_by_id(conn, route_group_id) else {
-        return empty_route_performances();
-    };
-    let excluded_ids = routes::excluded_route_activity_ids(conn, route_group_id);
-    if excluded_ids.is_empty() {
-        return empty_route_performances();
-    }
-    excluded_route_performances(
-        &group.activity_ids,
-        &routes::match_info(conn, route_group_id),
-        &excluded_ids,
-        |id| activities::metrics_of(conn, id),
-        sport_type_filter,
-    )
-}
-
-/// [`excluded_route_performances_of`] over a membership and metrics already
-/// loaded, the way [`route_performances`] takes them.
+/// against nothing, over a membership and metrics already loaded the way
+/// [`route_performances`] takes them.
 pub(crate) fn excluded_route_performances<F>(
     activity_ids: &[String],
     match_info: &[crate::ActivityMatchInfo],

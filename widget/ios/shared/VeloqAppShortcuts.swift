@@ -21,18 +21,9 @@ struct StartRideIntent: AppIntent {
   static var description = IntentDescription("Opens Veloq ready to record the last sport.")
   static var openAppWhenRun: Bool = true
 
-  /// `openAppWhenRun` brings Veloq to the front but says nothing about where to
-  /// land, and `OpenURLIntent` is iOS 18 while the deployment target is 16.4.
-  /// So on 18 the intent hands the link to the system, and on 16 and 17 it opens
-  /// the link on the app's own scheme from this process, which the app is
-  /// already in, so it lands where a widget tap does.
   @MainActor
   func perform() async throws -> some IntentResult {
-    let url = AppShortcutSnapshot.lastRecordURL()
-    if #available(iOS 18.0, *) {
-      return .result(opensIntent: OpenURLIntent(url))
-    }
-    await UIApplication.shared.open(url)
+    await RecordLinkOpener.open(AppShortcutSnapshot.lastRecordURL())
     return .result()
   }
 }
@@ -49,12 +40,21 @@ struct StartSportIntent: AppIntent {
 
   @MainActor
   func perform() async throws -> some IntentResult {
-    let url = RecordDeepLink.url(for: sport.id)
-    if #available(iOS 18.0, *) {
-      return .result(opensIntent: OpenURLIntent(url))
-    }
-    await UIApplication.shared.open(url)
+    await RecordLinkOpener.open(RecordDeepLink.url(for: sport.id))
     return .result()
+  }
+}
+
+/// Opens a record link from an intent the app runs, so it lands where a widget
+/// tap does. `openAppWhenRun` brings Veloq to the front but says nothing about
+/// where to land, and `OpenURLIntent` opens universal links only: handed a link
+/// on the app's own scheme it brought the app forward and dropped the link. The
+/// extension declares its own, which never runs, because the Control's intent is
+/// compiled there too and `UIApplication.shared` is not available to it.
+enum RecordLinkOpener {
+  @MainActor
+  static func open(_ url: URL) async {
+    await UIApplication.shared.open(url)
   }
 }
 
