@@ -251,6 +251,8 @@ export interface PeriodStats {
 export interface WeeklyTotal {
   start: number;
   stats: PeriodStats;
+  /** The week is still running, so its totals cover only the days so far. */
+  partial: boolean;
 }
 
 /**
@@ -267,6 +269,8 @@ export interface PeriodComparison {
   previous: number;
   /** `current / previous - 1`, so 0.28 is 28% more than the period before. */
   ratio: number;
+  /** Epoch seconds where the later period starts, the week a graphic marks. */
+  comparedStart: number;
 }
 
 /**
@@ -281,6 +285,8 @@ export interface SeriesPoint {
   /** Epoch seconds. */
   date: number;
   activityId?: string | undefined;
+  /** A total still accruing, such as the running week's. */
+  partial?: boolean | undefined;
 }
 
 export interface FtpTrend {

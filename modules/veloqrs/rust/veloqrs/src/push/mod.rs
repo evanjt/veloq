@@ -294,18 +294,24 @@ pub fn handler_gate(row: Option<&str>) -> Option<(bool, bool)> {
     Some((category("sectionPr"), category("fitnessMilestone")))
 }
 
-/// What the detail body gave the push: the name the sentence carries and the
-/// sport the track fetch is stored under.
+/// What the detail body gave the push: the name the sentence carries, the
+/// sport the track fetch is stored under, and whether upstream changed the
+/// activity since this device last fetched it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActivityDetail {
     pub name: String,
     pub sport_type: String,
+    pub moved: bool,
 }
 
-/// Record one activity's detail body the way a sync would have: the metrics
-/// row, which is what dates a lap so the ladder can call it a record, and the
-/// body itself, which the summary screen reads. JavaScript did both from the
-/// same body, and a handler with no JavaScript has to.
+/// Record one activity's detail body the way a sync's detail fetch does: the
+/// metrics row, which is what dates a lap so the ladder can call it a record,
+/// the body itself, which the summary screen reads, and the census row marked
+/// fetched at the version the body names, which is what stops the next list
+/// page replacing the body with a summary and fetching it again.
+///
+/// The census row is the library owner's, since that is whose census a sync
+/// writes. A library that names no owner gets none.
 pub fn record_activity_detail(
     engine: &mut crate::persistence::PersistentEngine,
     activity_id: &str,
@@ -315,23 +321,30 @@ pub fn record_activity_detail(
         serde_json::from_str(body).map_err(|e| format!("the body of {activity_id}: {e}"))?;
     let date = crate::objects::sync::start_date_to_timestamp(record.start_date_local.as_deref())
         .ok_or_else(|| format!("the body of {activity_id} carries no start date"))?;
-    let detail = ActivityDetail {
-        name: record.name.clone().unwrap_or_default(),
-        sport_type: record
-            .activity_type
-            .clone()
-            .unwrap_or_else(|| "Ride".to_string()),
-    };
-    engine
-        .set_activity_metrics(vec![crate::objects::sync::activity_metrics_row(
-            record, date,
-        )])
+    let census = crate::net::types::ActivityCensusEntry::from(&record);
+    let owner = engine
+        .get_setting(crate::persistence::settings_keys::ATHLETE_ID)
+        .map_err(|e| e.to_string())?
+        .filter(|_| !census.id.is_empty());
+    let moved = engine
+        .store_pushed_activity_detail(owner.as_deref(), activity_id, date, body, &census)
         .map_err(|e| e.to_string())?;
-    engine
-        .upsert_activity_bodies(&[(activity_id.to_string(), date, body.to_string())])
-        .map_err(|e| e.to_string())?;
-    Ok(detail)
+    Ok(ActivityDetail {
+        name: record.name.unwrap_or_default(),
+        sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
+        moved,
+    })
 }
+
+/// Whether the push brings the activity to what opens with no network, the
+/// detail streams and the intervals beside the detail, or asks only the
+/// narrow track the ladder needs.
+///
+/// The detail streams carry every series the charts read, several times the
+/// bytes of the track, and the iOS notification service extension runs under
+/// a memory ceiling that body has not been measured against. So it asks the
+/// narrow track there, and the sync fetches the rest as it did before.
+const PUSH_READIES_ACTIVITY: bool = !cfg!(target_os = "ios");
 
 /// The title a fallback entry carries when no string bundle has been pushed
 /// yet, so there is nothing to translate with.
@@ -526,8 +539,13 @@ fn activity_push_run(
         format!("the detail of {activity_id}: {e}")
     })?;
 
-    let Some((detail, indexed)) =
-        store_pushed_detail(install, incoming_athlete_id, activity_id, &body)?
+    let Some(stored) = store_pushed_detail(
+        install,
+        incoming_athlete_id,
+        activity_id,
+        &body,
+        PUSH_READIES_ACTIVITY,
+    )?
     else {
         return Ok(None);
     };
@@ -535,7 +553,47 @@ fn activity_push_run(
         kind: "activity_detail".to_string(),
         activity_id: activity_id.to_string(),
     });
-    if !indexed {
+    let detail = stored.detail;
+    if PUSH_READIES_ACTIVITY {
+        if let Some(gap) = &stored.owed {
+            // The same step the sync's newest-activities pass takes, on the
+            // lane of a request someone is waiting for. A body that fails is
+            // left to the next sync, which asks for whatever is still owed, so
+            // only a refused credential stops the push; the ladder reads
+            // whatever did land.
+            let readied = crate::runtime::block_on(crate::objects::sync::ready_activity(
+                install,
+                &transport,
+                gap,
+                &upstream,
+                crate::governor::Lane::Interactive,
+            ));
+            match readied {
+                Ok(()) => {}
+                Err(crate::net::transport::NetError::Unauthorized) => {
+                    if let Some(Ok((current, athlete_id))) = crate::objects::current_session() {
+                        crate::runtime::block_on(crate::objects::park_auth_expired(
+                            &current,
+                            &athlete_id,
+                        ));
+                    }
+                    return Err(format!("the bodies of {activity_id}: unauthorized"));
+                }
+                Err(e) => log::warn!("[push] {activity_id} still owes part of its bodies: {e}"),
+            }
+        }
+        if !stored.indexed {
+            // An activity with no track has nothing to index, and the ladder
+            // still reads its metrics.
+            match crate::ffi::index_stored_track(install, activity_id) {
+                Ok(_) => {}
+                // A moved install is the wipe's doing, and the ladder below
+                // reads nothing of this ride from the new library.
+                Err(_) if crate::persistence::engine_install() != install => {}
+                Err(e) => return Err(format!("the index of {activity_id}: {e}")),
+            }
+        }
+    } else if !stored.indexed {
         // The track's own store and index move the token again, inside the
         // take that does the indexing, so a foreground that already took the
         // first bump is told about this one too.
@@ -556,22 +614,37 @@ fn activity_push_run(
     ))
 }
 
-/// One take of the lock for the detail and, when the track is already stored,
-/// the index. A webhook delivered twice, or one that arrived before the track
-/// was indexed, has the track already, and indexing is idempotent, so the
-/// second pass costs no network round trip.
+/// What the push stored under the lock, and what is left for it to fetch.
+struct StoredDetail {
+    detail: ActivityDetail,
+    /// What the activity still lacks for a screen that opens with no network,
+    /// the detail aside, since it was just stored. Everything but the detail
+    /// when upstream moved the version, because the streams and intervals
+    /// stored here belong to the version before.
+    owed: Option<crate::persistence::BodiesOwed>,
+    /// Whether the track was already stored and is now indexed.
+    indexed: bool,
+}
+
+/// One take of the lock for the detail and, when the track is already stored
+/// and nothing will replace it, the index. A webhook delivered twice, or one
+/// that arrived before the track was indexed, has the track already, and
+/// indexing is idempotent, so the second pass costs no network round trip.
 ///
 /// `None` is a library that is not the one the push started in or not the
 /// incoming athlete's: the install has moved, or the library names a different
 /// athlete or none, which is what a wipe leaves. The check runs under the lock
 /// the wipe takes, before the first write, so nothing of the ride is stored.
-/// The `bool` is whether the track was already stored and is now indexed.
+///
+/// `readies` is [`PUSH_READIES_ACTIVITY`]: a track the streams fetch will
+/// replace is indexed after it lands rather than here.
 fn store_pushed_detail(
     install: u64,
     incoming_athlete_id: &str,
     activity_id: &str,
     body: &str,
-) -> Result<Option<(ActivityDetail, bool)>, String> {
+    readies: bool,
+) -> Result<Option<StoredDetail>, String> {
     // A plain sign-out keeps the library, so the owner check below cannot see
     // it: the credential is what says the athlete asked to be forgotten.
     if !crate::objects::sync::still_signed_in(incoming_athlete_id) {
@@ -593,19 +666,59 @@ fn store_pushed_detail(
         if let Err(e) = engine.note_external_write() {
             log::warn!("[push] {activity_id} was written without a token: {e}");
         }
-        if !engine.has_activity(activity_id) {
-            return Ok(Some((detail, false, None)));
+        let owed = engine
+            .activity_owing_bodies(activity_id, crate::objects::sync::DETAIL_STREAM_TYPES_KEY)
+            .map_err(|e| e.to_string())?;
+        let owed = match owed {
+            Some(gap) if detail.moved => Some(crate::persistence::BodiesOwed {
+                detail: false,
+                streams: true,
+                intervals: true,
+                ..gap
+            }),
+            None if detail.moved => Some(crate::persistence::BodiesOwed {
+                activity_id: activity_id.to_string(),
+                detail: false,
+                streams: true,
+                intervals: true,
+                track: false,
+                sport_type: detail.sport_type.clone(),
+            }),
+            Some(gap) => Some(crate::persistence::BodiesOwed {
+                detail: false,
+                ..gap
+            }),
+            None => None,
+        }
+        .filter(|gap| gap.streams || gap.intervals || gap.track);
+        let replaces_track = readies && owed.as_ref().is_some_and(|g| g.streams || g.track);
+        if replaces_track || !engine.has_activity(activity_id) {
+            return Ok(Some((
+                StoredDetail {
+                    detail,
+                    owed,
+                    indexed: false,
+                },
+                None,
+            )));
         }
         let (_, scheduled) = engine.index_new_activity(activity_id)?;
-        Ok(Some((detail, true, scheduled)))
+        Ok(Some((
+            StoredDetail {
+                detail,
+                owed,
+                indexed: true,
+            },
+            scheduled,
+        )))
     });
     match taken {
         Some(Ok(result)) => {
-            if let Some((detail, indexed, scheduled)) = result {
+            if let Some((stored, scheduled)) = result {
                 if let Some(scheduled) = scheduled {
                     scheduled.start();
                 }
-                Ok(Some((detail, indexed)))
+                Ok(Some(stored))
             } else {
                 Ok(None)
             }
@@ -637,6 +750,10 @@ fn json_string(value: &str) -> String {
     out.push('"');
     out
 }
+
+#[cfg(test)]
+#[path = "tests/pushed_activity.rs"]
+mod pushed_activity_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1205,7 +1322,8 @@ mod tests {
             detail,
             ActivityDetail {
                 name: "Evening Run".to_string(),
-                sport_type: "Run".to_string()
+                sport_type: "Run".to_string(),
+                moved: false,
             }
         );
         let (name, date, moving, sport): (String, i64, u32, String) =
@@ -1455,11 +1573,17 @@ mod tests {
         crate::objects::set_credentials_from_native("api_key", "secret", "i1").expect("credential");
         let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
 
-        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
-            .expect("no error")
-            .expect("stored");
+        let stored = store_pushed_detail(
+            crate::persistence::engine_install(),
+            "i1",
+            "i9",
+            &body,
+            PUSH_READIES_ACTIVITY,
+        )
+        .expect("no error")
+        .expect("stored");
 
-        assert_eq!(stored.0.name, "Evening Run");
+        assert_eq!(stored.detail.name, "Evening Run");
         assert_eq!(metrics_rows("i9"), 1);
     }
 
@@ -1475,8 +1599,14 @@ mod tests {
         crate::objects::clear_test_credentials();
         let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
 
-        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
-            .expect("no error");
+        let stored = store_pushed_detail(
+            crate::persistence::engine_install(),
+            "i1",
+            "i9",
+            &body,
+            PUSH_READIES_ACTIVITY,
+        )
+        .expect("no error");
 
         assert!(stored.is_none());
         assert_eq!(metrics_rows("i9"), 0);
@@ -1492,8 +1622,14 @@ mod tests {
         let _tmp = crate::test_globals::seeded_global_engine();
         let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
 
-        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
-            .expect("no error");
+        let stored = store_pushed_detail(
+            crate::persistence::engine_install(),
+            "i1",
+            "i9",
+            &body,
+            PUSH_READIES_ACTIVITY,
+        )
+        .expect("no error");
 
         assert!(stored.is_none());
         assert_eq!(metrics_rows("i9"), 0);
@@ -1507,8 +1643,14 @@ mod tests {
         stamp_library_owner("i2");
         let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
 
-        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
-            .expect("no error");
+        let stored = store_pushed_detail(
+            crate::persistence::engine_install(),
+            "i1",
+            "i9",
+            &body,
+            PUSH_READIES_ACTIVITY,
+        )
+        .expect("no error");
 
         assert!(stored.is_none());
         assert_eq!(metrics_rows("i9"), 0);
@@ -1529,7 +1671,8 @@ mod tests {
         stamp_library_owner("i1");
         let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
 
-        let stored = store_pushed_detail(started_in, "i1", "i9", &body).expect("no error");
+        let stored = store_pushed_detail(started_in, "i1", "i9", &body, PUSH_READIES_ACTIVITY)
+            .expect("no error");
         runs::record_for(started_in, "i9", PushRunOutcome::Posted, None);
 
         assert!(stored.is_none());

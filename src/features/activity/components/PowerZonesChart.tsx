@@ -55,7 +55,7 @@ export function PowerZonesChart({ activity }: PowerZonesChartProps) {
   }));
 
   return (
-    <ChartErrorBoundary height={200} label="Power Zones">
+    <ChartErrorBoundary height={200} chartName="Power Zones">
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={[styles.title, isDark && styles.titleDark]}>

@@ -8322,6 +8322,10 @@ export type FfiWeeklyTotal = {
    */
   start: number;
   stats: FfiPeriodStats;
+  /**
+   * The week is still running, so its totals cover only the days so far.
+   */
+  partial: boolean;
 };
 
 /**
@@ -8348,16 +8352,19 @@ const FfiConverterTypeFfiWeeklyTotal = (() => {
       return {
         start: FfiConverterFloat64.readFromCursor(c),
         stats: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        partial: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterFloat64.writeIntoCursor(value.start, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.stats, c);
+      FfiConverterBool.writeIntoCursor(value.partial, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterFloat64.allocationSize(value.start) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.stats)
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.stats) +
+        FfiConverterBool.allocationSize(value.partial)
       );
     }
   }
@@ -13463,7 +13470,7 @@ const FfiConverterTypeFfiRoutesScreenQuery = (() => {
 export type StreamBackfillProgress = {
   /**
    * One of idle, fetching, complete, partial, stopped, failed,
-   * awaiting_consent.
+   * awaiting_consent, deferred.
    */
   phase: string;
   /**
@@ -14227,7 +14234,9 @@ export const FfiCorrelation = (() => {
     inner: Readonly<{ r: number; n: number; low: number; high: number }>;
   };
   /**
-   * The 95 per cent interval spans zero.
+   * No relationship that holds across the direction's family: the 95 per
+   * cent interval spans zero, or excludes it but not by enough to survive
+   * Holm's correction.
    */
   class Inconclusive_ extends UniffiEnum implements Inconclusive__interface {
     /**
@@ -14266,7 +14275,8 @@ export const FfiCorrelation = (() => {
     inner: Readonly<{ r: number; n: number; low: number; high: number }>;
   };
   /**
-   * The interval excludes zero.
+   * Holds under Holm's correction across the family, so the 95 per cent
+   * interval excludes zero too.
    */
   class Mover_ extends UniffiEnum implements Mover__interface {
     /**
@@ -14442,6 +14452,12 @@ export type FfiSectionCorrelation = {
    */
   variable: string;
   result: FfiCorrelation;
+  /**
+   * Variables of this direction that carried an estimate: the family the
+   * mover label was Holm-adjusted across. The same on every row of a
+   * direction, and 0 when none of them had enough pairs.
+   */
+  familySize: number;
 };
 
 /**
@@ -14470,18 +14486,21 @@ const FfiConverterTypeFfiSectionCorrelation = (() => {
         direction: FfiConverterString.readFromCursor(c),
         variable: FfiConverterString.readFromCursor(c),
         result: FfiConverterTypeFfiCorrelation.readFromCursor(c),
+        familySize: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.direction, c);
       FfiConverterString.writeIntoCursor(value.variable, c);
       FfiConverterTypeFfiCorrelation.writeIntoCursor(value.result, c);
+      FfiConverterUInt32.writeIntoCursor(value.familySize, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.direction) +
         FfiConverterString.allocationSize(value.variable) +
-        FfiConverterTypeFfiCorrelation.allocationSize(value.result)
+        FfiConverterTypeFfiCorrelation.allocationSize(value.result) +
+        FfiConverterUInt32.allocationSize(value.familySize)
       );
     }
   }
@@ -17158,11 +17177,14 @@ export enum FfiSyncStep {
    */
   Athlete = 1,
   /**
-   * Per-sport settings, which the zone charts read.
+   * Per-sport settings, which the zone charts read. No run reports it now:
+   * the athlete body carries them and the athlete step stores both. Kept
+   * because the wire carries the position.
    */
   SportSettings = 2,
   /**
-   * A year of wellness rows.
+   * The wellness rows: the trailing fortnight once a year is stored, back
+   * to the oldest day still owed otherwise.
    */
   Wellness = 3,
   /**
@@ -25120,7 +25142,9 @@ const FfiConverterTypeMapManager = new FfiConverterObject(
  * Every call is one transaction, so nothing here needs a promise chain around
  * it the way the AsyncStorage index did: two writers racing is what SQLite
  * already answers. The FIT file and a manual entry's body are TypeScript's to
- * write, and the upload reads them from the paths the row names. Once
+ * write, and a row names each by its path relative to the app's documents
+ * directory, which the upload resolves against the directory the app hands
+ * over when it starts one. Once
  * intervals.icu reads a landed upload back, the upload worker's sweep deletes
  * the row and both files; a recording the athlete deletes from the library
  * goes through `delete_own_recording`, and TypeScript deletes its files.
@@ -25207,7 +25231,8 @@ export interface RecordingManagerLike {
    * Upload one recording now, the whole sequence the schedule runs for a
    * due ride, and answer how it ended. `manual` is the athlete asking, from
    * the review save or Upload now: a parked ride is requeued first and its
-   * backoff does not apply.
+   * backoff does not apply. `files_root` is the app's documents directory
+   * as it is now, which the row's file names are relative to.
    *
    * The requests block, so the sequence runs on a thread of its own and
    * this resolves when it has finished.
@@ -25215,14 +25240,17 @@ export interface RecordingManagerLike {
   uploadRecording(
     id: string,
     manual: boolean,
+    filesRoot: string,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiUploadResult>;
   /**
    * Start the upload schedule if it is not running, and wake it. Called when
    * the engine is ready and when the athlete grants write permission, the one
-   * trigger that is theirs rather than the schedule's.
+   * trigger that is theirs rather than the schedule's. `files_root` is the
+   * app's documents directory as it is now, which the rows' file names are
+   * relative to.
    */
-  wakeUploadSchedule(): void;
+  wakeUploadSchedule(filesRoot: string): void;
 }
 /**
  * @deprecated Use `RecordingManagerLike` instead.
@@ -25235,7 +25263,9 @@ export type RecordingManagerInterface = RecordingManagerLike;
  * Every call is one transaction, so nothing here needs a promise chain around
  * it the way the AsyncStorage index did: two writers racing is what SQLite
  * already answers. The FIT file and a manual entry's body are TypeScript's to
- * write, and the upload reads them from the paths the row names. Once
+ * write, and a row names each by its path relative to the app's documents
+ * directory, which the upload resolves against the directory the app hands
+ * over when it starts one. Once
  * intervals.icu reads a landed upload back, the upload worker's sweep deletes
  * the row and both files; a recording the athlete deletes from the library
  * goes through `delete_own_recording`, and TypeScript deletes its files.
@@ -25613,7 +25643,8 @@ export class RecordingManager
    * Upload one recording now, the whole sequence the schedule runs for a
    * due ride, and answer how it ended. `manual` is the athlete asking, from
    * the review save or Upload now: a parked ride is requeued first and its
-   * backoff does not apply.
+   * backoff does not apply. `files_root` is the app's documents directory
+   * as it is now, which the row's file names are relative to.
    *
    * The requests block, so the sequence runs on a thread of its own and
    * this resolves when it has finished.
@@ -25621,6 +25652,7 @@ export class RecordingManager
   async uploadRecording(
     id: string,
     manual: boolean,
+    filesRoot: string,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiUploadResult> {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
@@ -25632,6 +25664,10 @@ export class RecordingManager
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
             FfiConverterBool.lower(manual, nativeModule().rustbuffer_alloc),
+            FfiConverterString.lower(
+              filesRoot,
+              nativeModule().rustbuffer_alloc,
+            ),
           );
         },
         /*pollFunc:*/ nativeModule()
@@ -25671,13 +25707,16 @@ export class RecordingManager
   /**
    * Start the upload schedule if it is not running, and wake it. Called when
    * the engine is ready and when the athlete grants write permission, the one
-   * trigger that is theirs rather than the schedule's.
+   * trigger that is theirs rather than the schedule's. `files_root` is the
+   * app's documents directory as it is now, which the rows' file names are
+   * relative to.
    */
-  wakeUploadSchedule(): void {
+  wakeUploadSchedule(filesRoot: string): void {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_wake_upload_schedule(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(filesRoot, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -29783,8 +29822,12 @@ export interface SyncManagerLike {
    * Start a sync. Returns instantly, naming whether the job started and, if
    * not, whether asking again later would. Work runs on the shared runtime;
    * observe progress via `get_sync_status`.
+   *
+   * `force` fetches the athlete profile and its sport settings whatever
+   * their age. A foreground passes false and they come at most once in six
+   * hours; a pull to refresh and a saved recording pass true.
    */
-  syncNow() /*throws*/ : FfiStartOutcome;
+  syncNow(force: boolean) /*throws*/ : FfiStartOutcome;
   /**
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
@@ -30118,8 +30161,12 @@ export class SyncManager
    * Start a sync. Returns instantly, naming whether the job started and, if
    * not, whether asking again later would. Work runs on the shared runtime;
    * observe progress via `get_sync_status`.
+   *
+   * `force` fetches the athlete profile and its sport settings whatever
+   * their age. A foreground passes false and they come at most once in six
+   * hours; a pull to refresh and a saved recording pass true.
    */
-  syncNow(): FfiStartOutcome /*throws*/ {
+  syncNow(force: boolean): FfiStartOutcome /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -30127,6 +30174,7 @@ export class SyncManager
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
           uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          FfiConverterBool.lower(force, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -33612,7 +33660,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_upload_recording() !==
-    43749
+    42224
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_upload_recording",
@@ -33620,7 +33668,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_wake_upload_schedule() !==
-    14129
+    54121
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_wake_upload_schedule",
@@ -34556,7 +34604,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
-    53800
+    1246
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",

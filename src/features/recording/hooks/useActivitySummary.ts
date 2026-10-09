@@ -91,8 +91,8 @@ export function useActivitySummary({
   }, [canTrim, streams, trimStartIndex, trimEnd]);
 
   // Built once per recording. A trim handle moves once a frame and the
-  // window's gain and averages come out of these in constant time, so a drag
-  // no longer walks the whole ride per frame.
+  // window's averages come out of these in constant time; its gain is one
+  // allocation-free pass over the window.
   const prefixes = useMemo(() => buildStreamPrefixes(streams), [streams]);
 
   // The inclusive point range actually being saved. Empty streams give an

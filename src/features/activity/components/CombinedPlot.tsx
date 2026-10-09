@@ -332,7 +332,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }
 
   return (
-    <ChartErrorBoundary height={height} label="Activity Chart">
+    <ChartErrorBoundary height={height} chartName="Activity Chart">
       <View style={[styles.container, { height }]}>
         {/* Chart area - full height, metrics displayed in parent chips */}
         <GestureDetector gesture={gesture}>

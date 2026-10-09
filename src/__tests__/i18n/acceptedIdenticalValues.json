@@ -67,10 +67,17 @@
     "units.watts": "Conventional measurement unit symbol.",
     "units.wattsPerKg": "Conventional measurement unit symbol.",
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
-    "wellness.smoothingDaysShort": "Unit abbreviation spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.daysShort": "Unit abbreviation spelled the same in the language.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.prTime": "PR is the conventional abbreviation for personal record.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -136,7 +143,13 @@
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "de-DE": {
     "about.version": "German word or phrase with the same spelling.",
@@ -227,7 +240,13 @@
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -284,7 +303,12 @@
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "zoneNames.power7": "Conventional training term spelled as in English."
+    "zoneNames.power7": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "es-ES": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -348,7 +372,12 @@
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "zoneNames.power7": "Conventional training term spelled as in English."
+    "zoneNames.power7": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "es": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -405,7 +434,12 @@
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "zoneNames.power7": "Conventional training term spelled as in English."
+    "zoneNames.power7": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "fr": {
     "maps.layerRoutes": "Routes has the same spelling in French and English.",
@@ -514,7 +548,11 @@
     "zoneNames.power2": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "recording.library.distance": "French word or phrase with the same spelling."
+    "recording.library.distance": "French word or phrase with the same spelling.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -583,7 +621,13 @@
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "ja": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -617,7 +661,11 @@
     "units.ms": "International unit symbol.",
     "units.watts": "Conventional measurement unit symbol.",
     "units.wattsPerKg": "Conventional measurement unit symbol.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "nl": {
     "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
@@ -723,7 +771,14 @@
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.prTime": "PR is the conventional abbreviation for personal record.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "pl": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -789,7 +844,13 @@
     "wellness.smoothingAuto": "Conventional preset name, spelled the same in the language.",
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
-    "zoneNames.power5": "Conventional training term spelled as in English."
+    "zoneNames.power5": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -854,7 +915,13 @@
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "zoneNames.power7": "Conventional training term spelled as in English."
+    "zoneNames.power7": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "pt": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -922,7 +989,13 @@
     "zoneNames.hr3": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "zoneNames.power7": "Conventional training term spelled as in English."
+    "zoneNames.power7": "Conventional training term spelled as in English.",
+    "units.times": "Conventional multiplication sign after a count.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol.",
+    "units.seconds": "Conventional measurement unit symbol.",
+    "metrics.cs": "Conventional training or recording abbreviation.",
+    "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -945,6 +1018,8 @@
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.ms": "International unit symbol.",
-    "units.wattsPerKg": "Conventional measurement unit symbol."
+    "units.wattsPerKg": "Conventional measurement unit symbol.",
+    "units.metresPerSecond": "Conventional measurement unit symbol.",
+    "units.metres": "Conventional measurement unit symbol."
   }
 }

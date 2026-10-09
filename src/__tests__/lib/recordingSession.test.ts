@@ -144,11 +144,12 @@ describe('recordingSession', () => {
     Object.assign(first.coords, { altitude: 0, altitudeAccuracy: -1 });
     onFix?.(first);
     onFix?.({ ...fixAt(1, 10), coords: { ...fixAt(1, 10).coords, altitude: 450 } });
-    onFix?.({ ...fixAt(2, 20), coords: { ...fixAt(2, 20).coords, altitude: 452 } });
+    onFix?.({ ...fixAt(2, 20), coords: { ...fixAt(2, 20).coords, altitude: 454 } });
+    onFix?.({ ...fixAt(3, 30), coords: { ...fixAt(3, 30).coords, altitude: 458 } });
 
     const { streams, totals } = useRecordingStore.getState();
-    expect(streams.altitude).toEqual([NaN, 450, 452]);
-    expect(totals.elevationGain).toBe(2);
+    expect(streams.altitude).toEqual([NaN, 450, 454, 458]);
+    expect(totals.elevationGain).toBe(4);
   });
 
   it('drops fixes worse than the accuracy threshold but still shows them', async () => {

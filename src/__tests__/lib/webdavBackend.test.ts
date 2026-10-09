@@ -104,9 +104,9 @@ describe('webdavBackend.upload', () => {
       PUT: () => response(201),
     });
 
-    await expect(
-      webdavBackend.upload('/docs/veloq-decisions.zip', METADATA)
-    ).resolves.toBeUndefined();
+    await expect(webdavBackend.upload('/docs/veloq-decisions.zip', METADATA)).resolves.toBe(
+      'veloq-2026-08-05T10-00-00-000Z.zip'
+    );
 
     const [fileUrl, localPath, options] = uploadAsync.mock.calls[0];
     expect(fileUrl).toBe(`${SERVER}Veloq/veloq-2026-08-05T10-00-00-000Z.zip`);

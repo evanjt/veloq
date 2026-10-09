@@ -298,29 +298,57 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     );
   });
 
-  it('draws dated weeks and marks the compared week', () => {
-    const ffiData = buildFfiData();
-    ffiData.weeklyTotals = [100, 200, 300, 400, 500].map((tss, week) => ({
-      start: 1_697_000_000 + week * 604_800,
+  const WEEK = 604_800;
+  const FIRST_WEEK = 1_697_000_000;
+  const weekStart = (week: number) => FIRST_WEEK + week * WEEK;
+  const weeksOf = (loads: number[], partialLast: boolean) =>
+    loads.map((tss, week) => ({
+      start: weekStart(week),
       stats: makePeriod(3, 3600, 40_000, tss),
+      partial: partialLast && week === loads.length - 1,
     }));
+  const weeklyCard = (ffiData: InsightsData) =>
+    computeInsightsFromData(ffiData, t).insights.find(
+      (insight) => insight.supportingData?.history?.kind === 'bars'
+    );
 
-    const { insights } = computeInsightsFromData(ffiData, t);
+  it('marks the running week the week-over-week card compares, drawn as partial', () => {
+    const ffiData = buildFfiData();
+    ffiData.weeklyTotals = weeksOf([100, 200, 300, 400, 500, 320], true);
+    ffiData.weekOverWeek = { ...ffiData.weekOverWeek!, comparedStart: weekStart(5) };
 
-    const weekly = insights.find((insight) => insight.supportingData?.history?.kind === 'bars');
+    const weekly = weeklyCard(ffiData);
+
     expect(weekly?.supportingData?.history).toMatchObject({
       kind: 'bars',
-      mark: { date: 1_697_000_000 + 4 * 604_800 },
+      mark: { date: weekStart(5) },
       series: [
         {
           label: 'insights.data.weeklyLoad',
-          points: [100, 200, 300, 400, 500].map((value, week) => ({
+          points: [100, 200, 300, 400, 500, 320].map((value, week) => ({
             value,
-            date: 1_697_000_000 + week * 604_800,
+            date: weekStart(week),
+            partial: week === 5,
           })),
         },
       ],
     });
+    expect(weekly?.supportingData?.comparisonData?.previous.label).toBe(
+      'insights.data.samePointLastWeek'
+    );
+  });
+
+  it('marks last week on the rest-day card, not the week before it', () => {
+    const ffiData = buildFfiData();
+    ffiData.currentWeek = makePeriod(0, 0, 0, 0);
+    ffiData.weeklyTotals = weeksOf([300, 320, 340, 320, 220], false);
+    ffiData.weekAgainstChronic = { ...ffiData.weekAgainstChronic!, comparedStart: weekStart(4) };
+
+    const weekly = weeklyCard(ffiData);
+
+    expect(weekly?.id).toBe('period_comparison-volume');
+    expect(weekly?.supportingData?.history).toMatchObject({ mark: { date: weekStart(4) } });
+    expect(weekly?.supportingData?.comparisonData?.current.label).toBe('insights.data.lastWeek');
   });
 
   it('carries the engine section standing into the PR sheet data', () => {

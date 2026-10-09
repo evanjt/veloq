@@ -12,6 +12,11 @@
  * current data, not for a sync each. The verdict says which refusal it was, so
  * only the kind that lifts is held. A missing credential is not waited on.
  *
+ * The pull forces the athlete profile, which a foreground sync leaves to its
+ * age gate: the athlete asked for current data, and an edit they just made on
+ * intervals.icu is the data they mean. A saved recording asks through here for
+ * the same reason.
+ *
  * A hold belongs to the account that made the pull. Sign-out and a library
  * wipe both end that account, so `cancelSyncRefresh` drops it rather than
  * letting the next athlete's first sync drag it in.
@@ -36,7 +41,7 @@ export function requestSyncRefresh(): StartOutcome {
   const engine = getEngine();
   if (!engine) return StartOutcome.NotReady;
 
-  const outcome = engine.syncNow();
+  const outcome = engine.syncNow(true);
   if (hasStarted(outcome) || !isRetryableStart(outcome)) return outcome;
 
   // `syncSettled` is the terminal transition, so each retry costs one sync

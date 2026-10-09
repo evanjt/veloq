@@ -12,8 +12,9 @@
  * The engine starts the pass by itself after a settled sync. The row shows its
  * progress and stops it, and the stop lands at the next batch rather than at the
  * end of the library. A stop holds the automatic start until the window next
- * changes, so Download is offered only after a stop, or while the engine waits
- * for the athlete's consent.
+ * changes, so Download is offered after a stop, while the engine waits for the
+ * athlete's consent, and while the automatic start waits for other work to
+ * finish first.
  */
 
 import React from 'react';
@@ -61,9 +62,10 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
           count: remaining ?? 0,
           size: formatFileSize(remainingBytes),
         });
-  // Download starts a pass by hand, which only an athlete's stop or the
-  // engine's wait for consent leaves undone; otherwise the engine starts it.
-  const offersDownload = phase === 'stopped' || awaitingConsent;
+  // Download starts a pass by hand, which an athlete's stop, the engine's wait
+  // for consent or its wait on other work leaves undone; otherwise the engine
+  // starts it.
+  const offersDownload = phase === 'stopped' || phase === 'deferred' || awaitingConsent;
 
   const refusalKey = streamBackfillRefusalKey(refusal);
 

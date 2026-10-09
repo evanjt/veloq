@@ -287,7 +287,7 @@ export function SectionCreationOverlay({
                         color={palette.textSecondary}
                       />
                       <Text style={[styles.technicalText, mutedText]} selectable>
-                        ID: {error.activityId}
+                        {t('routes.errorDetailId', { id: error.activityId })}
                       </Text>
                     </View>
                   )}
@@ -299,7 +299,10 @@ export function SectionCreationOverlay({
                         color={palette.textSecondary}
                       />
                       <Text style={[styles.technicalText, mutedText]}>
-                        Range: {error.indices.start} → {error.indices.end}
+                        {t('routes.errorDetailRange', {
+                          start: error.indices.start,
+                          end: error.indices.end,
+                        })}
                       </Text>
                     </View>
                   )}

@@ -8,31 +8,54 @@ import WidgetKit
 /// pushing them would be wrong: the clock, which runs from `timerStart` so it keeps
 /// counting while the app is suspended, and the trace, which is drawn from normalised
 /// points so no basemap or tile is involved.
+///
+/// Every push moves the card's stale date on, so a card goes stale only once the
+/// process has stopped pushing. Then the clock freezes at the last push and the card
+/// says the recording stopped, because a clock that keeps counting after the system
+/// killed the app tells the rider a dead recording is live.
 @available(iOS 16.2, *)
 struct VeloqRecordingLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: VeloqRecordingAttributes.self) { context in
-      RecordingLockScreenView(attributes: context.attributes, state: context.state)
-        .activityBackgroundTint(Color.black.opacity(0.55))
-        .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
+      RecordingLockScreenView(
+        attributes: context.attributes,
+        state: context.state,
+        isStale: context.isStale
+      )
+      .activityBackgroundTint(Color.black.opacity(0.55))
+      .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          RecordingClock(state: context.state, size: WidgetTheme.TypeScale.metric)
-            .padding(.leading, WidgetTheme.Layout.gap)
+          RecordingClock(
+            state: context.state,
+            isStale: context.isStale,
+            size: WidgetTheme.TypeScale.metric
+          )
+          .padding(.leading, WidgetTheme.Layout.gap)
         }
         DynamicIslandExpandedRegion(.trailing) {
           // The control sits with the numbers it acts on. In the bottom region it
           // was diagonally opposite the clock, holding a row open on its own.
           HStack(spacing: WidgetTheme.Layout.gap) {
             VStack(alignment: .trailing, spacing: 2) {
-              Text(context.state.distanceLabel)
-                .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-              Text(context.state.speedLabel)
-                .font(.system(size: WidgetTheme.TypeScale.label))
-                .foregroundStyle(.secondary)
+              if context.isStale, let stopped = context.attributes.stoppedLabel {
+                Text(stopped)
+                  .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+                  .multilineTextAlignment(.trailing)
+              } else {
+                Text(context.state.distanceLabel)
+                  .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+                Text(context.state.speedLabel)
+                  .font(.system(size: WidgetTheme.TypeScale.label))
+                  .foregroundStyle(.secondary)
+              }
             }
-            RecordingControl(state: context.state)
+            // A pause sent to a process that is gone does nothing, so a stale card
+            // offers only the tap that opens the app.
+            if !context.isStale {
+              RecordingControl(state: context.state)
+            }
           }
           .padding(.trailing, WidgetTheme.Layout.gap)
         }
@@ -47,11 +70,15 @@ struct VeloqRecordingLiveActivity: Widget {
           }
         }
       } compactLeading: {
-        RecordingGlyph(isPaused: context.state.isPaused)
+        RecordingGlyph(isPaused: context.state.isPaused, isStale: context.isStale)
       } compactTrailing: {
-        RecordingClock(state: context.state, size: WidgetTheme.TypeScale.label)
+        RecordingClock(
+          state: context.state,
+          isStale: context.isStale,
+          size: WidgetTheme.TypeScale.label
+        )
       } minimal: {
-        RecordingGlyph(isPaused: context.state.isPaused)
+        RecordingGlyph(isPaused: context.state.isPaused, isStale: context.isStale)
       }
       .widgetURL(URL(string: "veloq://record"))
       .keylineTint(WidgetTheme.Record.Light.gradientStart)
@@ -63,6 +90,7 @@ struct VeloqRecordingLiveActivity: Widget {
 private struct RecordingLockScreenView: View {
   let attributes: VeloqRecordingAttributes
   let state: VeloqRecordingAttributes.ContentState
+  let isStale: Bool
 
   var body: some View {
     HStack(alignment: .center, spacing: WidgetTheme.Layout.padding) {
@@ -70,10 +98,16 @@ private struct RecordingLockScreenView: View {
         Text((attributes.activityLabel ?? attributes.activityType).uppercased())
           .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
           .foregroundStyle(.secondary)
-        RecordingClock(state: state, size: WidgetTheme.TypeScale.hero)
-        Text("\(state.distanceLabel)  ·  \(state.speedLabel)")
-          .font(.system(size: WidgetTheme.TypeScale.label))
-          .foregroundStyle(.secondary)
+        RecordingClock(state: state, isStale: isStale, size: WidgetTheme.TypeScale.hero)
+        if isStale, let stopped = attributes.stoppedLabel {
+          Text(stopped)
+            .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+            .foregroundStyle(WidgetTheme.Record.foreground)
+        } else {
+          Text("\(state.distanceLabel)  ·  \(state.speedLabel)")
+            .font(.system(size: WidgetTheme.TypeScale.label))
+            .foregroundStyle(.secondary)
+        }
       }
       Spacer(minLength: 0)
       // Same rule as the island: no trace, no reserved box. Indoor recordings
@@ -82,7 +116,9 @@ private struct RecordingLockScreenView: View {
         RecordingTrace(trace: trace)
           .frame(width: 72, height: 56)
       }
-      RecordingControl(state: state)
+      if !isStale {
+        RecordingControl(state: state)
+      }
     }
     .padding(WidgetTheme.Layout.padding)
     .widgetURL(URL(string: "veloq://record"))
@@ -91,16 +127,18 @@ private struct RecordingLockScreenView: View {
 
 /// The elapsed clock. `Text(timerInterval:)` while recording, because a card whose
 /// clock is pushed stops the moment the process suspends; a frozen string while
-/// paused, because a timer that keeps running through a pause is simply wrong.
+/// paused, because a timer that keeps running through a pause is simply wrong, and
+/// once stale, because no process is recording any more.
 @available(iOS 16.2, *)
 private struct RecordingClock: View {
   let state: VeloqRecordingAttributes.ContentState
+  let isStale: Bool
   let size: CGFloat
 
   var body: some View {
     Group {
-      if state.isPaused {
-        Text(pausedLabel)
+      if state.isPaused || isStale {
+        Text(frozenLabel)
       } else {
         Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
       }
@@ -109,7 +147,7 @@ private struct RecordingClock: View {
     .foregroundStyle(WidgetTheme.Record.foreground)
   }
 
-  private var pausedLabel: String {
+  private var frozenLabel: String {
     let total = Int(state.frozenElapsedS ?? 0)
     let hours = total / 3600
     let minutes = (total % 3600) / 60
@@ -141,10 +179,16 @@ private struct RecordingTrace: View {
 @available(iOS 16.2, *)
 private struct RecordingGlyph: View {
   let isPaused: Bool
+  let isStale: Bool
 
   var body: some View {
-    Image(systemName: isPaused ? "pause.circle.fill" : "record.circle.fill")
-      .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.Light.gradientStart)
+    if isStale {
+      Image(systemName: "exclamationmark.circle.fill")
+        .foregroundStyle(WidgetTheme.Light.gold)
+    } else {
+      Image(systemName: isPaused ? "pause.circle.fill" : "record.circle.fill")
+        .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.Light.gradientStart)
+    }
   }
 }
 

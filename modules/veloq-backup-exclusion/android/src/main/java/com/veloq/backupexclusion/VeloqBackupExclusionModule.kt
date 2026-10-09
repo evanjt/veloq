@@ -10,9 +10,10 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 /**
- * The Android side of the backup module: the backup folder's grant release, and
- * the platform's storage figure for the app. The device backup rules here are
- * an allowlist, so nothing is excluded.
+ * The Android side of the backup module: the backup folder's grant release, the
+ * platform's storage figure for the app, and what Auto Backup last did as the
+ * backup agent recorded it. The device backup rules here are an allowlist, so
+ * nothing is excluded.
  */
 class VeloqBackupExclusionModule : Module() {
   private val context: Context
@@ -35,6 +36,20 @@ class VeloqBackupExclusionModule : Module() {
       mapOf(
         "dataBytes" to (stats.dataBytes - stats.cacheBytes).coerceAtLeast(0L).toDouble(),
         "cacheBytes" to stats.cacheBytes.toDouble()
+      )
+    }
+
+    // What Auto Backup last did, as VeloqBackupAgent heard it. Each value is null
+    // until the platform has called the agent for it.
+    Function("getAutoBackupStatus") {
+      val status = AutoBackupLedger.forContext(context).status()
+      mapOf(
+        "backedUpAt" to status.backedUpAt?.toDouble(),
+        "backedUpBytes" to status.backedUpBytes?.toDouble(),
+        "quotaExceededAt" to status.quotaExceededAt?.toDouble(),
+        "quotaExceededBytes" to status.quotaExceededBytes?.toDouble(),
+        "quotaBytes" to status.quotaBytes?.toDouble(),
+        "restoredAt" to status.restoredAt?.toDouble()
       )
     }
 

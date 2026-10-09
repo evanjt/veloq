@@ -17,8 +17,10 @@ import path from 'path';
 import xcode from 'xcode';
 
 import {
+  SOURCE_DIR,
   TARGET,
   applyPushExtensionBuildSettings,
+  copyDir,
   configurePushExtensionProject,
   pushSwiftFiles,
 } from '@/../src/plugins/with-ios-push-extension';
@@ -264,5 +266,37 @@ describe('the phase that builds the Rust library', () => {
 describe('the tracked source tree', () => {
   it('holds the principal class the Info.plist names, and the plugin finds it', () => {
     expect(pushSwiftFiles(projectRoot)).toContain('NotificationService.swift');
+  });
+
+  /**
+   * Scenario: a ride push lands while the app is closed. The extension stores
+   * the ride and has to rewrite the widget snapshot in the App Group, or the
+   * home screen keeps the previous ride until the app next opens.
+   *
+   * Expected behaviour: the extension compiles the one snapshot writer the
+   * background refresh and the app bridge write through, not a copy of it, so
+   * the file name, the location and the backup exclusion cannot drift apart.
+   */
+  it('compiles the snapshot writer the widget refresh writes through, as the same file', () => {
+    expect(pushSwiftFiles(projectRoot)).toContain('WidgetSnapshotFile.swift');
+    expect(fs.realpathSync(path.join(projectRoot, SOURCE_DIR, 'WidgetSnapshotFile.swift'))).toBe(
+      fs.realpathSync(path.join(projectRoot, 'modules/veloq-widget/ios/WidgetSnapshotFile.swift'))
+    );
+  });
+});
+
+describe('the files the prebuild copies into the native tree', () => {
+  it('copies a linked source as the file it points at, which the native tree can resolve', () => {
+    const source = tempDir('veloq-push-src-');
+    const dest = tempDir('veloq-push-dest-');
+    fs.writeFileSync(path.join(source, 'Shared.swift'), 'enum Shared {}\n');
+    fs.mkdirSync(path.join(source, 'Extension'));
+    fs.symlinkSync('../Shared.swift', path.join(source, 'Extension', 'Shared.swift'));
+
+    copyDir(path.join(source, 'Extension'), path.join(dest, 'Extension'));
+
+    const copied = path.join(dest, 'Extension', 'Shared.swift');
+    expect(fs.lstatSync(copied).isSymbolicLink()).toBe(false);
+    expect(fs.readFileSync(copied, 'utf8')).toBe('enum Shared {}\n');
   });
 });

@@ -20,7 +20,7 @@
   "src/features/maps/lib": 66,
   "src/features/recording/components": 1,
   "src/features/recording/hooks": 13,
-  "src/features/recording/lib": 30,
+  "src/features/recording/lib": 22,
   "src/features/recording/lib/liveActivity": 2,
   "src/features/recording/stores": 2,
   "src/features/routes/components": 14,

@@ -31,6 +31,7 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'never',
+    getActivityCamera: () => undefined,
     hasActivityOverride: () => false,
   }),
 }));
@@ -46,10 +47,6 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   deleteTerrainPreview: jest.fn(async (id: string, style: string, is3D: boolean) => {
     mockCached.delete(mockKey(id, style, is3D));
   }),
-}));
-
-jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
-  getCameraOverride: () => null,
 }));
 
 jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({

@@ -29,7 +29,7 @@ jest.mock('@/features/recording/lib/liveActivity/bridge', () => ({
   onLiveActivityControl: () => () => undefined,
 }));
 
-function lastCard(): { frozenElapsedS: number | null; timerFrom: number } {
+function lastCard(): { status: string; frozenElapsedS: number; timerFrom: number } {
   return JSON.parse(mockCards[mockCards.length - 1]);
 }
 
@@ -286,7 +286,8 @@ describe('every surface through a real pause and resume', () => {
     act(() => useRecordingStore.getState().resumeRecording());
     rerender({});
     refreshLiveActivity();
-    expect(lastCard().frozenElapsedS).toBeNull();
+    expect(lastCard().status).toBe('recording');
+    expect(lastCard().frozenElapsedS).toBe(result.current.movingTime);
     expect(Math.floor((Date.now() - lastCard().timerFrom) / 1000)).toBe(result.current.movingTime);
   });
 });

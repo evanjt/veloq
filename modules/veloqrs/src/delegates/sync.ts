@@ -51,10 +51,11 @@ export function clearSyncCredentials(host: DelegateHost): void {
 
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can
  *  tell a held slot from a missing credential. Progress surfaces through
- *  `getSyncStatus`. */
-export function syncNow(host: DelegateHost): FfiStartOutcome {
+ *  `getSyncStatus`. `force` fetches the athlete profile whatever its age;
+ *  without it the engine asks for the profile at most once in six hours. */
+export function syncNow(host: DelegateHost, force: boolean): FfiStartOutcome {
   if (!host.ready) return FfiStartOutcome.NotReady;
-  const outcome = host.timed('syncNow', () => host.engine.sync().syncNow()) as FfiStartOutcome;
+  const outcome = host.timed('syncNow', () => host.engine.sync().syncNow(force)) as FfiStartOutcome;
   if (hasStarted(outcome)) host.notify('sync');
   return outcome;
 }

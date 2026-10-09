@@ -56,7 +56,9 @@ export function useEngineSync(): void {
     // first call reaches a null handle and refuses without touching Rust.
     // Latching on the verdict keeps the retry alive until the ready nonce
     // brings the effect back with a real engine.
-    startedRef.current = hasStarted(engine.syncNow());
+    // The profile is left to the engine's age gate: this runs on every
+    // foreground, and a pull to refresh is what forces it.
+    startedRef.current = hasStarted(engine.syncNow(false));
   }, [isAuthenticated, isDemoMode, engineReadyNonce, retryNonce]);
 
   // Re-arm on logout so the next session syncs again. A pull-to-refresh held

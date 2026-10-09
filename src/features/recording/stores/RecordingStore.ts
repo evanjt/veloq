@@ -1,5 +1,4 @@
 import { haversineDistance } from '@/shared/geo/distance';
-import { elevationGain } from '@/shared/math/kinematics';
 import { create } from 'zustand';
 
 import { getMaxPlausibleSpeed } from '@/shared/recording/sportCategoryDetector';
@@ -7,6 +6,12 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import type { PauseInterval } from '@/features/recording/lib/pausedTime';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { summariseLap } from '@/features/recording/lib/savedLaps';
+import {
+  addAltitude,
+  EMPTY_ELEVATION_TRACK,
+  elevationChange,
+  type ElevationTrack,
+} from '@/features/recording/lib/elevationChange';
 import {
   advance,
   remainingMetres,
@@ -50,10 +55,10 @@ export function freshValue(sample: SensorSampleLite | null, now: number): number
  * sample instead, which is O(1) each, and the hook reads them.
  */
 export interface RecordingTotals {
-  /** Sum of the positive altitude deltas, in metres. */
+  /** Elevation gain over every sample so far by the engine's rule, in metres. */
   elevationGain: number;
-  /** Last finite altitude, retained across samples with no reading. */
-  lastAltitude: number | null;
+  /** The altitude readings the gain is built from, the last one kept across gaps. */
+  elevation: ElevationTrack;
   /** Sum of the heart-rate samples that carried a reading. */
   heartrateSum: number;
   /** How many of them did. */
@@ -62,7 +67,7 @@ export interface RecordingTotals {
 
 const EMPTY_TOTALS: RecordingTotals = {
   elevationGain: 0,
-  lastAltitude: null,
+  elevation: EMPTY_ELEVATION_TRACK,
   heartrateSum: 0,
   heartrateCount: 0,
 };
@@ -74,10 +79,8 @@ const EMPTY_TOTALS: RecordingTotals = {
  * that one path pays the scan once instead of accumulating.
  */
 export function streamTotals(streams: RecordingStreams): RecordingTotals {
-  let lastAltitude: number | null = null;
-  for (const altitude of streams.altitude) {
-    if (Number.isFinite(altitude)) lastAltitude = altitude;
-  }
+  let elevation = EMPTY_ELEVATION_TRACK;
+  for (const altitude of streams.altitude) elevation = addAltitude(elevation, altitude);
   let heartrateSum = 0;
   let heartrateCount = 0;
   for (const hr of streams.heartrate) {
@@ -87,8 +90,8 @@ export function streamTotals(streams: RecordingStreams): RecordingTotals {
     }
   }
   return {
-    elevationGain: elevationGain(streams.altitude),
-    lastAltitude,
+    elevationGain: elevationChange(elevation).gain,
+    elevation,
     heartrateSum,
     heartrateCount,
   };
@@ -270,12 +273,11 @@ function clampStamp(at: number | undefined, floor: number): number {
 
 /** One appended sample's contribution, the same arithmetic `streamTotals` does. */
 function accumulate(totals: RecordingTotals, altitude: number, heartrate: number): RecordingTotals {
-  const valid = Number.isFinite(altitude);
-  const previous = totals.lastAltitude;
-  const climb = valid && previous !== null && altitude > previous ? altitude - previous : 0;
+  const elevation = addAltitude(totals.elevation, altitude);
   return {
-    elevationGain: totals.elevationGain + climb,
-    lastAltitude: valid ? altitude : previous,
+    elevationGain:
+      elevation === totals.elevation ? totals.elevationGain : elevationChange(elevation).gain,
+    elevation,
     heartrateSum: heartrate > 0 ? totals.heartrateSum + heartrate : totals.heartrateSum,
     heartrateCount: heartrate > 0 ? totals.heartrateCount + 1 : totals.heartrateCount,
   };

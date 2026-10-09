@@ -188,6 +188,37 @@ pub fn setting_from(conn: &rusqlite::Connection, key: &str) -> SqlResult<Option<
     .optional()
 }
 
+/// Whether section detection is switched on, from a connection that holds no
+/// engine lock.
+///
+/// The switch used to live in TypeScript alone, so the engine kept cutting
+/// the catalogue on every sync while the screens looked away.
+/// Absent, unreadable or anything but "0" reads as on: the failure mode of
+/// a lost setting has to be the feature working, not silently off.
+pub fn detection_enabled_from(conn: &rusqlite::Connection) -> bool {
+    !matches!(
+        setting_from(conn, settings_keys::DETECTION_ENABLED)
+            .ok()
+            .flatten()
+            .as_deref(),
+        Some("0")
+    )
+}
+
+/// Whether Route Matching is switched off, read through the pool so the
+/// background work that asks never waits on the engine lock.
+///
+/// The one answer to which owed work a library runs on its own: with the
+/// switch off the elevation backfill and the detector cutover do not run, so
+/// nothing waits on them either. An engine that cannot answer reads as on,
+/// like an absent row.
+pub(crate) fn detection_switched_off() -> bool {
+    matches!(
+        crate::objects::error::with_reader(detection_enabled_from),
+        Ok(false)
+    )
+}
+
 /// Upsert several settings in one transaction on `conn`, skipping each pair
 /// whose value is already stored. Returns how many were written.
 ///
@@ -349,20 +380,11 @@ impl PersistentEngine {
         set_settings_on(&self.db, pairs)
     }
 
-    /// Whether section detection is switched on.
-    ///
-    /// The switch used to live in TypeScript alone, so the engine kept cutting
-    /// the catalogue on every sync while the screens looked away.
-    /// Absent, unreadable or anything but "0" reads as on: the failure mode of
-    /// a lost setting has to be the feature working, not silently off.
+    /// Whether section detection is switched on, read from the connection the
+    /// engine holds. [`detection_enabled_from`] is the same answer without
+    /// the engine lock.
     pub fn detection_enabled(&self) -> bool {
-        !matches!(
-            self.get_setting(settings_keys::DETECTION_ENABLED)
-                .ok()
-                .flatten()
-                .as_deref(),
-            Some("0")
-        )
+        detection_enabled_from(&self.db)
     }
 
     /// Turn section detection on or off for this library.

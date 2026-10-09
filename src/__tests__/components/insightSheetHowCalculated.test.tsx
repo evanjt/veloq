@@ -72,7 +72,7 @@ function weekOnWeek(): Insight {
     week(300),
     null,
     undefined,
-    { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3 },
+    { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: 0 },
     null,
     0,
     t

@@ -57,14 +57,14 @@ describe('the pace curve threshold legend', () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
     render(<PaceCurveChart />);
 
-    expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^CS 5:00\/km$/);
+    expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^metrics\.cs 5:00\/km$/);
   });
 
   it('reads the critical speed per mile when imperial', () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
     render(<PaceCurveChart />);
 
-    expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^CS 8:03\/mi$/);
+    expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^metrics\.cs 8:03\/mi$/);
   });
 
   it('draws no legend for a curve with no critical speed', () => {

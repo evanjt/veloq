@@ -222,14 +222,20 @@ impl PersistentEngine {
     /// The error is the caller's: a dropped write leaves every reader of the
     /// profile, FTP and zones on the previous athlete's values, and the sync
     /// step above this has to fail rather than stamp a success over them.
+    ///
+    /// The API key the body carries is removed here, the one writer, since the
+    /// table is copied into every backup and nothing reads the key.
     pub fn set_athlete_profile(&self, json: &str) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
         self.db.execute(
-            "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at) VALUES ('current', ?1, ?2)",
-            rusqlite::params![json, now],
+            "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at)
+             VALUES ('current',
+                     CASE WHEN json_valid(?1) THEN json_remove(?1, ?3) ELSE ?1 END,
+                     ?2)",
+            rusqlite::params![json, now, PROFILE_API_KEY_PATH],
         )?;
         Ok(())
     }
@@ -256,6 +262,41 @@ impl PersistentEngine {
     pub fn get_sport_settings(&self) -> Option<String> {
         sport_settings_from(&self.db)
     }
+}
+
+/// Where the athlete body carries the athlete's API key.
+const PROFILE_API_KEY_PATH: &str = "$.icu_api_key";
+
+/// Remove the API key from a profile stored before the writer dropped it.
+///
+/// Runs at every open and changes nothing once the row is clean, so the
+/// stored stamp stays the sync's. Backups taken before this keep the key.
+pub(crate) fn scrub_stored_profile_api_key(conn: &rusqlite::Connection) -> SqlResult<usize> {
+    conn.execute(
+        "UPDATE athlete_profile SET data = json_remove(data, ?1)
+         WHERE json_valid(data) AND json_type(data, ?1) IS NOT NULL",
+        [PROFILE_API_KEY_PATH],
+    )
+}
+
+/// When the stored athlete profile was written, in epoch seconds, if it
+/// belongs to `athlete_id` and the sport settings are stored beside it. `None`
+/// is a profile the sync still owes: none, another athlete's, one whose body
+/// will not parse, or one stored without its sport settings.
+pub(crate) fn profile_fetched_at(conn: &rusqlite::Connection, athlete_id: &str) -> Option<i64> {
+    conn.query_row(
+        "SELECT p.updated_at FROM athlete_profile p
+         WHERE p.id = 'current'
+           AND json_valid(p.data)
+           AND json_extract(p.data, '$.id') = ?1
+           AND EXISTS (SELECT 1 FROM sport_settings WHERE id = 'current')",
+        rusqlite::params![athlete_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(|e| log::warn!("veloqrs: [profile] fetch time read failed: {e}"))
+    .ok()
+    .flatten()
 }
 
 /// The cached sport settings JSON blob on any connection, None if not cached.
@@ -399,6 +440,92 @@ mod tests {
             .unwrap();
 
         assert!(engine.set_athlete_profile("{\"id\":\"i2\"}").is_err());
+    }
+
+    fn stored_profile(engine: &PersistentEngine) -> serde_json::Value {
+        serde_json::from_str(&engine.get_athlete_profile().expect("a stored profile"))
+            .expect("stored profile is JSON")
+    }
+
+    /// Scenario: the athlete body read with an API key carries the key, and
+    /// the profile table is copied into every backup.
+    ///
+    /// Expected behaviour: the stored profile holds every field but the key.
+    #[test]
+    fn the_stored_profile_drops_the_api_key_and_keeps_every_other_field() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .set_athlete_profile(
+                r#"{"id":"i9","name":"Ola","icu_api_key":"k-secret","sportSettings":[{"ftp":250}],"weight":null}"#,
+            )
+            .unwrap();
+
+        assert_eq!(
+            stored_profile(&engine),
+            serde_json::json!({
+                "id": "i9",
+                "name": "Ola",
+                "sportSettings": [{"ftp": 250}],
+                "weight": null,
+            })
+        );
+    }
+
+    #[test]
+    fn a_profile_with_no_key_set_keeps_every_other_field() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .set_athlete_profile(r#"{"id":"i9","icu_api_key":null}"#)
+            .unwrap();
+        assert_eq!(stored_profile(&engine), serde_json::json!({"id": "i9"}));
+
+        engine.set_athlete_profile("{}").unwrap();
+        assert_eq!(stored_profile(&engine), serde_json::json!({}));
+
+        engine.set_athlete_profile("not json").unwrap();
+        assert_eq!(engine.get_athlete_profile().as_deref(), Some("not json"));
+    }
+
+    /// Scenario: a database written before the key was stripped still holds
+    /// it in the stored profile.
+    ///
+    /// Expected behaviour: opening the database removes it without a sync,
+    /// and a second open finds nothing left to change.
+    #[test]
+    fn opening_the_database_scrubs_a_stored_api_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("profile.db");
+        let path = path.to_str().unwrap();
+
+        {
+            let engine = PersistentEngine::new(path).unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at)
+                     VALUES ('current', ?1, 7)",
+                    [r#"{"id":"i9","icu_api_key":"k-secret","ftp":250}"#],
+                )
+                .unwrap();
+        }
+
+        let engine = PersistentEngine::new(path).unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            serde_json::json!({"id": "i9", "ftp": 250})
+        );
+        let updated_at: i64 = engine
+            .db
+            .query_row("SELECT updated_at FROM athlete_profile", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(updated_at, 7, "the scrub is not a sync and keeps the stamp");
+        drop(engine);
+
+        let engine = PersistentEngine::new(path).unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            serde_json::json!({"id": "i9", "ftp": 250})
+        );
     }
 
     #[test]

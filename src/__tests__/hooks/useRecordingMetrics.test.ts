@@ -231,11 +231,12 @@ describe('useRecordingMetrics', () => {
   // Elevation gain
   // -------------------------------------------------------------------------
 
-  it('sums only positive altitude differences for elevation gain', () => {
-    // Mixed climb/descent counts only the positive diffs; flat and pure-descent
-    // profiles contribute zero gain.
+  it('counts a rise in elevation gain only once its mean clears the margin', () => {
+    // Each reading is the mean of it and its neighbours, and a rise counts once
+    // it is 3 m above the last level counted.
     const cases: { altitude: number[]; expected: number }[] = [
-      { altitude: [100, 120, 110, 130, 125], expected: 40 }, // +20, -10, +20, -5
+      { altitude: [100, 120, 110, 130, 125], expected: 17.5 }, // means 110, 110, 120, 121.7, 127.5
+      { altitude: [100, 102, 100, 102, 100, 102], expected: 0 }, // jitter under the margin
       { altitude: [100, 100, 100], expected: 0 }, // flat
       { altitude: [300, 200, 100], expected: 0 }, // pure descent
     ];
@@ -538,7 +539,7 @@ describe('useRecordingMetrics', () => {
         time: [0, 10, 20],
         speed: [0, 5, 8],
         distance: [0, 50, 130],
-        altitude: [100, 100, 105],
+        altitude: [100, 100, 112],
         latlng: [
           [0, 0],
           [0.001, 0],
@@ -551,7 +552,8 @@ describe('useRecordingMetrics', () => {
 
     expect(result.current.distance).toBe(130);
     expect(result.current.speed).toBe(8);
-    expect(result.current.elevationGain).toBe(5);
+    // Means 100, 104 and 106: the rise to 104 clears the margin.
+    expect(result.current.elevationGain).toBe(4);
   });
 
   // -------------------------------------------------------------------------
@@ -610,8 +612,9 @@ describe('useRecordingMetrics', () => {
     // Elevation: last = 100 + 10*5 = 150
     expect(result.current.elevation).toBe(150);
 
-    // Elevation gain: 10 * 5 = 50
-    expect(result.current.elevationGain).toBe(50);
+    // Elevation gain: the means run 102.5 to 147.5, and the last 2.5 m is
+    // under the margin, so 145 - 102.5
+    expect(result.current.elevationGain).toBe(42.5);
 
     // Heartrate: last = 120 + 10*2 = 140
     expect(result.current.heartrate).toBe(140);
@@ -638,7 +641,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
         distance: [0, 10, 20],
         speed: [0, 10, 10],
       }),
-      totals: { elevationGain: 777, heartrateSum: 0, heartrateCount: 0 },
+      totals: { ...streamTotals(EMPTY_STREAMS), elevationGain: 777 },
     });
 
     const { result } = renderHook(() => useRecordingMetrics());
@@ -724,7 +727,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
         speed: heartrate.map(() => 5),
         heartrate,
       }),
-      totals: { elevationGain: 0, heartrateSum: 40 * 160, heartrateCount: 40 },
+      totals: { ...streamTotals(EMPTY_STREAMS), heartrateSum: 40 * 160, heartrateCount: 40 },
     });
 
     const { result } = renderHook(() => useRecordingMetrics());

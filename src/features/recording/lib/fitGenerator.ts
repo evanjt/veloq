@@ -1,4 +1,5 @@
 import { summariseLap } from './savedLaps';
+import { elevationOver } from './elevationChange';
 import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
@@ -227,7 +228,7 @@ class FitWriter {
  * - event start/stop markers
  * - GPS records with enhanced altitude/speed, plus GPS accuracy
  * - lap, session, and activity summary messages
- * - total ascent/descent computed from altitude stream
+ * - total ascent/descent from the altitude stream by the engine's rule
  */
 export async function generateFitFile(params: {
   activityType: ActivityType;
@@ -319,9 +320,6 @@ export async function generateFitFile(params: {
   let cadenceCount = 0;
   let maxCadence = 0;
   let totalDistance = 0;
-  let totalAscent = 0;
-  let totalDescent = 0;
-  let prevAlt: number | null = null;
 
   for (let i = 0; i < numPoints; i++) {
     writer.writeDataHeader(1);
@@ -346,12 +344,6 @@ export async function generateFitFile(params: {
       const fitAlt = Math.round((alt + 500) * 5);
       writer.writeUint16(Math.max(0, Math.min(65534, fitAlt)));
       writer.writeUint32(Math.max(0, Math.min(0xfffffffe, fitAlt)));
-      if (prevAlt !== null) {
-        const delta = alt - prevAlt;
-        if (delta > 0) totalAscent += delta;
-        else totalDescent += -delta;
-      }
-      prevAlt = alt;
     } else {
       writer.writeUint16(0xffff);
       writer.writeUint32(0xffffffff);
@@ -459,6 +451,7 @@ export async function generateFitFile(params: {
   const avgHr = hrCount > 0 ? totalHr / hrCount : 0;
   const avgPower = powerCount > 0 ? totalPower / powerCount : 0;
   const avgCadence = cadenceCount > 0 ? totalCadence / cadenceCount : 0;
+  const climbing = elevationOver(streams.altitude ?? []);
 
   writer.writeDefinition(3, MESG_SESSION, [
     { fieldNum: 253, size: 4, baseType: FIT_UINT32 }, // timestamp
@@ -498,8 +491,8 @@ export async function generateFitFile(params: {
   writer.writeUint8(maxCadence > 0 ? Math.min(255, maxCadence) : 0xff);
   writer.writeUint16(avgPower > 0 ? Math.min(65535, Math.round(avgPower)) : 0xffff);
   writer.writeUint16(maxPower > 0 ? Math.min(65535, maxPower) : 0xffff);
-  writer.writeUint16(Math.min(65535, Math.round(totalAscent)));
-  writer.writeUint16(Math.min(65535, Math.round(totalDescent)));
+  writer.writeUint16(Math.min(65535, Math.round(climbing.gain)));
+  writer.writeUint16(Math.min(65535, Math.round(climbing.loss)));
   writer.writeUint8(0); // first_lap_index
   writer.writeUint16(savedLaps.length);
 

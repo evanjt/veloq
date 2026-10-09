@@ -34,6 +34,7 @@ function weeklySeries(weeks: WeeklyTotal[] | undefined, useTss: boolean): Series
   return weeks.map((week) => ({
     value: displayValue(useTss ? week.stats.totalTss : week.stats.totalDuration, useTss),
     date: week.start,
+    partial: week.partial,
   }));
 }
 
@@ -142,8 +143,6 @@ export function generatePeriodComparisonInsights(
     name: t('insights.methodology.periodComparisonName'),
     description: t('insights.methodology.periodComparison'),
   };
-  const comparedWeek = chronicWeeks?.[chronicWeeks.length - 1];
-
   const caption = t('insights.caption.thisWeekAgainstLast', {
     current: captionValue(weekOverWeek.current, useTss),
     previous: captionValue(weekOverWeek.previous, useTss),
@@ -157,7 +156,7 @@ export function generatePeriodComparisonInsights(
       weeksTarget(chronicWeeks, WEEK_OVER_WEEK_DAYS),
       {
         kind: 'bars',
-        mark: comparedWeek ? { date: comparedWeek.start } : undefined,
+        mark: { date: weekOverWeek.comparedStart },
         format: (value) => weeklyCaption(value, useTss),
       }
     ),
@@ -169,7 +168,7 @@ export function generatePeriodComparisonInsights(
         unit: useTss ? 'TSS' : 'min',
       },
       previous: {
-        label: t('insights.data.lastWeek'),
+        label: t('insights.data.samePointLastWeek'),
         value: displayValue(weekOverWeek.previous, useTss),
         unit: useTss ? 'TSS' : 'min',
       },
@@ -263,7 +262,6 @@ function generateLastWeekVsAverageInsight(
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
   const { metric, trend } = comparisonTrend(comparison);
-  const comparedWeek = chronicWeeks?.[chronicWeeks.length - 2];
 
   return [
     makeInsight({
@@ -293,7 +291,7 @@ function generateLastWeekVsAverageInsight(
           weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
           {
             kind: 'bars',
-            mark: comparedWeek ? { date: comparedWeek.start } : undefined,
+            mark: { date: comparison.comparedStart },
             format: (value) => weeklyCaption(value, useTss),
           }
         ),

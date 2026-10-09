@@ -716,6 +716,20 @@ pub(crate) mod pooled {
             .find(|r| r.date <= newest && r.date >= oldest && field(r).is_some())
     }
 
+    /// The stored wellness dates inside an inclusive `YYYY-MM-DD` window,
+    /// ascending. A date with a row is a day the sync has stored, whatever
+    /// the row holds.
+    pub(crate) fn dates_between(
+        conn: &Connection,
+        oldest: &str,
+        newest: &str,
+    ) -> SqlResult<Vec<String>> {
+        let mut stmt =
+            conn.prepare("SELECT date FROM wellness WHERE date BETWEEN ?1 AND ?2 ORDER BY date")?;
+        let rows = stmt.query_map(params![oldest, newest], |row| row.get(0))?;
+        rows.collect()
+    }
+
     /// `date` moved back `days`, as the same `YYYY-MM-DD` spelling.
     fn shift_days(date: &str, days: i64) -> Option<String> {
         let parsed = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;

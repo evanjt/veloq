@@ -15,6 +15,7 @@ import {
   recordingInstall,
   transitionRecording,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { DOCUMENTS_ROOT } from '@/features/recording/lib/storage/recordingFiles';
 
 function isDemoMode(): boolean {
   const state = useAuthStore.getState();
@@ -38,5 +39,5 @@ export async function uploadRecordingNow(id: string): Promise<UploadResult> {
     });
     return { outcome: answer.applied ? UploadOutcome.Uploaded : UploadOutcome.NotStarted };
   }
-  return engine.uploadRecording(id, true);
+  return engine.uploadRecording(id, true, DOCUMENTS_ROOT);
 }

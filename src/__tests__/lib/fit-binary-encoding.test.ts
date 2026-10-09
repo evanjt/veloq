@@ -1,5 +1,6 @@
 import { rebaseLaps } from '@/features/recording/lib/savedLaps';
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { buildStreamPrefixes, windowGain } from '@/features/recording/lib/streamPrefixes';
 import type { RecordingStreams, RecordingLap, ActivityType } from '@/types';
 
 const EMPTY_STREAMS: RecordingStreams = {
@@ -41,6 +42,8 @@ const SESSION_MAX_SPEED = 15;
 const SESSION_AVG_HEART_RATE = 16;
 const SESSION_MAX_HEART_RATE = 17;
 const SESSION_AVG_POWER = 20;
+const SESSION_TOTAL_ASCENT = 22;
+const SESSION_TOTAL_DESCENT = 23;
 
 const INVALID_UINT8 = 0xff;
 const INVALID_UINT16 = 0xffff;
@@ -196,16 +199,16 @@ describe('generateFitFile', () => {
       }),
     });
     expect(Buffer.from(buffer).toString('hex')).toBe(
-      '0e20b908e30100002e46495472e04000000000060001000102840202840304860404860806070004ff000100a06ecb43a06ecb4356656c6f7100450000170006fd04860202840302840402840001001b060705a06ecb43ff00010004000056656c6f7100460000150003fd048600010001010006a06ecb43000041000014000bfd04860004850104850202844e048603010004010005048606028449048607028401a06ecb43111111214b7eb104f811f81100008c5000000000701770170000d20001a26ecb43ffffff7fffffff7fffffffffffffffffb0040000000000000000ffff01a56ecb43ba151121f482b104fd11fd1100009152280a0000581b581b0000d70006a56ecb430004420000130009fd04860204860704860804860904860d02840f010013028411010002a26ecb43a06ecb43d0070000d0070000b004000070178cd2005002a56ecb43a26ecb43b80b00000000000078050000000091d70052430000120013fd04860204860704860804860904860501000601000e02840f02841001001101001201001301001402841502841602841702841901001a028403a56ecb43a06ecb4388130000d0070000280a00000200c832581b8f915152d500d70001000000000200440000220006fd048600048601028402010003010004010004a56ecb43d00700000100001a019a46'
+      '0e20b908e30100002e46495472e04000000000060001000102840202840304860404860806070004ff000100a06ecb43a06ecb4356656c6f7100450000170006fd04860202840302840402840001001b060705a06ecb43ff00010004000056656c6f7100460000150003fd048600010001010006a06ecb43000041000014000bfd04860004850104850202844e048603010004010005048606028449048607028401a06ecb43111111214b7eb104f811f81100008c5000000000701770170000d20001a26ecb43ffffff7fffffff7fffffffffffffffffb0040000000000000000ffff01a56ecb43ba151121f482b104fd11fd1100009152280a0000581b581b0000d70006a56ecb430004420000130009fd04860204860704860804860904860d02840f010013028411010002a26ecb43a06ecb43d0070000d0070000b004000070178cd2005002a56ecb43a26ecb43b80b00000000000078050000000091d70052430000120013fd04860204860704860804860904860501000601000e02840f02841001001101001201001301001402841502841602841702841901001a028403a56ecb43a06ecb4388130000d0070000280a00000200c832581b8f915152d500d70000000000000200440000220006fd048600048601028402010003010004010004a56ecb43d00700000100001a010b16'
     );
   });
 
   it.each([
-    [[NaN, 450, 452], 2],
-    [[450, NaN, 452], 2],
-    [[450, 452, NaN], 2],
+    [[NaN, 450, 454, 458], 4],
+    [[450, NaN, 454, 458], 4],
+    [[450, 454, 458, NaN], 4],
     [[NaN, NaN], 0],
-    [[0, 2, 0, 3], 5],
+    [[0, 4, 8], 4],
   ])('encodes altitude validity and valid-sample ascent: %j', async (altitude, gain) => {
     const buffer = await generateFitFile({
       activityType: 'Ride',
@@ -916,6 +919,34 @@ describe('generateFitFile', () => {
       const session = onlyMessage(buffer, MESG_SESSION);
       expect(session.fields.get(SESSION_TOTAL_TIMER)).toBe(60_000);
       expect(session.fields.get(SESSION_TOTAL_ELAPSED)).toBe(100_000);
+    });
+
+    /// Scenario: a phone's GPS altitude on a gentle 10 m rise, every fix off by
+    /// 1.5 m one way and then the other. Summing each positive step reads well
+    /// over 300 m of climbing.
+    ///
+    /// Expected behaviour: the uploaded ascent and the review summary both give
+    /// the engine's figure for this stream, a 3-point mean held to a 3 m anchor,
+    /// which is 9.1 m up and nothing down.
+    it('writes the ascent the engine gives a jittered phone altitude, as the review shows it', async () => {
+      const points = 226;
+      const altitude = Array.from(
+        { length: points },
+        (_, i) => 100 + (10 * i) / (points - 1) + (i % 2 === 1 ? 1.5 : -1.5)
+      );
+      const streams = makeStreams({
+        time: altitude.map((_, i) => i),
+        altitude,
+        heartrate: altitude.map(() => 0),
+        power: altitude.map(() => 0),
+      });
+
+      const buffer = await generateFitFile({ activityType: 'Walk', startTime, streams, laps: [] });
+
+      const session = onlyMessage(buffer, MESG_SESSION);
+      expect(session.fields.get(SESSION_TOTAL_ASCENT)).toBe(9);
+      expect(session.fields.get(SESSION_TOTAL_DESCENT)).toBe(0);
+      expect(windowGain(buildStreamPrefixes(streams), 0, points - 1)).toBeCloseTo(9.1, 9);
     });
 
     it('writes invalid markers when no HR/power data', async () => {

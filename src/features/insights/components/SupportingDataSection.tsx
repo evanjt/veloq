@@ -264,7 +264,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                     <Text
                       style={[styles.sectionTraversals, isDark && styles.sectionTraversalsDark]}
                     >
-                      {section.traversalCount}x
+                      {t('units.times', { value: section.traversalCount })}
                     </Text>
                   ) : null}
                   <MaterialCommunityIcons

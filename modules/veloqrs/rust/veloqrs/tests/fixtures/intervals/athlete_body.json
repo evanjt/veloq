@@ -1,0 +1,327 @@
+{
+  "id": "i1",
+  "name": "Ada Example",
+  "firstname": "Ada",
+  "lastname": "Example",
+  "sex": "F",
+  "timezone": "UTC",
+  "measurement_preference": "meters",
+  "weight": 61.0,
+  "icu_resting_hr": 48,
+  "icu_weight": 61.0,
+  "sportSettings": [
+    {
+      "id": 101,
+      "athlete_id": "i1",
+      "types": [
+        "Ride",
+        "VirtualRide",
+        "MountainBikeRide",
+        "GravelRide"
+      ],
+      "created": "2024-02-01T09:00:00.000+00:00",
+      "updated": "2026-05-01T09:00:00.000+00:00",
+      "ftp": 231,
+      "indoor_ftp": null,
+      "w_prime": null,
+      "p_max": null,
+      "power_zones": [
+        55,
+        75,
+        90,
+        105,
+        120,
+        150,
+        999
+      ],
+      "power_zone_names": [
+        "Active Recovery",
+        "Endurance",
+        "Tempo",
+        "Threshold",
+        "VO2 Max",
+        "Anaerobic",
+        "Neuromuscular"
+      ],
+      "sweet_spot_min": 84,
+      "sweet_spot_max": 97,
+      "lthr": 162,
+      "max_hr": 184,
+      "hr_zones": [
+        132,
+        146,
+        153,
+        161,
+        166,
+        173,
+        184
+      ],
+      "hr_zone_names": [
+        "Recovery",
+        "Aerobic",
+        "Tempo",
+        "SubThreshold",
+        "SuperThreshold",
+        "Aerobic Capacity",
+        "Anaerobic"
+      ],
+      "threshold_pace": null,
+      "pace_units": null,
+      "pace_zones": null,
+      "pace_zone_names": null,
+      "gap_model": "NONE",
+      "load_order": "POWER_HR_PACE",
+      "hr_load_type": "HRSS",
+      "pace_load_type": null,
+      "mmp_model": {
+        "type": "FFT_CURVES",
+        "criticalPower": 226,
+        "wPrime": 17400,
+        "pMax": 812,
+        "inputPointIndexes": [
+          3,
+          41,
+          180,
+          1200
+        ],
+        "ftp": 228
+      },
+      "display": {
+        "colorScheme": "ZONES",
+        "lowIntensity": 60,
+        "highIntensity": 95,
+        "lowLoad": 20,
+        "highLoad": 150,
+        "showAverageHR": true,
+        "showLoad": true,
+        "showPace": false,
+        "showGAP": false,
+        "color": "#1e88e5"
+      },
+      "other": false
+    },
+    {
+      "id": 102,
+      "athlete_id": "i1",
+      "types": [
+        "Run",
+        "VirtualRun",
+        "TrailRun"
+      ],
+      "created": "2024-02-01T09:00:00.000+00:00",
+      "updated": "2026-05-01T09:00:00.000+00:00",
+      "ftp": 262,
+      "indoor_ftp": null,
+      "w_prime": null,
+      "p_max": null,
+      "power_zones": [
+        55,
+        75,
+        90,
+        105,
+        120,
+        150,
+        999
+      ],
+      "power_zone_names": [
+        "Active Recovery",
+        "Endurance",
+        "Tempo",
+        "Threshold",
+        "VO2 Max",
+        "Anaerobic",
+        "Neuromuscular"
+      ],
+      "sweet_spot_min": 84,
+      "sweet_spot_max": 97,
+      "lthr": 169,
+      "max_hr": 191,
+      "hr_zones": [
+        138,
+        152,
+        159,
+        168,
+        173,
+        181,
+        191
+      ],
+      "hr_zone_names": [
+        "Recovery",
+        "Aerobic",
+        "Tempo",
+        "SubThreshold",
+        "SuperThreshold",
+        "Aerobic Capacity",
+        "Anaerobic"
+      ],
+      "threshold_pace": 3.42,
+      "pace_units": "MINS_KM",
+      "pace_zones": [
+        77.5,
+        87.7,
+        94.3,
+        100.0,
+        103.4,
+        111.5,
+        999.0
+      ],
+      "pace_zone_names": [
+        "Zone 1",
+        "Zone 2",
+        "Zone 3",
+        "Zone 4",
+        "Zone 5a",
+        "Zone 5b",
+        "Zone 5c"
+      ],
+      "gap_model": "STRAVA_RUN",
+      "load_order": "PACE_HR_POWER",
+      "hr_load_type": "HRSS",
+      "pace_load_type": "RUN",
+      "mmp_model": {
+        "type": "FFT_CURVES",
+        "criticalPower": 255,
+        "wPrime": 14100,
+        "pMax": 690,
+        "inputPointIndexes": [
+          5,
+          60,
+          300
+        ],
+        "ftp": 259
+      },
+      "display": {
+        "colorScheme": "ZONES",
+        "lowIntensity": 60,
+        "highIntensity": 95,
+        "lowLoad": 20,
+        "highLoad": 150,
+        "showAverageHR": true,
+        "showLoad": true,
+        "showPace": false,
+        "showGAP": false,
+        "color": "#1e88e5"
+      },
+      "other": false
+    },
+    {
+      "id": 103,
+      "athlete_id": "i1",
+      "types": [
+        "Swim",
+        "OpenWaterSwim"
+      ],
+      "created": "2024-02-01T09:00:00.000+00:00",
+      "updated": "2026-05-01T09:00:00.000+00:00",
+      "ftp": null,
+      "indoor_ftp": null,
+      "w_prime": null,
+      "p_max": null,
+      "power_zones": null,
+      "power_zone_names": null,
+      "sweet_spot_min": null,
+      "sweet_spot_max": null,
+      "lthr": 150,
+      "max_hr": 176,
+      "hr_zones": [
+        121,
+        133,
+        140,
+        149,
+        154,
+        163,
+        176
+      ],
+      "hr_zone_names": [
+        "Recovery",
+        "Aerobic",
+        "Tempo",
+        "SubThreshold",
+        "SuperThreshold",
+        "Aerobic Capacity",
+        "Anaerobic"
+      ],
+      "threshold_pace": 0.93,
+      "pace_units": "SECS_100M",
+      "pace_zones": null,
+      "pace_zone_names": null,
+      "gap_model": "NONE",
+      "load_order": "PACE_HR_POWER",
+      "hr_load_type": "HRSS",
+      "pace_load_type": "SWIM",
+      "mmp_model": null,
+      "display": {
+        "colorScheme": "ZONES",
+        "lowIntensity": 60,
+        "highIntensity": 95,
+        "lowLoad": 20,
+        "highLoad": 150,
+        "showAverageHR": true,
+        "showLoad": true,
+        "showPace": false,
+        "showGAP": false,
+        "color": "#1e88e5"
+      },
+      "other": false
+    },
+    {
+      "id": 104,
+      "athlete_id": "i1",
+      "types": [
+        "Other"
+      ],
+      "created": "2024-02-01T09:00:00.000+00:00",
+      "updated": "2026-05-01T09:00:00.000+00:00",
+      "ftp": null,
+      "indoor_ftp": null,
+      "w_prime": null,
+      "p_max": null,
+      "power_zones": null,
+      "power_zone_names": null,
+      "sweet_spot_min": null,
+      "sweet_spot_max": null,
+      "lthr": 158,
+      "max_hr": 184,
+      "hr_zones": [
+        128,
+        141,
+        149,
+        157,
+        163,
+        171,
+        184
+      ],
+      "hr_zone_names": [
+        "Recovery",
+        "Aerobic",
+        "Tempo",
+        "SubThreshold",
+        "SuperThreshold",
+        "Aerobic Capacity",
+        "Anaerobic"
+      ],
+      "threshold_pace": null,
+      "pace_units": null,
+      "pace_zones": null,
+      "pace_zone_names": null,
+      "gap_model": "NONE",
+      "load_order": "POWER_HR_PACE",
+      "hr_load_type": "HRSS",
+      "pace_load_type": null,
+      "mmp_model": null,
+      "display": {
+        "colorScheme": "ZONES",
+        "lowIntensity": 60,
+        "highIntensity": 95,
+        "lowLoad": 20,
+        "highLoad": 150,
+        "showAverageHR": true,
+        "showLoad": true,
+        "showPace": false,
+        "showGAP": false,
+        "color": "#1e88e5"
+      },
+      "other": false
+    }
+  ]
+}

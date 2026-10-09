@@ -397,6 +397,9 @@ pub enum CutoverOutcome {
     /// The athlete stopped it. The migration is still owed and the next launch
     /// runs it again, so this is neither a success nor a failure.
     Cancelled,
+    /// Route Matching is off. The migration is a cold detect, so it is still
+    /// owed and runs once the switch is back on.
+    SwitchedOff,
 }
 
 /// Start a cutover on a detached thread.
@@ -406,13 +409,24 @@ pub fn start_cutover() -> FfiStartOutcome {
     // Both reads go through the pool, so a sync page or a detection apply
     // holding the write lock does not hold the JS thread that asked. The
     // queue is counted only once the migration is known to be owed.
-    let Ok(owed) = crate::objects::error::with_reader(|conn| {
-        pooled::cutover_is_owed(conn) || crate::persistence::sections::anchoring_owed(conn)
-    }) else {
+    let Ok((cutover_owed, anchoring_owed, detection_enabled)) =
+        crate::objects::error::with_reader(|conn| {
+            (
+                pooled::cutover_is_owed(conn),
+                crate::persistence::sections::anchoring_owed(conn),
+                crate::persistence::settings::detection_enabled_from(conn),
+            )
+        })
+    else {
         return FfiStartOutcome::NotReady;
     };
-    if !owed {
+    if !cutover_owed && !anchoring_owed {
         return FfiStartOutcome::NotOwed;
+    }
+    // The run's own gate would refuse too, but only after a thread and the
+    // slot: answered here, the caller reads why nothing started.
+    if cutover_owed && !detection_enabled {
+        return FfiStartOutcome::NotConfigured;
     }
     match crate::objects::error::with_reader(
         crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
@@ -1342,17 +1356,26 @@ fn run_cutover_claimed_with(
     // Check whether the cutover is actually owed.
     // A library whose flip is done or reverted still owes its own sections an
     // anchor, so the worker places them on this same lock take.
-    let owed = with_persistent_engine_for(install, |e| {
+    let (owed, detection_enabled) = with_persistent_engine_for(install, |e| {
         let owed = e.cutover_is_owed();
         if !owed && let Err(error) = e.anchor_user_owned_references() {
             log::warn!("veloqrs: [cutover] Anchoring failed: {}", error);
         }
-        owed
+        (owed, e.detection_enabled())
     })
     .ok_or("no engine")?;
     if !owed {
         set_phase(PHASE_IDLE);
         return Ok(CutoverOutcome::NotOwed);
+    }
+    // The cold detect below takes the unchecked path, which passes the switch
+    // every other arm reads, so the switch is read here for every run: a
+    // library that wants no detection wants no cutover detect either. The
+    // token is untouched, so the run is still owed when the switch comes back.
+    if !detection_enabled {
+        info!("veloqrs: [cutover] Held: Route Matching is off");
+        set_phase(PHASE_IDLE);
+        return Ok(CutoverOutcome::SwitchedOff);
     }
     guard.announce = true;
 

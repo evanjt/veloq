@@ -78,6 +78,21 @@ describe('useStreamBackfill', () => {
     expect(result.current.total).toBe(10);
   });
 
+  /**
+   * Scenario: the automatic start is waiting for the elevation backfill or the
+   * detector cutover. Expected behaviour: the phase reads deferred rather than
+   * idle, which is what lets the row offer the pass by hand.
+   */
+  it('reads a deferred pass as deferred, not as idle', () => {
+    const { result } = renderHook(() => useStreamBackfill());
+
+    announce('streamBackfillPhase', 'deferred');
+
+    expect(result.current.phase).toBe('deferred');
+    expect(result.current.isRunning).toBe(false);
+    expect(result.current.remaining).toBe(245);
+  });
+
   it('carries the owed queue size with the count, and withholds both while running', () => {
     const { result } = renderHook(() => useStreamBackfill());
     expect(result.current.remainingBytes).toBe(5_145_000);

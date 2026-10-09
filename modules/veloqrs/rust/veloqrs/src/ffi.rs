@@ -1361,7 +1361,7 @@ pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct StreamBackfillProgress {
     /// One of idle, fetching, complete, partial, stopped, failed,
-    /// awaiting_consent.
+    /// awaiting_consent, deferred.
     pub phase: String,
     /// Activities this pass has finished with, however they ended.
     pub completed: u32,
@@ -1684,27 +1684,10 @@ pub(crate) fn fetch_and_index_activity_for(
         });
     }
 
-    let (summary, scheduled) = crate::persistence::with_persistent_engine_for(install, |engine| {
-        let summary = engine.index_new_activity(&activity_id);
-        // Inside the take that indexed, so this costs no second one. A
-        // foreground engine in another process is now behind the file by a
-        // track, a metrics row and whatever junction rows the index wrote, and
-        // the token is the only thing that will tell it so. Called on this
-        // path rather than only the push one because this is where the rows
-        // land, and an engine that notes its own write advances what it has
-        // seen, so the app's own fetch costs itself no reload.
-        if let Err(e) = engine.note_external_write() {
-            log::warn!(
-                "[RUST: fetch_and_index_activity] {activity_id} indexed without a token: {e}"
-            );
-        }
-        summary
-    })
-    .ok_or(crate::VeloqError::NotInitialized)?
-    .map_err(|msg| crate::VeloqError::Database { msg })?;
-    if let Some(scheduled) = scheduled {
-        scheduled.start();
-    }
+    let summary =
+        index_stored_track(install, &activity_id)?.ok_or_else(|| crate::VeloqError::Database {
+            msg: format!("no stored track to index for {activity_id}"),
+        })?;
 
     info!(
         "[RUST: fetch_and_index_activity] {} ({} points) in {} ms",
@@ -1713,6 +1696,41 @@ pub(crate) fn fetch_and_index_activity_for(
         crate::elapsed_ms(started)
     );
     Ok(crate::FfiIndexActivitySummary::from(summary))
+}
+
+/// Index one stored track against the catalogue, in the library a caller
+/// started in, and move the token a foreground engine reads.
+///
+/// `Ok(None)` is an activity with no track stored, an indoor ride or a manual
+/// entry, which has nothing to index.
+pub(crate) fn index_stored_track(
+    install: u64,
+    activity_id: &str,
+) -> Result<Option<crate::sections::IndexActivitySummary>, crate::VeloqError> {
+    let indexed = crate::persistence::with_persistent_engine_for(install, |engine| {
+        if !engine.has_activity(activity_id) {
+            return Ok(None);
+        }
+        let indexed = engine.index_new_activity(activity_id);
+        // Inside the take that indexed, so this costs no second one. A
+        // foreground engine in another process is now behind the file by a
+        // track, a metrics row and whatever junction rows the index wrote, and
+        // the token is the only thing that will tell it so. An engine that
+        // notes its own write advances what it has seen, so the app's own
+        // fetch costs itself no reload.
+        if let Err(e) = engine.note_external_write() {
+            log::warn!("[RUST: index_stored_track] {activity_id} indexed without a token: {e}");
+        }
+        indexed.map(Some)
+    })
+    .ok_or(crate::VeloqError::NotInitialized)?
+    .map_err(|msg| crate::VeloqError::Database { msg })?;
+    Ok(indexed.map(|(summary, scheduled)| {
+        if let Some(scheduled) = scheduled {
+            scheduled.start();
+        }
+        summary
+    }))
 }
 
 #[cfg(test)]

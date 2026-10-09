@@ -258,9 +258,9 @@ export function HeatmapSlide() {
       <View style={styles.labels}>
         <View style={styles.labelRow}>
           <View style={[styles.dot, { backgroundColor: HRV_COLOR }]} />
-          <Text style={[styles.labelText, { color: mutedColor }]}>HRV</Text>
+          <Text style={[styles.labelText, { color: mutedColor }]}>{t('metrics.hrv')}</Text>
           <Text style={[styles.valueText, { color: HRV_COLOR }]}>
-            {HRV_VALUES[SELECTED_DATA_INDEX]} ms
+            {HRV_VALUES[SELECTED_DATA_INDEX]} {t('units.ms')}
           </Text>
         </View>
         <View style={styles.labelRow}>
@@ -269,7 +269,7 @@ export function HeatmapSlide() {
             {t('wellness.restingHR' as never)}
           </Text>
           <Text style={[styles.valueText, { color: RHR_COLOR }]}>
-            {RHR_VALUES[SELECTED_DATA_INDEX]} bpm
+            {RHR_VALUES[SELECTED_DATA_INDEX]} {t('units.bpm')}
           </Text>
         </View>
       </View>

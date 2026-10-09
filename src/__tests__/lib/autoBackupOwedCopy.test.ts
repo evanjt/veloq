@@ -46,6 +46,9 @@ jest.mock('@/features/settings/lib/autobackup/backends/folderBackend', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///docs/',
+  cacheDirectory: 'file:///cache/',
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
 }));
 
@@ -73,8 +76,14 @@ function carrier(id: string, isRemote: boolean, upload: BackupBackend['upload'])
   };
 }
 
-const remoteUpload = jest.fn(async (_path: string, _entry: unknown) => {});
-const folderUpload = jest.fn(async (_path: string, _entry: unknown) => {});
+const remoteUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+const folderUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
 
 /** Let a fire-and-forget trigger run its backup to the end. */
 async function settle() {
@@ -86,8 +95,8 @@ beforeEach(() => {
   mockSettings.clear();
   mockSettings.set('__auto_backup_enabled', '0');
   radio(true);
-  remoteUpload.mockImplementation(async () => {});
-  folderUpload.mockImplementation(async () => {});
+  remoteUpload.mockImplementation(async () => 'veloq-backup.zip');
+  folderUpload.mockImplementation(async () => 'veloq-backup.zip');
   mockCarriers.length = 0;
   mockCarriers.push(carrier('webdav', true, remoteUpload), carrier('folder', false, folderUpload));
 });
@@ -174,7 +183,7 @@ describe('a remote copy Back Up Now could not send', () => {
     await settle();
     expect(remoteUpload).toHaveBeenCalledTimes(2);
 
-    remoteUpload.mockImplementation(async () => {});
+    remoteUpload.mockImplementation(async () => 'veloq-backup.zip');
     onAppForeground();
     await settle();
     expect(remoteUpload).toHaveBeenCalledTimes(3);

@@ -36,7 +36,13 @@ jest.mock('expo-network', () => ({
   }),
 }));
 
-const upload = jest.fn(async (_path: string, _entry: unknown) => {});
+const upload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
 
 const remoteBackend: BackupBackend = {
   id: 'test-remote',
@@ -81,7 +87,7 @@ beforeEach(() => {
     isConnected: true,
     isInternetReachable: true,
   } as never);
-  upload.mockImplementation(async () => {});
+  upload.mockImplementation(async () => 'veloq-backup.zip');
   useBackend('test-remote');
 });
 

@@ -106,6 +106,16 @@ describe('useEngineSync', () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   });
 
+  it('leaves the athlete profile to its age gate on launch and on foreground', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    renderHook(() => useEngineSync());
+    act(() => foregroundCallback?.());
+
+    expect(syncNow.mock.calls).toEqual([[false], [false]]);
+  });
+
   it('retries once the engine is ready when the first call found none', () => {
     const syncNow = jest
       .fn()

@@ -37,6 +37,13 @@ fn state(result: &FfiCorrelation) -> &'static str {
     }
 }
 
+fn has_estimate(result: &FfiCorrelation) -> bool {
+    matches!(
+        result,
+        FfiCorrelation::Inconclusive { .. } | FfiCorrelation::Mover { .. }
+    )
+}
+
 fn pairs(result: &FfiCorrelation) -> u32 {
     match result {
         FfiCorrelation::TooFew { n }
@@ -47,10 +54,24 @@ fn pairs(result: &FfiCorrelation) -> u32 {
 }
 
 /// Every way a correlation breaks the panel's rules: an estimate on fewer
-/// pairs than the floor, a `Mover` whose interval holds zero, an
-/// `Inconclusive` whose interval excludes it.
+/// pairs than the floor, a `Mover` whose interval holds zero, a family size
+/// that is not the number of estimates in its direction. An `Inconclusive`
+/// whose interval excludes zero is allowed: the mover label is held to the
+/// direction's family, the interval to the variable alone.
 fn violations(correlations: &[FfiSectionCorrelation]) -> Vec<String> {
     let mut out = Vec::new();
+    for c in correlations {
+        let estimates = correlations
+            .iter()
+            .filter(|o| o.direction == c.direction && has_estimate(&o.result))
+            .count();
+        if c.family_size as usize != estimates {
+            out.push(format!(
+                "{}/{}: family of {} beside {estimates} estimates",
+                c.direction, c.variable, c.family_size
+            ));
+        }
+    }
     for c in correlations {
         let label = format!("{}/{}", c.direction, c.variable);
         match &c.result {
@@ -62,12 +83,9 @@ fn violations(correlations: &[FfiSectionCorrelation]) -> Vec<String> {
                     out.push(format!("{label}: Mover interval spans zero"));
                 }
             }
-            FfiCorrelation::Inconclusive { n, low, high, .. } => {
+            FfiCorrelation::Inconclusive { n, .. } => {
                 if *n < FLOOR {
                     out.push(format!("{label}: Inconclusive on {n} pairs"));
-                }
-                if !(*low <= 0.0 && *high >= 0.0) {
-                    out.push(format!("{label}: Inconclusive interval excludes zero"));
                 }
             }
             FfiCorrelation::TooFew { .. } | FfiCorrelation::Undefined { .. } => {}

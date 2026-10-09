@@ -189,7 +189,7 @@ impl PersistentEngine {
             crate::persistence::sections::SOURCE_CONSENSUS
         };
 
-        self.in_write_txn(|engine| {
+        let superseded = self.in_write_txn(|engine| {
             engine.db.execute(
                 "INSERT INTO sections (
                     id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
@@ -224,15 +224,17 @@ impl PersistentEngine {
             .map_err(|e| format!("Failed to create section: {}", e))?;
 
             engine.match_activities_to_section(&id, &params.polyline, &params.sport_type)?;
+            let mut superseded = Vec::new();
             if section_type == SectionType::Custom {
                 for auto_id in engine.try_find_superseded_auto_sections(&id, 50.0, 0.8)? {
                     engine.db.execute(
                         "UPDATE sections SET superseded_by = ? WHERE id = ?",
                         params![&id, auto_id],
                     ).map_err(|e| format!("Failed to supersede section: {}", e))?;
+                    superseded.push(auto_id);
                 }
             }
-            Ok(())
+            Ok(superseded)
         })?;
         self.refresh_superseded_ids();
 
@@ -241,15 +243,10 @@ impl PersistentEngine {
         // get_sections() reflects it without a reload.
         self.refresh_section_in_memory(&id);
 
-        // Refresh the materialised activity_indicators table so feed cards
-        // pick up section_pr / section_trend chips for the new section without
-        // requiring an app restart.
-        if let Err(e) = self.recompute_indicators_for_section(&id) {
-            log::warn!(
-                "veloqrs: [create_section] indicator recompute failed: {}",
-                e
-            );
-        }
+        // The new section earns its chips now, and an auto section it hides
+        // stops showing them.
+        self.refresh_section_badges(&[id.as_str()]);
+        self.refresh_section_badges(&superseded);
 
         Ok(id)
     }
@@ -835,6 +832,7 @@ impl PersistentEngine {
         self.invalidate_section_cache(section_id);
         self.drop_section_pin(section_id);
         self.invalidate_perf_cache();
+        self.refresh_section_badges(&[section_id]);
         Ok(true)
     }
 
@@ -1488,8 +1486,8 @@ impl PersistentEngine {
 
         // Invalidate cache
         self.invalidate_section_cache(section_id);
-        for id in restored {
-            self.invalidate_section_cache(&id);
+        for id in &restored {
+            self.invalidate_section_cache(id);
         }
         self.refresh_superseded_ids();
 
@@ -1499,15 +1497,10 @@ impl PersistentEngine {
         self.drop_section_pin(section_id);
         self.section_identity_relinquish(section_id);
 
-        // Drop the now-orphaned section_pr / section_trend rows from the
-        // materialised indicators table so feed cards stop showing chips
-        // for a section the user just removed.
-        if let Err(e) = self.recompute_indicators_for_section(section_id) {
-            log::warn!(
-                "veloqrs: [delete_section] indicator recompute failed: {}",
-                e
-            );
-        }
+        // The removed section's chips go, and a section it hid shows its own
+        // again.
+        self.refresh_section_badges(&[section_id]);
+        self.refresh_section_badges(&restored);
 
         Ok(())
     }

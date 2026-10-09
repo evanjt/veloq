@@ -245,9 +245,37 @@ fn chronic_weeks(
             crate::FfiWeeklyTotal {
                 start: from as f64,
                 stats: stats(from, to),
+                partial: false,
             }
         })
         .collect()
+}
+
+/// The weekly bars the comparison card draws: the four chronic weeks, last week
+/// whole, and this week so far once it holds an activity, flagged partial.
+///
+/// The week-over-week comparison reads last week only up to the same point as
+/// this one, which is a fair verdict and a wrong bar: drawn beside whole weeks,
+/// a part of last week reads as a week that fell short.
+fn weekly_totals(
+    p: &crate::FfiInsightsParams,
+    current_week: &crate::FfiPeriodStats,
+    mut stats: impl FnMut(i64, i64) -> crate::FfiPeriodStats,
+) -> Vec<crate::FfiWeeklyTotal> {
+    let mut weeks = chronic_weeks(p.chronic_start as i64, p.prev_start as i64, &mut stats);
+    weeks.push(crate::FfiWeeklyTotal {
+        start: p.prev_start,
+        stats: stats(p.prev_start as i64, p.current_start as i64),
+        partial: false,
+    });
+    if current_week.count > 0 {
+        weeks.push(crate::FfiWeeklyTotal {
+            start: p.current_start,
+            stats: current_week.clone(),
+            partial: true,
+        });
+    }
+    weeks
 }
 
 /// One period against an earlier one, on training load where both carry it and
@@ -2071,17 +2099,27 @@ pub mod pooled {
                     None,
                     Some(sport),
                 );
-                let efforts: Vec<Effort> = attempts
+                // Counted attempts with a heart rate, in the latest one's
+                // direction: the way back is a different climb, as the
+                // section trend and the ranking read it.
+                let weighed: Vec<_> = attempts
                     .performances
                     .iter()
                     .filter(|p| is_comparable_attempt(p, None))
-                    .filter_map(|p| {
-                        Some(Effort {
-                            time_secs: f64::from(p.moving_time),
-                            avg_hr: f64::from(p.avg_hr.filter(|hr| *hr > 0)?),
-                            distance_meters: p.distance,
-                            date: p.date,
-                        })
+                    .filter_map(|p| Some((p, p.avg_hr.filter(|hr| *hr > 0)?)))
+                    .collect();
+                let latest_direction = weighed
+                    .iter()
+                    .max_by_key(|(p, _)| p.date)
+                    .map(|(p, _)| p.direction.as_str());
+                let efforts: Vec<Effort> = weighed
+                    .iter()
+                    .filter(|(p, _)| is_comparable_attempt(p, latest_direction))
+                    .map(|(p, hr)| Effort {
+                        time_secs: f64::from(p.moving_time),
+                        avg_hr: f64::from(*hr),
+                        distance_meters: p.distance,
+                        date: p.date,
                     })
                     .collect();
                 let name = group
@@ -2465,14 +2503,8 @@ pub mod pooled {
         };
 
         let chronic_week_average = super::chronic_week_average(&chronic_period);
-        // The four chronic weeks, then the compared week, which is already read.
-        let mut weekly_totals =
-            super::chronic_weeks(p.chronic_start as i64, p.prev_start as i64, |from, to| {
-                derivations::period_stats(conn, from, to)
-            });
-        weekly_totals.push(crate::FfiWeeklyTotal {
-            start: p.prev_start,
-            stats: previous_week.clone(),
+        let weekly_totals = super::weekly_totals(p, &current_week, |from, to| {
+            derivations::period_stats(conn, from, to)
         });
         let (week_over_week, week_against_chronic) = super::complete_period_comparisons(
             conn,
@@ -4030,25 +4062,32 @@ mod tests {
     }
 
     fn coverage_engine(path: &str, empty: Option<usize>) -> crate::persistence::PersistentEngine {
-        let mut engine = crate::persistence::PersistentEngine::new(path).expect("engine");
-        engine.set_setting("__athlete_id", "i1").expect("athlete");
         let p = coverage_params();
-        let mut census = Vec::new();
-        let mut bodies = Vec::new();
-        for (i, (from, to)) in [
+        let rides: Vec<_> = [
             (p.current_start, p.current_end),
             (p.prev_start, p.prev_end),
             (p.chronic_start, p.prev_start),
         ]
         .into_iter()
         .enumerate()
-        {
-            if empty == Some(i) {
-                continue;
-            }
-            let id = format!("a{i}");
-            let date = ((from + to) / 2.0) as i64;
-            let local = chrono::DateTime::from_timestamp(date, 0)
+        .filter(|(i, _)| empty != Some(*i))
+        .map(|(i, (from, to))| (format!("a{i}"), ((from + to) / 2.0) as i64, 100.0))
+        .collect();
+        insights_engine(path, &rides)
+    }
+
+    /// An engine whose census and synced bodies cover each ride, so every
+    /// insights window holding one reads as complete.
+    fn insights_engine(
+        path: &str,
+        rides: &[(String, i64, f64)],
+    ) -> crate::persistence::PersistentEngine {
+        let mut engine = crate::persistence::PersistentEngine::new(path).expect("engine");
+        engine.set_setting("__athlete_id", "i1").expect("athlete");
+        let mut census = Vec::new();
+        let mut bodies = Vec::new();
+        for (id, date, load) in rides {
+            let local = chrono::DateTime::from_timestamp(*date, 0)
                 .expect("date")
                 .format("%Y-%m-%dT%H:%M:%S")
                 .to_string();
@@ -4060,12 +4099,12 @@ mod tests {
                 has_latlng: false,
                 has_series: false,
             });
-            bodies.push((id.clone(), date, "{}".into()));
+            bodies.push((id.clone(), *date, "{}".into()));
             engine
                 .set_activity_metrics(vec![crate::types::ActivityMetrics {
-                    activity_id: id,
+                    activity_id: id.clone(),
                     name: "Ride".into(),
-                    date,
+                    date: *date,
                     distance: 1000.0,
                     moving_time: 300,
                     elapsed_time: 300,
@@ -4073,7 +4112,7 @@ mod tests {
                     avg_hr: None,
                     avg_power: None,
                     sport_type: "Ride".into(),
-                    training_load: Some(100.0),
+                    training_load: Some(*load),
                     ftp: None,
                     power_zone_times: None,
                     hr_zone_times: None,
@@ -4216,6 +4255,62 @@ mod tests {
         assert_eq!(data.previous_week.total_tss, 400.0);
         assert_eq!(comparison.ratio, 0.0);
         assert_eq!(last_week.stats.total_tss, 400.0);
+        assert_eq!(last_week.start, p.prev_start);
+        assert!(!last_week.partial);
+        assert_eq!(comparison.compared_start, last_week.start);
+    }
+
+    /// Scenario: on a Tuesday with a ride already this week, the card compares
+    /// this week so far with the same point last week.
+    ///
+    /// Expected behaviour: the weekly bars still draw last week whole, and the
+    /// running week is the last bar, flagged partial and dated where the
+    /// comparison says it starts.
+    #[test]
+    fn test_insights_weekly_bars_draw_last_week_whole_and_this_week_so_far() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        // 2023-11-14 is a Tuesday.
+        let tuesday_noon = 1_699_963_200i64;
+        let (current_start, current_end, prev_start, prev_end) =
+            crate::widget_snapshot::week_bounds(tuesday_noon);
+        let hour = 3_600i64;
+        let engine = insights_engine(
+            dir.path().join("insights.db").to_str().unwrap(),
+            &[
+                ("monday".into(), prev_start + 10 * hour, 400.0),
+                (
+                    "friday".into(),
+                    prev_start + 4 * 24 * hour + 10 * hour,
+                    1600.0,
+                ),
+                ("this-monday".into(), current_start + 10 * hour, 300.0),
+            ],
+        );
+        let p = crate::FfiInsightsParams {
+            current_start: current_start as f64,
+            current_end: current_end as f64,
+            prev_start: prev_start as f64,
+            prev_end: prev_end as f64,
+            chronic_start: (prev_start - 28 * 24 * hour) as f64,
+            ..coverage_params()
+        };
+
+        let data = pooled_insights_data(&engine, &p);
+        let weekly = data.week_over_week.expect("week over week");
+        let last_week = &data.weekly_totals[4];
+        let this_week = data.weekly_totals.last().expect("this week");
+
+        assert_eq!(data.weekly_totals.len(), 6);
+        assert!(data.weekly_totals[..5].iter().all(|week| !week.partial));
+        assert_eq!(last_week.start, p.prev_start);
+        assert_eq!(last_week.stats.total_tss, 2000.0);
+        assert_eq!(this_week.start, p.current_start);
+        assert_eq!(this_week.stats.total_tss, 300.0);
+        assert!(this_week.partial);
+        assert_eq!(weekly.previous, 400.0);
+        assert_eq!(weekly.current, 300.0);
+        assert_eq!(weekly.compared_start, this_week.start);
     }
 
     /// Scenario: the insights tab is opened twice with nothing changed between.

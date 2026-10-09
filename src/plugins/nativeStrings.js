@@ -146,6 +146,24 @@ const APP_SHORTCUT_PHRASES = [
 
 const PHRASE_SLOTS = { app: '${applicationName}', sport: '${sport}' };
 
+/**
+ * The purpose strings iOS shows inside its permission prompts, by Info.plist
+ * key, and the bundle path each reads. Every one the generated Info.plist
+ * carries is here, including those a plugin adds for an API the app links but
+ * never asks for, which keep their key so the binary's linked APIs still have a
+ * stated purpose. Legacy location access shares the background text.
+ */
+const INFO_PLIST_STRINGS = [
+  { key: 'NSLocationWhenInUseUsageDescription', path: 'permissions.locationWhenInUse' },
+  { key: 'NSLocationAlwaysAndWhenInUseUsageDescription', path: 'permissions.locationBackground' },
+  { key: 'NSLocationAlwaysUsageDescription', path: 'permissions.locationBackground' },
+  { key: 'NSBluetoothAlwaysUsageDescription', path: 'permissions.bluetooth' },
+  { key: 'NSCameraUsageDescription', path: 'permissions.camera' },
+  { key: 'NSMicrophoneUsageDescription', path: 'permissions.microphone' },
+  { key: 'NSFaceIDUsageDescription', path: 'permissions.faceId' },
+  { key: 'NSMotionUsageDescription', path: 'permissions.motion' },
+];
+
 /** The Android resources, by name, and the bundle path each reads. */
 const ANDROID_STRINGS = [
   { name: 'widget_open_app', path: 'systemSurfaces.openApp' },
@@ -195,6 +213,7 @@ const LOCALIZABLE_FILE = 'Localizable.xcstrings';
 // `AppShortcuts` catalogue below iOS 17, and the app deploys to 16.4.
 const APP_SHORTCUTS_FILE = 'AppShortcuts.strings';
 const STALE_APP_SHORTCUTS_FILE = 'AppShortcuts.xcstrings';
+const INFO_PLIST_STRINGS_FILE = 'InfoPlist.strings';
 const ANDROID_STRINGS_FILE = 'native_strings.xml';
 
 const REGIONAL_BASES = {
@@ -304,6 +323,41 @@ function appShortcutsStringFiles(bundles) {
   return files;
 }
 
+/** One locale's purpose strings, keyed by Info.plist key. */
+function infoPlistPurposes(bundles, locale) {
+  return Object.fromEntries(
+    INFO_PLIST_STRINGS.map(({ key, path: dotted }) => [key, translation(bundles, locale, dotted)])
+  );
+}
+
+/**
+ * The purpose strings Info.plist itself carries: those of the development
+ * region, which a device language with no table of its own reads. A config
+ * naming no region gets Xcode's own, `en`.
+ */
+function infoPlistFallback(developmentRegion = 'en', bundles = loadLocaleBundles()) {
+  const locale = Object.keys(PLATFORM_LOCALES).find((candidate) =>
+    PLATFORM_LOCALES[candidate].apple.includes(developmentRegion)
+  );
+  if (!locale) throw new Error(`native strings: no locale bundle for ${developmentRegion}`);
+  return infoPlistPurposes(bundles, locale);
+}
+
+/** Every `InfoPlist.strings`, keyed by its path under the app directory. */
+function infoPlistStringFiles(bundles) {
+  const files = {};
+  for (const [locale, { apple }] of Object.entries(PLATFORM_LOCALES)) {
+    const table = stringsTable(
+      infoPlistPurposes(bundles, locale),
+      `src/i18n/locales/${locale}.json`
+    );
+    for (const language of apple) {
+      files[path.join(`${language}.lproj`, INFO_PLIST_STRINGS_FILE)] = table;
+    }
+  }
+  return files;
+}
+
 /**
  * A value as aapt reads it back unchanged. Markup characters are entities, and
  * a backslash, a quote or an apostrophe is escaped, since aapt strips an
@@ -362,7 +416,8 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 /**
  * The extension and the app each get the string catalogue; the phrases go to
- * the app alone, since only the app target's `AppShortcutsProvider` counts.
+ * the app alone, since only the app target's `AppShortcutsProvider` counts, and
+ * so do the purpose strings, since only the app asks for a permission.
  */
 function writeIosCatalogues({ widgetDir, appDir }, bundles = loadLocaleBundles()) {
   const localizable = json(localizableCatalogue(bundles));
@@ -370,7 +425,8 @@ function writeIosCatalogues({ widgetDir, appDir }, bundles = loadLocaleBundles()
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, LOCALIZABLE_FILE), localizable);
   }
-  for (const [file, text] of Object.entries(appShortcutsStringFiles(bundles))) {
+  const appFiles = { ...appShortcutsStringFiles(bundles), ...infoPlistStringFiles(bundles) };
+  for (const [file, text] of Object.entries(appFiles)) {
     fs.mkdirSync(path.dirname(path.join(appDir, file)), { recursive: true });
     fs.writeFileSync(path.join(appDir, file), text);
   }
@@ -388,14 +444,18 @@ module.exports = {
   APPLE_STRINGS,
   APP_SHORTCUT_PHRASES,
   ANDROID_STRINGS,
+  INFO_PLIST_STRINGS,
   LOCALIZABLE_FILE,
   APP_SHORTCUTS_FILE,
+  INFO_PLIST_STRINGS_FILE,
   STALE_APP_SHORTCUTS_FILE,
   ANDROID_STRINGS_FILE,
   loadLocaleBundles,
   localizableCatalogue,
   appShortcutPhrases,
   appShortcutsStringFiles,
+  infoPlistFallback,
+  infoPlistStringFiles,
   androidStringFiles,
   encodeAndroidString,
   decodeAndroidString,

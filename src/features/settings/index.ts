@@ -4,6 +4,7 @@ export {
   useMapPreferenceActions,
   forgetActivityMapOverrides,
 } from './stores/MapPreferencesContext';
+export type { ActivityCameraState } from './stores/MapPreferencesContext';
 export {
   useDashboardPreferences,
   initialiseDashboardPreferences,

@@ -11,8 +11,8 @@ interface Props {
   children: ReactNode;
   /** Optional fallback height to match chart */
   height?: number;
-  /** Optional label for error message */
-  label?: string;
+  /** The chart's name in the crash log. The fallback the athlete reads never shows it. */
+  chartName?: string;
 }
 
 interface State {
@@ -35,7 +35,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: this.props.label });
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: this.props.chartName });
     if (__DEV__) {
       console.error('[ChartErrorBoundary] Chart render error:', error, errorInfo);
     }
@@ -43,11 +43,10 @@ export class ChartErrorBoundary extends Component<Props, State> {
 
   override render() {
     if (this.state.hasError) {
-      const { height = 150, label } = this.props;
+      const { height = 150 } = this.props;
       return (
         <ChartErrorFallback
           height={height}
-          label={label}
           onRetry={() => this.setState({ hasError: false, error: null })}
         />
       );
@@ -59,18 +58,17 @@ export class ChartErrorBoundary extends Component<Props, State> {
 
 interface FallbackProps {
   height: number;
-  label?: string | undefined;
   onRetry: () => void;
 }
 
-function ChartErrorFallback({ height, label, onRetry }: FallbackProps) {
+function ChartErrorFallback({ height, onRetry }: FallbackProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
   return (
     <View style={[styles.container, isDark && styles.containerDark, { height }]}>
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
-        {label ? t('errorState.unableToDisplay', { label }) : t('errorState.unableToDisplayChart')}
+        {t('errorState.unableToDisplayChart')}
       </Text>
       <Pressable
         accessibilityRole="button"

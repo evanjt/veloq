@@ -47,7 +47,7 @@ export function HRZonesChart({ hrZones, maxHR: engineMaxHR, movingTime }: HRZone
   }));
 
   return (
-    <ChartErrorBoundary height={200} label="Heart Rate Zones">
+    <ChartErrorBoundary height={200} chartName="Heart Rate Zones">
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={[styles.title, isDark && styles.titleDark]}>

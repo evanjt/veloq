@@ -331,7 +331,7 @@ function RecordingSettingsScreenContent() {
                       <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
                     </IconButton>
                     <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                      {(autoPauseDurationMs / 1000).toFixed(1)} s
+                      {(autoPauseDurationMs / 1000).toFixed(1)} {t('units.seconds')}
                     </Text>
                     <IconButton
                       testID="settings-auto-pause-delay-plus"

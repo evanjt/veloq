@@ -4046,6 +4046,89 @@ impl PersistentEngine {
         if rows.is_empty() {
             return Ok(());
         }
+        self.store_bodies_with_metrics_and(rows, keep_arrival, |_| Ok(()))
+    }
+
+    /// Store one pushed activity's detail body and its metrics as the sync's
+    /// detail fetch does, and mark its census row fetched at the version the
+    /// body names, all in one transaction.
+    ///
+    /// A list page keeps a stored detail only when the census row says it was
+    /// fetched at the version upstream still names, so a detail stored with no
+    /// row is replaced by the summary and fetched again. The row is written
+    /// only when the body carries `icu_sync_date`: a body that names no version
+    /// cannot vouch for one. A census pull that later names a moved version
+    /// leaves the row owed, which is what refetches it.
+    ///
+    /// Returns whether the body names a version other than the one the row last
+    /// recorded as fetched, which means upstream changed the activity after it
+    /// was stored here. The interval body is dropped then, as a list page drops
+    /// it for a moved version, so a failed refetch leaves it owed rather than
+    /// stale.
+    pub fn store_pushed_activity_detail(
+        &mut self,
+        athlete_id: Option<&str>,
+        activity_id: &str,
+        date: i64,
+        raw: &str,
+        census: &crate::net::types::ActivityCensusEntry,
+    ) -> SqlResult<bool> {
+        let row = [(activity_id.to_owned(), date, raw.to_owned())];
+        self.store_bodies_with_metrics_and(&row, true, |db| {
+            let (Some(athlete_id), Some(version)) = (athlete_id, census.icu_sync_date.as_deref())
+            else {
+                return Ok(false);
+            };
+            let fetched: Option<Option<String>> = db
+                .query_row(
+                    "SELECT fetched_sync_date FROM activity_census
+                     WHERE athlete_id = ?1 AND intervals_id = ?2",
+                    params![athlete_id, census.id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            let moved = matches!(fetched, Some(Some(ref at)) if at != version);
+            if moved {
+                db.execute(
+                    "DELETE FROM interval_bodies WHERE activity_id = ?1",
+                    params![activity_id],
+                )?;
+            }
+            db.execute(
+                "INSERT INTO activity_census
+                     (athlete_id, intervals_id, start_date_local, created, icu_sync_date,
+                      has_latlng, has_series, fetched_sync_date)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?5)
+                 ON CONFLICT(athlete_id, intervals_id) DO UPDATE SET
+                     start_date_local =
+                         COALESCE(excluded.start_date_local, activity_census.start_date_local),
+                     created = COALESCE(excluded.created, activity_census.created),
+                     icu_sync_date = excluded.icu_sync_date,
+                     has_latlng = excluded.has_latlng,
+                     has_series = excluded.has_series,
+                     fetched_sync_date = excluded.fetched_sync_date",
+                params![
+                    athlete_id,
+                    census.id,
+                    census.start_date_local,
+                    census.created,
+                    version,
+                    census.has_latlng,
+                    census.has_series
+                ],
+            )?;
+            Ok(moved)
+        })
+    }
+
+    /// Store bodies and their metrics, then run `inside` before the commit, so
+    /// whatever it writes lands or rolls back with them.
+    fn store_bodies_with_metrics_and<T>(
+        &mut self,
+        rows: &[(String, i64, String)],
+        keep_arrival: bool,
+        inside: impl FnOnce(&rusqlite::Connection) -> SqlResult<T>,
+    ) -> SqlResult<T> {
         let metrics: Vec<ActivityMetrics> = rows
             .iter()
             .map(|(id, date, raw)| metrics_from_body(raw, *date, id))
@@ -4066,18 +4149,23 @@ impl PersistentEngine {
                 self.db.execute(upsert, params![id, date, raw])?;
             }
             self.write_activity_metrics(&metrics.iter().collect::<Vec<_>>(), true)?;
-            self.db.execute_batch("COMMIT")
+            let answer = inside(&self.db)?;
+            self.db.execute_batch("COMMIT")?;
+            Ok(answer)
         })();
-        if let Err(error) = result {
-            let _ = self.db.execute_batch("ROLLBACK");
-            return Err(error);
-        }
+        let answer = match result {
+            Ok(answer) => answer,
+            Err(error) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(error);
+            }
+        };
         for metric in metrics {
             self.activity_metrics
                 .insert(metric.activity_id.clone(), metric);
         }
         self.invalidate_perf_cache();
-        Ok(())
+        Ok(answer)
     }
 
     /// Store a fetched page and advance its census versions in one transaction.

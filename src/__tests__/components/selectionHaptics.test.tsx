@@ -27,7 +27,6 @@ const mockSetActivityOverride = jest.fn();
 const mockClearActivityOverride = jest.fn();
 
 jest.mock('@/features/maps', () => ({
-  getCameraOverride: () => undefined,
   resolveTerrain3D: () => ({ show3D: false }),
 }));
 
@@ -35,6 +34,7 @@ jest.mock('@/features/settings', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'auto',
+    getActivityCamera: () => undefined,
     hasActivityOverride: () => true,
     setActivityOverride: mockSetActivityOverride,
     clearActivityOverride: mockClearActivityOverride,

@@ -32,8 +32,6 @@
           "pl",
           "da"
         ],
-        "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
         "UIBackgroundModes": [
           "location",
           "fetch",
@@ -91,6 +89,7 @@
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
+      "./src/plugins/with-plain-lan-transport",
       "./src/plugins/with-android-new-intent",
       "./src/plugins/with-app-groups",
       "./src/plugins/with-android-widget",
@@ -150,8 +149,7 @@
           "isBackgroundEnabled": true,
           "modes": [
             "central"
-          ],
-          "bluetoothAlwaysPermission": "Veloq uses Bluetooth to connect to heart rate, power, and cadence sensors during recording."
+          ]
         }
       ]
     ],

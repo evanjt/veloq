@@ -611,19 +611,6 @@ fn section_prs_from(
     prs
 }
 
-fn detection_enabled_from(conn: &rusqlite::Connection) -> bool {
-    !matches!(
-        crate::persistence::settings::setting_from(
-            conn,
-            crate::persistence::settings::settings_keys::DETECTION_ENABLED
-        )
-        .ok()
-        .flatten()
-        .as_deref(),
-        Some("0")
-    )
-}
-
 /// The notification highlight, read from committed SQLite rows.
 ///
 /// A push can arrive while a sync page commits. Every read uses committed rows
@@ -639,7 +626,7 @@ pub fn resolve_highlight_pooled(
         .flatten();
     // Route matching off means no route or section rung: a section the athlete
     // kept would otherwise still announce itself for a feature they switched off.
-    if !detection_enabled_from(conn) {
+    if !crate::persistence::settings::detection_enabled_from(conn) {
         return pick_highlight(None, &SectionPrs::default(), announce_prs, milestone);
     }
     let ids = [activity_id.to_string()];

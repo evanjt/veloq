@@ -64,20 +64,34 @@ function changeColour(insight: ReturnType<typeof weekOverWeek>): string {
   return StyleSheet.flatten(getByText(change).props.style).color as string;
 }
 
-const LOAD_RISE: PeriodComparison = { metric: 'tss', current: 400, previous: 320, ratio: 0.25 };
-const LOAD_FALL: PeriodComparison = { metric: 'tss', current: 250, previous: 320, ratio: -0.22 };
+const LOAD_RISE: PeriodComparison = {
+  metric: 'tss',
+  current: 400,
+  previous: 320,
+  ratio: 0.25,
+  comparedStart: 0,
+};
+const LOAD_FALL: PeriodComparison = {
+  metric: 'tss',
+  current: 250,
+  previous: 320,
+  ratio: -0.22,
+  comparedStart: 0,
+};
 const HOURS = 3600;
 const TIME_FALL: PeriodComparison = {
   metric: 'duration',
   current: 6 * HOURS,
   previous: 8 * HOURS,
   ratio: -0.25,
+  comparedStart: 0,
 };
 const TIME_RISE: PeriodComparison = {
   metric: 'duration',
   current: 8 * HOURS,
   previous: 6 * HOURS,
   ratio: 1 / 3,
+  comparedStart: 0,
 };
 
 describe('the period comparison verdict', () => {

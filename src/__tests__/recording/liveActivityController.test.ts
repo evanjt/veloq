@@ -8,6 +8,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { buildRecordingNotificationPayload } from '@/features/recording/lib/recordingNotification';
 import { i18n } from '@/i18n';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
+import { LIVE_ACTIVITY_STALE_MS } from '@/features/recording/lib/constants';
 import {
   beginLiveActivity,
   finishLiveActivity,
@@ -74,6 +75,7 @@ describe('live activity controller', () => {
     const [attributes, state] = mockNative.start.mock.calls[0] as unknown as [string, string];
     expect(JSON.parse(attributes).activityType).toBe('Ride');
     expect(JSON.parse(attributes).activityLabel).toBe('translated:activityTypes.Ride');
+    expect(JSON.parse(attributes).stoppedLabel).toBe('translated:recording.interruptedNotice.card');
     expect(JSON.parse(state).status).toBe('recording');
   });
 
@@ -124,6 +126,20 @@ describe('live activity controller', () => {
     const state = JSON.parse(mockNative.update.mock.calls.at(-1)![0] as string);
     expect(state.status).toBe('paused');
     expect(state.frozenElapsedS).toBeGreaterThan(0);
+  });
+
+  it('moves the stale date on with every push, so only a stopped process lets it lapse', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    startRide();
+    beginLiveActivity();
+    const [, started] = mockNative.start.mock.calls[0] as unknown as [string, string];
+    expect(JSON.parse(started).staleAt).toBe(1_700_000_000_000 + LIVE_ACTIVITY_STALE_MS);
+
+    now.mockReturnValue(1_700_000_005_000);
+    refreshLiveActivity();
+    const state = JSON.parse(mockNative.update.mock.calls.at(-1)![0] as string);
+    expect(state.staleAt).toBe(1_700_000_005_000 + LIVE_ACTIVITY_STALE_MS);
+    now.mockRestore();
   });
 
   it('refuses to update once the card is finished', () => {

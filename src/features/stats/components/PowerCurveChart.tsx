@@ -258,7 +258,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
               testID={`power-curve-model-${m.type}`}
               style={[styles.modelText, isDark && chartStyles.textDark]}
             >
-              {`${MODEL_LABELS[m.type] ?? m.type} ${Math.round(m.criticalPower)}w ${formatWPrime(m.wPrime)}`}
+              {`${MODEL_LABELS[m.type] ?? m.type} ${Math.round(m.criticalPower)} ${t('units.watts')} ${formatWPrime(m.wPrime)}`}
             </Text>
           ))}
         </View>

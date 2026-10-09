@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { SyncState, SyncStep } from 'veloqrs';
 
 import { BackupSection } from '@/features/settings/components/BackupSection';
@@ -34,6 +34,7 @@ let mockFailures: Record<string, { kind: string; status: number | null; at: numb
 let mockAutoEnabled = true;
 let mockDestinationStamps: Record<string, number> = {};
 let mockLocalBackups: unknown[] = [];
+let mockAndroidBackup: Record<string, number | null> | null = null;
 const FOLDER_BACKUPS = [
   {
     id: 'veloq-2026-10-01T06-00-00-000Z.zip',
@@ -57,6 +58,9 @@ jest.mock('@/shared/native/useEngineSubscription', () => ({
   useEngineRead: () => (read: (engine: { getUnplacedBackupRecords: () => unknown }) => unknown) =>
     read({ getUnplacedBackupRecords: () => mockUnplaced() }),
   useEngineSubscription: () => mockGeneration,
+}));
+jest.mock('@/shared/native/androidAutoBackup', () => ({
+  getAndroidAutoBackupStatus: () => mockAndroidBackup,
 }));
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
@@ -165,6 +169,7 @@ beforeEach(() => {
   mockAutoEnabled = true;
   mockDestinationStamps = {};
   mockLocalBackups = [];
+  mockAndroidBackup = null;
   mockFolderBackups = FOLDER_BACKUPS;
   mockSetAutoEnabled.mockClear();
   mockPickFolder.mockReset();
@@ -902,6 +907,84 @@ describe('each destination shows when it last received a backup', () => {
     expect(screen.getByTestId('backup-carrier-last-device')).toBeTruthy();
     expect(screen.queryByTestId('backup-carrier-last-webdav')).toBeNull();
     expect(screen.queryByTestId('backup-carrier-last-folder')).toBeNull();
+  });
+});
+
+describe("the device row on Android reads what Android's backup did", () => {
+  const originalOS = Platform.OS;
+  const status = {
+    backedUpAt: null,
+    backedUpBytes: null,
+    quotaExceededAt: null,
+    quotaExceededBytes: null,
+    quotaBytes: null,
+    restoredAt: null,
+  };
+
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+  });
+
+  it("dates the row by Android's backup, not by when Veloq wrote its zip", () => {
+    mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
+    mockAndroidBackup = {
+      ...status,
+      backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
+      backedUpBytes: 4_200_000,
+    };
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
+      /^backup\.androidLastBackup:\{"date":".+","size":"4\.2 MB"\}$/
+    );
+    expect(screen.queryByText(/^backup\.lastBackup:/)).toBeNull();
+  });
+
+  it('says Android has not backed Veloq up when it never has, whatever Veloq wrote', () => {
+    mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
+    mockAndroidBackup = status;
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
+      'backup.androidBackupNever'
+    );
+  });
+
+  it('shows a quota overrun as a failure with both sizes', () => {
+    mockAndroidBackup = {
+      ...status,
+      backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
+      backedUpBytes: 4_200_000,
+      quotaExceededAt: Date.parse('2026-05-02T02:00:00Z'),
+      quotaExceededBytes: 30_000_000,
+      quotaBytes: 25_000_000,
+    };
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-device-quota')).toHaveTextContent(
+      /^backup\.androidQuotaExceeded:\{"date":".+","size":"30\.0 MB","quota":"25\.0 MB"\}$/
+    );
+  });
+
+  it('says when Veloq was restored from an Android backup', () => {
+    mockAndroidBackup = { ...status, restoredAt: Date.parse('2026-04-30T09:00:00Z') };
+    render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-carrier-device-restored')).toHaveTextContent(
+      /^backup\.androidRestored:\{"date":".+"\}$/
+    );
+  });
+
+  it('shows no failure or restore that did not happen', () => {
+    mockAndroidBackup = { ...status, backedUpAt: 1_000, backedUpBytes: 4_096 };
+    render(<BackupSection />);
+
+    expect(screen.queryByTestId('backup-carrier-device-quota')).toBeNull();
+    expect(screen.queryByTestId('backup-carrier-device-restored')).toBeNull();
   });
 });
 

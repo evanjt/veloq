@@ -59,7 +59,7 @@ function everyInsight(): Insight[] {
       { count: 3, totalDuration: 9_000, totalDistance: 50_000, totalTss: 160 },
       null,
       undefined,
-      { metric: 'tss', current: 400, previous: 160, ratio: 400 / 160 - 1 },
+      { metric: 'tss', current: 400, previous: 160, ratio: 400 / 160 - 1, comparedStart: 0 },
       null,
       NOW,
       t
@@ -130,7 +130,7 @@ function periodComparison(count: number) {
     { count, totalDuration: 1800 * count, totalDistance: 10_000 * count, totalTss: 30 * count },
     null,
     undefined,
-    { metric: 'tss', current: 60 * count, previous: 30 * count, ratio: 1 },
+    { metric: 'tss', current: 60 * count, previous: 30 * count, ratio: 1, comparedStart: 0 },
     null,
     NOW,
     t

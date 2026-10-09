@@ -235,11 +235,11 @@ describe('insight card histories', () => {
       week(300),
       week(200),
       [
-        { start: DAY, stats: week(100) },
-        { start: DAY * 8, stats: week(200) },
-        { start: DAY * 15, stats: week(300) },
+        { start: DAY, stats: week(100), partial: false },
+        { start: DAY * 8, stats: week(200), partial: false },
+        { start: DAY * 15, stats: week(300), partial: false },
       ],
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3 },
+      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: DAY * 15 },
       null,
       NOW,
       t
@@ -385,16 +385,16 @@ describe('the scale a card graphic prints', () => {
       totalTss,
     });
     const weeks = [
-      { start: DAY, stats: week(100, 3600) },
-      { start: DAY * 8, stats: week(320, 7200) },
-      { start: DAY * 15, stats: week(300, 5400) },
+      { start: DAY, stats: week(100, 3600), partial: false },
+      { start: DAY * 8, stats: week(320, 7200), partial: false },
+      { start: DAY * 15, stats: week(300, 5400), partial: false },
     ];
     const [byLoad] = generatePeriodComparisonInsights(
       week(400),
       week(300),
       week(200),
       weeks,
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3 },
+      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: 0 },
       null,
       NOW,
       t
@@ -408,7 +408,7 @@ describe('the scale a card graphic prints', () => {
       week(0, 5400),
       week(0, 3600),
       weeks.map((row) => ({ ...row, stats: { ...row.stats, totalTss: 0 } })),
-      { metric: 'duration', current: 9000, previous: 5400, ratio: 2 / 3 },
+      { metric: 'duration', current: 9000, previous: 5400, ratio: 2 / 3, comparedStart: 0 },
       null,
       NOW,
       t

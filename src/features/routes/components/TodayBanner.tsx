@@ -142,7 +142,8 @@ const WorkoutCard = React.memo(function WorkoutCard({
       </Text>
       <Text style={[styles.workoutMeta, isDark && styles.textSecondary]}>
         {formatDuration(workout.moving_time)}
-        {workout.icu_training_load > 0 && ` \u00B7 ${Math.round(workout.icu_training_load)} TSS`}
+        {workout.icu_training_load > 0 &&
+          ` \u00B7 ${Math.round(workout.icu_training_load)} ${t('stats.tss')}`}
         {targetLabel && ` \u00B7 ${targetLabel}`}
       </Text>
       {workout.workout_doc?.steps && <WorkoutStepBar steps={workout.workout_doc.steps} />}
@@ -210,7 +211,9 @@ const SectionHighlights = React.memo(function SectionHighlights({
               {prTimeSecs != null && isRecentPR && (
                 <View style={styles.prCelebration}>
                   <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
-                  <Text style={styles.prTextCelebration}>PR {formatDuration(prTimeSecs)}</Text>
+                  <Text style={styles.prTextCelebration}>
+                    {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
+                  </Text>
                   {gain != null && (
                     <Text style={styles.prDelta}>{` \u2212${formatDuration(gain)}`}</Text>
                   )}
@@ -218,7 +221,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
               )}
               {prTimeSecs != null && !isRecentPR && (
                 <Text style={styles.prBadgeAccent}>
-                  PR {formatDuration(prTimeSecs)}
+                  {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
                   {gain != null ? ` (\u2212${formatDuration(gain)})` : ''}
                 </Text>
               )}

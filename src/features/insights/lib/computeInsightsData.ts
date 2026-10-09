@@ -29,6 +29,7 @@ function toComparison(raw: EnginePeriodComparison | undefined): PeriodComparison
     current: raw.current,
     previous: raw.previous,
     ratio: raw.ratio,
+    comparedStart: raw.comparedStart,
   };
 }
 
@@ -328,6 +329,7 @@ export function computeInsightsFromData(
         chronicWeeks: (ffiData.weeklyTotals ?? []).map((week) => ({
           start: week.start,
           stats: toPeriod(week.stats),
+          partial: week.partial,
         })),
         weekOverWeek: toComparison(ffiData.weekOverWeek),
         weekAgainstChronic: toComparison(ffiData.weekAgainstChronic),

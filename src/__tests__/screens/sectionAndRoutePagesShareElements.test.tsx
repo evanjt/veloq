@@ -188,6 +188,7 @@ const demoRead: FfiSectionPerformanceData = {
       direction: 'same',
       variable: 'sleep',
       result: { tag: 'TooFew', inner: { n: 2 } },
+      familySize: 0,
     } as unknown as FfiSectionPerformanceData['correlations'][number],
   ],
   correlationFloor: 8,

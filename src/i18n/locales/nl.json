@@ -316,7 +316,12 @@
     "backupFailedServer": "De server reageerde niet. Veloq probeert het later opnieuw.",
     "backupFailedTransport": "Veloq kon de server niet bereiken. Het probeert het later opnieuw.",
     "backupFailedFolder": "Veloq kan de back-upmap niet meer bereiken. Kies de map opnieuw.",
+    "backupFailedUnverified": "Veloq heeft de back-up geschreven, maar kon hem niet teruglezen om te controleren. Het probeert het later opnieuw.",
     "lastAttemptFailed": "Laatste poging mislukt op {{date}}",
+    "androidLastBackup": "Laatste Android-back-up: {{date}}, {{size}}",
+    "androidBackupNever": "Android heeft nog geen back-up van Veloq gemaakt",
+    "androidQuotaExceeded": "Android heeft de back-up van {{date}} overgeslagen: {{size}} is meer dan de limiet van {{quota}}",
+    "androidRestored": "Hersteld uit Android-back-up op {{date}}",
     "notEncryptedWarning": "Back-ups zijn niet versleuteld. Iedereen die het bestand opent, kan je instellingen, de namen van je routes en secties, waar die secties op de kaart liggen en de thuislocatie voor exportprivacy lezen.",
     "scanNextcloudQr": "Nextcloud-appwachtwoord scannen",
     "nextcloudQrHint": "Nextcloud → Instellingen → Beveiliging → Nieuw appwachtwoord aanmaken → QR-code scannen",
@@ -507,7 +512,6 @@
     "unableToLoad": "Kan {{componentName}} niet laden",
     "closeAndReopen": "Sluit de app en open deze opnieuw om verder te gaan.",
     "restartHint": "Probeer het opnieuw of herstart de app",
-    "unableToDisplay": "Kan {{label}} niet weergeven",
     "unableToDisplayChart": "Kan grafiek niet weergeven",
     "tapToRetry": "Tik om opnieuw te proberen"
   },
@@ -678,8 +682,8 @@
     "weeklyVolumeDown": "{{percent}}% minder deze week",
     "weeklyLoadUp": "+{{percent}}% trainingsbelasting",
     "weeklyLoadDown": "{{percent}}% minder belasting",
-    "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
-    "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
+    "loadBody": "TSS: {{currentTss}} tot nu toe deze week vs {{previousTss}} op hetzelfde moment vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
+    "volumeBody": "Trainingsduur: {{current}} tot nu toe deze week vs {{previous}} op hetzelfde moment vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
     "howCalculated": "Hoe is dit berekend?",
     "current": "Huidig",
     "previous": "Vorige",
@@ -706,7 +710,7 @@
       "route": "Telt pogingen op een route in één sport en richting die getimed zijn, niet uitgesloten, niet gedeeltelijk en binnen de afstandsband van de route. Een record is de snelste daarvan, recent gezet. Een trend vergelijkt de mediaan van de laatste drie met de drie ervoor, vanaf zes pogingen."
     },
     "data": {
-      "activitiesLastWeek": "Activiteiten vorige week",
+      "activitiesLastWeek": "Activiteiten tot hetzelfde moment vorige week",
       "activitiesThisWeek": "Activiteiten deze week",
       "bestTime": "Beste tijd",
       "change": "Verschil",
@@ -727,6 +731,7 @@
       "previousFtp": "Fiets-eFTP van 30 dagen geleden",
       "previousPace": "Vorig tempo",
       "recentEfforts": "Recente pogingen",
+      "samePointLastWeek": "Zelfde moment vorige week",
       "sevenDayAvg": "7-daags gemiddelde",
       "thisWeek": "Deze week",
       "trendSlope": "Trendhelling",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "Recent persoonlijk record",
     "caption": {
       "latestAgainstMean": "Laatste {{latest}} ms, gemiddeld {{avg}} ms",
-      "thisWeekAgainstLast": "Deze week {{current}}, vorige week {{previous}}",
+      "thisWeekAgainstLast": "Deze week {{current}}, zelfde moment vorige week {{previous}}",
       "lastWeekAgainstAverage": "Vorige week {{current}}, 4-weken-gemiddelde {{previous}}",
       "fromTo": "Van {{previous}} naar {{current}}"
     },
@@ -1039,7 +1044,8 @@
     "pace": "Tempo",
     "rhr": "RHR",
     "week": "Week",
-    "weight": "Gewicht"
+    "weight": "Gewicht",
+    "cs": "CS"
   },
   "navigation": {
     "activities": "Activiteiten",
@@ -1302,6 +1308,7 @@
     "fieldModeIndoor": "Binnen",
     "interruptedNotice": {
       "body": "Het systeem heeft Veloq tijdens je activiteit gesloten, waardoor de opname is gestopt. Tik om te hervatten.",
+      "card": "Opname gestopt. Open Veloq om te hervatten.",
       "channel": "Onderbroken opnames",
       "title": "Opname gestopt"
     }
@@ -1380,7 +1387,10 @@
     "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",
     "largeSectionPerformanceWarning": "Grote secties kunnen langer duren om te verwerken.",
     "resetReference": "Referentie herstellen",
-    "resetReferenceConfirm": "Teruggaan naar automatische referentiekeuze? De overeenkomstpercentages voor deze route worden opnieuw berekend."
+    "resetReferenceConfirm": "Teruggaan naar automatische referentiekeuze? De overeenkomstpercentages voor deze route worden opnieuw berekend.",
+    "prTime": "PR {{time}}",
+    "errorDetailId": "ID: {{id}}",
+    "errorDetailRange": "Bereik: {{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "Routes berekenen...",
@@ -1450,6 +1460,8 @@
     "aerobicEfficiencyCaption": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
     "correlationTitle": "Welzijn en snelheid",
     "correlationMethod": "Pearson-r van de rondesnelheid tegen de welzijnswaarde van die dag, 95%-interval, minstens 10 pogingen met een waarde",
+    "correlationFamily_one": "Holm-gecorrigeerd over {{count}} variabele",
+    "correlationFamily_other": "Holm-gecorrigeerd over {{count}} variabelen",
     "correlationDirectionSame": "Dezelfde richting",
     "correlationDirectionReverse": "Omgekeerde richting",
     "correlationFigures": "r {{r}}, n {{n}}, {{low}} tot {{high}}",
@@ -1567,7 +1579,8 @@
     "renameFailedMessage": "De sectienaam is niet opgeslagen. Probeer het opnieuw.",
     "nameTaken": "Een ander gedeelte heeft al deze naam. Kies een andere naam.",
     "undoExcludeLap": "Ongedaan maken Ronde {{n}}",
-    "excludeLapNumber": "Uitsluiten Ronde {{n}}"
+    "excludeLapNumber": "Uitsluiten Ronde {{n}}",
+    "deleteFailed": "De sectie kon niet worden verwijderd."
   },
   "settings": {
     "terrain3DMode": "3D-terrein: {{mode}}",
@@ -1837,7 +1850,10 @@
     "athleteFallback": "Atleet",
     "storageUsedAndFree": "{{used}} gebruikt door Veloq, {{free}} vrij",
     "sectionsDetectedCount_one": "{{count}} sectie gedetecteerd",
-    "sectionsDetectedCount_other": "{{count}} secties gedetecteerd"
+    "sectionsDetectedCount_other": "{{count}} secties gedetecteerd",
+    "debugMode": "Debugmodus",
+    "debugModeDescription": "Interne diagnostiek tonen op detailpagina's",
+    "developerDashboardDescription": "Engine-statistieken, FFI-prestaties, geheugen"
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1953,7 +1969,12 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}} d",
+    "times": "{{value}}×",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "s"
   },
   "wellness": {
     "dragToExplore": "Sleep om te verkennen",
@@ -1966,7 +1987,6 @@
     "smoothingAuto": "Auto",
     "smoothingAverage_one": "Gemiddelde van {{count}} dag",
     "smoothingAverage_other": "Gemiddelde van {{count}} dagen",
-    "smoothingDaysShort": "{{days}} d",
     "smoothingDescription": "Pas een voortschrijdend gemiddelde toe om dagelijkse ruis te verminderen en trends duidelijker te tonen.",
     "smoothingHint": "Auto gebruikt optimale smoothing voor het geselecteerde tijdsbereik",
     "smoothingNone": "Geen",
@@ -2374,5 +2394,14 @@
       "startSport": "Start {{sport}} met {{app}}",
       "recordSport": "Neem {{sport}} op met {{app}}"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq gebruikt je locatie om activiteitenkaarten te tonen, routes te volgen en activiteiten op te nemen.",
+    "locationBackground": "Veloq gebruikt je locatie op de achtergrond om activiteiten te blijven opnemen wanneer de app niet op de voorgrond staat.",
+    "bluetooth": "Veloq gebruikt Bluetooth om tijdens het opnemen verbinding te maken met hartslag-, vermogens- en cadanssensoren.",
+    "camera": "Veloq gebruikt de camera om de QR-code van een Nextcloud-app-wachtwoord te scannen.",
+    "microphone": "Veloq neemt geen geluid op. De camera wordt alleen gebruikt om QR-codes te scannen.",
+    "faceId": "Veloq gebruikt Face ID niet.",
+    "motion": "Veloq leest geen bewegingsgegevens."
   }
 }

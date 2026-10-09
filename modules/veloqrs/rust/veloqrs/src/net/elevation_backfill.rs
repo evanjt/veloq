@@ -73,6 +73,7 @@ use crate::persistence::attempts::now_ms;
 use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+use crate::persistence::settings::detection_switched_off;
 use crate::persistence::{
     ELEVATION_STATE_UNAVAILABLE, ElevationSeries, PersistentEngine, elevation_source_of,
     engine_install, suspend_detection, with_persistent_engine, with_persistent_engine_for,
@@ -272,18 +273,6 @@ fn engine_gone() -> bool {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .is_none()
-}
-
-fn detection_switched_off() -> bool {
-    matches!(
-        crate::objects::error::with_reader(|conn| {
-            crate::persistence::settings::setting_from(
-                conn,
-                crate::persistence::settings::settings_keys::DETECTION_ENABLED,
-            )
-        }),
-        Ok(Ok(Some(value))) if value == "0"
-    )
 }
 
 /// Put a ladder behind the pass, unless one is already climbing.
@@ -1787,6 +1776,9 @@ fn terminal_cut(install: u64) -> bool {
         // final detect here would rebuild the catalogue the cancel was asking
         // the app to stop rebuilding.
         Ok(CutoverOutcome::Cancelled) => false,
+        // The switch went off under the pass. The migration stays owed for
+        // the day it comes back on, and a plain re-cut is detection too.
+        Ok(CutoverOutcome::SwitchedOff) => false,
         Err(e) => {
             log::warn!("[Elevation] cutover handover failed: {}", e);
             false
@@ -1802,6 +1794,12 @@ fn terminal_cut(install: u64) -> bool {
 /// cache, and with it the per-track lift candidates memoised on activity id
 /// alone while the library was flat.
 fn start_final_detect(install: u64) -> bool {
+    // The unchecked path below passes the switch the ordinary arms read, so it
+    // is read here: a library that wants no detection wants no re-cut.
+    if detection_switched_off() {
+        log::info!("[Elevation] re-cut skipped: Route Matching off");
+        return false;
+    }
     // A run that predates the backfill may still hold the detection slot.
     // Wait on the shared poll until its worker has applied and freed it. The
     // cold re-cut below then supersedes whatever it wrote. The suspension
@@ -1887,8 +1885,8 @@ pub fn start_elevation_backfill() -> FfiStartOutcome {
 /// about afresh with nothing to clear. The pass refuses while Route Matching
 /// is off, and with no credential nothing is armed, since the credential's
 /// arrival asks again. A queue that is empty hands over to the detector
-/// cutover, which answers held while any of it remains; the pass that drains
-/// the queue hands over itself. The stored climb rows owed to a library that
+/// cutover, which answers held while any of it remains and refuses while Route
+/// Matching is off; the pass that drains the queue hands over itself. The stored climb rows owed to a library that
 /// predates them start first, on a thread of their own. The series of tracks
 /// fetched before the engine recorded it is settled last, by the pass when one
 /// runs and on a thread of its own when none does.
@@ -3346,6 +3344,109 @@ mod tests {
 
             assert_eq!(start_owed_work(), FfiStartOutcome::NotConfigured);
             assert!(!BACKFILL.running.load(Ordering::SeqCst));
+        }
+
+        /// A seeded library whose elevation is all fetched and whose stored
+        /// catalogue was cut by another detector, so the detector cutover is
+        /// owed and nothing holds it.
+        fn owe_the_cutover_with_an_empty_elevation_queue() {
+            with_persistent_engine(|e| {
+                e.db.execute(
+                    "UPDATE gps_tracks SET elevation_state = ?1",
+                    [i64::from(crate::persistence::ELEVATION_STATE_FETCHED)],
+                )
+                .expect("fetch every track");
+                let line: Vec<GpsPoint> = (0..8)
+                    .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.001, 7.35))
+                    .collect();
+                e.db.execute(
+                    "INSERT INTO sections
+                         (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                          distance_meters, representative_activity_id, rep_start_index,
+                          rep_end_index, geometry_source, created_at, is_user_defined,
+                          bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES ('s_flat_era', 'auto', 'Flat era', 'Ride', NULL, ?1, 700.0,
+                             'a0', 0, 7, 'exact', '2026-01-01T00:00:00Z', 0,
+                             46.2, 46.21, 7.35, 7.36)",
+                    rusqlite::params![crate::persistence::codec::serialize_track_points(&line)],
+                )
+                .expect("a catalogue another detector cut");
+                assert!(e.cutover_is_owed());
+                assert_eq!(e.elevation_backfill_remaining().expect("queue"), 0);
+            })
+            .expect("engine");
+        }
+
+        fn catalogue_method() -> Option<String> {
+            with_persistent_engine(|e| e.catalogue_detection_method()).expect("engine")
+        }
+
+        /// Scenario: an upgraded library with Route Matching off has drained
+        /// its elevation queue and still owes the detector cutover, and the
+        /// engine opens.
+        /// Expected behaviour: the cutover is not started, so its cold detect
+        /// does not rewrite the catalogue behind the switch, and it stays owed
+        /// for the day the switch comes back on.
+        #[test]
+        fn the_engine_starts_no_cutover_with_route_matching_off() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            clear_detection_handle();
+            let _creds = crate::objects::test_credentials();
+            owe_the_cutover_with_an_empty_elevation_queue();
+            with_persistent_engine(|e| e.set_detection_enabled(false))
+                .expect("engine")
+                .expect("switch");
+            let method = catalogue_method();
+
+            assert_eq!(start_owed_work(), FfiStartOutcome::NotConfigured);
+            assert!(!crate::persistence::cutover::cutover_running());
+            assert_eq!(
+                crate::persistence::cutover::start_cutover(),
+                FfiStartOutcome::NotConfigured
+            );
+            assert!(!crate::persistence::cutover::cutover_running());
+            assert_eq!(
+                crate::persistence::cutover::run_cutover(),
+                Ok(crate::persistence::cutover::CutoverOutcome::SwitchedOff)
+            );
+            assert!(!crate::persistence::cutover::cutover_running());
+
+            assert_eq!(catalogue_method(), method);
+            assert!(with_persistent_engine(|e| e.cutover_is_owed()).expect("engine"));
+        }
+
+        /// Scenario: a pass drains the queue and Route Matching is switched off
+        /// before it hands over its re-cut.
+        /// Expected behaviour: neither the cutover nor the plain re-cut starts,
+        /// so the slot stays empty and the catalogue is untouched.
+        #[test]
+        fn a_drained_pass_starts_no_recut_with_route_matching_off() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+            with_persistent_engine(|e| e.set_detection_enabled(false))
+                .expect("engine")
+                .expect("switch");
+            let method = catalogue_method();
+
+            assert!(!start_final_detect(engine_install()));
+            assert!(!terminal_cut(engine_install()));
+            owe_the_cutover_with_an_empty_elevation_queue();
+            assert!(!terminal_cut(engine_install()));
+
+            assert!(
+                SECTION_DETECTION_HANDLE
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .is_none()
+            );
+            assert!(!crate::persistence::cutover::cutover_running());
+            assert_eq!(catalogue_method(), method);
+            assert!(with_persistent_engine(|e| e.cutover_is_owed()).expect("engine"));
         }
 
         #[test]

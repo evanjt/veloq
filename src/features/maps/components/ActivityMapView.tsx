@@ -378,11 +378,13 @@ export const ActivityMapView = memo(function ActivityMapView({
       prev3DModeRef.current = is3DMode;
       return;
     }
+    // A new handler is not a new choice: only a change of mode is written.
+    if (prev3DModeRef.current === is3DMode) return;
     const gestureCamera = gestureCameraRef.current;
     if (!is3DMode) gestureCameraRef.current = null;
-    if (prev3DModeRef.current && !is3DMode && gestureCamera && !modeFromFailureRef.current) {
-      onCameraCapture?.(gestureCamera);
-    }
+    const captured =
+      !is3DMode && !!gestureCamera && !modeFromFailureRef.current && !!onCameraCapture;
+    if (captured) onCameraCapture(gestureCamera);
     prev3DModeRef.current = is3DMode;
     // The failure keeps the local state and leaves the preference alone, so
     // the next open tries again rather than mounting flat for ever.
@@ -390,6 +392,9 @@ export const ActivityMapView = memo(function ActivityMapView({
       modeFromFailureRef.current = false;
       return;
     }
+    // The captured angle is a 3D render of the activity, so leaving the view
+    // after moving the camera does not turn 3D off for it.
+    if (captured) return;
     on3DModeChange?.(is3DMode);
   }, [is3DMode, on3DModeChange, onCameraCapture]);
 

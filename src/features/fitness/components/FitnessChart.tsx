@@ -206,7 +206,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   const markerIndices = markerIndicesOf(chartData, markers);
 
   return (
-    <ChartErrorBoundary height={height} label="Fitness Chart">
+    <ChartErrorBoundary height={height} chartName="Fitness Chart">
       <View style={[styles.container, { height }]}>
         {/* Header with values */}
         <View style={styles.header}>

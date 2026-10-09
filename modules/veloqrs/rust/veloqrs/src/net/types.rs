@@ -612,6 +612,27 @@ pub struct ActivityCensusEntry {
     pub has_series: bool,
 }
 
+impl From<&ActivityRecord> for ActivityCensusEntry {
+    /// The census row an activity body names, the same reduction whether the
+    /// body came from the census pull or a single detail fetch.
+    fn from(record: &ActivityRecord) -> Self {
+        ActivityCensusEntry {
+            id: record.id.clone(),
+            start_date_local: record.start_date_local.clone(),
+            created: record.created.clone(),
+            icu_sync_date: record.icu_sync_date.clone(),
+            has_latlng: record
+                .stream_types
+                .as_ref()
+                .is_some_and(|types| types.iter().any(|t| t == "latlng")),
+            has_series: record
+                .stream_types
+                .as_deref()
+                .is_some_and(carries_a_storable_series),
+        }
+    }
+}
+
 /// Whether an activity whose `stream_types` reads `types` carries a series the
 /// stream pass asks for and would store: anything in `DEFAULT_STREAM_TYPES`
 /// but `latlng`, which is the track, and `time`, which only indexes the rest.

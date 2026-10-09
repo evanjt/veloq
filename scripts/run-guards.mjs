@@ -593,6 +593,13 @@ const GUARDS = [
     catches: 'a copied regional string masking a later change to its base translation',
   },
   {
+    name: 'lint:locale-bundles',
+    kind: 'correctness',
+    cmd: node('lint-locale-bundles.mjs'),
+    catches:
+      'a translation that drops or invents a placeholder, or a locale missing a plural form its counts select, which then reads in English',
+  },
+  {
     name: 'lint:insight-valence',
     kind: 'correctness',
     cmd: node('lint-insight-valence.mjs'),
@@ -721,7 +728,7 @@ const GUARDS = [
   },
   {
     name: 'lint:untranslated-labels',
-    kind: 'style',
+    kind: 'correctness',
     cmd: node('lint-untranslated-labels.mjs'),
     catches:
       'a new English sentence or accessibility label written into JSX, which reads in English whatever the app language is',

@@ -74,13 +74,20 @@ function periodCard(): Insight {
   const weeks: WeeklyTotal[] = [300, 320, 310, 330, 340, 450].map((tss, index) => ({
     start: first + index * WEEK,
     stats: stats(tss),
+    partial: index === 5,
   }));
   const [card] = generatePeriodComparisonInsights(
     stats(450),
     stats(340),
     stats(1300),
     weeks,
-    { metric: 'tss', current: 450, previous: 340, ratio: 450 / 340 - 1 },
+    {
+      metric: 'tss',
+      current: 450,
+      previous: 340,
+      ratio: 450 / 340 - 1,
+      comparedStart: first + 5 * WEEK,
+    },
     null,
     NOW,
     t
@@ -196,6 +203,14 @@ describe('the insight list card', () => {
       1
     );
     expect(bars.filter((color) => color === colors.chartMutedBar)).toHaveLength(5);
+  });
+
+  it('draws the running week as an outline beside the whole weeks', () => {
+    const tree = laidOut(render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />));
+
+    const styles = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.style ?? 'fill');
+
+    expect(styles).toEqual(['fill', 'fill', 'fill', 'fill', 'fill', 'stroke']);
   });
 
   it('prints the fastest and slowest times beside the timeline and its first and last dates', () => {

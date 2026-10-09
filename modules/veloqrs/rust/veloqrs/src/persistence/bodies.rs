@@ -426,6 +426,38 @@ impl PersistentEngine {
         limit: usize,
         stream_types: &str,
     ) -> SqlResult<Vec<BodiesOwed>> {
+        self.activities_owing_bodies(
+            "ORDER BY m.date DESC, m.activity_id LIMIT ?2",
+            params![stream_types, limit as i64],
+            stream_types,
+        )
+    }
+
+    /// What one activity still lacks, read the way
+    /// [`Self::newest_activities_owing_bodies`] reads it, or `None` when it
+    /// lacks nothing or has no metrics row.
+    pub fn activity_owing_bodies(
+        &self,
+        activity_id: &str,
+        stream_types: &str,
+    ) -> SqlResult<Option<BodiesOwed>> {
+        Ok(self
+            .activities_owing_bodies(
+                "WHERE m.activity_id = ?2",
+                params![stream_types, activity_id],
+                stream_types,
+            )?
+            .pop())
+    }
+
+    /// The owed-bodies read over the metrics rows `tail` selects. `?1` is the
+    /// stream selection, and `tail` binds what follows it.
+    fn activities_owing_bodies(
+        &self,
+        tail: &str,
+        bound: impl rusqlite::Params,
+        stream_types: &str,
+    ) -> SqlResult<Vec<BodiesOwed>> {
         let detail_body = detail_body_present("b.raw");
         let mut stmt = self.db.prepare(&format!(
             "SELECT m.activity_id,
@@ -442,11 +474,10 @@ impl PersistentEngine {
                     AND NOT EXISTS (SELECT 1 FROM gps_tracks g
                                      WHERE g.activity_id = m.activity_id)
                FROM activity_metrics m
-              ORDER BY m.date DESC, m.activity_id
-              LIMIT ?2"
+              {tail}"
         ))?;
         let rows = stmt
-            .query_map(params![stream_types, limit as i64], |r| {
+            .query_map(bound, |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, bool>(1)?,

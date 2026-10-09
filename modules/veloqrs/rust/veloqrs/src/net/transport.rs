@@ -281,6 +281,7 @@ impl Transport {
                     let budget = parse_budget(resp.headers());
 
                     if status.is_success() {
+                        self.governor.note_success(&budget, chrono::Utc::now());
                         return resp
                             .bytes()
                             .await
@@ -291,6 +292,7 @@ impl Transport {
                         return Err(NetError::Unauthorized);
                     }
                     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        self.note_refusal(resp, &budget).await;
                         attempt += 1;
                         let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
                         if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
@@ -479,6 +481,23 @@ impl Transport {
         }
     }
 
+    /// Hand a 429 to the governor, which classifies it and holds the backfill
+    /// on an application quota refusal, and log the whole response, since the
+    /// shape of the application's refusal is known only from what reaches here.
+    async fn note_refusal(&self, resp: reqwest::Response, budget: &RateBudget) {
+        let status = resp.status().as_u16();
+        let headers = resp.headers().clone();
+        let body = resp.bytes().await.unwrap_or_default();
+        let via = headers.get("via").and_then(|v| v.to_str().ok());
+        let (refusal, run) = self
+            .governor
+            .note_refusal(budget, via, &body, chrono::Utc::now());
+        log::warn!(
+            "veloqrs: [transport] refused as {refusal:?}, {run} in a row: {}",
+            refusal_record(status, &headers, &body)
+        );
+    }
+
     /// Classify a write response under the write retry policy.
     async fn settle_write(
         &self,
@@ -493,6 +512,7 @@ impl Transport {
         let budget = parse_budget(resp.headers());
 
         if status.is_success() {
+            self.governor.note_success(&budget, chrono::Utc::now());
             return WriteStep::Done(
                 resp.bytes()
                     .await
@@ -504,6 +524,7 @@ impl Transport {
             return WriteStep::Done(Err(NetError::Unauthorized));
         }
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            self.note_refusal(resp, &budget).await;
             if attempt >= MAX_RETRIES {
                 return WriteStep::Done(Err(NetError::RateLimited));
             }
@@ -568,9 +589,36 @@ pub(crate) fn strip_file_scheme(path: &str) -> &str {
     path.strip_prefix("file://").unwrap_or(path)
 }
 
-/// The one rate header intervals.icu sends: `Retry-After` on a 429.
+/// `Retry-After` and the `X-RateLimit-*` pair, whichever a response carries.
 fn parse_budget(headers: &reqwest::header::HeaderMap) -> RateBudget {
-    governor::parse_rate_headers(headers.get("retry-after").and_then(|v| v.to_str().ok()))
+    let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    governor::parse_rate_headers(
+        header("retry-after"),
+        header("x-ratelimit-limit"),
+        header("x-ratelimit-remaining"),
+    )
+}
+
+/// How much of a refused response's body is logged.
+const REFUSAL_BODY_LOG_BYTES: usize = 200;
+
+/// One log line describing a refused response: the status, every header and
+/// the start of the body. A cookie's value is withheld.
+fn refusal_record(status: u16, headers: &reqwest::header::HeaderMap, body: &[u8]) -> String {
+    let headers = headers
+        .iter()
+        .map(|(name, value)| {
+            let value = if name == reqwest::header::SET_COOKIE {
+                "<withheld>".into()
+            } else {
+                String::from_utf8_lossy(value.as_bytes())
+            };
+            format!("{name}: {value}")
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    let body = String::from_utf8_lossy(&body[..body.len().min(REFUSAL_BODY_LOG_BYTES)]);
+    format!("status {status}, headers [{headers}], body {body:?}")
 }
 
 #[cfg(test)]
@@ -668,6 +716,93 @@ mod tests {
         assert!(matches!(res, Err(NetError::RateLimited)));
         // 1 initial dispatch + MAX_RETRIES retries.
         assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
+    }
+
+    /// Expected behaviour: a refusal that passed through the application, and
+    /// a success whose budget pair is low, both hold the backfill on the
+    /// governor the transport shares.
+    #[test]
+    fn an_app_quota_refusal_and_a_low_budget_hold_the_backfill() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/quota");
+            then.status(429)
+                .header("retry-after", "0")
+                .header("via", "1.1 Caddy")
+                .header("x-ratelimit-remaining", "0,0")
+                .body("{\"status\":429}");
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/low");
+            then.status(200)
+                .header("x-ratelimit-limit", "2500,8000")
+                .header("x-ratelimit-remaining", "300,6000")
+                .json_body(json!({}));
+        });
+        let refusals = server.mock(|when, then| {
+            when.method(POST).path("/edge");
+            then.status(429).header("retry-after", "0");
+        });
+
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov.clone())
+            .unwrap();
+        let now = chrono::Utc::now();
+
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::RateLimited)));
+        let midnight = (now.date_naive().succ_opt().unwrap())
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
+        assert!(gov.backfill_hold_until(now) >= Some(midnight));
+
+        let low = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), low.clone())
+            .unwrap();
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/low", &[], Lane::Interactive));
+        assert!(res.is_ok());
+        let held = low
+            .backfill_hold_until(now)
+            .expect("a low 15-minute figure holds");
+        assert!(held > now && held <= chrono::Utc::now() + chrono::TimeDelta::minutes(15));
+
+        let edge = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), edge.clone())
+            .unwrap();
+        let res = crate::runtime::block_on(t.post_json("/edge", &json!({}), Lane::Interactive));
+        assert!(matches!(res, Err(NetError::RateLimited)));
+        let (kind, run) = edge.note_refusal(&RateBudget::default(), None, b"", now);
+        assert_eq!(kind, governor::Refusal::AppQuota);
+        assert_eq!(
+            run as usize,
+            refusals.hits() + 1,
+            "every write refusal counts toward the run"
+        );
+    }
+
+    #[test]
+    fn a_refusal_record_carries_every_header_and_the_start_of_the_body() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("retry-after", "370".parse().unwrap());
+        headers.insert("via", "1.1 Caddy".parse().unwrap());
+        headers.insert("set-cookie", "session=private".parse().unwrap());
+        let body = "x".repeat(500);
+        let record = refusal_record(429, &headers, body.as_bytes());
+        assert!(record.contains("429"), "{record}");
+        assert!(record.contains("retry-after: 370"), "{record}");
+        assert!(record.contains("via: 1.1 Caddy"), "{record}");
+        assert!(
+            !record.contains("private"),
+            "a cookie value is never logged: {record}"
+        );
+        assert!(record.contains(&"x".repeat(REFUSAL_BODY_LOG_BYTES)));
+        assert!(!record.contains(&"x".repeat(REFUSAL_BODY_LOG_BYTES + 1)));
+
+        let empty = refusal_record(429, &reqwest::header::HeaderMap::new(), b"");
+        assert!(empty.contains("429"), "{empty}");
     }
 
     #[test]

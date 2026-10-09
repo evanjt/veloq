@@ -604,9 +604,11 @@ uint32_t uniffi_veloqrs_fn_method_recordingmanager_unuploaded_visible_count(
     /*handle*/ uint64_t ptr, RustBuffer athlete_id,
     RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_recordingmanager_upload_recording(
-    /*handle*/ uint64_t ptr, RustBuffer id, int8_t manual);
+    /*handle*/ uint64_t ptr, RustBuffer id, int8_t manual,
+    RustBuffer files_root);
 void uniffi_veloqrs_fn_method_recordingmanager_wake_upload_schedule(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer files_root,
+    RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_routemanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_routemanager(
@@ -911,7 +913,7 @@ RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
     /*handle*/ uint64_t ptr, RustBuffer oldest, RustBuffer newest,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_now(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int8_t force, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
     /*handle*/ uint64_t ptr, RustBuffer sport, double days, int8_t gap,
     RustCallStatus *uniffi_out_err);
@@ -7739,7 +7741,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                         "recordingmanager_upload_recording"),
-          3,
+          4,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -7752,7 +7754,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(rt,
                                     "ubrn_uniffi_veloqrs_fn_method_"
                                     "recordingmanager_wake_upload_schedule"),
-          1,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -9149,7 +9151,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now"),
-          1,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_syncmanager_sync_now(
@@ -17297,7 +17299,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_upload_recording(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[2]));
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]));
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);
@@ -17311,6 +17314,7 @@ jsi::Value NativeVeloqrs::
   uniffi_veloqrs_fn_method_recordingmanager_wake_upload_schedule(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -19150,7 +19154,7 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_now(
   auto value = uniffi_veloqrs_fn_method_syncmanager_sync_now(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      &status);
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[1]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 

@@ -75,9 +75,9 @@ describe('an error caught below the global boundary is recorded', () => {
     );
   });
 
-  it('records a chart crash under its label', () => {
+  it('records a chart crash under its chart name', () => {
     render(
-      <ChartErrorBoundary label="Power curve">
+      <ChartErrorBoundary chartName="Power curve">
         <Boom />
       </ChartErrorBoundary>
     );
@@ -85,6 +85,18 @@ describe('an error caught below the global boundary is recorded', () => {
     expect(mockRecord).toHaveBeenCalledWith(
       expect.objectContaining({ fatal: false, screen: 'Power curve' })
     );
+  });
+
+  /** The chart name is for the log and is English; the athlete reads the translated line. */
+  it('keeps the chart name out of the fallback the athlete reads', () => {
+    const { getByText, queryByText } = render(
+      <ChartErrorBoundary chartName="Power curve">
+        <Boom />
+      </ChartErrorBoundary>
+    );
+
+    expect(getByText('errorState.unableToDisplayChart')).toBeTruthy();
+    expect(queryByText(/Power curve/)).toBeNull();
   });
 
   /** None of the three is fatal: the app is still running behind the fallback. */

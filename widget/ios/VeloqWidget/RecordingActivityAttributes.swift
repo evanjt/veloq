@@ -17,11 +17,16 @@ struct VeloqRecordingAttributes: ActivityAttributes {
     /// time. The card runs its own timer from this, so it keeps ticking while the app
     /// is suspended. A pushed elapsed value freezes there instead.
     let timerFrom: Double
-    /// Moving seconds frozen at the pause. Nil while recording.
+    /// Moving seconds when the state was pushed. The card shows it whenever its own
+    /// clock must not run: through a pause, and once the card has gone stale.
     let frozenElapsedS: Double?
     let distanceLabel: String
     let speedLabel: String
     let trace: Trace?
+    /// Milliseconds since the epoch after which the card is stale. Every push moves it
+    /// on, so only a process that has stopped pushing, one the system killed mid-ride,
+    /// lets the card reach it.
+    let staleAt: Double?
 
     struct Trace: Codable, Hashable {
       /// Normalised 0..1 pairs, y growing downward like screen pixels.
@@ -33,6 +38,9 @@ struct VeloqRecordingAttributes: ActivityAttributes {
 
     /// The date `Text(timerInterval:)` counts from.
     var timerStart: Date { Date(timeIntervalSince1970: timerFrom / 1000) }
+
+    /// The date ActivityKit marks the card stale at, handed over on every request and update.
+    var staleDate: Date? { staleAt.map { Date(timeIntervalSince1970: $0 / 1000) } }
   }
 
   /// intervals.icu activity type, e.g. "Ride". Fixed for the life of the card.
@@ -41,4 +49,6 @@ struct VeloqRecordingAttributes: ActivityAttributes {
   let activityLabel: String?
   /// "cycling", "running" or "walking", so the card can pick a glyph without a table.
   let sportCategory: String
+  /// The translated line a stale card shows. Nil on a card started by an older build.
+  let stoppedLabel: String?
 }

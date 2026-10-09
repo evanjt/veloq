@@ -31,11 +31,16 @@ const IOS_FOLDER_URI = 'file:///private/var/mobile/Library/Mobile%20Documents/Tr
 const mockSettings = new Map<string, string>();
 /** Every file on the device by uri, the record zip among them. */
 const mockFiles = new Map<string, Uint8Array>();
-/** The picked folder's contents by name, and whether it can still be reached. */
-const mockFolder = { files: new Map<string, Uint8Array>(), reachable: true };
+/**
+ * The picked folder's contents by name, whether it can still be reached, and
+ * whether it keeps only part of what is written to it.
+ */
+const mockFolder = { files: new Map<string, Uint8Array>(), reachable: true, truncates: false };
 const mockPick = jest.fn<Promise<{ uri: string; name: string }>, []>();
 const mockNative: Record<string, jest.Mock> = {};
 const mockWebdavUpload = jest.fn(async (_path: string, _entry: unknown) => {});
+/** What the stub WebDAV server holds, by the id its upload returned. */
+const mockWebdavHeld = new Map<string, Uint8Array>();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -56,8 +61,14 @@ jest.mock('@/features/settings/lib/autobackup/backends/webdavBackend', () => ({
     isRemote: true,
     isAvailable: async () => true,
     listBackups: async () => [],
-    upload: (path: string, entry: unknown) => mockWebdavUpload(path, entry),
-    download: async () => {},
+    upload: async (path: string, entry: unknown) => {
+      await mockWebdavUpload(path, entry);
+      mockWebdavHeld.set('veloq-dav.zip', mockFiles.get(path)!);
+      return 'veloq-dav.zip';
+    },
+    download: async (id: string, dest: string) => {
+      mockFiles.set(dest, mockWebdavHeld.get(id)!);
+    },
     delete: async () => {},
   },
   testWebdavConnection: jest.fn(),
@@ -78,9 +89,28 @@ jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///docs/',
   cacheDirectory: 'file:///cache/',
+  makeDirectoryAsync: async () => undefined,
+  deleteAsync: async (uri: string) => {
+    mockFiles.delete(uri);
+  },
   getInfoAsync: async (uri: string) => {
     const bytes = mockFiles.get(uri);
     return bytes ? { exists: true, size: bytes.length } : { exists: false };
+  },
+}));
+
+// This suite answers no native module but its own, and expo-crypto needs one at
+// import, so the copy a run fetches back is hashed here from the files above.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  zipFingerprint: async (uri: string) => {
+    const bytes = mockFiles.get(uri);
+    if (!bytes) throw new Error(`missing ${uri}`);
+    const sha256 = jest
+      .requireActual<typeof import('crypto')>('crypto')
+      .createHash('sha256')
+      .update(bytes)
+      .digest('hex');
+    return { sha256, size: bytes.length };
   },
 }));
 
@@ -121,7 +151,7 @@ jest.mock('expo-file-system', () => {
         return;
       }
       if (!mockFolder.reachable) throw unreachable();
-      mockFolder.files.set(name, content);
+      mockFolder.files.set(name, mockFolder.truncates ? content.slice(0, 3) : content);
     }
     delete(): void {
       const name = this.folderName;
@@ -209,7 +239,9 @@ beforeEach(() => {
   mockFiles.clear();
   mockFolder.files.clear();
   mockFolder.reachable = true;
+  mockFolder.truncates = false;
   mockWebdavUpload.mockClear();
+  mockWebdavHeld.clear();
   mockPick.mockReset();
   for (const key of Object.keys(mockNative)) delete mockNative[key];
   mockNative.releaseFolderGrant = jest.fn();
@@ -241,6 +273,18 @@ describe('on Android, a storage-access folder', () => {
     expect(names).toHaveLength(1);
     expect(stampOf(names[0])).toBe(Date.parse('2026-03-14T06:30:00.000Z'));
     expect(mockFolder.files.get(names[0])).toEqual(MOCK_ZIP_BYTES);
+    expect([...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'))).toEqual([]);
+  });
+
+  it('reports a folder that kept only part of the zip as unverified and owes it the zip', async () => {
+    mockFolder.truncates = true;
+
+    const result = await performBackup(true);
+
+    expect(result.carriers.folder).toEqual({ status: 'failed', kind: 'unverified' });
+    expect(result.carriers.webdav).toEqual({ status: 'written' });
+    expect(JSON.parse(mockSettings.get('__backup_owed_carriers') ?? '[]')).toEqual(['folder']);
+    expect([...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'))).toEqual([]);
   });
 
   it('keeps the first zip when a second run adds its own', async () => {
@@ -364,6 +408,11 @@ describe('on iOS, a Files folder held by bookmark', () => {
       'veloq-2026-03-14T06-30-00-000Z.zip'
     );
     expect(mockFolder.files.get('veloq-2026-03-14T06-30-00-000Z.zip')).toEqual(MOCK_ZIP_BYTES);
+    expect(mockNative.readFromBookmarkedFolder).toHaveBeenCalledWith(
+      'Ym9va21hcmstMg==',
+      'veloq-2026-03-14T06-30-00-000Z.zip',
+      '/cache/read-backs/folder-veloq-2026-03-14T06-30-00-000Z.zip'
+    );
     expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMg==');
   });
 

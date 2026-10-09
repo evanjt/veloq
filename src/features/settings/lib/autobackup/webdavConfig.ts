@@ -6,6 +6,8 @@
 
 import * as SecureStore from 'expo-secure-store';
 
+import PLAIN_LAN_SUFFIXES from './plainLanSuffixes.json';
+
 const WEBDAV_URL_KEY = 'veloq-webdav-url';
 const WEBDAV_USERNAME_KEY = 'veloq-webdav-username';
 const WEBDAV_PASSWORD_KEY = 'veloq-webdav-password';
@@ -21,8 +23,18 @@ export interface WebdavConfig {
 
 export type WebdavUrlProblem = 'empty' | 'invalid' | 'not-https';
 
-const PRIVATE_HOST =
-  /^(localhost|127(\.\d{1,3}){3}|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|([^.]+\.)+(local|lan|home|internal)|([^.]+\.)*home\.arpa)$/i;
+/**
+ * The name suffixes a home network answers for. The native config plugin reads
+ * the same list, so each platform's release transport carries plain http to
+ * every name this check accepts.
+ */
+const PRIVATE_NAME = new RegExp(
+  `^([^.]+\\.)*(${PLAIN_LAN_SUFFIXES.map((suffix) => suffix.replace(/\./g, '\\.')).join('|')})$`,
+  'i'
+);
+
+const PRIVATE_ADDRESS =
+  /^(localhost|127(\.\d{1,3}){3}|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})$/;
 
 /** Loopback, link-local fe80::/10 and unique-local fc00::/7 literals, without brackets. */
 const PRIVATE_IPV6 =
@@ -32,7 +44,7 @@ function isPrivateHost(hostname: string): boolean {
   if (hostname.startsWith('[') && hostname.endsWith(']')) {
     return PRIVATE_IPV6.test(hostname.slice(1, -1));
   }
-  return PRIVATE_HOST.test(hostname);
+  return PRIVATE_ADDRESS.test(hostname) || PRIVATE_NAME.test(hostname);
 }
 
 /**

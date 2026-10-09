@@ -1,0 +1,1 @@
+../../../modules/veloq-widget/ios/WidgetSnapshotFile.swift

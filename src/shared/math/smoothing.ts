@@ -28,7 +28,7 @@ export const SMOOTHING_PRESETS: { value: SmoothingWindow }[] = [
 export function getSmoothingPresetLabel(preset: SmoothingWindow, t: Translate): string {
   if (preset === 'auto') return t('wellness.smoothingAuto');
   if (preset === 'none') return t('wellness.smoothingNone');
-  return t('wellness.smoothingDaysShort', { days: preset });
+  return t('units.daysShort', { days: preset });
 }
 
 /**

@@ -1,6 +1,7 @@
 /**
  * How each recorded wellness variable relates to attempt speed on one section, per direction.
- * The engine computes every figure and its order; this draws them and states no cause.
+ * The engine computes every figure, its order and which rows are movers, Holm-adjusted across the
+ * direction's family; this draws them and states no cause.
  */
 
 import React, { useState } from 'react';
@@ -190,7 +191,16 @@ export function SectionCorrelationCard({
               ? t(DIRECTION_LABEL_KEYS[direction] as never)
               : direction}
           </Text>
-          {rows.some(hasCoefficient) ? rows.map(renderRow) : renderCollapsed(direction, rows)}
+          {rows.some(hasCoefficient) ? (
+            <>
+              <Text testID={`section-correlation-family-${direction}`} style={mutedStyle}>
+                {t('sections.correlationFamily', { count: rows[0]?.familySize ?? 0 })}
+              </Text>
+              {rows.map(renderRow)}
+            </>
+          ) : (
+            renderCollapsed(direction, rows)
+          )}
         </View>
       ))}
     </Card>

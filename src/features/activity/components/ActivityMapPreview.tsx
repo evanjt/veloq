@@ -9,7 +9,6 @@ import {
   calculateFlatCamera,
   deleteSupersededTerrainPreviews,
   deleteTerrainPreview,
-  getCameraOverride,
   getTerrainPreviewUri,
   hasTerrainPreview,
   resolveTerrain3D,
@@ -60,10 +59,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Read focus locally so a tab switch re-renders only this leaf preview, not the
   // whole ActivityCard. The snapshot effect below defers requests when unfocused.
   const screenFocused = useIsFocused();
-  const { getStyleForActivity, getTerrain3DMode, hasActivityOverride } = useMapPreferences();
+  const { getStyleForActivity, getTerrain3DMode, hasActivityOverride, getActivityCamera } =
+    useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id);
   const activityColor = getActivityColor(activity.type);
   const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
+  const savedCamera = getActivityCamera(activity.id) ?? null;
 
   const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialised());
   useEffect(() => {
@@ -107,7 +108,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         altitude,
         gain: activity.total_elevation_gain,
         distance: activity.distance,
-        override: getCameraOverride(activity.id) ?? null,
+        override: savedCamera,
       }),
     [
       terrain3DMode,
@@ -115,7 +116,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       altitude,
       activity.total_elevation_gain,
       activity.distance,
-      activity.id,
+      savedCamera,
     ]
   );
 
@@ -239,7 +240,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       activityId: activity.id,
       coordinates: lngLatCoords,
       camera: snapshotCamera,
-      cameraPinned: getCameraOverride(activity.id) !== undefined,
+      cameraPinned: savedCamera !== null,
       mapStyle,
       routeColor: activityColor,
       flat: flat || !downgraded,
@@ -254,6 +255,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     screenFocused,
     flat,
     snapshotCamera,
+    savedCamera,
     lngLatCoords,
     validCoordinates,
     activity.id,

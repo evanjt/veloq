@@ -313,7 +313,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             testID="pace-curve-cs-legend"
             style={[styles.legendText, isDark && chartStyles.textDark]}
           >
-            CS {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
+            {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
             {paceUnitLabel(isMetric)}
           </Text>
         </View>
@@ -323,16 +323,17 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       <View style={styles.footer}>
         <View style={styles.modelInfo}>
           <Text style={[styles.dateRange, isDark && chartStyles.textDark]}>
-            {curve?.days ? `${curve.days} days: ` : ''}
+            {curve?.days ? `${t('time.daysCount', { count: curve.days })}: ` : ''}
             {curve?.startDate && curve?.endDate
               ? `${formatFullDate(curve.startDate)} - ${formatFullDate(curve.endDate)}`
               : ''}
           </Text>
           {criticalSpeedPace && (
             <Text style={[styles.modelStats, isDark && chartStyles.textDark]}>
-              CS {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
-              {paceUnitLabel(isMetric)} ({curve?.criticalSpeed?.toFixed(2)} m/s)
-              {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)}m` : ''}
+              {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
+              {paceUnitLabel(isMetric)} ({curve?.criticalSpeed?.toFixed(2)}{' '}
+              {t('units.metresPerSecond')})
+              {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)} ${t('units.metres')}` : ''}
               {curve?.r2 ? `  R² ${curve.r2.toFixed(4)}` : ''}
             </Text>
           )}

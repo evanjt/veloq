@@ -114,7 +114,7 @@ export const localBackend: BackupBackend = {
     return entries;
   },
 
-  async upload(): Promise<void> {
+  async upload(): Promise<string> {
     throw new Error('The old backup directory is read-only');
   },
 

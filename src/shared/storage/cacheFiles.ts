@@ -21,6 +21,9 @@ const PICKER_DIR = 'DocumentPicker/';
 /** The copies a restore takes of a backup before reading it. */
 export const RESTORES_DIR = 'restores/';
 
+/** The copies a backup run fetches back from a carrier to compare with what it sent. */
+export const READ_BACKS_DIR = 'read-backs/';
+
 /**
  * Names older builds wrote straight into the cache root, before exports had a
  * directory: the activity exports, GPX files under the activity's name, and
@@ -56,6 +59,17 @@ export async function restoreCopyUri(filename: string): Promise<string> {
   return `${dir}${filename}`;
 }
 
+/**
+ * The uri a backup run fetches a carrier's copy back into, with its directory
+ * made. The run deletes it once compared, and the wipe deletes the directory
+ * whole, which covers one a kill left behind.
+ */
+export async function readBackCopyUri(filename: string): Promise<string> {
+  const dir = `${cacheRoot()}${READ_BACKS_DIR}`;
+  await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  return `${dir}${filename}`;
+}
+
 /** Whether `uri` is the document picker's own copy, and so the app's to delete. */
 export function isPickerCopy(uri: string): boolean {
   const cacheDir = FileSystem.cacheDirectory;
@@ -64,14 +78,14 @@ export function isPickerCopy(uri: string): boolean {
 
 /**
  * Delete every athlete file in the cache: the share sheet's copies, the route
- * pictures, the picker's import copies and the restore copies, and the exports
- * older builds left at the cache root.
+ * pictures, the picker's import copies, the restore copies and the backup
+ * read-back copies, and the exports older builds left at the cache root.
  */
 export async function deleteCachedAthleteFiles(): Promise<void> {
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) return;
-  const deletions = [EXPORTS_DIR, ROUTE_LINE_DIR, PICKER_DIR, RESTORES_DIR].map((dir) =>
-    FileSystem.deleteAsync(`${cacheDir}${dir}`, { idempotent: true })
+  const deletions = [EXPORTS_DIR, ROUTE_LINE_DIR, PICKER_DIR, RESTORES_DIR, READ_BACKS_DIR].map(
+    (dir) => FileSystem.deleteAsync(`${cacheDir}${dir}`, { idempotent: true })
   );
   const info = await FileSystem.getInfoAsync(cacheDir);
   const names = info.exists ? await FileSystem.readDirectoryAsync(cacheDir) : [];

@@ -42,6 +42,12 @@ jest.mock('expo-file-system/legacy', () => ({
 
 const upload = jest.fn();
 
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
+
 const testBackend: BackupBackend = {
   id: 'test-remote',
   name: 'Test Remote',
@@ -95,7 +101,7 @@ describe('performBackup', () => {
 
   it('records the timestamp and clears a standing failure on success', async () => {
     mockSettings.set('__last_backup_failure', JSON.stringify({ kind: 'auth', status: 401, at: 5 }));
-    upload.mockResolvedValue(undefined);
+    upload.mockResolvedValue('veloq-backup.zip');
 
     await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
 

@@ -137,6 +137,19 @@ describe('StreamBackfillRow', () => {
     expect(tree.queryByText('Download')).toBeNull();
   });
 
+  /**
+   * Scenario: series are owed and the automatic start is waiting for other
+   * work to finish first. Expected behaviour: the row offers the pass by hand
+   * rather than sitting on an owed count with no action.
+   */
+  it('offers the download while the automatic start waits on other work', () => {
+    mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'deferred' }));
+    const tree = row();
+
+    fireEvent.press(tree.getByTestId('settings-stream-backfill-action'));
+    expect(mockStart).toHaveBeenCalled();
+  });
+
   it('offers the download while the engine waits for consent', () => {
     mockUseStreamBackfill.mockReturnValue(
       state({

@@ -6,6 +6,8 @@
  * instead of the auto-calculated camera angle.
  *
  * In-memory Map backed by AsyncStorage for persistence across sessions.
+ * Written through the map preferences, which keep the activity's 3D mode
+ * beside its camera so the two never disagree.
  */
 
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
@@ -18,6 +20,31 @@ const MAX_OVERRIDES = 100;
 /** In-memory cache for sync lookups */
 const overrides = new Map<string, TerrainCamera>();
 let initialised = false;
+
+/**
+ * What a reader renders from: replaced on every change, so a subscriber can
+ * tell by identity that some activity's camera moved.
+ */
+let snapshot: ReadonlyMap<string, TerrainCamera> = new Map();
+const listeners = new Set<() => void>();
+
+function publish(): void {
+  snapshot = new Map(overrides);
+  for (const listener of listeners) listener();
+}
+
+/** Called after every change to any activity's camera. */
+export function subscribeCameraOverrides(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** Every saved camera, as of the last change. */
+export function getCameraOverridesSnapshot(): ReadonlyMap<string, TerrainCamera> {
+  return snapshot;
+}
 
 /**
  * Load overrides from AsyncStorage on app start.
@@ -39,6 +66,7 @@ export async function initCameraOverrides(): Promise<void> {
     // Best effort - start with empty overrides
   }
   initialised = true;
+  publish();
 }
 
 /**
@@ -62,6 +90,7 @@ export async function setCameraOverride(activityId: string, camera: TerrainCamer
   // Re-insert to move to end of Map iteration order (most recent)
   overrides.delete(activityId);
   overrides.set(activityId, camera);
+  publish();
 
   // Delete stale cached snapshots so they regenerate with new angle
   await deleteTerrainPreviewsForActivity(activityId);
@@ -76,6 +105,7 @@ export async function setCameraOverride(activityId: string, camera: TerrainCamer
  */
 export async function deleteCameraOverride(activityId: string): Promise<void> {
   overrides.delete(activityId);
+  publish();
   await deleteTerrainPreviewsForActivity(activityId);
   persistOverrides();
 }
@@ -97,6 +127,7 @@ export async function reloadCameraOverrides(): Promise<void> {
  */
 export async function forgetCameraOverrides(): Promise<void> {
   overrides.clear();
+  publish();
   await removeSetting(STORAGE_KEY).catch(() => {});
 }
 
