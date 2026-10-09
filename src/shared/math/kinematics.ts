@@ -44,26 +44,3 @@ export function speedFromPaceMinutes(paceMinutes: number, referenceMeters = 1000
 export function paceMinutesFromSample(speedMs: number, referenceMeters = 1000): number {
   return Number.isNaN(speedMs) ? NaN : paceMinutesFromSpeed(speedMs, referenceMeters);
 }
-
-/**
- * Total elevation gain (m): sum of positive deltas between consecutive valid
- * altitude samples. Null/undefined/non-finite samples are skipped without
- * resetting the previous reference, so a dropout doesn't fabricate a gain.
- * The legacy treatZeroAsMissing option also skips zero for sources that use
- * it as a missing reading; otherwise sea level remains valid.
- */
-export function elevationGain(
-  altitudes: readonly (number | null | undefined)[],
-  opts?: { treatZeroAsMissing?: boolean }
-): number {
-  const treatZeroAsMissing = opts?.treatZeroAsMissing ?? false;
-  let gain = 0;
-  let prev: number | null = null;
-  for (const alt of altitudes) {
-    if (alt == null || !Number.isFinite(alt)) continue;
-    if (treatZeroAsMissing && alt === 0) continue;
-    if (prev !== null && alt > prev) gain += alt - prev;
-    prev = alt;
-  }
-  return gain;
-}

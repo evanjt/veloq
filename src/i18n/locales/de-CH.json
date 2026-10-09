@@ -316,7 +316,12 @@
     "backupFailedServer": "De Server hät nöd gantwortet. Veloq probierts spöter nomol.",
     "backupFailedTransport": "Veloq hät de Server nöd erreicht. Es probierts spöter nomol.",
     "backupFailedFolder": "Veloq chunnt nüme an Backup-Ordner ane. Wähl de Ordner nomal us.",
+    "backupFailedUnverified": "Veloq hät s Backup gschribe, aber nöd zum Prüefe zruggläse chöne. Es probierts spöter nomol.",
     "lastAttemptFailed": "Letschte Versuech am {{date}} hät nöd klappet",
+    "androidLastBackup": "Android hät zletscht am {{date}} gsicheret, {{size}}",
+    "androidBackupNever": "Android hät Veloq no nöd gsicheret",
+    "androidQuotaExceeded": "Android hät d Sicherig am {{date}} usgla: {{size}} isch über em Limit vo {{quota}}",
+    "androidRestored": "Am {{date}} us de Android-Sicherig zrugghoolt",
     "notEncryptedWarning": "Backups sind nöd verschlüsslet. Wer d Datei ufmacht, cha dini Iistellige, d Name vo dine Routene und Abschnitt, wo die Abschnitt uf de Charte lige und de Heimatort für de Export-Datenschutz läse.",
     "scanNextcloudQr": "Nextcloud App-Passwort scanne",
     "nextcloudQrHint": "Nextcloud → Iistellige → Sicherheit → Nöis App-Passwort → QR-Code scanne",
@@ -507,7 +512,6 @@
     "unableToLoad": "{{componentName}} cha nöd glade wärde",
     "closeAndReopen": "Mach d App zue und öffne si nomol, zum wiitermache.",
     "restartHint": "Probiers nomol oder start d App nöi",
-    "unableToDisplay": "{{label}} kann nicht angezeigt werden",
     "unableToDisplayChart": "Diagramm kann nicht angezeigt werden",
     "tapToRetry": "Zum Wiederholen tippen"
   },
@@ -678,8 +682,8 @@
     "weeklyVolumeDown": "{{percent}}% weniger die Wuche",
     "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
     "weeklyLoadDown": "{{percent}}% weniger Belastig",
-    "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
-    "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
+    "loadBody": "TSS: {{currentTss}} bis jetzt die Wuche vs {{previousTss}} zur glichä Ziit letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
+    "volumeBody": "Trainingsziit: {{current}} bis jetzt die Wuche vs {{previous}} zur glichä Ziit letschti Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
     "howCalculated": "Wie isch das berechnet worde?",
     "current": "Aktuell",
     "previous": "Vorher",
@@ -706,7 +710,7 @@
       "route": "Zählt Versuche auf einer Strecke in einer Sportart und Richtung, die gestoppt, nicht ausgeschlossen, nicht teilweise sind und im Distanzband der Strecke liegen. Ein Rekord ist der schnellste davon, kürzlich aufgestellt. Ein Trend vergleicht den Median der letzten drei mit den drei davor, ab sechs Versuchen."
     },
     "data": {
-      "activitiesLastWeek": "Aktivitäte letschti Wuche",
+      "activitiesLastWeek": "Aktivitäte bis zur glichä Ziit letschti Wuche",
       "activitiesThisWeek": "Aktivitäte die Wuche",
       "bestTime": "Beschti Ziit",
       "change": "Änderig",
@@ -727,6 +731,7 @@
       "previousFtp": "Velo-eFTP vor 30 Täg",
       "previousPace": "Vorhers Tempo",
       "recentEfforts": "Letzte Versuche",
+      "samePointLastWeek": "Glichi Ziit letschti Wuche",
       "sevenDayAvg": "7-Täg-Schnitt",
       "thisWeek": "Die Wuche",
       "trendSlope": "Trendsteiging",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "Aktuelle Bestwert",
     "caption": {
       "latestAgainstMean": "Neusti {{latest}} ms, Schnitt {{avg}} ms",
-      "thisWeekAgainstLast": "Die Wuche {{current}}, letschti Wuche {{previous}}",
+      "thisWeekAgainstLast": "Die Wuche {{current}}, glichi Ziit letschti Wuche {{previous}}",
       "lastWeekAgainstAverage": "Letschti Wuche {{current}}, 4-Wuche-Schnitt {{previous}}",
       "fromTo": "Vo {{previous}} uf {{current}}"
     },
@@ -1302,6 +1307,7 @@
     "fieldModeIndoor": "Indoor",
     "interruptedNotice": {
       "body": "S System het Veloq während dinere Aktivität zuegmacht, drum het d Ufnahm gstoppt. Tipp zum Wiiterfahre.",
+      "card": "Ufnahm gstoppt. Mach Veloq uf zum Wiiterfahre.",
       "channel": "Unterbrocheni Ufnahme",
       "title": "Ufnahm gstoppt"
     }
@@ -1444,6 +1450,8 @@
     "aerobicEfficiencyCaption": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
     "correlationTitle": "Wohlbefinden und Tempo",
     "correlationMethod": "Pearson-r der Rundengeschwindigkeit gegen den Wohlbefindenswert des Tages, 95-%-Intervall, mindestens 10 Versuche mit Wert",
+    "correlationFamily_one": "Holm-korrigiert über {{count}} Variable",
+    "correlationFamily_other": "Holm-korrigiert über {{count}} Variablen",
     "correlationDirectionSame": "Gleiche Richtung",
     "correlationDirectionReverse": "Gegenrichtung",
     "correlationFigures": "r {{r}}, n {{n}}, {{low}} bis {{high}}",
@@ -1554,7 +1562,8 @@
     "renameFailedMessage": "Der Abschnittsname wurde nicht gespeichert. Versuch es erneut.",
     "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen.",
     "undoExcludeLap": "Rückgängig Runde {{n}}",
-    "excludeLapNumber": "Ausschließen Runde {{n}}"
+    "excludeLapNumber": "Ausschließen Runde {{n}}",
+    "deleteFailed": "De Abschnitt het nöd chönne glöscht wärde."
   },
   "settings": {
     "terrain3DMode": "3D-Gländ: {{mode}}",
@@ -1933,7 +1942,8 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}} T"
   },
   "wellness": {
     "dragToExplore": "Zieh zum Erkunde",
@@ -1946,7 +1956,6 @@
     "smoothingAuto": "Auto",
     "smoothingAverage_one": "{{count}}-Tage-Durchschnitt",
     "smoothingAverage_other": "{{count}}-Tage-Durchschnitt",
-    "smoothingDaysShort": "{{days}} T",
     "smoothingDescription": "Glättig aawände zum täglichi Schwankige z reduziere",
     "smoothingHint": "Auto bruucht optimali Glättig",
     "smoothingNone": "Keine",
@@ -2354,5 +2363,14 @@
       "startSport": "Starte {{sport}} mit {{app}}",
       "recordSport": "Zeichne {{sport}} mit {{app}} auf"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq bruucht din Standort zum Aktivitätskarte azeige, Route verfolge und Aktivitäte ufzeichne.",
+    "locationBackground": "Veloq bruucht din Standort im Hintergrund, damit d Ufzeichnig wiiterlauft, wenn d App nöd im Vordergrund isch.",
+    "bluetooth": "Veloq bruucht Bluetooth zum sich während de Ufzeichnig mit Herzfrequenz-, Leistigs- und Trittfrequenzsensore verbinde.",
+    "camera": "Veloq bruucht d Kamera zum de QR-Code vomene Nextcloud-App-Passwort scanne.",
+    "microphone": "Veloq nimmt kei Ton uf. D Kamera wird nur zum QR-Codes scanne bruucht.",
+    "faceId": "Veloq bruucht Face ID nöd.",
+    "motion": "Veloq liist kei Bewegigsdate."
   }
 }

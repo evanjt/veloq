@@ -1021,9 +1021,11 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     id: Uint8Array,
     manual: number,
+    filesRoot: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_wake_upload_schedule(
     uniffiSelf: bigint,
+    filesRoot: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
@@ -1624,6 +1626,7 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     uniffiSelf: bigint,
+    force: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(

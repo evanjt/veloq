@@ -25,6 +25,7 @@ const { linkEngine } = require('./xcodeEngineLink');
 const { ensureTargetDependencySections } = require('./xcodeTargetDependency');
 const {
   APP_SHORTCUTS_FILE,
+  INFO_PLIST_STRINGS_FILE,
   LOCALIZABLE_FILE,
   STALE_APP_SHORTCUTS_FILE,
   appleLanguages,
@@ -568,6 +569,13 @@ function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, versi
     addMissingStringCatalogues(proj, appTargetUuid, [LOCALIZABLE_FILE], projectName);
     removeResource(proj, appTargetUuid, STALE_APP_SHORTCUTS_FILE);
     addLocalisedStrings(proj, appTargetUuid, APP_SHORTCUTS_FILE, appleLanguages(), projectName);
+    addLocalisedStrings(
+      proj,
+      appTargetUuid,
+      INFO_PLIST_STRINGS_FILE,
+      appleLanguages(),
+      projectName
+    );
   }
 
   const targetUuid =

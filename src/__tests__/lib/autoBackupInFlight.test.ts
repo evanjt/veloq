@@ -58,10 +58,10 @@ let releaseUpload: (() => void) | null = null;
 
 const upload = jest.fn(
   () =>
-    new Promise<void>((resolve) => {
+    new Promise<string>((resolve) => {
       releaseUpload = () => {
         mockSettled = true;
-        resolve();
+        resolve('veloq-backup.zip');
       };
     })
 );
@@ -78,6 +78,12 @@ const testBackend: BackupBackend = {
 };
 
 mockCarriers.push(testBackend);
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
 
 /** The upload starts asynchronously, so "during the backup" is a wait. */
 async function untilUploading(nth = 1) {

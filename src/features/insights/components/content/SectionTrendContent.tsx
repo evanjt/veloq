@@ -154,7 +154,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
             ) : null}
             {section.traversalCount != null ? (
               <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
-                {section.traversalCount}x
+                {t('units.times', { value: section.traversalCount })}
               </Text>
             ) : null}
             <MaterialCommunityIcons

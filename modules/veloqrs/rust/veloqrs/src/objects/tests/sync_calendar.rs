@@ -64,6 +64,7 @@ fn test_full_sync_replaces_stale_calendar_window() {
         crate::persistence::engine_install(),
         transport,
         "i1".into(),
+        false,
     ));
 
     crate::persistence::with_persistent_engine(|engine| {

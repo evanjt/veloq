@@ -1,9 +1,10 @@
 /**
  * Auto-backup orchestration.
  *
- * Creates the record archive and hands it to every carrier the athlete has
- * set up. Handles scheduling (throttled to once per 24h). Nothing is deleted
- * on a carrier, so storage there is the athlete's to manage.
+ * Creates the record archive, hands it to every carrier the athlete has set
+ * up and reads each copy back before counting it as a backup. Handles
+ * scheduling (throttled to once per 24h). Nothing is deleted on a carrier, so
+ * storage there is the athlete's to manage.
  *
  * Triggers:
  * 1. After sync completion (new data arrived)
@@ -25,12 +26,18 @@ import { getEngine } from '@/shared/native/engine';
 import { platformRecordUri } from '@/shared/storage/platformRecord';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { debug } from '@/shared/debug/debug';
-import type { BackupEntry } from './backends/types';
+import type { BackupBackend, BackupEntry } from './backends/types';
 import { backupCarriers } from './backends/carriers';
 import { forgetBackupFolder } from './backends/folderBackend';
-import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
+import {
+  BackupTransferError,
+  isBackupTransferError,
+  type BackupFailureKind,
+} from './backends/errors';
 import { getWebdavConfig } from './webdavConfig';
+import { zipFingerprint, type ZipFingerprint } from './zipFingerprint';
 import { heldBackupFolder } from '@/shared/native/backupFolder';
+import { readBackCopyUri } from '@/shared/storage/cacheFiles';
 import { TIME } from '@/shared/app/time';
 
 const log = debug.create('AutoBackup');
@@ -42,7 +49,10 @@ const SETTING_RETIRED_BACKEND_ID = '__backup_backend';
 const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
 // Diagnostic state rather than a preference, so deliberately not in PREFERENCE_KEYS
 const SETTING_LAST_FAILURE = '__last_backup_failure';
-/** When each destination last took a backup, and which server or folder that was. */
+/**
+ * When each destination last took a backup, and which server or folder that
+ * was. A carrier's stamp is the time its copy read back the same as the zip.
+ */
 const SETTING_DESTINATION_STAMPS = '__last_backup_by_destination';
 /** Set once the platform zip is this library's own, or its offer was answered. */
 const SETTING_PLATFORM_RECORD_ANSWERED = '__platform_record_answered';
@@ -361,6 +371,10 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       appVersion: APP_VERSION,
     };
 
+    // Read once, and only when a carrier has taken the zip to compare against.
+    let sentFingerprint: Promise<ZipFingerprint> | null = null;
+    const sentZip = (): Promise<ZipFingerprint> => (sentFingerprint ??= zipFingerprint(recordPath));
+
     // A carrier that cannot be tried now is owed the zip, and leaves the stamp
     // unwritten. A permanent failure is shown to the athlete instead, and the
     // stamp is not written when nothing at all took the zip.
@@ -383,7 +397,9 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         continue;
       }
       try {
-        await carrier.upload(recordPath, entry);
+        const backupId = await carrier.upload(recordPath, entry);
+        if (libraryMoved()) return NOTHING_WRITTEN;
+        await verifyCarrierCopy(carrier, backupId, sentZip);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         log.warn(`Auto-backup to ${carrier.id} failed:`, msg);
@@ -414,6 +430,39 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     if (libraryMoved()) return NOTHING_WRITTEN;
     // Rethrow the original so the caller keeps the failure kind
     throw error instanceof Error ? error : new Error(msg);
+  }
+}
+
+/**
+ * Fetch the copy a carrier now holds and compare it with the zip that was sent,
+ * so a truncated or dropped write is never stamped as a backup. A copy that
+ * differs, or that cannot be fetched or read, throws `unverified`, which passes
+ * on its own and leaves the carrier owed. The fetched copy is deleted either way.
+ */
+async function verifyCarrierCopy(
+  carrier: BackupBackend,
+  backupId: string,
+  sentZip: () => Promise<ZipFingerprint>
+): Promise<void> {
+  const operation = 'Read back backup';
+  let copyUri: string | null = null;
+  try {
+    copyUri = await readBackCopyUri(`${carrier.id}-${backupId}`);
+    await carrier.download(backupId, copyUri);
+    const [held, sent] = await Promise.all([zipFingerprint(copyUri), sentZip()]);
+    if (held.sha256 !== sent.sha256 || held.size !== sent.size) {
+      throw new BackupTransferError(
+        operation,
+        'unverified',
+        `${operation} failed: the copy does not match the zip sent (${held.size} of ${sent.size} bytes)`
+      );
+    }
+  } catch (error) {
+    if (isBackupTransferError(error) && error.kind === 'unverified') throw error;
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new BackupTransferError(operation, 'unverified', `${operation} failed: ${detail}`);
+  } finally {
+    if (copyUri) await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
   }
 }
 

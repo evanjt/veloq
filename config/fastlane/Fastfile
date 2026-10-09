@@ -200,7 +200,7 @@ platform :ios do
     )
   end
 
-  desc "Submit to App Store Review"
+  desc "Submit to App Store Review (phased release over 7 days)"
   lane :release do
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
@@ -213,6 +213,7 @@ platform :ios do
       api_key: api_key,
       submit_for_review: true,
       automatic_release: true,
+      phased_release: true,
       force: true,
       run_precheck_before_submit: false,
       metadata_path: File.expand_path("metadata/ios", __dir__)

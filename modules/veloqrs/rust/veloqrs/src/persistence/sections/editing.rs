@@ -368,14 +368,27 @@ impl PersistentEngine {
         }
         // An editor deletes and re-matches the section's junction rows, so the
         // badges the old line earned belong to laps the section no longer has.
-        // Scoped to this section: the whole-table pass costs 31 to 39 ms on a
-        // 589-activity library and nothing outside this section moved.
-        if let Err(e) = self.recompute_indicators_for_section(section_id) {
-            log::warn!(
-                "veloqrs: [section edit] indicator recompute for {} failed: {}",
-                section_id,
-                e
-            );
+        self.refresh_section_badges(&[section_id]);
+    }
+
+    /// Rewrite the badges of every section a writer touched.
+    ///
+    /// `activity_indicators` has no cascade from `sections` and the feed reads
+    /// it raw, so a writer that changes a section's laps, removes it, or hides
+    /// or shows it owes this for each id whose badges moved: the section it
+    /// edited, and any section whose supersession it set or cleared. Scoped
+    /// per section: the whole-table pass costs 31 to 39 ms on a 589-activity
+    /// library, and a badge is earned inside one section.
+    pub(super) fn refresh_section_badges<S: AsRef<str>>(&self, section_ids: &[S]) {
+        for id in section_ids {
+            let id = id.as_ref();
+            if let Err(e) = self.recompute_indicators_for_section(id) {
+                log::warn!(
+                    "veloqrs: [section edit] indicator recompute for {} failed: {}",
+                    id,
+                    e
+                );
+            }
         }
     }
 
@@ -872,6 +885,7 @@ impl PersistentEngine {
         self.remove_section_from_memory(section_id);
         self.section_identity_relinquish(section_id);
         self.drop_section_pin(section_id);
+        self.refresh_section_badges(&[section_id]);
         Ok(())
     }
 
@@ -894,6 +908,7 @@ impl PersistentEngine {
         self.refresh_section_in_memory(section_id);
         self.refresh_superseded_ids();
         self.section_identity_admit(section_id);
+        self.refresh_section_badges(&[section_id]);
         Ok(())
     }
 
@@ -1401,3 +1416,7 @@ mod tests {
         assert_eq!(into["into"], "s1");
     }
 }
+
+#[cfg(test)]
+#[path = "tests/indicator_refresh.rs"]
+mod indicator_refresh;

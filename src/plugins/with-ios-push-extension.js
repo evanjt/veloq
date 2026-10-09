@@ -24,7 +24,9 @@ const {
  * `mutable-content`, which `oauth-proxy/src/pushMessages.ts` sets, and that is
  * the one wake iOS grants deterministically, a force-quit app included. The
  * extension opens the database in the App Group container, fetches and indexes
- * the ride and rewrites the notification with what Veloq found. That is the
+ * the ride, rewrites the notification with what Veloq found and rewrites the
+ * widget snapshot in the App Group, through the same `WidgetSnapshotFile` the
+ * background refresh writes with, linked into the tracked tree. That is the
  * path rather than the silent data push the JavaScript task runs on, which iOS
  * throttles and never delivers after a force-quit.
  *
@@ -46,6 +48,11 @@ function pushSwiftFiles(projectRoot) {
     .sort();
 }
 
+/**
+ * Copy the tracked tree into `ios/`. A source shared with another target is a
+ * link in the tracked tree, and is copied as the file it points at, since a
+ * relative link would resolve to nothing from `ios/`.
+ */
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -149,5 +156,6 @@ module.exports = function withIosPushExtension(config) {
 module.exports.TARGET = TARGET;
 module.exports.SOURCE_DIR = SOURCE_DIR;
 module.exports.applyPushExtensionBuildSettings = applyPushExtensionBuildSettings;
+module.exports.copyDir = copyDir;
 module.exports.configurePushExtensionProject = configurePushExtensionProject;
 module.exports.pushSwiftFiles = pushSwiftFiles;

@@ -24,6 +24,7 @@ import {
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
   adoptOwnerlessRecordings,
+  recordingFitExists,
 } from '@/features/recording/lib/storage/recordingLibrary';
 
 jest.mock('@/shared/debug/debug', () => ({
@@ -679,6 +680,140 @@ describe('legacy migration', () => {
     expect(mockStorage.has('veloq-upload-queue')).toBe(false);
     expect(mockDirStore.has('/mock/docs/pending_uploads/')).toBe(false);
     insert.mockRestore();
+  });
+});
+
+/**
+ * Scenario: an update moved the app's data container and kept its files, so
+ * every absolute path an earlier launch stored names a directory that is gone.
+ * Expected behaviour: each file is found again under the live documents
+ * directory by its name, and nothing that is still on disk is given up on.
+ */
+describe('a data container that moved', () => {
+  const OLD_DOCS = '/old-container/Documents/';
+
+  it('adopts a queued upload whose stored path names the old container', async () => {
+    mockFileStore.set('/mock/docs/pending_uploads/7.fit', 'RklU');
+    mockDirStore.add('/mock/docs/pending_uploads/');
+    mockStorage.set(
+      'veloq-upload-queue',
+      JSON.stringify([
+        {
+          id: '7-x',
+          filePath: `${OLD_DOCS}pending_uploads/7.fit`,
+          activityType: 'Ride',
+          name: 'Seven',
+          createdAt: 7,
+          retryCount: 0,
+        },
+      ])
+    );
+
+    await migrateLegacyUploadQueue();
+
+    expect(rows.has('7-x')).toBe(true);
+    expect(mockFileStore.get('/mock/docs/recordings/7-x.fit')).toBe('RklU');
+    expect(mockStorage.has('veloq-upload-queue-unadoptable')).toBe(false);
+    expect(mockStorage.has('veloq-upload-queue')).toBe(false);
+    expect((await getRecording('7-x'))!.fitPath).toBe('/mock/docs/recordings/7-x.fit');
+  });
+
+  it('keeps pending_uploads while it holds the file of an entry settled as missing', async () => {
+    const stray = '/mock/docs/pending_uploads/8.fit';
+    mockFileStore.set(stray, 'RklU');
+    mockDirStore.add('/mock/docs/pending_uploads/');
+    mockStorage.set(
+      'veloq-upload-queue',
+      JSON.stringify([
+        {
+          id: '8-x',
+          filePath: `${OLD_DOCS}pending_uploads/8.fit`,
+          activityType: 'Ride',
+          name: 'Eight',
+          createdAt: 8,
+          retryCount: 0,
+        },
+      ])
+    );
+    // Both probes during adoption miss the file, as a transient read can.
+    const probe = jest.mocked(FileSystem.getInfoAsync);
+    const real = probe.getMockImplementation()!;
+    let misses = 2;
+    probe.mockImplementation(async (path: string) => {
+      if (path.endsWith('/8.fit') && misses > 0) {
+        misses -= 1;
+        return { exists: false, isDirectory: false, uri: path };
+      }
+      return real(path);
+    });
+
+    await migrateLegacyUploadQueue();
+    probe.mockImplementation(real);
+
+    expect(mockStorage.has('veloq-upload-queue-unadoptable')).toBe(true);
+    expect(mockFileStore.get(stray)).toBe('RklU');
+    expect(mockDirStore.has('/mock/docs/pending_uploads/')).toBe(true);
+  });
+
+  it('finds the FIT of a saved recording whose stored path names the old container', async () => {
+    const entry = await saveOne();
+    const name = entry.fitPath.slice(entry.fitPath.lastIndexOf('/') + 1);
+    rows.get(entry.id)!.fitPath = `${OLD_DOCS}recordings/${name}`;
+
+    const read = (await getRecording(entry.id))!;
+
+    expect(read.fitPath).toBe(`/mock/docs/recordings/${name}`);
+    expect(await recordingFitExists(read)).toBe(true);
+  });
+
+  it('stores file names relative to the documents directory and reads them back live', async () => {
+    const entry = await saveOne();
+    const manual = await saveOne({
+      fitBuffer: undefined,
+      manualBody: { type: 'Rowing', name: 'Erg' } as never,
+    });
+
+    expect(rows.get(entry.id)!.fitPath).toBe(`recordings/${entry.id}.fit`);
+    expect(rows.get(manual.id)!.streamsPath).toBe(`recordings/${manual.id}.manual.json`);
+    expect(rows.get(manual.id)!.fitPath).toBe('');
+    expect(entry.fitPath).toBe(`/mock/docs/recordings/${entry.id}.fit`);
+    expect((await getRecording(manual.id))!.streamsPath).toBe(
+      `/mock/docs/recordings/${manual.id}.manual.json`
+    );
+    expect((await getRecording(manual.id))!.fitPath).toBe('');
+  });
+
+  it('deletes the files of a row stored under the old container', async () => {
+    const entry = await saveOne();
+    rows.get(entry.id)!.fitPath = `${OLD_DOCS}recordings/${entry.id}.fit`;
+
+    await deleteRecording(entry.id);
+
+    expect(mockFileStore.has(`/mock/docs/recordings/${entry.id}.fit`)).toBe(false);
+  });
+
+  it('stores an adopted index entry relative to the documents directory', async () => {
+    mockStorage.set(
+      'veloq-recording-library',
+      JSON.stringify([
+        {
+          id: 'ix',
+          fitPath: `${OLD_DOCS}recordings/ix.fit`,
+          activityType: 'Ride',
+          name: 'Indexed',
+          startTime: 1,
+          durationSeconds: 1,
+          distanceMeters: 1,
+          createdAt: 1,
+          uploadStatus: 'pending',
+          retryCount: 0,
+        },
+      ])
+    );
+
+    await adoptAsyncStorageIndex();
+
+    expect(rows.get('ix')!.fitPath).toBe('recordings/ix.fit');
   });
 });
 

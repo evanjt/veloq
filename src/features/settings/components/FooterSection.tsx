@@ -96,9 +96,11 @@ export function FooterSection() {
       {(debugUnlocked || debugEnabled) && (
         <View style={styles.toggleRow}>
           <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>Debug Mode</Text>
+            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+              {t('settings.debugMode')}
+            </Text>
             <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
-              Show internal diagnostics in detail pages
+              {t('settings.debugModeDescription')}
             </Text>
           </View>
           <Switch
@@ -120,10 +122,10 @@ export function FooterSection() {
         >
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
-              Developer Dashboard
+              {t('settings.developerDashboard')}
             </Text>
             <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
-              Engine stats, FFI performance, memory
+              {t('settings.developerDashboardDescription')}
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />

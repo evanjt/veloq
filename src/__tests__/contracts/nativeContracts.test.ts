@@ -31,6 +31,10 @@ import { PHASE_DISPLAY_KEYS } from '@/features/routes/lib/detectionProgress';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
 import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
 import { AVAILABLE_METRICS, HERO_METRICS } from '@/features/settings/stores/summaryCardPreferences';
+import {
+  ELEVATION_GAIN_HYSTERESIS_M,
+  ELEVATION_SMOOTHING_POINTS,
+} from '@/features/recording/lib/elevationChange';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
 import * as stub from '../__shared__/veloqrsStub';
@@ -66,6 +70,19 @@ it('uses the Rust launch activity window as the TypeScript default', () => {
   const days = source.match(/const ACTIVITY_DAYS: i64 = (\d+);/);
   expect(days).not.toBeNull();
   expect(DEFAULT_ACTIVITY_DAYS).toBe(Number(days?.[1]));
+});
+
+// A recording's climbing is counted in TypeScript as it is recorded and
+// uploaded as the activity's ascent, so it takes the engine's margin and mean.
+it('counts recorded climbing on the margin and mean the engine uses', () => {
+  const source = read('modules/veloqrs/rust/tracematch/src/geo_utils.rs');
+  const margin = source.match(/const ELEVATION_GAIN_HYSTERESIS_M: f64 = ([\d.]+);/);
+  expect(Number(margin?.[1])).toBe(ELEVATION_GAIN_HYSTERESIS_M);
+  const window = source.match(
+    /let lo = i\.saturating_sub\((\d+)\);\s*let hi = \(i \+ (\d+)\)\.min\(n - 1\);/
+  );
+  expect(window).not.toBeNull();
+  expect(Number(window?.[1]) + Number(window?.[2]) + 1).toBe(ELEVATION_SMOOTHING_POINTS);
 });
 
 // The first-use step stores the detail streams under this key, and the detail
@@ -522,6 +539,73 @@ const CONTRACTS: Contract[] = [
     b: { file: 'src/shared/native/appStorageStats.ts', has: 'mod.getAppStorageStats' },
   },
   {
+    agree: 'the Android backup module defines getAutoBackupStatus, which the device row reads',
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: 'Function("getAutoBackupStatus")',
+    },
+    b: { file: 'src/shared/native/androidAutoBackup.ts', has: 'mod.getAutoBackupStatus()' },
+  },
+  ...[
+    'backedUpAt',
+    'backedUpBytes',
+    'quotaExceededAt',
+    'quotaExceededBytes',
+    'quotaBytes',
+    'restoredAt',
+  ].map((field) => ({
+    agree: `the Auto Backup record crosses with ${field}, which the bridge reads`,
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: `"${field}" to status.${field}`,
+    },
+    b: { file: 'src/shared/native/androidAutoBackup.ts', has: `${field}: number | null;` },
+  })),
+  {
+    agree: 'the manifest names the backup agent class the backup module defines',
+    a: {
+      file: 'src/plugins/with-android-backup.js',
+      has: 'const BACKUP_AGENT = "com.veloq.backupexclusion.VeloqBackupAgent";',
+    },
+    b: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupAgent.kt',
+      has: /^package com\.veloq\.backupexclusion\s[\s\S]*class VeloqBackupAgent : BackupAgent\(\)/m,
+    },
+  },
+  {
+    agree: 'the backup rules exclude the preferences file the agent keeps its record in',
+    a: {
+      file: 'src/plugins/with-android-backup.js',
+      has: 'const AGENT_PREFERENCES = "veloq_auto_backup.xml";',
+    },
+    b: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+      has: 'const val PREFERENCES = "veloq_auto_backup"',
+    },
+  },
+  {
+    agree: 'the agent sizes the record zip the backup rules carry',
+    a: {
+      file: 'src/plugins/with-android-backup.js',
+      has: '<include domain="file" path="veloq-decisions.zip" />',
+    },
+    b: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+      has: 'const val RECORD_ZIP = "veloq-decisions.zip"',
+    },
+  },
+  {
+    agree: 'the agent leaves out of its size the credential store the backup rules exclude',
+    a: {
+      file: 'src/plugins/with-android-backup.js',
+      has: '<exclude domain="sharedpref" path="SecureStore" />',
+    },
+    b: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+      has: '"SecureStore.xml"',
+    },
+  },
+  {
     agree: 'the Android backup module is registered under the name the bridge asks for',
     a: {
       file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
@@ -559,6 +643,26 @@ const CONTRACTS: Contract[] = [
       has: `'recording.interruptedNotice.${key}'`,
     },
   })),
+  {
+    agree: 'the Live Activity module hands ActivityKit the stale date the state carries',
+    a: {
+      file: 'modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift',
+      has: /staleDate: state\.staleDate[\s\S]*staleDate: state\.staleDate/,
+      lacks: 'staleDate: nil',
+    },
+    b: {
+      file: 'widget/ios/VeloqWidget/RecordingActivityAttributes.swift',
+      has: 'var staleDate: Date?',
+    },
+  },
+  {
+    agree: 'the stale card shows the stopped line the controller translates',
+    a: { file: 'widget/ios/VeloqWidget/RecordingLiveActivity.swift', has: 'stoppedLabel' },
+    b: {
+      file: 'src/features/recording/lib/liveActivity/controller.ts',
+      has: "'recording.interruptedNotice.card'",
+    },
+  },
   {
     agree: 'autolinking finds the package that posts the interrupted-ride notice at process start',
     a: {

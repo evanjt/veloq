@@ -168,7 +168,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               try {
                 await removeSection(group.sectionId);
               } catch (error) {
-                Alert.alert(t('common.error'), String(error));
+                if (__DEV__) console.error('Failed to delete section:', error);
+                Alert.alert(t('common.error'), t('sections.deleteFailed'));
               }
             },
           },

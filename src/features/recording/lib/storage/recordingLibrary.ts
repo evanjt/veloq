@@ -11,6 +11,14 @@ import type {
 } from 'veloqrs/src/delegates/recordings';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { OWNERLESS_RECORDINGS_SETTLED_KEY } from './recordingBackup';
+import {
+  DOCUMENTS_ROOT,
+  LEGACY_UPLOADS_DIR,
+  RECORDINGS_DIR,
+  legacyUploadPath,
+  recordingFilePath,
+  storedRecordingName,
+} from './recordingFiles';
 import type {
   ActivityType,
   ManualActivityData,
@@ -21,7 +29,6 @@ import type {
 
 const log = debug.create('RecordingLibrary');
 
-const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 /**
  * The index lived under this key until it became a table. Only development
  * builds wrote it, between 2026-07-18 and 2026-09-06: the last release, 0.3.8,
@@ -30,7 +37,6 @@ const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
  */
 const LEGACY_INDEX_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
-const LEGACY_UPLOADS_DIR = `${FileSystem.documentDirectory}pending_uploads/`;
 
 // Automatic retry limit read by the failed-upload log line.
 export const MAX_AUTO_RETRIES = 5;
@@ -45,16 +51,18 @@ export const MAX_AUTO_RETRIES = 5;
 type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[number];
 
 /**
- * The app's entry as the engine row wants it. Two fields differ and both are
- * the app's looseness, not the engine's: an absent average heart rate is an
- * absent field rather than a recorded `null`, and a row adopted from the old
- * AsyncStorage index carries no reconcile or effort flag, which reads as
- * owing one.
+ * The app's entry as the engine row wants it. An absent average heart rate is
+ * an absent field rather than a recorded `null`, a row adopted from the old
+ * AsyncStorage index carries no reconcile or effort flag, which reads as owing
+ * one, and each file is stored by its name relative to the documents
+ * directory, which is what survives a move of the app's container.
  */
 function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
-  const { avgHeartrate, ...rest } = entry;
+  const { avgHeartrate, streamsPath, ...rest } = entry;
   return {
     ...rest,
+    fitPath: storedRecordingName(entry.fitPath),
+    ...(streamsPath !== undefined && { streamsPath: storedRecordingName(streamsPath) }),
     ...(avgHeartrate != null && { avgHeartrate }),
     engineReconciled: entry.engineReconciled ?? false,
     rpeSent: entry.rpeSent ?? false,
@@ -62,8 +70,11 @@ function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
 }
 
 function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
+  const { streamsPath, ...rest } = row;
   return {
-    ...row,
+    ...rest,
+    fitPath: recordingFilePath(row.fitPath),
+    ...(streamsPath != null && { streamsPath: recordingFilePath(streamsPath) }),
     activityType: row.activityType as ActivityType,
     uploadStatus: row.uploadStatus as RecordingUploadStatus,
     // The column is NOT NULL with a 'fit' default, so anything else is a row
@@ -360,10 +371,11 @@ export async function clearPermissionBlocked(athleteId: string): Promise<void> {
 
 /**
  * Start the engine's upload schedule and wake it. The engine decides when a
- * pending ride is due and uploads it itself.
+ * pending ride is due and uploads it itself, finding each file under the
+ * documents directory handed over here.
  */
 export function wakeUploadSchedule(): void {
-  library(true).wakeUploadSchedule();
+  library(true).wakeUploadSchedule(DOCUMENTS_ROOT);
 }
 
 /** Call `onChange` each time the engine moves a recording's upload. */
@@ -384,8 +396,9 @@ export function onUploadPermissionRefused(onRefused: () => void): () => void {
 // ─── Deletion after confirmation or on user request ───────────────────────────
 
 export async function deleteRecording(id: string): Promise<void> {
-  const entry = library().deleteOwnRecording(id, getStoredCredentials().athleteId ?? undefined);
-  if (!entry) return;
+  const row = library().deleteOwnRecording(id, getStoredCredentials().athleteId ?? undefined);
+  if (!row) return;
+  const entry = toLibraryEntry(row);
   for (const path of [entry.fitPath, entry.streamsPath]) {
     if (!path) continue;
     try {
@@ -523,6 +536,20 @@ interface LegacyQueueEntry {
 }
 
 /**
+ * Where a FIT the old upload queue held sits now, or null when it is nowhere.
+ * The queue stored an absolute path into the data container, which an iOS
+ * update can move, so a path that no longer resolves is looked for again by
+ * its file name in the live `pending_uploads/`.
+ */
+async function legacySource(stored: unknown): Promise<string | null> {
+  if (typeof stored !== 'string' || !stored) return null;
+  for (const path of new Set([stored, legacyUploadPath(stored)])) {
+    if ((await FileSystem.getInfoAsync(path)).exists) return path;
+  }
+  return null;
+}
+
+/**
  * One-off adoption of the old pending_uploads queue into the library. Files
  * are copied into the recordings dir before insertion; entries become 'pending' (or
  * 'permissionBlocked') with metadata reconstructed from what the queue knew.
@@ -554,16 +581,16 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
         if (engine.getRecording(old.id)) continue;
         const fitPath = `${RECORDINGS_DIR}${old.id}.fit`;
         const destination = await FileSystem.getInfoAsync(fitPath);
+        const source = await legacySource(old.filePath);
         if (!destination.exists) {
-          const source = await FileSystem.getInfoAsync(old.filePath);
           // No retry can bring the file back, so holding the queue for it
           // would repeat this pass on every engine ready for ever.
-          if (!source.exists) {
+          if (!source) {
             log.warn(`Legacy upload ${old.id} has no FIT on disk, skipping it`);
             unadoptable.push(old);
             continue;
           }
-          await FileSystem.copyAsync({ from: old.filePath, to: fitPath });
+          await FileSystem.copyAsync({ from: source, to: fitPath });
         }
 
         // The legacy queue held FIT uploads only.
@@ -587,7 +614,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           lastError: old.lastError,
         });
         library().addRecording(toEngineEntry(entry));
-        await FileSystem.deleteAsync(old.filePath, { idempotent: true });
+        if (source) await FileSystem.deleteAsync(source, { idempotent: true });
       } catch (err) {
         complete = false;
         log.warn(`Failed to migrate legacy upload ${old.id}:`, err);
@@ -598,8 +625,21 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
     if (unadoptable.length > 0) await archiveUnadoptable(LEGACY_QUEUE_KEY, unadoptable);
     await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
     try {
+      // An entry settled as missing whose file the directory does hold was
+      // missed by a probe, not lost, so the directory stays with it.
+      const strays = await Promise.all(
+        unadoptable.map(async (old) =>
+          typeof old.filePath === 'string'
+            ? (await FileSystem.getInfoAsync(legacyUploadPath(old.filePath))).exists
+            : false
+        )
+      );
       const dirInfo = await FileSystem.getInfoAsync(LEGACY_UPLOADS_DIR);
-      if (dirInfo.exists) await FileSystem.deleteAsync(LEGACY_UPLOADS_DIR, { idempotent: true });
+      if (strays.some(Boolean)) {
+        log.warn('Kept pending_uploads: it holds the FIT of an entry settled as missing');
+      } else if (dirInfo.exists) {
+        await FileSystem.deleteAsync(LEGACY_UPLOADS_DIR, { idempotent: true });
+      }
     } catch {
       // Best effort cleanup
     }

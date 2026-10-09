@@ -158,7 +158,12 @@ impl PersistentEngine {
             .restore_user_decisions(primary_id, &line, &decisions)
             .map_err(rusqlite::Error::InvalidParameterName)?;
 
-        // Clear superseded_by on any sections pointing to secondary
+        // Clear superseded_by on any sections pointing to secondary, which
+        // shows them again.
+        let freed: Vec<String> = tx
+            .prepare("SELECT id FROM sections WHERE superseded_by = ?")?
+            .query_map(rusqlite::params![secondary_id], |row| row.get(0))?
+            .collect::<SqlResult<_>>()?;
         tx.execute(
             "UPDATE sections SET superseded_by = NULL WHERE superseded_by = ?",
             rusqlite::params![secondary_id],
@@ -215,6 +220,11 @@ impl PersistentEngine {
         // carries nor debounce-dissolves a ground the DB row now owns.
         self.section_identity_relinquish(primary_id);
         self.section_identity_relinquish(secondary_id);
+
+        // The donor's chips go with it, the kept section's are earned again
+        // over the rides of both, and a section the donor hid shows its own.
+        self.refresh_section_badges(&[primary_id, secondary_id]);
+        self.refresh_section_badges(&freed);
 
         log::info!(
             "veloqrs: [merge] Merged section {} into {} ({} activities)",

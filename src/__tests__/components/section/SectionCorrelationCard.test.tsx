@@ -1,6 +1,7 @@
 /**
  * Scenario: the engine hands over one correlation per direction and wellness variable, each a
- * mover, inconclusive, too few attempts or undefined.
+ * mover, inconclusive, too few attempts or undefined, with the size of the family its direction's
+ * mover labels were adjusted across.
  * Expected behaviour: the card draws the figures the engine gave and nothing it did not. A state
  * without a coefficient shows no digit that could be read as one.
  */
@@ -43,8 +44,13 @@ function rowText(node: Parameters<typeof within>[0]): string {
   );
 }
 
-function row(direction: string, variable: string, result: unknown): FfiSectionCorrelation {
-  return { direction, variable, result: result as FfiCorrelation };
+function row(
+  direction: string,
+  variable: string,
+  result: unknown,
+  familySize = 1
+): FfiSectionCorrelation {
+  return { direction, variable, result: result as FfiCorrelation, familySize };
 }
 
 const mover = (r: number, n: number, low: number, high: number) => ({
@@ -201,6 +207,53 @@ describe('SectionCorrelationCard', () => {
     );
     expect(collapsed).toMatch(/\\"n\\":11\b/);
     expect(collapsed).toMatch(/\\"floor\\":14\b/);
+  });
+
+  it("names each direction's family size, as the engine gave it", () => {
+    const { getByTestId, queryByTestId } = render(
+      <SectionCorrelationCard
+        correlations={[
+          row('same', 'hrv', mover(0.6, 30, 0.3, 0.8), 6),
+          row('same', 'weight', inconclusive(0.01, 30, -0.4, 0.4), 6),
+          row('reverse', 'hrv', inconclusive(0.2, 20, -0.2, 0.6), 2),
+          row('reverse', 'weight', tooFew(5), 2),
+        ]}
+        floor={10}
+        isDark={false}
+      />
+    );
+    const same = JSON.stringify(getByTestId('section-correlation-family-same').props.children);
+    expect(same).toContain('sections.correlationFamily');
+    expect(same).toMatch(/\\"count\\":6\b/);
+    const reverse = JSON.stringify(
+      getByTestId('section-correlation-family-reverse').props.children
+    );
+    expect(reverse).toMatch(/\\"count\\":2\b/);
+    expect(queryByTestId('section-correlation-family-other')).toBeNull();
+  });
+
+  it('names no family for a direction with no coefficient to adjust', () => {
+    const { queryByTestId } = render(
+      <SectionCorrelationCard
+        correlations={[row('same', 'hrv', tooFew(3), 0), row('same', 'ctl', undef(5), 0)]}
+        floor={10}
+        isDark={false}
+      />
+    );
+    expect(queryByTestId('section-correlation-family-same')).toBeNull();
+  });
+
+  it('draws an inconclusive row whose own interval misses zero as no clear link', () => {
+    const { getByTestId } = render(
+      <SectionCorrelationCard
+        correlations={[row('same', 'sleep_secs', inconclusive(0.45, 20, 0.01, 0.74), 12)]}
+        floor={10}
+        isDark={false}
+      />
+    );
+    const text = rowText(getByTestId('section-correlation-row-same-sleep_secs'));
+    expect(text).toContain('sections.correlationNoClearLink');
+    expect(text).not.toContain('sections.correlationFasterWhen');
   });
 
   it('keeps the engine order within a direction', () => {

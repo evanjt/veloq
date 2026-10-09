@@ -6,10 +6,11 @@ import type { RecordingBackup } from '@/types';
 import { replaceFile } from '@/shared/native/replaceFile';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
+import { documentFile } from './recordingFiles';
 
 const log = debug.create('RecordingBackup');
 
-const BACKUP_PATH = `${FileSystem.documentDirectory}recording_backup.json`;
+const BACKUP_PATH = documentFile('recording_backup.json');
 const BACKUP_VERSION = 2;
 const OWNERLESS_PENDING_KEY = 'ownerless_recording_backup_pending_athlete';
 const OWNERLESS_SETTLED_KEY = 'ownerless_recording_backup_settled';
@@ -32,7 +33,7 @@ function queueBackupOperation<T>(path: string, operation: () => Promise<T>): Pro
 
 function backupPath(athleteId: string | null | undefined): string {
   return athleteId
-    ? `${FileSystem.documentDirectory}recording_backup_${encodeURIComponent(athleteId)}.json`
+    ? documentFile(`recording_backup_${encodeURIComponent(athleteId)}.json`)
     : BACKUP_PATH;
 }
 

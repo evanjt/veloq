@@ -1,5 +1,7 @@
 use super::error::{VeloqError, with_engine, with_reader};
-use crate::net::upload_recording::{FfiUploadOutcome, FfiUploadResult, Live, upload_ride};
+use crate::net::upload_recording::{
+    FfiUploadOutcome, FfiUploadResult, Live, set_files_root, upload_ride,
+};
 use crate::persistence::FfiRecordingEntry;
 use crate::persistence::recordings::{
     FfiUploadTransitionAnswer, UploadRefusal, UploadTransition, pooled,
@@ -17,7 +19,9 @@ fn db(err: rusqlite::Error) -> VeloqError {
 /// Every call is one transaction, so nothing here needs a promise chain around
 /// it the way the AsyncStorage index did: two writers racing is what SQLite
 /// already answers. The FIT file and a manual entry's body are TypeScript's to
-/// write, and the upload reads them from the paths the row names. Once
+/// write, and a row names each by its path relative to the app's documents
+/// directory, which the upload resolves against the directory the app hands
+/// over when it starts one. Once
 /// intervals.icu reads a landed upload back, the upload worker's sweep deletes
 /// the row and both files; a recording the athlete deletes from the library
 /// goes through `delete_own_recording`, and TypeScript deletes its files.
@@ -151,19 +155,29 @@ impl RecordingManager {
 
     /// Start the upload schedule if it is not running, and wake it. Called when
     /// the engine is ready and when the athlete grants write permission, the one
-    /// trigger that is theirs rather than the schedule's.
-    fn wake_upload_schedule(&self) {
+    /// trigger that is theirs rather than the schedule's. `files_root` is the
+    /// app's documents directory as it is now, which the rows' file names are
+    /// relative to.
+    fn wake_upload_schedule(&self, files_root: String) {
+        set_files_root(&files_root);
         crate::net::upload_schedule::start_or_wake();
     }
 
     /// Upload one recording now, the whole sequence the schedule runs for a
     /// due ride, and answer how it ended. `manual` is the athlete asking, from
     /// the review save or Upload now: a parked ride is requeued first and its
-    /// backoff does not apply.
+    /// backoff does not apply. `files_root` is the app's documents directory
+    /// as it is now, which the row's file names are relative to.
     ///
     /// The requests block, so the sequence runs on a thread of its own and
     /// this resolves when it has finished.
-    async fn upload_recording(&self, id: String, manual: bool) -> FfiUploadResult {
+    async fn upload_recording(
+        &self,
+        id: String,
+        manual: bool,
+        files_root: String,
+    ) -> FfiUploadResult {
+        set_files_root(&files_root);
         let (tx, rx) = tokio::sync::oneshot::channel();
         crate::threads::spawn_named("veloq-upload", move || {
             let now = || chrono::Utc::now().timestamp_millis();

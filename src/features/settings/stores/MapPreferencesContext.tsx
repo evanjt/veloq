@@ -5,10 +5,18 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useSyncExternalStore,
   ReactNode,
 } from 'react';
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
-import type { MapStyleType } from '@/features/maps';
+import type { MapStyleType, TerrainCamera } from '@/features/maps';
+import {
+  deleteCameraOverride,
+  getCameraOverride,
+  getCameraOverridesSnapshot,
+  setCameraOverride,
+  subscribeCameraOverrides,
+} from '@/features/maps/light';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -21,6 +29,12 @@ const VALID_TERRAIN_MODES = new Set<Terrain3DMode>(['off', 'smart', 'always']);
 export interface ActivityMapOverride {
   style?: MapStyleType;
   terrain3D?: boolean;
+}
+
+/** An activity's 3D choice and saved camera, as they stood before a capture. */
+export interface ActivityCameraState {
+  terrain3D: boolean | undefined;
+  camera: TerrainCamera | undefined;
 }
 
 export interface MapPreferences {
@@ -50,6 +64,9 @@ interface MapPreferencesContextValue {
   clearActivityOverride: (activityId: string) => Promise<void>;
   hasActivityOverride: (activityId: string) => boolean;
   getActivityOverride: (activityId: string) => ActivityMapOverride | undefined;
+  getActivityCamera: (activityId: string) => TerrainCamera | undefined;
+  captureActivityCamera: (activityId: string, camera: TerrainCamera) => void;
+  restoreActivityCamera: (activityId: string, previous: ActivityCameraState) => void;
 }
 
 type MapPreferenceActions = Pick<
@@ -61,6 +78,8 @@ type MapPreferenceActions = Pick<
   | 'setTerrain3DModeGroup'
   | 'setActivityOverride'
   | 'clearActivityOverride'
+  | 'captureActivityCamera'
+  | 'restoreActivityCamera'
 >;
 
 const DEFAULT_PREFERENCES: MapPreferences = {
@@ -407,7 +426,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [saveActivityOverrides]
   );
 
-  // Clear per-activity map override
+  // Clear per-activity map override, the saved camera with it
   const clearActivityOverride = useCallback(
     async (activityId: string) => {
       setActivityOverrides((prev) => {
@@ -420,8 +439,52 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         });
         return next;
       });
+      if (getCameraOverride(activityId)) await deleteCameraOverride(activityId);
     },
     [saveActivityOverrides]
+  );
+
+  // A saved camera is a 3D render of the activity, so the camera and the mode
+  // are written together and a capture never leaves the activity drawn flat.
+  const captureActivityCamera = useCallback(
+    (activityId: string, camera: TerrainCamera) => {
+      setActivityOverride(activityId, { terrain3D: true });
+      void setCameraOverride(activityId, camera);
+    },
+    [setActivityOverride]
+  );
+
+  // Undo of a capture: the mode and the camera go back to what they were.
+  const restoreActivityCamera = useCallback(
+    (activityId: string, previous: ActivityCameraState) => {
+      setActivityOverrides((prev) => {
+        const entry: ActivityMapOverride = { ...prev[activityId] };
+        if (previous.terrain3D === undefined) delete entry.terrain3D;
+        else entry.terrain3D = previous.terrain3D;
+        const next = { ...prev };
+        if (entry.style === undefined && entry.terrain3D === undefined) {
+          delete next[activityId];
+        } else {
+          next[activityId] = entry;
+        }
+        saveActivityOverrides(next).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist activity override:', error);
+          }
+        });
+        return next;
+      });
+      void (previous.camera
+        ? setCameraOverride(activityId, previous.camera)
+        : deleteCameraOverride(activityId));
+    },
+    [saveActivityOverrides]
+  );
+
+  const cameras = useSyncExternalStore(subscribeCameraOverrides, getCameraOverridesSnapshot);
+  const getActivityCamera = useCallback(
+    (activityId: string): TerrainCamera | undefined => cameras.get(activityId),
+    [cameras]
   );
 
   // Check if an activity has a per-activity override
@@ -465,6 +528,9 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       clearActivityOverride,
       hasActivityOverride,
       getActivityOverride,
+      getActivityCamera,
+      captureActivityCamera,
+      restoreActivityCamera,
     }),
     [
       preferences,
@@ -482,6 +548,9 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       clearActivityOverride,
       hasActivityOverride,
       getActivityOverride,
+      getActivityCamera,
+      captureActivityCamera,
+      restoreActivityCamera,
     ]
   );
 
@@ -494,6 +563,8 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       setTerrain3DModeGroup,
       setActivityOverride,
       clearActivityOverride,
+      captureActivityCamera,
+      restoreActivityCamera,
     }),
     [
       setDefaultStyle,
@@ -503,6 +574,8 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       setTerrain3DModeGroup,
       setActivityOverride,
       clearActivityOverride,
+      captureActivityCamera,
+      restoreActivityCamera,
     ]
   );
 

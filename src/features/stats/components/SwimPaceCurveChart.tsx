@@ -215,7 +215,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
-            CSS {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
+            {t('metrics.css')} {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
             {swimPaceUnitLabel(isMetric)}
           </Text>
         </View>

@@ -111,12 +111,12 @@ export function FTPTrendChart({
                 { color: isDark ? darkColors.chartFtpText : colors.chartFtpText },
               ]}
             >
-              {latestFTP}W
+              {latestFTP} {t('units.watts')}
             </Text>
             <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
               <Text style={[styles.changeText, { color: verdictColor(rung, isDark) }]}>
                 {arrow}
-                {Math.abs(ftpChange)}W
+                {Math.abs(ftpChange)} {t('units.watts')}
               </Text>
             </View>
           </View>
@@ -187,19 +187,19 @@ export function FTPTrendChart({
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
           >
-            {Math.round(maxFTP)}w
+            {Math.round(maxFTP)} {t('units.watts')}
           </Text>
           <Text
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
           >
-            {Math.round((minFTP + maxFTP) / 2)}w
+            {Math.round((minFTP + maxFTP) / 2)} {t('units.watts')}
           </Text>
           <Text
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
           >
-            {Math.round(minFTP)}w
+            {Math.round(minFTP)} {t('units.watts')}
           </Text>
         </View>
       </View>

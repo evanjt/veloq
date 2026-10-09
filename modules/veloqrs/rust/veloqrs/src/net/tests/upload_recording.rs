@@ -20,6 +20,8 @@ struct Fake {
     answers: Mutex<Vec<FfiCallOutcome>>,
     rpe_answer: FfiCallKind,
     sent: Mutex<Vec<String>>,
+    /// The FIT path each file send was handed.
+    sent_paths: Mutex<Vec<String>>,
     manual_bodies: Mutex<Vec<ManualActivityBody>>,
     rpe: Mutex<Vec<(String, u32)>>,
     during_send: Option<Box<dyn Fn() + Send + Sync>>,
@@ -38,6 +40,7 @@ impl Fake {
             answers: Mutex::new(answers.into_iter().rev().collect()),
             rpe_answer: FfiCallKind::Ok,
             sent: Mutex::new(Vec::new()),
+            sent_paths: Mutex::new(Vec::new()),
             manual_bodies: Mutex::new(Vec::new()),
             rpe: Mutex::new(Vec::new()),
             during_send: None,
@@ -86,6 +89,7 @@ impl Uplink for Fake {
     }
 
     fn send_file(&self, ride: &FfiRecordingEntry) -> FfiCallOutcome {
+        self.sent_paths.lock().unwrap().push(ride.fit_path.clone());
         self.answer(ride)
     }
 
@@ -1076,4 +1080,125 @@ fn the_schedule_confirms_and_deletes_what_its_drain_uploaded() {
     assert_eq!(fake.sent(), vec!["r1"]);
     assert!(!exists("r1"));
     assert!(!fit_on_disk(&entry));
+}
+
+/// The documents directory of an install whose container an update moved: a
+/// `recordings/` directory under a temporary root, handed over as the app
+/// hands it, with its scheme.
+fn moved_container(dir: &TempDir) -> std::path::PathBuf {
+    let recordings = dir.path().join("docs").join("recordings");
+    std::fs::create_dir_all(&recordings).unwrap();
+    set_files_root(&format!("file://{}/docs/", dir.path().display()));
+    recordings
+}
+
+/// Scenario: a ride stored by its name under the documents directory, and one
+/// stored by an absolute path into a container an update has since moved.
+/// Expected behaviour: both files are found under the live documents directory
+/// and sent from there, and neither ride is parked as missing.
+#[test]
+fn a_ride_is_sent_from_the_live_documents_directory_whatever_its_row_stored() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_files_root.db");
+    let recordings = moved_container(&dir);
+    for id in ["named", "moved"] {
+        std::fs::write(recordings.join(format!("{id}.fit")), b"fit").unwrap();
+    }
+    let mut named = ride(&dir, "named", 1_000);
+    named.fit_path = "recordings/named.fit".into();
+    let mut moved = ride(&dir, "moved", 2_000);
+    moved.fit_path = "file:///old-container/Documents/recordings/moved.fit".into();
+    insert(&named);
+    insert(&moved);
+    let fake = Fake::answering(vec![landed("i1"), landed("i2")]);
+
+    drain(&fake, &now);
+    set_files_root("");
+
+    assert_eq!(fake.sent(), vec!["named", "moved"]);
+    let sent = fake.sent_paths.lock().unwrap().clone();
+    assert_eq!(
+        sent.iter()
+            .map(|p| std::path::PathBuf::from(crate::net::transport::strip_file_scheme(p)))
+            .collect::<Vec<_>>(),
+        vec![recordings.join("named.fit"), recordings.join("moved.fit")]
+    );
+    assert_eq!(row("named").upload_status, "uploaded");
+    assert_eq!(row("moved").upload_status, "uploaded");
+}
+
+/// Scenario: a manual entry whose body is stored by its name.
+/// Expected behaviour: the body is read from the live documents directory.
+#[test]
+fn a_manual_body_stored_by_name_is_read_from_the_live_documents_directory() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_files_root_manual.db");
+    let recordings = moved_container(&dir);
+    std::fs::write(
+        recordings.join("m1.manual.json"),
+        r#"{"type":"Rowing","name":"Erg","start_date_local":"2026-01-02T07:00:00",
+            "elapsed_time":1800}"#,
+    )
+    .unwrap();
+    let mut entry = ride(&dir, "m1", 1_000);
+    entry.kind = "manual".into();
+    entry.fit_path = String::new();
+    entry.streams_path = Some("recordings/m1.manual.json".into());
+    insert(&entry);
+    let fake = Fake::answering(vec![landed("i9")]);
+
+    let result = upload_ride("m1", false, &fake, &now);
+    set_files_root("");
+
+    assert_eq!(result.outcome, FfiUploadOutcome::Uploaded);
+    assert_eq!(fake.manual_bodies.lock().unwrap().len(), 1);
+}
+
+/// Scenario: a ride stored by its name is due before the app has said where
+/// its documents directory is.
+/// Expected behaviour: nothing is sent and the ride is not parked as missing,
+/// since its file may well be there.
+#[test]
+fn a_ride_stored_by_name_waits_for_the_documents_directory() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_files_root_unset.db");
+    set_files_root("");
+    let mut named = ride(&dir, "named", 1_000);
+    named.fit_path = "recordings/named.fit".into();
+    insert(&named);
+    let fake = Fake::answering(vec![]);
+
+    let result = upload_ride("named", false, &fake, &now);
+
+    assert_eq!(result.outcome, FfiUploadOutcome::NotStarted);
+    assert!(fake.sent().is_empty());
+    assert_eq!(row("named").upload_status, "pending");
+    assert_eq!(row("named").last_error, None);
+}
+
+/// Scenario: a landed ride stored by its names reads back present.
+/// Expected behaviour: its files under the live documents directory go with
+/// the row.
+#[test]
+fn a_confirmed_ride_stored_by_name_is_deleted_with_its_files() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_files_root.db");
+    let recordings = moved_container(&dir);
+    std::fs::write(recordings.join("r1.fit"), b"fit").unwrap();
+    std::fs::write(recordings.join("r1.manual.json"), "{}").unwrap();
+    let mut entry = landed_ride(&dir, "r1", "i9");
+    entry.fit_path = "recordings/r1.fit".into();
+    entry.streams_path = Some("file:///old-container/Documents/recordings/r1.manual.json".into());
+    insert(&entry);
+    let fake = Fake::answering(vec![]).reads("i9", present());
+
+    sweep(&fake, &now);
+    set_files_root("");
+
+    assert!(!exists("r1"), "the row is gone");
+    assert!(!recordings.join("r1.fit").exists(), "the FIT is gone");
+    assert!(
+        !recordings.join("r1.manual.json").exists(),
+        "the body is gone"
+    );
 }

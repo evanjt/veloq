@@ -5,7 +5,7 @@
  * every phase it enters, so a mounted row at rest arms its follow on an
  * announced `fetching` or `awaiting_consent`. A live pass is polled and only a
  * live pass is; the poll disarms itself when the pass ends. The row starts one
- * only after a stop. At rest the answer comes from the routes status read's
+ * after a stop, or while the engine waits on consent or on other work. At rest the answer comes from the routes status read's
  * `streamRemaining`, a count of activities with no stored series, which is
  * durable and survives the process the phase does not.
  */
@@ -22,18 +22,11 @@ import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStat
 /** The channel `EngineObserver.stream_backfill_phase` lands on. */
 const PHASE_CHANNEL = 'streamBackfillPhase';
 
-const PHASES: StreamBackfillPhase[] = [
-  'idle',
-  'fetching',
-  'complete',
-  'partial',
-  'stopped',
-  'failed',
-  'awaiting_consent',
-];
-
 export interface StreamBackfillState {
-  /** idle, fetching, or one of the four terminal states. */
+  /**
+   * idle, fetching, one of the four terminal states, or the automatic start
+   * waiting on the athlete's consent or on other work.
+   */
   phase: StreamBackfillPhase;
   /** Activities the current or last pass has finished with. */
   completed: number;
@@ -74,11 +67,6 @@ const IDLE: StreamBackfillState = {
   estimateMegabytes: 0,
 };
 
-/** An unrecognised phase reads as idle rather than as a finished pass. */
-function narrowPhase(phase: string): StreamBackfillPhase {
-  return PHASES.includes(phase as StreamBackfillPhase) ? (phase as StreamBackfillPhase) : 'idle';
-}
-
 /**
  * The state one status read carries. The count comes with the progress rather
  * than from a second call: Rust withholds it while a pass is running, where
@@ -87,7 +75,8 @@ function narrowPhase(phase: string): StreamBackfillPhase {
  */
 function stateOf(status: RoutesStatus | null): StreamBackfillState {
   if (!status) return IDLE;
-  const phase = narrowPhase(status.stream.phase);
+  // The status read narrows the phase already, an unrecognised one to idle.
+  const phase = status.stream.phase;
   return {
     phase,
     completed: status.stream.completed,

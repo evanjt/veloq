@@ -216,7 +216,7 @@ export const webdavBackend: BackupBackend = {
     return entries;
   },
 
-  async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
+  async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string> {
     const config = requireConfig();
 
     const headers = authHeaders(config.username, config.password);
@@ -253,6 +253,7 @@ export const webdavBackend: BackupBackend = {
     if (!metaRes.ok) {
       throw transferFailure('Upload backup metadata', metaRes.status);
     }
+    return filename;
   },
 
   async download(backupId: string, destPath: string): Promise<void> {

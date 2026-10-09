@@ -4,6 +4,10 @@ import {
   contentStateBytes,
   fitContentState,
 } from '@/features/recording/lib/liveActivity/contentState';
+import {
+  LIVE_ACTIVITY_REFRESH_MS,
+  LIVE_ACTIVITY_STALE_MS,
+} from '@/features/recording/lib/constants';
 import type { RecordingGpsPoint } from '@/features/recording/types';
 
 function track(count: number): RecordingGpsPoint[] {
@@ -31,7 +35,6 @@ describe('buildContentState', () => {
     const state = buildContentState({ ...base, status: 'recording', movingMs: 510_000 });
 
     expect(state.status).toBe('recording');
-    expect(state.frozenElapsedS).toBeNull();
     // 600 s wall clock less 90 s paused is 510 s of moving time.
     expect(base.now - state.timerFrom).toBe(510_000);
   });
@@ -41,6 +44,27 @@ describe('buildContentState', () => {
 
     expect(state.status).toBe('paused');
     expect(state.frozenElapsedS).toBe(540);
+  });
+
+  it('goes stale a stale window after it was built, so a dead process stops the card', () => {
+    const recording = buildContentState({ ...base, status: 'recording' });
+    const paused = buildContentState({ ...base, status: 'paused' });
+
+    expect(recording.staleAt).toBe(base.now + LIVE_ACTIVITY_STALE_MS);
+    expect(paused.staleAt).toBe(base.now + LIVE_ACTIVITY_STALE_MS);
+  });
+
+  it('keeps a live ride fresh through many missed refreshes', () => {
+    // A background tick can slip behind a busy JS thread or a GPS gap. A live
+    // ride must survive several of those in a row before the card calls it
+    // stopped, or the rider is told to open an app that is still recording.
+    expect(LIVE_ACTIVITY_STALE_MS).toBeGreaterThanOrEqual(LIVE_ACTIVITY_REFRESH_MS * 20);
+  });
+
+  it('carries the moving seconds at the push, which a stale card freezes on', () => {
+    const state = buildContentState({ ...base, status: 'recording', movingMs: 510_400 });
+
+    expect(state.frozenElapsedS).toBe(510);
   });
 
   it('normalises the trace into the unit box and keeps both ends', () => {

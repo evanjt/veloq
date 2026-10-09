@@ -19,7 +19,6 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/maps', () => ({
-  getCameraOverride: () => undefined,
   resolveTerrain3D: () => ({ show3D: false }),
 }));
 
@@ -27,6 +26,7 @@ jest.mock('@/features/settings', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'auto',
+    getActivityCamera: () => undefined,
     setActivityOverride: jest.fn(),
     clearActivityOverride: jest.fn(),
     hasActivityOverride: () => false,

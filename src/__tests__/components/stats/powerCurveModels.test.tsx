@@ -51,10 +51,18 @@ describe('the fitted critical-power models under the power curve', () => {
   it('names every fit with its critical power and W prime', () => {
     render(<PowerCurveChart ftp={300} />);
 
-    expect(screen.getByTestId('power-curve-model-MS_2P')).toHaveTextContent('2P 119w 12.8kJ');
-    expect(screen.getByTestId('power-curve-model-MORTON_3P')).toHaveTextContent('3P 110w 19.7kJ');
-    expect(screen.getByTestId('power-curve-model-FFT_CURVES')).toHaveTextContent('FFT 137w 9.7kJ');
-    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent('ECP 137w 10.4kJ');
+    expect(screen.getByTestId('power-curve-model-MS_2P')).toHaveTextContent(
+      '2P 119 units.watts 12.8kJ'
+    );
+    expect(screen.getByTestId('power-curve-model-MORTON_3P')).toHaveTextContent(
+      '3P 110 units.watts 19.7kJ'
+    );
+    expect(screen.getByTestId('power-curve-model-FFT_CURVES')).toHaveTextContent(
+      'FFT 137 units.watts 9.7kJ'
+    );
+    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent(
+      'ECP 137 units.watts 10.4kJ'
+    );
   });
 
   it('prints a fit the server names but this build does not know, unabbreviated', () => {
@@ -64,7 +72,9 @@ describe('the fitted critical-power models under the power curve', () => {
     };
     render(<PowerCurveChart ftp={300} />);
 
-    expect(screen.getByTestId('power-curve-model-OMNI_4P')).toHaveTextContent('OMNI_4P 150w 11kJ');
+    expect(screen.getByTestId('power-curve-model-OMNI_4P')).toHaveTextContent(
+      'OMNI_4P 150 units.watts 11kJ'
+    );
   });
 
   it('draws no footer for a body carrying no models', () => {
@@ -86,6 +96,8 @@ describe('the fitted critical-power models under the power curve', () => {
 
     fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
 
-    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent('ECP 137w 10.4kJ');
+    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent(
+      'ECP 137 units.watts 10.4kJ'
+    );
   });
 });

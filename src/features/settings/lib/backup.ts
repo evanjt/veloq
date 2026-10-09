@@ -180,7 +180,7 @@ function requestRecordActivities(
 ): void {
   if (restored.missingActivityIds.length === 0) return;
   try {
-    engine.syncNow();
+    engine.syncNow(false);
   } catch (error) {
     log.warn('Record source fetch left for the next sync:', error);
   }

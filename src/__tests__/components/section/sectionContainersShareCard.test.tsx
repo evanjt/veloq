@@ -149,7 +149,12 @@ describe('the containers below the section chart', () => {
         <SectionCorrelationCard
           correlations={
             [
-              { direction: 'same', variable: 'sleep', result: { tag: 'TooFew', inner: { n: 2 } } },
+              {
+                direction: 'same',
+                variable: 'sleep',
+                result: { tag: 'TooFew', inner: { n: 2 } },
+                familySize: 0,
+              },
             ] as never
           }
           floor={5}

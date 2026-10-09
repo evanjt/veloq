@@ -835,6 +835,12 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { files: ['file:///cache/restores/restore-temp.zip'] },
   },
   {
+    where: 'cache/read-backs/, the copy a backup run fetches back from a carrier to compare',
+    writers: ['src/shared/storage/cacheFiles.ts'],
+    holds: 'a record zip, which a kill part way through the comparison leaves behind',
+    wiped: { files: ['file:///cache/read-backs/webdav-veloq-2026-09-30T08-00-00-000Z.zip'] },
+  },
+  {
     where:
       'Documents/veloq-held-import.veloq or .zip, a backup picked or downloaded while signed out',
     writers: ['src/features/settings/lib/heldImport.ts'],
@@ -955,7 +961,10 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     where:
       'Documents/recordings/, the legacy pending_uploads/, and the AsyncStorage <legacy key>-unadoptable archives of legacy entries no retry can adopt',
-    writers: ['src/features/recording/lib/storage/recordingLibrary.ts'],
+    writers: [
+      'src/features/recording/lib/storage/recordingLibrary.ts',
+      'src/features/recording/lib/storage/recordingFiles.ts',
+    ],
     holds: 'rides recorded on this device',
     kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's",
   },
@@ -1292,6 +1301,15 @@ const DEVICE_WRITES: DeviceWrite[] = [
     ],
     holds: 'a file attribute',
     kept: 'no data',
+  },
+  {
+    where: "the backup agent's record, the veloq_auto_backup preferences file on Android",
+    writers: [
+      'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+    ],
+    holds:
+      'when Android last backed the app up and its size, the last quota overrun, the last restore',
+    kept: "what the phone's own backup did, times and byte counts, no athlete data",
   },
   {
     where: 'the wipe and backup sweep, which name the roots they delete from',

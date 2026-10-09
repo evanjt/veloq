@@ -404,7 +404,12 @@ describe('route page below the chart', () => {
         sectionDistance: 3000,
       },
       correlations: [
-        { direction: 'same', variable: 'sleep', result: { tag: 'TooFew', inner: { n: 2 } } },
+        {
+          direction: 'same',
+          variable: 'sleep',
+          result: { tag: 'TooFew', inner: { n: 2 } },
+          familySize: 0,
+        },
       ],
       correlationFloor: 8,
     };

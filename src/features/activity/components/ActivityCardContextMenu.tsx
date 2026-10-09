@@ -6,7 +6,7 @@ import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings';
-import { getCameraOverride, type MapStyleType, resolveTerrain3D } from '@/features/maps';
+import { type MapStyleType, resolveTerrain3D, type TerrainCamera } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import {
@@ -59,10 +59,12 @@ const MAP_STYLES: {
 function Terrain3DSwitch({
   activity,
   mode,
+  savedCamera,
   onValueChange,
 }: {
   activity: Activity;
   mode: ReturnType<ReturnType<typeof useMapPreferences>['getTerrain3DMode']>;
+  savedCamera: TerrainCamera | null;
   onValueChange: (value: boolean) => void;
 }) {
   const { coordinates, altitude } = useMapPreviewCoordinates(
@@ -81,9 +83,9 @@ function Terrain3DSwitch({
         altitude,
         gain: activity.total_elevation_gain,
         distance: activity.distance,
-        override: getCameraOverride(activity.id) ?? null,
+        override: savedCamera,
       }).show3D,
-    [mode, lngLatCoords, altitude, activity.total_elevation_gain, activity.distance, activity.id]
+    [mode, lngLatCoords, altitude, activity.total_elevation_gain, activity.distance, savedCamera]
   );
   return <Switch value={is3DOn} onValueChange={onValueChange} color={brand.teal} />;
 }
@@ -101,6 +103,7 @@ export function ActivityCardContextMenu({
     setActivityOverride,
     clearActivityOverride,
     hasActivityOverride,
+    getActivityCamera,
   } = useMapPreferences();
 
   const currentStyle = getStyleForActivity(activity.type, activity.id);
@@ -238,6 +241,7 @@ export function ActivityCardContextMenu({
             <Terrain3DSwitch
               activity={activity}
               mode={currentTerrain}
+              savedCamera={getActivityCamera(activity.id) ?? null}
               onValueChange={handleToggle3D}
             />
           </View>

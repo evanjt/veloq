@@ -316,7 +316,12 @@
     "backupFailedServer": "服务器没有响应，稍后会重试。",
     "backupFailedTransport": "无法连接到服务器，稍后会重试。",
     "backupFailedFolder": "Veloq 无法再访问备份文件夹。请重新选择该文件夹。",
+    "backupFailedUnverified": "已写入备份，但无法读回进行核对。稍后会重试。",
     "lastAttemptFailed": "上次尝试于 {{date}} 失败",
+    "androidLastBackup": "Android 上次备份：{{date}}，{{size}}",
+    "androidBackupNever": "Android 尚未备份 Veloq",
+    "androidQuotaExceeded": "Android 跳过了 {{date}} 的备份：{{size}} 超出 {{quota}} 的上限",
+    "androidRestored": "已于 {{date}} 从 Android 备份恢复",
     "notEncryptedWarning": "备份未加密。任何打开该文件的人都能读取你的设置、路线和路段的名称、这些路段在地图上的位置，以及为导出隐私设置的家庭位置。",
     "scanNextcloudQr": "扫描 Nextcloud 应用密码",
     "nextcloudQrHint": "Nextcloud → 设置 → 安全 → 创建新应用密码 → 扫描二维码",
@@ -507,7 +512,6 @@
     "unableToLoad": "无法加载{{componentName}}",
     "closeAndReopen": "关闭并重新打开应用以继续。",
     "restartHint": "请重试或重启应用",
-    "unableToDisplay": "无法显示{{label}}",
     "unableToDisplayChart": "无法显示图表",
     "tapToRetry": "点按重试"
   },
@@ -678,8 +682,8 @@
     "weeklyVolumeDown": "{{percent}}% 本周减少",
     "weeklyLoadUp": "+{{percent}}% 训练负荷",
     "weeklyLoadDown": "{{percent}}% 负荷减少",
-    "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
-    "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
+    "loadBody": "TSS: 本周至今 {{currentTss}} vs 上周同期 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
+    "volumeBody": "训练时长: 本周至今 {{current}} vs 上周同期 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
     "howCalculated": "这是如何计算的？",
     "current": "当前",
     "previous": "上一个",
@@ -706,7 +710,7 @@
       "route": "统计某条路线在同一运动和方向上有计时、未被排除、非部分且在路线距离范围内的尝试。纪录是其中最快的一次，且为近期所创。趋势将最近三次的中位数与之前三次比较，至少需要六次尝试。"
     },
     "data": {
-      "activitiesLastWeek": "上周活动",
+      "activitiesLastWeek": "上周同期活动",
       "activitiesThisWeek": "本周活动",
       "bestTime": "最佳时间",
       "change": "变化",
@@ -727,6 +731,7 @@
       "previousFtp": "30 天前的骑行 eFTP",
       "previousPace": "之前配速",
       "recentEfforts": "近期成绩",
+      "samePointLastWeek": "上周同期",
       "sevenDayAvg": "7 日平均",
       "thisWeek": "本周",
       "trendSlope": "趋势斜率",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "最近的个人纪录",
     "caption": {
       "latestAgainstMean": "最新 {{latest}} ms，平均 {{avg}} ms",
-      "thisWeekAgainstLast": "本周 {{current}}，上周 {{previous}}",
+      "thisWeekAgainstLast": "本周 {{current}}，上周同期 {{previous}}",
       "lastWeekAgainstAverage": "上周 {{current}}，4周平均 {{previous}}",
       "fromTo": "从 {{previous}} 到 {{current}}"
     },
@@ -1039,7 +1044,8 @@
     "pace": "配速",
     "rhr": "静息心率",
     "week": "周",
-    "weight": "体重"
+    "weight": "体重",
+    "cs": "临界速度"
   },
   "navigation": {
     "activities": "活动",
@@ -1302,6 +1308,7 @@
     "fieldModeIndoor": "室内",
     "interruptedNotice": {
       "body": "系统在你的活动期间关闭了 Veloq，录制因此停止。轻点以恢复。",
+      "card": "录制已停止。打开 Veloq 以恢复。",
       "channel": "已中断的录制",
       "title": "录制已停止"
     }
@@ -1380,7 +1387,10 @@
     "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
     "largeSectionPerformanceWarning": "较长的路段可能需要更长时间处理。",
     "resetReference": "重置参考路线",
-    "resetReferenceConfirm": "恢复自动选择参考路线？将重新计算此路线的匹配百分比。"
+    "resetReferenceConfirm": "恢复自动选择参考路线？将重新计算此路线的匹配百分比。",
+    "prTime": "个人最佳 {{time}}",
+    "errorDetailId": "ID：{{id}}",
+    "errorDetailRange": "范围：{{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "正在计算路线...",
@@ -1450,6 +1460,8 @@
     "aerobicEfficiencyCaption": "单位配速的心率，从最早一次到最新一次",
     "correlationTitle": "身体状态与速度",
     "correlationMethod": "该路段速度与当日身体状态数值的皮尔逊r，95%区间，至少10次带有数值的骑行",
+    "correlationFamily_one": "按{{count}}个变量进行霍尔姆校正",
+    "correlationFamily_other": "按{{count}}个变量进行霍尔姆校正",
     "correlationDirectionSame": "同方向",
     "correlationDirectionReverse": "反方向",
     "correlationFigures": "r {{r}}，n {{n}}，{{low}}至{{high}}",
@@ -1567,7 +1579,8 @@
     "renameFailedMessage": "未能保存路段名称，请重试。",
     "nameTaken": "已有其他路段使用此名称，请选择其他名称。",
     "undoExcludeLap": "撤销 第{{n}}圈",
-    "excludeLapNumber": "排除 第{{n}}圈"
+    "excludeLapNumber": "排除 第{{n}}圈",
+    "deleteFailed": "无法删除路段。"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -1837,7 +1850,10 @@
     "athleteFallback": "运动员",
     "storageUsedAndFree": "Veloq 已用 {{used}}，可用 {{free}}",
     "sectionsDetectedCount_one": "已检测到 {{count}} 个路段",
-    "sectionsDetectedCount_other": "已检测到 {{count}} 个路段"
+    "sectionsDetectedCount_other": "已检测到 {{count}} 个路段",
+    "debugMode": "调试模式",
+    "debugModeDescription": "在详情页显示内部诊断信息",
+    "developerDashboardDescription": "引擎统计、FFI 性能、内存"
   },
   "stats": {
     "activities": "活动",
@@ -1953,7 +1969,12 @@
     "watts": "瓦",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}}天",
+    "times": "{{value}}次",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "秒"
   },
   "wellness": {
     "dragToExplore": "拖动探索",
@@ -1966,7 +1987,6 @@
     "smoothingAuto": "自动",
     "smoothingAverage_one": "{{count}}天平均",
     "smoothingAverage_other": "{{count}}天平均",
-    "smoothingDaysShort": "{{days}}天",
     "smoothingDescription": "应用移动平均来减少每日噪声并更清晰地显示趋势。",
     "smoothingHint": "自动为所选时间范围使用最佳平滑",
     "smoothingNone": "无",
@@ -2374,5 +2394,14 @@
       "startSport": "在{{app}}开始{{sport}}",
       "recordSport": "在{{app}}记录{{sport}}"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq使用您的位置来显示活动地图、跟踪路线和记录运动活动。",
+    "locationBackground": "Veloq在后台使用您的位置，以便在应用不在前台时继续记录运动活动。",
+    "bluetooth": "Veloq在记录期间使用蓝牙连接心率、功率和踏频传感器。",
+    "camera": "Veloq使用相机扫描Nextcloud应用密码的二维码。",
+    "microphone": "Veloq不会录制声音。相机仅用于扫描二维码。",
+    "faceId": "Veloq不使用面容ID。",
+    "motion": "Veloq不读取运动数据。"
   }
 }

@@ -2,15 +2,15 @@
  * Scenario: a trim handle is dragged across a long recording, and every frame
  * asks for the elevation gain and the averages of the window under it.
  *
- * Expected behaviour: the constant-time answer is the same one a full walk of
- * the slice gives, dropouts and all.
+ * Expected behaviour: the window's answer is the one the slice gives on its
+ * own, dropouts and all, with nothing carried in from before the window.
  */
 import {
   buildStreamPrefixes,
   windowAverage,
   windowGain,
 } from '@/features/recording/lib/streamPrefixes';
-import { elevationGain } from '@/shared/math';
+import { elevationOver } from '@/features/recording/lib/elevationChange';
 
 const walkAverage = (values: number[]): number | null => {
   const kept = values.filter((v) => v > 0);
@@ -38,7 +38,7 @@ describe('windowGain', () => {
     for (let start = 0; start < altitude.length; start += 1) {
       for (let end = start; end < altitude.length; end += 1) {
         expect(windowGain(prefixes, start, end)).toBeCloseTo(
-          elevationGain(altitude.slice(start, end + 1)),
+          elevationOver(altitude.slice(start, end + 1)).gain,
           9
         );
       }
@@ -53,7 +53,7 @@ describe('windowGain', () => {
     for (let start = 0; start < altitude.length; start += 1) {
       for (let end = start; end < altitude.length; end += 1) {
         expect(windowGain(prefixes, start, end)).toBeCloseTo(
-          elevationGain(altitude.slice(start, end + 1)),
+          elevationOver(altitude.slice(start, end + 1)).gain,
           9
         );
       }
@@ -61,9 +61,10 @@ describe('windowGain', () => {
   });
 
   it('does not credit a window with a climb that happened before it', () => {
-    const prefixes = buildStreamPrefixes(streams([100, 200, 201]));
+    const prefixes = buildStreamPrefixes(streams([100, 200, 204, 208]));
 
-    expect(windowGain(prefixes, 1, 2)).toBe(1);
+    expect(windowGain(prefixes, 0, 3)).toBe(54);
+    expect(windowGain(prefixes, 1, 3)).toBe(4);
   });
 
   it('answers nothing for a window with no points', () => {

@@ -52,7 +52,7 @@ function withComparisons(input: InsightInputData): InsightInputData {
     const cur = metric === 'tss' ? current.totalTss : current.totalDuration;
     const prev = metric === 'tss' ? previous.totalTss : previous.totalDuration;
     if (prev <= 0 || cur <= 0) return null;
-    return { metric, current: cur, previous: prev, ratio: cur / prev - 1 };
+    return { metric, current: cur, previous: prev, ratio: cur / prev - 1, comparedStart: 0 };
   };
   const { currentPeriod, previousPeriod, chronicPeriod } = input;
   return {
@@ -348,7 +348,13 @@ describe('generateInsights', () => {
           ...EMPTY_INPUT,
           currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
           previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
-          weekOverWeek: { metric: 'tss', current: 320, previous: 200, ratio: 0.6 },
+          weekOverWeek: {
+            metric: 'tss',
+            current: 320,
+            previous: 200,
+            ratio: 0.6,
+            comparedStart: 0,
+          },
           weekAgainstChronic: null,
         },
         mockT
@@ -364,7 +370,13 @@ describe('generateInsights', () => {
           ...EMPTY_INPUT,
           currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 60000, totalTss: 449 },
           previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 90000, totalTss: 632 },
-          weekOverWeek: { metric: 'tss', current: 449, previous: 632, ratio: -0.29 },
+          weekOverWeek: {
+            metric: 'tss',
+            current: 449,
+            previous: 632,
+            ratio: -0.29,
+            comparedStart: 0,
+          },
           weekAgainstChronic: null,
         },
         mockT
@@ -381,7 +393,13 @@ describe('generateInsights', () => {
           previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 144 },
           chronicPeriod: { count: 3, totalDuration: 4000, totalDistance: 60000, totalTss: 200 },
           weekOverWeek: null,
-          weekAgainstChronic: { metric: 'tss', current: 144, previous: 200, ratio: -0.28 },
+          weekAgainstChronic: {
+            metric: 'tss',
+            current: 144,
+            previous: 200,
+            ratio: -0.28,
+            comparedStart: 0,
+          },
         },
         mockT
       );
@@ -411,7 +429,13 @@ describe('generateInsights', () => {
           previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
           chronicPeriod: { count: 3, totalDuration: 4000, totalDistance: 60000, totalTss: 160 },
           weekOverWeek: null,
-          weekAgainstChronic: { metric: 'tss', current: 200, previous: 100, ratio: 1 },
+          weekAgainstChronic: {
+            metric: 'tss',
+            current: 200,
+            previous: 100,
+            ratio: 1,
+            comparedStart: 0,
+          },
         },
         mockT
       );

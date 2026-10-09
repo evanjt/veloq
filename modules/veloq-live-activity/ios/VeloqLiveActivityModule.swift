@@ -53,7 +53,7 @@ public final class VeloqLiveActivityModule: Module {
       }
       return try? Activity.request(
         attributes: attributes,
-        content: ActivityContent(state: state, staleDate: nil)
+        content: ActivityContent(state: state, staleDate: state.staleDate)
       ).id
     }
 
@@ -66,7 +66,7 @@ public final class VeloqLiveActivityModule: Module {
       }
       Task {
         for activity in Activity<VeloqRecordingAttributes>.activities {
-          await activity.update(ActivityContent(state: state, staleDate: nil))
+          await activity.update(ActivityContent(state: state, staleDate: state.staleDate))
         }
       }
     }

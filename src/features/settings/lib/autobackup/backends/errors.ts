@@ -5,7 +5,9 @@
  * Wrong credentials or a full remote directory need the user to act, so they
  * are worth putting on the settings screen. A 5xx or a dropped connection is
  * not, because the next scheduled attempt will most likely succeed and a
- * standing "your backup is broken" would be a lie.
+ * standing "your backup is broken" would be a lie. Neither is a copy the
+ * carrier took that did not read back the same, `unverified`, which the next
+ * trigger sends again.
  */
 
 export type BackupFailureKind =
@@ -14,7 +16,8 @@ export type BackupFailureKind =
   | 'path'
   | 'server'
   | 'transport'
-  | 'folder_unavailable';
+  | 'folder_unavailable'
+  | 'unverified';
 
 const PERMANENT_KINDS: readonly BackupFailureKind[] = [
   'auth',
@@ -82,7 +85,8 @@ export type BackupFailureMessageKey =
   | 'backup.backupFailedPath'
   | 'backup.backupFailedServer'
   | 'backup.backupFailedTransport'
-  | 'backup.backupFailedFolder';
+  | 'backup.backupFailedFolder'
+  | 'backup.backupFailedUnverified';
 
 const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   auth: 'backup.backupFailedAuth',
@@ -91,6 +95,7 @@ const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   server: 'backup.backupFailedServer',
   transport: 'backup.backupFailedTransport',
   folder_unavailable: 'backup.backupFailedFolder',
+  unverified: 'backup.backupFailedUnverified',
 };
 
 /** Translation key describing a failure in terms of what the user can do about it. */

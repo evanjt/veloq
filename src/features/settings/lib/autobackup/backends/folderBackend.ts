@@ -146,12 +146,12 @@ export const folderBackend: BackupBackend = {
     return entries;
   },
 
-  async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
+  async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string> {
     const operation = 'Copy backup';
     const name = folderBackupName(metadata.timestamp);
     if (Platform.OS === 'ios') {
       onIos(operation, () => writeToBookmarkedFolder(localPath, name));
-      return;
+      return name;
     }
     const dir = reachableTree(operation);
     // Read first, so a zip that cannot be read leaves no empty file behind.
@@ -168,6 +168,7 @@ export const folderBackend: BackupBackend = {
       }
       throw e;
     }
+    return name;
   },
 
   async download(backupId: string, destPath: string): Promise<void> {

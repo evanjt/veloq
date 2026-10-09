@@ -306,7 +306,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
-              {fitnessData.length}d
+              {t('units.daysShort', { days: fitnessData.length })}
             </RNText>
 
             {/* Crosshair overlay */}

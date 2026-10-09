@@ -13,6 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const {
+  BACKUP_AGENT,
+  AGENT_PREFERENCES,
   BACKUP_RULES,
   DATA_EXTRACTION_RULES,
   configureManifest,
@@ -50,6 +52,16 @@ describe('with-android-backup rules', () => {
     expect(excludes).toHaveLength(2);
   });
 
+  it("keeps the backup agent's own record out of every block, so a restore brings no other phone's", () => {
+    expect(AGENT_PREFERENCES).toMatch(/\.xml$/);
+    const exclusion = `<exclude domain="sharedpref" path="${AGENT_PREFERENCES}" />`;
+    expect(BACKUP_RULES).toContain(exclusion);
+    for (const block of ['cloud-backup', 'device-transfer']) {
+      const body = DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0];
+      expect(body).toContain(exclusion);
+    }
+  });
+
   it('is well-formed data-extraction-rules', () => {
     expect(DATA_EXTRACTION_RULES).toContain('<data-extraction-rules>');
     expect(DATA_EXTRACTION_RULES).toContain('</data-extraction-rules>');
@@ -73,6 +85,17 @@ describe('with-android-backup manifest', () => {
     configureManifest(app);
 
     expect(app.$['android:dataExtractionRules']).toBe('@xml/veloq_data_extraction_rules');
+  });
+
+  it('names the backup agent and keeps the full backup the rules describe', () => {
+    const app = mainApplication();
+    configureManifest(app);
+
+    expect(BACKUP_AGENT).toBe('com.veloq.backupexclusion.VeloqBackupAgent');
+    expect(app.$['android:backupAgent']).toBe(BACKUP_AGENT);
+    // Without it a named agent switches the app to key-value backup, which
+    // the rules files do not govern and which carries nothing.
+    expect(app.$['android:fullBackupOnly']).toBe('true');
   });
 
   it('leaves everything else on the application alone', () => {

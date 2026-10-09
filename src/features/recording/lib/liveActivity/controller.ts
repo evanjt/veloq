@@ -25,6 +25,8 @@ interface LiveActivityAttributes {
   /** The name the card shows, translated here because the extension holds no catalogue. */
   activityLabel: string;
   sportCategory: string;
+  /** The line a stale card shows once the process has stopped pushing, translated here too. */
+  stoppedLabel: string;
 }
 
 let cardRunning = false;
@@ -50,11 +52,14 @@ function composeState(now: number): LiveActivityContentState | null {
   });
 }
 
-function activityLabel(type: string): string {
+function translated(key: string, fallback: string): string {
   const t = i18n.t as unknown as (key: string) => string;
-  const key = `activityTypes.${type}`;
   const label = t(key);
-  return label && label !== key ? label : type;
+  return label && label !== key ? label : fallback;
+}
+
+function activityLabel(type: string): string {
+  return translated(`activityTypes.${type}`, type);
 }
 
 /** Start the card for the session in flight. A second call is a no-op, not a second card. */
@@ -68,6 +73,10 @@ export function beginLiveActivity(): void {
     activityType: activityType ?? 'Ride',
     activityLabel: activityLabel(activityType ?? 'Ride'),
     sportCategory: getSportCategory(activityType ?? 'Ride'),
+    stoppedLabel: translated(
+      'recording.interruptedNotice.card',
+      'Recording stopped. Open Veloq to resume.'
+    ),
   };
   startNativeLiveActivity(JSON.stringify(attributes), JSON.stringify(state));
   cardRunning = true;
@@ -103,8 +112,9 @@ export function installLiveActivityControls(): () => void {
 
 /**
  * A card outlives the process that started it, so a terminated app leaves one on
- * the lock screen with a clock that never stops. Nothing else reaps it: the next
- * launch does, before any session can start a new one.
+ * the lock screen. Its stale date stops the clock and says the recording stopped,
+ * but nothing removes it: the next launch does, before any session can start a
+ * new one.
  */
 export function reapOrphanedLiveActivities(): void {
   cardRunning = false;

@@ -47,10 +47,12 @@
 //! cutover's settle on an upgrade ([`autostart_stream_backfill`] decides for
 //! both). It defers while the elevation backfill still owes or a cutover is
 //! pending or running, so it never competes with the work the cutover waits
-//! on. The athlete can still stop it, and [`stop_stream_backfill`] takes effect
-//! at the next batch boundary. A stop holds the automatic start until the
-//! retention window next changes ([`release_autostart_hold`]); the Download
-//! action on the settings row starts a pass regardless.
+//! on. With Route Matching off neither of those runs, so it waits only on a
+//! cutover already running. The athlete can still stop it, and
+//! [`stop_stream_backfill`] takes effect at the next batch boundary. A stop
+//! holds the automatic start until the retention window next changes
+//! ([`release_autostart_hold`]); the Download action on the settings row starts
+//! a pass regardless.
 
 use crate::governor::Lane;
 use crate::net::endpoints::DEFAULT_STREAM_TYPES;
@@ -98,6 +100,10 @@ pub const STREAM_PHASE_PARTIAL: &str = "partial";
 pub const STREAM_PHASE_AWAITING_CONSENT: &str = "awaiting_consent";
 /// The athlete stopped it.
 pub const STREAM_PHASE_STOPPED: &str = "stopped";
+/// Series are owed and the automatic start is waiting for the elevation
+/// backfill or the detector cutover to finish first. Nothing is fetched, and
+/// the athlete can start the pass by hand.
+pub const STREAM_PHASE_DEFERRED: &str = "deferred";
 /// A pass could not proceed at all.
 pub const STREAM_PHASE_FAILED: &str = "failed";
 
@@ -241,8 +247,13 @@ struct AutostartInputs {
     owed: u64,
     /// Tracks the elevation backfill still owes.
     elevation_owed: u64,
-    /// A detector cutover is pending or running.
-    cutover_busy: bool,
+    /// A detector cutover is owed and has not started.
+    cutover_pending: bool,
+    /// A detector cutover is running.
+    cutover_running: bool,
+    /// Route Matching is on, so the elevation backfill and the cutover will
+    /// run on their own.
+    detection_enabled: bool,
     stopped_by_athlete: bool,
     /// The athlete has said yes to a large download.
     consented: bool,
@@ -254,7 +265,7 @@ enum AutostartVerdict {
     /// The queue is past the large-download threshold and nothing says yes.
     AwaitingConsent,
     NotOwed,
-    /// The elevation backfill or the cutover still has work.
+    /// The elevation backfill or the cutover still has work that will run.
     Deferred,
     /// The athlete stopped the pass and the window has not changed since.
     Held,
@@ -265,7 +276,12 @@ fn autostart_verdict(i: AutostartInputs) -> AutostartVerdict {
         AutostartVerdict::NotOwed
     } else if i.stopped_by_athlete {
         AutostartVerdict::Held
-    } else if i.elevation_owed > 0 || i.cutover_busy {
+    } else if i.cutover_running
+        || (i.detection_enabled && (i.elevation_owed > 0 || i.cutover_pending))
+    {
+        // With Route Matching off neither the elevation backfill nor the
+        // cutover runs, so waiting on what they owe is waiting for ever. A
+        // cutover already running ends on its own and is still waited out.
         AutostartVerdict::Deferred
     } else if i.owed > STREAM_CONSENT_THRESHOLD as u64 && !i.consented {
         AutostartVerdict::AwaitingConsent
@@ -285,29 +301,43 @@ pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
             crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)?;
         let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
             .is_some_and(|v| v == "yes");
-        Ok::<_, rusqlite::Error>((owed, bytes, elevation_owed, consented))
+        let detection_enabled = crate::persistence::settings::detection_enabled_from(conn);
+        Ok::<_, rusqlite::Error>((owed, bytes, elevation_owed, consented, detection_enabled))
     })
     .ok()?
     .ok()?;
     let verdict = autostart_verdict(AutostartInputs {
         owed: inputs.0,
         elevation_owed: inputs.2,
-        cutover_busy: crate::persistence::cutover::cutover_pending()
-            || crate::persistence::cutover::cutover_running(),
+        cutover_pending: crate::persistence::cutover::cutover_pending(),
+        cutover_running: crate::persistence::cutover::cutover_running(),
+        detection_enabled: inputs.4,
         stopped_by_athlete: autostart_held(),
         consented: inputs.3,
     });
     if !BACKFILL.running.load(Ordering::SeqCst) {
-        if verdict == AutostartVerdict::AwaitingConsent {
-            BACKFILL
-                .estimate_requests
-                .store(inputs.0.try_into().unwrap_or(u32::MAX), Ordering::Relaxed);
-            BACKFILL.estimate_bytes.store(inputs.1, Ordering::Relaxed);
-            set_phase(STREAM_PHASE_AWAITING_CONSENT);
-        } else if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT
-            && verdict != AutostartVerdict::Held
-        {
-            set_phase(STREAM_PHASE_IDLE);
+        let phase = stream_backfill_progress().phase;
+        let waiting = phase == STREAM_PHASE_AWAITING_CONSENT || phase == STREAM_PHASE_DEFERRED;
+        match verdict {
+            AutostartVerdict::AwaitingConsent => {
+                BACKFILL
+                    .estimate_requests
+                    .store(inputs.0.try_into().unwrap_or(u32::MAX), Ordering::Relaxed);
+                BACKFILL.estimate_bytes.store(inputs.1, Ordering::Relaxed);
+                set_phase(STREAM_PHASE_AWAITING_CONSENT);
+            }
+            // Said rather than left idle, so the row can offer the pass by
+            // hand instead of sitting on an owed count with no action. A
+            // finished pass's own phase stays, since it says how that pass
+            // ended.
+            AutostartVerdict::Deferred if phase == STREAM_PHASE_IDLE || waiting => {
+                set_phase(STREAM_PHASE_DEFERRED);
+            }
+            AutostartVerdict::Held | AutostartVerdict::Deferred => {}
+            AutostartVerdict::Start | AutostartVerdict::NotOwed if waiting => {
+                set_phase(STREAM_PHASE_IDLE);
+            }
+            AutostartVerdict::Start | AutostartVerdict::NotOwed => {}
         }
     }
     match verdict {
@@ -891,7 +921,9 @@ mod tests {
         let idle = AutostartInputs {
             owed: 245,
             elevation_owed: 0,
-            cutover_busy: false,
+            cutover_pending: false,
+            cutover_running: false,
+            detection_enabled: true,
             stopped_by_athlete: false,
             consented: false,
         };
@@ -909,7 +941,14 @@ mod tests {
         );
         assert_eq!(
             autostart_verdict(AutostartInputs {
-                cutover_busy: true,
+                cutover_pending: true,
+                ..idle
+            }),
+            AutostartVerdict::Deferred
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                cutover_running: true,
                 ..idle
             }),
             AutostartVerdict::Deferred
@@ -920,6 +959,63 @@ mod tests {
                 ..idle
             }),
             AutostartVerdict::Held
+        );
+    }
+
+    /// Scenario: an upgraded library with Route Matching off owes series,
+    /// elevation and the detector cutover. With the switch off neither the
+    /// elevation backfill nor the cutover will run.
+    ///
+    /// Expected behaviour: the pass starts rather than deferring to work that
+    /// never drains. A cutover already running is still waited out, and with
+    /// the switch back on the order is elevation, cutover, then series.
+    #[test]
+    fn with_route_matching_off_the_automatic_start_waits_for_nothing_that_will_not_run() {
+        let off = AutostartInputs {
+            owed: 10,
+            elevation_owed: 500,
+            cutover_pending: true,
+            cutover_running: false,
+            detection_enabled: false,
+            stopped_by_athlete: false,
+            consented: false,
+        };
+        assert_eq!(autostart_verdict(off), AutostartVerdict::Start);
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                owed: STREAM_CONSENT_THRESHOLD as u64 + 1,
+                ..off
+            }),
+            AutostartVerdict::AwaitingConsent
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                stopped_by_athlete: true,
+                ..off
+            }),
+            AutostartVerdict::Held
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                cutover_running: true,
+                ..off
+            }),
+            AutostartVerdict::Deferred
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                detection_enabled: true,
+                ..off
+            }),
+            AutostartVerdict::Deferred
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                detection_enabled: true,
+                elevation_owed: 0,
+                ..off
+            }),
+            AutostartVerdict::Deferred
         );
     }
 
@@ -934,7 +1030,9 @@ mod tests {
         let at = AutostartInputs {
             owed: STREAM_CONSENT_THRESHOLD as u64,
             elevation_owed: 0,
-            cutover_busy: false,
+            cutover_pending: false,
+            cutover_running: false,
+            detection_enabled: true,
             stopped_by_athlete: false,
             consented: false,
         };
@@ -992,6 +1090,46 @@ mod tests {
         release_autostart_hold();
         BACKFILL.cancelled.store(false, Ordering::SeqCst);
         set_phase(STREAM_PHASE_IDLE);
+    }
+
+    /// Scenario: a sync settles on an upgraded library that owes series and
+    /// elevation, first with Route Matching on and then with it off.
+    ///
+    /// Expected behaviour: on, the automatic start says it is deferred rather
+    /// than reading idle with nothing to offer; off, it stops deferring to an
+    /// elevation queue that will not drain and asks for the pass.
+    #[test]
+    fn the_automatic_start_says_it_defers_and_stops_deferring_with_route_matching_off() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::net::connectivity::reset();
+        release_autostart_hold();
+        set_phase(STREAM_PHASE_IDLE);
+        crate::persistence::with_persistent_engine(|e| e.set_stream_retention_days(0))
+            .expect("engine")
+            .expect("keep every series");
+        let (owed, elevation_owed) = crate::objects::error::with_reader(|conn| {
+            (
+                queue_estimate(conn).expect("series queue").0,
+                crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)
+                    .expect("elevation queue"),
+            )
+        })
+        .expect("reader");
+        assert!(owed > 0 && elevation_owed > 0);
+
+        assert_eq!(autostart_stream_backfill(), None);
+        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_DEFERRED);
+
+        crate::persistence::with_persistent_engine(|e| e.set_detection_enabled(false))
+            .expect("engine")
+            .expect("switch");
+        assert_eq!(
+            autostart_stream_backfill(),
+            Some(FfiStartOutcome::NotConfigured),
+            "the pass is asked for and refuses only for want of a credential"
+        );
+        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_IDLE);
     }
 
     /// Scenario: the athlete stops a running pass, then widens the window.

@@ -118,7 +118,9 @@ export function PerformanceTooltip({
             </Text>
             {(selectedPoint.lapCount ?? 0) > 1 && (
               <View style={styles.lapBadge}>
-                <Text style={styles.lapBadgeText}>{selectedPoint.lapCount}x</Text>
+                <Text style={styles.lapBadgeText}>
+                  {t('units.times', { value: selectedPoint.lapCount })}
+                </Text>
               </View>
             )}
           </View>

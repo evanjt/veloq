@@ -141,7 +141,9 @@ describe('activity section swipe actions', () => {
 
     fireEvent.press(swipe.getByText('common.delete'));
     alert.mock.calls[0][2]?.find((button) => button.style === 'destructive')?.onPress?.();
-    await waitFor(() => expect(alert).toHaveBeenCalledWith('common.error', 'Error: Delete failed'));
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith('common.error', 'sections.deleteFailed')
+    );
 
     fireEvent.press(swipe.getByText('common.delete'));
     alert.mock.calls[2][2]?.find((button) => button.style === 'destructive')?.onPress?.();

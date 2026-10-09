@@ -296,6 +296,7 @@ describe('record backup import', () => {
     const result = await restoreRecordBackup('content://picked/backup.zip');
 
     expect(mockEngine.syncNow).toHaveBeenCalledTimes(1);
+    expect(mockEngine.syncNow).toHaveBeenCalledWith(false);
     expect(result).toEqual({ placed: 2, unplaced: 1, missingActivityIds: ['old-ride'] });
   });
 

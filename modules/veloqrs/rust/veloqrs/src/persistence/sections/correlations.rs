@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use crate::correlation::{Correlation, correlate};
+use crate::correlation::{Correlation, adjust_family, correlate};
 use crate::{FfiCorrelation, FfiSectionCorrelation, FfiWellnessDay};
 
 /// Complete pairs a variable needs before the panel may show a figure for it.
@@ -38,7 +38,8 @@ pub(crate) fn local_day(activity_date: i64) -> Option<String> {
 
 /// Correlations for the counted attempts of `all` after `cutoff`, `same`
 /// direction first. A variable no attempt of a direction has a value for is
-/// left out: the athlete does not record it.
+/// left out: the athlete does not record it. A mover is labelled under Holm's
+/// correction across the variables of its direction that carry an estimate.
 pub(crate) fn section_correlations(
     all: &crate::SectionPerformanceResult,
     cutoff: i64,
@@ -73,17 +74,31 @@ pub(crate) fn section_correlations(
         attempts.sort_by(|a, b| a.0.total_cmp(&b.0));
 
         let speeds: Vec<Option<f64>> = attempts.iter().map(|(s, _)| Some(*s)).collect();
-        for (name, read) in VARIABLES {
-            let values: Vec<Option<f64>> = attempts.iter().map(|(_, d)| d.and_then(read)).collect();
-            if values.iter().all(Option::is_none) {
-                continue;
-            }
-            out.push(FfiSectionCorrelation {
-                direction: direction.to_string(),
-                variable: name.to_string(),
-                result: FfiCorrelation::from(correlate(&values, &speeds, MIN_PAIRS)),
-            });
-        }
+        let (names, family): (Vec<&str>, Vec<Correlation>) = VARIABLES
+            .iter()
+            .filter_map(|(name, read)| {
+                let values: Vec<Option<f64>> =
+                    attempts.iter().map(|(_, d)| d.and_then(read)).collect();
+                if values.iter().all(Option::is_none) {
+                    return None;
+                }
+                Some((*name, correlate(&values, &speeds, MIN_PAIRS)))
+            })
+            .unzip();
+        // Every variable is a test of the same speeds, so one direction's
+        // variables are one family and a mover is held to the family's rate.
+        let (family, family_size) = adjust_family(family);
+        out.extend(
+            names
+                .into_iter()
+                .zip(family)
+                .map(|(name, result)| FfiSectionCorrelation {
+                    direction: direction.to_string(),
+                    variable: name.to_string(),
+                    result: FfiCorrelation::from(result),
+                    family_size: family_size as u32,
+                }),
+        );
     }
     out
 }
@@ -320,6 +335,163 @@ mod tests {
             find(&out, "same", "hrv"),
             Some(FfiCorrelation::Mover { n: 10, .. })
         ));
+    }
+
+    /// Scenario: the same twelve variables recorded on every attempt in both
+    /// directions, with ctl constant throughout.
+    /// Expected behaviour: each row carries its own direction's family, the
+    /// variables that carried an estimate there.
+    #[test]
+    fn each_direction_carries_the_size_of_its_own_family() {
+        let (mut perf, mut wellness) = noise_library(7, 0.0);
+        for (r, d) in perf.records.iter_mut().zip(wellness.iter_mut()) {
+            r.laps.push(lap(
+                "rev",
+                3.0 + d.atl.unwrap() / 100.0,
+                "reverse",
+                Some(1.0),
+            ));
+        }
+        // A constant ctl is undefined in both directions, so neither tests it.
+        for d in &mut wellness {
+            d.ctl = Some(60.0);
+        }
+        let out = section_correlations(&perf, i64::MIN, &wellness);
+        for direction in ["same", "reverse"] {
+            let rows: Vec<_> = out.iter().filter(|c| c.direction == direction).collect();
+            assert_eq!(rows.len(), 12);
+            assert!(rows.iter().all(|c| c.family_size == 11), "{direction}");
+        }
+    }
+
+    #[test]
+    fn a_family_with_too_few_pairs_has_size_zero() {
+        let (perf, wellness) = series(9);
+        let out = section_correlations(&perf, i64::MIN, &wellness);
+        assert!(!out.is_empty());
+        assert!(out.iter().all(|c| c.family_size == 0));
+    }
+
+    /// A deterministic stream of standard normal draws, so a seed names one
+    /// library and the rates below are the same on every run.
+    struct Noise(u64);
+
+    impl Noise {
+        fn uniform(&mut self) -> f64 {
+            self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+            z ^= z >> 31;
+            ((z >> 11) as f64 + 0.5) / (1u64 << 53) as f64
+        }
+
+        fn normal(&mut self) -> f64 {
+            let (u, v) = (self.uniform(), self.uniform());
+            (-2.0 * u.ln()).sqrt() * (std::f64::consts::TAU * v).cos()
+        }
+    }
+
+    /// Thirty attempts on successive days with every wellness variable drawn
+    /// independently of speed, except `hrv` when `hrv_weight` is non-zero:
+    /// then it carries that share of the speed's own draw.
+    fn noise_library(
+        seed: u64,
+        hrv_weight: f64,
+    ) -> (SectionPerformanceResult, Vec<FfiWellnessDay>) {
+        let mut noise = Noise(seed);
+        let mut records = Vec::new();
+        let mut wellness = Vec::new();
+        for i in 0..30 {
+            let date = BASE + i as i64 * DAY;
+            let pull = noise.normal();
+            records.push(record(
+                &format!("a{i}"),
+                date,
+                vec![lap(&format!("l{i}"), 4.0 + 0.3 * pull, "same", Some(1.0))],
+            ));
+            let mut draw = || noise.normal();
+            let scale = |x: f64| (50.0 + 10.0 * x).round() as i32;
+            let hrv = hrv_weight * pull + (1.0 - hrv_weight * hrv_weight).sqrt() * draw();
+            wellness.push(FfiWellnessDay {
+                date: local_day(date).unwrap(),
+                ctl: Some(60.0 + 5.0 * draw()),
+                atl: Some(70.0 + 8.0 * draw()),
+                ramp_rate: None,
+                hrv: Some(55.0 + 6.0 * hrv),
+                resting_hr: Some(48.0 + 3.0 * draw()),
+                weight: Some(70.0 + 0.8 * draw()),
+                sleep_secs: Some(27_000.0 + 2_000.0 * draw()),
+                sleep_score: Some(75.0 + 8.0 * draw()),
+                soreness: Some(scale(draw())),
+                fatigue: Some(scale(draw())),
+                stress: Some(scale(draw())),
+                mood: Some(scale(draw())),
+                motivation: Some(scale(draw())),
+                sport_load: Vec::new(),
+            });
+        }
+        (result(records), wellness)
+    }
+
+    fn interval_excludes_zero(c: &FfiSectionCorrelation) -> bool {
+        match c.result {
+            FfiCorrelation::Mover { low, high, .. }
+            | FfiCorrelation::Inconclusive { low, high, .. } => low > 0.0 || high < 0.0,
+            _ => false,
+        }
+    }
+
+    /// Scenario: twelve wellness variables with no relationship to speed,
+    /// thirty attempts, over many libraries.
+    /// Expected behaviour: a library shows a mover about one time in twenty,
+    /// the family-wise rate, although some variable's own 95 per cent
+    /// interval misses zero in close to half of them.
+    #[test]
+    fn noise_across_twelve_variables_is_a_mover_about_one_library_in_twenty() {
+        const LIBRARIES: u64 = 400;
+        let mut unadjusted = 0;
+        let mut labelled = 0;
+        for seed in 0..LIBRARIES {
+            let (perf, wellness) = noise_library(seed, 0.0);
+            let out = section_correlations(&perf, i64::MIN, &wellness);
+            assert_eq!(out.len(), 12, "every variable is tested");
+            if out.iter().any(interval_excludes_zero) {
+                unadjusted += 1;
+            }
+            if out
+                .iter()
+                .any(|c| matches!(c.result, FfiCorrelation::Mover { .. }))
+            {
+                labelled += 1;
+            }
+        }
+        let unadjusted = unadjusted as f64 / LIBRARIES as f64;
+        let labelled = labelled as f64 / LIBRARIES as f64;
+        assert!(
+            unadjusted > 0.3,
+            "the noise should fool an unadjusted reading often, it did {unadjusted}"
+        );
+        assert!(
+            labelled <= 0.07,
+            "a mover appeared in {labelled} of noise libraries"
+        );
+    }
+
+    /// Scenario: one variable carries a strong relationship to speed, r about
+    /// 0.8 over thirty attempts, among eleven that carry none.
+    /// Expected behaviour: it is still a mover after the family is accounted
+    /// for, so the correction cannot pass by labelling nothing.
+    #[test]
+    fn a_strong_relationship_among_noise_stays_a_mover() {
+        for seed in 0..50 {
+            let (perf, wellness) = noise_library(seed, 0.8);
+            let out = section_correlations(&perf, i64::MIN, &wellness);
+            match find(&out, "same", "hrv") {
+                Some(FfiCorrelation::Mover { n: 30, .. }) => {}
+                other => panic!("seed {seed}: expected a mover, got {other:?}"),
+            }
+        }
     }
 
     #[test]

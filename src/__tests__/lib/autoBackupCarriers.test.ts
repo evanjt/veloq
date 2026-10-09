@@ -37,6 +37,8 @@ jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///docs/',
+  cacheDirectory: 'file:///cache/',
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
   copyAsync: jest.fn().mockResolvedValue(undefined),
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
@@ -63,15 +65,21 @@ function carrier(id: string, upload: BackupBackend['upload'], available = true):
   };
 }
 
-const webdavUpload = jest.fn(async (_path: string, _entry: unknown) => {});
-const folderUpload = jest.fn(async (_path: string, _entry: unknown) => {});
+const webdavUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+const folderUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockSettings.clear();
   mockSettings.set('__auto_backup_enabled', '1');
-  webdavUpload.mockImplementation(async () => {});
-  folderUpload.mockImplementation(async () => {});
+  webdavUpload.mockImplementation(async () => 'veloq-backup.zip');
+  folderUpload.mockImplementation(async () => 'veloq-backup.zip');
   mockCarriers.length = 0;
   mockCarriers.push(carrier('webdav', webdavUpload), carrier('folder', folderUpload));
 });

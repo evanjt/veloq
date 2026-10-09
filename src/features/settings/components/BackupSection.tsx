@@ -52,7 +52,9 @@ import { BulkExportProgress } from './BulkExportProgress';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { WebdavConfigForm } from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFileSize, getIntlLocale } from '@/shared/format/format';
+import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
+import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
 
 /** The entries one carrier listed, restored through that carrier. */
 interface CarrierEntries {
@@ -104,6 +106,61 @@ function DestinationLastBackup({ at, testID }: { at: number | null; testID: stri
         ? t('backup.lastBackupNever')
         : t('backup.lastBackup', { date: new Date(at).toLocaleDateString(getIntlLocale()) })}
     </Text>
+  );
+}
+
+/**
+ * What Android's Auto Backup last did, as its backup agent recorded it. Veloq
+ * writing its zip says nothing about whether Android took it, so on Android the
+ * device row reads this rather than that stamp.
+ */
+function AndroidAutoBackupState() {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const [lines] = useState(() => androidAutoBackupLines(getAndroidAutoBackupStatus()));
+  const day = (at: number) => new Date(at).toLocaleDateString(getIntlLocale());
+  const detailStyle = [styles.detail, isDark && settingsStyles.textSecondary];
+  return (
+    <>
+      {lines.map((line) => {
+        switch (line.kind) {
+          case 'never':
+            return (
+              <Text key={line.kind} testID="backup-carrier-last-device" style={detailStyle}>
+                {t('backup.androidBackupNever')}
+              </Text>
+            );
+          case 'backedUp':
+            return (
+              <Text key={line.kind} testID="backup-carrier-last-device" style={detailStyle}>
+                {t('backup.androidLastBackup', {
+                  date: day(line.at),
+                  size: formatFileSize(line.bytes),
+                })}
+              </Text>
+            );
+          case 'quotaExceeded':
+            return (
+              <Text
+                key={line.kind}
+                testID="backup-carrier-device-quota"
+                style={[styles.detail, styles.error]}
+              >
+                {t('backup.androidQuotaExceeded', {
+                  date: day(line.at),
+                  size: formatFileSize(line.bytes),
+                  quota: formatFileSize(line.quotaBytes),
+                })}
+              </Text>
+            );
+        }
+        return (
+          <Text key={line.kind} testID="backup-carrier-device-restored" style={detailStyle}>
+            {t('backup.androidRestored', { date: day(line.at) })}
+          </Text>
+        );
+      })}
+    </>
   );
 }
 
@@ -684,10 +741,14 @@ export function BackupSection() {
               {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
             </Text>
             <Text style={detailStyle}>{t('backup.carrierDeviceRestore')}</Text>
-            <DestinationLastBackup
-              at={destinationStamps.device}
-              testID="backup-carrier-last-device"
-            />
+            {Platform.OS === 'android' ? (
+              <AndroidAutoBackupState />
+            ) : (
+              <DestinationLastBackup
+                at={destinationStamps.device}
+                testID="backup-carrier-last-device"
+              />
+            )}
           </View>
           <InfoButton
             testID="backup-info-destinations"

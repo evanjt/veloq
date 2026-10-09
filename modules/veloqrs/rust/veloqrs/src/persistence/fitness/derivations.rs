@@ -246,7 +246,7 @@ pub(crate) mod pooled {
         let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
         let mut stmt = conn
             .prepare(&format!(
-                "SELECT sa.lap_time, sa.avg_hr, sa.distance_meters, am.date
+                "SELECT sa.lap_time, sa.avg_hr, sa.distance_meters, am.date, sa.direction
                  FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  LEFT JOIN sections s ON s.id = sa.section_id
@@ -269,14 +269,17 @@ pub(crate) mod pooled {
             })
             .ok()?;
 
-        let rows: Vec<super::Effort> = stmt
+        let rows: Vec<(super::Effort, String)> = stmt
             .query_map(rusqlite::params![section_id, sport_type], |row| {
-                Ok(super::Effort {
-                    time_secs: row.get(0)?,
-                    avg_hr: row.get(1)?,
-                    distance_meters: row.get(2)?,
-                    date: row.get(3)?,
-                })
+                Ok((
+                    super::Effort {
+                        time_secs: row.get(0)?,
+                        avg_hr: row.get(1)?,
+                        distance_meters: row.get(2)?,
+                        date: row.get(3)?,
+                    },
+                    row.get(4)?,
+                ))
             })
             .map_err(|e| {
                 log::warn!("[fitness] get_section_efficiency_trend: query_map failed for section {}: {}", section_id, e);
@@ -292,7 +295,16 @@ pub(crate) mod pooled {
             })
             .collect();
 
-        super::efficiency_trend(section_id, sport_type, section_name, &rows)
+        // One direction of the ground is a different climb from the other, so
+        // the trend reads the latest effort's direction, as the ranking does.
+        let latest_direction = rows.last().map(|(_, direction)| direction.clone());
+        let efforts: Vec<super::Effort> = rows
+            .into_iter()
+            .filter(|(_, direction)| Some(direction) == latest_direction.as_ref())
+            .map(|(effort, _)| effort)
+            .collect();
+
+        super::efficiency_trend(section_id, sport_type, section_name, &efforts)
     }
 
     use std::collections::HashSet;
@@ -3062,6 +3074,82 @@ mod tests {
                 "{sport} did not change"
             );
         }
+    }
+
+    /// Scenario: a 1 km section ridden six times its own way at 300 s/km and
+    /// 150 bpm, with three later rides the other way at 150 s/km and 140 bpm
+    /// among them. Pooled, the reverse rides' lower cost reads as improving.
+    ///
+    /// Expected behaviour: the trend is taken in the latest complete
+    /// traversal's direction, so it is flat over the six same-way efforts;
+    /// once the newest ride is the other way, it is taken over those alone.
+    #[test]
+    fn the_efficiency_trend_is_taken_in_the_latest_direction() {
+        let engine = engine_with(
+            (0..10)
+                .map(|i| ActivityMetrics {
+                    date: 1_700_000_000 + i as i64 * 86_400,
+                    ..metric(&format!("e{i}"), "Ride", None)
+                })
+                .collect(),
+        );
+        engine
+            .db
+            .execute_batch("PRAGMA foreign_keys = OFF")
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at)
+                 VALUES ('s1', 'auto', 'Hill', 'Ride', '[]', 1000.0, 0, 1,
+                    '2026-01-01T00:00:00Z')",
+                [],
+            )
+            .unwrap();
+        let insert = |i: usize| {
+            let (direction, lap_time, hr) = if matches!(i, 3 | 5 | 7 | 9) {
+                ("reverse", 150.0, 140.0)
+            } else {
+                ("same", 300.0, 150.0)
+            };
+            let id = format!("e{i}");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                     VALUES (?1, 'Ride', 0, 0, 0, 0)",
+                    rusqlite::params![id],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, lap_time, lap_pace,
+                        avg_hr, coverage)
+                     VALUES ('s1', ?1, ?2, 0, 10, 1000.0, ?3, 1000.0 / ?3, ?4, 1.0)",
+                    rusqlite::params![id, direction, lap_time, hr],
+                )
+                .unwrap();
+        };
+        for i in 0..9 {
+            insert(i);
+        }
+
+        let trend =
+            super::pooled::section_efficiency_trend(&engine.db, "s1", "Ride", "Hill", 1000.0)
+                .expect("six same-way efforts make a trend");
+        assert_eq!(trend.effort_count, 6);
+        assert_eq!(trend.direction, crate::EfficiencyDirection::Flat);
+        assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 300.0));
+
+        insert(9);
+        let trend =
+            super::pooled::section_efficiency_trend(&engine.db, "s1", "Ride", "Hill", 1000.0)
+                .expect("four reverse efforts make a trend");
+        assert_eq!(trend.effort_count, 4);
+        assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 150.0));
     }
 
     /// Scenario: five weekly efforts at a constant 150 bpm over one 1 km

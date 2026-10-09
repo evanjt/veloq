@@ -123,6 +123,83 @@ pub fn correlate(xs: &[Option<f64>], ys: &[Option<f64>], floor: usize) -> Correl
     }
 }
 
+/// Family-wise error rate the mover label is held to across one family of
+/// variables: the chance that any of them is labelled on noise.
+pub const FAMILY_ALPHA: f64 = 0.05;
+
+/// Two-sided p-value of `r` against no relationship, through the same Fisher z
+/// the interval is built on, so a p under 0.05 and an interval that excludes
+/// zero are the same verdict for a single variable.
+pub fn p_value(estimate: &Estimate) -> f64 {
+    let z = estimate.r.atanh() * ((estimate.n as f64) - 3.0).sqrt();
+    erfc(z.abs() / std::f64::consts::SQRT_2).clamp(0.0, 1.0)
+}
+
+/// Holm's step-down over one family of p-values: which of them hold at a
+/// family-wise rate of `alpha`.
+///
+/// Sorted ascending, the k-th smallest (from 0) holds only when it is at most
+/// `alpha / (m - k)` and every smaller one held. Testing twelve variables at
+/// 0.05 each labels at least one of them on pure noise about 46 times in a
+/// hundred; this keeps that under `alpha`. Ties are taken in input order.
+pub fn holm(p_values: &[f64], alpha: f64) -> Vec<bool> {
+    let m = p_values.len();
+    let mut order: Vec<usize> = (0..m).collect();
+    order.sort_by(|&a, &b| p_values[a].total_cmp(&p_values[b]));
+    let mut held = vec![false; m];
+    for (rank, &index) in order.iter().enumerate() {
+        if p_values[index] > alpha / (m - rank) as f64 {
+            break;
+        }
+        held[index] = true;
+    }
+    held
+}
+
+/// Each of one family's correlations with its mover label held to a
+/// family-wise rate of [`FAMILY_ALPHA`], and the family's size: how many of
+/// them carried an estimate, which is how many were tested.
+///
+/// A label only ever moves from `Mover` to `Inconclusive`, never the other
+/// way, so every mover still has an interval that excludes zero, and the
+/// interval and `r` themselves do not move.
+pub fn adjust_family(family: Vec<Correlation>) -> (Vec<Correlation>, usize) {
+    let tested: Vec<usize> = (0..family.len())
+        .filter(|&i| family[i].estimate().is_some())
+        .collect();
+    let p_values: Vec<f64> = tested
+        .iter()
+        .filter_map(|&i| family[i].estimate().map(p_value))
+        .collect();
+    let held = holm(&p_values, FAMILY_ALPHA);
+    let mut out = family;
+    for (&index, holds) in tested.iter().zip(held) {
+        if let Correlation::Mover(estimate) = &out[index]
+            && !holds
+        {
+            out[index] = Correlation::Inconclusive(estimate.clone());
+        }
+    }
+    (out, tested.len())
+}
+
+/// The complementary error function, by the Chebyshev fit in Press et al.,
+/// *Numerical Recipes*, section 6.2: fractional error under 1.2e-7 for every
+/// `x`, which is far inside what a 0.05 / m threshold can tell apart.
+fn erfc(x: f64) -> f64 {
+    let t = 1.0 / (1.0 + 0.5 * x.abs());
+    let poly = -x * x - 1.265_512_23
+        + t * (1.000_023_68
+            + t * (0.374_091_96
+                + t * (0.096_784_18
+                    + t * (-0.186_288_06
+                        + t * (0.278_868_07
+                            + t * (-1.135_203_98
+                                + t * (1.488_515_87 + t * (-0.822_152_23 + t * 0.170_872_77))))))));
+    let value = t * poly.exp();
+    if x >= 0.0 { value } else { 2.0 - value }
+}
+
 /// The 95 per cent interval on `r`, through Fisher's z transform: `r` is not
 /// normally distributed but `atanh(r)` is close enough to be, so the interval
 /// is built there and brought back.
@@ -426,6 +503,127 @@ mod tests {
         let backward = correlate(&rev_x, &rev_y, 4).estimate().cloned().unwrap();
 
         assert!((forward.r - backward.r).abs() < 1e-12);
+    }
+
+    fn estimate(r: f64, n: usize) -> Estimate {
+        let (low, high) = interval(r, n);
+        Estimate { r, n, low, high }
+    }
+
+    /// Known answers from the normal distribution directly, `erfc(|z| / sqrt 2)`
+    /// with z = atanh(r) * sqrt(n - 3), rather than from this implementation.
+    #[test]
+    fn the_p_value_matches_the_normal_tail_of_fishers_z() {
+        let cases = [
+            (0.5, 30, 0.004_313_470_570_616_612),
+            (0.3, 20, 0.201_891_182_513_662_37),
+            (-0.3, 20, 0.201_891_182_513_662_37),
+        ];
+        for (r, n, expected) in cases {
+            let p = p_value(&estimate(r, n));
+            assert!(
+                (p - expected).abs() < 1e-7 * expected.max(1e-3),
+                "r {r} n {n}: p {p}, expected {expected}"
+            );
+        }
+        assert_eq!(p_value(&estimate(1.0, 10)), 0.0);
+        assert!((p_value(&estimate(0.0, 10)) - 1.0).abs() < 1e-7);
+    }
+
+    /// For one variable, a p under 0.05 and an interval that excludes zero
+    /// are the same verdict, either side of the boundary.
+    #[test]
+    fn a_single_variable_holds_exactly_when_its_interval_excludes_zero() {
+        let n = 20;
+        let edge = (Z_95 / ((n as f64) - 3.0).sqrt()).tanh();
+        for r in [edge - 1e-4, edge + 1e-4, -edge - 1e-4, -edge + 1e-4] {
+            let e = estimate(r, n);
+            let excludes = e.low > 0.0 || e.high < 0.0;
+            assert_eq!(
+                holm(&[p_value(&e)], FAMILY_ALPHA)[0],
+                excludes,
+                "r {r}: interval {}..{}",
+                e.low,
+                e.high
+            );
+        }
+    }
+
+    /// Holm's worked case: sorted 0.005, 0.01, 0.03, 0.04 against 0.05 / 4,
+    /// 0.05 / 3, 0.05 / 2. The third fails, so it and everything above it
+    /// stays, even 0.04, which is under the last step's 0.05 / 1.
+    #[test]
+    fn the_step_down_stops_at_the_first_p_that_misses_its_threshold() {
+        assert_eq!(
+            holm(&[0.01, 0.04, 0.03, 0.005], 0.05),
+            vec![true, false, false, true]
+        );
+    }
+
+    #[test]
+    fn every_p_holds_when_each_clears_its_step() {
+        assert_eq!(holm(&[0.001, 0.02, 0.012], 0.05), vec![true, true, true]);
+    }
+
+    #[test]
+    fn an_empty_family_holds_nothing() {
+        assert!(holm(&[], 0.05).is_empty());
+    }
+
+    /// Bonferroni's first step: twelve tests at 0.05 need the smallest p
+    /// under 0.05 / 12 before anything holds.
+    #[test]
+    fn the_smallest_p_must_clear_alpha_over_the_family_size() {
+        let mut ps = vec![0.5; 12];
+        ps[3] = 0.05 / 12.0 * 1.01;
+        assert!(holm(&ps, 0.05).iter().all(|held| !held));
+        ps[3] = 0.05 / 12.0 * 0.99;
+        assert_eq!(holm(&ps, 0.05).iter().filter(|held| **held).count(), 1);
+    }
+
+    /// The family is the variables that carry an estimate. A mover that does
+    /// not hold across it is inconclusive with its figures untouched, a strong
+    /// one stays a mover, and nothing is ever promoted.
+    #[test]
+    fn a_family_demotes_a_weak_mover_and_keeps_a_strong_one() {
+        let weak = estimate(0.47, 20);
+        assert!(weak.low > 0.0, "a mover on its own interval");
+        let strong = estimate(0.9, 20);
+        let family = vec![
+            Correlation::Mover(weak.clone()),
+            Correlation::Mover(strong.clone()),
+            Correlation::Inconclusive(estimate(0.1, 20)),
+            Correlation::Inconclusive(estimate(-0.2, 20)),
+            Correlation::TooFew { n: 3 },
+            Correlation::Undefined { n: 20 },
+        ];
+
+        let (adjusted, size) = adjust_family(family);
+
+        assert_eq!(size, 4);
+        assert_eq!(adjusted[0], Correlation::Inconclusive(weak));
+        assert_eq!(adjusted[1], Correlation::Mover(strong));
+        assert!(matches!(adjusted[2], Correlation::Inconclusive(_)));
+        assert!(matches!(adjusted[3], Correlation::Inconclusive(_)));
+        assert_eq!(adjusted[4], Correlation::TooFew { n: 3 });
+        assert_eq!(adjusted[5], Correlation::Undefined { n: 20 });
+    }
+
+    /// One tested variable is a family of one, and its label is the label its
+    /// own interval gives.
+    #[test]
+    fn a_family_of_one_keeps_its_own_verdict() {
+        let mover = Correlation::Mover(estimate(0.47, 20));
+        let (adjusted, size) = adjust_family(vec![mover.clone(), Correlation::Undefined { n: 20 }]);
+        assert_eq!(size, 1);
+        assert_eq!(adjusted[0], mover);
+    }
+
+    #[test]
+    fn a_family_with_no_estimate_has_size_zero() {
+        let (adjusted, size) = adjust_family(vec![Correlation::TooFew { n: 2 }]);
+        assert_eq!(size, 0);
+        assert_eq!(adjusted, vec![Correlation::TooFew { n: 2 }]);
     }
 
     /// The interval always contains the coefficient, on every shape above.

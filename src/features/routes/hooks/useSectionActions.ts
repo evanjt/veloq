@@ -220,7 +220,7 @@ export function useSectionActions({
               router.back();
             } catch (error) {
               if (__DEV__) console.error('Failed to delete section:', error);
-              Alert.alert(t('common.error'), String(error));
+              Alert.alert(t('common.error'), t('sections.deleteFailed'));
             }
           },
         },

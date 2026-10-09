@@ -44,16 +44,16 @@ describe('the eFTP change badge', () => {
 
   it('colours a fall as negative', () => {
     const { getByText } = render(<FTPTrendChart data={series} change={-12} changePercent={-4.6} />);
-    expect(badgeColor(getByText('▼ 12W'))).toBe(verdictColor('negative', false));
+    expect(badgeColor(getByText('▼ 12 W'))).toBe(verdictColor('negative', false));
   });
 
   it('colours a rise as positive', () => {
     const { getByText } = render(<FTPTrendChart data={series} change={12} changePercent={4.8} />);
-    expect(badgeColor(getByText('▲ 12W'))).toBe(verdictColor('positive', false));
+    expect(badgeColor(getByText('▲ 12 W'))).toBe(verdictColor('positive', false));
   });
 
   it('shows a flat series as neutral with no arrow', () => {
     const { getByText } = render(<FTPTrendChart data={series} change={0} changePercent={0} />);
-    expect(badgeColor(getByText('0W'))).toBe(verdictColor('neutral', false));
+    expect(badgeColor(getByText('0 W'))).toBe(verdictColor('neutral', false));
   });
 });

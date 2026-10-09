@@ -118,6 +118,22 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 });
 
+describe('what a refresh asks the engine for', () => {
+  /**
+   * A foreground sync leaves the athlete profile to its age gate, so an edit
+   * made on intervals.icu reaches the device within hours. The pull is the
+   * athlete asking for current data now, and so is the save of a recording.
+   */
+  it('forces the profile, on the pull and on the retry the pull held', () => {
+    const engine = engineThatRefuses([StartOutcome.Busy]);
+
+    requestSyncRefresh();
+    engine.settle();
+
+    expect(engine.syncNow.mock.calls).toEqual([[true], [true]]);
+  });
+});
+
 describe('a refresh that is accepted', () => {
   it('defers nothing', () => {
     const engine = engineThatRefuses([StartOutcome.Started]);

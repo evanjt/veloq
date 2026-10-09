@@ -14,6 +14,7 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'satellite',
     getTerrain3DMode: () => 'smart',
+    getActivityCamera: () => undefined,
     hasActivityOverride: () => false,
   }),
 }));

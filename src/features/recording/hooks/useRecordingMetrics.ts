@@ -98,7 +98,7 @@ export function useRecordingMetrics(): {
     const heartrate = liveHeartrate;
     const power = livePower;
     const cadence = liveCadence;
-    const elevation = totals.lastAltitude;
+    const elevation = totals.elevation.count > 0 ? totals.elevation.last : null;
 
     // Stream times are wall clock, so the pauses come back out, the review's
     // rule. A pause still open began at the first stationary fix, whose samples

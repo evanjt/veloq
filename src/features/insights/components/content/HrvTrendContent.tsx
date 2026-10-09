@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native-paper';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,6 +30,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   const history = insight.supportingData?.history;
   const series = history && 'series' in history ? history.series[0] : undefined;
@@ -47,14 +49,14 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
         {latestValue != null ? (
           <View style={styles.valueRow}>
             <Text style={[styles.hrvValue, isDark && styles.hrvValueDark]}>{latestValue}</Text>
-            <Text style={[styles.hrvUnit, isDark && styles.hrvUnitDark]}>ms</Text>
+            <Text style={[styles.hrvUnit, isDark && styles.hrvUnitDark]}>{t('units.ms')}</Text>
           </View>
         ) : null}
         <View style={styles.trendRow}>
           <MaterialCommunityIcons name={insight.icon as never} size={18} color={trendColor} />
           {avgPoint && avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
             <Text style={[styles.avgText, isDark && styles.avgTextDark]}>
-              {avgPoint.label}: {avgValue} ms
+              {avgPoint.label}: {avgValue} {t('units.ms')}
             </Text>
           ) : avgPoint && avgValue != null ? (
             <Text style={[styles.avgText, isDark && styles.avgTextDark]}>{avgPoint.label}</Text>

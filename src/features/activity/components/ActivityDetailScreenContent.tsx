@@ -38,6 +38,7 @@ import {
 } from '@/features/routes';
 import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/settings';
+import { useActivityMapChoices } from '../hooks/useActivityMapChoices';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { waitEnded } from '@/shared/native/engineBodies';
@@ -45,13 +46,9 @@ import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import {
   resolveTerrain3D,
   type CreationState,
-  deleteCameraOverride,
-  getCameraOverride,
-  type MapStyleType,
   type SectionCreationError,
   type SectionCreationResult,
   submitSectionCreation,
-  setCameraOverride,
   type TerrainCamera,
 } from '@/features/maps';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
@@ -318,46 +315,26 @@ export function ActivityDetailScreenContent({
   }, []);
 
   // Map preferences -- read terrain mode and save per-activity overrides
-  const { getTerrain3DMode, setActivityOverride } = useMapPreferences();
-
-  // Handle 3D map mode changes -- persist as per-activity override
-  const handle3DModeChange = useCallback(
-    (is3D: boolean) => {
-      if (activity?.id) {
-        setActivityOverride(activity.id, { terrain3D: is3D });
-      }
-    },
-    [activity, setActivityOverride]
-  );
-
-  // Handle map style changes -- persist as per-activity override
-  const handleStyleChange = useCallback(
-    (style: MapStyleType) => {
-      if (activity?.id) {
-        setActivityOverride(activity.id, { style });
-      }
-    },
-    [activity, setActivityOverride]
-  );
+  const { getTerrain3DMode, getActivityCamera } = useMapPreferences();
+  const { on3DModeChange, onStyleChange, onCameraCapture, undoCameraCapture } =
+    useActivityMapChoices(activity?.id);
 
   // Save custom camera angle when user exits 3D mode
   const handleCameraCapture = useCallback(
     (camera: TerrainCamera) => {
       if (activity?.id) {
-        setCameraOverride(activity.id, camera);
+        onCameraCapture(camera);
         setSnackbarVisible(true);
       }
     },
-    [activity]
+    [activity?.id, onCameraCapture]
   );
 
-  // Undo camera override (revert to auto-calculated angle)
+  // Undo the capture: the activity's 3D mode and angle go back to before it
   const handleUndoCameraOverride = useCallback(() => {
-    if (activity?.id) {
-      deleteCameraOverride(activity.id);
-    }
+    undoCameraCapture();
     setSnackbarVisible(false);
-  }, [activity]);
+  }, [undoCameraCapture]);
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
   const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
@@ -371,10 +348,10 @@ export function ActivityDetailScreenContent({
       altitude: streams?.altitude,
       gain: activity.total_elevation_gain,
       distance: activity.distance,
-      override: getCameraOverride(activity.id) ?? null,
+      override: getActivityCamera(activity.id) ?? null,
     });
     return verdict.show3D ? verdict.camera : null;
-  }, [activity, terrain3DMode, coordinates, streams]);
+  }, [activity, terrain3DMode, coordinates, streams, getActivityCamera]);
 
   // Handle section creation completion
   const handleSectionCreated = useCallback(
@@ -544,8 +521,8 @@ export function ActivityDetailScreenContent({
           onSectionCreated={handleSectionCreated}
           onCreationCancelled={handleSectionCreationCancelled}
           onCreationErrorDismiss={handleSectionCreationErrorDismiss}
-          on3DModeChange={handle3DModeChange}
-          onStyleChange={handleStyleChange}
+          on3DModeChange={on3DModeChange}
+          onStyleChange={onStyleChange}
           onCameraCapture={handleCameraCapture}
           initial3DCamera={saved3DCamera}
           activeTab={activeTab}

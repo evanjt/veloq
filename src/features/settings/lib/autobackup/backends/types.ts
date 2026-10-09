@@ -42,9 +42,9 @@ export interface BackupBackend {
   listBackups(): Promise<BackupEntry[]>;
 
   /**
-   * Upload a backup file.
+   * Upload a backup file, resolving with the id `download` fetches it back by.
    */
-  upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void>;
+  upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string>;
 
   /**
    * Download a backup file to a local path.

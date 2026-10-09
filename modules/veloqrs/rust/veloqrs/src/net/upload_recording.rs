@@ -13,7 +13,7 @@
 //! it on a later pass.
 
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex};
 
@@ -186,14 +186,75 @@ impl From<StoredManualBody> for ManualActivityBody {
 
 /// The body a manual entry holds, `None` when the device cannot produce it.
 fn read_manual_body(ride: &FfiRecordingEntry) -> Option<ManualActivityBody> {
-    let path = ride.streams_path.as_deref()?;
-    let text = std::fs::read_to_string(crate::net::transport::strip_file_scheme(path)).ok()?;
+    let path = recording_file(ride.streams_path.as_deref()?)?;
+    let text = std::fs::read_to_string(path).ok()?;
     let stored: StoredManualBody = serde_json::from_str(&text).ok()?;
     Some(stored.into())
 }
 
+/// The app's documents directory, which the file names a row stores are
+/// relative to. On iOS an update can move the app's data container and keep
+/// its files, so no absolute path outlives one: the app hands the live
+/// directory over with every call that can start an upload.
+static DOCUMENTS_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// The directory under the documents directory a recording's files sit in.
+const RECORDINGS_DIR: &str = "recordings";
+
+/// Take the documents directory, as a path or a `file://` URI. An empty one
+/// forgets it.
+pub(crate) fn set_files_root(root: &str) {
+    let root = crate::net::transport::strip_file_scheme(root);
+    *DOCUMENTS_DIR.lock().unwrap_or_else(|e| e.into_inner()) =
+        (!root.is_empty()).then(|| PathBuf::from(root));
+}
+
+/// Where a file a row names sits now, `None` while it cannot be known.
+///
+/// A name relative to the documents directory resolves against the live one,
+/// and waits until the app has said where that is. An absolute path under a
+/// `recordings` directory was stored by an earlier build and may name a
+/// container an update has moved, so it resolves by its file name under the
+/// live `recordings/`. Any other absolute path is taken as it is.
+pub(crate) fn recording_file(stored: &str) -> Option<PathBuf> {
+    let stored = crate::net::transport::strip_file_scheme(stored);
+    if stored.is_empty() {
+        return None;
+    }
+    let root = DOCUMENTS_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let path = Path::new(stored);
+    if path.is_relative() {
+        return root.map(|root| root.join(path));
+    }
+    let in_recordings = path
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|dir| dir == RECORDINGS_DIR);
+    match (root, path.file_name()) {
+        (Some(root), Some(name)) if in_recordings => Some(root.join(RECORDINGS_DIR).join(name)),
+        _ => Some(path.to_path_buf()),
+    }
+}
+
+/// The ride with each file it names resolved to where it sits now, `None`
+/// when one cannot be resolved yet. A manual entry's empty FIT path stays
+/// empty.
+fn with_live_paths(mut ride: FfiRecordingEntry) -> Option<FfiRecordingEntry> {
+    let live = |stored: &str| recording_file(stored).map(|p| p.to_string_lossy().into_owned());
+    if !ride.fit_path.is_empty() {
+        ride.fit_path = live(&ride.fit_path)?;
+    }
+    if let Some(body) = ride.streams_path.take().filter(|body| !body.is_empty()) {
+        ride.streams_path = Some(live(&body)?);
+    }
+    Some(ride)
+}
+
 fn fit_on_disk(ride: &FfiRecordingEntry) -> bool {
-    Path::new(crate::net::transport::strip_file_scheme(&ride.fit_path)).is_file()
+    recording_file(&ride.fit_path).is_some_and(|path| path.is_file())
 }
 
 /// What a request's answer means for the ride.
@@ -283,6 +344,13 @@ fn upload_ride_under(
         .and_then(Result::ok)
         .flatten()
     else {
+        return FfiUploadResult::bare(O::NotStarted);
+    };
+    // A file named relative to a documents directory nobody has given yet may
+    // well be there, so the ride is not judged missing: it waits for a run
+    // that knows where to look.
+    let Some(ride) = with_live_paths(ride) else {
+        log::warn!("veloqrs: [upload] no documents directory to find {id}'s files in");
         return FfiUploadResult::bare(O::NotStarted);
     };
 
@@ -507,8 +575,7 @@ fn after_landing(install: u64, ride: &FfiRecordingEntry, intervals_id: &str, upl
     // intervals.icu keeps the sets in the file it was handed, so nothing comes
     // back down the sync for them.
     if ride.activity_type == "WeightTraining" {
-        let path = crate::net::transport::strip_file_scheme(&ride.fit_path);
-        let imported = std::fs::read(path)
+        let imported = std::fs::read(crate::net::transport::strip_file_scheme(&ride.fit_path))
             .map_err(|e| e.to_string())
             .and_then(|bytes| {
                 crate::objects::strength::import_fit_sets_under(install, intervals_id, &bytes)
@@ -720,15 +787,17 @@ fn delete_confirmed(install: u64, id: &str, athlete: &str) -> bool {
     let Some(Ok(Some(ride))) = under(install, |e| e.delete_own_recording(id, Some(athlete))) else {
         return false;
     };
-    for path in std::iter::once(ride.fit_path.as_str()).chain(ride.streams_path.as_deref()) {
-        if path.is_empty() {
+    for stored in std::iter::once(ride.fit_path.as_str()).chain(ride.streams_path.as_deref()) {
+        let Some(path) = recording_file(stored) else {
             continue;
-        }
-        let path = crate::net::transport::strip_file_scheme(path);
-        if let Err(err) = std::fs::remove_file(path)
+        };
+        if let Err(err) = std::fs::remove_file(&path)
             && err.kind() != std::io::ErrorKind::NotFound
         {
-            log::warn!("veloqrs: [upload] could not delete {path}: {err}");
+            log::warn!(
+                "veloqrs: [upload] could not delete {}: {err}",
+                path.display()
+            );
         }
     }
     log::info!("veloqrs: [upload] confirmed and deleted recording {id}");

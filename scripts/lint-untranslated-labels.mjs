@@ -2,38 +2,99 @@
 // A string literal a screen shows or a screen reader speaks, written into the JSX instead of
 // drawn through `t()`, reads in English whatever the app language is.
 //
-// Counted under `src/features` and `src/app`: JSX text that holds a letter, and an
-// `accessibilityLabel` or `accessibilityHint` whose value is a plain string. A value built from a
-// template or a call is not counted, those are where `t()` runs.
+// Refused under `src/features` and `src/app`: JSX text that holds a letter, a string or template
+// literal placed as a JSX child (directly, or as a branch of `?:`, `&&`, `||`, `??` or `+`) whose
+// fixed text holds one, and a plain string holding one as the value of an attribute a component
+// shows or speaks: `accessibilityLabel`, `accessibilityHint`, `label`, `title`, `subtitle`,
+// `placeholder`, `message` or `description`. A call is not counted, that is where `t()` runs. Units and abbreviations are not exempt:
+// `units.*` and `metrics.*` hold them, and several read differently in other languages.
 //
-// Not counted: tests, the debug screens, and `GlobalErrorBoundary.tsx`, whose English fallback
-// has to render when the i18n instance itself has failed. Text with no letter in it (a bullet, a
-// slash, a unit symbol) is not a sentence. `HRV` and `RHR` are not exempt: `metrics.hrv` and
-// `metrics.rhr` exist and are translated.
-//
-// `scripts/untranslated-labels-baseline.json` holds the count each file still carries, so the
-// number only falls. A file above its baseline or unlisted fails, and a file the tree has beaten
-// fails with the flag to paste back.
+// Not counted: tests, the debug screens listed below by name, and `GlobalErrorBoundary.tsx`,
+// whose English fallback has to render when the i18n instance itself has failed. Text with no
+// letter in it (a bullet, a slash, an arrow) is not a sentence, and a proper name or symbol listed
+// below is written the same in every language, so it is removed before the letter is looked for.
 
-import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const flagValue = (name, fallback) => {
-  const i = process.argv.indexOf(name);
-  return i === -1 ? fallback : resolve(process.argv[i + 1]);
-};
-
-const ROOT = flagValue('--root', join(HERE, '..'));
-const BASELINE_FILE = flagValue('--baseline', join(HERE, 'untranslated-labels-baseline.json'));
-const WRITE = process.argv.includes('--write');
+const rootFlag = process.argv.indexOf('--root');
+const ROOT = rootFlag === -1 ? join(HERE, '..') : resolve(process.argv[rootFlag + 1]);
 
 const SCOPES = ['src/features', 'src/app'];
-const EXEMPT = [/\/__tests__\//, /\/debug/i, /GlobalErrorBoundary\.tsx$/];
-const ATTRIBUTES = new Set(['accessibilityLabel', 'accessibilityHint']);
+const EXEMPT = [/\/__tests__\//, /\/GlobalErrorBoundary\.tsx$/];
+const ATTRIBUTES = new Set([
+  'accessibilityLabel',
+  'accessibilityHint',
+  'label',
+  'title',
+  'subtitle',
+  'placeholder',
+  'message',
+  'description',
+]);
+
+// Screens only the developer switch reaches, which stay in English in every locale.
+const DEBUG_SCREENS = [
+  'src/app/debug.tsx',
+  'src/features/insights/components/InsightDebugPanel.tsx',
+  'src/features/routes/components/DebugInfoPanel.tsx',
+  'src/features/routes/components/SyncDebugTab.tsx',
+];
+
+// Names and symbols a translation keeps as written, each with the reason.
+const KEPT_AS_WRITTEN = new Map([
+  ['Veloq', 'the app name'],
+  ['VELOQ', 'the app name set as a capitalised section label'],
+  ['intervals.icu', 'the data service, which writes its name in lower case'],
+  ['INTERVALS.ICU', 'the data service set as a capitalised section label'],
+  ['Garmin', 'a device maker named in the data attribution'],
+  ['Strava', 'a service named in the data attribution'],
+  ['Polar', 'a device maker named in the data attribution'],
+  ['Wahoo', 'a device maker named in the data attribution'],
+  ["D'", 'the critical speed model parameter, written the same in the literature'],
+  ['R²', 'the coefficient of determination, a mathematical symbol'],
+  ['GPX', 'a file format name'],
+  ['GeoJSON', 'a file format name'],
+  ['Z', 'the training zone prefix of Z1 to Z7, which the data service writes in every language'],
+]);
+
+// Longest first, so a name that contains a shorter one is removed whole.
+const NAMES = [...KEPT_AS_WRITTEN.keys()].sort((a, b) => b.length - a.length);
+
+function readsAsWords(literal) {
+  let rest = literal;
+  for (const name of NAMES) rest = rest.split(name).join(' ');
+  return /\p{L}/u.test(rest);
+}
+
+/** The fixed text a JSX child expression renders, through the operators that pass it along. */
+function literalParts(expression) {
+  if (!expression) return [];
+  if (ts.isParenthesizedExpression(expression)) return literalParts(expression.expression);
+  if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) {
+    return [expression.text];
+  }
+  if (ts.isTemplateExpression(expression)) {
+    return [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)];
+  }
+  if (ts.isConditionalExpression(expression)) {
+    return [...literalParts(expression.whenTrue), ...literalParts(expression.whenFalse)];
+  }
+  if (ts.isBinaryExpression(expression) && PASSING.has(expression.operatorToken.kind)) {
+    return [...literalParts(expression.left), ...literalParts(expression.right)];
+  }
+  return [];
+}
+
+const PASSING = new Set([
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.PlusToken,
+]);
 
 export function untranslatedIn(fileName, text) {
   const source = ts.createSourceFile(
@@ -43,70 +104,70 @@ export function untranslatedIn(fileName, text) {
     true,
     ts.ScriptKind.TSX
   );
-  let n = 0;
+  const hits = [];
+  const hit = (node, literal) => {
+    const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+    hits.push({ line, literal });
+  };
   const visit = (node) => {
-    if (ts.isJsxText(node) && /\p{L}/u.test(node.text)) n += 1;
+    if (ts.isJsxText(node) && readsAsWords(node.text)) hit(node, node.text.trim());
+    if (
+      ts.isJsxExpression(node) &&
+      (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))
+    ) {
+      for (const literal of literalParts(node.expression)) {
+        if (readsAsWords(literal)) hit(node, literal);
+      }
+    }
     if (ts.isJsxAttribute(node) && ATTRIBUTES.has(node.name.getText(source)) && node.initializer) {
       const init = node.initializer;
       const value = ts.isJsxExpression(init) ? init.expression : init;
-      if (value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value))) {
-        n += 1;
+      if (
+        value &&
+        (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) &&
+        readsAsWords(value.text)
+      ) {
+        hit(node, value.text);
       }
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  return n;
+  return hits;
 }
 
 const tree = treeView(ROOT, SCOPES);
-const counts = {};
+const debugScreens = new Set(DEBUG_SCREENS);
+const failures = [];
+const seenDebug = new Set();
 for (const scope of SCOPES) {
   for (const file of tree.files(join(ROOT, scope), (rel) => /\.tsx$/.test(rel))) {
     const rel = relative(ROOT, file).split('\\').join('/');
+    if (debugScreens.has(rel)) {
+      seenDebug.add(rel);
+      continue;
+    }
     if (EXEMPT.some((pattern) => pattern.test(`/${rel}`))) continue;
-    const hits = untranslatedIn(rel, tree.text(file));
-    if (hits > 0) counts[rel] = hits;
+    for (const { line, literal } of untranslatedIn(rel, tree.text(file))) {
+      failures.push(`  ${rel}:${line}  ${JSON.stringify(literal)}`);
+    }
   }
 }
+const staleDebug = DEBUG_SCREENS.filter((rel) => !seenDebug.has(rel));
 
-const total = () => Object.values(counts).reduce((a, b) => a + b, 0);
-
-if (WRITE) {
-  writeFileSync(BASELINE_FILE, JSON.stringify(counts, null, 2) + '\n');
-  console.log(
-    `untranslated label baseline written: ${total()} across ${Object.keys(counts).length} files`
-  );
+if (failures.length === 0 && staleDebug.length === 0) {
+  console.log('untranslated label guard: no English literal in JSX outside the debug screens.');
   process.exit(0);
 }
-
-const baseline = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
-const over = [];
-const under = [];
-for (const [file, n] of Object.entries(counts)) {
-  const allowed = baseline[file] ?? 0;
-  if (n > allowed) over.push([file, n, allowed]);
-  else if (n < allowed) under.push([file, n, allowed]);
-}
-for (const file of Object.keys(baseline)) {
-  if (!(file in counts)) under.push([file, 0, baseline[file]]);
-}
-
-if (over.length === 0 && under.length === 0) {
-  console.log(
-    `untranslated label guard: ${total()} across ${Object.keys(counts).length} files, all at baseline.`
-  );
-  process.exit(0);
-}
-
-if (over.length > 0) {
-  console.error('A string literal in JSX text or an accessibility label, above the baseline.');
+if (failures.length > 0) {
+  console.error('A string literal in JSX text or an accessibility label.');
   console.error('Draw it through t() and add the key to every locale.\n');
-  for (const [file, n, allowed] of over) console.error(`  ${file}  ${n}, baseline ${allowed}`);
+  for (const failure of failures) console.error(failure);
 }
-if (under.length > 0) {
-  console.error('\nThe tree has beaten its baseline. Lower it, so the ground stays taken:');
-  for (const [file, n, allowed] of under) console.error(`  ${file}  ${n}, baseline ${allowed}`);
-  console.error('\n  npm run lint:untranslated-labels -- --write');
+if (staleDebug.length > 0) {
+  console.error(
+    '\nA debug screen listed in scripts/lint-untranslated-labels.mjs that the tree lacks:'
+  );
+  for (const rel of staleDebug) console.error(`  ${rel}`);
 }
 process.exit(1);

@@ -187,10 +187,6 @@ function referenceLocale(): Record<string, unknown> {
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
-function placeholders(value: string): string[] {
-  return [...value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((match) => match[1]);
-}
-
 test('reference locale exists', () => {
   expect(loadLocale(REFERENCE_LOCALE)).not.toBeNull();
 });
@@ -239,46 +235,8 @@ describe('Translation Completeness', () => {
     expect(blank).toEqual([]);
   });
 
-  test.each(availableLocales)('%s uses only reference placeholders', (locale) => {
-    const reference = referenceLocale();
-    const data = loadLocale(locale) as Record<string, unknown>;
-    const referenceKeys = getAllKeys(reference);
-    const unexpected: string[] = [];
-    for (const key of getAllKeys(data)) {
-      const value = getValueAtPath(data, key);
-      if (typeof value !== 'string') continue;
-      const base = key.replace(PLURAL_SUFFIX, '');
-      const matchingKeys = referenceKeys.includes(key)
-        ? [key]
-        : referenceKeys.filter((candidate) => candidate.replace(PLURAL_SUFFIX, '') === base);
-      const referenceValues = matchingKeys
-        .map((candidate) => getValueAtPath(reference, candidate))
-        .filter((candidate): candidate is string => typeof candidate === 'string');
-      const expected = new Set(referenceValues.flatMap(placeholders));
-      for (const name of placeholders(value)) {
-        if (!expected.has(name)) unexpected.push(`${key}: ${name}`);
-      }
-    }
-    expect(unexpected).toEqual([]);
-  });
-
-  // i18next falls back to the English bundle when the locale lacks the form a count selects.
-  test.each(availableLocales)('%s has every plural form its counts select', (locale) => {
-    const keys = getAllKeys(loadLocale(locale) as Record<string, unknown>);
-    const keySet = new Set(keys);
-    const categories = new Set<string>();
-    const rules = new Intl.PluralRules(locale);
-    for (let n = 0; n <= 10000; n++) categories.add(rules.select(n));
-    const missing: string[] = [];
-    for (const key of keys) {
-      if (!key.endsWith('_other')) continue;
-      const base = key.slice(0, -'_other'.length);
-      for (const category of categories) {
-        if (!keySet.has(`${base}_${category}`)) missing.push(`${base}_${category}`);
-      }
-    }
-    expect(missing).toEqual([]);
-  });
+  // Placeholders and plural forms per locale belong to the locale bundle guard, which reads each
+  // bundle without the English fallback filling a missing form in.
 
   test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
     '%s translates every leaf or records why its en-US value is accepted',

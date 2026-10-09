@@ -34,7 +34,7 @@ describe('where an insight card goes', () => {
       quietWeek,
       null,
       undefined,
-      { metric: 'tss', current: 400, previous: 180, ratio: 1.22 },
+      { metric: 'tss', current: 400, previous: 180, ratio: 1.22, comparedStart: 0 },
       null,
       Date.UTC(2026, 8, 18),
       t
@@ -50,7 +50,7 @@ describe('where an insight card goes', () => {
       quietWeek,
       undefined,
       null,
-      { metric: 'tss', current: 400, previous: 180, ratio: 1.22 },
+      { metric: 'tss', current: 400, previous: 180, ratio: 1.22, comparedStart: 0 },
       Date.UTC(2026, 8, 18),
       t
     );

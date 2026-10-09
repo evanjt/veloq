@@ -316,7 +316,12 @@
     "backupFailedServer": "The server did not respond. Veloq will try again later.",
     "backupFailedTransport": "Veloq could not reach the server. It will try again later.",
     "backupFailedFolder": "Veloq can no longer reach the backup folder. Choose the folder again.",
+    "backupFailedUnverified": "Veloq wrote the backup but could not read it back to check it. It will try again later.",
     "lastAttemptFailed": "Last attempt failed on {{date}}",
+    "androidLastBackup": "Android last backed up {{date}}, {{size}}",
+    "androidBackupNever": "Android has not backed up Veloq yet",
+    "androidQuotaExceeded": "Android skipped the backup on {{date}}: {{size}} is over its {{quota}} limit",
+    "androidRestored": "Restored from Android backup on {{date}}",
     "notEncryptedWarning": "Backups are not encrypted. Anyone who opens the file can read your settings, the names of your routes and sections, where those sections lie on the map, and the home location set for export privacy.",
     "scanNextcloudQr": "Scan Nextcloud App Password",
     "nextcloudQrHint": "Nextcloud → Settings → Security → Create new app password → Scan QR code",
@@ -507,7 +512,6 @@
     "unableToLoad": "Unable to load {{componentName}}",
     "closeAndReopen": "Close and reopen the app to continue.",
     "restartHint": "Please try again or restart the app",
-    "unableToDisplay": "Unable to display {{label}}",
     "unableToDisplayChart": "Unable to display chart",
     "tapToRetry": "Tap to retry"
   },
@@ -746,7 +750,7 @@
       "route": "Counts attempts on a route in one sport and direction that are timed, not excluded, not partial and inside the route's distance band. A record is the fastest of them, set recently. A trend compares the median of the last three against the three before, from six attempts."
     },
     "data": {
-      "activitiesLastWeek": "Activities last week",
+      "activitiesLastWeek": "Activities by this point last week",
       "activitiesThisWeek": "Activities this week",
       "bestTime": "Best time",
       "change": "Change",
@@ -767,6 +771,7 @@
       "previousFtp": "Cycling eFTP 30 days ago",
       "previousPace": "Previous pace",
       "recentEfforts": "Recent efforts",
+      "samePointLastWeek": "Same point last week",
       "sevenDayAvg": "7-day average",
       "thisWeek": "This week",
       "trendSlope": "Trend slope",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "Recent record",
     "caption": {
       "latestAgainstMean": "Latest {{latest}} ms, mean {{avg}} ms",
-      "thisWeekAgainstLast": "This week {{current}}, last week {{previous}}",
+      "thisWeekAgainstLast": "This week {{current}}, same point last week {{previous}}",
       "lastWeekAgainstAverage": "Last week {{current}}, 4-week average {{previous}}",
       "fromTo": "From {{previous}} to {{current}}"
     },
@@ -1039,7 +1044,8 @@
     "pace": "Pace",
     "rhr": "RHR",
     "week": "Week",
-    "weight": "Weight"
+    "weight": "Weight",
+    "cs": "CS"
   },
   "navigation": {
     "activities": "Activities",
@@ -1302,6 +1308,7 @@
     "fieldModeIndoor": "Indoor",
     "interruptedNotice": {
       "body": "The system closed Veloq during your activity, so it stopped recording. Tap to resume.",
+      "card": "Recording stopped. Open Veloq to resume.",
       "channel": "Interrupted recordings",
       "title": "Recording stopped"
     }
@@ -1380,7 +1387,10 @@
     "standingBest": "Your fastest of {{total}}",
     "standingRank": "Ranked {{rank}} of {{total}}, {{gap}} off your best",
     "standingRankPercentile": "Ranked {{rank}} of {{total}}, faster than {{percent}}% of them, {{gap}} off your best",
-    "largeSectionPerformanceWarning": "Large sections may take longer to process."
+    "largeSectionPerformanceWarning": "Large sections may take longer to process.",
+    "prTime": "PR {{time}}",
+    "errorDetailId": "ID: {{id}}",
+    "errorDetailRange": "Range: {{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "Computing routes...",
@@ -1459,6 +1469,8 @@
     "aerobicEfficiencyCaption": "Heart rate per unit of pace, oldest effort to newest",
     "correlationTitle": "Wellness and speed",
     "correlationMethod": "Pearson's r of lap speed against that day's wellness value, 95% interval, at least 10 attempts with a value",
+    "correlationFamily_one": "Holm-adjusted across {{count}} variable",
+    "correlationFamily_other": "Holm-adjusted across {{count}} variables",
     "correlationDirectionSame": "Same direction",
     "correlationDirectionReverse": "Reverse direction",
     "correlationFigures": "r {{r}}, n {{n}}, {{low}} to {{high}}",
@@ -1567,7 +1579,8 @@
     "renameFailedMessage": "The section name was not saved. Please try again.",
     "nameTaken": "Another section already has this name. Choose a different name.",
     "undoExcludeLap": "Undo Lap {{n}}",
-    "excludeLapNumber": "Exclude Lap {{n}}"
+    "excludeLapNumber": "Exclude Lap {{n}}",
+    "deleteFailed": "The section could not be deleted."
   },
   "settings": {
     "terrain3DMode": "3D: {{mode}}",
@@ -1837,7 +1850,10 @@
     "athleteFallback": "Athlete",
     "storageUsedAndFree": "{{used}} used by Veloq, {{free}} free",
     "sectionsDetectedCount_one": "{{count}} section detected",
-    "sectionsDetectedCount_other": "{{count}} sections detected"
+    "sectionsDetectedCount_other": "{{count}} sections detected",
+    "debugMode": "Debug Mode",
+    "debugModeDescription": "Show internal diagnostics in detail pages",
+    "developerDashboardDescription": "Engine stats, FFI performance, memory"
   },
   "stats": {
     "activities": "Activities",
@@ -1953,7 +1969,12 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}}d",
+    "times": "{{value}}×",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "s"
   },
   "wellness": {
     "dragToExplore": "Drag to explore",
@@ -1966,7 +1987,6 @@
     "smoothingAuto": "Auto",
     "smoothingAverage_one": "{{count}}-day average",
     "smoothingAverage_other": "{{count}}-day average",
-    "smoothingDaysShort": "{{days}}d",
     "smoothingDescription": "Apply a rolling average to reduce daily noise and show trends more clearly.",
     "smoothingHint": "Auto uses optimal smoothing for the selected time range",
     "smoothingNone": "None",
@@ -2374,5 +2394,14 @@
       "startSport": "Start a {{sport}} on {{app}}",
       "recordSport": "Record a {{sport}} on {{app}}"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
+    "locationBackground": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
+    "bluetooth": "Veloq uses Bluetooth to connect to heart rate, power, and cadence sensors during recording.",
+    "camera": "Veloq uses the camera to scan the QR code of a Nextcloud app password.",
+    "microphone": "Veloq does not record sound. The camera is used only to scan QR codes.",
+    "faceId": "Veloq does not use Face ID.",
+    "motion": "Veloq does not read motion data."
   }
 }

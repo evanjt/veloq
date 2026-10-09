@@ -1,9 +1,9 @@
 /**
- * Scenario: the widget gallery, the empty widget, the Control, the Siri phrases
- * and the Android notification channel are read before the app has written any
- * snapshot, so their text is compiled into the binary rather than carried in
- * one. With no catalogue in the bundle every one of them is English in every
- * locale.
+ * Scenario: the widget gallery, the empty widget, the Control, the Siri phrases,
+ * the iOS permission prompts and the Android notification channel are read
+ * before the app has written any snapshot, so their text is compiled into the
+ * binary rather than carried in one. With no catalogue in the bundle every one
+ * of them is English in every locale.
  *
  * Expected behaviour: prebuild generates the platform catalogues from the app's
  * own locale bundles, every supported locale yields every key, and the files
@@ -197,6 +197,112 @@ describe('the App Shortcuts strings tables', () => {
   });
 });
 
+/** The Info.plist prebuild generates from the real config, read without writing `ios/`. */
+async function generatedInfoPlist(): Promise<Record<string, unknown>> {
+  const expo = require.resolve('expo/package.json', { paths: [projectRoot] });
+  const { getPrebuildConfigAsync } = require(
+    require.resolve('@expo/prebuild-config', { paths: [expo] })
+  );
+  const { compileModsAsync } = require('expo/config-plugins');
+  const { exp } = await getPrebuildConfigAsync(projectRoot, { platforms: ['ios'] });
+  await compileModsAsync(exp, {
+    projectRoot,
+    introspect: true,
+    platforms: ['ios'],
+    assertMissingModProviders: false,
+  });
+  return exp.ios.infoPlist;
+}
+
+const appJson = require('@/../app.json');
+const bundleLocalizations: string[] = appJson.expo.ios.infoPlist.CFBundleLocalizations;
+
+/** The locale bundle an Apple language is generated from. */
+const localeOf = (language: string): string =>
+  Object.keys(strings.PLATFORM_LOCALES).find((locale) =>
+    strings.PLATFORM_LOCALES[locale].apple.includes(language)
+  ) ?? `no locale for ${language}`;
+
+describe('the iOS permission prompts', () => {
+  let infoPlist: Record<string, unknown> = {};
+  beforeAll(async () => {
+    infoPlist = await generatedInfoPlist();
+  }, 30_000);
+
+  const purposeKeys = () =>
+    Object.keys(infoPlist)
+      .filter((key) => key.endsWith('UsageDescription'))
+      .sort();
+  const files = (): Record<string, string> =>
+    strings.infoPlistStringFiles(strings.loadLocaleBundles());
+  const table = (language: string) =>
+    stringsEntries(files()[path.join(`${language}.lproj`, 'InfoPlist.strings')] ?? '');
+  const english = bundle('en-GB');
+
+  it('finds the purpose strings the plugins add as well as the ones the config sets', () => {
+    expect(purposeKeys()).toEqual(
+      expect.arrayContaining([
+        'NSBluetoothAlwaysUsageDescription',
+        'NSCameraUsageDescription',
+        'NSLocationWhenInUseUsageDescription',
+      ])
+    );
+  });
+
+  it('translates every purpose string the generated Info.plist carries', () => {
+    const translated = [
+      ...new Set(strings.INFO_PLIST_STRINGS.map(({ key }: { key: string }) => key)),
+    ].sort();
+    expect(translated).toEqual(purposeKeys());
+  });
+
+  it('writes one table per Apple language and nothing else', () => {
+    expect(Object.keys(files()).sort()).toEqual(
+      strings
+        .appleLanguages()
+        .map((language: string) => path.join(`${language}.lproj`, 'InfoPlist.strings'))
+        .sort()
+    );
+  });
+
+  it.each(bundleLocalizations)('%s reads every purpose string from its own bundle', (language) => {
+    const source = bundle(localeOf(language));
+    const entries = table(language);
+    expect(Object.keys(entries).sort()).toEqual(purposeKeys());
+    const problems: string[] = [];
+    for (const { key, path: dotted } of strings.INFO_PLIST_STRINGS) {
+      const expected = at(source, dotted);
+      if (typeof expected !== 'string' || !expected.trim() || entries[key] !== expected) {
+        problems.push(`${key}: ${entries[key]}`);
+      } else if (!language.startsWith('en') && expected === at(english, dotted)) {
+        problems.push(`${key} is English: ${expected}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("keeps the development region's own text in Info.plist, for a language with no table", () => {
+    const region = String(infoPlist.CFBundleDevelopmentRegion);
+    expect(bundleLocalizations).toContain(region);
+    const entries = table(region);
+    const drifted = purposeKeys().filter((key) => infoPlist[key] !== entries[key]);
+    expect(drifted).toEqual([]);
+  });
+
+  it('reads back a purpose string carrying a quote, a backslash and a newline unchanged', () => {
+    const bundles = strings.loadLocaleBundles();
+    const tricky = `Veloq nutzt die „Kamera" \\ für\nQR-Codes`;
+    bundles['de-DE'] = {
+      ...bundles['de-DE'],
+      permissions: { ...bundles['de-DE'].permissions, camera: tricky },
+    };
+    const de = stringsEntries(
+      strings.infoPlistStringFiles(bundles)[path.join('de.lproj', 'InfoPlist.strings')]
+    );
+    expect(de.NSCameraUsageDescription).toBe(tricky);
+  });
+});
+
 describe('the Android string resources', () => {
   const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
 
@@ -245,6 +351,15 @@ describe('prebuild writes the catalogues where the targets read them', () => {
       expect(fs.existsSync(table)).toBe(true);
     }
     expect(fs.existsSync(path.join(iosRoot, 'VeloqWidget', 'en.lproj'))).toBe(false);
+  });
+
+  it('puts the purpose strings of every language in the app, which owns the prompts', () => {
+    const iosRoot = tmp();
+    iosPlugin.writeWidgetFiles(projectRoot, iosRoot, 'ExampleApp');
+    for (const language of strings.appleLanguages()) {
+      const table = path.join(iosRoot, 'ExampleApp', `${language}.lproj`, 'InfoPlist.strings');
+      expect(fs.existsSync(table)).toBe(true);
+    }
   });
 
   // Xcode refuses an AppShortcuts catalogue below iOS 17, and the app deploys to 16.4.
@@ -318,6 +433,25 @@ describe('the Xcode project compiles the catalogues', () => {
       )
       .join(' ')}]`;
 
+  const infoPlistStrings = (proj: ReturnType<typeof openFixture>, target: string) =>
+    resources(proj, target).filter((r: string) => r.startsWith('InfoPlist'));
+
+  it('copies the purpose strings of every language into the app and not the widget', () => {
+    const proj = openFixture();
+    configure(proj);
+
+    expect(infoPlistStrings(proj, APP)).toEqual([
+      `InfoPlist.strings variant [${strings
+        .appleLanguages()
+        .map(
+          (language: string) =>
+            `${language}:${APP}/${language}.lproj/InfoPlist.strings:text.plist.strings`
+        )
+        .join(' ')}]`,
+    ]);
+    expect(infoPlistStrings(proj, WIDGET)).toEqual([]);
+  });
+
   it('adds the string catalogue to both targets and the phrases to the app', () => {
     const proj = openFixture();
     configure(proj);
@@ -354,7 +488,15 @@ describe('the Xcode project compiles the catalogues', () => {
     const proj = openFixture();
     configure(proj);
     const variants = proj.hash.project.objects.PBXVariantGroup ?? {};
-    const key = Object.keys(variants).find((k) => !k.endsWith('_comment'))!;
+    const groupNames = () =>
+      Object.keys(variants)
+        .filter((k) => !k.endsWith('_comment'))
+        .map((k) => unquoted(variants[k].name))
+        .sort();
+    const tables = groupNames();
+    const key = Object.keys(variants).find(
+      (k) => !k.endsWith('_comment') && unquoted(variants[k].name) === 'AppShortcuts.strings'
+    )!;
     const dropped = variants[key].children?.pop();
     expect(dropped).toBeDefined();
     expect(appShortcuts(proj, APP)).not.toEqual([expectedAppShortcuts()]);
@@ -362,7 +504,8 @@ describe('the Xcode project compiles the catalogues', () => {
     configure(proj);
 
     expect(appShortcuts(proj, APP).join()).toContain(`${unquoted(dropped?.comment)}:`);
-    expect(Object.keys(variants).filter((k) => !k.endsWith('_comment'))).toHaveLength(1);
+    expect(groupNames()).toEqual(tables);
+    expect(new Set(tables).size).toBe(tables.length);
   });
 
   it('adds nothing on a second prebuild over the same project', () => {

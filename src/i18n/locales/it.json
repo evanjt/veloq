@@ -317,7 +317,12 @@
     "backupFailedServer": "Il server non ha risposto. Veloq riproverà più tardi.",
     "backupFailedTransport": "Veloq non è riuscito a raggiungere il server. Riproverà più tardi.",
     "backupFailedFolder": "Veloq non riesce più ad accedere alla cartella dei backup. Scegli di nuovo la cartella.",
+    "backupFailedUnverified": "Veloq ha scritto il backup ma non è riuscito a rileggerlo per verificarlo. Riproverà più tardi.",
     "lastAttemptFailed": "Ultimo tentativo fallito il {{date}}",
+    "androidLastBackup": "Ultimo backup Android: {{date}}, {{size}}",
+    "androidBackupNever": "Android non ha ancora eseguito il backup di Veloq",
+    "androidQuotaExceeded": "Android ha saltato il backup del {{date}}: {{size}} supera il limite di {{quota}}",
+    "androidRestored": "Ripristinato dal backup Android il {{date}}",
     "notEncryptedWarning": "I backup non sono crittografati. Chiunque apra il file può leggere le tue impostazioni, i nomi dei tuoi percorsi e delle tue sezioni, dove si trovano queste sezioni sulla mappa e la posizione di casa impostata per la privacy dell'esportazione.",
     "scanNextcloudQr": "Scansiona password app Nextcloud",
     "nextcloudQrHint": "Nextcloud → Impostazioni → Sicurezza → Crea nuova password app → Scansiona codice QR",
@@ -519,7 +524,6 @@
     "unableToLoad": "Impossibile caricare {{componentName}}",
     "closeAndReopen": "Chiudi e riapri l'app per continuare.",
     "restartHint": "Riprova o riavvia l'app",
-    "unableToDisplay": "Impossibile mostrare {{label}}",
     "unableToDisplayChart": "Impossibile mostrare il grafico",
     "tapToRetry": "Tocca per riprovare"
   },
@@ -694,8 +698,8 @@
     "weeklyVolumeDown": "{{percent}}% in meno questa settimana",
     "weeklyLoadUp": "+{{percent}}% carico di allenamento",
     "weeklyLoadDown": "{{percent}}% meno di carico",
-    "loadBody": "TSS: {{currentTss}} questa settimana vs {{previousTss}} settimana scorsa. Durata: {{currentDuration}} vs {{previousDuration}}.",
-    "volumeBody": "Durata allenamento: {{current}} questa settimana vs {{previous}} settimana scorsa. Misura il tempo, non il carico di allenamento (TSS).",
+    "loadBody": "TSS: {{currentTss}} finora questa settimana vs {{previousTss}} allo stesso momento della settimana scorsa. Durata: {{currentDuration}} vs {{previousDuration}}.",
+    "volumeBody": "Durata allenamento: {{current}} finora questa settimana vs {{previous}} allo stesso momento della settimana scorsa. Misura il tempo, non il carico di allenamento (TSS).",
     "howCalculated": "Come è stato calcolato?",
     "current": "Attuale",
     "previous": "Precedente",
@@ -722,7 +726,7 @@
       "route": "Conta i tentativi su un percorso in uno sport e in una direzione che sono cronometrati, non esclusi, non parziali e dentro la fascia di distanza del percorso. Un record è il più veloce tra questi, stabilito di recente. Un trend confronta la mediana degli ultimi tre con i tre precedenti, da sei tentativi."
     },
     "data": {
-      "activitiesLastWeek": "Attività settimana scorsa",
+      "activitiesLastWeek": "Attività allo stesso momento della settimana scorsa",
       "activitiesThisWeek": "Attività questa settimana",
       "bestTime": "Miglior tempo",
       "change": "Variazione",
@@ -743,6 +747,7 @@
       "previousFtp": "eFTP ciclismo di 30 giorni fa",
       "previousPace": "Passo precedente",
       "recentEfforts": "Tentativi recenti",
+      "samePointLastWeek": "Stesso momento della settimana scorsa",
       "sevenDayAvg": "Media di 7 giorni",
       "thisWeek": "Questa settimana",
       "trendSlope": "Pendenza tendenza",
@@ -925,7 +930,7 @@
     "recentPersonalRecord": "Record personale recente",
     "caption": {
       "latestAgainstMean": "Ultima {{latest}} ms, media {{avg}} ms",
-      "thisWeekAgainstLast": "Questa settimana {{current}}, settimana scorsa {{previous}}",
+      "thisWeekAgainstLast": "Questa settimana {{current}}, stesso momento della settimana scorsa {{previous}}",
       "lastWeekAgainstAverage": "Settimana scorsa {{current}}, media di 4 settimane {{previous}}",
       "fromTo": "Da {{previous}} a {{current}}"
     },
@@ -1057,7 +1062,8 @@
     "pace": "Passo",
     "rhr": "FCR",
     "week": "Sett.",
-    "weight": "Peso"
+    "weight": "Peso",
+    "cs": "CS"
   },
   "navigation": {
     "activities": "Attività",
@@ -1322,6 +1328,7 @@
     "fieldModeIndoor": "Indoor",
     "interruptedNotice": {
       "body": "Il sistema ha chiuso Veloq durante la tua attività, quindi la registrazione si è fermata. Tocca per riprendere.",
+      "card": "Registrazione interrotta. Apri Veloq per riprendere.",
       "channel": "Registrazioni interrotte",
       "title": "Registrazione interrotta"
     }
@@ -1402,7 +1409,10 @@
     "standingRankPercentile": "{{rank}}º su {{total}}, più veloce del {{percent}}% di essi, {{gap}} dal tuo migliore",
     "largeSectionPerformanceWarning": "Le sezioni grandi possono richiedere più tempo per essere elaborate.",
     "resetReference": "Reimposta riferimento",
-    "resetReferenceConfirm": "Tornare alla selezione automatica del riferimento? Le percentuali di corrispondenza di questo percorso verranno ricalcolate."
+    "resetReferenceConfirm": "Tornare alla selezione automatica del riferimento? Le percentuali di corrispondenza di questo percorso verranno ricalcolate.",
+    "prTime": "RP {{time}}",
+    "errorDetailId": "ID: {{id}}",
+    "errorDetailRange": "Intervallo: {{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "Calcolo percorsi...",
@@ -1475,6 +1485,9 @@
     "aerobicEfficiencyCaption": "Frequenza cardiaca per unità di passo, dal passaggio più vecchio al più recente",
     "correlationTitle": "Benessere e velocità",
     "correlationMethod": "r di Pearson della velocità sul giro rispetto al valore di benessere di quel giorno, intervallo al 95%, almeno 10 passaggi con un valore",
+    "correlationFamily_one": "Corretto con Holm su {{count}} variabile",
+    "correlationFamily_many": "Corretto con Holm su {{count}} di variabili",
+    "correlationFamily_other": "Corretto con Holm su {{count}} variabili",
     "correlationDirectionSame": "Stessa direzione",
     "correlationDirectionReverse": "Direzione inversa",
     "correlationFigures": "r {{r}}, n {{n}}, da {{low}} a {{high}}",
@@ -1602,7 +1615,8 @@
     "renameFailedMessage": "Il nome della sezione non è stato salvato. Riprova.",
     "nameTaken": "Un’altra sezione ha già questo nome. Scegli un nome diverso.",
     "undoExcludeLap": "Annulla Giro {{n}}",
-    "excludeLapNumber": "Escludi Giro {{n}}"
+    "excludeLapNumber": "Escludi Giro {{n}}",
+    "deleteFailed": "Impossibile eliminare la sezione."
   },
   "settings": {
     "terrain3DMode": "Terreno 3D: {{mode}}",
@@ -1888,7 +1902,10 @@
     "storageUsedAndFree": "{{used}} usati da Veloq, {{free}} liberi",
     "sectionsDetectedCount_one": "{{count}} sezione rilevata",
     "sectionsDetectedCount_many": "{{count}} sezioni rilevate",
-    "sectionsDetectedCount_other": "{{count}} sezioni rilevate"
+    "sectionsDetectedCount_other": "{{count}} sezioni rilevate",
+    "debugMode": "Modalità debug",
+    "debugModeDescription": "Mostra la diagnostica interna nelle pagine di dettaglio",
+    "developerDashboardDescription": "Statistiche del motore, prestazioni FFI, memoria"
   },
   "stats": {
     "activities": "Attività",
@@ -2006,7 +2023,12 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}} g",
+    "times": "{{value}}×",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "s"
   },
   "wellness": {
     "dragToExplore": "Trascina per esplorare",
@@ -2020,7 +2042,6 @@
     "smoothingAuto": "Auto",
     "smoothingAverage_one": "Media di {{count}} giorno",
     "smoothingAverage_other": "Media di {{count}} giorni",
-    "smoothingDaysShort": "{{days}} g",
     "smoothingDescription": "Applica una media mobile per ridurre il rumore giornaliero e mostrare i trend più chiaramente.",
     "smoothingHint": "Auto usa lo smoothing ottimale per l'intervallo selezionato",
     "smoothingNone": "Nessuno",
@@ -2439,5 +2460,14 @@
       "startSport": "Avvia {{sport}} con {{app}}",
       "recordSport": "Registra {{sport}} con {{app}}"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq usa la tua posizione per mostrare le mappe delle attività, seguire i percorsi e registrare le attività sportive.",
+    "locationBackground": "Veloq usa la tua posizione in background per continuare a registrare le attività sportive quando l'app non è in primo piano.",
+    "bluetooth": "Veloq usa il Bluetooth per collegarsi ai sensori di frequenza cardiaca, potenza e cadenza durante la registrazione.",
+    "camera": "Veloq usa la fotocamera per scansionare il codice QR di una password per app di Nextcloud.",
+    "microphone": "Veloq non registra audio. La fotocamera serve solo a scansionare i codici QR.",
+    "faceId": "Veloq non usa Face ID.",
+    "motion": "Veloq non legge i dati di movimento."
   }
 }

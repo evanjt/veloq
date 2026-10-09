@@ -1,32 +1,29 @@
+import { elevationOver } from './elevationChange';
+
 /**
- * The parts of a recording summary that can be answered for any window
- * without walking it.
+ * The parts of a recording summary a trim window asks for on every frame.
  *
- * A trim handle moves once a frame, and the review screen recomputed
- * elevation gain and the heart-rate and power averages over the whole window
- * each time. Built once per recording, these answer the same questions in
- * constant time, so a drag costs the same on a five-hour ride as on a lap of
- * the block.
+ * A trim handle moves once a frame, and the review screen recomputed the
+ * heart-rate and power averages over the whole window each time. Built once
+ * per recording, these answer them in constant time, so a drag costs the same
+ * on a five-hour ride as on a lap of the block.
  *
  * Every prefix is exclusive: `p[i]` covers the points before `i`, so a window
  * of `[start, end]` inclusive is `p[end + 1] - p[start]`.
+ *
+ * Elevation gain has no prefix: a rise counts against the level the window
+ * last counted, which depends on where the window opens, so it is replayed
+ * over the window in one pass that allocates nothing.
  */
 
 export interface StreamPrefixes {
-  /** Positive altitude deltas, `gain[i]` covering the steps into points < i. */
-  gain: number[];
-  /** The gain each point contributed, for the one step a window disowns. */
-  step: number[];
-  /** First point at or after `i` with a usable altitude, or `length`. */
-  nextValid: number[];
+  altitude: readonly number[];
   hrSum: number[];
   hrCount: number[];
   powerSum: number[];
   powerCount: number[];
   length: number;
 }
-
-const usable = (v: number | null | undefined): v is number => v != null && Number.isFinite(v);
 
 /** Build the prefixes for one recording. O(n), once. */
 export function buildStreamPrefixes(streams: {
@@ -35,23 +32,6 @@ export function buildStreamPrefixes(streams: {
   power: readonly number[];
 }): StreamPrefixes {
   const length = streams.altitude.length;
-
-  const gain = new Array<number>(length + 1).fill(0);
-  const step = new Array<number>(length).fill(0);
-  let previous: number | null = null;
-  for (let i = 0; i < length; i += 1) {
-    const alt = streams.altitude[i];
-    if (usable(alt)) {
-      if (previous !== null && alt > previous) step[i] = alt - previous;
-      previous = alt;
-    }
-    gain[i + 1] = gain[i] + step[i];
-  }
-
-  const nextValid = new Array<number>(length + 1).fill(length);
-  for (let i = length - 1; i >= 0; i -= 1) {
-    nextValid[i] = usable(streams.altitude[i]) ? i : nextValid[i + 1];
-  }
 
   const prefixOf = (values: readonly number[]) => {
     const sum = new Array<number>(values.length + 1).fill(0);
@@ -69,9 +49,7 @@ export function buildStreamPrefixes(streams: {
   const power = prefixOf(streams.power);
 
   return {
-    gain,
-    step,
-    nextValid,
+    altitude: streams.altitude,
     hrSum: hr.sum,
     hrCount: hr.count,
     powerSum: power.sum,
@@ -88,23 +66,11 @@ function bounded(prefixes: StreamPrefixes, start: number, end: number): [number,
   return [first, last];
 }
 
-/**
- * Elevation gain over `[start, end]`, matching `elevationGain` over the same
- * slice.
- *
- * The prefix counts the step into every point against the last usable
- * altitude before it, which for the window's own first usable point lies
- * outside the window. That one step is taken back here, which is the whole
- * difference between this and a subtraction.
- */
+/** Elevation gain over `[start, end]`, the engine's rule over that slice alone. */
 export function windowGain(prefixes: StreamPrefixes, start: number, end: number): number {
   const window = bounded(prefixes, start, end);
   if (!window) return 0;
-  const [first, last] = window;
-  const total = prefixes.gain[last + 1] - prefixes.gain[first + 1];
-  const firstUsable = prefixes.nextValid[first];
-  const disowned = firstUsable > first && firstUsable <= last ? prefixes.step[firstUsable] : 0;
-  return total - disowned;
+  return elevationOver(prefixes.altitude, window[0], window[1]).gain;
 }
 
 /** Mean of the positive values in `[start, end]`, or null when there are none. */

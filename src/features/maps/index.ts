@@ -93,13 +93,7 @@ export { offlineMapStyle } from './lib/offlineStyleFallback';
 export { readSnapshotQueueReport } from './lib/snapshotQueueTrace';
 export { submitSectionCreation } from './hooks/submitSectionCreation';
 export { reloadMapCameraState } from './lib/storage/mapCameraState';
-export {
-  deleteCameraOverride,
-  getCameraOverride,
-  initCameraOverrides,
-  reloadCameraOverrides,
-  setCameraOverride,
-} from './lib/storage/terrainCameraOverrides';
+export { initCameraOverrides, reloadCameraOverrides } from './lib/storage/terrainCameraOverrides';
 export {
   clearTerrainPreviews,
   deleteSupersededTerrainPreviews,

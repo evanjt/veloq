@@ -2,8 +2,8 @@
 //! requests pass through.
 //!
 //! This module owns the transport-agnostic *policy* seams - retry backoff,
-//! `Authorization` header formatting, and the one rate header the server
-//! sends. They are pure functions so they can be unit-tested without a
+//! `Authorization` header formatting, the rate headers a response carries and
+//! what a 429 was. They are pure functions so they can be unit-tested without a
 //! network. Priority lanes are layered on top through `Policy`.
 
 use std::sync::Arc;
@@ -71,22 +71,135 @@ pub fn format_auth_header(method: AuthMethod<'_>) -> String {
     }
 }
 
-/// What a response says about rate: `Retry-After` on a 429, and nothing else.
+/// What a response says about rate: `Retry-After` on a 429, and the
+/// `X-RateLimit-Limit` and `X-RateLimit-Remaining` pair when the application
+/// sends one.
 ///
-/// intervals.icu sends no `X-RateLimit-*` pair. Measured 2026-09-05 against
-/// the live API: no budget header on any 200 or 429, and the 429 is issued at
-/// the Cloudflare edge with `Retry-After: 1` and an empty body. A malformed
-/// or absent value is `None`.
+/// The edge refusal measured 2026-09-05 on the API-key path carries
+/// `Retry-After: 1`, no `via` header, an empty body and no budget pair. The
+/// application's own quota refusal has not been measured, and the published
+/// rate limit description singles out the per-IP limit as the one that sends
+/// no budget headers. So the pair is read when it arrives and its absence means
+/// the budget is unknown, never that it is healthy. A malformed or absent value
+/// is `None`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct RateBudget {
     pub retry_after_secs: Option<u64>,
+    pub limit: Option<RateWindows>,
+    pub remaining: Option<RateWindows>,
 }
 
-/// Parse `Retry-After: <seconds>`.
-pub fn parse_rate_headers(retry_after: Option<&str>) -> RateBudget {
+/// One budget header's two figures: the rolling 15-minute window first, the
+/// UTC day second.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateWindows {
+    pub fifteen_minutes: u64,
+    pub daily: u64,
+}
+
+/// Parse `Retry-After: <seconds>` and the `X-RateLimit-Limit` and
+/// `X-RateLimit-Remaining` pairs.
+pub fn parse_rate_headers(
+    retry_after: Option<&str>,
+    limit: Option<&str>,
+    remaining: Option<&str>,
+) -> RateBudget {
     RateBudget {
         retry_after_secs: retry_after.and_then(|s| s.trim().parse().ok()),
+        limit: limit.and_then(parse_rate_windows),
+        remaining: remaining.and_then(parse_rate_windows),
     }
+}
+
+/// Parse `<15-minute>,<daily>`. Anything but exactly two integers is `None`,
+/// since a single figure cannot say which window it counts.
+fn parse_rate_windows(value: &str) -> Option<RateWindows> {
+    let (fifteen_minutes, daily) = value.split_once(',')?;
+    Some(RateWindows {
+        fifteen_minutes: fifteen_minutes.trim().parse().ok()?,
+        daily: daily.trim().parse().ok()?,
+    })
+}
+
+/// What a 429 was, read from what it carried.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// The edge's burst allowance: a short `Retry-After`, never through the
+    /// application, empty. Retried inline.
+    EdgeBurst,
+    /// The application's quota, or a refusal that repeats. Holds the backfill.
+    AppQuota,
+}
+
+/// Longest `Retry-After` an edge burst refusal carries.
+const EDGE_BURST_MAX_RETRY_AFTER_SECS: u64 = 5;
+
+/// Classify a 429. `via` is the response's `via` header, `consecutive` counts
+/// this refusal with those before it since the last success, so 1 is the
+/// first.
+///
+/// An edge burst is a `Retry-After` of five seconds or less, no `via` header,
+/// no budget pair and an empty body, and it is the first refusal in a row.
+/// Anything that passed through the application, a longer or missing
+/// `Retry-After`, or a second refusal in a row is the application's quota.
+pub fn classify_refusal(
+    budget: &RateBudget,
+    via: Option<&str>,
+    body: &[u8],
+    consecutive: u32,
+) -> Refusal {
+    let short = budget
+        .retry_after_secs
+        .is_some_and(|secs| secs <= EDGE_BURST_MAX_RETRY_AFTER_SECS);
+    let at_the_edge =
+        via.is_none() && body.is_empty() && budget.limit.is_none() && budget.remaining.is_none();
+    if consecutive <= 1 && short && at_the_edge {
+        Refusal::EdgeBurst
+    } else {
+        Refusal::AppQuota
+    }
+}
+
+/// The shared limits every install of the app draws on, as the application
+/// publishes them. Used as the denominator when a response carries
+/// `X-RateLimit-Remaining` without `X-RateLimit-Limit`.
+const SHARED_LIMITS: RateWindows = RateWindows {
+    fifteen_minutes: 2_500,
+    daily: 8_000,
+};
+
+/// Below this share of a window left, the backfill stops drawing on it.
+const LOW_REMAINING_PERCENT: u64 = 25;
+
+/// The full rolling window, which is how long a low 15-minute figure holds the
+/// backfill: the oldest request in it has left by then.
+const FIFTEEN_MINUTES: chrono::TimeDelta = chrono::TimeDelta::minutes(15);
+
+/// When the backfill may draw on the shared budget again, read from a
+/// response's budget pair at `now`, or `None` when the pair is absent or
+/// healthy.
+///
+/// Below a quarter of the day left it holds until the next midnight UTC, when
+/// the daily count resets. Below a quarter of the 15-minute window left it
+/// holds for the window. A figure only ever holds the backfill: nothing here
+/// speeds anything up, and work a user is waiting on is never gated by it.
+pub fn budget_hold_until(
+    budget: &RateBudget,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<chrono::DateTime<chrono::Utc>> {
+    let remaining = budget.remaining?;
+    let limit = budget.limit.unwrap_or(SHARED_LIMITS);
+    let low = |left: u64, of: u64| {
+        of > 0 && left.saturating_mul(100) < of.saturating_mul(LOW_REMAINING_PERCENT)
+    };
+    if low(remaining.daily, limit.daily) {
+        let tomorrow = now.date_naive().succ_opt()?;
+        return Some(tomorrow.and_hms_opt(0, 0, 0)?.and_utc());
+    }
+    if low(remaining.fifteen_minutes, limit.fifteen_minutes) {
+        return Some(now + FIFTEEN_MINUTES);
+    }
+    None
 }
 
 /// Request priority lane.
@@ -180,6 +293,11 @@ pub struct Governor {
     /// yield is otherwise only visible as elapsed time, which reads as load
     /// rather than as policy.
     yields: std::sync::atomic::AtomicU64,
+    /// 429s since the last success, across every request in the process.
+    consecutive_refusals: std::sync::atomic::AtomicU32,
+    /// Until when the backfill should not draw on the shared budget, from the
+    /// last application quota refusal or a low budget figure.
+    backfill_hold: std::sync::Mutex<Option<chrono::DateTime<chrono::Utc>>>,
 }
 
 impl Governor {
@@ -191,7 +309,65 @@ impl Governor {
             next_at: std::sync::Mutex::new(None),
             policy,
             yields: std::sync::atomic::AtomicU64::new(0),
+            consecutive_refusals: std::sync::atomic::AtomicU32::new(0),
+            backfill_hold: std::sync::Mutex::new(None),
         }
+    }
+
+    /// Record a 429 and classify it. Returns what it was and how many refusals
+    /// in a row it makes.
+    ///
+    /// An application quota refusal holds the backfill for its `Retry-After`
+    /// in full, uncapped, and for whatever its budget pair says.
+    pub fn note_refusal(
+        &self,
+        budget: &RateBudget,
+        via: Option<&str>,
+        body: &[u8],
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> (Refusal, u32) {
+        let consecutive = self
+            .consecutive_refusals
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            .saturating_add(1);
+        let refusal = classify_refusal(budget, via, body, consecutive);
+        if refusal == Refusal::AppQuota {
+            let retry_after = budget
+                .retry_after_secs
+                .and_then(|secs| chrono::TimeDelta::try_seconds(i64::try_from(secs).ok()?))
+                .and_then(|wait| now.checked_add_signed(wait));
+            self.hold_backfill(retry_after);
+            self.hold_backfill(budget_hold_until(budget, now));
+        }
+        (refusal, consecutive)
+    }
+
+    /// Record a success: the run of refusals ends, and a low budget figure
+    /// holds the backfill. A healthy figure does not lift a hold a refusal set.
+    pub fn note_success(&self, budget: &RateBudget, now: chrono::DateTime<chrono::Utc>) {
+        self.consecutive_refusals
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        self.hold_backfill(budget_hold_until(budget, now));
+    }
+
+    /// Extend the backfill hold to `until`. A hold only ever lengthens here; it
+    /// lapses when its time passes.
+    fn hold_backfill(&self, until: Option<chrono::DateTime<chrono::Utc>>) {
+        let Some(until) = until else { return };
+        let mut hold = self.backfill_hold.lock().unwrap_or_else(|e| e.into_inner());
+        if hold.is_none_or(|current| current < until) {
+            *hold = Some(until);
+        }
+    }
+
+    /// Until when the backfill should not draw on the shared budget, or `None`
+    /// when nothing holds it at `now`.
+    pub fn backfill_hold_until(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Option<chrono::DateTime<chrono::Utc>> {
+        let hold = *self.backfill_hold.lock().unwrap_or_else(|e| e.into_inner());
+        hold.filter(|until| *until > now)
     }
 
     /// Acquire a dispatch slot for `lane`, awaiting until the shared pace allows.
@@ -330,12 +506,263 @@ mod tests {
     }
 
     #[test]
-    fn parses_retry_after_and_nothing_else() {
-        assert_eq!(parse_rate_headers(Some("370")).retry_after_secs, Some(370));
-        assert_eq!(parse_rate_headers(Some(" 1 ")).retry_after_secs, Some(1));
-        assert_eq!(parse_rate_headers(Some("soon")).retry_after_secs, None);
-        assert_eq!(parse_rate_headers(Some("")).retry_after_secs, None);
-        assert_eq!(parse_rate_headers(None), RateBudget::default());
+    fn parses_retry_after() {
+        let retry = |v| parse_rate_headers(v, None, None).retry_after_secs;
+        assert_eq!(retry(Some("370")), Some(370));
+        assert_eq!(retry(Some(" 1 ")), Some(1));
+        assert_eq!(retry(Some("soon")), None);
+        assert_eq!(retry(Some("")), None);
+        assert_eq!(parse_rate_headers(None, None, None), RateBudget::default());
+    }
+
+    #[test]
+    fn parses_the_budget_pair_as_fifteen_minutes_then_daily() {
+        let budget = parse_rate_headers(None, Some("2500,8000"), Some("1200,5400"));
+        assert_eq!(
+            budget.remaining,
+            Some(RateWindows {
+                fifteen_minutes: 1_200,
+                daily: 5_400
+            })
+        );
+        assert_eq!(budget.limit, Some(SHARED_LIMITS));
+        let remaining = |v| parse_rate_headers(None, None, Some(v)).remaining;
+        assert_eq!(
+            remaining(" 1200 , 5400 "),
+            Some(RateWindows {
+                fifteen_minutes: 1_200,
+                daily: 5_400
+            })
+        );
+        assert_eq!(remaining("0,0").map(|w| w.daily), Some(0));
+    }
+
+    #[test]
+    fn a_budget_header_that_is_not_two_integers_is_none() {
+        let remaining = |v| parse_rate_headers(None, None, Some(v)).remaining;
+        for bad in [
+            "1200",
+            "",
+            "   ",
+            ",",
+            "1200,",
+            ",5400",
+            "a,b",
+            "1200,5400,9",
+            "-1,5",
+            "1.5,2",
+        ] {
+            assert_eq!(remaining(bad), None, "{bad:?}");
+        }
+    }
+
+    fn at(rfc3339: &str) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    }
+
+    fn retry_after(secs: u64) -> RateBudget {
+        RateBudget {
+            retry_after_secs: Some(secs),
+            ..RateBudget::default()
+        }
+    }
+
+    #[test]
+    fn a_short_empty_refusal_from_the_edge_is_a_burst() {
+        assert_eq!(
+            classify_refusal(&retry_after(1), None, b"", 1),
+            Refusal::EdgeBurst
+        );
+        assert_eq!(
+            classify_refusal(&retry_after(5), None, b"", 1),
+            Refusal::EdgeBurst
+        );
+    }
+
+    #[test]
+    fn a_refusal_through_the_application_is_its_quota() {
+        assert_eq!(
+            classify_refusal(&retry_after(370), Some("1.1 Caddy"), b"", 1),
+            Refusal::AppQuota
+        );
+        assert_eq!(
+            classify_refusal(&retry_after(1), Some("1.1 Caddy"), b"", 1),
+            Refusal::AppQuota
+        );
+        assert_eq!(
+            classify_refusal(&retry_after(6), None, b"", 1),
+            Refusal::AppQuota
+        );
+        assert_eq!(
+            classify_refusal(&RateBudget::default(), None, b"", 1),
+            Refusal::AppQuota
+        );
+        assert_eq!(
+            classify_refusal(&retry_after(1), None, b"{\"error\":\"quota\"}", 1),
+            Refusal::AppQuota
+        );
+        let with_pair = RateBudget {
+            remaining: Some(RateWindows {
+                fifteen_minutes: 0,
+                daily: 10,
+            }),
+            ..retry_after(1)
+        };
+        assert_eq!(
+            classify_refusal(&with_pair, None, b"", 1),
+            Refusal::AppQuota
+        );
+    }
+
+    #[test]
+    fn a_second_refusal_in_a_row_is_the_quota_whatever_it_carries() {
+        assert_eq!(
+            classify_refusal(&retry_after(1), None, b"", 2),
+            Refusal::AppQuota
+        );
+        assert_eq!(
+            classify_refusal(&retry_after(1), None, b"", 7),
+            Refusal::AppQuota
+        );
+    }
+
+    fn remaining(fifteen_minutes: u64, daily: u64) -> RateBudget {
+        RateBudget {
+            remaining: Some(RateWindows {
+                fifteen_minutes,
+                daily,
+            }),
+            ..RateBudget::default()
+        }
+    }
+
+    #[test]
+    fn an_absent_or_healthy_budget_holds_nothing() {
+        let now = at("2026-03-04T10:00:00Z");
+        assert_eq!(budget_hold_until(&RateBudget::default(), now), None);
+        assert_eq!(budget_hold_until(&retry_after(370), now), None);
+        assert_eq!(budget_hold_until(&remaining(2_000, 5_400), now), None);
+        // Exactly a quarter left is not below a quarter.
+        assert_eq!(budget_hold_until(&remaining(625, 2_000), now), None);
+    }
+
+    #[test]
+    fn a_low_daily_figure_holds_the_backfill_until_midnight_utc() {
+        let now = at("2026-03-04T22:15:00Z");
+        assert_eq!(
+            budget_hold_until(&remaining(2_000, 1_999), now),
+            Some(at("2026-03-05T00:00:00Z"))
+        );
+        assert_eq!(
+            budget_hold_until(&remaining(2_000, 0), at("2026-03-04T00:00:00Z")),
+            Some(at("2026-03-05T00:00:00Z"))
+        );
+    }
+
+    #[test]
+    fn a_low_fifteen_minute_figure_holds_the_backfill_for_the_window() {
+        let now = at("2026-03-04T10:00:00Z");
+        assert_eq!(
+            budget_hold_until(&remaining(624, 5_400), now),
+            Some(at("2026-03-04T10:15:00Z"))
+        );
+        // Both low: the later of the two.
+        assert_eq!(
+            budget_hold_until(&remaining(0, 0), now),
+            Some(at("2026-03-05T00:00:00Z"))
+        );
+    }
+
+    #[test]
+    fn the_reported_limit_is_the_denominator_when_it_arrives() {
+        let now = at("2026-03-04T10:00:00Z");
+        let budget = RateBudget {
+            limit: Some(RateWindows {
+                fifteen_minutes: 100,
+                daily: 400,
+            }),
+            ..remaining(30, 120)
+        };
+        assert_eq!(budget_hold_until(&budget, now), None);
+        let low = RateBudget {
+            limit: budget.limit,
+            ..remaining(24, 120)
+        };
+        assert_eq!(
+            budget_hold_until(&low, now),
+            Some(at("2026-03-04T10:15:00Z"))
+        );
+        // A zero limit says nothing usable, so it holds nothing rather than dividing by it.
+        let zero = RateBudget {
+            limit: Some(RateWindows {
+                fifteen_minutes: 0,
+                daily: 0,
+            }),
+            ..remaining(0, 0)
+        };
+        assert_eq!(budget_hold_until(&zero, now), None);
+    }
+
+    #[test]
+    fn the_governor_counts_refusals_in_a_row_and_a_success_ends_the_run() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy));
+        let now = at("2026-03-04T10:00:00Z");
+        assert_eq!(
+            gov.note_refusal(&retry_after(1), None, b"", now),
+            (Refusal::EdgeBurst, 1)
+        );
+        assert_eq!(
+            gov.backfill_hold_until(now),
+            None,
+            "an edge burst holds nothing"
+        );
+        assert_eq!(
+            gov.note_refusal(&retry_after(1), None, b"", now),
+            (Refusal::AppQuota, 2)
+        );
+        gov.note_success(&RateBudget::default(), now);
+        assert_eq!(
+            gov.note_refusal(&retry_after(1), None, b"", now),
+            (Refusal::EdgeBurst, 1)
+        );
+    }
+
+    #[test]
+    fn an_app_quota_refusal_holds_the_backfill_for_its_full_retry_after() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy));
+        let now = at("2026-03-04T10:00:00Z");
+        let (kind, _) = gov.note_refusal(&retry_after(600), Some("1.1 Caddy"), b"", now);
+        assert_eq!(kind, Refusal::AppQuota);
+        assert_eq!(
+            gov.backfill_hold_until(now),
+            Some(at("2026-03-04T10:10:00Z"))
+        );
+        // A healthy success does not lift it, and it lapses on its own.
+        gov.note_success(&remaining(2_000, 6_000), now);
+        assert_eq!(
+            gov.backfill_hold_until(now),
+            Some(at("2026-03-04T10:10:00Z"))
+        );
+        assert_eq!(gov.backfill_hold_until(at("2026-03-04T10:10:00Z")), None);
+    }
+
+    #[test]
+    fn a_low_figure_on_a_success_holds_the_backfill() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy));
+        let now = at("2026-03-04T22:00:00Z");
+        gov.note_success(&remaining(2_000, 100), now);
+        assert_eq!(
+            gov.backfill_hold_until(now),
+            Some(at("2026-03-05T00:00:00Z"))
+        );
+        // A shorter hold arriving later does not shorten it.
+        gov.note_refusal(&retry_after(60), Some("1.1 Caddy"), b"", now);
+        assert_eq!(
+            gov.backfill_hold_until(now),
+            Some(at("2026-03-05T00:00:00Z"))
+        );
     }
 
     #[test]
@@ -489,8 +916,9 @@ mod tests {
         });
     }
 
-    // No response carries a budget, so there is one queue limit for the
-    // backfill lane and none for interactive work, whatever has been seen.
+    // A budget figure holds the backfill through the governor's hold, never
+    // through the queue limit, so there is one queue limit for the backfill
+    // lane and none for interactive work, whatever has been seen.
     #[test]
     fn the_backfill_limit_is_one_value_and_interactive_never_waits() {
         let policy = YieldBackfillPolicy::new();

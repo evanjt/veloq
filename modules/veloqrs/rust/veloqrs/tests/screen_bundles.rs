@@ -1309,9 +1309,10 @@ struct HeartAttempt {
     moving_time: u32,
     avg_hr: Option<u16>,
     excluded: bool,
+    direction: &'static str,
 }
 
-/// A route whose attempts are `attempts`, all taken the route's own way.
+/// A route whose attempts are `attempts`, each taken in its own direction.
 fn route_of(attempts: &[HeartAttempt]) -> Setup {
     let mut s = setup();
     let now = chrono::Utc::now().timestamp();
@@ -1347,8 +1348,8 @@ fn route_of(attempts: &[HeartAttempt]) -> Setup {
         s.raw
             .execute(
                 "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction, excluded)
-                 VALUES ('loop', ?1, 90.0, 'same', ?2)",
-                params![a.id, a.excluded],
+                 VALUES ('loop', ?1, 90.0, ?2, ?3)",
+                params![a.id, a.direction, a.excluded],
             )
             .expect("insert match");
     }
@@ -1369,6 +1370,7 @@ const fn ride(
         moving_time,
         avg_hr,
         excluded: false,
+        direction: "same",
     }
 }
 
@@ -1449,6 +1451,54 @@ fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
     let run = s.engine.route_detail_performance("loop", 0, Some("Run"));
     assert_eq!(run.sport_type.as_deref(), Some("Run"));
     assert!(run.efficiency_trend.is_none());
+}
+
+/// Scenario: a route ridden six times its own way at a steady pace and pulse,
+/// with three faster, lower-pulse rides the other way among the later ones.
+/// Pooled, the reverse rides' lower cost reads as an improving trend.
+///
+/// Expected behaviour: the trend is taken in the latest counted attempt's
+/// direction, so it is flat over six efforts; once the newest ride is the
+/// other way, it is taken over the reverse rides alone.
+#[test]
+fn route_efficiency_trend_is_taken_in_the_latest_direction() {
+    let _serial_state = crate::serial_state();
+    let reverse = |id, days_ago| HeartAttempt {
+        direction: "reverse",
+        ..ride(id, days_ago, 150, Some(140))
+    };
+    let mut attempts = vec![
+        ride("same_a", 90, 300, Some(150)),
+        ride("same_b", 80, 300, Some(150)),
+        ride("same_c", 70, 300, Some(150)),
+        reverse("back_a", 60),
+        ride("same_d", 50, 300, Some(150)),
+        reverse("back_b", 40),
+        ride("same_e", 30, 300, Some(150)),
+        reverse("back_c", 20),
+        ride("same_f", 10, 300, Some(150)),
+    ];
+
+    let s = route_of(&attempts);
+    let trend = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Ride"))
+        .efficiency_trend
+        .expect("six same-way attempts carry heart rate");
+    assert_eq!(trend.effort_count, 6);
+    assert_eq!(trend.direction, veloqrs::EfficiencyDirection::Flat);
+    assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 300.0));
+    drop(s);
+
+    attempts.push(reverse("back_d", 5));
+    let s = route_of(&attempts);
+    let trend = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Ride"))
+        .efficiency_trend
+        .expect("four reverse attempts carry heart rate");
+    assert_eq!(trend.effort_count, 4);
+    assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 150.0));
 }
 
 #[test]
@@ -1675,8 +1725,8 @@ fn insights_carries_a_history_series_for_each_card_that_draws_one() {
     // jumped once sum the same.
     assert_eq!(
         bundle.weekly_totals.len(),
-        5,
-        "four chronic weeks and the compared one"
+        6,
+        "four chronic weeks, last week, and this week so far"
     );
     let weekly: f64 = bundle.weekly_totals[..4]
         .iter()
@@ -3327,13 +3377,24 @@ fn the_weekly_totals_are_dated_a_week_apart_through_the_compared_week() {
     let bundle = s.engine.insights_data(&p);
 
     let starts: Vec<f64> = bundle.weekly_totals.iter().map(|w| w.start).collect();
-    assert_eq!(starts.len(), 5, "four chronic weeks and the compared week");
+    assert_eq!(
+        starts.len(),
+        6,
+        "four chronic weeks, last week, and this week so far"
+    );
     assert!(
         starts.windows(2).all(|w| w[1] - w[0] == 7.0 * 86_400.0),
         "{starts:?}"
     );
     assert_eq!(starts[0], p.chronic_start);
-    assert_eq!(starts[4], p.prev_start, "the last row is the compared week");
+    assert_eq!(starts[4], p.prev_start, "last week, whole");
+    assert_eq!(starts[5], p.current_start, "the compared week, so far");
+    let partial: Vec<bool> = bundle.weekly_totals.iter().map(|w| w.partial).collect();
+    assert_eq!(partial, [false, false, false, false, false, true]);
+    assert_eq!(
+        bundle.weekly_totals[5].stats.total_duration,
+        bundle.current_week.total_duration
+    );
     let chronic: f64 = bundle.weekly_totals[..4]
         .iter()
         .map(|w| w.stats.total_duration)

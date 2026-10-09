@@ -40,6 +40,7 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => mockMapStyle,
     getTerrain3DMode: () => mockTerrain3DMode,
+    getActivityCamera: () => mockCameraOverride ?? undefined,
     hasActivityOverride: () => mockHasOverride,
   }),
 }));
@@ -61,9 +62,6 @@ let mockCameraOverride: {
   bearing: number;
   pitch: number;
 } | null = null;
-jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
-  getCameraOverride: () => mockCameraOverride,
-}));
 
 jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({
   subscribeSnapshot: (id: string, cb: (uri: string) => void) => {

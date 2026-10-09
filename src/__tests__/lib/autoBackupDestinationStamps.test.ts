@@ -52,7 +52,16 @@ jest.mock('@/shared/native/backupFolder', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///docs/',
+  cacheDirectory: 'file:///cache/',
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
+}));
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
 }));
 
 jest.mock('expo-network', () => ({
@@ -75,8 +84,8 @@ function carrier(id: string, upload: BackupBackend['upload']): BackupBackend {
   };
 }
 
-const webdavUpload = jest.fn(async (_path: string, _entry: unknown) => {});
-const folderUpload = jest.fn(async (_path: string, _entry: unknown) => {});
+const webdavUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
+const folderUpload = jest.fn(async (_path: string, _entry: unknown) => 'veloq-backup.zip');
 const RUN_AT = Date.parse('2026-05-04T06:30:00Z');
 
 beforeEach(() => {
@@ -86,8 +95,8 @@ beforeEach(() => {
   mockSettings.set('__auto_backup_enabled', '1');
   mockWebdavUrl = 'https://dav.example.org/files/rider';
   mockFolderUri = 'content://tree/primary%3ALogbook';
-  webdavUpload.mockImplementation(async () => {});
-  folderUpload.mockImplementation(async () => {});
+  webdavUpload.mockImplementation(async () => 'veloq-backup.zip');
+  folderUpload.mockImplementation(async () => 'veloq-backup.zip');
   mockCarriers.length = 0;
   mockCarriers.push(carrier('webdav', webdavUpload), carrier('folder', folderUpload));
 });

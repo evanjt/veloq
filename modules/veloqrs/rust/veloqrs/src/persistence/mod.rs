@@ -1601,6 +1601,13 @@ impl PersistentEngine {
             engine.recompute_indicators_if_stale();
         }
 
+        if let Err(e) = fitness::scrub_stored_profile_api_key(&engine.db) {
+            log::warn!(
+                "veloqrs: [PersistentEngine] could not scrub the stored athlete profile: {}",
+                e
+            );
+        }
+
         Ok(engine)
     }
 

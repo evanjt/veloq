@@ -64,13 +64,19 @@ jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
+
 const testBackend: BackupBackend = {
   id: 'test-export-during-auto',
   name: 'Test Export During Auto',
   isRemote: false,
   isAvailable: async () => true,
   listBackups: async () => [],
-  upload: async () => {},
+  upload: async () => 'veloq-backup.zip',
   download: async () => {},
   delete: async () => {},
 };

@@ -66,6 +66,7 @@
     "backupFailedServer": "The server didn't answer. Veloq will have another go later.",
     "backupFailedTransport": "Veloq couldn't reach the server. It'll try again later.",
     "backupFailedFolder": "Veloq can't get to the backup folder any more. Pick the folder again.",
+    "backupFailedUnverified": "Veloq wrote the backup but couldn't read it back to check it. It'll try again later.",
     "lastAttemptFailed": "Last go failed on {{date}}",
     "invalidQrCode": "That's not a Nextcloud QR code",
     "cameraPermissionNeeded": "Needs camera access to scan QR codes",
@@ -142,7 +143,6 @@
     "unableToLoad": "Couldn't load {{componentName}}",
     "closeAndReopen": "Close the app and open it again to keep going.",
     "restartHint": "Have another go, or restart the app",
-    "unableToDisplay": "Can't show {{label}}",
     "unableToDisplayChart": "Can't show this chart",
     "tapToRetry": "Tap to have another go"
   },

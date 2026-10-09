@@ -402,7 +402,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                       <View key={i} style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}>
                         <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
                         <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
-                          {z.label} x{z.count} {formatDurationHuman(z.totalTime)}
+                          {z.label} {t('units.times', { value: z.count })}{' '}
+                          {formatDurationHuman(z.totalTime)}
                         </Text>
                       </View>
                     ))}

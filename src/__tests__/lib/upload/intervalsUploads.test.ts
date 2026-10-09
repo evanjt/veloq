@@ -48,10 +48,10 @@ beforeEach(() => {
 });
 
 describe('uploadRecordingNow', () => {
-  it("hands the engine the ride's id as the athlete's own request", async () => {
+  it("hands the engine the ride's id as the athlete's own request, with the live documents directory", async () => {
     await uploadRecordingNow('rec-1');
 
-    expect(mockUploadRecording).toHaveBeenCalledWith('rec-1', true);
+    expect(mockUploadRecording).toHaveBeenCalledWith('rec-1', true, 'file:///docs/');
   });
 
   it("answers the engine's outcome and detail as they were given", async () => {

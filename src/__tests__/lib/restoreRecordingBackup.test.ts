@@ -69,17 +69,18 @@ function backup(status: RecordingBackup['status']): RecordingBackup {
     pairedEventId: 42,
     laps: [],
     streams: {
-      time: [0, 1],
+      time: [0, 1, 2],
       latlng: [
         [47, 8],
         [47.001, 8],
+        [47.002, 8],
       ],
-      altitude: [450, 452],
+      altitude: [450, 454, 458],
       heartrate: [],
       power: [],
       cadence: [],
-      speed: [0, 2],
-      distance: [0, 100],
+      speed: [0, 2, 2],
+      distance: [0, 100, 200],
     },
   };
 }
@@ -149,7 +150,7 @@ describe('Resume crash backup', () => {
         expect(JSON.parse(data).startTime).toBe(original.startTime);
       }
       expect(useRecordingStore.getState().pairedEventId).toBe(42);
-      expect(useRecordingStore.getState().totals.elevationGain).toBe(2);
+      expect(useRecordingStore.getState().totals.elevationGain).toBe(4);
       uninstall();
       useRecordingStore.getState().reset();
       const second = await loadRecordingBackup();

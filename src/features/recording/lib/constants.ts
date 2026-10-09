@@ -22,3 +22,10 @@ export const SPLIT_BANNER_DURATION_MS = 3_000;
 // budgets updates, and a 1 Hz card would spend that budget on a distance that
 // changes by metres.
 export const LIVE_ACTIVITY_REFRESH_MS = 5_000;
+
+// How long the Live Activity card stays fresh after a push. Every refresh moves
+// it on, so only a process that has stopped refreshing lets the card go stale,
+// and a stale card stops its clock and says the recording stopped. The margin
+// is wide because a live ride that reads as stopped sends the rider to an app
+// that was recording all along.
+export const LIVE_ACTIVITY_STALE_MS = LIVE_ACTIVITY_REFRESH_MS * 24;

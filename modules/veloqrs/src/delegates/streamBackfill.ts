@@ -24,7 +24,8 @@ import type { DelegateHost } from './host';
  * stop, `partial` is the connection going away, and both mean the same thing
  * for the queue: the rows the pass did not reach are unchanged.
  * `awaiting_consent` is the engine holding a queue past the large-download
- * threshold until the athlete answers.
+ * threshold until the athlete answers. `deferred` is the automatic start
+ * waiting for the elevation backfill or the detector cutover to finish first.
  */
 export const STREAM_PHASES = [
   'idle',
@@ -34,6 +35,7 @@ export const STREAM_PHASES = [
   'stopped',
   'failed',
   'awaiting_consent',
+  'deferred',
 ] as const;
 
 export type StreamBackfillPhase = (typeof STREAM_PHASES)[number];

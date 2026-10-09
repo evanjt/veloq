@@ -303,15 +303,18 @@ export function clearRecordingPermissionBlocked(host: DelegateHost, athleteId: s
 
 /**
  * Start the engine's upload schedule if it is not running, and wake it. The
- * schedule uploads each pending ride itself once it is due.
+ * schedule uploads each pending ride itself once it is due, finding its files
+ * under `filesRoot`, the app's documents directory as it is now.
  */
-export function wakeUploadSchedule(host: DelegateHost): void {
-  host.write('wakeUploadSchedule', () => host.engine.recordings().wakeUploadSchedule());
+export function wakeUploadSchedule(host: DelegateHost, filesRoot: string): void {
+  host.write('wakeUploadSchedule', () => host.engine.recordings().wakeUploadSchedule(filesRoot));
 }
 
 /**
  * Upload one recording now, the whole sequence the schedule runs for a due
  * ride. `manual` is the athlete asking: a parked ride is requeued first.
+ * `filesRoot` is the app's documents directory as it is now, which the row's
+ * file names are relative to.
  *
  * Resolves to the outcome rather than rejecting, and skips `host.timed`
  * because that measures the dispatch, not the request the promise waits on.
@@ -320,12 +323,13 @@ export function wakeUploadSchedule(host: DelegateHost): void {
 export function uploadRecording(
   host: DelegateHost,
   id: string,
-  manual: boolean
+  manual: boolean,
+  filesRoot: string
 ): Promise<FfiUploadResult> {
   if (!host.ready) {
     return Promise.resolve({ outcome: FfiUploadOutcome.NotStarted });
   }
-  return host.engine.recordings().uploadRecording(id, manual);
+  return host.engine.recordings().uploadRecording(id, manual, filesRoot);
 }
 
 /**

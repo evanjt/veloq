@@ -1,5 +1,6 @@
 import { composeRouteOutline, type RouteTrack } from '@/shared/geo/routePreview';
 import type { RecordingStatus } from '@/features/recording/types';
+import { LIVE_ACTIVITY_STALE_MS } from '@/features/recording/lib/constants';
 
 /**
  * ActivityKit rejects a ContentState whose encoded form exceeds 4 KB, and the
@@ -22,11 +23,20 @@ export interface LiveActivityContentState {
    * the app is suspended. A pushed elapsed value would freeze there instead.
    */
   timerFrom: number;
-  /** Moving seconds at the pause, since a running timer would lie. Null while recording. */
-  frozenElapsedS: number | null;
+  /**
+   * Moving seconds when this state was built. The card shows it whenever its own
+   * clock must not run: through a pause, and once the card has gone stale.
+   */
+  frozenElapsedS: number;
   distanceLabel: string;
   speedLabel: string;
   trace: LiveActivityTrace | null;
+  /**
+   * Wall-clock ms after which the card is stale. Each push moves it on, so it is
+   * reached only once the process stops pushing, which is how a ride the system
+   * killed stops counting on the lock screen instead of running for hours.
+   */
+  staleAt: number;
 }
 
 export interface ContentStateInput {
@@ -107,9 +117,10 @@ export function buildContentState(input: ContentStateInput): LiveActivityContent
   return fitContentState({
     status: paused ? 'paused' : 'recording',
     timerFrom: input.now - movingMs,
-    frozenElapsedS: paused ? Math.round(movingMs / 1000) : null,
+    frozenElapsedS: Math.round(movingMs / 1000),
     distanceLabel: input.distanceLabel,
     speedLabel: input.speedLabel,
     trace: preview ? { points: preview.points, aspect: preview.aspect } : null,
+    staleAt: input.now + LIVE_ACTIVITY_STALE_MS,
   });
 }

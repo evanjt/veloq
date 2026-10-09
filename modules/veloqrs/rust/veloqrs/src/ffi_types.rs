@@ -260,6 +260,8 @@ pub struct FfiWeeklyTotal {
     /// Epoch seconds of the week's first instant.
     pub start: f64,
     pub stats: FfiPeriodStats,
+    /// The week is still running, so its totals cover only the days so far.
+    pub partial: bool,
 }
 
 /// Aggregated stats for a date range.
@@ -1367,6 +1369,10 @@ pub struct FfiSectionCorrelation {
     /// Stable snake_case token: `ctl`, `hrv`, `resting_hr`, `sleep_secs`...
     pub variable: String,
     pub result: FfiCorrelation,
+    /// Variables of this direction that carried an estimate: the family the
+    /// mover label was Holm-adjusted across. The same on every row of a
+    /// direction, and 0 when none of them had enough pairs.
+    pub family_size: u32,
 }
 
 /// A correlation, or the reason there is none. An enum so a coefficient cannot
@@ -1377,9 +1383,12 @@ pub enum FfiCorrelation {
     TooFew { n: u32 },
     /// One series never varies.
     Undefined { n: u32 },
-    /// The 95 per cent interval spans zero.
+    /// No relationship that holds across the direction's family: the 95 per
+    /// cent interval spans zero, or excludes it but not by enough to survive
+    /// Holm's correction.
     Inconclusive { r: f64, n: u32, low: f64, high: f64 },
-    /// The interval excludes zero.
+    /// Holds under Holm's correction across the family, so the 95 per cent
+    /// interval excludes zero too.
     Mover { r: f64, n: u32, low: f64, high: f64 },
 }
 

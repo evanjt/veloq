@@ -316,7 +316,12 @@
     "backupFailedServer": "Serveren svarede ikke. Veloq prøver igen senere.",
     "backupFailedTransport": "Veloq kunne ikke nå serveren. Den prøver igen senere.",
     "backupFailedFolder": "Veloq kan ikke længere få adgang til backup-mappen. Vælg mappen igen.",
+    "backupFailedUnverified": "Veloq skrev backuppen, men kunne ikke læse den tilbage for at tjekke den. Den prøver igen senere.",
     "lastAttemptFailed": "Sidste forsøg mislykkedes den {{date}}",
+    "androidLastBackup": "Android sikkerhedskopierede sidst {{date}}, {{size}}",
+    "androidBackupNever": "Android har ikke sikkerhedskopieret Veloq endnu",
+    "androidQuotaExceeded": "Android sprang sikkerhedskopien over {{date}}: {{size}} er over grænsen på {{quota}}",
+    "androidRestored": "Gendannet fra Android-sikkerhedskopi {{date}}",
     "notEncryptedWarning": "Sikkerhedskopier er ikke krypterede. Alle, der åbner filen, kan læse dine indstillinger, navnene på dine ruter og sektioner, hvor sektionerne ligger på kortet, og hjemmeplaceringen, der er angivet til eksportprivatliv.",
     "scanNextcloudQr": "Scan Nextcloud app-adgangskode",
     "nextcloudQrHint": "Nextcloud → Indstillinger → Sikkerhed → Opret ny app-adgangskode → Scan QR-kode",
@@ -507,7 +512,6 @@
     "unableToLoad": "Kan ikke indlæse {{componentName}}",
     "closeAndReopen": "Luk appen, og åbn den igen for at fortsætte.",
     "restartHint": "Prøv igen eller genstart appen",
-    "unableToDisplay": "Kan ikke vise {{label}}",
     "unableToDisplayChart": "Kan ikke vise diagrammet",
     "tapToRetry": "Tryk for at prøve igen"
   },
@@ -678,8 +682,8 @@
     "weeklyVolumeDown": "{{percent}}% mindre denne uge",
     "weeklyLoadUp": "+{{percent}}% træningsbelastning",
     "weeklyLoadDown": "{{percent}}% mindre belastning",
-    "loadBody": "TSS: {{currentTss}} denne uge vs {{previousTss}} sidste uge. Varighed: {{currentDuration}} vs {{previousDuration}}.",
-    "volumeBody": "Træningstid: {{current}} denne uge vs {{previous}} sidste uge. Dette måler tid, ikke træningsbelastning (TSS).",
+    "loadBody": "TSS: {{currentTss}} indtil nu denne uge vs {{previousTss}} til samme tid sidste uge. Varighed: {{currentDuration}} vs {{previousDuration}}.",
+    "volumeBody": "Træningstid: {{current}} indtil nu denne uge vs {{previous}} til samme tid sidste uge. Dette måler tid, ikke træningsbelastning (TSS).",
     "howCalculated": "Hvordan blev dette beregnet?",
     "current": "Nuværende",
     "previous": "Forrige",
@@ -706,7 +710,7 @@
       "route": "Tæller forsøg på en rute i én sportsgren og retning, som er tidsmålt, ikke udelukket, ikke delvist og inden for rutens afstandsbånd. En rekord er den hurtigste af dem, sat for nylig. En tendens sammenligner medianen af de seneste tre med de tre før, fra seks forsøg."
     },
     "data": {
-      "activitiesLastWeek": "Aktiviteter sidste uge",
+      "activitiesLastWeek": "Aktiviteter til samme tid sidste uge",
       "activitiesThisWeek": "Aktiviteter denne uge",
       "bestTime": "Bedste tid",
       "change": "Ændring",
@@ -727,6 +731,7 @@
       "previousFtp": "Cykel-eFTP for 30 dage siden",
       "previousPace": "Forrige tempo",
       "recentEfforts": "Seneste forsøg",
+      "samePointLastWeek": "Samme tid sidste uge",
       "sevenDayAvg": "7-dages gennemsnit",
       "thisWeek": "Denne uge",
       "trendSlope": "Tendenshældning",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "Nylig personlig rekord",
     "caption": {
       "latestAgainstMean": "Seneste {{latest}} ms, gennemsnit {{avg}} ms",
-      "thisWeekAgainstLast": "Denne uge {{current}}, sidste uge {{previous}}",
+      "thisWeekAgainstLast": "Denne uge {{current}}, samme tid sidste uge {{previous}}",
       "lastWeekAgainstAverage": "Sidste uge {{current}}, 4-ugers gennemsnit {{previous}}",
       "fromTo": "Fra {{previous}} til {{current}}"
     },
@@ -1039,7 +1044,8 @@
     "pace": "Tempo",
     "rhr": "RHR",
     "week": "Uge",
-    "weight": "Vægt"
+    "weight": "Vægt",
+    "cs": "CS"
   },
   "navigation": {
     "activities": "Aktiviteter",
@@ -1302,6 +1308,7 @@
     "fieldModeIndoor": "Indendørs",
     "interruptedNotice": {
       "body": "Systemet lukkede Veloq under din aktivitet, så optagelsen stoppede. Tryk for at genoptage.",
+      "card": "Optagelsen stoppede. Åbn Veloq for at genoptage.",
       "channel": "Afbrudte optagelser",
       "title": "Optagelsen stoppede"
     }
@@ -1380,7 +1387,10 @@
     "standingRankPercentile": "Nr. {{rank}} af {{total}}, hurtigere end {{percent}} % af dem, {{gap}} fra din bedste",
     "largeSectionPerformanceWarning": "Store sektioner kan tage længere tid at behandle.",
     "resetReference": "Nulstil reference",
-    "resetReferenceConfirm": "Gå tilbage til automatisk valg af reference? Matchprocenterne for denne rute beregnes igen."
+    "resetReferenceConfirm": "Gå tilbage til automatisk valg af reference? Matchprocenterne for denne rute beregnes igen.",
+    "prTime": "PR {{time}}",
+    "errorDetailId": "ID: {{id}}",
+    "errorDetailRange": "Interval: {{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "Beregner ruter...",
@@ -1450,6 +1460,8 @@
     "aerobicEfficiencyCaption": "Puls per tempoenhed, ældste forsøg til nyeste",
     "correlationTitle": "Velvære og fart",
     "correlationMethod": "Pearsons r for omgangsfart mod dagens velværeværdi, 95 % interval, mindst 10 forsøg med en værdi",
+    "correlationFamily_one": "Holm-justeret over {{count}} variabel",
+    "correlationFamily_other": "Holm-justeret over {{count}} variabler",
     "correlationDirectionSame": "Samme retning",
     "correlationDirectionReverse": "Modsat retning",
     "correlationFigures": "r {{r}}, n {{n}}, {{low}} til {{high}}",
@@ -1567,7 +1579,8 @@
     "renameFailedMessage": "Sektionens navn blev ikke gemt. Prøv igen.",
     "nameTaken": "En anden sektion har allerede dette navn. Vælg et andet navn.",
     "undoExcludeLap": "Fortryd Omgang {{n}}",
-    "excludeLapNumber": "Udeluk Omgang {{n}}"
+    "excludeLapNumber": "Udeluk Omgang {{n}}",
+    "deleteFailed": "Sektionen kunne ikke slettes."
   },
   "settings": {
     "terrain3DMode": "3D-terræn: {{mode}}",
@@ -1837,7 +1850,10 @@
     "athleteFallback": "Atlet",
     "storageUsedAndFree": "{{used}} brugt af Veloq, {{free}} ledigt",
     "sectionsDetectedCount_one": "{{count}} sektion registreret",
-    "sectionsDetectedCount_other": "{{count}} sektioner registreret"
+    "sectionsDetectedCount_other": "{{count}} sektioner registreret",
+    "debugMode": "Fejlfindingstilstand",
+    "debugModeDescription": "Vis interne diagnosticeringsdata på detaljesider",
+    "developerDashboardDescription": "Motorstatistik, FFI-ydeevne, hukommelse"
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1953,7 +1969,12 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}}d",
+    "times": "{{value}}×",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "s"
   },
   "wellness": {
     "dragToExplore": "Træk for at udforske",
@@ -1966,7 +1987,6 @@
     "smoothingAuto": "Auto",
     "smoothingAverage_one": "{{count}}-dages gennemsnit",
     "smoothingAverage_other": "{{count}}-dages gennemsnit",
-    "smoothingDaysShort": "{{days}}d",
     "smoothingDescription": "Anvend et glidende gennemsnit for at reducere daglig støj og vise tendenser tydeligere.",
     "smoothingHint": "Auto bruger optimal udglatning for det valgte tidsinterval",
     "smoothingNone": "Ingen",
@@ -2374,5 +2394,14 @@
       "startSport": "Start {{sport}} i {{app}}",
       "recordSport": "Optag {{sport}} i {{app}}"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloq bruger din placering til at vise aktivitetskort, følge ruter og optage træningsaktiviteter.",
+    "locationBackground": "Veloq bruger din placering i baggrunden, så optagelsen af træningsaktiviteter fortsætter, når appen ikke er i forgrunden.",
+    "bluetooth": "Veloq bruger Bluetooth til at forbinde til puls-, watt- og kadencesensorer under optagelsen.",
+    "camera": "Veloq bruger kameraet til at scanne QR-koden for en Nextcloud-appadgangskode.",
+    "microphone": "Veloq optager ikke lyd. Kameraet bruges kun til at scanne QR-koder.",
+    "faceId": "Veloq bruger ikke Face ID.",
+    "motion": "Veloq læser ikke bevægelsesdata."
   }
 }

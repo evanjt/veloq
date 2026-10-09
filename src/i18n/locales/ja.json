@@ -316,7 +316,12 @@
     "backupFailedServer": "サーバーが応答しませんでした。後でもう一度試します。",
     "backupFailedTransport": "サーバーに接続できませんでした。後でもう一度試します。",
     "backupFailedFolder": "Veloq からバックアップフォルダーにアクセスできなくなりました。フォルダーをもう一度選択してください。",
+    "backupFailedUnverified": "バックアップを書き込みましたが、確認のために読み戻せませんでした。後でもう一度試します。",
     "lastAttemptFailed": "前回の試行は {{date}} に失敗しました",
+    "androidLastBackup": "Androidの最終バックアップ: {{date}}、{{size}}",
+    "androidBackupNever": "AndroidはまだVeloqをバックアップしていません",
+    "androidQuotaExceeded": "{{date}} のAndroidバックアップはスキップされました: {{size}} が上限の {{quota}} を超えています",
+    "androidRestored": "{{date}} にAndroidバックアップから復元しました",
     "notEncryptedWarning": "バックアップは暗号化されていません。ファイルを開いた人は、設定、ルートとセクションの名前、セクションの地図上の位置、エクスポートのプライバシー用に設定した自宅の場所を読み取れます。",
     "scanNextcloudQr": "Nextcloudアプリパスワードをスキャン",
     "nextcloudQrHint": "Nextcloud → 設定 → セキュリティ → 新しいアプリパスワードを作成 → QRコードをスキャン",
@@ -507,7 +512,6 @@
     "unableToLoad": "{{componentName}}を読み込めません",
     "closeAndReopen": "続行するにはアプリを閉じて、もう一度開いてください。",
     "restartHint": "もう一度お試しいただくか、アプリを再起動してください",
-    "unableToDisplay": "{{label}}を表示できません",
     "unableToDisplayChart": "チャートを表示できません",
     "tapToRetry": "タップして再試行"
   },
@@ -678,8 +682,8 @@
     "weeklyVolumeDown": "{{percent}}% 今週減少",
     "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
     "weeklyLoadDown": "{{percent}}% 負荷減少",
-    "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
-    "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
+    "loadBody": "TSS: 今週ここまで {{currentTss}} vs 先週の同時点 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
+    "volumeBody": "トレーニング時間: 今週ここまで {{current}} vs 先週の同時点 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
     "howCalculated": "どのように計算されましたか？",
     "current": "現在",
     "previous": "前回",
@@ -706,7 +710,7 @@
       "route": "1つの競技と方向で、タイムがあり、除外されておらず、部分的でなく、ルートの距離範囲内にある試行を数えます。自己ベストはその中で最速のもので、最近のものです。傾向は、直近3回の中央値をその前の3回と比較し、6回以上の試行から算出します。"
     },
     "data": {
-      "activitiesLastWeek": "先週のアクティビティ",
+      "activitiesLastWeek": "先週の同時点までのアクティビティ",
       "activitiesThisWeek": "今週のアクティビティ",
       "bestTime": "ベストタイム",
       "change": "変化",
@@ -727,6 +731,7 @@
       "previousFtp": "30日前のサイクリングeFTP",
       "previousPace": "以前のペース",
       "recentEfforts": "最近の記録",
+      "samePointLastWeek": "先週の同時点",
       "sevenDayAvg": "7日平均",
       "thisWeek": "今週",
       "trendSlope": "トレンド傾き",
@@ -908,7 +913,7 @@
     "recentPersonalRecord": "最近の自己ベスト",
     "caption": {
       "latestAgainstMean": "最新 {{latest}} ms、平均 {{avg}} ms",
-      "thisWeekAgainstLast": "今週 {{current}}、先週 {{previous}}",
+      "thisWeekAgainstLast": "今週 {{current}}、先週の同時点 {{previous}}",
       "lastWeekAgainstAverage": "先週 {{current}}、4週間平均 {{previous}}",
       "fromTo": "{{previous}} から {{current}} へ"
     },
@@ -1039,7 +1044,8 @@
     "pace": "ペース",
     "rhr": "安静時心拍",
     "week": "週",
-    "weight": "体重"
+    "weight": "体重",
+    "cs": "CS"
   },
   "navigation": {
     "activities": "アクティビティ",
@@ -1302,6 +1308,7 @@
     "fieldModeIndoor": "屋内",
     "interruptedNotice": {
       "body": "アクティビティ中にシステムがVeloqを終了したため、記録が停止しました。タップして再開します。",
+      "card": "記録が停止しました。Veloqを開いて再開します。",
       "channel": "中断された記録",
       "title": "記録が停止しました"
     }
@@ -1380,7 +1387,10 @@
     "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
     "largeSectionPerformanceWarning": "長い区間は処理に時間がかかる場合があります。",
     "resetReference": "基準をリセット",
-    "resetReferenceConfirm": "基準の自動選択に戻しますか？このルートの一致率が再計算されます。"
+    "resetReferenceConfirm": "基準の自動選択に戻しますか？このルートの一致率が再計算されます。",
+    "prTime": "自己記録 {{time}}",
+    "errorDetailId": "ID: {{id}}",
+    "errorDetailRange": "範囲: {{start}} → {{end}}"
   },
   "routesScreen": {
     "computingRoutes": "ルート計算中...",
@@ -1450,6 +1460,8 @@
     "aerobicEfficiencyCaption": "ペース当たりの心拍数、古い走行から新しい走行へ",
     "correlationTitle": "体調と速度",
     "correlationMethod": "区間速度と、その日の体調の値とのピアソンのr、95%区間、値のある走行が10回以上",
+    "correlationFamily_one": "{{count}}個の変数でホルム補正",
+    "correlationFamily_other": "{{count}}個の変数でホルム補正",
     "correlationDirectionSame": "同じ方向",
     "correlationDirectionReverse": "逆方向",
     "correlationFigures": "r {{r}}、n {{n}}、{{low}}～{{high}}",
@@ -1567,7 +1579,8 @@
     "renameFailedMessage": "区間名を保存できませんでした。もう一度お試しください。",
     "nameTaken": "このセクション名はすでに使われています。別の名前を入力してください。",
     "undoExcludeLap": "元に戻す ラップ{{n}}",
-    "excludeLapNumber": "除外 ラップ{{n}}"
+    "excludeLapNumber": "除外 ラップ{{n}}",
+    "deleteFailed": "セクションを削除できませんでした。"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -1837,7 +1850,10 @@
     "athleteFallback": "アスリート",
     "storageUsedAndFree": "Veloq が使用中 {{used}}、空き {{free}}",
     "sectionsDetectedCount_one": "{{count}}件のセクションを検出",
-    "sectionsDetectedCount_other": "{{count}}件のセクションを検出"
+    "sectionsDetectedCount_other": "{{count}}件のセクションを検出",
+    "debugMode": "デバッグモード",
+    "debugModeDescription": "詳細ページに内部診断情報を表示",
+    "developerDashboardDescription": "エンジン統計、FFIパフォーマンス、メモリ"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1953,7 +1969,12 @@
     "watts": "W",
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
-    "feetPerHour": "ft/h"
+    "feetPerHour": "ft/h",
+    "daysShort": "{{days}}日",
+    "times": "{{value}}回",
+    "metresPerSecond": "m/s",
+    "metres": "m",
+    "seconds": "秒"
   },
   "wellness": {
     "dragToExplore": "ドラッグして探索",
@@ -1966,7 +1987,6 @@
     "smoothingAuto": "自動",
     "smoothingAverage_one": "{{count}}日間の平均",
     "smoothingAverage_other": "{{count}}日間の平均",
-    "smoothingDaysShort": "{{days}}日",
     "smoothingDescription": "移動平均を適用して日々のノイズを減らし、トレンドをより明確に表示します。",
     "smoothingHint": "自動は選択した期間に最適な平滑化を使用します",
     "smoothingNone": "なし",
@@ -2374,5 +2394,14 @@
       "startSport": "{{app}}で{{sport}}を開始",
       "recordSport": "{{app}}で{{sport}}を記録"
     }
+  },
+  "permissions": {
+    "locationWhenInUse": "Veloqは、アクティビティマップの表示、ルートの追跡、アクティビティの記録に位置情報を使用します。",
+    "locationBackground": "Veloqは、アプリがフォアグラウンドにないときもアクティビティの記録を続けるため、バックグラウンドで位置情報を使用します。",
+    "bluetooth": "Veloqは、記録中に心拍数・パワー・ケイデンスセンサーと接続するためにBluetoothを使用します。",
+    "camera": "Veloqは、NextcloudのアプリパスワードのQRコードを読み取るためにカメラを使用します。",
+    "microphone": "Veloqは音声を録音しません。カメラはQRコードの読み取りにのみ使用します。",
+    "faceId": "VeloqはFace IDを使用しません。",
+    "motion": "Veloqはモーションデータを読み取りません。"
   }
 }

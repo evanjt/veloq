@@ -31,7 +31,10 @@ use super::start::{FfiStartOutcome, FfiStartResult};
 use crate::governor;
 use crate::governor::{AuthMethod, Lane};
 use crate::net::endpoints;
-use crate::net::offline_prefetch::{CURVE_DAYS, CURVE_KEYS, CurveKey, curve_window};
+use crate::net::offline_prefetch::{
+    ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS, CurveKey, curve_window, every_curve_window,
+    split_curve_windows,
+};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityRecord, ManualActivityBody};
 use crate::persistence::PersistentEngine;
@@ -157,9 +160,12 @@ pub enum FfiSyncErrorReason {
 pub enum FfiSyncStep {
     /// The athlete profile: FTP, zones, the name on the settings screen.
     Athlete = 1,
-    /// Per-sport settings, which the zone charts read.
+    /// Per-sport settings, which the zone charts read. No run reports it now:
+    /// the athlete body carries them and the athlete step stores both. Kept
+    /// because the wire carries the position.
     SportSettings = 2,
-    /// A year of wellness rows.
+    /// The wellness rows: the trailing fortnight once a year is stored, back
+    /// to the oldest day still owed otherwise.
     Wellness = 3,
     /// What the account holds against what is stored, which the window step
     /// reads to know what is still owed.
@@ -368,9 +374,13 @@ struct SyncInner {
 }
 
 /// What a sync was started for: the default pass, or one date window.
+///
+/// `force` asks the default pass for the athlete body even when the stored one
+/// is younger than the profile gate, so a pull to refresh or a saved recording
+/// is never answered from an hours-old profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SyncRequest {
-    Full,
+    Full { force: bool },
     Window { oldest: String, newest: String },
 }
 
@@ -517,7 +527,7 @@ impl SyncService {
     /// that no retry brings back.
     #[cfg(test)]
     fn claim_slot(&self) -> Result<(), FfiStartOutcome> {
-        self.claim_slot_for(SyncRequest::Full)
+        self.claim_slot_for(SyncRequest::Full { force: false })
     }
 
     fn claim_slot_for(&self, request: SyncRequest) -> Result<(), FfiStartOutcome> {
@@ -550,7 +560,7 @@ impl SyncService {
     /// global service.
     #[cfg(test)]
     fn try_start(&self) -> Result<(Transport, String), FfiStartOutcome> {
-        self.try_start_for(SyncRequest::Full)
+        self.try_start_for(SyncRequest::Full { force: false })
     }
 
     fn try_start_for(&self, request: SyncRequest) -> Result<(Transport, String), FfiStartOutcome> {
@@ -1263,7 +1273,7 @@ pub(crate) fn test_base_url(base: String) -> TestBaseUrl {
 #[cfg(test)]
 pub(crate) fn test_hold_sync_slot() {
     SYNC_SERVICE
-        .claim_slot_for(SyncRequest::Full)
+        .claim_slot_for(SyncRequest::Full { force: false })
         .expect("nothing else holds the sync slot");
 }
 
@@ -1564,7 +1574,7 @@ where
     .await
 }
 
-/// How many days of wellness one sync pulls. Matches the widest range the
+/// How many days of wellness the device holds. Matches the widest range the
 /// fitness screens offer, so a range change never needs a fresh request.
 const WELLNESS_DAYS: i64 = 365;
 
@@ -1577,7 +1587,7 @@ pub(crate) const ACTIVITY_DAYS: i64 = 90;
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
 /// The activity pull is two of them: the newest owed window ahead of the rest
 /// of the library, and the rest of the library behind the calendar.
-const SYNC_STEPS: u32 = 11;
+const SYNC_STEPS: u32 = 10;
 
 /// The sync job: fetch the profile slice and write it into SQLite. Every step
 /// is independent, so one failing endpoint does not cost the others their data.
@@ -1590,6 +1600,7 @@ pub(crate) async fn perform_sync(
     install: u64,
     transport: Transport,
     athlete_id: String,
+    force: bool,
 ) {
     if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
         svc.finish(SyncState::Idle, None, false);
@@ -1646,24 +1657,39 @@ pub(crate) async fn perform_sync(
         }};
     }
 
-    // The profile slice first. Each of the three is one small request, and
-    // together they fill the feed's summary card: the athlete's name, the
-    // FTP and the fitness figure. Behind the activity windows they took
-    // minutes to arrive on a first launch, and the card sat on its
-    // placeholders beside a feed already full of cards. A step that fails
-    // costs the others nothing.
-    step!(
-        FfiSyncStep::Athlete,
-        sync_athlete(install, &transport, &athlete_id).await
-    );
-    step!(
-        FfiSyncStep::SportSettings,
-        sync_sport_settings(install, &transport, &athlete_id).await
-    );
-    step!(
-        FfiSyncStep::Wellness,
-        sync_wellness(install, &transport, &athlete_id).await
-    );
+    // The profile slice first. Each part is one small request, and together
+    // they fill the feed's summary card: the athlete's name, the FTP and the
+    // fitness figure. Behind the activity windows they took minutes to arrive
+    // on a first launch, and the card sat on its placeholders beside a feed
+    // already full of cards. A step that fails costs the others nothing.
+    //
+    // Every foreground runs this, so the parts that rarely change are gated:
+    // the athlete body, which carries the sport settings, only once the stored
+    // one is older than the gate or when the caller forces it. A step skipped
+    // as current still counts, so a finished run reads every step done.
+    if profile_is_owed(&athlete_id, force) {
+        step!(
+            FfiSyncStep::Athlete,
+            sync_athlete(install, &transport, &athlete_id).await
+        );
+    } else {
+        svc.complete_step();
+    }
+    // Wellness asks a whole year only when the stored year is short at its
+    // oldest end, a first launch above all, and then nothing the census says
+    // can widen it, so it keeps its place ahead of the census for the fitness
+    // figure. Otherwise it waits for the census, which names the older days
+    // whose fitness and form an activity download is about to move.
+    let today = chrono::Local::now().date_naive();
+    let stored_wellness = stored_wellness_dates(today);
+    let whole_year = wellness_oldest(&stored_wellness, None, today);
+    let wellness_ahead = whole_year <= today - chrono::Duration::days(WELLNESS_DAYS);
+    if wellness_ahead {
+        step!(
+            FfiSyncStep::Wellness,
+            sync_wellness(install, &transport, &athlete_id, whole_year).await
+        );
+    }
     // Then the census, because it is the input to every window: they ask it
     // what is still owed. A census step that fails leaves them on their fixed
     // range, which is what ran before the census existed, so the activities
@@ -1678,6 +1704,13 @@ pub(crate) async fn perform_sync(
     // is the whole of what this window waits on.
     let plan = owed_activity_windows(&athlete_id, census_succeeded).await;
     let windows = &plan.windows;
+    if !wellness_ahead {
+        let oldest = wellness_oldest(&stored_wellness, plan.owed_from.as_deref(), today);
+        step!(
+            FfiSyncStep::Wellness,
+            sync_wellness(install, &transport, &athlete_id, oldest).await
+        );
+    }
     // The newest few by count before any window, because the newest window is
     // the whole library on a first launch and the athlete waits on it.
     step!(
@@ -1815,34 +1848,74 @@ pub(crate) async fn perform_window_sync(
     }
 }
 
-/// Persist the athlete profile body.
+/// How long a stored athlete profile stays current for the default sync.
+///
+/// The profile and the sport settings it carries change when the athlete
+/// edits them on intervals.icu, which is rare, and nothing tells the app when
+/// they do. So an edit reaches the device within this, or at once on a pull
+/// to refresh or a saved recording, which force the request.
+const PROFILE_MAX_AGE_SECS: i64 = 6 * 60 * 60;
+
+/// Whether the default sync owes the athlete body: forced, none stored for
+/// this athlete, or the stored one written `PROFILE_MAX_AGE_SECS` or more ago.
+/// A write time ahead of `now` is a clock set back, and counts as owed rather
+/// than holding the profile until the clock catches up.
+fn profile_owed(fetched_at: Option<i64>, now: i64, force: bool) -> bool {
+    force || fetched_at.is_none_or(|at| at > now || now - at >= PROFILE_MAX_AGE_SECS)
+}
+
+/// [`profile_owed`] over the stored profile, read off the write lock.
+fn profile_is_owed(athlete_id: &str, force: bool) -> bool {
+    if force {
+        return true;
+    }
+    let fetched_at =
+        with_reader(|conn| crate::persistence::fitness::profile_fetched_at(conn, athlete_id))
+            .ok()
+            .flatten();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64);
+    profile_owed(fetched_at, now, false)
+}
+
+/// Persist the athlete profile and the sport settings its body carries.
+///
+/// `GET /athlete/{id}` holds the same per-sport entries `/sport-settings`
+/// answers, measured equal but for `mmp_model`, which only the athlete body
+/// fills in. So one request serves both. A body without them falls back to
+/// their own endpoint, because a profile stored without sport settings is
+/// never current and would be asked for on every run.
 async fn sync_athlete(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
 ) -> Result<(), NetError> {
     let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
+    let sport_settings = match embedded_sport_settings(&body) {
+        Some(settings) => settings,
+        None => {
+            endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?
+        }
+    };
     // A dropped write leaves the previous athlete's profile, FTP and zones
     // standing with nothing to say so, and the step above counts as done. The
     // helper reports all three outcomes, so this needs no mapping of its own.
     store_body_or_fail(install, "athlete profile", String::new(), move |engine| {
+        // The settings first: the profile's write time is what the gate
+        // reads, so a profile never stands current without its settings.
+        engine.set_sport_settings(&sport_settings)?;
         engine.set_athlete_profile(&body)
     })
     .await
 }
 
-/// Persist the sport settings body.
-async fn sync_sport_settings(
-    install: u64,
-    transport: &Transport,
-    athlete_id: &str,
-) -> Result<(), NetError> {
-    let body =
-        endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?;
-    store_body_or_fail(install, "sport settings", String::new(), move |engine| {
-        engine.set_sport_settings(&body)
-    })
-    .await
+/// The `sportSettings` array an athlete body carries, as JSON, or `None` when
+/// the body has none.
+fn embedded_sport_settings(body: &str) -> Option<String> {
+    let body: serde_json::Value = serde_json::from_str(body).ok()?;
+    let settings = body.get("sportSettings")?;
+    settings.is_array().then(|| settings.to_string())
 }
 
 /// `start_date_local` as epoch seconds. intervals.icu sends local wall-clock
@@ -1883,6 +1956,7 @@ async fn owed_activity_windows(athlete_id: &str, census_succeeded: bool) -> Acti
             eligible_ids: None,
         }],
         fields: None,
+        owed_from: None,
     };
     if !census_succeeded {
         return fixed();
@@ -1951,7 +2025,18 @@ async fn owed_activity_windows(athlete_id: &str, census_succeeded: bool) -> Acti
             .collect();
         windows.extend(refetch_windows(&fetched, &covered));
     }
-    ActivityPlan { windows, fields }
+    // From what the census owes and not from the refetch: a field set this
+    // build newly asks for changed nothing upstream.
+    let owed_from = [dates.first(), old_changes.first()]
+        .into_iter()
+        .flatten()
+        .min()
+        .cloned();
+    ActivityPlan {
+        windows,
+        fields,
+        owed_from,
+    }
 }
 
 /// The windows a launch sync asks for, and the field set to record once every
@@ -1962,6 +2047,11 @@ struct ActivityPlan {
     /// The build's field set when the stored bodies were fetched with another,
     /// so the windows include a refetch of every stored activity.
     fields: Option<String>,
+    /// The oldest day the census owes a download for, `YYYY-MM-DD`: an
+    /// activity added, or one edited upstream since it was fetched. Fitness
+    /// and form move from that day on. `None` when nothing is owed or the
+    /// census could not answer.
+    owed_from: Option<String>,
 }
 
 /// The widest span one refetch window covers, in days.
@@ -2157,7 +2247,7 @@ async fn sync_newest_activities(
 /// Sorted and comma-joined exactly as the front end's `streamTypesKey` builds
 /// it from `DETAIL_STREAM_TYPES`, which is what makes the body fetched here the
 /// one the screen finds. A contract test holds the two together.
-const DETAIL_STREAM_TYPES_KEY: &str = "altitude,cadence,distance,fixed_altitude,ga_velocity,\
+pub(crate) const DETAIL_STREAM_TYPES_KEY: &str = "altitude,cadence,distance,fixed_altitude,ga_velocity,\
      grade_smooth,heartrate,latlng,temp,time,velocity_smooth,w_bal,watts";
 
 /// Whether the server's answer ends the wait for a body rather than failing
@@ -2203,7 +2293,7 @@ fn note_known_absent(install: u64, activity_id: &str, kind: &'static str) {
 /// as ready; a 404 or 410 ends that body's wait and stores nothing. Any other
 /// failure leaves the activity's other bodies to be fetched and fails the
 /// step, so the next sync asks again.
-async fn ready_newest_activities(
+pub(crate) async fn ready_newest_activities(
     install: u64,
     transport: &Transport,
     cancelled: &(dyn Fn() -> bool + Sync),
@@ -2225,86 +2315,106 @@ async fn ready_newest_activities(
         let Some(upstream) = upstream_id(install, &gap.activity_id).await else {
             continue;
         };
-        let id = gap.activity_id.clone();
-        let mut outcomes: Vec<Result<(), NetError>> = Vec::new();
-        let absent = |kind: &'static str| is_known_absent(install, &id, kind);
-        let mut kinds: Vec<&'static str> = Vec::new();
-        if gap.detail && !absent("detail") {
-            kinds.push("detail");
-            outcomes.push(ready_detail_body(install, transport, &id, &upstream).await);
+        match ready_activity(install, transport, &gap, &upstream, Lane::Backfill).await {
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) => last_error = Some(e),
+            Ok(()) => {}
         }
-        if gap.streams && !absent("streams") {
-            kinds.push("streams");
-            let fetched = endpoints::fetch_streams_body(
-                transport,
-                &upstream,
-                DETAIL_STREAM_TYPES_KEY,
-                Lane::Backfill,
-            )
-            .await;
-            outcomes.push(match fetched {
-                Ok(body) => {
-                    // The track is stored before the body, so a pass cut short
-                    // between the two leaves the body owed and the next sync
-                    // fetches both again.
-                    match ingest_first_use_track(install, &id, &gap.sport_type, &body) {
-                        Ok(()) => {
-                            let id = id.clone();
-                            store_body_or_fail(install, "streams", id.clone(), move |engine| {
-                                engine.set_stream_body(&id, DETAIL_STREAM_TYPES_KEY, &body)
-                            })
-                            .await
-                        }
-                        Err(e) => Err(e),
+    }
+    match last_error {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// Fetch and store what one activity still lacks for a screen that opens with
+/// no network, as `gap` names it: the detail body, the detail streams (which
+/// carry the track) and the intervals.
+///
+/// The newest-activities pass and the push both bring an activity to that
+/// state, and both go through here so the library each leaves is the same.
+/// A 404 or 410 ends that body's wait and stores nothing. Every other body is
+/// still fetched when one fails, and the answer is the last failure, or
+/// `Unauthorized` as soon as one is refused.
+pub(crate) async fn ready_activity(
+    install: u64,
+    transport: &Transport,
+    gap: &crate::persistence::BodiesOwed,
+    upstream: &str,
+    lane: Lane,
+) -> Result<(), NetError> {
+    let id = gap.activity_id.clone();
+    let mut outcomes: Vec<Result<(), NetError>> = Vec::new();
+    let absent = |kind: &'static str| is_known_absent(install, &id, kind);
+    let mut kinds: Vec<&'static str> = Vec::new();
+    if gap.detail && !absent("detail") {
+        kinds.push("detail");
+        outcomes.push(ready_detail_body(install, transport, &id, upstream, lane).await);
+    }
+    if gap.streams && !absent("streams") {
+        kinds.push("streams");
+        let fetched =
+            endpoints::fetch_streams_body(transport, upstream, DETAIL_STREAM_TYPES_KEY, lane).await;
+        outcomes.push(match fetched {
+            Ok(body) => {
+                // The track is stored before the body, so a pass cut short
+                // between the two leaves the body owed and the next sync
+                // fetches both again.
+                match ingest_first_use_track(install, &id, &gap.sport_type, &body) {
+                    Ok(()) => {
+                        let id = id.clone();
+                        store_body_or_fail(install, "streams", id.clone(), move |engine| {
+                            engine.set_stream_body(&id, DETAIL_STREAM_TYPES_KEY, &body)
+                        })
+                        .await
                     }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
-            });
-        }
-        if gap.track {
-            // The body is held, so no request is made: ingest it so the track
-            // does not depend on the raw body cache keeping it.
-            kinds.push("track");
-            let held = {
+            }
+            Err(e) => Err(e),
+        });
+    }
+    if gap.track {
+        // The body is held, so no request is made: ingest it so the track
+        // does not depend on the raw body cache keeping it.
+        kinds.push("track");
+        let held = {
+            let id = id.clone();
+            crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+                engine.get_stream_body(&id, DETAIL_STREAM_TYPES_KEY)
+            })
+            .await
+        };
+        outcomes.push(match held {
+            Some(Ok(Some(body))) => ingest_first_use_track(install, &id, &gap.sport_type, &body),
+            Some(Ok(None)) => Ok(()),
+            Some(Err(e)) => Err(NetError::Storage(format!(
+                "first-use stream body read failed: {e}"
+            ))),
+            None => Err(NetError::EngineClosed),
+        });
+    }
+    if gap.intervals && !absent("intervals") {
+        kinds.push("intervals");
+        let fetched = endpoints::fetch_intervals_body(transport, upstream, lane).await;
+        outcomes.push(match fetched {
+            Ok(body) => {
                 let id = id.clone();
-                crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
-                    engine.get_stream_body(&id, DETAIL_STREAM_TYPES_KEY)
+                store_body_or_fail(install, "intervals", id.clone(), move |engine| {
+                    engine.set_interval_body(&id, &body)
                 })
                 .await
-            };
-            outcomes.push(match held {
-                Some(Ok(Some(body))) => {
-                    ingest_first_use_track(install, &id, &gap.sport_type, &body)
-                }
-                Some(Ok(None)) => Ok(()),
-                Some(Err(e)) => Err(NetError::Storage(format!(
-                    "first-use stream body read failed: {e}"
-                ))),
-                None => Err(NetError::EngineClosed),
-            });
-        }
-        if gap.intervals && !absent("intervals") {
-            kinds.push("intervals");
-            let fetched =
-                endpoints::fetch_intervals_body(transport, &upstream, Lane::Backfill).await;
-            outcomes.push(match fetched {
-                Ok(body) => {
-                    let id = id.clone();
-                    store_body_or_fail(install, "intervals", id.clone(), move |engine| {
-                        engine.set_interval_body(&id, &body)
-                    })
-                    .await
-                }
-                Err(e) => Err(e),
-            });
-        }
-        for (kind, outcome) in kinds.into_iter().zip(outcomes) {
-            match outcome {
-                Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
-                Err(e) if is_permanently_unavailable(&e) => note_known_absent(install, &id, kind),
-                Err(e) => last_error = Some(e),
-                Ok(()) => {}
             }
+            Err(e) => Err(e),
+        });
+    }
+    let mut last_error: Option<NetError> = None;
+    for (kind, outcome) in kinds.into_iter().zip(outcomes) {
+        match outcome {
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) if is_permanently_unavailable(&e) => note_known_absent(install, &id, kind),
+            Err(e) => last_error = Some(e),
+            Ok(()) => {}
         }
     }
     match last_error {
@@ -2365,8 +2475,9 @@ async fn ready_detail_body(
     transport: &Transport,
     activity_id: &str,
     upstream: &str,
+    lane: Lane,
 ) -> Result<(), NetError> {
-    let body = endpoints::fetch_activity_body(transport, upstream, Lane::Backfill).await?;
+    let body = endpoints::fetch_activity_body(transport, upstream, lane).await?;
     let Some(date) = detail_body_date(&body) else {
         return Ok(());
     };
@@ -2800,12 +2911,6 @@ pub const OLDEST_ACTIVITY_DATE_KEY: &str = "oldest_activity_date";
 /// object. The history slider gates a large widening on it.
 pub const ACTIVITY_YEAR_COUNTS_KEY: &str = "activity_year_counts";
 
-#[derive(Clone, Copy)]
-struct CurveRequest {
-    key: CurveKey,
-    days: i64,
-}
-
 /// The calendar date part of a `YYYY-MM-DDT...` local timestamp.
 fn local_date_of(stamp: &str) -> Option<chrono::NaiveDate> {
     chrono::NaiveDate::parse_from_str(stamp.get(..10)?, "%Y-%m-%d").ok()
@@ -2871,15 +2976,18 @@ fn crossed_window_edge(
         .any(|&date| within(date, fetched_end) != within(date, today))
 }
 
-fn curve_requests(engine: &PersistentEngine) -> SqlResult<Vec<CurveRequest>> {
+fn curve_requests(engine: &PersistentEngine) -> SqlResult<Vec<(CurveKey, i64)>> {
     curve_requests_on(engine, chrono::Local::now().date_naive())
 }
 
-/// The curves to fetch, with `today` as the local date the windows end on.
+/// The curve windows owed, with `today` as the local date the windows end on.
+///
+/// The all-time window has no leading edge, so only an arrival or a removal
+/// owes it.
 fn curve_requests_on(
     engine: &PersistentEngine,
     today: chrono::NaiveDate,
-) -> SqlResult<Vec<CurveRequest>> {
+) -> SqlResult<Vec<(CurveKey, i64)>> {
     // A removal counts as an arrival: the server's curves drew the activity
     // that left, and the family's newest body cannot say so.
     let mut arrivals = engine.try_latest_arrival_by_sport()?;
@@ -2910,6 +3018,9 @@ fn curve_requests_on(
             if let Some(curve) = stored {
                 let arrived_since = latest.is_some_and(|arrived| curve.fetched_at < arrived as f64);
                 if !arrived_since {
+                    if days == ALL_TIME_CURVE_DAYS {
+                        continue;
+                    }
                     let (fetched_end, mut dates) =
                         stored_curve_frame(&curve.raw, days, curve.fetched_at);
                     dates.extend(&family_dates);
@@ -2918,25 +3029,26 @@ fn curve_requests_on(
                     }
                 }
             }
-            requests.push(CurveRequest { key, days });
+            requests.push((key, days));
         }
     }
     Ok(requests)
 }
 
-async fn fetch_curve_body(
+/// Every window of `key` in one request.
+async fn fetch_curve_windows(
     transport: &Transport,
     athlete_id: &str,
-    request: CurveRequest,
+    key: CurveKey,
 ) -> Result<String, NetError> {
-    let window = curve_window(request.days);
-    match request.key.kind {
+    let windows = every_curve_window();
+    match key.kind {
         CurveKind::Power => {
             endpoints::fetch_power_curve_body(
                 transport,
                 athlete_id,
-                request.key.sport,
-                &window,
+                key.sport,
+                &windows,
                 Lane::Backfill,
             )
             .await
@@ -2945,9 +3057,9 @@ async fn fetch_curve_body(
             endpoints::fetch_pace_curve_body(
                 transport,
                 athlete_id,
-                request.key.sport,
-                &window,
-                request.key.gap,
+                key.sport,
+                &windows,
+                key.gap,
                 Lane::Backfill,
             )
             .await
@@ -2957,6 +3069,10 @@ async fn fetch_curve_body(
 
 /// Fetch the screen-read curves whose sport family had an activity arrive,
 /// or leave intervals.icu, since the stored curve was fetched.
+///
+/// A key owing any window is asked for all of them in one request, and the
+/// answer is stored as one body per window. A key whose request fails stores
+/// nothing and stays owed in full.
 async fn sync_curves(
     install: u64,
     transport: &Transport,
@@ -2969,20 +3085,32 @@ async fn sync_curves(
             .ok_or(NetError::EngineClosed)?
             .map_err(|e| NetError::Io(format!("curve plan read failed: {}", e)))?;
 
+    let mut keys: Vec<CurveKey> = Vec::new();
+    for (key, _) in requests {
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+
     let mut last_error: Option<NetError> = None;
-    for request in requests {
+    for key in keys {
         if cancelled() {
             return Ok(());
         }
-        match fetch_curve_body(transport, athlete_id, request).await {
-            Ok(body) => {
-                let key = request.key;
+        let windows = fetch_curve_windows(transport, athlete_id, key)
+            .await
+            .and_then(|body| split_curve_windows(&body).map_err(NetError::Decode));
+        match windows {
+            Ok(windows) => {
                 let name = match key.kind {
                     CurveKind::Power => "power_curve",
                     CurveKind::Pace => "pace_curve",
                 };
                 store_body_or_fail(install, name, String::new(), move |engine| {
-                    engine.set_curve_body(key.kind, key.sport, request.days, key.gap, &body)
+                    for (days, body) in &windows {
+                        engine.set_curve_body(key.kind, key.sport, *days, key.gap, body)?;
+                    }
+                    Ok(())
                 })
                 .await?;
             }
@@ -3150,20 +3278,66 @@ async fn sync_activity_history_summary(
 /// keyed on date, so the narrow window merges into the year a full sync stored.
 pub(crate) const WELLNESS_REFRESH_DAYS: i64 = 14;
 
-/// Persist a year of wellness, typed columns plus the untyped body per day.
+/// The oldest day the default sync asks wellness from.
+///
+/// The fortnight when every day of the year before it is stored, since only
+/// recent days move upstream and the upsert merges the fortnight into the
+/// year. Otherwise back to the first day the year is missing, so a gap left by
+/// a week away is filled by the next run, and an empty store asks the whole
+/// year. Keyed on the stored rows rather than a flag, so a wipe or a restore
+/// asks again on its own.
+///
+/// `owed_from` is the oldest day the census owes an activity download for.
+/// That activity moves fitness and form from its day on, so the window reaches
+/// back to it, never past the year the screens show.
+fn wellness_oldest(
+    stored: &BTreeSet<chrono::NaiveDate>,
+    owed_from: Option<&str>,
+    today: chrono::NaiveDate,
+) -> chrono::NaiveDate {
+    let year = today - chrono::Duration::days(WELLNESS_DAYS);
+    let fortnight = today - chrono::Duration::days(WELLNESS_REFRESH_DAYS);
+    let oldest = year
+        .iter_days()
+        .take_while(|day| *day < fortnight)
+        .find(|day| !stored.contains(day))
+        .unwrap_or(fortnight);
+    let owed = owed_from.and_then(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok());
+    match owed {
+        Some(day) if day < oldest => day.max(year),
+        _ => oldest,
+    }
+}
+
+/// The days of the trailing year the device holds wellness for, read off the
+/// write lock. Empty when the read fails, which asks the whole year again
+/// rather than trusting rows nothing could see.
+fn stored_wellness_dates(today: chrono::NaiveDate) -> BTreeSet<chrono::NaiveDate> {
+    let oldest = (today - chrono::Duration::days(WELLNESS_DAYS)).to_string();
+    let newest = today.to_string();
+    let dates = with_reader(|conn| {
+        crate::persistence::wellness::pooled::dates_between(conn, &oldest, &newest)
+            .map_err(|e| log::warn!("[Sync] stored wellness read failed: {e}"))
+            .ok()
+    })
+    .ok()
+    .flatten()
+    .unwrap_or_default();
+    dates
+        .iter()
+        .filter_map(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok())
+        .collect()
+}
+
+/// Persist wellness from `oldest` through today, typed columns plus the
+/// untyped body per day.
 async fn sync_wellness(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
+    oldest: chrono::NaiveDate,
 ) -> Result<(), NetError> {
-    sync_wellness_window(
-        install,
-        transport,
-        athlete_id,
-        WELLNESS_DAYS,
-        Lane::Backfill,
-    )
-    .await
+    sync_wellness_window(install, transport, athlete_id, oldest, Lane::Backfill).await
 }
 
 /// The targeted wellness pull: the trailing `days` on the interactive lane,
@@ -3175,20 +3349,20 @@ pub(crate) async fn refresh_wellness(
     athlete_id: &str,
     days: i64,
 ) -> Result<(), NetError> {
-    sync_wellness_window(install, transport, athlete_id, days, Lane::Interactive).await
+    let oldest = chrono::Local::now().date_naive() - chrono::Duration::days(days);
+    sync_wellness_window(install, transport, athlete_id, oldest, Lane::Interactive).await
 }
 
-/// Persist the trailing `days` of wellness, typed columns plus the untyped body
-/// per day.
+/// Persist wellness from `oldest` through today, typed columns plus the
+/// untyped body per day.
 async fn sync_wellness_window(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
-    days: i64,
+    oldest: chrono::NaiveDate,
     lane: Lane,
 ) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
-    let oldest = newest - chrono::Duration::days(days);
     let days = endpoints::fetch_wellness_with_bodies(
         transport,
         athlete_id,
@@ -3242,8 +3416,8 @@ pub struct SyncManager {
 
 /// Start the default sync. The one dispatch both the FFI and a resume after
 /// a clear go through.
-fn start_full_sync() -> FfiStartOutcome {
-    let (transport, athlete_id) = match SYNC_SERVICE.try_start_for(SyncRequest::Full) {
+fn start_full_sync(force: bool) -> FfiStartOutcome {
+    let (transport, athlete_id) = match SYNC_SERVICE.try_start_for(SyncRequest::Full { force }) {
         Ok(pair) => pair,
         Err(refusal) => return refusal,
     };
@@ -3253,7 +3427,7 @@ fn start_full_sync() -> FfiStartOutcome {
     let install = crate::persistence::engine_install();
     crate::runtime::spawn(async move {
         let _guard = FinishGuard;
-        perform_sync(&SYNC_SERVICE, install, transport, athlete_id).await;
+        perform_sync(&SYNC_SERVICE, install, transport, athlete_id, force).await;
     });
     FfiStartOutcome::Started
 }
@@ -3328,7 +3502,7 @@ pub(crate) fn resume_sync_after_clear(interrupted: Option<Interrupted>) {
     let request = interrupted.request.clone();
     SYNC_SERVICE.resume_after_clear(interrupted, move || {
         match request {
-            SyncRequest::Full => start_full_sync(),
+            SyncRequest::Full { force } => start_full_sync(force),
             SyncRequest::Window { oldest, newest } => start_window_sync(oldest, newest),
         };
     });
@@ -3359,8 +3533,12 @@ impl SyncManager {
     /// Start a sync. Returns instantly, naming whether the job started and, if
     /// not, whether asking again later would. Work runs on the shared runtime;
     /// observe progress via `get_sync_status`.
-    fn sync_now(&self) -> Result<FfiStartOutcome, VeloqError> {
-        Ok(start_full_sync())
+    ///
+    /// `force` fetches the athlete profile and its sport settings whatever
+    /// their age. A foreground passes false and they come at most once in six
+    /// hours; a pull to refresh and a saved recording pass true.
+    fn sync_now(&self, force: bool) -> Result<FfiStartOutcome, VeloqError> {
+        Ok(start_full_sync(force))
     }
 
     /// What a date range holds: nothing, a download still owed, or every
@@ -3628,6 +3806,10 @@ mod sync_coverage_tests;
 #[cfg(test)]
 #[path = "tests/sync_calendar.rs"]
 mod sync_calendar_tests;
+
+#[cfg(test)]
+#[path = "tests/sync_profile_gate.rs"]
+mod sync_profile_gate_tests;
 
 #[cfg(test)]
 #[path = "tests/sync_install_stamp.rs"]
@@ -4208,9 +4390,10 @@ mod tests {
     #[test]
     fn a_full_sync_interrupted_and_finished_is_started_again() {
         let svc = signed_in_service();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         let interrupted = svc.interrupt().expect("a run was in flight");
-        assert_eq!(interrupted.request, SyncRequest::Full);
+        assert_eq!(interrupted.request, SyncRequest::Full { force: false });
         svc.finish(SyncState::Idle, None, false);
         let (started, start) = counting_start();
         svc.resume_after_clear(interrupted, start);
@@ -4220,7 +4403,8 @@ mod tests {
     #[test]
     fn a_resume_asked_while_the_run_winds_down_waits_for_its_finish() {
         let svc = signed_in_service();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         let interrupted = svc.interrupt().expect("a run was in flight");
         let (started, start) = counting_start();
         svc.resume_after_clear(interrupted, start);
@@ -4251,7 +4435,8 @@ mod tests {
     fn a_sign_out_or_another_athlete_between_interrupt_and_resume_starts_nothing() {
         for second_athlete in [None, Some("i2")] {
             let svc = signed_in_service();
-            svc.claim_slot_for(SyncRequest::Full).expect("claim");
+            svc.claim_slot_for(SyncRequest::Full { force: false })
+                .expect("claim");
             let interrupted = svc.interrupt().expect("a run was in flight");
             match second_athlete {
                 None => svc.clear_credentials(),
@@ -4267,7 +4452,8 @@ mod tests {
     #[test]
     fn a_sign_out_while_a_resume_waits_cancels_it() {
         let svc = signed_in_service();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         let interrupted = svc.interrupt().expect("a run was in flight");
         let (started, start) = counting_start();
         svc.resume_after_clear(interrupted, start);
@@ -4279,7 +4465,8 @@ mod tests {
     #[test]
     fn an_auth_park_between_interrupt_and_resume_starts_nothing() {
         let svc = signed_in_service();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         let interrupted = svc.interrupt().expect("a run was in flight");
         svc.park_auth_expired_now();
         let (started, start) = counting_start();
@@ -4287,7 +4474,8 @@ mod tests {
         assert_eq!(started.load(Ordering::SeqCst), 0);
 
         let svc = signed_in_service();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         let (started, start) = counting_start();
         svc.resume_after_clear(interrupted, start);
         svc.park_auth_expired_now();
@@ -4378,11 +4566,7 @@ mod tests {
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
             then.status(status)
-                .json_body(json!({"id": "i1", "name": "x"}));
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/i1/sport-settings");
-            then.status(status).json_body(json!([]));
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
         });
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/wellness");
@@ -4486,11 +4670,6 @@ mod tests {
         true
     }
 
-    fn note_sport_settings(_: &HttpMockRequest) -> bool {
-        note_request("sport-settings");
-        true
-    }
-
     fn note_wellness(_: &HttpMockRequest) -> bool {
         note_request("wellness");
         true
@@ -4509,13 +4688,8 @@ mod tests {
     ) {
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1").matches(note_athlete);
-            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
-        });
-        server.mock(|when, then| {
-            when.method(GET)
-                .path("/athlete/i1/sport-settings")
-                .matches(note_sport_settings);
-            then.status(200).json_body(json!([]));
+            then.status(200)
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
         });
         server.mock(|when, then| {
             when.method(GET)
@@ -4580,22 +4754,23 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
         let names = taken_request_order();
         assert_eq!(
-            names.get(3).map(String::as_str),
+            names.get(2).map(String::as_str),
             Some("census"),
-            "the census follows the three profile endpoints: {names:?}"
+            "the census follows the profile and wellness: {names:?}"
         );
         assert_eq!(
-            names.get(4),
+            names.get(3),
             Some(&format!("activities {oldest} limit {FIRST_USE_ACTIVITIES}")),
             "the newest few come before any window: {names:?}"
         );
         assert_eq!(
-            names.get(5),
+            names.get(4),
             Some(&format!("activities {oldest}")),
             "and the span behind them is unchanged: {names:?}"
         );
@@ -4683,13 +4858,14 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
         first.assert_hits(1);
         let names = taken_request_order();
         assert_eq!(
-            names.get(4),
+            names.get(3),
             Some(&format!("activities {oldest} limit {FIRST_USE_ACTIVITIES}")),
             "first-use request crosses rest days: {names:?}"
         );
@@ -4818,6 +4994,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
@@ -4839,7 +5016,7 @@ mod tests {
             "three bodies for each of five: {names:?}"
         );
         assert!(
-            early_bodies.iter().all(|i| **i > 4),
+            early_bodies.iter().all(|i| **i > 3),
             "after the newest rows, before the bulk window: {names:?}"
         );
         for id in ["r0", "r1", "r2", "r3", "r4"] {
@@ -4924,6 +5101,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
@@ -4982,6 +5160,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
     }
@@ -5099,6 +5278,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
@@ -5160,6 +5340,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         SYNC_SERVICE.clear_credentials();
 
@@ -5175,8 +5356,8 @@ mod tests {
     /// and it stayed on its placeholders for the minutes the activity windows
     /// took because those three were fetched behind them.
     ///
-    /// Expected behaviour: the three profile endpoints go first, each one
-    /// small request, then the census, the newest owed window and the rest of
+    /// Expected behaviour: the profile and wellness go first, each one small
+    /// request, then the census, the newest owed window and the rest of
     /// the library. The census stays ahead of the windows because it is what
     /// says which days are owed.
     #[test]
@@ -5219,13 +5400,13 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
 
         assert_eq!(
             taken_request_order(),
             vec![
                 "athlete".to_string(),
-                "sport-settings".to_string(),
                 "wellness".to_string(),
                 "census".to_string(),
                 format!("activities {older} limit {FIRST_USE_ACTIVITIES}"),
@@ -5284,16 +5465,13 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
 
         assert_eq!(
             taken_requests(),
             vec![
                 ("athlete".to_string(), Some(FfiSyncStep::Athlete)),
-                (
-                    "sport-settings".to_string(),
-                    Some(FfiSyncStep::SportSettings)
-                ),
                 ("wellness".to_string(), Some(FfiSyncStep::Wellness)),
                 ("census".to_string(), Some(FfiSyncStep::Census)),
                 (
@@ -5382,6 +5560,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         crate::objects::observer::flush();
         crate::objects::observer::set_observer(None);
@@ -5443,6 +5622,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
@@ -5479,6 +5659,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(
@@ -5580,6 +5761,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::AuthExpired);
@@ -5603,10 +5785,11 @@ mod tests {
         // step after it is the one that is refused.
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
-            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+            then.status(200)
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
         });
         server.mock(|when, then| {
-            when.method(GET).path("/athlete/i1/sport-settings");
+            when.method(GET).path("/athlete/i1/wellness");
             then.status(401);
         });
         let svc = SyncService::new();
@@ -5617,6 +5800,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(
@@ -5692,6 +5876,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
@@ -5731,6 +5916,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         assert_eq!(
             svc.snapshot().last_error_reason,
@@ -5754,6 +5940,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         assert_eq!(
             svc.snapshot().last_error_reason,
@@ -5775,6 +5962,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to("http://127.0.0.1:1".to_string()),
             "i1".into(),
+            false,
         ));
         assert_eq!(
             svc.snapshot().last_error_reason,
@@ -5862,6 +6050,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport,
             "i1".into(),
+            false,
         ));
 
         hit.assert_hits(0);
@@ -5890,6 +6079,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport,
             "i1".into(),
+            false,
         ));
 
         hit.assert_hits(0);
@@ -5914,6 +6104,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport,
             "i1".into(),
+            false,
         ));
 
         let s = svc.snapshot();
@@ -5952,20 +6143,17 @@ mod tests {
         // drive global engine state even with a local service.
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
-        // Steps are independent, so a broken sport-settings response must not
-        // stop the athlete profile and wellness from landing.
+        // Steps are independent, so a broken wellness response must not stop
+        // the athlete profile and the activities from landing.
         let server = MockServer::start();
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
-            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/i1/sport-settings");
-            then.status(500);
+            then.status(200)
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
         });
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/wellness");
-            then.status(200).json_body(json!([]));
+            then.status(500);
         });
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/events");
@@ -5984,6 +6172,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
@@ -6011,6 +6200,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to("http://127.0.0.1:1".into()),
             "i1".into(),
+            false,
         ));
         assert_eq!(svc.snapshot().state, SyncState::Idle);
     }
@@ -6155,6 +6345,7 @@ mod tests {
             crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
+            chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
         ))
         .expect("wellness sync");
 
@@ -6191,6 +6382,7 @@ mod tests {
             crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
+            chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
         ))
         .expect("wellness sync");
 
@@ -6212,7 +6404,8 @@ mod tests {
         let _tmp = crate::test_globals::init_global_engine("default_wellness_window.db");
         // Narrowing activities must not narrow wellness: the fitness plots
         // read a year and refetching on every range change is what the
-        // wider window exists to avoid.
+        // wider window exists to avoid. With nothing stored, the year is
+        // what the default sync asks.
         let server = MockServer::start();
         let today = chrono::Local::now().date_naive();
         let oldest = (today - chrono::Duration::days(365)).to_string();
@@ -6228,6 +6421,7 @@ mod tests {
             crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
+            wellness_oldest(&BTreeSet::new(), None, today),
         ))
         .expect("wellness sync");
         mock.assert();
@@ -7161,6 +7355,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
 
         assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
@@ -7192,6 +7387,7 @@ mod tests {
             crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
+            false,
         ));
         assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
         svc.set_credentials(AuthKind::ApiKey, "fresh".into(), "i1".into());
@@ -7242,7 +7438,6 @@ mod start_date_parity_tests {
 #[cfg(test)]
 mod body_count_tests {
     use super::*;
-    use crate::net::offline_prefetch::ALL_TIME_CURVE_DAYS;
     use crate::objects::observer::{EngineObserver, set_observer};
     use crate::test_globals::serial_global_state;
     use httpmock::prelude::*;
@@ -7976,6 +8171,7 @@ mod body_count_tests {
                 crate::persistence::engine_install(),
                 transport_to(server.base_url()),
                 "i1".into(),
+                false,
             ));
 
             assert!(
@@ -8669,8 +8865,9 @@ mod body_count_tests {
             server.mock(|when, then| {
                 when.method(GET)
                     .path("/athlete/i1/pace-curves.json")
-                    .query_param("curves", "42d");
+                    .query_param("curves", "7d,30d,42d,90d,180d,365d,all");
                 then.status(200).json_body(json!({"list": [{
+                    "id": "42d",
                     "end_date_local": "2026-08-20T18:30:00",
                     "days": 42,
                     "paceModels": [{"type": "CS", "criticalSpeed": 4.2,
@@ -8730,8 +8927,9 @@ mod body_count_tests {
             server.mock(|when, then| {
                 when.method(GET)
                     .path("/athlete/i1/pace-curves.json")
-                    .query_param("curves", "42d");
+                    .query_param("curves", "7d,30d,42d,90d,180d,365d,all");
                 then.status(200).json_body(json!({"list": [{
+                    "id": "42d",
                     "end_date_local": "2026-08-20T18:30:00",
                     "days": 42,
                     "paceModels": [{"type": "CS", "criticalSpeed": 4.2,
@@ -8804,7 +9002,7 @@ mod body_count_tests {
             curve_requests_on(engine, day(today))
                 .expect("plan")
                 .iter()
-                .map(|request| (request.key.sport, request.key.gap, request.days))
+                .map(|(key, days)| (key.sport, key.gap, *days))
                 .collect()
         }
 
@@ -8822,6 +9020,12 @@ mod body_count_tests {
             assert_eq!(due(&engine, "2026-10-01"), vec![]);
             assert_eq!(due(&engine, "2026-10-02"), vec![("Ride", false, 7)]);
             assert_eq!(due(&engine, "2026-10-03"), vec![("Ride", false, 7)]);
+        }
+
+        #[test]
+        fn a_day_with_an_activity_does_not_reowe_the_all_time_window_the_next_day() {
+            let engine = engine_fetched_on(vec![on_day("a", "Ride", "2026-10-01")], "2026-10-01");
+            assert_eq!(due(&engine, "2026-10-02"), vec![]);
         }
 
         #[test]
@@ -8909,8 +9113,8 @@ mod body_count_tests {
                 curve_requests_on(engine, day(today))
                     .expect("plan")
                     .iter()
-                    .filter(|r| r.key.sport == "Ride" && r.days == 7)
-                    .map(|r| r.days)
+                    .filter(|(key, days)| key.sport == "Ride" && *days == 7)
+                    .map(|(_, days)| *days)
                     .collect()
             };
             assert_eq!(others(&engine, "2026-10-01"), Vec::<i64>::new());
@@ -8965,7 +9169,7 @@ mod body_count_tests {
             };
 
             sync().expect("first sweep");
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             power.delete();
 
             // Two days later the 8-day-old activity has left the 7-day window
@@ -8975,7 +9179,7 @@ mod body_count_tests {
                 when.method(GET)
                     .path("/athlete/i1/power-curves.json")
                     .query_param("type", "Ride")
-                    .query_param("curves", "7d");
+                    .query_param("curves", "7d,30d,42d,90d,180d,365d,all");
                 then.status(500);
             });
             sync().expect_err("the refresh fails");
@@ -9012,11 +9216,11 @@ mod body_count_tests {
                 assert_eq!(
                     requests
                         .iter()
-                        .filter(|request| {
-                            request.key.kind == CurveKind::Pace
-                                && request.key.sport == sport
-                                && request.days == 42
-                                && !request.key.gap
+                        .filter(|(key, days)| {
+                            key.kind == CurveKind::Pace
+                                && key.sport == sport
+                                && *days == 42
+                                && !key.gap
                         })
                         .count(),
                     1,
@@ -9050,9 +9254,8 @@ mod body_count_tests {
             ))
             .expect("the sweep");
 
-            let windows = CURVE_DAYS.len();
-            power.assert_hits(windows);
-            pace.assert_hits(windows);
+            power.assert_hits(1);
+            pace.assert_hits(1);
 
             assert!(
                 stored(CurveKind::Power, "Ride", ALL_TIME_CURVE_DAYS, false).is_some(),
@@ -9077,7 +9280,8 @@ mod body_count_tests {
                 when.method(GET)
                     .path("/athlete/i1/pace-curves.json")
                     .query_param("gap", "true");
-                then.status(200).json_body(json!({"list": ["gap"]}));
+                then.status(200)
+                    .json_body(json!({"list": [{"id": "42d", "distance": [400], "values": [90]}]}));
             });
             server.mock(|when, then| {
                 when.method(GET).path("/athlete/i1/pace-curves.json");
@@ -9093,7 +9297,7 @@ mod body_count_tests {
             ))
             .expect("the sweep");
 
-            gap.assert_hits(CURVE_DAYS.len());
+            gap.assert_hits(1);
             power.assert_hits(0);
             assert!(
                 stored(CurveKind::Pace, "Run", 42, true).is_some(),
@@ -9130,7 +9334,7 @@ mod body_count_tests {
             ))
             .expect("the sweep");
 
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             pace.assert_hits(0);
             assert!(stored(CurveKind::Power, "Ride", ALL_TIME_CURVE_DAYS, false).is_some());
             restore_service();
@@ -9201,19 +9405,19 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             let fetched_at = stored_so_far_ago(3600);
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             arrive("newer", "GravelRide", fetched_at + 1);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9245,7 +9449,7 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             stored_so_far_ago(60);
             arrive("b", retype_to, 1_700_000_100);
             sync();
@@ -9257,13 +9461,13 @@ mod body_count_tests {
         #[test]
         fn an_activity_retyped_out_of_its_family_refetches_the_old_family() {
             let _guard = serial_global_state();
-            assert_eq!(ride_power_sweep_hits("Run"), CURVE_DAYS.len() * 2);
+            assert_eq!(ride_power_sweep_hits("Run"), 2);
         }
 
         #[test]
         fn an_activity_retyped_within_its_family_adds_no_extra_sweep() {
             let _guard = serial_global_state();
-            assert_eq!(ride_power_sweep_hits("VirtualRide"), CURVE_DAYS.len() * 2);
+            assert_eq!(ride_power_sweep_hits("VirtualRide"), 2);
         }
 
         #[test]
@@ -9291,19 +9495,19 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             // Started an hour before the last sweep, uploaded after it: a
             // late file, or any start within the offset of an athlete west of
             // UTC, whose local start time reads as earlier than the fetch.
             let fetched_at = stored_so_far_ago(60);
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             arrive("late", "Ride", fetched_at - 3600);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9332,16 +9536,16 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             // Its `icu_sync_date` moved, so the page write stores the same
             // activity again under its old start time.
             stored_so_far_ago(60);
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             arrive("ride", "Ride", 1_700_000_000);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9370,7 +9574,7 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             // The detail body replaces the list row, but nothing arrived: the
             // server's curves already counted this ride.
@@ -9382,7 +9586,7 @@ mod body_count_tests {
             })
             .expect("engine");
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             restore_service();
         }
 
@@ -9452,16 +9656,16 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
-            pace.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(1);
+            pace.assert_hits(2);
 
             stored_so_far_ago(60);
             assert_eq!(reconcile(&["kept", "run"]), vec!["gone".to_string()]);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
-            pace.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
+            pace.assert_hits(2);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9498,14 +9702,14 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             stored_so_far_ago(60);
             assert_eq!(reconcile(&["run"]), vec!["gone".to_string()]);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9534,12 +9738,12 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             stored_so_far_ago(60);
             assert!(reconcile(&["kept"]).is_empty());
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
             restore_service();
         }
 
@@ -9575,14 +9779,14 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             stored_so_far_ago(60);
             assert_eq!(reconcile(&["kept"]), vec!["trainer".to_string()]);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9631,12 +9835,12 @@ mod body_count_tests {
             };
 
             sync();
-            power.assert_hits(CURVE_DAYS.len());
+            power.assert_hits(1);
 
             stored_so_far_ago(60);
             assert!(reconcile(&["kept"]).is_empty());
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
 
             // The next census finds it gone again, after the refetch.
             stored_so_far_ago(60);
@@ -9653,7 +9857,7 @@ mod body_count_tests {
             .expect("engine");
             assert!(reconcile(&["kept"]).is_empty());
             sync();
-            power.assert_hits(CURVE_DAYS.len() * 2);
+            power.assert_hits(2);
             restore_service();
         }
 
@@ -9730,21 +9934,200 @@ mod body_count_tests {
             );
         }
 
+        /// A Ride answer to every window at once, ending `today`, as the server
+        /// sends one: no entry for the week, which held no ride. One ride 20
+        /// days back holds every point of the bounded windows, one 100 days
+        /// back is listed but holds no point, and one in 2020 holds the
+        /// all-time hour.
+        fn every_window_but_the_week(today: chrono::NaiveDate) -> serde_json::Value {
+            let ago = |days: i64| (today - chrono::Duration::days(days)).to_string();
+            let mut list: Vec<serde_json::Value> = [30, 42, 90, 180, 365]
+                .iter()
+                .map(|&days| {
+                    json!({
+                        "id": format!("{days}d"),
+                        "days": days + 1,
+                        "start_date_local": format!("{}T00:00:00", ago(days)),
+                        "end_date_local": format!("{today}T00:00:00"),
+                        "secs": [5, 3600],
+                        "values": [700, 250],
+                        "activity_id": ["recent", "recent"],
+                    })
+                })
+                .collect();
+            list.push(json!({
+                "id": "all",
+                "days": 2000,
+                "start_date_local": "1986-01-01",
+                "end_date_local": format!("{today}T23:59:59"),
+                "secs": [5, 3600],
+                "values": [700, 280],
+                "activity_id": ["recent", "old"],
+            }));
+            json!({
+                "list": list,
+                "activities": {
+                    "recent": {"id": "recent", "start_date_local": format!("{}T09:00:00", ago(20))},
+                    "spring": {"id": "spring", "start_date_local": format!("{}T09:00:00", ago(100))},
+                    "old": {"id": "old", "start_date_local": "2020-03-01T09:00:00"},
+                },
+            })
+        }
+
+        fn listed(raw: &str) -> BTreeSet<String> {
+            let body: serde_json::Value = serde_json::from_str(raw).expect("stored body");
+            body["activities"]
+                .as_object()
+                .expect("activities")
+                .keys()
+                .cloned()
+                .collect()
+        }
+
         #[test]
-        fn one_window_that_fails_does_not_cost_the_others_their_bodies() {
+        fn a_key_owing_every_window_asks_them_in_one_request_and_stores_each() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+            let today = chrono::Local::now().date_naive();
+
+            let server = MockServer::start();
+            let power = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/power-curves.json")
+                    .query_param("type", "Ride")
+                    .query_param("curves", "7d,30d,42d,90d,180d,365d,all");
+                then.status(200).json_body(every_window_but_the_week(today));
+            });
+            let transport = transport_to(server.base_url());
+            let sync = || {
+                crate::runtime::block_on(sync_curves(
+                    crate::persistence::engine_install(),
+                    &transport,
+                    "i1",
+                    &never_cancelled(),
+                ))
+            };
+
+            sync().expect("the sweep");
+            power.assert_hits(1);
+
+            for &days in CURVE_DAYS {
+                assert!(
+                    stored(CurveKind::Power, "Ride", days, false).is_some(),
+                    "the {days}-day window is stored, not owed"
+                );
+            }
+            assert_eq!(
+                stored(CurveKind::Power, "Ride", 7, false).as_deref(),
+                Some(r#"{"list":[],"activities":{}}"#),
+                "a window the answer leaves out is what a lone request for it returns"
+            );
+            let month = stored(CurveKind::Power, "Ride", 30, false).expect("30 days");
+            let month_body: serde_json::Value = serde_json::from_str(&month).expect("json");
+            assert_eq!(month_body["list"].as_array().map(Vec::len), Some(1));
+            assert_eq!(month_body["list"][0]["id"], "30d");
+            assert_eq!(listed(&month), BTreeSet::from(["recent".to_string()]));
+            assert_eq!(
+                listed(&stored(CurveKind::Power, "Ride", 180, false).expect("180 days")),
+                BTreeSet::from(["recent".to_string(), "spring".to_string()]),
+                "a listed activity inside the window stays listed though it holds no point"
+            );
+            assert_eq!(
+                listed(&stored(CurveKind::Power, "Ride", ALL_TIME_CURVE_DAYS, false).expect("all")),
+                BTreeSet::from([
+                    "old".to_string(),
+                    "recent".to_string(),
+                    "spring".to_string()
+                ]),
+            );
+
+            sync().expect("settled");
+            power.assert_hits(1);
+            restore_service();
+        }
+
+        #[test]
+        fn a_failed_request_for_a_key_stores_none_of_its_windows_and_owes_them_all() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+            let today = chrono::Local::now().date_naive();
+
+            let server = MockServer::start();
+            let mut failing = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(500);
+            });
+            let transport = transport_to(server.base_url());
+            let sync = || {
+                crate::runtime::block_on(sync_curves(
+                    crate::persistence::engine_install(),
+                    &transport,
+                    "i1",
+                    &never_cancelled(),
+                ))
+            };
+
+            sync().expect_err("a failed request is not a completed step");
+            for &days in CURVE_DAYS {
+                assert!(stored(CurveKind::Power, "Ride", days, false).is_none());
+            }
+            failing.delete();
+
+            let power = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/power-curves.json")
+                    .query_param("curves", "7d,30d,42d,90d,180d,365d,all");
+                then.status(200).json_body(every_window_but_the_week(today));
+            });
+            sync().expect("the retry");
+            power.assert_hits(1);
+            for &days in CURVE_DAYS {
+                assert!(stored(CurveKind::Power, "Ride", days, false).is_some());
+            }
+            restore_service();
+        }
+
+        #[test]
+        fn an_answer_that_is_not_a_window_list_stores_nothing() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
             library_of(&["Ride"]);
 
             let server = MockServer::start();
             server.mock(|when, then| {
-                when.method(GET)
-                    .path("/athlete/i1/power-curves.json")
-                    .query_param("curves", "all");
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(200)
+                    .json_body(json!({"list": [{"secs": [5], "values": [700]}]}));
+            });
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ))
+            .expect_err("an entry naming no window cannot be filed under one");
+            for &days in CURVE_DAYS {
+                assert!(stored(CurveKind::Power, "Ride", days, false).is_none());
+            }
+            restore_service();
+        }
+
+        #[test]
+        fn one_key_that_fails_does_not_cost_the_others_their_bodies() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride", "Swim"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
                 then.status(500);
             });
             server.mock(|when, then| {
-                when.method(GET);
+                when.method(GET).path("/athlete/i1/pace-curves.json");
                 then.status(200).json_body(json!({"list": []}));
             });
 
@@ -9756,11 +10139,12 @@ mod body_count_tests {
                 &never_cancelled(),
             ));
 
-            assert!(outcome.is_err(), "a failed window is not a completed step");
+            assert!(outcome.is_err(), "a failed key is not a completed step");
             assert!(
-                stored(CurveKind::Power, "Ride", 42, false).is_some(),
-                "the windows that landed are still on disk"
+                stored(CurveKind::Pace, "Swim", 42, false).is_some(),
+                "the key that landed is still on disk"
             );
+            assert!(stored(CurveKind::Power, "Ride", 42, false).is_none());
             restore_service();
         }
     }
@@ -10272,14 +10656,16 @@ mod metrics_repair_tests {
         let svc = SyncService::new();
         assert_eq!(svc.snapshot().last_success_at, None, "no row, no time");
 
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(SyncState::Idle, None, true);
         let first = svc.snapshot().last_success_at.expect("stamped");
         assert_eq!(last_success_row().as_deref(), Some(first.as_str()));
         assert!(first.ends_with('Z') && first.len() == 24, "{first}");
 
         std::thread::sleep(std::time::Duration::from_millis(5));
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(SyncState::Idle, None, true);
         let second = svc.snapshot().last_success_at.expect("stamped");
         assert!(second > first, "{second} should follow {first}");
@@ -10290,26 +10676,31 @@ mod metrics_repair_tests {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_last_success_unclean.db");
         let svc = SyncService::new();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(SyncState::Idle, None, true);
         let stamped = last_success_row().expect("stamped");
         std::thread::sleep(std::time::Duration::from_millis(5));
 
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(
             SyncState::Idle,
             Some(SyncFailure::new(FfiSyncErrorReason::Network, "down")),
             false,
         );
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(SyncState::Idle, None, false);
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(
             SyncState::Idle,
             Some(SyncFailure::new(FfiSyncErrorReason::Network, "down")),
             true,
         );
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.park_auth_expired_now();
 
         assert_eq!(last_success_row(), Some(stamped.clone()));
@@ -10321,7 +10712,8 @@ mod metrics_repair_tests {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_last_success_wipe.db");
         let svc = SyncService::new();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         crate::persistence::invalidate_engine_install();
         svc.finish(SyncState::Idle, None, true);
         assert_eq!(last_success_row(), None);
@@ -10333,7 +10725,8 @@ mod metrics_repair_tests {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_last_success_clear.db");
         let svc = SyncService::new();
-        svc.claim_slot_for(SyncRequest::Full).expect("claim");
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
         svc.finish(SyncState::Idle, None, true);
         assert!(svc.snapshot().last_success_at.is_some());
 
@@ -10346,3 +10739,7 @@ mod metrics_repair_tests {
 #[cfg(test)]
 #[path = "tests/record_dependency_auth.rs"]
 mod record_dependency_auth;
+
+#[cfg(test)]
+#[path = "tests/curve_window_split.rs"]
+mod curve_window_split;

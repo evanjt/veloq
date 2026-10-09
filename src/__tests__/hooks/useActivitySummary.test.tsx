@@ -10,7 +10,7 @@ import { renderHook } from '@testing-library/react-native';
 import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
 import type { RecordingStreams } from '@/features/recording/types';
-import { elevationGain } from '@/shared/math';
+import { elevationOver } from '@/features/recording/lib/elevationChange';
 
 const START = 1_700_000_000_000;
 
@@ -146,7 +146,10 @@ describe('useActivitySummary over a trimmed window', () => {
   ])('matches a walk of the slice for [%i, %i]', (from, to) => {
     const summary = richSummary(from, to);
 
-    expect(summary.elevationGain).toBeCloseTo(elevationGain(RICH.altitude.slice(from, to + 1)), 9);
+    expect(summary.elevationGain).toBeCloseTo(
+      elevationOver(RICH.altitude.slice(from, to + 1)).gain,
+      9
+    );
     expect(summary.avgHeartrate).toEqual(walkedAverage(RICH.heartrate.slice(from, to + 1)));
     expect(summary.avgPower).toEqual(walkedAverage(RICH.power.slice(from, to + 1)));
     expect(summary.distance).toBe(RICH.distance[to] - RICH.distance[from]);

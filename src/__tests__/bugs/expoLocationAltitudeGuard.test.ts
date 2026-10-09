@@ -1,40 +1,31 @@
 /**
- * Scenario: the Android half of the altitude fix is a patch to expo-location's
- * `LocationResults.kt`, applied by `postinstall` and by the worktree link step.
+ * Scenario: the Android half of the altitude fix is a patch to expo-location,
+ * applied by `postinstall` and by the worktree link step.
  * On 2026-09-26 the main checkout's copy was found unpatched after a landing.
  * The link step runs from `run-gates.sh` behind `|| true`, so a patch that
  * threw was swallowed, and a debug build recorded 0 m for a fix with no
  * altitude while every gate read green.
  *
- * Expected behaviour: `npm run audit` refuses a resolved `LocationResults.kt`
- * that is not patched, naming the file and the fix, and stays quiet when
+ * Expected behaviour: `npm run audit` refuses a resolved expo-location that is
+ * not patched, naming the file and the fix, and stays quiet when
  * expo-location is absent. A patch that throws fails the gate runner.
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
+import { writeExpoLocation } from '../__shared__/expoLocationFixture';
 import { gitFreeEnv } from '../__shared__/gitFixture';
 
 const projectRoot = join(__dirname, '../../..');
 const GUARD = join(projectRoot, 'scripts/lint-expo-location-altitude.mjs');
 const GATES = join(projectRoot, 'scripts/run-gates.sh');
-const RELATIVE =
-  'node_modules/expo-location/android/src/main/java/expo/modules/location/records/LocationResults.kt';
 
-// The two altitude lines upstream carries: the coords record the patch targets,
-// and the geocode response, which has no comma and must stay as it is.
-const UNPATCHED = [
-  '    altitude = location.altitude,',
-  '          altitude = location.altitude',
-].join('\n');
-const PATCHED = [
-  '    altitude = if (location.hasAltitude()) location.altitude else null,',
-  '          altitude = location.altitude',
-].join('\n');
-const CHANGED = '    altitude = location.altitudeOrNull(),';
+const { applyPatch, locationState } = require('../../../scripts/patch-expo-location');
+
+type Copy = 'patched' | 'unpatched' | 'changed';
 
 const roots: string[] = [];
 
@@ -42,15 +33,17 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-/** A checkout whose expo-location carries `source`, or none at all. */
-function checkout(source?: string): string {
+/** A checkout whose expo-location is in the state given, or has none at all. */
+function checkout(copy?: Copy): string {
   const root = mkdtempSync(join(tmpdir(), 'location-guard-'));
   roots.push(root);
   mkdirSync(join(root, 'node_modules'), { recursive: true });
-  if (source !== undefined) {
-    mkdirSync(dirname(join(root, RELATIVE)), { recursive: true });
-    writeFileSync(join(root, RELATIVE), source);
-  }
+  if (copy === undefined) return root;
+  writeExpoLocation(
+    root,
+    copy === 'changed' ? { results: '    altitude = location.altitudeOrNull(),\n' } : {}
+  );
+  if (copy === 'patched') applyPatch(root);
   return root;
 }
 
@@ -81,11 +74,11 @@ const guard = (root: string) => run('node', [GUARD, '--root', root]);
 
 describe('the expo-location altitude guard', () => {
   it('passes a patched file', () => {
-    expect(guard(checkout(PATCHED)).status).toBe(0);
+    expect(guard(checkout('patched')).status).toBe(0);
   });
 
   it('refuses an unpatched file, naming it and the fix', () => {
-    const root = checkout(UNPATCHED);
+    const root = checkout('unpatched');
     const { status, output } = guard(root);
 
     expect(status).toBe(1);
@@ -94,7 +87,7 @@ describe('the expo-location altitude guard', () => {
   });
 
   it('refuses a file whose altitude line upstream changed', () => {
-    const { status, output } = guard(checkout(CHANGED));
+    const { status, output } = guard(checkout('changed'));
 
     expect(status).toBe(1);
     expect(output).toContain('LocationResults.kt');
@@ -105,8 +98,8 @@ describe('the expo-location altitude guard', () => {
   });
 
   it('reads the main checkout through a whole-directory symlink', () => {
-    expect(guard(linkedTree(checkout(PATCHED))).status).toBe(0);
-    expect(guard(linkedTree(checkout(UNPATCHED))).status).toBe(1);
+    expect(guard(linkedTree(checkout('patched'))).status).toBe(0);
+    expect(guard(linkedTree(checkout('unpatched'))).status).toBe(1);
   });
 
   it('is registered with the audit', () => {
@@ -117,31 +110,31 @@ describe('the expo-location altitude guard', () => {
 });
 
 describe('the altitude checker', () => {
-  const { altitudeState, applyPatch } = require('../../../scripts/patch-expo-location');
+  const state = (root: string) => locationState(join(root, 'node_modules/expo-location')).state;
 
   it('tells the three states apart', () => {
-    expect(altitudeState(PATCHED)).toBe('patched');
-    expect(altitudeState(UNPATCHED)).toBe('unpatched');
-    expect(altitudeState(CHANGED)).toBe('changed');
+    expect(state(checkout('patched'))).toBe('patched');
+    expect(state(checkout('unpatched'))).toBe('unpatched');
+    expect(state(checkout('changed'))).toBe('changed');
   });
 
   it('leaves a patched whole-directory symlink alone rather than throwing', () => {
-    expect(() => applyPatch(linkedTree(checkout(PATCHED)))).not.toThrow();
+    expect(() => applyPatch(linkedTree(checkout('patched')))).not.toThrow();
   });
 
   it('refuses an unpatched whole-directory symlink, naming the main checkout', () => {
-    expect(() => applyPatch(linkedTree(checkout(UNPATCHED)))).toThrow(/main checkout/);
+    expect(() => applyPatch(linkedTree(checkout('unpatched')))).toThrow(/main checkout/);
   });
 });
 
 describe('the gate runner', () => {
   it('fails when the altitude patch cannot apply, rather than swallowing it', () => {
-    const { status, output } = run('sh', [GATES, 'ok:true'], checkout(CHANGED));
+    const { status, output } = run('sh', [GATES, 'ok:true'], checkout('changed'));
 
     expect(status).not.toBe(0);
     // The patch's own error, not the runner's summary line, which names
     // altitude whatever failed.
-    expect(output).toContain('Expo location altitude constructor changed');
+    expect(output).toContain('expo-location changed the line patched');
   });
 });
 

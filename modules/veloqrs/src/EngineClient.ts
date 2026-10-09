@@ -716,7 +716,7 @@ class EngineClient implements DelegateHost {
 
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
-  syncNow = (): FfiStartOutcome => syncDelegates.syncNow(this);
+  syncNow = (force: boolean): FfiStartOutcome => syncDelegates.syncNow(this, force);
 
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
@@ -1138,12 +1138,16 @@ class EngineClient implements DelegateHost {
   clearRecordingPermissionBlocked = (athleteId: string): void =>
     recordingDelegates.clearRecordingPermissionBlocked(this, athleteId);
 
-  /** Start the engine's upload schedule if it is not running, and wake it. */
-  wakeUploadSchedule = (): void => recordingDelegates.wakeUploadSchedule(this);
+  /**
+   * Start the engine's upload schedule if it is not running, and wake it, with
+   * the documents directory the rows' file names are relative to.
+   */
+  wakeUploadSchedule = (filesRoot: string): void =>
+    recordingDelegates.wakeUploadSchedule(this, filesRoot);
 
-  /** Upload one recording now and answer how it ended. */
-  uploadRecording = (id: string, manual: boolean): Promise<FfiUploadResult> =>
-    recordingDelegates.uploadRecording(this, id, manual);
+  /** Upload one recording now, its files under `filesRoot`, and answer how it ended. */
+  uploadRecording = (id: string, manual: boolean, filesRoot: string): Promise<FfiUploadResult> =>
+    recordingDelegates.uploadRecording(this, id, manual, filesRoot);
 
   /** Remove a recording, answering the row so its files can be deleted too. */
   deleteOwnRecording = (

@@ -273,7 +273,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
-              {hrvData.length}d
+              {t('units.daysShort', { days: hrvData.length })}
             </RNText>
 
             {/* Crosshair overlay */}

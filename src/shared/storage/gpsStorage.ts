@@ -154,8 +154,8 @@ async function flatDirectorySize(dir: string): Promise<number> {
 /**
  * The copies of the library and the backups kept beside it: the quarantined
  * and displaced databases with their sidecars, the backup directory older
- * builds wrote, the recordings, and the share, restore and snapshot files in
- * the cache. Each directory is small and flat, unlike the tile trees.
+ * builds wrote, the recordings, and the share, restore, read-back and snapshot
+ * files in the cache. Each directory is small and flat, unlike the tile trees.
  */
 async function athleteFilesSize(): Promise<number> {
   const documents = FileSystem.documentDirectory;
@@ -166,7 +166,7 @@ async function athleteFilesSize(): Promise<number> {
     require('@/features/settings/lib/databaseSidecars') as typeof import('@/features/settings/lib/databaseSidecars');
   const { SHARE_COPY_PREFIX, AUTOBACKUP_SNAPSHOT_PREFIX } =
     require('@/features/settings/lib/autobackup/backends/localBackend') as typeof import('@/features/settings/lib/autobackup/backends/localBackend');
-  const { EXPORTS_DIR, RESTORES_DIR } =
+  const { EXPORTS_DIR, RESTORES_DIR, READ_BACKS_DIR } =
     require('@/shared/storage/cacheFiles') as typeof import('@/shared/storage/cacheFiles');
 
   const reads: Promise<number>[] = [];
@@ -186,7 +186,8 @@ async function athleteFilesSize(): Promise<number> {
   if (cache) {
     reads.push(
       flatDirectorySize(`${cache}${EXPORTS_DIR}`),
-      flatDirectorySize(`${cache}${RESTORES_DIR}`)
+      flatDirectorySize(`${cache}${RESTORES_DIR}`),
+      flatDirectorySize(`${cache}${READ_BACKS_DIR}`)
     );
     reads.push(
       FileSystem.readDirectoryAsync(cache)

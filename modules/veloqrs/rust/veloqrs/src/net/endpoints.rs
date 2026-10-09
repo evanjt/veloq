@@ -157,23 +157,7 @@ pub async fn fetch_activity_history_summary(
     Ok(ActivityHistorySummary {
         oldest: oldest_activity_date(&acts),
         counts_by_year: activity_counts_by_year(&acts),
-        entries: acts
-            .iter()
-            .map(|a| ActivityCensusEntry {
-                id: a.id.clone(),
-                start_date_local: a.start_date_local.clone(),
-                created: a.created.clone(),
-                icu_sync_date: a.icu_sync_date.clone(),
-                has_latlng: a
-                    .stream_types
-                    .as_ref()
-                    .is_some_and(|types| types.iter().any(|t| t == "latlng")),
-                has_series: a
-                    .stream_types
-                    .as_deref()
-                    .is_some_and(crate::net::types::carries_a_storable_series),
-            })
-            .collect(),
+        entries: acts.iter().map(ActivityCensusEntry::from).collect(),
     })
 }
 

@@ -1,6 +1,6 @@
 import { buildStreamPrefixes, windowGain } from '@/features/recording/lib/streamPrefixes';
 import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
-import { elevationGain } from '@/shared/math/kinematics';
+import { elevationOver } from '@/features/recording/lib/elevationChange';
 import type { RecordingGpsPoint } from '@/types';
 
 const EMPTY = {
@@ -705,11 +705,11 @@ describe('RecordingStore', () => {
   });
 
   it.each([
-    [[null, 450, 452], 2],
-    [[450, null, 452], 2],
-    [[450, 452, null], 2],
+    [[null, 450, 454, 458], 4],
+    [[450, null, 454, 458], 4],
+    [[450, 454, 458, null], 4],
     [[null, null], 0],
-    [[0, 2, 0, 3], 5],
+    [[0, 4, 8], 4],
   ])('keeps missing altitude out of live and restored gain: %j', (altitudes, gain) => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     const start = useRecordingStore.getState().startTime!;
@@ -726,27 +726,27 @@ describe('RecordingStore', () => {
     });
     const { streams, totals } = useRecordingStore.getState();
     expect(streams.altitude).toEqual(altitudes.map((alt) => alt ?? NaN));
-    expect(totals.elevationGain).toBe(gain);
-    expect(streamTotals(streams).elevationGain).toBe(gain);
+    expect(totals.elevationGain).toBeCloseTo(gain, 9);
+    expect(streamTotals(streams).elevationGain).toBeCloseTo(gain, 9);
     const prefixes = buildStreamPrefixes(streams);
-    expect(windowGain(prefixes, 0, streams.time.length - 1)).toBe(gain);
+    expect(windowGain(prefixes, 0, streams.time.length - 1)).toBeCloseTo(gain, 9);
   });
 
   it('continues ascent from the last valid altitude after restoring a gap', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
-    const streams = { ...EMPTY, time: [1, 2], altitude: [450, NaN] };
+    const streams = { ...EMPTY, time: [1, 2, 3], altitude: [450, 454, NaN] };
     useRecordingStore.setState({ streams, totals: streamTotals(streams) });
     const start = useRecordingStore.getState().startTime!;
     useRecordingStore.getState().addGpsPoint({
       latitude: 47,
       longitude: 8,
-      altitude: 452,
+      altitude: 458,
       accuracy: 5,
       speed: 2,
       heading: 0,
-      timestamp: start + 3000,
+      timestamp: start + 4000,
     });
-    expect(useRecordingStore.getState().totals.elevationGain).toBe(2);
+    expect(useRecordingStore.getState().totals.elevationGain).toBe(4);
   });
 
   describe('running totals', () => {
@@ -773,7 +773,7 @@ describe('RecordingStore', () => {
 
       const { streams, totals } = useRecordingStore.getState();
       const scanned = streams.heartrate.filter((v) => v > 0);
-      expect(totals.elevationGain).toBeCloseTo(elevationGain(streams.altitude), 6);
+      expect(totals.elevationGain).toBeCloseTo(elevationOver(streams.altitude).gain, 6);
       expect(totals.heartrateSum).toBe(scanned.reduce((sum, v) => sum + v, 0));
       expect(totals.heartrateCount).toBe(scanned.length);
     });
@@ -801,10 +801,16 @@ describe('RecordingStore', () => {
       useRecordingStore.getState().addGpsPoint({
         latitude: 46.5001,
         longitude: 6.6,
-        altitude: 200,
+        altitude: 150,
         timestamp: start + 2000,
       } as RecordingGpsPoint);
-      expect(useRecordingStore.getState().totals.elevationGain).toBeCloseTo(100, 6);
+      useRecordingStore.getState().addGpsPoint({
+        latitude: 46.5002,
+        longitude: 6.6,
+        altitude: 200,
+        timestamp: start + 3000,
+      } as RecordingGpsPoint);
+      expect(useRecordingStore.getState().totals.elevationGain).toBeCloseTo(50, 6);
 
       useRecordingStore.getState().startRecording('Run', 'gps');
       expect(useRecordingStore.getState().totals).toEqual(streamTotals(EMPTY));
@@ -821,9 +827,34 @@ describe('RecordingStore', () => {
         altitude: [10, 20, 15, 25],
         heartrate: [0, 140, 150, 0],
       });
-      expect(totals.elevationGain).toBeCloseTo(20, 6);
+      expect(totals.elevationGain).toBeCloseTo(5, 6);
       expect(totals.heartrateSum).toBe(290);
       expect(totals.heartrateCount).toBe(2);
+    });
+
+    /// Scenario: a walk on phone GPS, its altitude rising 10 m over 226 fixes
+    /// with every fix 1.5 m off one way and then the other.
+    ///
+    /// Expected behaviour: after every fix the live gain is what the review
+    /// gives the same samples, and the walk ends on the engine's 9.1 m rather
+    /// than the 344 m of summed steps.
+    it('read the gain the review gives the same fixes, on a jittered phone altitude', () => {
+      useRecordingStore.getState().startRecording('Walk', 'gps');
+      const start = useRecordingStore.getState().startTime as number;
+      const points = 226;
+      for (let i = 0; i < points; i += 1) {
+        useRecordingStore.getState().addGpsPoint({
+          latitude: 46.5 + i * 0.00005,
+          longitude: 6.6,
+          altitude: 100 + (10 * i) / (points - 1) + (i % 2 === 1 ? 1.5 : -1.5),
+          timestamp: start + (i + 1) * 1000,
+        } as RecordingGpsPoint);
+        const { streams, totals } = useRecordingStore.getState();
+        expect(totals.elevationGain).toBe(windowGain(buildStreamPrefixes(streams), 0, i));
+      }
+      const { streams, totals } = useRecordingStore.getState();
+      expect(totals.elevationGain).toBeCloseTo(9.1, 9);
+      expect(streamTotals(streams)).toEqual(totals);
     });
   });
 });

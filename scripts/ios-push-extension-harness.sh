@@ -10,11 +10,12 @@
 # VELOQ_ACTIVITY_ID picks the ride; unset, it is the athlete's newest activity
 # with a GPS track.
 #
-# What it proves: the four files under `push/ios/VeloqPushExtension/`, compiled
+# What it proves: the Swift files under `push/ios/VeloqPushExtension/`, compiled
 # unchanged into a second bundle beside the engine's static library, read the
 # credential an app wrote in expo-secure-store's shape under the App Group,
 # open the database in the group container, reach the engine and the network,
-# and post what the engine answered. The host app constructs
+# post what the engine answered, and rewrite the widget snapshot in the group
+# so it names the pushed ride. The host app constructs
 # `NotificationService` and calls `didReceive` itself, because `simctl push`
 # never invokes a service extension.
 #
@@ -287,6 +288,7 @@ for key, value in [
     ("__athlete_id", athlete),
     ("veloq-notification-preferences", json.dumps({"enabled": True})),
     ("__notification_templates", json.dumps(templates, separators=(",", ":"))),
+    ("__widget_context", json.dumps({"locale": "en-GB"})),
 ]:
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?, ?)"
@@ -294,7 +296,7 @@ for key, value in [
         (key, value),
     )
 conn.commit()
-print(f"  settings: athlete, notifications on, {len(keys)} en-GB templates")
+print(f"  settings: athlete, notifications on, {len(keys)} en-GB templates, a widget context")
 PY
 }
 
@@ -346,6 +348,27 @@ process.stdout.write(JSON.stringify({
 JS
 }
 
+SNAPSHOT="$(dirname "$DB")/widget-snapshot.json"
+
+# The latest activity the widget snapshot in the group names, which is the
+# ride the home screen draws, against the one the case expects.
+case_snapshot() {
+  local expected=$1 latest
+  latest=$(/usr/bin/python3 -c 'import json, sys
+try:
+    snapshot = json.load(open(sys.argv[1]))
+except FileNotFoundError:
+    print("(no file)")
+else:
+    print((snapshot.get("latest") or {}).get("activityId", "(no latest)"))' "$SNAPSHOT")
+  if [[ $latest == "$expected" ]]; then
+    echo "  widget snapshot latest: $latest, as expected"
+  else
+    echo "  widget snapshot latest: $latest, expected $expected"
+    FAILED=1
+  fi
+}
+
 FAILED=0
 
 # One push, and whether what it posted is what the case expects: `rewritten`
@@ -382,14 +405,18 @@ run seed
 run seed-db
 seed_settings
 
+rm -f "$SNAPSHOT"
 case_push "a real activity of the seeded athlete" "$ACTIVITY_PUSH" rewritten
+case_snapshot "$VELOQ_ACTIVITY_ID"
 case_push "a wellness event" "$(payload WELLNESS_UPDATED "")" unchanged
 case_push "an activity event with no activity_id" "$(payload ACTIVITY_UPLOADED "")" unchanged
 
 echo
 echo "== clear the keychain"
 run clear
+rm -f "$SNAPSHOT"
 case_push "a real activity with no credential" "$ACTIVITY_PUSH" unchanged
+case_snapshot "(no file)"
 
 echo
 echo "== restore the keychain, remove the library"
@@ -399,7 +426,7 @@ case_push "a real activity with no routes.db" "$ACTIVITY_PUSH" unchanged
 
 echo
 if [[ $FAILED == 0 ]]; then
-  echo "PASS: the extension read the credential, reached the engine and fell back where it should"
+  echo "PASS: the extension read the credential, reached the engine, rewrote the widget snapshot and fell back where it should"
 else
   echo "FAIL"
   exit 1

@@ -35,10 +35,11 @@ function track(count: number): RecordingGpsPoint[] {
 const state = (over: Partial<LiveActivityContentState> = {}): LiveActivityContentState => ({
   status: 'recording',
   timerFrom: 1_700_000_000_000,
-  frozenElapsedS: null,
+  frozenElapsedS: 0,
   distanceLabel: '12.4 km',
   speedLabel: '28.1 km/h',
   trace: null,
+  staleAt: 1_700_000_120_000,
   ...over,
 });
 

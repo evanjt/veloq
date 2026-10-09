@@ -135,6 +135,6 @@ describe('getSmoothingPresetLabel', () => {
   it('names a key for the word presets and passes the day count for the rest', () => {
     expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
     expect(getSmoothingPresetLabel('none', t)).toBe('wellness.smoothingNone');
-    expect(getSmoothingPresetLabel(21, t)).toBe('wellness.smoothingDaysShort{"days":21}');
+    expect(getSmoothingPresetLabel(21, t)).toBe('units.daysShort{"days":21}');
   });
 });

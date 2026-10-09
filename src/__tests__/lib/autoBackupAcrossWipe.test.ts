@@ -57,7 +57,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-const upload = jest.fn(async () => {});
+const upload = jest.fn(async (): Promise<string> => 'veloq-backup.zip');
 const remove = jest.fn(async () => {});
 const listBackups = jest.fn(async () => []);
 const backend: BackupBackend = {
@@ -90,13 +90,19 @@ beforeEach(() => {
   mockFiles.clear();
   mockInstall = 1;
   mockRunRecordBackup.mockImplementation(async () => {});
-  upload.mockImplementation(async () => {});
+  upload.mockImplementation(async () => 'veloq-backup.zip');
   mockCarriers.length = 0;
   mockCarriers.push(backend);
   mockSettings.set('__auto_backup_enabled', '1');
 });
 
 const NOTHING = { wroteZip: false, carriers: {} };
+
+// The stub carriers keep nothing, so every copy they hand back reads as the zip sent.
+jest.mock('@/features/settings/lib/autobackup/zipFingerprint', () => ({
+  ...jest.requireActual('@/features/settings/lib/autobackup/zipFingerprint'),
+  zipFingerprint: async () => ({ sha256: '00', size: 4096 }),
+}));
 
 it.each([false, true])(
   'drops settings and keeps remote data when an upload crosses a wipe (failure: %s)',
@@ -106,6 +112,7 @@ it.each([false, true])(
     upload.mockImplementation(async () => {
       started.resolve();
       await held.promise;
+      return 'veloq-backup.zip';
     });
     const backup = performBackup(true);
     await started.promise;
@@ -156,6 +163,7 @@ it('does not upload after the library changes during the availability check', as
 it('can back up the next library after dropping an old upload', async () => {
   upload.mockImplementationOnce(async () => {
     wipe();
+    return 'veloq-backup.zip';
   });
   await expect(performBackup(true)).resolves.toEqual(NOTHING);
   expectNoSettings();
@@ -167,10 +175,11 @@ it('can back up the next library after dropping an old upload', async () => {
 });
 
 it('tries no further carrier once the library has changed under an earlier one', async () => {
-  const second = jest.fn(async () => {});
+  const second = jest.fn(async () => 'veloq-backup.zip');
   mockCarriers.push({ ...backend, id: 'second', upload: second });
   upload.mockImplementationOnce(async () => {
     wipe();
+    return 'veloq-backup.zip';
   });
   await expect(performBackup(true)).resolves.toEqual(NOTHING);
   expect(second).not.toHaveBeenCalled();

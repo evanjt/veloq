@@ -3,14 +3,14 @@
  *
  * One drawing per kind the generator chose: a timeline of efforts with the
  * marked one ringed, a sparkline with the marked span shaded, weekly bars with
- * the marked week in colour, the section's line, or one signed change per row.
- * The mark is drawn in the category colour and everything else is muted, so
- * the card says which point the claim is about. A series prints the values at
- * its top and bottom edge in a gutter on the right and its first and last
- * dates beneath, so the shape reads against a scale. The graphic is its own press
- * target and opens what it pictures, the history's target, while the card
- * around it opens the sheet. Changes picture the sheet's own rows, so they
- * open the sheet.
+ * the marked week in colour and a running week in outline, the section's line,
+ * or one signed change per row. The mark is drawn in the category colour and
+ * everything else is muted, so the card says which point the claim is about. A
+ * series prints the values at its top and bottom edge in a gutter on the right
+ * and its first and last dates beneath, so the shape reads against a scale.
+ * The graphic is its own press target and opens what it pictures, the
+ * history's target, while the card around it opens the sheet. Changes picture
+ * the sheet's own rows, so they open the sheet.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -169,7 +169,9 @@ function SeriesDrawing({
 
 /**
  * Weekly bars from zero, one slot per week and one bar per series in it. The
- * marked week is drawn in colour, its second series at a lighter tone.
+ * marked week is drawn in colour, its second series at a lighter tone, and a
+ * week still running is drawn in outline, since its total is only the days so
+ * far.
  */
 function BarsDrawing({
   series,
@@ -209,6 +211,7 @@ function BarsDrawing({
               color={
                 marked ? (seriesIndex === 0 ? palette.mark : palette.markSecond) : palette.muted
               }
+              {...(point.partial ? { style: 'stroke' as const, strokeWidth: LINE_WIDTH } : {})}
             />
           );
         })

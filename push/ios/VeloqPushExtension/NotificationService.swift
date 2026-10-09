@@ -1,4 +1,5 @@
 import UserNotifications
+import WidgetKit
 
 /// The iOS half of the native push path.
 ///
@@ -11,7 +12,8 @@ import UserNotifications
 /// none after a force-quit.
 ///
 /// The whole of the work is the crate's: open the database in the App Group
-/// container, fetch and index the ride, ask for the sentence. Every refusal
+/// container, fetch and index the ride, ask for the sentence, and compose the
+/// widget snapshot from the ride just stored. Every refusal
 /// on the way ends the same, with the notification the server wrote delivered
 /// unchanged. Every exit that has a database path also records a failed run
 /// with its reason, where the Developer Dashboard lists the runs. With no
@@ -20,6 +22,9 @@ import UserNotifications
 final class NotificationService: UNNotificationServiceExtension {
   private var deliver: ((UNNotificationContent) -> Void)?
   private var original: UNNotificationContent?
+  /// The enriched content once the engine has answered, held under `once`
+  /// while the widget snapshot is written, so an expiry in that window posts it.
+  private var enrichedContent: UNNotificationContent?
   private var activityId: String?
   private let once = NSLock()
 
@@ -51,19 +56,35 @@ final class NotificationService: UNNotificationServiceExtension {
     // `serviceExtensionTimeWillExpire` on the main thread, and an extension
     // that blocked it would never hear the warning it exists to act on.
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-      self?.post(Self.enrich(request.content, with: push) ?? request.content)
+      guard let enriched = Self.enrich(request.content, with: push) else {
+        self?.post(request.content)
+        return
+      }
+      self?.hold(enriched)
+      Self.refreshWidgets()
+      self?.post(enriched)
     }
   }
 
-  /// The last thirty seconds are up. Post the best content in hand, which is
-  /// the server's: anything better would already have been posted. The run is
-  /// recorded after, best effort, since the budget is spent.
+  /// The last thirty seconds are up. Post the best content in hand: the
+  /// enriched content when the engine answered and the widget write is what
+  /// ran long, else the server's. Only the second is a failed run, recorded
+  /// after, best effort, since the budget is spent.
   override func serviceExtensionTimeWillExpire() {
-    post(original ?? UNMutableNotificationContent())
-    if let database = VeloqPaths.routeDatabase() {
+    once.lock()
+    let answered = enrichedContent
+    once.unlock()
+    post(answered ?? original ?? UNMutableNotificationContent())
+    if answered == nil, let database = VeloqPaths.routeDatabase() {
       VeloqPushEngine.recordRefusal(
         databasePath: database, activityId: activityId, reason: "time ran out")
     }
+  }
+
+  private func hold(_ content: UNNotificationContent) {
+    once.lock()
+    enrichedContent = content
+    once.unlock()
   }
 
   /// Answer APNs exactly once. Both the work and the expiry warning can
@@ -74,6 +95,23 @@ final class NotificationService: UNNotificationServiceExtension {
     deliver = nil
     once.unlock()
     handler?(content)
+  }
+
+  /// Rewrite the widget snapshot for the ride just stored, and have WidgetKit
+  /// redraw from it. Without this the widgets show the form, fitness and latest
+  /// ride from before this one until the app next opens. Called only once the
+  /// engine has answered, since a refusal stored nothing. It runs before the
+  /// post rather than after, because the system may suspend an extension as
+  /// soon as it hands over its content, and the compose is a local read. A nil
+  /// snapshot leaves the file the widgets have: an app that has never
+  /// described the widget, or a sample library whose file is the app's to
+  /// write.
+  private static func refreshWidgets() {
+    guard
+      let snapshot = VeloqPushEngine.widgetSnapshot(),
+      WidgetSnapshotFile.write(Data(snapshot.utf8))
+    else { return }
+    WidgetCenter.shared.reloadAllTimelines()
   }
 
   /// The ride as Veloq knows it, or nil for every case that leaves the

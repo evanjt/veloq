@@ -197,11 +197,11 @@ function oneOfEach(): Insight[] {
       week(300),
       week(200),
       [
-        { start: DAY, stats: week(100) },
-        { start: DAY * 8, stats: week(200) },
-        { start: DAY * 15, stats: week(300) },
+        { start: DAY, stats: week(100), partial: false },
+        { start: DAY * 8, stats: week(200), partial: false },
+        { start: DAY * 15, stats: week(300), partial: false },
       ],
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3 },
+      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: 0 },
       null,
       NOW,
       t
