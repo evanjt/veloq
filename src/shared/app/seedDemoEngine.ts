@@ -14,10 +14,17 @@
 import { getEngine } from '@/shared/native/engine';
 import { present } from 'veloqrs/src/delegates/optional';
 import type { Activity, WellnessData } from '@/types';
+import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
+import { PERIOD_DAYS } from '@/shared/app/period';
 
-/** The curve windows the stats screens request. */
-const POWER_CURVE_WINDOWS = [42, 90, 365];
-const PACE_CURVE_WINDOWS = [42, 90, 365];
+/**
+ * The curve windows the Fitness tab can request, one per period its picker
+ * offers, plus the sync's pace window. Read from the picker's own list so a
+ * period added there is seeded too.
+ */
+const CURVE_WINDOWS = [
+  ...new Set([...TIME_RANGES.map((range) => PERIOD_DAYS[range.id]), PACE_SNAPSHOT_WINDOW_DAYS]),
+];
 
 type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
 type DemoCurves = typeof import('@/shared/demo/fitness/curves');
@@ -142,8 +149,8 @@ function seedActivityBodies(engine: DemoEngine, activities: Activity[]): void {
   }
 }
 
-/** The power and pace curves the stats screens request, under the windows
- *  those screens ask for. */
+/** The power and pace curves the Fitness tab requests, under the windows it
+ *  asks for. */
 function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
   const power = JSON.stringify({
     list: [{ secs: curves.demoPowerCurve.secs, values: curves.demoPowerCurve.watts }],
@@ -166,12 +173,12 @@ function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
     ],
   });
 
-  for (const days of POWER_CURVE_WINDOWS) {
+  for (const days of CURVE_WINDOWS) {
     for (const sport of ['Ride', 'VirtualRide']) {
       engine.setCurveBody('power', sport, days, false, power);
     }
   }
-  for (const days of PACE_CURVE_WINDOWS) {
+  for (const days of CURVE_WINDOWS) {
     for (const sport of ['Run', 'Swim']) {
       engine.setCurveBody('pace', sport, days, false, pace);
       if (sport === 'Run') engine.setCurveBody('pace', sport, days, true, pace);

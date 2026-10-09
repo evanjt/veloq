@@ -36,7 +36,7 @@ import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import { SECTION_END_ICON, SECTION_START_ICON, TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
-import { BaseMapView } from './BaseMapView';
+import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
@@ -49,6 +49,7 @@ import { type MapStyleType, isDarkStyle, getNextStyle, MAP_ATTRIBUTIONS } from '
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
 import {
+  buildActivity3DCollections,
   buildActivityLayers,
   buildActivitySources,
   buildFullscreenMatchedRouteLayers,
@@ -296,14 +297,15 @@ export const ActivityMapView = memo(function ActivityMapView({
     streams,
   });
 
-  // The 3D page takes the matched route as a collection; 2D reads the same
-  // geometry as a single feature.
-  const routeOverlayCollection = useMemo(
+  const inline3DCollections = useMemo(
     () =>
-      overlayGeoJSON.type === 'Feature'
-        ? ({ type: 'FeatureCollection', features: [overlayGeoJSON] } as GeoJSON.FeatureCollection)
-        : overlayGeoJSON,
-    [overlayGeoJSON]
+      buildActivity3DCollections({
+        portions: consolidatedPortionsGeoJSON,
+        matchedRoute: overlayGeoJSON,
+        markers: sectionMarkersGeoJSON,
+        boundaries: sectionBoundariesGeoJSON,
+      }),
+    [consolidatedPortionsGeoJSON, overlayGeoJSON, sectionMarkersGeoJSON, sectionBoundariesGeoJSON]
   );
 
   // "Color by gradient" toggle - session-local, per-activity.
@@ -708,6 +710,20 @@ export const ActivityMapView = memo(function ActivityMapView({
     [overlayHasData]
   );
 
+  // The fullscreen 3D layer draws what fullscreen draws in 2D: the portions,
+  // the matched route and the PR markers, whose tap opens the section.
+  const fullscreenLayer3D = useMemo<BaseMap3DLayer>(
+    () => ({
+      ...buildActivity3DCollections({
+        portions: consolidatedPortionsGeoJSON,
+        matchedRoute: overlayGeoJSON,
+        markers: fullscreenPRMarkersGeoJSON,
+      }),
+      onSectionClick: handle3DSectionClick,
+    }),
+    [consolidatedPortionsGeoJSON, overlayGeoJSON, fullscreenPRMarkersGeoJSON, handle3DSectionClick]
+  );
+
   const handleFullscreenPress = useCallback(
     ({ feature }: MapPressEvent) => {
       const sectionId = feature?.properties?.sectionId;
@@ -849,21 +865,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                 routeColor={activityColor}
                 routeGradient={gradientActive ? gradientLineExpression : null}
                 highlightCoordinate={highlightCoordinate}
-                tracesGeoJSON={
-                  consolidatedPortionsGeoJSON.features.length > 0
-                    ? consolidatedPortionsGeoJSON
-                    : undefined
-                }
-                sectionBoundariesGeoJSON={
-                  sectionBoundariesGeoJSON.features.length > 0
-                    ? sectionBoundariesGeoJSON
-                    : undefined
-                }
-                routesGeoJSON={routeOverlayCollection}
+                {...inline3DCollections}
                 highlightedSectionId={highlightedSectionId}
-                sectionMarkersGeoJSON={
-                  sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
-                }
                 released={!screenFocused}
                 onMapReady={handleMap3DReady}
                 onMapReloading={handleMap3DReloading}
@@ -945,6 +948,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           overlayImages={OVERLAY_IMAGES}
           interactiveLayers={FULLSCREEN_SECTION_MARKER_LAYER_IDS}
           onPress={handleFullscreenPress}
+          layer3D={fullscreenLayer3D}
         />
       </Modal>
 

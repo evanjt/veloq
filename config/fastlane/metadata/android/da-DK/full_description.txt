@@ -4,7 +4,7 @@ Dine træningsdata, visualiseret. Veloq samler optagelse, kort, diagrammer, inds
 Spor aktiviteter med GPS, auto-pause, km-splits og pulszonevisning. Trim din optagelse inden lagring. Upload som FIT-filer, eller sæt i kø til senere. Manuel indtastning til indendørsaktiviteter.
 
 <b>Indsigter</b>
-Daglige personlige indsigter baseret på din træning: sektions-PR'er, fitnessmilesten, ugentlige sammenligninger, aktivitetsmønstre og formrådgivning. Positiv, hviledagsbevidst indramning.
+Daglige indsigter fra din egen træning: sektions-PR'er og -tendenser, fitnessmilesten, ugentlige sammenligninger, HRV-tendenser og styrkeprogression. Hver indsigt viser sine tal og hvordan de er beregnet.
 
 <b>Kort</b>
 Se dine aktiviteter på interaktive kort med 3D-terræn, rute-heatmaps og tidslinjefiltrering. Vælg mellem lyse, mørke og satellitstile. Rul gennem diagrammer og se din position opdatere på kortet i realtid.
@@ -19,7 +19,7 @@ Puls, power, tempo, højde og kadence, alt synkroniseret med kortet. Se zoneford
 Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepuls, søvn og velvære. Se power- og tempokurver efter sportsgren.
 
 <b>Privatliv</b>
-Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb, ingen personlige data opbevares. Open source under Apache 2.0.
+Dine træningsdata forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-ID og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 

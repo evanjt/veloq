@@ -912,33 +912,33 @@ impl PersistentEngine {
     /// `activities(id)`, so removing the activity first takes the candidate
     /// list with it.
     ///
-    /// Returns the activity the section now points at, or `None` when no other
-    /// member can carry it, after every one has been tried, in which case nothing is touched and the caller
-    /// protects the row.
+    /// `successor` is a stored copy of the same ride that may carry the line
+    /// when no member can. It is tried after every member, and its line is
+    /// located in its track rather than read from a junction row, because the
+    /// section may not have matched it yet.
+    ///
+    /// Returns the activity the section now points at, or `None` when nothing
+    /// can carry it, after every candidate has been tried, in which case
+    /// nothing is touched and the caller protects the row.
     pub fn reanchor_section_reference(
         &mut self,
         section_id: &str,
         vanished_activity_id: &str,
+        successor: Option<&str>,
     ) -> rusqlite::Result<Option<String>> {
-        let done = self
-            .in_write_txn(|e| e.write_reanchor_section_reference(section_id, vanished_activity_id));
+        let done = self.in_write_txn(|e| {
+            e.reanchor_rows(section_id, vanished_activity_id, successor)
+                .map_err(|e| e.to_string())
+        });
         self.resync_section_after_edit(section_id, done.is_err());
         done.map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))
-    }
-
-    fn write_reanchor_section_reference(
-        &mut self,
-        section_id: &str,
-        vanished_activity_id: &str,
-    ) -> Result<Option<String>, String> {
-        self.reanchor_rows(section_id, vanished_activity_id)
-            .map_err(|e| e.to_string())
     }
 
     fn reanchor_rows(
         &mut self,
         section_id: &str,
         vanished_activity_id: &str,
+        successor: Option<&str>,
     ) -> rusqlite::Result<Option<String>> {
         let anchored_here = self
             .section_source_activity(section_id)
@@ -983,6 +983,12 @@ impl PersistentEngine {
             if let Some(track) = self.get_gps_track(member_id) {
                 tracks.push((member_id.clone(), track));
             }
+        }
+        if let Some(successor) = successor.filter(|id| {
+            *id != vanished_activity_id && !members.iter().any(|(member_id, _, _)| member_id == id)
+        }) && let Some(track) = self.get_gps_track(successor)
+        {
+            tracks.push((successor.to_string(), track));
         }
         let from_slice = members.iter().find_map(|(member_id, start, end)| {
             let (_, track) = tracks.iter().find(|(id, _)| id == member_id)?;

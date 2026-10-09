@@ -308,6 +308,8 @@ export function useMapLayers({
 
   // ----- fullscreen PR marker GeoJSON -----
   // Always PR-only; uses section geometry midpoint without perpendicular offset.
+  // Flagged as PR because the 3D page draws, and hit-tests, a trophy only for
+  // a marker that says so.
   const fullscreenPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     if (!sectionOverlaysGeoJSON) return EMPTY_FEATURE_COLLECTION;
 
@@ -329,7 +331,7 @@ export function useMapLayers({
 
       features.push({
         type: 'Feature',
-        properties: { sectionId: overlay.id, label: 'PR' },
+        properties: { sectionId: overlay.id, label: 'PR', isPR: true },
         geometry: { type: 'Point', coordinates: [midCoord[0], midCoord[1]] },
       });
     });

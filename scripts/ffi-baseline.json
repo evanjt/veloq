@@ -1,4 +1,190 @@
 {
   "regressionFactor": 1.3,
-  "budgets": {}
+  "minRegressionMs": 1,
+  "recordedFrom": {
+    "date": "2026-10-09",
+    "build": "release",
+    "buildCommit": "f327da988+8911540e",
+    "activities": 144,
+    "method": "Developer Dashboard FFI table, read after each of five cold-launch walks (launch and feed, activity detail, map pans, routes and sections lists, insights fitness training and strength tabs); each call holds its worst p95 across the walks"
+  },
+  "budgets": {
+    "clearPriorityView": {
+      "p95Ms": 0.1
+    },
+    "composeWidgetSnapshot": {
+      "p95Ms": 11.3
+    },
+    "engineInstall": {
+      "p95Ms": 0.3
+    },
+    "getActivitiesNeedingTimeStreams": {
+      "p95Ms": 4.2
+    },
+    "getActivityBodies": {
+      "p95Ms": 5.1
+    },
+    "getActivityBody": {
+      "p95Ms": 0.5
+    },
+    "getActivityCount": {
+      "p95Ms": 0.1
+    },
+    "getActivityDetailData": {
+      "p95Ms": 9.6
+    },
+    "getActivityHighlightsBundle": {
+      "p95Ms": 4.0
+    },
+    "getActivityStreams": {
+      "p95Ms": 6.4
+    },
+    "getAthleteProfile": {
+      "p95Ms": 0.2
+    },
+    "getBestEffortsData": {
+      "p95Ms": 5.9
+    },
+    "getCalendarEventBodies": {
+      "p95Ms": 0.3
+    },
+    "getCutoverDiff": {
+      "p95Ms": 0.2
+    },
+    "getDailyActivityLoads": {
+      "p95Ms": 0.6
+    },
+    "getFitnessScreenData": {
+      "p95Ms": 2.8
+    },
+    "getGpsFetchCandidates": {
+      "p95Ms": 1.2
+    },
+    "getGroups": {
+      "p95Ms": 1.1
+    },
+    "getInsightsData": {
+      "p95Ms": 46.6
+    },
+    "getIntervalBody": {
+      "p95Ms": 0.3
+    },
+    "getMapScreenData": {
+      "p95Ms": 7.4
+    },
+    "getPeriodStats": {
+      "p95Ms": 0.2
+    },
+    "getPowerCurve": {
+      "p95Ms": 1.3
+    },
+    "getPreviewTrack": {
+      "p95Ms": 0.7
+    },
+    "getRoutePerformances": {
+      "p95Ms": 1.3
+    },
+    "getRoutesScreenData@mount": {
+      "p95Ms": 5.7
+    },
+    "getRoutesStatusData": {
+      "p95Ms": 1.2
+    },
+    "getSectionDetectionProgress": {
+      "p95Ms": 0.1
+    },
+    "getSetting": {
+      "p95Ms": 0.6
+    },
+    "getSportSettings": {
+      "p95Ms": 0.2
+    },
+    "getStartupData": {
+      "p95Ms": 17.1
+    },
+    "getStats": {
+      "p95Ms": 1.2
+    },
+    "getStrengthScreenData": {
+      "p95Ms": 1.8
+    },
+    "getSyncStatus": {
+      "p95Ms": 1.0
+    },
+    "getTrainingScreenData": {
+      "p95Ms": 0.9
+    },
+    "getUnprocessedStrengthIds": {
+      "p95Ms": 4.2
+    },
+    "getWeeklySummaries": {
+      "p95Ms": 0.1
+    },
+    "getWellnessDays": {
+      "p95Ms": 5.0
+    },
+    "getZoneDistribution": {
+      "p95Ms": 0.3
+    },
+    "hasStrengthData": {
+      "p95Ms": 0.4
+    },
+    "isCutoverPending": {
+      "p95Ms": 0
+    },
+    "isCutoverRunning": {
+      "p95Ms": 0
+    },
+    "launchData@launch": {
+      "p95Ms": 3.8
+    },
+    "listRecordings": {
+      "p95Ms": 0.3
+    },
+    "pollSectionDetection": {
+      "p95Ms": 0.1
+    },
+    "rangeCoverage": {
+      "p95Ms": 1.0
+    },
+    "setInteracting": {
+      "p95Ms": 0.6
+    },
+    "setNetworkOnline": {
+      "p95Ms": 0.3
+    },
+    "setNotificationTemplates": {
+      "p95Ms": 0.7
+    },
+    "setPriorityView": {
+      "p95Ms": 0.2
+    },
+    "setSettings": {
+      "p95Ms": 0.6
+    },
+    "setSyncCredentials": {
+      "p95Ms": 4.2
+    },
+    "setWidgetContext": {
+      "p95Ms": 7.0
+    },
+    "syncActivitiesWindow": {
+      "p95Ms": 1.9
+    },
+    "syncNow": {
+      "p95Ms": 0.1
+    },
+    "takeExternalWrites": {
+      "p95Ms": 0.3
+    },
+    "takeQuarantineReport": {
+      "p95Ms": 0.1
+    },
+    "unuploadedVisibleRecordingCount": {
+      "p95Ms": 0.2
+    },
+    "wakeUploadSchedule": {
+      "p95Ms": 0.4
+    }
+  }
 }

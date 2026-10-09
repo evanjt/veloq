@@ -1,7 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
 import RecordingScreen from '@/app/recording/[type]';
 import RecordScreen from '@/app/record';
@@ -18,12 +17,19 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTo, replaceTo } from '@/shared/app/navigation';
 
 let mockParams: Record<string, string | undefined> = { type: 'Ride' };
+let mockSegments: string[] = ['recording', '[type]'];
+const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   Stack: { Screen: () => null },
   router: { replace: jest.fn(), back: jest.fn() },
   useLocalSearchParams: () => mockParams,
+  useSegments: () => mockSegments,
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => mockInsets,
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -100,6 +106,8 @@ jest.mock('@/features/recording/components/ControlBar', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { type: 'Ride' };
+  mockSegments = ['recording', '[type]'];
+  mockInsets.bottom = 0;
   useRecordingStore.getState().reset();
   useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true, authMethod: 'apiKey' });
 });
@@ -402,7 +410,8 @@ it('sends the athlete to their own held ride when the handoff restores it', asyn
   expect(navigateTo).toHaveBeenCalledWith('/recording/review');
 });
 
-it('pads the review scroll content past the tab bar so save, trim and discard can be reached', () => {
+it('pads the review scroll content by nothing for a tab bar that does not draw on it', () => {
+  mockSegments = ['recording', 'review'];
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.getState().stopRecording();
 
@@ -412,5 +421,20 @@ it('pads the review scroll content past the tab bar so save, trim and discard ca
   )!;
   const { paddingBottom } = StyleSheet.flatten(scroll.props.contentContainerStyle);
 
-  expect(paddingBottom).toBeGreaterThanOrEqual(TAB_BAR_SAFE_PADDING);
+  expect(paddingBottom).toBe(0);
 });
+
+it.each([0, 34])(
+  'gives the unlock track the whole bottom edge above a %i dp inset, with no tab bar to clear',
+  (bottom) => {
+    mockInsets.bottom = bottom;
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+
+    render(<RecordingScreen />);
+    const { paddingBottom } = StyleSheet.flatten(
+      screen.getByTestId('recording-unlock-slot').props.style
+    );
+
+    expect(paddingBottom).toBe(bottom);
+  }
+);

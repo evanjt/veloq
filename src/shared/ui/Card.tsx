@@ -13,7 +13,14 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type AccessibilityActionInfo,
+  type ViewStyle,
+} from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, shadows, spacing } from '@/theme';
@@ -38,6 +45,8 @@ interface CardBaseProps {
 export type CardProps =
   | (CardBaseProps & {
       onPress?: undefined;
+      accessibilityActions?: undefined;
+      onAccessibilityAction?: undefined;
       accessibilityLabel?: string;
       /** Names a static card for a screen reader, `summary` for a figure panel. */
       accessibilityRole?: 'summary';
@@ -46,6 +55,12 @@ export type CardProps =
       onPress: () => void;
       accessibilityLabel: string;
       accessibilityRole: 'button';
+      /**
+       * What a screen reader offers beside the press. A press target nested in
+       * the card is hidden inside the card's own element, so it is offered here.
+       */
+      accessibilityActions?: AccessibilityActionInfo[];
+      onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
     });
 
 const PADDING: Record<CardPadding, number | undefined> = {
@@ -63,6 +78,8 @@ export function Card({
   onPress,
   accessibilityLabel,
   accessibilityRole,
+  accessibilityActions,
+  onAccessibilityAction,
 }: CardProps) {
   const { isDark } = useTheme();
 
@@ -99,6 +116,8 @@ export function Card({
         testID={testID}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
+        accessibilityActions={accessibilityActions}
+        onAccessibilityAction={onAccessibilityAction}
         onPress={onPress}
         android_ripple={pressRipple}
         style={pressable([ground, outer])}

@@ -4,7 +4,7 @@ Opnemen
 Registreer activiteiten met GPS, automatische pauze, km-splits en hartslagzonedisplay. Trim je opname voordat je opslaat. Upload als FIT-bestanden, of zet in de wachtrij voor later. Handmatige invoer voor indooractiviteiten.
 
 Inzichten
-Dagelijkse gepersonaliseerde inzichten op basis van je training: sectie-PR's, fitnessmijlpalen, weekvergelijkingen, activiteitspatronen en vormadvies. Positieve, rustdag-bewuste insteek.
+Dagelijkse inzichten uit je eigen training: sectie-PR's en -trends, fitnessmijlpalen, weekvergelijkingen, HRV-trends en krachtprogressie. Elk inzicht toont zijn cijfers en hoe ze berekend zijn.
 
 Kaarten
 Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Kies uit lichte, donkere en satellietstijlen. Blader door grafieken en volg je positie in realtime op de kaart.
@@ -19,7 +19,7 @@ Fitness
 Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
 
 Privacy
-Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen, er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
+Je trainingsgegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan je intervals.icu-atleet-ID en een apparaattoken op onze server op, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.
 
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 

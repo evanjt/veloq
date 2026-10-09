@@ -1,10 +1,10 @@
 /**
  * Scenario: the recordings list sits under a native header that takes a collapsing large title on
- * iOS. `contentInsetAdjustmentBehavior: 'automatic'` adds the home-indicator inset, so the list
- * content pads by the tab bar clearance alone.
+ * iOS. `contentInsetAdjustmentBehavior: 'automatic'` adds the home-indicator inset, and the list is
+ * a stack screen where the tab bar does not draw.
  *
  * Expected behaviour: rendered on iOS under a bottom safe area, the list lets the system inset its
- * content and pads by the tab bar clearance alone.
+ * content and adds no bottom padding of its own.
  */
 
 import React from 'react';
@@ -13,8 +13,11 @@ import { render } from '@testing-library/react-native';
 
 import RecordingsLibraryScreen from '@/app/recordings/index';
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useSegments: () => ['recordings'],
+}));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
@@ -51,14 +54,12 @@ describe('recordings list', () => {
     expect(headerLargeTitle('recordings/index', 'android')).toBe(false);
   });
 
-  it('insets the system way and pads by the tab bar clearance alone', () => {
+  it('insets the system way and pads nothing for a tab bar', () => {
     Platform.OS = 'ios';
     const { UNSAFE_getByType } = render(<RecordingsLibraryScreen />);
 
     const list = UNSAFE_getByType(FlatList);
     expect(list.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(StyleSheet.flatten(list.props.contentContainerStyle).paddingBottom).toBe(
-      TAB_BAR_SAFE_PADDING
-    );
+    expect(StyleSheet.flatten(list.props.contentContainerStyle).paddingBottom).toBe(0);
   });
 });

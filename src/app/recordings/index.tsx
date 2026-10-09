@@ -4,12 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import {
-  ScreenSafeAreaView,
-  EmptyState,
-  TAB_BAR_SAFE_PADDING,
-  screenListInsets,
-} from '@/shared/ui';
+import { ScreenSafeAreaView, EmptyState, useTabBarClearance, screenListInsets } from '@/shared/ui';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -56,6 +51,7 @@ const statusMeta = (
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
   const { entries, isLoading, uploadNow, uploadingId } = useRecordingLibrary();
 
@@ -148,7 +144,7 @@ function RecordingsLibraryScreenContent() {
               <PermissionUpgradeBanner />
             ) : null
           }
-          contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarClearance }]}
           ListEmptyComponent={
             <EmptyState
               icon="record-circle-outline"

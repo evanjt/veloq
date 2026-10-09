@@ -2,7 +2,7 @@
  * Scenario: under the native transport the interceptor answers a tile the host
  * would not give with the status Rust hands it: 429 or 503 when the host asked
  * to be left alone, 502 when it failed, 404 for a real refusal. Until then
- * every one of them arrived as a 404, which the worker skips as out of
+ * every one of them arrived as a 404, which the worker skipped as out of
  * coverage, so its throttle backoff never fired on a handset.
  *
  * Expected behaviour: the worker counts each status for what it is.
@@ -27,8 +27,8 @@ const request: SnapshotRequest = {
   flat: true,
 };
 
-const tileError = (status: number) => ({
-  sourceId: 'openmaptiles',
+const tileError = (status: number, sourceId = 'openmaptiles') => ({
+  sourceId,
   error: { status, message: `HTTP ${status}` },
 });
 
@@ -53,12 +53,12 @@ it.each([
   expect(page.posted[0]).toMatchObject({ type: 'snapshotError', gen: 1, ...counts });
 });
 
-it('skips a 404 from the interceptor as out of coverage', () => {
+it('skips a 404 from a regional satellite source as out of coverage', () => {
   const page = bootWorkerPage();
 
   page.render(request, 1);
-  page.map.emit('error', tileError(404));
-  page.map.emit('error', tileError(404));
+  page.map.emit('error', tileError(404, 'satellite-spain'));
+  page.map.emit('error', tileError(404, 'satellite-spain'));
   jest.advanceTimersByTime(20);
   page.map.emit('idle');
   page.map.emit('idle');

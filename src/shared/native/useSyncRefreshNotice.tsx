@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { AccessibilityInfo } from 'react-native';
 import { Snackbar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { StartOutcome } from 'veloqrs';
 
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/BottomTabBar';
+import { useTabBarClearance } from '@/shared/ui/tabBarClearance';
 
 import { requestSyncRefresh } from './syncRefresh';
 
@@ -69,6 +69,7 @@ export function useSyncRefreshNotice() {
 export function SyncRefreshNotice({ message }: { message: string | null }) {
   // Kept through the hide animation, which runs after the message has cleared.
   const [shown, setShown] = useState(message);
+  const tabBarClearance = useTabBarClearance();
   if (message && message !== shown) setShown(message);
   return (
     <Snackbar
@@ -76,7 +77,7 @@ export function SyncRefreshNotice({ message }: { message: string | null }) {
       visible={message !== null}
       onDismiss={noop}
       duration={Number.POSITIVE_INFINITY}
-      wrapperStyle={styles.aboveTabBar}
+      wrapperStyle={{ bottom: tabBarClearance }}
     >
       {shown}
     </Snackbar>
@@ -84,7 +85,3 @@ export function SyncRefreshNotice({ message }: { message: string | null }) {
 }
 
 function noop() {}
-
-const styles = StyleSheet.create({
-  aboveTabBar: { bottom: TAB_BAR_SAFE_PADDING },
-});

@@ -14,7 +14,7 @@ import {
   IconButton,
   ToggleButton,
   ScreenSafeAreaView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -75,6 +75,7 @@ function RecordScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const { canRecord, reason } = useCanRecord();
   const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
   const continueWithoutScope = useUploadPermissionStore((s) => s.continueWithoutScope);
@@ -277,7 +278,7 @@ function RecordScreenContent() {
           {
             backgroundColor: surface,
             borderTopColor: border,
-            paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING,
+            paddingBottom: insets.bottom + tabBarClearance,
           },
         ]}
       >

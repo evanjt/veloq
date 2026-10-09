@@ -4,13 +4,26 @@
 appId: com.veloq.app.dev
 ---
 # A flow that needs the notification prompt still to answer passes
-# NOTIFICATIONS_PERMISSION: unset. Every other flow launches with all granted,
-# which is what launchApp does when it is given nothing.
-- launchApp:
-    clearState: false
-    permissions:
-      all: allow
-      notifications: ${NOTIFICATIONS_PERMISSION || 'allow'}
+# NOTIFICATIONS_PERMISSION: unset. Every other flow launches with all granted.
+# Maestro evaluates no script inside `permissions`, so the choice is made in
+# the conditions and each launch passes literals.
+- runFlow:
+    when:
+      true: ${typeof NOTIFICATIONS_PERMISSION !== 'undefined' && NOTIFICATIONS_PERMISSION === 'unset'}
+    commands:
+      - launchApp:
+          clearState: false
+          permissions:
+            all: allow
+            notifications: unset
+- runFlow:
+    when:
+      true: ${typeof NOTIFICATIONS_PERMISSION === 'undefined' || NOTIFICATIONS_PERMISSION !== 'unset'}
+    commands:
+      - launchApp:
+          clearState: false
+          permissions:
+            all: allow
 
 # Dismiss iOS "Open in Veloq?" deep link confirmation
 - runFlow:

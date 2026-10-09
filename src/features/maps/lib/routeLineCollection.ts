@@ -13,6 +13,9 @@ import { EMPTY_FEATURE_COLLECTION } from './coordinates';
 export interface RouteLineInput {
   routeId: string;
   routeNumber?: number | undefined;
+  /** The name the route is shown under, read with the map */
+  name: string;
+  activityCount: number;
   polyline: ArrayBuffer;
 }
 

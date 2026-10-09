@@ -1,0 +1,73 @@
+# Detection preview, discarded: a moved slider runs a sandboxed detect, the
+# diff strip reports what would change, and Discard leaves the saved config as
+# it was. Nothing re-analyses the library on this path.
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- runFlow:
+    file: helpers/open-detection-preview.yaml
+
+- copyTextFrom:
+    id: "param-edit-proximityThreshold"
+- evalScript: ${output.savedProximity = maestro.copiedText}
+
+# Releasing a slider runs the preview on its own.
+- swipe:
+    from:
+      id: "param-slider-proximityThreshold"
+    direction: RIGHT
+    duration: 700
+- copyTextFrom:
+    id: "param-edit-proximityThreshold"
+- assertTrue:
+    condition: ${maestro.copiedText != output.savedProximity}
+    label: "The slider moves off the saved value"
+
+- extendedWaitUntil:
+    visible:
+      id: "preview-discard-button"
+    timeout: 300000
+
+- assertVisible:
+    id: "preview-diff-strip"
+- assertVisible:
+    text: "[0-9]+ unchanged"
+- assertVisible:
+    text: "[0-9]+ changed"
+- assertVisible:
+    text: "[0-9]+ new"
+- assertVisible:
+    text: "[0-9]+ removed"
+- assertVisible:
+    id: "preview-run-cost"
+- assertVisible:
+    id: "preview-keep-button"
+- takeScreenshot: "screenshots/detection-preview-diff"
+
+- tapOn:
+    id: "preview-discard-button"
+- extendedWaitUntil:
+    visible:
+      id: "detection-settings-screen"
+    timeout: 10000
+- assertNotVisible:
+    id: "detection-preview-screen"
+
+# The sliders open on the saved config, so a discarded run left it untouched.
+- tapOn:
+    id: "detection-preview-row"
+- extendedWaitUntil:
+    visible:
+      id: "detection-preview-screen"
+    timeout: 30000
+- copyTextFrom:
+    id: "param-edit-proximityThreshold"
+- assertTrue:
+    condition: ${maestro.copiedText == output.savedProximity}
+    label: "Discard leaves the saved config as it was"
+- assertNotVisible:
+    id: "preview-keep-button"

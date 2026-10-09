@@ -9,13 +9,13 @@ import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
-import { Button } from '@/shared/ui';
+import { Button, useTabBarClearance } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const tourState = useWhatsNewStore((s) => s.tourState);
   const resumeTour = useWhatsNewStore((s) => s.resumeTour);
   const dismissTour = useWhatsNewStore((s) => s.dismissTour);
@@ -31,7 +31,7 @@ export function TourReturnPill() {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const bottomOffset = TAB_BAR_HEIGHT + GRADIENT_HEIGHT + insets.bottom + spacing.sm;
+  const bottomOffset = tabBarClearance + insets.bottom + spacing.sm;
 
   return (
     <Animated.View

@@ -448,3 +448,48 @@ export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLa
 }
 
 export const FULLSCREEN_SECTION_MARKER_LAYER_IDS = ['fullscreen-pr-icon'];
+
+export interface Activity3DCollectionInput {
+  portions: GeoJSON.FeatureCollection;
+  matchedRoute: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  markers: GeoJSON.FeatureCollection;
+  /** Boundary ticks, which only the inline map draws. */
+  boundaries?: GeoJSON.FeatureCollection | undefined;
+}
+
+export interface Activity3DCollections {
+  tracesGeoJSON: GeoJSON.FeatureCollection | undefined;
+  routesGeoJSON: GeoJSON.FeatureCollection;
+  sectionMarkersGeoJSON: GeoJSON.FeatureCollection | undefined;
+  sectionBoundariesGeoJSON: GeoJSON.FeatureCollection | undefined;
+}
+
+function unlessEmpty(
+  collection: GeoJSON.FeatureCollection | undefined
+): GeoJSON.FeatureCollection | undefined {
+  return collection && collection.features.length > 0 ? collection : undefined;
+}
+
+/**
+ * The activity's overlays as the 3D page takes them. The inline map and the
+ * fullscreen one both build through here, so the portions and the matched
+ * route draw the same in either; they differ in the markers they pass and in
+ * the boundary ticks only the inline map draws. The page takes the matched
+ * route as a collection where the flat map reads a single feature.
+ */
+export function buildActivity3DCollections({
+  portions,
+  matchedRoute,
+  markers,
+  boundaries,
+}: Activity3DCollectionInput): Activity3DCollections {
+  return {
+    tracesGeoJSON: unlessEmpty(portions),
+    routesGeoJSON:
+      matchedRoute.type === 'Feature'
+        ? { type: 'FeatureCollection', features: [matchedRoute] }
+        : matchedRoute,
+    sectionMarkersGeoJSON: unlessEmpty(markers),
+    sectionBoundariesGeoJSON: unlessEmpty(boundaries),
+  };
+}

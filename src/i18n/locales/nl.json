@@ -681,7 +681,6 @@
     "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
     "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
     "howCalculated": "Hoe is dit berekend?",
-    "sourceActivities": "Bronactiviteiten",
     "current": "Huidig",
     "previous": "Vorige",
     "methodology": {
@@ -906,7 +905,20 @@
       "noEfforts": "Geen vastgelegde pogingen"
     },
     "beta": "Bèta",
-    "recentPersonalRecord": "Recent persoonlijk record"
+    "recentPersonalRecord": "Recent persoonlijk record",
+    "caption": {
+      "latestAgainstMean": "Laatste {{latest}} ms, gemiddeld {{avg}} ms",
+      "thisWeekAgainstLast": "Deze week {{current}}, vorige week {{previous}}",
+      "lastWeekAgainstAverage": "Vorige week {{current}}, 4-weken-gemiddelde {{previous}}",
+      "fromTo": "Van {{previous}} naar {{current}}"
+    },
+    "graphic": {
+      "openSection": "{{name}} openen",
+      "openTheSection": "De sectie openen",
+      "openFitness": "De fitnessgrafiek openen",
+      "openStrength": "Krachttraining openen",
+      "openDetail": "De details openen"
+    }
   },
   "licenses": {
     "openRepository": "Repository openen",
@@ -991,6 +1003,7 @@
     },
     "closeMap": "Kaart sluiten",
     "closePopup": "Activiteit-popup sluiten",
+    "closeRoutePopup": "Route-popup sluiten",
     "closeSectionPopup": "Sectie-popup sluiten",
     "disable3D": "3D-weergave uitschakelen",
     "enable3D": "3D-weergave inschakelen",
@@ -1009,6 +1022,7 @@
     "tapSelectStart": "Tik om startpunt te selecteren",
     "toggleStyle": "Kaartstijl wisselen",
     "viewDetails": "Details bekijken",
+    "viewRouteDetails": "Routedetails bekijken",
     "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit",
     "colorByGradient": "Kleur op stijging",

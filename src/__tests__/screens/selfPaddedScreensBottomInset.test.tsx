@@ -1,10 +1,11 @@
 /**
- * Scenario: the settings screens that pad their own scroll content for the tab bar take a collapsing
- * large title on iOS. `contentInsetAdjustmentBehavior: 'automatic'` already adds the home-indicator
- * inset there, so a bottom padding that adds it again leaves a doubled gap under the last row.
+ * Scenario: the settings screens that pad their own scroll content take a collapsing large title on
+ * iOS. `contentInsetAdjustmentBehavior: 'automatic'` already adds the home-indicator inset there, so
+ * a bottom padding that adds it again leaves a doubled gap under the last row. They are stack
+ * screens, where the tab bar does not draw, so there is no bar to clear either.
  *
  * Expected behaviour: rendered on iOS under a bottom safe area, the scroll view lets the system
- * inset its content and pads by the tab bar clearance alone.
+ * inset its content and adds no bottom padding of its own.
  */
 
 import React from 'react';
@@ -12,8 +13,13 @@ import { Platform, ScrollView, StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
+let mockSegments: string[] = [];
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useSegments: () => mockSegments,
+}));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -96,15 +102,14 @@ describe('settings screens that pad their own bottom', () => {
     expect(headerLargeTitle(route, 'android')).toBe(false);
   });
 
-  it.each(ROUTES)('%s insets the system way and pads by the tab bar clearance alone', (route) => {
+  it.each(ROUTES)('%s insets the system way and pads nothing for a tab bar', (route) => {
     Platform.OS = 'ios';
+    mockSegments = [route];
     const Screen: React.ComponentType = require(`@/app/${route}`).default;
     const { UNSAFE_getAllByType } = render(<Screen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(
-      TAB_BAR_SAFE_PADDING
-    );
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(0);
   });
 });

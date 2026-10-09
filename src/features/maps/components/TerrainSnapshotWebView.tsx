@@ -144,6 +144,13 @@ const snapshotQueueTier = (request: SnapshotRequest): number =>
 export const MAX_UPGRADE_ATTEMPTS = 3;
 
 /**
+ * The longest the feed's scroll may hold the pool without renewing it. A fling
+ * settles well inside this, so it only bounds a scroll whose end event never
+ * arrived, which would otherwise leave every card on its spinner.
+ */
+export const MAX_SCROLL_HOLD_MS = 4000;
+
+/**
  * Whether a request that only wants to replace a downgraded preview may be
  * queued, spending one of its attempts if so. A card holding a flat stand-in
  * asks again every time it mounts, so without a cap a feed that cannot draw
@@ -207,6 +214,13 @@ export function upgradesUnlockedBy(
     .map((request) => ({ ...request, upgrade: true, _retryAttempt: 0 }));
 }
 
+/**
+ * Whether the card has nothing to show until this render lands. An upgrade
+ * replaces a stand-in the card is already serving, so losing one leaves the
+ * card finished rather than waiting.
+ */
+const cardWaitsOn = (r: SnapshotRequest) => !r.upgrade && !r.backgroundUpgrade;
+
 const rememberFailure = (failed: Map<string, SnapshotRequest>, req: SnapshotRequest) => {
   const key = requestKey(req);
   failed.delete(key);
@@ -218,6 +232,12 @@ const rememberFailure = (failed: Map<string, SnapshotRequest>, req: SnapshotRequ
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
   retryFailed: () => void;
+  /**
+   * True while the feed is moving. No new render starts until it settles, so
+   * a WebView drawing a map does not take the cores the scroll needs. A render
+   * already in flight still finishes. Each true renews the hold.
+   */
+  holdForScroll: (held: boolean) => void;
 }
 
 interface WorkerState {
@@ -324,6 +344,10 @@ export const TerrainSnapshotWebView = forwardRef<
   // callbacks that must not be rebuilt on every focus change.
   const suspendedRef = useRef(suspended);
   suspendedRef.current = suspended;
+  // Set by the feed while it scrolls. A ref rather than a prop, because a prop
+  // would re-render the whole feed screen at the start and end of every fling.
+  const scrollHeldRef = useRef(false);
+  const scrollHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const STALENESS_TIMEOUT_MS = 15000;
 
@@ -387,6 +411,11 @@ export const TerrainSnapshotWebView = forwardRef<
         // failing every queued card for waiting as instructed.
         if (throttledUntilRef.current > Date.now()) {
           held('waiting out a tile throttle');
+          arm();
+          return;
+        }
+        if (scrollHeldRef.current) {
+          held('the feed is scrolling');
           arm();
           return;
         }
@@ -514,7 +543,7 @@ export const TerrainSnapshotWebView = forwardRef<
   }, []);
 
   const processNext = useCallback(() => {
-    if (disposedRef.current || suspendedRef.current) return;
+    if (disposedRef.current || suspendedRef.current || scrollHeldRef.current) return;
 
     // A tile host asked to be left alone. Nothing is assigned until the wait
     // is out, and one timer carries it for the whole pool.
@@ -688,11 +717,16 @@ export const TerrainSnapshotWebView = forwardRef<
           background === -1 ? queueRef.current.findIndex((r) => !r.priority) : background;
         const [evicted] = queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
         queueTotalRef.current--;
-        // The card gets no failure event, so only the trace tells an eviction from a stall.
         traceRef.current.record(
           { kind: 'evict', activityId: evicted?.activityId, detail: 'queue full' },
           Date.now()
         );
+        // Nothing else will ever answer this card, so it fails now and the
+        // idle drain gives it its one more go.
+        if (evicted && cardWaitsOn(evicted)) {
+          rememberFailure(failedRequestsRef.current, evicted);
+          emitSnapshotFailed(evicted.activityId);
+        }
       }
       traceRef.current.record(
         {
@@ -842,6 +876,12 @@ export const TerrainSnapshotWebView = forwardRef<
               saveErr
             );
           }
+          // The render was counted as done before the save, so this is the
+          // only place left that can answer the card.
+          if (disposedRef.current) return;
+          if (completed) rememberFailure(failedRequestsRef.current, completed);
+          emitSnapshotFailed(activityId);
+          processNext();
         }
       },
       snapshotError: (data: WebViewBridgeMessage) => {
@@ -1043,13 +1083,37 @@ export const TerrainSnapshotWebView = forwardRef<
         clearTimeout(stalenessTimerRef.current);
         stalenessTimerRef.current = null;
       }
+      if (scrollHoldTimerRef.current) {
+        clearTimeout(scrollHoldTimerRef.current);
+        scrollHoldTimerRef.current = null;
+      }
     };
   }, [workers]);
+
+  const holdForScroll = useCallback((held: boolean) => {
+    if (scrollHoldTimerRef.current) {
+      clearTimeout(scrollHoldTimerRef.current);
+      scrollHoldTimerRef.current = null;
+    }
+    if (held) {
+      scrollHeldRef.current = true;
+      scrollHoldTimerRef.current = setTimeout(() => {
+        scrollHoldTimerRef.current = null;
+        scrollHeldRef.current = false;
+        processNextRef.current?.();
+      }, MAX_SCROLL_HOLD_MS);
+      return;
+    }
+    if (!scrollHeldRef.current) return;
+    scrollHeldRef.current = false;
+    processNextRef.current?.();
+  }, []);
 
   useImperativeHandle(
     ref,
     () => ({
       requestSnapshot,
+      holdForScroll,
       retryFailed: () => {
         const failed = [...failedRequestsRef.current.values()];
         if (failed.length === 0) return;
@@ -1081,7 +1145,7 @@ export const TerrainSnapshotWebView = forwardRef<
         processNext();
       },
     }),
-    [processNext, updateWatchdog, requestSnapshot, trace]
+    [processNext, updateWatchdog, requestSnapshot, holdForScroll, trace]
   );
 
   return (

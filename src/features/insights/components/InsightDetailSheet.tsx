@@ -47,12 +47,9 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   const toneColor = insightToneColor(insight.iconTone, isDark);
 
-  // Content components for these categories already have embedded navigation
-  // (e.g. tappable section names that go straight to the section detail page).
-  const contentHandlesNav =
-    insight.category === 'section_pr' ||
-    insight.category === 'section_trend' ||
-    insight.category === 'route';
+  // Only content that links each of its rows to its own screen may hide the
+  // button. A section PR sheet has no such link, so it keeps View in detail.
+  const contentHandlesNav = insight.category === 'section_trend' || insight.category === 'route';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
@@ -103,15 +100,10 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           <InsightDetailContent insight={insight} />
         </View>
 
-        {/* Methodology transparency - single "How was this calculated?" block */}
-        {insight.methodology ||
-        insight.meta?.ranking ||
-        insight.supportingData?.formula ||
-        insight.supportingData?.algorithmDescription ? (
-          <View style={styles.methodologySection}>
-            <MethodologySection insight={insight} />
-          </View>
-        ) : null}
+        {/* The numbers, the method and the link to the data, folded */}
+        <View style={styles.methodologySection}>
+          <MethodologySection insight={insight} />
+        </View>
 
         {/* Navigation link */}
         {hasNavTarget ? (

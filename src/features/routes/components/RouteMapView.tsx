@@ -14,6 +14,7 @@ import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
+  type BaseMap3DLayer,
   boundsOfLngLat,
   buildDeltaLineStops,
   featureCollection,
@@ -193,11 +194,17 @@ export function RouteMapView({
       buildRouteLayers({
         activityColor,
         representativeOpacity: 1,
-        fadedOpacity: 0.2,
+        fadedOpacity: FULLSCREEN_FADED_OPACITY,
         fadedFilter,
         includeRoute: false,
       }),
     [activityColor, fadedFilter]
+  );
+
+  const fullscreenLayer3D = useMemo(
+    () =>
+      buildRoute3DLayer({ fadedTraces, highlightedTrace, highlightedActivityId, activityColor }),
+    [fadedTraces, highlightedTrace, highlightedActivityId, activityColor]
   );
 
   const handleMapPress = useCallback(() => {
@@ -266,10 +273,43 @@ export function RouteMapView({
           onClose={closeFullscreen}
           overlaySources={overlaySources}
           overlayLayers={fullscreenLayers}
+          layer3D={fullscreenLayer3D}
         />
       </Modal>
     </>
   );
+}
+
+/** The fullscreen map's faded attempts, the strength `fullscreenLayers` gives them. */
+const FULLSCREEN_FADED_OPACITY = 0.2;
+
+/**
+ * The fullscreen overlays as the 3D page takes them. The page has no faded
+ * trace collection, so the other attempts go in its sections collection, the
+ * one that takes a colour per feature, faded there to the strength the flat
+ * map gives them and without the highlighted attempt, which draws in its own.
+ */
+export function buildRoute3DLayer({
+  fadedTraces,
+  highlightedTrace,
+  highlightedActivityId,
+  activityColor,
+}: {
+  fadedTraces: GeoJSON.FeatureCollection;
+  highlightedTrace: GeoJSON.FeatureCollection;
+  highlightedActivityId: string | null;
+  activityColor: string;
+}): BaseMap3DLayer {
+  const color = colorWithOpacity(activityColor, FULLSCREEN_FADED_OPACITY);
+  return {
+    sectionsGeoJSON: {
+      type: 'FeatureCollection',
+      features: fadedTraces.features
+        .filter((f) => !highlightedActivityId || f.properties?.id !== highlightedActivityId)
+        .map((f) => ({ ...f, properties: { ...f.properties, color } })),
+    },
+    highlightedTraceGeoJSON: highlightedTrace,
+  };
 }
 
 /**

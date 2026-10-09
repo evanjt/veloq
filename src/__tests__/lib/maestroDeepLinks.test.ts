@@ -12,9 +12,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { routeFilesFor } from '../__shared__/appRoutes';
+
 const REPO_ROOT = path.join(__dirname, '../../..');
 const FLOWS_DIR = path.join(REPO_ROOT, '.maestro');
-const APP_DIR = path.join(REPO_ROOT, 'src/app');
 
 function flowFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -38,19 +39,6 @@ function openedLinks(): { flow: string; link: string }[] {
   });
 }
 
-/** The route files expo-router would try for a path, in the order it tries them. */
-function candidates(routePath: string): string[] {
-  if (routePath === '') return ['index.tsx', '(tabs)/index.tsx'];
-  const segments = routePath.split('/');
-  const group = ['', '(tabs)/'];
-  const shapes = [`${routePath}.tsx`, `${routePath}/index.tsx`];
-  if (segments.length > 1) {
-    const parent = segments.slice(0, -1).join('/');
-    shapes.push(`${parent}/[id].tsx`, `${parent}/[...rest].tsx`);
-  }
-  return group.flatMap((prefix) => shapes.map((shape) => `${prefix}${shape}`));
-}
-
 describe('maestro deep links', () => {
   const links = openedLinks();
 
@@ -59,11 +47,7 @@ describe('maestro deep links', () => {
   });
 
   it.each(links)('$flow opens $link, which resolves to a route', ({ link }) => {
-    const routePath = link.replace('veloq://', '').replace(/\?.*$/, '').replace(/\/$/, '');
-    const resolved = candidates(routePath).filter((candidate) =>
-      fs.existsSync(path.join(APP_DIR, candidate))
-    );
-    expect(resolved.length).toBeGreaterThan(0);
+    expect(routeFilesFor(link).length).toBeGreaterThan(0);
   });
 
   /**
@@ -76,20 +60,13 @@ describe('maestro deep links', () => {
    * Expected behaviour: only the flow whose job is the redirect opens one.
    */
   it('opens a redirect only from the flow that checks redirects', () => {
-    const redirects = (routePath: string) =>
-      candidates(routePath)
-        .map((candidate) => path.join(APP_DIR, candidate))
-        .filter((file) => fs.existsSync(file))
-        .some((file) => {
-          const source = fs.readFileSync(file, 'utf-8');
-          return /\breplaceTo\(|<Redirect\b/.test(source) && /return null;/.test(source);
-        });
+    const redirects = (link: string) =>
+      routeFilesFor(link).some((file) => {
+        const source = fs.readFileSync(file, 'utf-8');
+        return /\breplaceTo\(|<Redirect\b/.test(source) && /return null;/.test(source);
+      });
 
-    const viaRedirect = links
-      .filter(({ link }) =>
-        redirects(link.replace('veloq://', '').replace(/\?.*$/, '').replace(/\/$/, ''))
-      )
-      .map(({ flow }) => flow);
+    const viaRedirect = links.filter(({ link }) => redirects(link)).map(({ flow }) => flow);
 
     expect(viaRedirect.length).toBeGreaterThan(0);
     expect([...new Set(viaRedirect)]).toEqual(['.maestro/navigation-deep-links.yaml']);

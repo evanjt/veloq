@@ -5,7 +5,7 @@
  * becomes the chart's window, and a dismissed sheet leaves it unchanged.
  */
 import React from 'react';
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import TrainingScreen from '@/app/(tabs)/training';
@@ -87,7 +87,8 @@ describe('training smoothing sheet', () => {
 
   it('leaves the window unchanged when the sheet is dismissed', async () => {
     renderTraining();
-    expect(chartWindow()).toBe('auto');
+    // The chart mounts on the frame after the screen's first.
+    await waitFor(() => expect(chartWindow()).toBe('auto'));
     fireEvent.press(await screen.findByTestId('training-smoothing-button'));
     answerSheet(mockPush, mockParams, null);
     await act(async () => {});

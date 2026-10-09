@@ -47,26 +47,81 @@ export function decodeStoredAltitude(altitude: unknown, samples: number): number
   return altitude.map((alt) => (typeof alt === 'number' ? alt : NaN));
 }
 
-/** Validate backup structure and version before restoring */
-function isValidBackup(value: unknown): value is RecordingBackup {
-  if (typeof value !== 'object' || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  if (obj.version !== BACKUP_VERSION) return false;
+/** The fields every version of the backup carries. */
+function hasCommonFields(obj: Record<string, unknown>): boolean {
   if (typeof obj.activityType !== 'string') return false;
-  if (obj.athleteId !== undefined && typeof obj.athleteId !== 'string') return false;
   if (typeof obj.mode !== 'string') return false;
-  if (obj.status !== 'recording' && obj.status !== 'paused' && obj.status !== 'stopped')
-    return false;
   if (typeof obj.startTime !== 'number' || !Number.isFinite(obj.startTime)) return false;
-  if (obj.stopTime !== null && typeof obj.stopTime !== 'number') return false;
   if (typeof obj.pausedDuration !== 'number') return false;
-  if (obj.pauseIntervals !== undefined && !Array.isArray(obj.pauseIntervals)) return false;
   if (typeof obj.savedAt !== 'number') return false;
   if (typeof obj.streams !== 'object' || obj.streams === null) return false;
   const streams = obj.streams as Record<string, unknown>;
   if (!Array.isArray(streams.time) || !Array.isArray(streams.latlng)) return false;
   if (!Array.isArray(obj.laps)) return false;
   return true;
+}
+
+function isCurrentBackup(obj: Record<string, unknown>): boolean {
+  if (obj.version !== BACKUP_VERSION || !hasCommonFields(obj)) return false;
+  if (obj.athleteId !== undefined && typeof obj.athleteId !== 'string') return false;
+  if (obj.status !== 'recording' && obj.status !== 'paused' && obj.status !== 'stopped')
+    return false;
+  if (obj.stopTime !== null && typeof obj.stopTime !== 'number') return false;
+  if (obj.pauseIntervals !== undefined && !Array.isArray(obj.pauseIntervals)) return false;
+  return true;
+}
+
+/**
+ * Version 1 laps carry moving seconds and no stream indices. The indices are
+ * the samples up to the lap's end, which is how version 1 itself sliced them.
+ */
+function upgradeVersionOneLaps(laps: unknown[], time: number[]): RecordingBackup['laps'] {
+  let next = 0;
+  return laps.map((raw) => {
+    const lap = raw as Omit<
+      RecordingBackup['laps'][number],
+      'startIndex' | 'endIndex' | 'movingEndTime'
+    >;
+    const startIndex = next;
+    while (next < time.length && (time[next] ?? Infinity) <= lap.endTime) next++;
+    return { ...lap, startIndex, endIndex: next - 1, movingEndTime: lap.endTime };
+  });
+}
+
+/**
+ * The one reader of the backup format. Version 1 had no status, stop time,
+ * pauses or owner and was only ever resumed paused, so it reads as a paused
+ * ride with no owner. Null for anything no build wrote.
+ */
+function parseBackup(value: unknown): RecordingBackup | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const obj = value as Record<string, unknown>;
+  let backup: RecordingBackup;
+  if (isCurrentBackup(obj)) {
+    backup = { ...(obj as unknown as RecordingBackup) };
+  } else if (obj.version === 1 && hasCommonFields(obj)) {
+    const v1 = obj as unknown as RecordingBackup;
+    backup = {
+      activityType: v1.activityType,
+      mode: v1.mode,
+      status: 'paused',
+      startTime: v1.startTime,
+      stopTime: null,
+      pausedDuration: v1.pausedDuration,
+      pauseIntervals: [],
+      streams: v1.streams,
+      laps: upgradeVersionOneLaps(v1.laps, v1.streams.time),
+      pairedEventId: typeof v1.pairedEventId === 'number' ? v1.pairedEventId : null,
+      savedAt: v1.savedAt,
+    };
+  } else {
+    return null;
+  }
+  backup.streams = {
+    ...backup.streams,
+    altitude: decodeStoredAltitude(backup.streams.altitude, backup.streams.time.length),
+  };
+  return backup;
 }
 
 /**
@@ -158,15 +213,11 @@ export async function loadRecordingBackup(): Promise<RecordingBackup | null> {
       if (!info.exists) return null;
 
       const data = await FileSystem.readAsStringAsync(path);
-      const parsed = JSON.parse(data);
-      if (!isValidBackup(parsed)) {
+      const parsed = parseBackup(JSON.parse(data));
+      if (!parsed) {
         log.warn('Invalid or incompatible recording backup, ignoring it');
         return null;
       }
-      parsed.streams.altitude = decodeStoredAltitude(
-        parsed.streams.altitude,
-        parsed.streams.time.length
-      );
       return parsed;
     } catch {
       log.warn('Failed to load recording backup');
@@ -272,15 +323,16 @@ async function moveOwnerlessBackup(athleteId: string): Promise<void> {
   await queueBackupOperation(target, () =>
     queueBackupOperation(BACKUP_PATH, async () => {
       if (!(await FileSystem.getInfoAsync(BACKUP_PATH)).exists) return;
-      const ownerless = safeJsonParse<unknown>(
-        await FileSystem.readAsStringAsync(BACKUP_PATH),
-        null
+      const ownerless = parseBackup(
+        safeJsonParse<unknown>(await FileSystem.readAsStringAsync(BACKUP_PATH), null)
       );
-      if (!isValidBackup(ownerless) || ownerless.athleteId !== undefined) return;
+      if (!ownerless || ownerless.athleteId !== undefined) return;
       if ((await FileSystem.getInfoAsync(target)).exists) {
-        const current = safeJsonParse<unknown>(await FileSystem.readAsStringAsync(target), null);
+        const current = parseBackup(
+          safeJsonParse<unknown>(await FileSystem.readAsStringAsync(target), null)
+        );
         // An unreadable file is a copy that was cut short, not a backup in the way.
-        if (isValidBackup(current)) {
+        if (current) {
           // The same ride means a kill came between the copy and the delete.
           if (current.athleteId === athleteId && current.startTime === ownerless.startTime) {
             await FileSystem.deleteAsync(BACKUP_PATH, { idempotent: true });
@@ -290,7 +342,7 @@ async function moveOwnerlessBackup(athleteId: string): Promise<void> {
       }
       await FileSystem.writeAsStringAsync(
         `${target}.tmp`,
-        JSON.stringify({ ...ownerless, athleteId })
+        JSON.stringify({ ...ownerless, athleteId, version: BACKUP_VERSION })
       );
       await replaceFile(`${target}.tmp`, target);
       const copy = safeJsonParse<Partial<RecordingBackup>>(

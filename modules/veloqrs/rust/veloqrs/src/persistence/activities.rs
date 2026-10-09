@@ -3275,54 +3275,24 @@ impl PersistentEngine {
         let mut removed = Vec::with_capacity(vanished.len());
         let mut swept: Vec<Bounds> = Vec::new();
         for key in vanished {
-            // A section's line is a triple into one stored stream, so the
-            // reference moves before the row does: `section_activities`
-            // cascades on the activity and the candidate list would go with it.
-            match self.sections_anchored_to(&key) {
-                anchored if anchored.is_empty() => {}
-                anchored => {
-                    let mut stranded = false;
-                    for section_id in anchored {
-                        match self.reanchor_section_reference(&section_id, &key) {
-                            Ok(Some(_)) => {}
-                            Ok(None) => stranded = true,
-                            Err(e) => {
-                                log::warn!(
-                                    "veloqrs: [census] re-anchor of {} failed: {}",
-                                    section_id,
-                                    e
-                                );
-                                stranded = true;
-                            }
-                        }
-                    }
-                    if stranded {
-                        // Its only visit was this activity, so there is nothing
-                        // to re-cut against. Today's behaviour stands: the row
-                        // is protected and the delete is skipped. The server's
-                        // curves no longer carry it, so its sport is stamped,
-                        // once for the departure rather than once per census.
-                        log::info!(
-                            "veloqrs: [census] {} left upstream but a section has no other member, kept",
-                            key
-                        );
-                        if let Err(e) = self.stamp_kept_departure(&key) {
-                            log::warn!(
-                                "veloqrs: [census] curve stamp for kept {} failed: {}",
-                                key,
-                                e
-                            );
-                        }
-                        continue;
-                    }
-                }
-            }
-            if let Err(e) = self.materialise_geometry_cut_from(&key) {
-                log::warn!(
-                    "veloqrs: [census] geometry versions of {} not materialised: {}",
-                    key,
-                    e
+            if !self.release_section_references(&key, None) {
+                // A section's only visit was this activity, so there is
+                // nothing to re-cut against. The row is protected and the
+                // delete is skipped. The server's curves no longer carry it,
+                // so its sport is stamped, once for the departure rather than
+                // once per census.
+                log::info!(
+                    "veloqrs: [census] {} left upstream but a section has no other member, kept",
+                    key
                 );
+                if let Err(e) = self.stamp_kept_departure(&key) {
+                    log::warn!(
+                        "veloqrs: [census] curve stamp for kept {} failed: {}",
+                        key,
+                        e
+                    );
+                }
+                continue;
             }
             match self.remove_departed_activity(&key) {
                 Ok(bounds) => {
@@ -3380,6 +3350,48 @@ impl PersistentEngine {
         }
     }
 
+    /// Move every section line sliced from this activity onto another stored
+    /// stream, then store the line of every geometry version cut from it, so
+    /// the row can be deleted without leaving a reference into a stream that
+    /// is gone. The census and the upload answer delete such an activity, so
+    /// both come through here first; the athlete's own delete refuses one.
+    ///
+    /// Moving comes before the delete because `section_activities` cascades
+    /// on the activity and the candidate list would go with it. `successor`
+    /// is a stored copy of the same ride, tried after every member.
+    ///
+    /// False when some section has nothing to move onto: the row has to stay,
+    /// and its versions are left naming the stream that still exists.
+    fn release_section_references(&mut self, activity_id: &str, successor: Option<&str>) -> bool {
+        let mut stranded = false;
+        for section_id in self.sections_anchored_to(activity_id) {
+            match self.reanchor_section_reference(&section_id, activity_id, successor) {
+                Ok(Some(_)) => {}
+                Ok(None) => stranded = true,
+                Err(e) => {
+                    log::warn!(
+                        "veloqrs: [removal] re-anchor of {} off {} failed: {}",
+                        section_id,
+                        activity_id,
+                        e
+                    );
+                    stranded = true;
+                }
+            }
+        }
+        if stranded {
+            return false;
+        }
+        if let Err(e) = self.materialise_geometry_cut_from(activity_id) {
+            log::warn!(
+                "veloqrs: [removal] geometry versions of {} not materialised: {}",
+                activity_id,
+                e
+            );
+        }
+        true
+    }
+
     /// Sections whose current line is sliced from this activity, through the
     /// custom anchor or the representative triple a detected section carries.
     /// Old geometry versions cut from it are not listed: they are kept
@@ -3404,7 +3416,9 @@ impl PersistentEngine {
     /// A row with a track keeps the id on `activities`. A row without one has
     /// no `activities` row at all, only a body and metrics, so the id goes on
     /// its body. False means no row was waiting for an id: the row already
-    /// carries one, or no row has this key.
+    /// carries one, or no row has this key. False also when the duplicate is
+    /// kept because a section's line is cut from it and neither another
+    /// member nor the server's copy can carry that line.
     pub fn record_upload(&mut self, activity_id: &str, intervals_id: &str) -> SqlResult<bool> {
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         let result = (|| {
@@ -3439,6 +3453,15 @@ impl PersistentEngine {
                 )
                 .optional()?;
             if provisional && let Some(synced) = synced {
+                if !self.release_section_references(activity_id, Some(&synced)) {
+                    log::info!(
+                        "veloqrs: [upload] {} duplicates {} but a section has nothing else to cut from, kept",
+                        activity_id,
+                        synced
+                    );
+                    self.db.execute_batch("COMMIT")?;
+                    return Ok(false);
+                }
                 self.remove_uploaded_duplicate(activity_id, &synced)?;
                 return Ok(true);
             }
@@ -3473,6 +3496,11 @@ impl PersistentEngine {
         })();
         if result.is_err() {
             let _ = self.db.execute_batch("ROLLBACK");
+            // A re-anchor refreshed its section from rows the rollback undid.
+            for section_id in self.sections_anchored_to(activity_id) {
+                self.invalidate_section_cache(&section_id);
+                self.refresh_section_in_memory(&section_id);
+            }
         }
         result
     }

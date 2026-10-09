@@ -11,6 +11,10 @@ export interface FakeMap {
   setStyle: jest.Mock;
   jumpTo: jest.Mock;
   remove: jest.Mock;
+  /** Whether every tile of the mounted style has arrived. True unless a test says otherwise. */
+  isStyleLoaded: jest.Mock;
+  /** Answers no source unless a test says otherwise, so a 3D render takes the full path. */
+  getSource: jest.Mock;
   queryTerrainElevation?: jest.Mock;
   /** Fire a map event the way MapLibre would, to every listener on it. */
   emit: (name: string, event?: Record<string, unknown>) => void;
@@ -30,6 +34,29 @@ export interface WorkerPage {
   recycle: () => void;
 }
 
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 720;
+
+/** A WebGL context whose `readPixels` reads one pixel, its row counted from the bottom as GL does. */
+function webglReading(pixelAt: (x: number, y: number) => [number, number, number]) {
+  return {
+    RGBA: 0x1908,
+    UNSIGNED_BYTE: 0x1401,
+    readPixels: (
+      x: number,
+      glY: number,
+      _w: number,
+      _h: number,
+      _f: number,
+      _t: number,
+      out: Uint8Array
+    ) => {
+      const [r, g, b] = pixelAt(x, CANVAS_HEIGHT - glY - 1);
+      out.set([r, g, b, 255]);
+    },
+  };
+}
+
 /**
  * Boots the worker page's own script against a fake MapLibre, so its map
  * event handlers are the production ones, then runs render scripts into the
@@ -40,6 +67,12 @@ export function bootWorkerPage(
     fetch?: jest.Mock;
     /** Rendered terrain height at a [lng, lat], exaggeration included, as MapLibre answers it. */
     queryTerrainElevation?: jest.Mock;
+    /**
+     * The colour drawn at a canvas pixel, `y` counted down from the top as on
+     * screen. Given, the canvas answers `readPixels` from it; absent, it has
+     * no WebGL context and the page probes nothing.
+     */
+    pixelAt?: (x: number, y: number) => [number, number, number];
   } = {}
 ): WorkerPage {
   const listeners: Record<string, Handler[]> = {};
@@ -57,19 +90,19 @@ export function bootWorkerPage(
     remove: jest.fn(() => {
       for (const name of Object.keys(listeners)) delete listeners[name];
     }),
-    isStyleLoaded: () => true,
+    isStyleLoaded: jest.fn(() => true),
     transform: { fov: 36.87, width: 360, height: 240 },
     ...(options.queryTerrainElevation
       ? { queryTerrainElevation: options.queryTerrainElevation }
       : {}),
-    getSource: () => null,
+    getSource: jest.fn(() => null),
     getLayer: () => null,
     addSource: jest.fn(),
     addLayer: jest.fn(),
     getCanvas: () => ({
-      width: 1080,
-      height: 720,
-      getContext: () => null,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      getContext: () => (options.pixelAt ? webglReading(options.pixelAt) : null),
       toDataURL: () => 'data:image/jpeg;base64,AAAA',
     }),
     emit: (name: string, event: Record<string, unknown> = {}) => {

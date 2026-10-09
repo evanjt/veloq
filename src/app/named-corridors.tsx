@@ -15,7 +15,7 @@ import {
   IconButton,
   ScreenSafeAreaView,
   ScreenScrollView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -62,6 +62,7 @@ function FootprintPreview({
 function NamedCorridorsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const locale = getIntlLocale();
   const { corridors, remove } = useNamedCorridors();
 
@@ -84,7 +85,13 @@ function NamedCorridorsScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScreenScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
+      <ScreenScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: layout.screenPadding + tabBarClearance },
+        ]}
+        testID="named-corridors-list"
+      >
         {corridors.length === 0 ? (
           <Text
             testID="named-corridors-empty"
@@ -167,7 +174,7 @@ function NamedCorridorsScreenContent() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  content: { padding: layout.screenPadding, paddingBottom: TAB_BAR_SAFE_PADDING, gap: spacing.sm },
+  content: { padding: layout.screenPadding, gap: spacing.sm },
   card: {
     padding: layout.cardPadding,
     borderRadius: layout.borderRadius,

@@ -20,7 +20,6 @@ import {
   verdictColor,
   verdictFill,
 } from '@/theme';
-import { DataPointRow } from './DataPointRow';
 import { InsightSeriesChart } from './InsightSeriesChart';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
@@ -128,18 +127,9 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  const dataPoints = data.dataPoints?.length ? data.dataPoints : null;
-  const history = data.history?.kind === 'line' ? null : data.history;
+  const history = data.history && 'series' in data.history ? data.history : null;
   const points = history?.series[0]?.points;
-  const samples = useMemo(
-    () =>
-      points && points.length >= 3
-        ? points
-        : data.sparklineData && data.sparklineData.length >= 3
-          ? data.sparklineData.map((value) => ({ value }))
-          : null,
-    [points, data.sparklineData]
-  );
+  const samples = points && points.length >= 3 ? points : null;
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
 
@@ -153,16 +143,11 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
 
   return (
     <View style={styles.container}>
-      {/* Data Points */}
-      {dataPoints
-        ? dataPoints.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
-        : null}
-
       {samples ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
           <InsightSeriesChart
             samples={samples}
-            title={history?.series[0]?.label ?? data.sparklineLabel ?? ''}
+            title={history?.series[0]?.label ?? ''}
             color={trendColor}
             formatValue={formatSeriesValue}
             accessory={

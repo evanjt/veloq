@@ -10,12 +10,11 @@ import { usePathname } from 'expo-router';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, brand, spacing, shadows, layout, typography } from '@/theme';
-import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { pressable, pressRipple } from '@/shared/ui';
+import { pressable, pressRipple, useTabBarClearance } from '@/shared/ui';
 import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
 import type { RecordingStatus } from '@/types';
 
@@ -54,6 +53,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const activityType = useRecordingStore((s) => s.activityType);
   const { formattedElapsed } = useTimer();
   const paused = status === 'paused';
@@ -63,7 +63,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accent = paused ? (isDark ? darkColors.warningAmber : colors.warningAmber) : brand.teal;
-  const bottomOffset = TAB_BAR_HEIGHT + GRADIENT_HEIGHT + insets.bottom + spacing.sm;
+  const bottomOffset = tabBarClearance + insets.bottom + spacing.sm;
 
   return (
     <Animated.View

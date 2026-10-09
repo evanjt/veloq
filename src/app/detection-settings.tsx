@@ -9,7 +9,7 @@ import {
   Button,
   ScreenSafeAreaView,
   ScreenScrollView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -28,6 +28,7 @@ const PREVIEW_ROW_HEIGHT = 44;
 function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
@@ -73,7 +74,7 @@ function DetectionSettingsScreenContent() {
       style={[styles.container, { backgroundColor: bg }]}
     >
       <ScreenScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
         showsVerticalScrollIndicator={false}
       >
         <BackgroundJobsActivityBar />

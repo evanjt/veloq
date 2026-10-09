@@ -32,7 +32,6 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const { width: windowWidth } = useWindowDimensions();
   const chartWidth = windowWidth - spacing.lg * 4;
   const comparison = insight.supportingData?.comparisonData;
-  const dataPoints = insight.supportingData?.dataPoints;
 
   const currentVal = typeof comparison?.current.value === 'number' ? comparison.current.value : 0;
   const previousVal =
@@ -172,20 +171,6 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
         <MaterialCommunityIcons name={changeIcon as never} size={16} color={changeColor} />
         <Text style={[styles.changeText, { color: changeColor }]}>{changeStr}</Text>
       </View>
-
-      {/* Activity counts */}
-      {dataPoints && dataPoints.length > 0 ? (
-        <View style={styles.countRow}>
-          {dataPoints.map((dp, i) => (
-            <View key={i} style={[styles.countBox, isDark && styles.countBoxDark]}>
-              <Text style={[styles.countValue, isDark && styles.countValueDark]}>
-                {String(dp.value)}
-              </Text>
-              <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>{dp.label}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -240,36 +225,5 @@ const styles = StyleSheet.create({
   changeText: {
     fontSize: typography.bodyMedium.fontSize,
     fontWeight: '700',
-  },
-  countRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  countBox: {
-    flex: 1,
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    alignItems: 'center',
-  },
-  countBoxDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  countValue: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  countValueDark: {
-    color: darkColors.textPrimary,
-  },
-  countLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-    textAlign: 'center',
-  },
-  countLabelDark: {
-    color: darkColors.textSecondary,
   },
 });

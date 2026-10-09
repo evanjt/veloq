@@ -13,6 +13,7 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
+import { DataPointRow } from '@/features/insights/components/DataPointRow';
 import type { DataPoint, InsightSupportingData } from '@/types';
 import { verdictColor, verdictFill } from '@/theme';
 
@@ -25,27 +26,28 @@ jest.mock('@/shared/app', () => ({ useTheme: () => mockTheme }));
 
 type Node = { type: unknown; props: { style?: unknown; children?: unknown } };
 
-/** Every background the section drew, flattened. */
-function backgrounds(data: InsightSupportingData): string[] {
-  const { UNSAFE_root } = render(<SupportingDataSection data={data} />);
+/** Every background an element drew, flattened. */
+function drawn(element: React.ReactElement): string[] {
+  const { UNSAFE_root } = render(element);
   return (UNSAFE_root.findAll(() => true) as unknown as Node[])
     .map((n) => StyleSheet.flatten(n.props.style as never) as { backgroundColor?: string } | null)
     .map((style) => style?.backgroundColor)
     .filter((colour): colour is string => typeof colour === 'string');
 }
 
-function row(context: DataPoint['context']): InsightSupportingData {
-  return { dataPoints: [{ label: 'Value', value: 1, context }] };
+function row(context: DataPoint['context']): string[] {
+  return drawn(<DataPointRow dataPoint={{ label: 'Value', value: 1, context }} />);
 }
 
-function comparison(context: DataPoint['context']): InsightSupportingData {
-  return {
+function comparison(context: DataPoint['context']): string[] {
+  const data: InsightSupportingData = {
     comparisonData: {
       current: { label: 'Now', value: 2 },
       previous: { label: 'Then', value: 1 },
       change: { label: 'Change', value: '+100%', context },
     },
   };
+  return drawn(<SupportingDataSection data={data} />);
 }
 
 describe.each([false, true])('the insight sheet verdicts, dark %s', (isDark) => {
@@ -58,13 +60,13 @@ describe.each([false, true])('the insight sheet verdicts, dark %s', (isDark) => 
     ['warning', 'caution'],
     ['concern', 'negative'],
   ] as const)('marks a %s value on the %s rung', (context, rung) => {
-    expect(backgrounds(row(context))).toContain(verdictColor(rung, isDark));
+    expect(row(context)).toContain(verdictColor(rung, isDark));
   });
 
   it.each([
     ['good', 'positive'],
     ['concern', 'negative'],
   ] as const)('tints a %s comparison on the %s rung', (context, rung) => {
-    expect(backgrounds(comparison(context))).toContain(verdictFill(rung, isDark));
+    expect(comparison(context)).toContain(verdictFill(rung, isDark));
   });
 });

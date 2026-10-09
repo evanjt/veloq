@@ -82,7 +82,7 @@ export interface MergeTargets {
 }
 
 /** The local modules with JVM tests, each run by `npm run test:android:unit`. */
-const ANDROID_JVM_MODULES = ['veloqrs', 'veloq-display'];
+const ANDROID_JVM_MODULES = ['veloqrs', 'veloq-display', 'veloq-backup-exclusion'];
 
 interface ManifestTest {
   name: string;

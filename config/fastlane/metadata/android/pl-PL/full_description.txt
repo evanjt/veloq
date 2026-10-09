@@ -4,7 +4,7 @@ Twoje dane treningowe, zwizualizowane. Veloq łączy nagrywanie, mapy, wykresy, 
 Śledź aktywności z GPS, automatyczną pauzą, podziałem na kilometry i wyświetlaniem stref tętna. Przytnij nagranie przed zapisem. Przesyłaj jako pliki FIT lub kolejkuj do wysłania później. Ręczne wprowadzanie dla aktywności halowych.
 
 <b>Spostrzeżenia</b>
-Codzienne spersonalizowane analizy na podstawie Twojego treningu: rekordy na odcinkach, kamienie milowe kondycji, porównania tygodniowe, wzorce aktywności i porady dotyczące formy. Pozytywne komunikaty uwzględniające dni odpoczynku.
+Codzienne spostrzeżenia z Twojego treningu: rekordy i trendy na odcinkach, kamienie milowe kondycji, porównania tygodniowe, trendy HRV i postępy siłowe. Każde pokazuje swoje liczby i sposób ich obliczenia.
 
 <b>Mapy</b>
 Przeglądaj swoje aktywności na interaktywnych mapach z terenem 3D, mapami ciepła tras i filtrowaniem osi czasu. Wybieraj między jasnymi, ciemnymi i satelitarnymi stylami. Przewijaj wykresy i obserwuj aktualizację pozycji na mapie w czasie rzeczywistym.
@@ -19,7 +19,7 @@ Tętno, moc, tempo, wysokość i kadencja, wszystko zsynchronizowane z mapą. Pr
 Śledź swoją formę dzięki śledzeniu CTL/ATL/TSB i wizualnym strefom. Monitoruj HRV, tętno spoczynkowe, sen i samopoczucie. Przeglądaj krzywe mocy i tempa według dyscypliny.
 
 <b>Prywatność</b>
-Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach, żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.
+Twoje dane treningowe pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator (ID) sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte źródło na licencji Apache 2.0.
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 

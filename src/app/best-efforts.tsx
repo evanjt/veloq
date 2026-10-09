@@ -9,7 +9,7 @@ import {
   pressable,
   pressRipple,
   ScreenSafeAreaView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   ToggleButtonRow,
 } from '@/shared/ui';
 import type { Period } from '@/shared/app/period';
@@ -257,6 +257,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
 function BestEffortsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const [period, setPeriod] = useState<Period>(BEST_EFFORTS_DEFAULT_PERIOD);
 
   const days = bestEffortsDays(period);
@@ -294,7 +295,13 @@ function BestEffortsScreenContent() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: spacing.xl + tabBarClearance },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
           {period === 'all'
             ? t('bestEffortsScreen.allTimeSubtitle')
@@ -347,7 +354,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: layout.screenPadding,
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   subtitle: {
     ...typography.caption,

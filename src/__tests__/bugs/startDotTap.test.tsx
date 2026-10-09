@@ -84,7 +84,7 @@ function mountHandlers(activities: ActivityBoundsItem[], zoom = 14) {
       setShowSections: jest.fn(),
       showRoutes: true,
       setShowRoutes: jest.fn(),
-      setSelectedRoute: jest.fn(),
+      setSelectedRouteId: jest.fn(),
       userLocation: null,
       setUserLocation: jest.fn(),
       setLocationLoading: jest.fn(),

@@ -22,7 +22,6 @@ import {
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 const EXAMPLE_ROUTE_ID = 'route-valais-ride-2';
-const PREVIEW_POINT_COUNT = 40;
 const DAY_SECONDS = 86_400;
 
 /** A dated series ending today, one point per `stepDays`, oldest first. */
@@ -36,7 +35,6 @@ function series(values: number[], nowSeconds: number, stepDays: number): SeriesP
 function exampleRecord(nowSeconds: number): SectionPR | null {
   const route = demoRoutes.find((r) => r.id === EXAMPLE_ROUTE_ID);
   if (!route) return null;
-  const stride = Math.max(1, Math.floor(route.coordinates.length / PREVIEW_POINT_COUNT));
   return {
     sectionId: EXAMPLE_ROUTE_ID,
     sectionName: route.name,
@@ -45,9 +43,6 @@ function exampleRecord(nowSeconds: number): SectionPR | null {
     sportType: 'Ride',
     traversalCount: 12,
     recentEfforts: series([1188, 1162, 1171, 1139, 1104], nowSeconds, 9),
-    previewPoints: route.coordinates
-      .filter((_, i) => i % stride === 0)
-      .map(([lat, lng]) => ({ lat, lng })),
   };
 }
 

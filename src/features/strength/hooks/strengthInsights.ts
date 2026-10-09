@@ -5,7 +5,8 @@ import { muscleName as nameOf } from '../lib/muscleNames';
 import { buildStrengthBalancePairs } from '../lib/analysis';
 import { balanceStatusLabelKey, formatBalanceRatio, formatSetCount } from '../lib/formatting';
 import type { StrengthBalancePair, StrengthProgressionRecord, StrengthSummary } from '../types';
-import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights';
+import { INSIGHTS_CONFIG, confidenceFrom, historyScale } from '@/features/insights';
+import type { HistorySeries } from '@/features/insights';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -13,6 +14,17 @@ const STRENGTH_TARGET = '/insights?tab=strength';
 
 function weekMark(weekly: StrengthSummary[]) {
   return { date: weekly.at(-1)?.startTs ?? 0 };
+}
+
+/** Weekly bars with this week marked, the scale in the sets or sessions they count. */
+function weeklyBars(weekly: StrengthSummary[], series: HistorySeries[]) {
+  return {
+    kind: 'bars' as const,
+    target: STRENGTH_TARGET,
+    mark: weekMark(weekly),
+    scale: historyScale('bars', series, formatSetCount),
+    series,
+  };
 }
 
 function buildStrengthBalanceInsight(
@@ -42,7 +54,7 @@ function buildStrengthBalanceInsight(
     // says far less about a habit than the same ratio from twenty.
     confidence: confidenceFrom('strength_balance', pair.leftWeightedSets + pair.rightWeightedSets),
     title,
-    subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
+    subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)} · ${formatBalanceRatio(pair, t)}`,
     body,
     icon: 'scale-balance',
     iconTone: pair.status === 'watch' ? 'caution' : 'negative',
@@ -54,27 +66,22 @@ function buildStrengthBalanceInsight(
       comparisonKind: 'self',
     },
     supportingData: {
-      history: {
-        kind: 'bars',
-        target: STRENGTH_TARGET,
-        mark: weekMark(weekly),
-        series: [
-          {
-            label: pair.leftLabel,
-            points: weekly.map((week) => ({
-              date: week.startTs ?? 0,
-              value: week.balance.find((entry) => entry.id === pair.id)?.leftWeightedSets ?? 0,
-            })),
-          },
-          {
-            label: pair.rightLabel,
-            points: weekly.map((week) => ({
-              date: week.startTs ?? 0,
-              value: week.balance.find((entry) => entry.id === pair.id)?.rightWeightedSets ?? 0,
-            })),
-          },
-        ],
-      },
+      history: weeklyBars(weekly, [
+        {
+          label: pair.leftLabel,
+          points: weekly.map((week) => ({
+            date: week.startTs ?? 0,
+            value: week.balance.find((entry) => entry.id === pair.id)?.leftWeightedSets ?? 0,
+          })),
+        },
+        {
+          label: pair.rightLabel,
+          points: weekly.map((week) => ({
+            date: week.startTs ?? 0,
+            value: week.balance.find((entry) => entry.id === pair.id)?.rightWeightedSets ?? 0,
+          })),
+        },
+      ]),
       dataPoints: [
         {
           label: pair.leftLabel,
@@ -87,7 +94,6 @@ function buildStrengthBalanceInsight(
           unit: t('strength.sets'),
         },
         {
-          key: 'balanceRatio',
           label: t('insights.strengthBalance.ratioLabel'),
           value: formatBalanceRatio(pair, t),
         },
@@ -173,20 +179,15 @@ function buildStrengthProgressionInsight(
       signalDelta: progression.signalDelta ?? undefined,
     },
     supportingData: {
-      history: {
-        kind: 'bars',
-        target: STRENGTH_TARGET,
-        mark: weekMark(weekly),
-        series: [
-          {
-            label: t('insights.strengthProgression.sparklineLabel'),
-            points: progression.weeklyWeightedSets.map((value, index) => ({
-              date: weekly[index]?.startTs ?? 0,
-              value,
-            })),
-          },
-        ],
-      },
+      history: weeklyBars(weekly, [
+        {
+          label: t('insights.strengthProgression.sparklineLabel'),
+          points: progression.weeklyWeightedSets.map((value, index) => ({
+            date: weekly[index]?.startTs ?? 0,
+            value,
+          })),
+        },
+      ]),
       dataPoints: [
         {
           label: t('strength.recentAvg'),
@@ -285,17 +286,12 @@ function buildStrengthSnapshotInsight(
       comparisonKind: 'self',
     },
     supportingData: {
-      history: {
-        kind: 'bars',
-        target: STRENGTH_TARGET,
-        mark: weekMark(weekly),
-        series: [
-          {
-            label: t('insights.strengthSnapshot.sessionsLabel'),
-            points: weekly.map((week) => ({ date: week.startTs ?? 0, value: week.activityCount })),
-          },
-        ],
-      },
+      history: weeklyBars(weekly, [
+        {
+          label: t('insights.strengthSnapshot.sessionsLabel'),
+          points: weekly.map((week) => ({ date: week.startTs ?? 0, value: week.activityCount })),
+        },
+      ]),
       dataPoints: [
         { label: t('insights.strengthSnapshot.sessionsLabel'), value: summary.activityCount },
         { label: t('insights.strengthSnapshot.setsLabel'), value: summary.totalSets },

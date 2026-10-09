@@ -3,7 +3,8 @@
  * the scroll view, so the list scrolled under a title that never collapsed.
  *
  * Expected behaviour: it keeps the small title, and rendered on iOS its scroll view keeps the
- * refresh control and the tab bar clearance.
+ * refresh control and its own bottom spacing, with nothing added for a tab bar that does not draw
+ * on a stack screen.
  */
 
 import React from 'react';
@@ -12,8 +13,12 @@ import { render } from '@testing-library/react-native';
 
 import DebugScreen from '@/app/debug';
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { spacing } from '@/theme';
 
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useSegments: () => ['debug'],
+}));
 jest.mock('expo-constants', () => ({
   ...jest.requireActual('expo-constants'),
   expoConfig: { version: '0.0.0' },
@@ -49,7 +54,7 @@ describe('developer dashboard scroll view', () => {
     expect(headerLargeTitle('debug', 'android')).toBe(false);
   });
 
-  it('keeps the refresh control and tab bar clearance', () => {
+  it('keeps the refresh control and pads nothing for a tab bar', () => {
     Platform.OS = 'ios';
     const { UNSAFE_getAllByType, UNSAFE_getByType } = render(<DebugScreen />);
 
@@ -57,8 +62,6 @@ describe('developer dashboard scroll view', () => {
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
     expect(scroll.props.refreshControl.type).toBe(RefreshControl);
     expect(UNSAFE_getByType(RefreshControl)).toBeTruthy();
-    expect(
-      StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom
-    ).toBeGreaterThanOrEqual(TAB_BAR_SAFE_PADDING);
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(spacing.md);
   });
 });

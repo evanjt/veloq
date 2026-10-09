@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -68,6 +68,7 @@ const MODE_LABEL_KEYS = {
 function RecordingSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
 
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
@@ -144,7 +145,7 @@ function RecordingSettingsScreenContent() {
       style={[styles.container, { backgroundColor: bg }]}
     >
       <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
       >
         {/* Upload Section */}
         <View style={styles.section}>

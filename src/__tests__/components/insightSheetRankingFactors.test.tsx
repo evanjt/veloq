@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
@@ -52,7 +52,13 @@ function insight(overrides: Partial<Insight> = {}, scores?: SectionRankingScores
   } as Insight;
 }
 
-const sheet = (i: Insight) => render(<InsightDetailSheet insight={i} onClose={() => undefined} />);
+/** The sheet with "How was this calculated?" open, where the group sits. */
+function sheet(i: Insight) {
+  const view = render(<InsightDetailSheet insight={i} onClose={() => undefined} />);
+  const toggle = view.queryByTestId('methodology-toggle');
+  if (toggle) fireEvent.press(toggle);
+  return view;
+}
 
 describe('the ranking factors group on an insight sheet', () => {
   beforeAll(() => initialiseI18n('en-GB'));

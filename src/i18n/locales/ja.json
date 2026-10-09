@@ -681,7 +681,6 @@
     "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
     "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
     "howCalculated": "どのように計算されましたか？",
-    "sourceActivities": "元のアクティビティ",
     "current": "現在",
     "previous": "前回",
     "methodology": {
@@ -906,7 +905,20 @@
       "noEfforts": "記録はありません"
     },
     "beta": "ベータ版",
-    "recentPersonalRecord": "最近の自己ベスト"
+    "recentPersonalRecord": "最近の自己ベスト",
+    "caption": {
+      "latestAgainstMean": "最新 {{latest}} ms、平均 {{avg}} ms",
+      "thisWeekAgainstLast": "今週 {{current}}、先週 {{previous}}",
+      "lastWeekAgainstAverage": "先週 {{current}}、4週間平均 {{previous}}",
+      "fromTo": "{{previous}} から {{current}} へ"
+    },
+    "graphic": {
+      "openSection": "{{name}} を開く",
+      "openTheSection": "セクションを開く",
+      "openFitness": "フィットネスのグラフを開く",
+      "openStrength": "筋力トレーニングを開く",
+      "openDetail": "詳細を開く"
+    }
   },
   "licenses": {
     "openRepository": "リポジトリを開く",
@@ -991,6 +1003,7 @@
     },
     "closeMap": "マップを閉じる",
     "closePopup": "アクティビティポップアップを閉じる",
+    "closeRoutePopup": "ルートポップアップを閉じる",
     "closeSectionPopup": "セクションポップアップを閉じる",
     "disable3D": "3Dビューを無効化",
     "enable3D": "3Dビューを有効化",
@@ -1009,6 +1022,7 @@
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",
     "viewDetails": "詳細を表示",
+    "viewRouteDetails": "ルートの詳細を表示",
     "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム",
     "colorByGradient": "勾配で色付け",

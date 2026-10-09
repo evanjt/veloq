@@ -348,13 +348,14 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
     expect(JSON.parse(result.postMessage.mock.calls[0][0]).type).toBe('snapshot');
   });
 
-  it('does not capture an unloaded style before the maximum wait', () => {
+  it('never captures an unloaded style, and fails it at the deadline', () => {
     const result = render();
     result.map.isStyleLoaded.mockReturnValue(false);
-    jest.advanceTimersByTime(5000);
+    jest.advanceTimersByTime(5900);
     expect(result.postMessage).not.toHaveBeenCalled();
-    jest.advanceTimersByTime(300);
-    expect(JSON.parse(result.postMessage.mock.calls[0][0]).type).toBe('snapshot');
+    jest.advanceTimersByTime(200);
+    expect(result.postMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.postMessage.mock.calls[0][0]).type).toBe('snapshotError');
   });
 
   it('does not capture a superseded request', () => {

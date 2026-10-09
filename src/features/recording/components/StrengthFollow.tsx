@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Button, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
@@ -44,6 +44,7 @@ function Follow({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const themeColors = isDark ? darkColors : colors;
   useRecordingKeepAwake();
 
@@ -155,7 +156,7 @@ function Follow({
       <View
         style={{
           paddingHorizontal: spacing.md,
-          paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING,
+          paddingBottom: insets.bottom + tabBarClearance,
           paddingTop: spacing.sm,
         }}
       >

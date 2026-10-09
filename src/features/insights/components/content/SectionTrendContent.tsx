@@ -9,6 +9,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useSectionPerformances } from '@/features/routes';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { Shimmer } from '@/shared/ui/Shimmer';
+import { tapTo } from '@/shared/app/navigation';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
 import {
@@ -24,7 +25,7 @@ import {
   typography,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
-import { pressable, pressRipple, EngineReadFailure } from '@/shared/ui';
+import { pressable, pressRipple, Button, EngineReadFailure } from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 
@@ -83,7 +84,8 @@ function getClusterContext(
  * Always mounts the hook (no conditional hook calls) but only
  * fetches/renders effort data when expanded.
  *
- * The row opens the section's efforts in this sheet.
+ * The row opens the section's efforts in this sheet, and the expanded row
+ * carries the link to the section itself, since the sheet hides its own.
  */
 const SectionAccordionItem = React.memo(function SectionAccordionItem({
   section,
@@ -110,6 +112,10 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onToggle(sectionRowKey(section));
   }, [onToggle, section]);
+
+  const handleOpenSection = useCallback(() => {
+    tapTo(`/section/${section.sectionId}`);
+  }, [section.sectionId]);
 
   return (
     <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
@@ -193,6 +199,13 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               {t('insights.sectionTrendSheet.noEfforts')}
             </Text>
           )}
+          <Button
+            label={t('insights.viewInDetail')}
+            variant="ghost"
+            size="sm"
+            onPress={handleOpenSection}
+            testID={`section-trend-open-${section.sectionId}`}
+          />
         </View>
       ) : null}
     </View>

@@ -4,7 +4,7 @@ Deine Trainingsdaten, visualisiert. Veloq vereint Aufzeichnung, Karten, Diagramm
 Zeichne Aktivitäten mit GPS, Auto-Pause, km-Splits und Herzfrequenzzonen-Anzeige auf. Schneide deine Aufnahme vor dem Speichern zu. Lade als FIT-Dateien hoch oder stelle sie für später in die Warteschlange. Manuelle Eingabe für Indoor-Aktivitäten.
 
 <b>Insights</b>
-Tägliche personalisierte Insights basierend auf deinem Training: Abschnitts-PRs, Fitness-Meilensteine, Wochenvergleiche, Aktivitätsmuster und Formtipps. Positiv formuliert, mit Berücksichtigung von Ruhetagen.
+Tägliche Insights aus deinem eigenen Training: Abschnitts-PRs und -Trends, Fitness-Meilensteine, Wochenvergleiche, HRV-Trends und Kraftfortschritt. Jeder Insight zeigt seine Zahlen und wie sie berechnet wurden.
 
 <b>Karten</b>
 Betrachte deine Aktivitäten auf interaktiven Karten mit 3D-Gelände, Routen-Heatmaps und Zeitfilterung. Wähle zwischen hellen, dunklen und Satellitenstilen. Scrolle durch Diagramme und verfolge deine Position in Echtzeit auf der Karte.
@@ -19,7 +19,7 @@ Herzfrequenz, Leistung, Pace, Höhe und Kadenz, alles synchronisiert mit der Kar
 Verfolge deine Form mit CTL/ATL/TSB-Tracking und visuellen Zonen. Überwache HRV, Ruheherzfrequenz, Schlaf und Wohlbefinden. Zeige Leistungs- und Pace-Kurven nach Sportart an.
 
 <b>Datenschutz</b>
-Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem Ablauf nach 30 Tagen, keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
+Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 

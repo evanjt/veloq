@@ -18,7 +18,6 @@ import type { TFunc } from '@/features/insights/types';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
-import { getInlineMetric } from '@/features/insights/lib/inlineMetric';
 import { HrvTrendContent } from '@/features/insights/components/content/HrvTrendContent';
 import { EfficiencyTrendContent } from '@/features/insights/components/content/EfficiencyTrendContent';
 import type { StrengthSummary } from '@/features/strength/types';
@@ -87,7 +86,7 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
     await changeLanguage('en-AU');
   });
 
-  it('shows the strength balance ratio beside the card title', () => {
+  it('shows the strength balance ratio in the card caption', () => {
     const balance = generateStrengthInsights(
       strengthSummary(),
       [strengthSummary()],
@@ -97,7 +96,7 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
     ).find((i) => i.category === 'strength_balance');
     if (!balance) throw new Error('no balance card');
 
-    expect(getInlineMetric(balance)?.value).toBe('2.4x');
+    expect(balance.subtitle).toMatch(/ 2\.4x$/);
   });
 
   it('shows the latest HRV and the average on the HRV sheet', () => {
@@ -122,7 +121,8 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
     const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], NOW, t);
     const { getAllByText } = render(<EfficiencyTrendContent insight={efficiency} />);
 
-    // The headline's effort badge, and the efforts row in the data list below.
-    expect(getAllByText('9')).toHaveLength(2);
+    // The headline's effort badge. The efforts row sits under the sheet's
+    // "How was this calculated?", which this content does not draw.
+    expect(getAllByText('9')).toHaveLength(1);
   });
 });

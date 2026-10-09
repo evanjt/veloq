@@ -375,7 +375,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         if (layers.length === 0) return [];
         // A finger covers about 30 px and a section line is 2.4 px of dash at
         // its widest, a third of it gap, so a point query missed most taps and
-        // ran the empty-space branch. Sections sit last in the precedence
+        // ran the empty-space branch. Lines sit last in the precedence
         // below, so widening the query cannot take a tap off a marker.
         var x = point.x === undefined ? point[0] : point.x;
         var y = point.y === undefined ? point[1] : point.y;

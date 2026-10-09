@@ -17,7 +17,8 @@ import {
 import { sectionPairKey } from '@/features/insights/lib/sectionIdentity';
 import { computeInsightFingerprint, diffInsights } from '@/features/insights/store';
 import type { Insight, SectionTrendData } from '@/features/insights/types';
-import type { InsightsData, StalePrOpportunity } from 'veloqrs';
+import { EfficiencyDirection } from 'veloqrs';
+import type { EfficiencyTrend, InsightsData, StalePrOpportunity } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
@@ -299,5 +300,102 @@ describe('fingerprint of pairs', () => {
     expect(diffInsights([ride], 'section_pr-cedar-hill|stale_pr-group')).toEqual(
       new Set([ride.id])
     );
+  });
+});
+
+describe('the engine ranking joined onto a section card', () => {
+  const ranking = (relevance: number, improvementChange: number) => ({
+    relevance,
+    recency: 0.5,
+    improvement: 0.5,
+    anomaly: 0.1,
+    engagement: 0.5,
+    improvementChange,
+  });
+
+  function efficiency(sportType: string): EfficiencyTrend {
+    return {
+      sectionId: SECTION,
+      sectionName: 'Cedar Hill',
+      sportType,
+      points: [0.64, 0.62, 0.59, 0.58].map((hrPaceRatio) => ({
+        date: 1,
+        paceSecsPerKm: 240,
+        avgHr: 150,
+        hrPaceRatio,
+      })),
+      trendSlope: -0.0004,
+      direction: EfficiencyDirection.Improving,
+      hrChangeBpm: -6.2,
+      effortCount: 12,
+    } as EfficiencyTrend;
+  }
+
+  const card = (insights: Insight[], category: string) =>
+    insights.find((i) => i.category === category);
+
+  it('gives a Ride record no ranking when only the Run trend is ranked', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY,
+        recentPRs: [pr('Ride')],
+        sectionTrends: [trend('Run', { ranking: ranking(0.91, -0.08) })],
+      },
+      t
+    );
+    const ride = card(result, 'section_pr');
+    expect(ride?.id).toBe(`section_pr-${sectionPairKey(SECTION, 'Ride')}`);
+    expect(ride?.meta?.ranking).toBeUndefined();
+  });
+
+  it('gives a record with no sport no ranking from a trend with a known sport', () => {
+    const { sportType: _sport, ...unknownSport } = pr('Ride');
+    const result = generateInsights(
+      {
+        ...EMPTY,
+        recentPRs: [unknownSport],
+        sectionTrends: [trend('Run', { ranking: ranking(0.91, -0.08) })],
+      },
+      t
+    );
+    expect(card(result, 'section_pr')?.meta?.ranking).toBeUndefined();
+  });
+
+  it.each([
+    ['Ride first', ['Ride', 'Run']],
+    ['Run first', ['Run', 'Ride']],
+  ])('gives a Ride efficiency card the Ride ranking, %s', (_order, sports) => {
+    const rows = {
+      Ride: trend('Ride', { ranking: ranking(0.4, 0.05) }),
+      Run: trend('Run', { ranking: ranking(0.91, -0.08) }),
+    } as Record<string, SectionTrendData>;
+    const result = generateInsights(
+      {
+        ...EMPTY,
+        efficiencyTrends: [efficiency('Ride')],
+        sectionTrends: sports.map((sport) => rows[sport]),
+      },
+      t
+    );
+    expect(card(result, 'efficiency_trend')?.meta?.ranking).toMatchObject({
+      relevance: 0.4,
+      improvementChange: 0.05,
+    });
+  });
+
+  it('gives a stale Ride record the Ride ranking and never the Run one', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY,
+        stalePrOpportunities: [stale('Ride')],
+        sectionTrends: [
+          trend('Ride', { ranking: ranking(0.4, 0.05) }),
+          trend('Run', { ranking: ranking(0.91, -0.08) }),
+        ],
+      },
+      t
+    );
+    const staleCard = card(result, 'stale_pr');
+    expect(staleCard?.meta?.ranking).toMatchObject({ relevance: 0.4, improvementChange: 0.05 });
   });
 });

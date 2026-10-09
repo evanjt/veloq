@@ -68,6 +68,7 @@ export { decouplingSource, storedDecoupling } from './lib/decoupling';
 export type { DecouplingSource } from './lib/decoupling';
 export type { SectionEncounterGroup } from './lib/groupSectionEncounters';
 export { setVisibleRange } from './lib/previewRange';
+export { createScrollHold } from './lib/feedScrollHold';
 
 export type { ActivityType } from './types';
 

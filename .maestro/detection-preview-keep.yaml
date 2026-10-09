@@ -1,0 +1,80 @@
+# Detection preview, kept: Keep writes the previewed config and starts a
+# re-analysis of the whole library. The screen returns only once the engine has
+# started that run, and refuses with a notice when it does not.
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- runFlow:
+    file: helpers/open-detection-preview.yaml
+
+# A whole number reads the same in either unit system. Pick one that differs
+# from the saved value, so a second run of this flow still moves it.
+- tapOn:
+    id: "param-edit-minActivities"
+- extendedWaitUntil:
+    visible:
+      id: "param-editor-input"
+    timeout: 10000
+- copyTextFrom:
+    id: "param-editor-input"
+- evalScript: ${output.target = maestro.copiedText.trim() == '4' ? '5' : '4'}
+- tapOn:
+    id: "param-editor-input"
+- eraseText: 10
+- inputText: ${output.target}
+- tapOn:
+    id: "param-editor-save"
+
+- extendedWaitUntil:
+    visible:
+      id: "preview-keep-button"
+    timeout: 300000
+- assertVisible:
+    id: "preview-diff-strip"
+- copyTextFrom:
+    id: "param-edit-minActivities"
+- evalScript: ${output.keptCaption = maestro.copiedText}
+- assertTrue:
+    condition: ${output.keptCaption.indexOf(output.target) >= 0}
+    label: "The typed value is the one previewed"
+
+- tapOn:
+    id: "preview-keep-button"
+- assertVisible: "Apply these settings\\?"
+- tapOn: "Confirm"
+
+- extendedWaitUntil:
+    visible:
+      id: "detection-settings-screen"
+    timeout: 30000
+- assertNotVisible: "Re-analysis did not start"
+- assertNotVisible:
+    id: "detection-preview-screen"
+- takeScreenshot: "screenshots/detection-preview-kept"
+
+# The re-analysis is adopted by the settings screen and runs to its end there.
+- extendedWaitUntil:
+    visible:
+      text: "Reanalyse sections"
+    timeout: 300000
+- assertNotVisible:
+    id: "detection-rescan-refused"
+- assertNotVisible:
+    id: "detection-rescan-still-running"
+
+# Reopened, the sliders read the config Keep wrote.
+- tapOn:
+    id: "detection-preview-row"
+- extendedWaitUntil:
+    visible:
+      id: "detection-preview-screen"
+    timeout: 30000
+- copyTextFrom:
+    id: "param-edit-minActivities"
+- assertTrue:
+    condition: ${maestro.copiedText == output.keptCaption}
+    label: "Keep wrote the previewed config"

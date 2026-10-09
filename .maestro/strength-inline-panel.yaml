@@ -56,24 +56,36 @@ tags:
 - assertVisible:
     id: "strength-period-6m"
 
-# Tap the body diagram to select a muscle. The inline panel appears next to
-# the body card (US-T1). Keep the assertion tolerant, whether Maestro's tap
-# registers inside a muscle polygon is flaky, so we fall back to a screenshot.
+# Tap inside the front body's abs, which the demo's sets reach. The point is
+# relative to the body card and was measured on a 1080x2340 handset: the abs
+# span 22 to 31 % across and 38 to 51 % down, so the centre of the card would
+# land between the two bodies and select nothing.
 - tapOn:
     id: "strength-body-diagram"
+    point: "26%,45%"
 - waitForAnimationToEnd:
     timeout: 1500
 - takeScreenshot: "screenshots/strength-muscle-panel"
 - assertVisible:
     id: "strength-selected-summary"
+- assertVisible: "Abs"
+- assertVisible:
+    id: "strength-progression-card"
 
 # Methodology disclaimer (US-T2). Match on the distinctive "approximations"
-# wording.
-- scrollUntilVisible:
-    element:
-      text: ".*approximations.*"
-    direction: DOWN
-    timeout: 5000
+# wording. Fast swipes reach the end of the tab: a slow scrollUntilVisible ran
+# out of time with the card still under the tab bar.
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "50%,80%"
+          end: "50%,30%"
+          duration: 400
+- waitForAnimationToEnd:
+    timeout: 1500
+- assertVisible:
+    text: ".*approximations.*"
 
 - assertNotVisible:
     text: "NaN"

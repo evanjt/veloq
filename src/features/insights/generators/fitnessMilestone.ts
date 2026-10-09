@@ -106,6 +106,10 @@ function addPaceMilestoneInsight(
       title: t(declining ? 'insights.paceChange' : 'insights.paceImproved', {
         delta: `${declining ? '−' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
       }),
+      subtitle: t('insights.caption.fromTo', {
+        previous: `${options.formatValue(pace.previousPace)}${options.paceUnit}`,
+        current: `${options.formatValue(pace.latestPace)}${options.paceUnit}`,
+      }),
       navigationTarget: fitnessTarget({ date: dayOf(pace.latestDate) }),
       timestamp: now,
       // The snapshots the pace history was read from. A step measured off
@@ -120,8 +124,10 @@ function addPaceMilestoneInsight(
           pace.history,
           t('insights.data.paceHistory'),
           fitnessTarget({ date: dayOf(pace.latestDate) }),
-          'sparkline',
-          historySpan(pace.previousDate, pace.latestDate)
+          {
+            mark: historySpan(pace.previousDate, pace.latestDate),
+            format: (speed) => `${options.formatValue(speed)}${options.paceUnit}`,
+          }
         ),
         trend: {
           direction: declining ? 'down' : 'up',
@@ -192,6 +198,10 @@ export function generateFitnessMilestoneInsights(
             current: Math.round(ftp.latestFtp),
             change: declining ? `−${Math.abs(delta)}` : delta,
           }),
+          subtitle: t('insights.caption.fromTo', {
+            previous: `${Math.round(ftp.previousFtp)}W`,
+            current: `${Math.round(ftp.latestFtp)}W`,
+          }),
           navigationTarget: fitnessTarget({ date: dayOf(ftp.latestDate) }),
           timestamp: now,
           confidence: confidenceFrom('fitness_milestone', ftp.sampleCount ?? 0),
@@ -204,8 +214,10 @@ export function generateFitnessMilestoneInsights(
               ftp.history,
               t('insights.data.ftpHistory'),
               fitnessTarget({ date: dayOf(ftp.latestDate) }),
-              'sparkline',
-              historySpan(ftp.previousDate, ftp.latestDate)
+              {
+                mark: historySpan(ftp.previousDate, ftp.latestDate),
+                format: (watts) => `${Math.round(watts)} W`,
+              }
             ),
             trend: {
               direction: declining ? 'down' : 'up',

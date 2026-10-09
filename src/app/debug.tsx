@@ -1,13 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, RefreshControl, Platform, Share } from 'react-native';
 import Constants from 'expo-constants';
-import {
-  Button,
-  ScreenScrollView,
-  TAB_BAR_SAFE_PADDING,
-  pressable,
-  pressRipple,
-} from '@/shared/ui';
+import { Button, ScreenScrollView, useTabBarClearance, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -318,6 +312,7 @@ function BackgroundNotificationsDebug({
 
 function DebugScreenContent() {
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -401,7 +396,7 @@ function DebugScreenContent() {
     >
       <ScreenScrollView
         style={[styles.container, isDark && styles.containerDark]}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.md + tabBarClearance }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Engine Stats */}
@@ -521,7 +516,7 @@ function DebugScreenContent() {
                     {m.maxMs.toFixed(0)}
                   </Text>
                   <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
-                    {m.p95Ms.toFixed(0)}
+                    {m.p95Ms.toFixed(1)}
                   </Text>
                 </View>
               ))}
@@ -688,7 +683,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: spacing.md + TAB_BAR_SAFE_PADDING,
   },
   section: {
     backgroundColor: colors.surface,

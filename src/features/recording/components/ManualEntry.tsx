@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors } from '@/theme';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { useTabBarClearance } from '@/shared/ui';
 import type { ActivityType } from '@/types';
 import { ManualEntryHeader } from './ManualEntryHeader';
 import { ManualEntryForm, type ManualPrefill } from './ManualEntryForm';
@@ -25,6 +25,7 @@ export function ManualEntry({
 }) {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
 
   const themeColors = isDark ? darkColors : colors;
   const textPrimary = themeColors.textPrimary;
@@ -39,7 +40,7 @@ export function ManualEntry({
         prefill={prefill}
         rpe={rpe}
         above={above}
-        bottomPadding={insets.bottom + TAB_BAR_SAFE_PADDING}
+        bottomPadding={insets.bottom + tabBarClearance}
       />
     </View>
   );

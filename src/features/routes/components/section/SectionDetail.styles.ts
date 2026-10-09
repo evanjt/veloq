@@ -1,5 +1,4 @@
 import { StyleSheet } from 'react-native';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
@@ -25,9 +24,6 @@ export const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   listFooterContainer: {
     marginTop: spacing.md,

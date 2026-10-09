@@ -21,7 +21,7 @@ export {
   AttributionOverlay,
   type AttributionOverlayRef,
 } from './components/AttributionOverlay';
-export { BaseMapView } from './components/BaseMapView';
+export { BaseMapView, type BaseMap3DLayer } from './components/BaseMapView';
 export {
   HOME_RADIUS_MAP_HEIGHT,
   HomeRadiusMap,

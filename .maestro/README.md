@@ -78,6 +78,7 @@ Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They hav
 | `helpers/navigate-to-map.yaml` | Deep link to map screen |
 | `helpers/navigate-to-routes.yaml` | Deep link to routes screen |
 | `helpers/navigate-to-settings.yaml` | Deep link to settings screen |
+| `helpers/open-detection-preview.yaml` | Settings to routes and sections to the detection preview |
 
 Usage in a flow:
 ```yaml

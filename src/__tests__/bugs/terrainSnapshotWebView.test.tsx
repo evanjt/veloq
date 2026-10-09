@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import {
   TerrainSnapshotWebView,
+  MAX_SCROLL_HOLD_MS,
   MAX_UPGRADE_ATTEMPTS,
   fallbackRequest,
   requestKey,
@@ -883,6 +884,104 @@ describe('the snapshot pool follows the feed on and off screen', () => {
     setSuspended(false);
 
     expect(rendered()).toEqual(['a1', 'a1']);
+  });
+});
+
+/**
+ * Scenario: the athlete flings the feed past a few months of cards. Each card
+ * that mounts asks for its preview, and a render is a WebView drawing a map
+ * plus a base64 crossing and a file write, all competing with the scroll for
+ * the same cores.
+ *
+ * Expected behaviour: while the feed holds the pool, no new render starts and
+ * requests keep their place. A render already in flight finishes and is saved.
+ * Releasing the hold starts what waited, a lost release lifts on its own, and a
+ * long hold never fails the queue.
+ */
+describe('the snapshot pool waits out a scroll', () => {
+  let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
+
+  const pool = () => {
+    if (!ref.current) throw new Error('the pool did not mount');
+    return ref.current;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    ref = React.createRef<TerrainSnapshotWebViewRef>();
+    render(<TerrainSnapshotWebView ref={ref} />);
+    post({ type: 'mapReady', workerId: 0 });
+    post({ type: 'mapReady', workerId: 1 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('starts nothing while held, and starts the request on release', () => {
+    pool().holdForScroll(true);
+    pool().requestSnapshot(request('a1'));
+
+    expect(rendered()).toEqual([]);
+
+    pool().holdForScroll(false);
+
+    expect(rendered()).toEqual(['a1']);
+  });
+
+  it('finishes the render in flight but assigns the next one only on release', async () => {
+    pool().requestSnapshot(request('a1'));
+    pool().requestSnapshot(request('a2'));
+    pool().requestSnapshot(request('a3'));
+    expect(rendered()).toEqual(['a1', 'a2']);
+
+    pool().holdForScroll(true);
+    await act(async () => {
+      post({ type: 'snapshot', workerId: 0, activityId: 'a1', base64: 'AAAA', gen: 1 });
+    });
+
+    expect(savedIds()).toEqual(['a1']);
+    expect(rendered()).toEqual(['a1', 'a2']);
+
+    pool().holdForScroll(false);
+
+    expect(rendered()).toEqual(['a1', 'a2', 'a3']);
+  });
+
+  it('lifts a hold nobody released', () => {
+    pool().holdForScroll(true);
+    pool().requestSnapshot(request('a1'));
+
+    jest.advanceTimersByTime(MAX_SCROLL_HOLD_MS - 1);
+    expect(rendered()).toEqual([]);
+
+    jest.advanceTimersByTime(1);
+    expect(rendered()).toEqual(['a1']);
+  });
+
+  it('does not fail the queue under a hold renewed past the watchdog', () => {
+    watchFailures('a1');
+    pool().holdForScroll(true);
+    pool().requestSnapshot(request('a1'));
+
+    for (let waited = 0; waited < STALENESS_TIMEOUT_MS * 2; waited += 1000) {
+      jest.advanceTimersByTime(1000);
+      pool().holdForScroll(true);
+    }
+
+    expect(watchdogFired()).toEqual([]);
+    expect(failures).toEqual([]);
+
+    pool().holdForScroll(false);
+
+    expect(rendered()).toEqual(['a1']);
+  });
+
+  it('a release with no hold changes nothing', () => {
+    pool().holdForScroll(false);
+    pool().requestSnapshot(request('a1'));
+
+    expect(rendered()).toEqual(['a1']);
   });
 });
 
@@ -2219,5 +2318,103 @@ describe('a pool that goes quiet', () => {
 
     post({ type: 'mapReady', workerId: 1 });
     expect(injectedByWorker[1][injectedByWorker[1].length - 1]).toBe('a2');
+  });
+});
+
+/**
+ * Scenario: a card asks the pool for its preview and the request leaves the
+ * pool by some exit other than a picture: the save fails, a full queue drops
+ * it, or the worker's page dies mid-render.
+ * Expected behaviour: every exit ends in a picture or a failure event for the
+ * card, so no card sits on the spinner with nothing left that will move it.
+ */
+describe('every request the pool accepts ends in a picture or a failure', () => {
+  let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
+
+  const pool = () => {
+    if (!ref.current) throw new Error('the pool did not mount');
+    return ref.current;
+  };
+
+  const workerReady = (workerId: number) => post({ type: 'mapReady', workerId });
+
+  const land = async (activityId: string, gen = 1) => {
+    post({ type: 'snapshot', workerId: 0, activityId, mapStyle: 'light', base64: 'AAAA', gen });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    ref = React.createRef<TerrainSnapshotWebViewRef>();
+    render(<TerrainSnapshotWebView ref={ref} />);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('fails the card whose captured picture could not be saved', async () => {
+    watchFailures('full-disk');
+    (saveTerrainPreview as jest.Mock).mockRejectedValueOnce(new Error('no space'));
+    workerReady(0);
+    pool().requestSnapshot(request('full-disk'));
+
+    await land('full-disk');
+
+    expect(failures).toEqual(['full-disk']);
+  });
+
+  it('draws a card again once the queue is idle after its save failed', async () => {
+    (saveTerrainPreview as jest.Mock).mockRejectedValueOnce(new Error('no space'));
+    workerReady(0);
+    pool().requestSnapshot(request('full-disk'));
+
+    await land('full-disk');
+
+    expect(rendered()).toEqual(['full-disk', 'full-disk']);
+  });
+
+  it('fails the card a full queue drops', () => {
+    watchFailures('a0');
+    for (let i = 0; i <= MAX_QUEUE_SIZE; i += 1) pool().requestSnapshot(request(`a${i}`));
+
+    expect(eventsOf('evict').map((e) => e.activityId)).toEqual(['a0']);
+    expect(failures).toEqual(['a0']);
+  });
+
+  it('says nothing to a card whose dropped request only upgraded its stand-in', () => {
+    watchFailures('terrain');
+    pool().requestSnapshot({ ...request('terrain', false), backgroundUpgrade: true });
+    for (let i = 0; i < MAX_QUEUE_SIZE; i += 1) pool().requestSnapshot(request(`a${i}`));
+
+    expect(eventsOf('evict').map((e) => e.activityId)).toContain('terrain');
+    expect(failures).toEqual([]);
+  });
+
+  it('fails the card whose worker page died mid-render and never came back', () => {
+    watchFailures('orphan');
+    workerReady(0);
+    pool().requestSnapshot(request('orphan'));
+    expect(rendered()).toEqual(['orphan']);
+
+    act(() => goneHandlers[0]?.());
+    jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
+
+    expect(failures).toEqual(['orphan']);
+  });
+
+  it('draws the card again when the dead worker page comes back', () => {
+    watchFailures('orphan');
+    workerReady(0);
+    pool().requestSnapshot(request('orphan'));
+
+    act(() => goneHandlers[0]?.());
+    workerReady(0);
+
+    expect(rendered()).toEqual(['orphan', 'orphan']);
+    expect(failures).toEqual([]);
   });
 });

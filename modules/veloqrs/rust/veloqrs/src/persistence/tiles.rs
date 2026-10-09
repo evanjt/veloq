@@ -372,9 +372,10 @@ impl FirstBandDrawn {
     }
 }
 
-/// Every activity's track, plus the ones whose stored blob did not decode.
+/// Every activity's track, placed on the map, plus the ones whose stored blob
+/// did not decode.
 struct LoadedTracks {
-    tracks: HashMap<String, Arc<Vec<GpsPoint>>>,
+    tracks: LoadedTracksById,
     corrupt: Vec<(String, String)>,
 }
 
@@ -1154,9 +1155,9 @@ fn clear_dirty_marker(tiles_path: &str, started_on: Option<String>) -> bool {
     false
 }
 
-type LoadedTracksById = HashMap<String, Arc<Vec<GpsPoint>>>;
+type LoadedTracksById = HashMap<String, Arc<tiles::ProjectedTrack>>;
 type TileKey = (u8, u32, u32);
-type Tracks = Vec<Arc<Vec<GpsPoint>>>;
+type Tracks = Vec<Arc<tiles::ProjectedTrack>>;
 
 /// Which tracks reach which tiles, and how many tracks were swept to find out,
 /// counted once per track and zoom.
@@ -1193,7 +1194,7 @@ fn plan_tiles(
                 }
             }
             sweeps += 1;
-            for coord in tiles::tiles_along_track(track, z) {
+            for coord in track.tiles_along(z) {
                 if swept.is_some_and(|ground| !ground.holds(z, coord.0, coord.1)) {
                     continue;
                 }
@@ -1211,7 +1212,7 @@ fn plan_tiles(
 /// Opens its own SQLite connection - does NOT touch PERSISTENT_ENGINE.
 ///
 /// Pipeline (rewritten for Tier 1.1/1.3):
-/// 1. Bulk-load every activity's GPS track into an in-memory Arc-cache.
+/// 1. Bulk-load every activity's GPS track and place it on the map once.
 /// 2. Iterate activities × zooms, using polyline-swept tile enumeration to
 ///    build a `(z,x,y) → [Arc<track>]` map.
 /// 3. Filter out tiles that already exist on disk (incremental safeguard).
@@ -1402,8 +1403,8 @@ fn background_generate_tiles(
     }
 
     // --- Phase 4: parallel rasterise + save ---------------------------------
-    // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
-    // deep-clone tracks across threads. No SQLite connection inside workers.
+    // Each worker owns its own refs; the placed tracks are shared through their
+    // Arc rather than cloned across threads. No SQLite connection inside workers.
     let generated = AtomicU32::new(0);
     let processed = AtomicU32::new(0);
 
@@ -1435,11 +1436,8 @@ fn background_generate_tiles(
                     let _ = release.recv();
                 }
             }
-            // Build a slice-of-slices view without deep-cloning the track data;
-            // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
-            // generic bound on `generate_heatmap_tile`.
-            let slices: Vec<&[GpsPoint]> = arcs.iter().map(|a| a.as_slice()).collect();
-            match tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
+            let tracks: Vec<&tiles::ProjectedTrack> = arcs.iter().map(|a| a.as_ref()).collect();
+            match tiles::draw_heatmap_tile(coord.0, coord.1, coord.2, &tracks) {
                 Some(png_data) => {
                     if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
                         generated.fetch_add(1, Ordering::Relaxed);
@@ -1501,7 +1499,7 @@ fn background_generate_tiles(
 }
 
 /// Bulk-load every activity's GPS track in chunked `IN (...)` queries.
-/// Returns a map from activity_id → Arc<Vec<GpsPoint>> and the ids whose
+/// Returns a map from activity_id to its track placed on the map, and the ids whose
 /// stored track did not decode. An unreadable track is omitted rather than
 /// mapped to an empty one: the map must not claim to hold a track it could
 /// not read.
@@ -1509,7 +1507,7 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
     // SQLite's default parameter limit is 999; chunk well under that so the
     // query never fails for large corpora.
     const CHUNK: usize = 500;
-    let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+    let mut decoded: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(activities.len());
     let mut corrupt: Vec<(String, String)> = Vec::new();
 
     for chunk in activities.chunks(CHUNK) {
@@ -1547,15 +1545,19 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
         for row in rows {
             let Ok((id, blob)) = row else { continue };
             match TrackRead::from_blob(&blob) {
-                TrackRead::Present(track) => {
-                    tracks.insert(id, Arc::new(track));
-                }
+                TrackRead::Present(track) => decoded.push((id, track)),
                 TrackRead::Missing => {}
                 TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
             }
         }
     }
 
+    // Placed on the map once here, so neither the plan nor the draw projects
+    // a point again. The decoded points are dropped as each track is placed.
+    let tracks = decoded
+        .into_par_iter()
+        .map(|(id, track)| (id, Arc::new(tiles::ProjectedTrack::new(&track))))
+        .collect();
     LoadedTracks { tracks, corrupt }
 }
 
@@ -1583,7 +1585,7 @@ mod tests {
                     .collect();
                 let id = format!("{town}{i}");
                 activities.push((id.clone(), Bounds::from_points(&track).unwrap()));
-                tracks.insert(id, Arc::new(track));
+                tracks.insert(id, Arc::new(tiles::ProjectedTrack::new(&track)));
             }
         }
         (activities, tracks)
@@ -1612,7 +1614,7 @@ mod tests {
             .map(|k| GpsPoint::new(46.2305, 7.35 + f64::from(k) * 0.001))
             .collect();
         activities.push(("a-new".into(), Bounds::from_points(&added).unwrap()));
-        tracks.insert("a-new".into(), Arc::new(added.clone()));
+        tracks.insert("a-new".into(), Arc::new(tiles::ProjectedTrack::new(&added)));
         let config = tiles::HeatmapConfig::default();
         let ground = ground_of(&added, &config);
 

@@ -5,7 +5,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import {
   ScreenSafeAreaView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   ChartSkeleton,
   ErrorStatePreset,
   ExplanationCard,
@@ -84,6 +84,7 @@ function FitnessScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const shared = createSharedStyles(isDark);
   // A card that summarised a window links here with it, so the screen opens on
   // that window rather than on its own default, mounted or not. A metric
@@ -245,7 +246,10 @@ function FitnessScreenContent() {
         ref={scrollRef}
         onScrollBeginDrag={onScrollBeginDrag}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: layout.screenPadding + tabBarClearance },
+        ]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
         refreshControl={
@@ -407,7 +411,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
-    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   chartPlaceholder: {
     height: 500,

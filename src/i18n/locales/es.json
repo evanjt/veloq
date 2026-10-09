@@ -697,7 +697,6 @@
     "loadBody": "TSS: {{currentTss}} esta semana vs {{previousTss}} la semana pasada. Duración: {{currentDuration}} vs {{previousDuration}}.",
     "volumeBody": "Duración del entrenamiento: {{current}} esta semana vs {{previous}} la semana pasada. Esto mide tiempo, no carga de entrenamiento (TSS).",
     "howCalculated": "¿Cómo se calculó esto?",
-    "sourceActivities": "Actividades de origen",
     "current": "Actual",
     "previous": "Anterior",
     "methodology": {
@@ -923,7 +922,20 @@
       "noEfforts": "Sin esfuerzos registrados"
     },
     "beta": "Beta",
-    "recentPersonalRecord": "Récord reciente"
+    "recentPersonalRecord": "Récord reciente",
+    "caption": {
+      "latestAgainstMean": "Última {{latest}} ms, media {{avg}} ms",
+      "thisWeekAgainstLast": "Esta semana {{current}}, semana pasada {{previous}}",
+      "lastWeekAgainstAverage": "Semana pasada {{current}}, media de 4 semanas {{previous}}",
+      "fromTo": "De {{previous}} a {{current}}"
+    },
+    "graphic": {
+      "openSection": "Abrir {{name}}",
+      "openTheSection": "Abrir la sección",
+      "openFitness": "Abrir el gráfico de forma física",
+      "openStrength": "Abrir entrenamiento de fuerza",
+      "openDetail": "Abrir el detalle"
+    }
   },
   "licenses": {
     "openRepository": "Abrir repositorio",
@@ -1009,6 +1021,7 @@
     },
     "closeMap": "Cerrar mapa",
     "closePopup": "Cerrar popup de actividad",
+    "closeRoutePopup": "Cerrar popup de ruta",
     "closeSectionPopup": "Cerrar popup de sección",
     "disable3D": "Desactivar vista 3D",
     "enable3D": "Activar vista 3D",
@@ -1027,6 +1040,7 @@
     "tapSelectStart": "Toca para seleccionar punto de inicio",
     "toggleStyle": "Cambiar estilo del mapa",
     "viewDetails": "Ver detalles",
+    "viewRouteDetails": "Ver detalles de la ruta",
     "viewSectionDetails": "Ver detalles de la sección",
     "zoomToActivity": "Zoom a la actividad",
     "colorByGradient": "Color por gradiente",

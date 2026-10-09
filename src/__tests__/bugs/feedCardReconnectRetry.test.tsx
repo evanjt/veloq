@@ -89,7 +89,9 @@ const noMapMarks = (tree: ReturnType<typeof render>) =>
 
 function renderCard(index = 0) {
   const requestSnapshot = jest.fn();
-  const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+  const snapshotRef = {
+    current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+  };
   const card = (height: number) => (
     <ActivityMapPreview
       activity={activity}

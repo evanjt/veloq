@@ -53,7 +53,7 @@ function settle(count: number, zooms: number[]) {
       setShowSections: jest.fn(),
       showRoutes: true,
       setShowRoutes: jest.fn(),
-      setSelectedRoute: jest.fn(),
+      setSelectedRouteId: jest.fn(),
       userLocation: null,
       setUserLocation: jest.fn(),
       setLocationLoading: jest.fn(),

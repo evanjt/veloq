@@ -3,7 +3,6 @@ package com.veloq.backupexclusion
 import android.content.Context
 import android.content.Intent
 import android.app.usage.StorageStatsManager
-import android.net.Uri
 import android.os.Process
 import android.os.storage.StorageManager
 import expo.modules.kotlin.exception.Exceptions
@@ -43,13 +42,15 @@ class VeloqBackupExclusionModule : Module() {
     // takes the folder off the grants the system holds for the app, which are
     // capped in number. A grant already gone has nothing to release.
     Function("releaseFolderGrant") { uri: String ->
-      val tree = Uri.parse(uri)
       val resolver = context.contentResolver
-      for (grant in resolver.persistedUriPermissions.filter { it.uri == tree }) {
+      val held = resolver.persistedUriPermissions.filter {
+        FolderGrant.isHeldTree(uri, it.uri.toString())
+      }
+      for (grant in held) {
         var flags = 0
         if (grant.isReadPermission) flags = flags or Intent.FLAG_GRANT_READ_URI_PERMISSION
         if (grant.isWritePermission) flags = flags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        resolver.releasePersistableUriPermission(tree, flags)
+        resolver.releasePersistableUriPermission(grant.uri, flags)
       }
     }
   }

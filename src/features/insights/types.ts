@@ -22,7 +22,7 @@ export type InsightPriority = 1 | 2 | 3 | 4 | 5;
  * What a value is, for a reader that needs one value by name. The label is
  * translated, so a reader that matched it found nothing outside English.
  */
-export type DataPointKey = 'hrvAverage' | 'hrvLatest' | 'hrChange' | 'effortCount' | 'balanceRatio';
+export type DataPointKey = 'hrvAverage' | 'hrvLatest' | 'hrChange' | 'effortCount';
 
 export interface DataPoint {
   /** Set where a sheet or the card reads this value back by name. */
@@ -84,7 +84,7 @@ export interface SupportingSection {
   hasRecentPR?: boolean | undefined;
   daysSinceLast?: number | undefined;
   ranking?: SectionRankingScores | undefined;
-  /** The section's line, thinned by the engine for the card's thumbnail. */
+  /** The section's line, thinned by the engine for the sheet's thumbnail. */
   previewPoints?: LatLngShort[] | undefined;
 }
 
@@ -115,14 +115,6 @@ export interface SupportingRoute {
   navigationTarget: string;
 }
 
-export interface SupportingActivity {
-  activityId: string;
-  activityName: string;
-  date: string;
-  duration?: number;
-  sportType?: string;
-}
-
 /**
  * The move a card reports, judged where the metric is known. A surface draws
  * the glyph and the rung from this and never from the sign of a number, which
@@ -140,28 +132,50 @@ export interface HistorySeries {
   points: SeriesPoint[];
 }
 
+/**
+ * One signed bar in a card's changes: what `key` names, the change the engine
+ * measured for it, above zero the better way.
+ */
+export interface HistoryChange {
+  key: string;
+  value: number;
+}
+
+/** The values at the top and bottom edge of a card's drawing, printed in the series' unit. */
+export interface HistoryScale {
+  top: string;
+  bottom: string;
+}
+
 export type InsightHistory =
   | {
       kind: 'timeline' | 'sparkline' | 'bars';
       series: HistorySeries[];
       mark?: HistoryMark;
+      /** Absent for a series with no unit a reader would know. */
+      scale?: HistoryScale;
       target: string;
     }
   | {
       kind: 'line';
       points: LatLngShort[];
       target: string;
+    }
+  | {
+      /**
+       * One bar per row of the card's sheet, in the rows' order. It pictures
+       * the rows themselves, so the graphic opens the sheet rather than a
+       * screen and carries no target.
+       */
+      kind: 'changes';
+      bars: HistoryChange[];
     };
 
 export interface InsightSupportingData {
   dataPoints?: DataPoint[];
   sections?: SupportingSection[];
   routes?: SupportingRoute[];
-  activities?: SupportingActivity[];
   history?: InsightHistory;
-  /** Undated strength progression series. */
-  sparklineData?: number[];
-  sparklineLabel?: string;
   /** The direction and verdict of the series or comparison the card reports. */
   trend?: SupportingTrend | undefined;
   comparisonData?: {
@@ -315,7 +329,7 @@ export interface SectionPR {
   /** The last efforts on the section, oldest first, for the card's graphic. */
   recentEfforts?: SeriesPoint[];
   bestActivityId?: string | undefined;
-  /** The section's line, thinned by the engine for the card's thumbnail. */
+  /** The section's line, thinned by the engine for the sheet's thumbnail. */
   previewPoints?: LatLngShort[];
 }
 
