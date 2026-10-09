@@ -34,11 +34,11 @@ object WidgetRenderer {
     snap: WidgetSnapshot?,
     minWidthDp: Int,
     minHeightDp: Int,
-    heroChoice: String?,
+    placement: SummaryPlacement,
     widgetId: Int,
   ): RemoteViews {
     if (snap == null || isEmpty(snap)) return renderEmptyPrompt(context)
-    val card = SummaryWidget.card(snap, heroChoice)
+    val card = SummaryWidget.card(snap, placement)
     return when (SummaryWidget.sizeFor(minWidthDp, minHeightDp)) {
       SummarySize.LARGE -> renderLarge(context, snap, card, minWidthDp, widgetId)
       SummarySize.MEDIUM -> renderMedium(context, snap, card, minWidthDp, widgetId)

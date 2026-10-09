@@ -7,14 +7,14 @@ import React, {
   useCallback,
   useState,
 } from 'react';
-import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
+import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { AppState, View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-import { colors, darkColors, mapLayerColors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { planHighlightSend } from '@/features/maps/lib/highlightThrottle';
@@ -52,8 +52,7 @@ import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import { pageOpensAt } from '@/features/maps/lib/settledCamera';
 import type { MapStyleType } from './mapStyles';
 import { HILLSHADE_INSERT_INDEX_SCRIPT, TERRAIN_3D_CONFIG, terrain3DSource } from './mapStyles';
-import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
-import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
@@ -706,7 +705,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               }
             } else if (lineData) {
               window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
-              ${JSON.stringify(sectionCreation3DLayers(true).filter((l) => l.type === 'line'))}.forEach(function(l) { window.map.addLayer(l); });
+              ${addSectionCreation3DLayersScript('window.map', 'section-creation-line', true)}
             }
             // Update section creation markers - re-create if missing
             var markersData = ${markersJSON};
@@ -722,12 +721,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               }
             } else if (markersData) {
               window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
-              ${JSON.stringify(sectionCreation3DLayers(true).filter((l) => l.type === 'circle'))}.forEach(function(l) { window.map.addLayer(l); });
-              window.map.addLayer({
-                id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
-                layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-font': ${jsLiteralList(BUNDLED_TEXT_FONT)}, 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
-                paint: { 'text-color': ${jsLiteral(mapLayerColors.casing)} },
-              });
+              ${addSectionCreation3DLayersScript('window.map', 'section-creation-markers', true)}
             }
           } catch (e) { console.warn('[3D] Section creation layer error:', e); }
         })();

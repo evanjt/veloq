@@ -3,19 +3,21 @@
  *
  * The FFI ring keeps the last 500 calls, which a first sync of a large library
  * overwrites within minutes, so the early milestones live here instead: a few
- * bounded runs, each with its named sync steps and the first visible card and
- * map. Every duration is observer time, the clock of the JavaScript side that
+ * bounded runs, each with its named sync steps, the first visible card, the
+ * first two maps and how long the first opened activity waited for its track. Every duration is observer time, the clock of the JavaScript side that
  * saw the engine's announcement, not time measured inside the engine. A
  * milestone nothing observed is `null`, and a failed or stopped run is named
  * as such, so a missing figure is never read as a fast one.
  *
- * Holds no activity ids, credentials or training data.
+ * Holds no activity ids, credentials or training data. The id of the first map
+ * is kept only in a closure until a second activity paints, and never reaches a
+ * run.
  */
 import { SyncStep, SyncState } from 'veloqrs';
 
 import { buildCommit } from '@/shared/format/buildStamp';
 
-export type TimelineMilestone = 'firstCard' | 'firstMap' | 'backfillSettled';
+export type TimelineMilestone = 'firstCard' | 'firstMap' | 'secondMap' | 'backfillSettled';
 export type TimelineOutcome = 'running' | 'success' | 'failed' | 'cancelled' | 'abandoned';
 
 export interface TimelineStep {
@@ -32,6 +34,14 @@ export interface TimelineRun {
   clock: 'observer';
   steps: TimelineStep[];
   milestones: Record<TimelineMilestone, number | null>;
+  // `waitMs` stays null while the track is owed and when the screen closed
+  // first, so an abandoned open is never read as a fast one.
+  openedTrack: { openedAtMs: number; waitMs: number | null } | null;
+}
+
+export interface TrackWait {
+  landed(): void;
+  abandoned(): void;
 }
 
 interface SyncObservation {
@@ -53,6 +63,7 @@ export function createFreshLoginTimeline(options: {
   let runs: TimelineRun[] = [];
   let currentStep: SyncStep | undefined;
   let cancelRequested = false;
+  let firstMapActivity: string | undefined;
 
   const active = (): TimelineRun | undefined => {
     const last = runs[runs.length - 1];
@@ -82,12 +93,14 @@ export function createFreshLoginTimeline(options: {
       build,
       clock: 'observer',
       steps: [],
-      milestones: { firstCard: null, firstMap: null, backfillSettled: null },
+      milestones: { firstCard: null, firstMap: null, secondMap: null, backfillSettled: null },
+      openedTrack: null,
     };
     runs.push(run);
     if (runs.length > maxRuns) runs = runs.slice(runs.length - maxRuns);
     currentStep = undefined;
     cancelRequested = false;
+    firstMapActivity = undefined;
     return run;
   };
 
@@ -122,10 +135,45 @@ export function createFreshLoginTimeline(options: {
       if (active()) cancelRequested = true;
     },
 
-    mark(milestone: Exclude<TimelineMilestone, 'backfillSettled'>): void {
+    mark(milestone: 'firstCard'): void {
       const run = runs[runs.length - 1];
       if (!run || run.milestones[milestone] !== null) return;
       run.milestones[milestone] = now() - run.startedAtMs;
+    },
+
+    // Counted by distinct activity rather than by load, because a card loads
+    // its image again on a style change.
+    markMap(activityId: string): void {
+      const run = runs[runs.length - 1];
+      if (!run || run.milestones.secondMap !== null) return;
+      if (run.milestones.firstMap === null) {
+        run.milestones.firstMap = now() - run.startedAtMs;
+        firstMapActivity = activityId;
+      } else if (activityId !== firstMapActivity) {
+        run.milestones.secondMap = now() - run.startedAtMs;
+        firstMapActivity = undefined;
+      }
+    },
+
+    // Only the first open of a running sync whose track is still owed counts,
+    // since a later one would measure a sync that is further along.
+    openTrack(downloaded: boolean): TrackWait | null {
+      const run = active();
+      if (downloaded || !run || run.openedTrack !== null) return null;
+      const openedAt = now();
+      const opened = { openedAtMs: openedAt - run.startedAtMs, waitMs: null as number | null };
+      run.openedTrack = opened;
+      let settled = false;
+      return {
+        landed() {
+          if (settled) return;
+          settled = true;
+          opened.waitMs = now() - openedAt;
+        },
+        abandoned() {
+          settled = true;
+        },
+      };
     },
 
     runs(): TimelineRun[] {
@@ -133,6 +181,7 @@ export function createFreshLoginTimeline(options: {
         ...run,
         steps: run.steps.map((s) => ({ ...s })),
         milestones: { ...run.milestones },
+        openedTrack: run.openedTrack ? { ...run.openedTrack } : null,
       }));
     },
 
@@ -140,6 +189,7 @@ export function createFreshLoginTimeline(options: {
       runs = [];
       currentStep = undefined;
       cancelRequested = false;
+      firstMapActivity = undefined;
     },
   };
 }

@@ -108,6 +108,24 @@ describe('buildRecordingNotificationPayload', () => {
     expect(payload!.trace).toHaveLength(6);
   });
 
+  /**
+   * Android kills a backgrounded ride's process and cannot bring its location
+   * service back, and no JavaScript runs at that restart. The native side posts
+   * the notice from these words alone, so they travel with every live payload.
+   */
+  it('carries the translated words of the notice posted if the ride is cut off', () => {
+    const payload = buildRecordingNotificationPayload(stateWith({ status: 'paused' }), {
+      translate,
+      isMetric: true,
+      now: NOW,
+    });
+    expect(payload!.interrupted).toEqual({
+      channel: 'recording.interruptedNotice.channel',
+      title: 'recording.interruptedNotice.title',
+      body: 'recording.interruptedNotice.body',
+    });
+  });
+
   it('draws the trace in a colour that differs from the card it is drawn on', () => {
     const payload = buildRecordingNotificationPayload(stateWith(), {
       translate,

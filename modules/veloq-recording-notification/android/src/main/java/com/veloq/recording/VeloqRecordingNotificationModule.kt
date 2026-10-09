@@ -75,7 +75,13 @@ class VeloqRecordingNotificationModule : Module() {
     // The JSON is parsed on the worker too. A trace of several hundred points
     // is a page of parsing, and doing it here to hand over a `JSONObject` would
     // leave the JS thread paying for the half that is cheapest to move.
-    Function("update") { json: String -> onWorker { post(JSONObject(json), 0) } }
+    Function("update") { json: String ->
+      onWorker {
+        val payload = JSONObject(json)
+        armInterruptedRide(payload)
+        post(payload, 0)
+      }
+    }
 
     // `manager.notify` took ownership of the id from the service, so nothing in
     // the service's lifecycle takes the notification down. Cancelling is the
@@ -84,8 +90,11 @@ class VeloqRecordingNotificationModule : Module() {
       onWorker {
         cancelRetry()
         cancelNotification()
+        InterruptedRideNotifier.of(context).disarmed()
       }
     }
+
+    Function("clearInterrupted") { onWorker { InterruptedRideNotifier.cancel(context) } }
 
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
 
@@ -109,6 +118,23 @@ class VeloqRecordingNotificationModule : Module() {
         it.service.className == LOCATION_SERVICE_CLASS && it.foreground
       } == true
     }
+  }
+
+  /**
+   * A live ride, so a process that dies from here on owes the rider a notice at
+   * its next start. Live also means recording again, so a notice from an
+   * earlier death has been answered: arming after a start took the notice is
+   * exactly that moment, and every later batch has nothing to cancel.
+   */
+  private fun armInterruptedRide(payload: JSONObject) {
+    val interrupted = payload.optJSONObject("interrupted")
+    val notice = InterruptedRide.notice(
+      payload.optLong("session"),
+      interrupted?.optString("channel"),
+      interrupted?.optString("title"),
+      interrupted?.optString("body")
+    ) ?: return
+    if (InterruptedRideNotifier.of(context).armed(notice)) InterruptedRideNotifier.cancel(context)
   }
 
   /** expo-location's own foreground-service notification, or null when there is none. */

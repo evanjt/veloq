@@ -1305,7 +1305,12 @@
     "entryIndoorCaption": "Al chiuso, GPS non necessario",
     "entryManualCaption": "Inserimento manuale, Avvia apre il modulo",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Indoor"
+    "fieldModeIndoor": "Indoor",
+    "interruptedNotice": {
+      "body": "Il sistema ha chiuso Veloq durante la tua attività, quindi la registrazione si è fermata. Tocca per riprendere.",
+      "channel": "Registrazioni interrotte",
+      "title": "Registrazione interrotta"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Percorso non trovato"

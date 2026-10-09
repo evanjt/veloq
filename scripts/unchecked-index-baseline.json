@@ -17,7 +17,7 @@
   "src/features/insights/lib": 8,
   "src/features/maps/components": 32,
   "src/features/maps/components/regional": 3,
-  "src/features/maps/hooks": 22,
+  "src/features/maps/hooks": 20,
   "src/features/maps/lib": 66,
   "src/features/recording/components": 1,
   "src/features/recording/hooks": 13,

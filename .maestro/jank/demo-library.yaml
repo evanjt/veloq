@@ -1,0 +1,7 @@
+# Passes only on the feed of the demo library.
+appId: com.veloq.app.dev
+---
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "demo-mode-banner"

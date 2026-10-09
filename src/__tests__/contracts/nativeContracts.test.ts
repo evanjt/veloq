@@ -30,6 +30,7 @@ import { ENGINE_ERROR_TAGS } from '@/shared/native/engineError';
 import { PHASE_DISPLAY_KEYS } from '@/features/routes/lib/detectionProgress';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
 import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
+import { AVAILABLE_METRICS, HERO_METRICS } from '@/features/settings/stores/summaryCardPreferences';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
 import * as stub from '../__shared__/veloqrsStub';
@@ -318,15 +319,40 @@ const CONTRACTS: Contract[] = [
     },
   })),
   {
-    agree: 'the Android tile bridge hands Rust the status array its JNI symbol writes',
+    agree:
+      'the Android tile bridge hands Rust the status array and pending body its JNI symbol takes',
     a: {
       file: `${TILE_ANDROID}/TileBridge.java`,
-      has: /nativeGetOrFetch\(\s*String source, int z, int x, int y, int\[\] status\)/,
+      has: /nativeAnswer\(\s*String source, int z, int x, int y, int\[\] status, PendingTile pending\)/,
     },
     b: {
       file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs',
-      has: "status: JIntArray<'local>,",
+      has: /status: JIntArray<'local>,\s*pending: JObject<'local>,/,
     },
+  },
+  {
+    agree: 'the Android tile bridge and Rust read the same status as a body still to come',
+    a: { file: `${TILE_ANDROID}/TileBridge.java`, has: 'public static final int PENDING = 202;' },
+    b: {
+      file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs',
+      has: 'const PENDING: u16 = 202;',
+    },
+  },
+  {
+    agree: 'Rust completes a pending tile through the method the body declares',
+    a: {
+      file: `${TILE_ANDROID}/PendingTile.java`,
+      has: 'public synchronized void complete(byte[] tile)',
+    },
+    b: { file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs', has: /"complete",\s*"\(\[B\)V"/ },
+  },
+  {
+    agree: 'Rust fails a pending tile through the method the body declares',
+    a: {
+      file: `${TILE_ANDROID}/PendingTile.java`,
+      has: 'public synchronized void fail(int status)',
+    },
+    b: { file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs', has: /"fail",\s*"\(I\)V"/ },
   },
   {
     agree: 'the iOS scheme handler passes the status out-parameter its C symbol writes',
@@ -346,14 +372,14 @@ const CONTRACTS: Contract[] = [
     },
   },
   {
-    agree: 'the Android interceptor hands the bridge the status array it answers with',
+    agree: 'the Android interceptor answers tiles through the bridge',
     a: {
       file: `${TILE_ANDROID}/VeloqTileWebViewClient.java`,
-      has: 'TileBridge.getOrFetch(source, z, x, y, status)',
+      has: 'new TileIntercept(TileBridge::answer)',
     },
     b: {
       file: `${TILE_ANDROID}/TileBridge.java`,
-      has: 'getOrFetch(String source, int z, int x, int y, int[] status)',
+      has: /public static byte\[\] answer\(\s*String source, int z, int x, int y, int\[\] status, PendingTile pending\)/,
     },
   },
   {
@@ -455,7 +481,7 @@ const CONTRACTS: Contract[] = [
     a: { file, has: 'Function("clearSnapshot")' },
     b: { file: 'src/features/home/lib/widgetBridge.ts', has: 'VeloqWidget.clearSnapshot()' },
   })),
-  ...['serviceRunning', 'clear'].map((name) => ({
+  ...['serviceRunning', 'clear', 'clearInterrupted'].map((name) => ({
     agree: `the recording notification module defines ${name}, which the bridge calls`,
     a: {
       file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
@@ -521,6 +547,28 @@ const CONTRACTS: Contract[] = [
       has: 'code: "ERR_FOLDER_UNAVAILABLE"',
     },
     b: { file: 'src/shared/native/backupFolder.ts', has: "'ERR_FOLDER_UNAVAILABLE'" },
+  },
+  ...['channel', 'title', 'body'].map((key) => ({
+    agree: `the interrupted-ride notice reads its ${key} from the payload the bridge writes`,
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      has: `interrupted?.optString("${key}")`,
+    },
+    b: {
+      file: 'src/features/recording/lib/recordingNotification.ts',
+      has: `'recording.interruptedNotice.${key}'`,
+    },
+  })),
+  {
+    agree: 'autolinking finds the package that posts the interrupted-ride notice at process start',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationPackage.kt',
+      has: 'import expo.modules.core.interfaces.Package',
+    },
+    b: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationPackage.kt',
+      has: 'class VeloqRecordingNotificationPackage : Package',
+    },
   },
   {
     agree: 'the running-service check names the service expo-location starts',
@@ -1282,7 +1330,7 @@ const SETS: SetContract[] = [
     mode: 'within',
     // The vector basemap comes through TileJSON rather than a template, as pbf.
     a: () => [...tileExtensions(), 'pbf'],
-    b: () => javaTypeTable(read(`${TILE_ANDROID}/VeloqTileWebViewClient.java`)),
+    b: () => javaTypeTable(read(`${TILE_ANDROID}/TileIntercept.java`)),
   },
   {
     agree: 'the Live Activity state TypeScript writes is the ContentState Swift decodes',
@@ -1537,6 +1585,38 @@ describe('name lists written on two sides agree', () => {
     expect(b.length).toBeGreaterThan(0);
     if (s.mode === 'equal') expect(a).toEqual(b);
     else expect(a.filter((name) => !b.includes(name))).toEqual([]);
+  });
+});
+
+// The summary card's picker owns its choices. The engine writes them into the widget snapshot,
+// which the Android picker reads, and Edit Widget declares them as enums, so a widget never
+// offers a hero or a metric the card does not, and lists them in the card's order.
+describe("the Summary widget offers the summary card's own choices, in its order", () => {
+  const rustList = (name: string) => {
+    const body =
+      new RegExp(`const ${name}: \\[&str; \\d+\\] = \\[([^\\]]*)\\]`).exec(
+        read(`${RUST}/widget_snapshot.rs`)
+      )?.[1] ?? '';
+    return [...body.matchAll(/"(\w+)"/g)].map((m) => m[1]);
+  };
+  const swiftCases = (name: string) => {
+    const body =
+      new RegExp(`enum ${name}: String, AppEnum \\{([^}]*)\\}`).exec(
+        read('widget/ios/VeloqWidget/WidgetMetricIntent.swift')
+      )?.[1] ?? '';
+    return [...body.matchAll(/^\s*case (\w+)/gm)].map((m) => m[1]);
+  };
+
+  it("the engine writes the card's hero list", () => {
+    expect(rustList('SUMMARY_HERO_IDS')).toEqual([...HERO_METRICS]);
+  });
+
+  it('the engine writes an entry for every metric the card offers', () => {
+    expect(rustList('SUMMARY_METRIC_IDS')).toEqual(AVAILABLE_METRICS.map((m) => m.id));
+  });
+
+  it("Edit Widget offers the card itself, then the card's heroes", () => {
+    expect(swiftCases('WidgetMetric')).toEqual(['summary', ...HERO_METRICS]);
   });
 });
 

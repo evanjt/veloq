@@ -40,6 +40,52 @@ interface UseSectionCreationResult {
   handleCreationReset: () => void;
 }
 
+// A vertex up to this much farther from the tap than the nearest one is still on the tapped ground.
+const SNAP_TOLERANCE_M = 25;
+
+function nearestVertex(coords: LatLng[], lng: number, lat: number): number {
+  let nearestIndex = 0;
+  let nearestDistance = Infinity;
+  coords.forEach((c, i) => {
+    const dist = haversineDistance(lat, lng, c.latitude, c.longitude);
+    if (dist < nearestDistance) {
+      nearestDistance = dist;
+      nearestIndex = i;
+    }
+  });
+  return nearestIndex;
+}
+
+// On a track that retraces its ground every pass near the tap is a candidate, and the end
+// takes the pass closest in index to the start, so the section is the shortest stretch that
+// covers the tapped ground rather than running over the turnaround and back.
+function snapEndTap(coords: LatLng[], lng: number, lat: number, startIndex: number): number {
+  const distances = coords.map((c) => haversineDistance(lat, lng, c.latitude, c.longitude));
+  const limit = distances.reduce((min, d) => (d < min ? d : min), Infinity) + SNAP_TOLERANCE_M;
+
+  let best = -1;
+  let passBest = -1;
+  let passBestDistance = Infinity;
+  const settlePass = () => {
+    if (passBest < 0) return;
+    if (best < 0 || Math.abs(passBest - startIndex) < Math.abs(best - startIndex)) {
+      best = passBest;
+    }
+    passBest = -1;
+    passBestDistance = Infinity;
+  };
+  distances.forEach((dist, i) => {
+    if (dist > limit) {
+      settlePass();
+    } else if (dist < passBestDistance) {
+      passBest = i;
+      passBestDistance = dist;
+    }
+  });
+  settlePass();
+  return best;
+}
+
 export function useSectionCreation({
   creationMode,
   externalCreationState,
@@ -89,20 +135,10 @@ export function useSectionCreation({
       if (!creationMode) return false;
       if (validCoordinates.length === 0) return false;
 
-      // Find nearest point on the route
-      let nearestIndex = 0;
-      let nearestDistance = Infinity;
-
-      for (let i = 0; i < validCoordinates.length; i++) {
-        const coord = validCoordinates[i];
-        const dx = coord.longitude - lng;
-        const dy = coord.latitude - lat;
-        const dist = dx * dx + dy * dy;
-        if (dist < nearestDistance) {
-          nearestDistance = dist;
-          nearestIndex = i;
-        }
-      }
+      const nearestIndex =
+        creationState === 'selectingEnd' && startIndex !== null
+          ? snapEndTap(validCoordinates, lng, lat, startIndex)
+          : nearestVertex(validCoordinates, lng, lat);
 
       if (creationState === 'selectingStart') {
         if (__DEV__) {

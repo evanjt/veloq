@@ -979,6 +979,15 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'session times and action names, no athlete data, drained at the next launch',
   },
   {
+    where:
+      'the veloq-recording-interrupted preferences and the notice posted from them when a process dies mid-ride',
+    writers: [
+      'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/InterruptedRideNotifier.kt',
+    ],
+    holds: "the ride's start time and the translated words of the notice",
+    kept: 'it belongs to a ride in progress, whose backup the wipe keeps, and ends when the ride ends or the notice is posted',
+  },
+  {
     where: 'the recording foreground notification and the iOS Live Activity',
     writers: [
       'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',

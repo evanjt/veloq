@@ -1305,7 +1305,12 @@
     "entryIndoorCaption": "En intérieur, sans GPS",
     "entryManualCaption": "Saisie manuelle, Démarrer ouvre le formulaire",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Intérieur"
+    "fieldModeIndoor": "Intérieur",
+    "interruptedNotice": {
+      "body": "Le système a fermé Veloq pendant votre activité, l'enregistrement s'est donc arrêté. Touchez pour reprendre.",
+      "channel": "Enregistrements interrompus",
+      "title": "Enregistrement arrêté"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Itinéraire non trouvé"

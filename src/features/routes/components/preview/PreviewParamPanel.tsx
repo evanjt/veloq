@@ -216,6 +216,7 @@ function ParamRow({
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
       </Pressable>
       <Slider
+        testID={`param-slider-${paramKey}`}
         style={styles.slider}
         disabled={disabled}
         value={value}

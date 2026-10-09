@@ -578,6 +578,11 @@ function DebugScreenContent() {
                     .map(([name, ms]) => `${name} ${ms === null ? 'unobserved' : `${ms} ms`}`)
                     .join(', ')}
                 </Text>
+                <Text style={[styles.tableCell, { color: mutedColor }]}>
+                  {run.openedTrack === null
+                    ? 'opened track unobserved'
+                    : `opened track +${run.openedTrack.openedAtMs} ms, waited ${run.openedTrack.waitMs === null ? 'unobserved' : `${run.openedTrack.waitMs} ms`}`}
+                </Text>
                 {run.steps.map((s) => (
                   <Text
                     key={`${s.step}-${s.startMs}`}

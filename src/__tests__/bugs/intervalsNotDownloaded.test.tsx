@@ -124,6 +124,7 @@ function renderSection(props: {
       chartInteracting={false}
       engineSectionCount={0}
       customSectionCount={0}
+      transitionSettled={false}
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}

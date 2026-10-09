@@ -1357,7 +1357,12 @@
     "entryIndoorCaption": "W pomieszczeniu, bez GPS",
     "entryManualCaption": "Wpis ręczny, Rozpocznij otwiera formularz",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Wewnątrz"
+    "fieldModeIndoor": "Wewnątrz",
+    "interruptedNotice": {
+      "body": "System zamknął Veloq podczas aktywności, więc nagrywanie zostało zatrzymane. Dotknij, aby wznowić.",
+      "channel": "Przerwane nagrania",
+      "title": "Nagrywanie zatrzymane"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Nie znaleziono trasy"

@@ -1,6 +1,7 @@
 # Entry without launchApp: maestro's launch reports "Unable to launch app"
 # against this install while `adb shell am start` works, so the caller starts
-# the app and this only walks the dialogs.
+# the app and this only walks the dialogs. A login screen is walked into demo
+# mode, and a handset already signed in stays on its own library.
 appId: com.veloq.app.dev
 ---
 - extendedWaitUntil:
@@ -44,5 +45,3 @@ appId: com.veloq.app.dev
     visible:
       id: "home-screen"
     timeout: 30000
-- assertVisible:
-    id: "demo-mode-banner"

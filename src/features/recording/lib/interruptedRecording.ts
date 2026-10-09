@@ -6,6 +6,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import { movingMsAt, useRecordingStore } from '../stores/RecordingStore';
 import type { RecordingBackup } from '../types';
+import { clearInterruptedRecordingNotice } from './recordingNotification';
 import { resumeRecordingBackup, settleSavedBackup } from './restoreRecordingBackup';
 import { clearRecordingBackup, loadRecordingBackup } from './storage/recordingBackup';
 
@@ -61,7 +62,11 @@ export async function promptInterruptedRecording(): Promise<void> {
   if (!useAuthStore.getState().isAuthenticated) return;
   const backup = await loadRecordingBackup();
   if (!backup || !canOpenBackup(backup)) return;
-  if ((await settleSavedBackup(backup)) || !canOpenBackup(backup)) return;
+  if (await settleSavedBackup(backup)) {
+    clearInterruptedRecordingNotice();
+    return;
+  }
+  if (!canOpenBackup(backup)) return;
 
   const t = i18n.t.bind(i18n);
   Alert.alert(t('recording.resumePrevious'), interruptedRecordingMessage(backup), [
@@ -69,7 +74,9 @@ export async function promptInterruptedRecording(): Promise<void> {
       text: t('recording.discard'),
       style: 'destructive',
       onPress: () => {
-        if (canOpenBackup(backup)) void clearRecordingBackup(backup.athleteId, backup);
+        if (!canOpenBackup(backup)) return;
+        void clearRecordingBackup(backup.athleteId, backup);
+        clearInterruptedRecordingNotice();
       },
     },
     {

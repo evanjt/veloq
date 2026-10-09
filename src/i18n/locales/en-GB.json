@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "Indoor, no GPS needed",
     "entryManualCaption": "Logged by hand, Start opens the form",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Indoor"
+    "fieldModeIndoor": "Indoor",
+    "interruptedNotice": {
+      "body": "The system closed Veloq during your activity, so it stopped recording. Tap to resume.",
+      "channel": "Interrupted recordings",
+      "title": "Recording stopped"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Route not found"

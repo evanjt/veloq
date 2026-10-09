@@ -577,6 +577,11 @@
     "heroSparkline": [],
     "sparkline": "hrv"
   },
+  "summaryHeroes": [
+    "fitness",
+    "form",
+    "hrv"
+  ],
   "summaryMetrics": [
     {
       "colorKey": "default",

@@ -1,11 +1,11 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+import { AppState } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 import { ensureCredentialsHydrated, useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import type { AutoPauseDetector } from './autoPause';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import {
@@ -15,11 +15,8 @@ import {
   setAutoPauseDetector,
 } from './manualPause';
 import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
-import {
-  buildRecordingBackup,
-  loadRecordingBackup,
-  saveRecordingBackup,
-} from './storage/recordingBackup';
+import { loadRecordingBackup } from './storage/recordingBackup';
+import { writeRideBackup, writeRideBackupIfDue } from './rideBackup';
 import { BACKGROUND_LOCATION_TASK } from './backgroundLocationTask';
 
 export { BACKGROUND_LOCATION_TASK } from './backgroundLocationTask';
@@ -124,14 +121,12 @@ export async function handleBackgroundLocations(
   }
 
   // A headless runtime has no screen and no periodic timer, so each batch
-  // persists itself or the next kill loses everything since the last one.
-  if (restoredFromBackup) {
-    const backup = buildRecordingBackup({
-      ...store.getState(),
-      autoPaused: useRecordingLiveStore.getState().autoPaused,
-    });
-    if (backup) await saveRecordingBackup(backup);
-  }
+  // persists itself or the next kill loses everything since the last one. A
+  // live runtime out of the foreground has its timers paused, so its batches
+  // persist once an interval of fixes has passed.
+  const newestFix = locations.reduce((newest, l) => Math.max(newest, l.timestamp), 0);
+  if (restoredFromBackup) await writeRideBackup(newestFix);
+  else if (AppState.currentState !== 'active') await writeRideBackupIfDue(newestFix);
 
   // The notification is the ride's only surface while the app is backgrounded,
   // and a batch is the only thing that happens out here.

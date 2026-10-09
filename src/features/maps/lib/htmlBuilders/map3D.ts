@@ -27,9 +27,8 @@ import {
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
-import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
-import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
-import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { colors, colorWithOpacity, mapLayerColors, sectionPalette } from '@/theme';
@@ -522,28 +521,14 @@ ${terrainVisibilityScript()}
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${JSON.stringify(sectionCreation3DLayers(false).filter((l) => l.type === 'line'))}.forEach(function(l) { map.addLayer(l); });
+      ${addSectionCreation3DLayersScript('map', 'section-creation-line', false)}
 
       // Section creation start/end markers
       map.addSource('section-creation-markers', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${JSON.stringify(sectionCreation3DLayers(false).filter((l) => l.type === 'circle'))}.forEach(function(l) { map.addLayer(l); });
-      map.addLayer({
-        id: 'section-creation-marker-icon',
-        type: 'symbol',
-        source: 'section-creation-markers',
-        layout: {
-          'text-field': ['case', ['==', ['get', 'type'], 'start'], '▶', '■'],
-          'text-font': ${jsLiteralList(BUNDLED_TEXT_FONT)},
-          'text-size': 10,
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
-          visibility: 'none',
-        },
-        paint: { 'text-color': ${jsLiteral(mapLayerColors.casing)} },
-      });
+      ${addSectionCreation3DLayersScript('map', 'section-creation-markers', false)}
 
       // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {

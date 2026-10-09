@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingBottom="@dimen/widget_gap"
+      android:text="@string/widget_summary_choose"
+      android:textSize="@dimen/widget_text_label" />
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingTop="@dimen/widget_gap"
+      android:text="@string/widget_summary_metric"
+      android:textSize="@dimen/widget_text_value"
+      android:textStyle="bold" />
+
+    <RadioGroup
+      android:id="@+id/summary_configure_hero"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical" />
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingTop="@dimen/widget_padding"
+      android:text="@string/widget_summary_sparkline"
+      android:textSize="@dimen/widget_text_value"
+      android:textStyle="bold" />
+
+    <RadioGroup
+      android:id="@+id/summary_configure_sparkline"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical" />
+
+    <TextView
+      android:id="@+id/summary_configure_supporting_title"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingTop="@dimen/widget_padding"
+      android:text="@string/widget_summary_supporting"
+      android:textSize="@dimen/widget_text_value"
+      android:textStyle="bold" />
+
+    <LinearLayout
+      android:id="@+id/summary_configure_supporting"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical" />
+
+    <Button
+      android:id="@+id/summary_configure_save"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/widget_gap"
+      android:text="@string/widget_summary_save" />
+  </LinearLayout>
+</ScrollView>

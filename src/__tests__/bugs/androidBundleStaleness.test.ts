@@ -16,12 +16,15 @@ import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
+
 const SCRIPT = join(__dirname, '../../../scripts/lint-android-bundle.mjs');
 const BUNDLE = 'android/app/src/main/assets/index.android.bundle';
 
 function runGuard(root: string, extra: string[] = []): { status: number; output: string } {
   try {
     const output = execFileSync('node', [SCRIPT, '--root', root, ...extra], {
+      env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -181,13 +184,16 @@ it('names which phrases the bundle is missing', () => {
  * matters, whatever the working tree holds.
  */
 describe('--apk', () => {
-  function apk(root: string, body: string | null): string {
+  function apk(root: string, body: string | null, stamp?: string): string {
     const staging = join(root, 'staging');
+    rmSync(staging, { recursive: true, force: true });
     mkdirSync(join(staging, 'assets'), { recursive: true });
-    writeFileSync(join(staging, 'assets/app.config'), '{}');
+    const config = stamp === undefined ? {} : { extra: { buildCommit: stamp } };
+    writeFileSync(join(staging, 'assets/app.config'), JSON.stringify(config));
     if (body !== null) writeFileSync(join(staging, 'assets/index.android.bundle'), body);
     const path = join(root, 'app-debug.apk');
-    execFileSync('zip', ['-qr', path, 'assets'], { cwd: staging });
+    rmSync(path, { force: true });
+    execFileSync('zip', ['-qr', path, 'assets'], { cwd: staging, env: gitFreeEnv() });
     return path;
   }
 
@@ -219,5 +225,88 @@ describe('--apk', () => {
     const body = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
 
     expect(runGuard(root, ['--apk', apk(root, body)]).status).toBe(0);
+  });
+
+  /**
+   * An APK cut from an older commit carries that commit's locale, so a phrase
+   * added since is not evidence of a stub. The stamp names the commit, and the
+   * probes come from the locale as that commit held it.
+   */
+  describe('judged against the commit it was built from', () => {
+    const LATER = 'A phrase that entered the locale only after the build';
+
+    function git(root: string, ...args: string[]): string {
+      return runGit(args, root).trim();
+    }
+
+    function writeLocale(root: string, phrases: string[]): void {
+      const en: Record<string, string> = {};
+      phrases.forEach((phrase, i) => (en[`key${i}`] = phrase));
+      writeFileSync(join(root, 'src/i18n/locales/en-AU.json'), JSON.stringify(en));
+    }
+
+    /** A repository whose second commit puts a new long phrase at the locale's front. */
+    function history(): { root: string; before: string; after: string } {
+      const root = fixture({ phrases: PHRASES });
+      git(root, 'init', '-q');
+      git(root, 'add', 'src');
+      git(root, 'commit', '-q', '-m', 'first');
+      const before = git(root, 'rev-parse', '--short', 'HEAD');
+      writeLocale(root, [LATER, ...PHRASES]);
+      git(root, 'add', 'src');
+      git(root, 'commit', '-q', '-m', 'second');
+      const after = git(root, 'rev-parse', '--short', 'HEAD');
+      return { root, before, after };
+    }
+
+    const older = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
+    const stub = 'var __BUNDLE_START_TIME__;';
+
+    it('passes an APK built from an older commit that carries that commit’s app', () => {
+      const { root, before } = history();
+
+      expect(runGuard(root, ['--apk', apk(root, older, before)]).status).toBe(0);
+    });
+
+    it('reads the commit out of a dirty tree’s stamp', () => {
+      const { root, before } = history();
+
+      expect(runGuard(root, ['--apk', apk(root, older, `${before}+0123abcd`)]).status).toBe(0);
+    });
+
+    it('still refuses an older build that lacks the later phrase when stamped with the later commit', () => {
+      const { root, after } = history();
+      const { status, output } = runGuard(root, ['--apk', apk(root, older, after)]);
+
+      expect(status).toBe(1);
+      expect(output).toContain(LATER);
+      expect(output).toContain(after);
+    });
+
+    it.each(['before', 'after'] as const)('refuses a stub stamped with the %s commit', (which) => {
+      const repo = history();
+      const { status, output } = runGuard(repo.root, ['--apk', apk(repo.root, stub, repo[which])]);
+
+      expect(status).toBe(1);
+      expect(output).toContain('does not carry the app');
+      expect(output).toContain(repo[which]);
+    });
+
+    it('falls back to the working tree for a commit the repository does not hold', () => {
+      const { root } = history();
+      const { status, output } = runGuard(root, ['--apk', apk(root, older, 'deadbeef1')]);
+
+      expect(status).toBe(1);
+      expect(output).toContain(LATER);
+      expect(output).toContain('working tree');
+    });
+
+    it('falls back to the working tree for an APK with no stamp', () => {
+      const { root } = history();
+      const { status, output } = runGuard(root, ['--apk', apk(root, older)]);
+
+      expect(status).toBe(1);
+      expect(output).toContain('working tree');
+    });
   });
 });

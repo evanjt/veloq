@@ -20,6 +20,9 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), canGoBack: () => false },
   Stack: Object.assign(() => null, { Screen: () => null }),
 }));
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: () => {},
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { text: '#000', textSecondary: '#888' } }),

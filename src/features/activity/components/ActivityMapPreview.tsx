@@ -327,7 +327,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           fadeDuration={0}
           style={styles.terrainImage}
           resizeMode="cover"
-          onLoad={() => freshLoginTimeline.mark('firstMap')}
+          onLoad={() => freshLoginTimeline.markMap(activity.id)}
           onError={({ nativeEvent }) => {
             // Left indexed, the broken file is served again on every mount and
             // the request effect never asks for a new one, so the card spins

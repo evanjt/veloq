@@ -67,7 +67,12 @@ describe('fresh-login timeline', () => {
     timeline.observeSync(idle());
 
     const [run] = timeline.runs();
-    expect(run.milestones).toEqual({ firstCard: 2000, firstMap: null, backfillSettled: 2500 });
+    expect(run.milestones).toEqual({
+      firstCard: 2000,
+      firstMap: null,
+      secondMap: null,
+      backfillSettled: 2500,
+    });
   });
 
   it('leaves backfill unobserved when the run fails', () => {
@@ -124,7 +129,7 @@ describe('fresh-login timeline', () => {
     const { timeline, advance } = setup();
     timeline.observeSync(syncing(SyncStep.Athlete));
     advance(100);
-    timeline.mark('firstMap');
+    timeline.markMap('ride-1');
     for (let i = 0; i < 1200; i++) recordFFIMetric('getActivities', 1);
     advance(900);
     timeline.observeSync(idle());
@@ -144,6 +149,89 @@ describe('fresh-login timeline', () => {
     const runs = timeline.runs();
     expect(runs).toHaveLength(2);
     expect(runs[0].steps.length).toBeLessThanOrEqual(32);
+  });
+
+  it('takes the second preview from a different activity, not a repaint of the first', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Athlete));
+    advance(1000);
+    timeline.markMap('ride-a');
+    advance(1000);
+    timeline.markMap('ride-a');
+    advance(1000);
+    timeline.markMap('ride-b');
+    advance(1000);
+    timeline.markMap('ride-c');
+
+    const run = timeline.runs()[0];
+    expect(run.milestones.firstMap).toBe(1000);
+    expect(run.milestones.secondMap).toBe(3000);
+    expect(JSON.stringify(run)).not.toContain('ride-');
+  });
+
+  it('starts the second preview afresh on a new run', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.markMap('ride-a');
+    timeline.observeSync(idle());
+    timeline.observeSync(syncing(SyncStep.Athlete));
+    advance(100);
+    timeline.markMap('ride-a');
+    expect(timeline.runs()[1].milestones).toMatchObject({ firstMap: 100, secondMap: null });
+  });
+
+  it('records how long an opened activity waits for its track', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Activities));
+    advance(4000);
+    const wait = timeline.openTrack(false);
+    advance(2500);
+    wait?.landed();
+    advance(1000);
+    wait?.landed();
+    wait?.abandoned();
+    expect(timeline.runs()[0].openedTrack).toEqual({ openedAtMs: 4000, waitMs: 2500 });
+  });
+
+  it('records nothing for an open whose track is already stored', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Activities));
+    advance(4000);
+    expect(timeline.openTrack(true)).toBeNull();
+    expect(timeline.runs()[0].openedTrack).toBeNull();
+  });
+
+  it('keeps the first open when a second one waits too', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Activities));
+    advance(4000);
+    const first = timeline.openTrack(false);
+    advance(1000);
+    expect(timeline.openTrack(false)).toBeNull();
+    advance(1000);
+    first?.landed();
+    expect(timeline.runs()[0].openedTrack).toEqual({ openedAtMs: 4000, waitMs: 2000 });
+  });
+
+  it('records nothing for an open with no running run', () => {
+    const { timeline } = setup();
+    expect(timeline.openTrack(false)).toBeNull();
+    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(idle());
+    expect(timeline.openTrack(false)).toBeNull();
+    expect(timeline.runs()[0].openedTrack).toBeNull();
+  });
+
+  it('leaves the wait unobserved when the detail closes before the track lands', () => {
+    const { timeline, advance } = setup();
+    timeline.observeSync(syncing(SyncStep.Activities));
+    advance(4000);
+    const wait = timeline.openTrack(false);
+    advance(500);
+    wait?.abandoned();
+    advance(500);
+    wait?.landed();
+    expect(timeline.runs()[0].openedTrack).toEqual({ openedAtMs: 4000, waitMs: null });
   });
 
   it('clear drops every run', () => {

@@ -20,6 +20,8 @@ const mockLoadBackup = jest.fn();
 const mockClearBackup = jest.fn();
 const mockResume = jest.fn();
 const mockNavigateTo = jest.fn();
+const mockClearNotice = jest.fn();
+const mockLibraryHolds = jest.fn(() => false);
 
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
   ...jest.requireActual('@/features/recording/lib/storage/recordingBackup'),
@@ -30,6 +32,15 @@ jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
 jest.mock('@/features/recording/lib/restoreRecordingBackup', () => ({
   ...jest.requireActual('@/features/recording/lib/restoreRecordingBackup'),
   resumeRecordingBackup: () => mockResume(),
+}));
+
+jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
+  ...jest.requireActual('@/features/recording/lib/storage/recordingLibrary'),
+  holdsRecordingStartingIn: () => mockLibraryHolds(),
+}));
+
+jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  clearInterruptedRecordingNotice: () => mockClearNotice(),
 }));
 
 jest.mock('@/shared/app/navigation', () => ({
@@ -80,6 +91,7 @@ beforeEach(() => {
   useRecordingStore.getState().reset();
   useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
   mockLoadBackup.mockResolvedValue(twoHourRide);
+  mockLibraryHolds.mockReturnValue(false);
 });
 
 describe('the resume prompt on the record screen', () => {
@@ -151,6 +163,32 @@ describe('the resume prompt on the record screen', () => {
       ?.onPress?.();
 
     expect(mockClearBackup).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes down the stopped-recording notice with the ride on Discard', async () => {
+    await promptInterruptedRecording();
+
+    lastAlert()
+      .buttons.find((b) => b.style === 'destructive')
+      ?.onPress?.();
+
+    expect(mockClearNotice).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes down the notice of a ride the library already saved', async () => {
+    mockLoadBackup.mockResolvedValue({ ...twoHourRide, status: 'stopped' });
+    mockLibraryHolds.mockReturnValue(true);
+
+    await promptInterruptedRecording();
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mockClearNotice).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the notice up while the prompt is only open', async () => {
+    await promptInterruptedRecording();
+
+    expect(mockClearNotice).not.toHaveBeenCalled();
   });
 
   it('restores the ride on Resume and opens where it left off', async () => {

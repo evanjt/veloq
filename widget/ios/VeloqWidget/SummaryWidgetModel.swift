@@ -4,9 +4,9 @@ import Foundation
 // the choices are plain values: which card a placement shows, which entries each size lists,
 // which chart sits beside the hero.
 //
-// The card is the in-app summary card the snapshot carries. A placement may choose a hero, a
-// sparkline setting and a supporting row of its own among the metrics the snapshot carries;
-// anything it leaves unset follows the card.
+// The card is the in-app summary card the snapshot carries. A placement may choose a hero among
+// the card's own heroes, a sparkline setting and a supporting row among the metrics the snapshot
+// carries; anything it leaves unset follows the card.
 
 /// A tap anywhere on the widget opens the Fitness tab.
 enum SummaryDeepLink {
@@ -22,7 +22,7 @@ enum SummarySize {
 /// What one placed widget was configured with. Every field unset follows the app's card, so a
 /// widget placed before the picker existed, and one whose picker was dismissed, keeps the card.
 struct SummaryPlacement: Equatable {
-  /// A metric id, or nil to follow the card.
+  /// A hero id from the card's list, or nil to follow the card.
   var hero: String?
   /// True shows the hero's chart, false hides it, nil follows the card.
   var sparkline: Bool?
@@ -77,8 +77,8 @@ struct SummaryContent {
 enum SummaryWidgetModel {
   static let supportingMax = 4
 
-  /// The metrics a placement may take as its hero, all of which every snapshot carries.
-  static let heroIds = ["form", "fitness", "fatigue", "hrv", "rhr"]
+  /// The metrics every snapshot carries a reading for, whatever its card or metric list holds.
+  static let headlineIds = ["form", "fitness", "fatigue", "hrv", "rhr"]
 
   private static let formZoneOrder = ["highRisk", "optimal", "greyZone", "fresh", "transition"]
 
@@ -86,7 +86,13 @@ enum SummaryWidgetModel {
     _ snapshot: WidgetSnapshot, placement: SummaryPlacement, size: SummarySize
   ) -> SummaryContent {
     let card = snapshot.summaryCard ?? fallbackCard(snapshot)
-    let hero = placement.hero.flatMap { entry(snapshot, card, $0) } ?? card.hero
+    // A hero the card no longer offers, or one a snapshot before the list cannot vouch for,
+    // follows the card.
+    let offered = snapshot.summaryHeroes ?? []
+    let hero =
+      placement.hero
+      .flatMap { offered.contains($0) && $0 != card.hero.id ? entry(snapshot, card, $0) : nil }
+      ?? card.hero
 
     let supporting: [WidgetSummaryEntry]
     if size == .small {
@@ -138,7 +144,7 @@ enum SummaryWidgetModel {
   {
     if let found = snapshot.summaryMetrics?.first(where: { $0.id == id }) { return found }
     if let found = ([card.hero] + card.entries).first(where: { $0.id == id }) { return found }
-    return heroIds.contains(id) ? metricEntry(snapshot, id) : nil
+    return headlineIds.contains(id) ? metricEntry(snapshot, id) : nil
   }
 
   private static func metricEntry(_ snapshot: WidgetSnapshot, _ id: String) -> WidgetSummaryEntry {

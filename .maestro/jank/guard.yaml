@@ -1,8 +1,8 @@
-# The feed is on screen, in demo mode, scrolled to the top. Anything else and
-# the run that follows measures a login screen or a notification shade.
+# The feed is on screen and scrolled to the top. Anything else and the run that
+# follows measures a login screen or a notification shade. Which library it
+# shows is read once per entry, by `demo-library.yaml` and
+# `signed-in-library.yaml`.
 appId: com.veloq.app.dev
 ---
 - assertVisible:
     id: "home-screen"
-- assertVisible:
-    id: "demo-mode-banner"

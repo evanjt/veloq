@@ -188,6 +188,13 @@ data class WidgetSnapshot(
   val insights: List<WidgetInsight> = emptyList(),
   /** The strength diagram over both windows. Null on a snapshot written before the block. */
   val strength: StrengthBlock? = null,
+  /**
+   * One entry for every metric the summary card can show, in its picker's order, so a placement
+   * composes its own hero and supporting row. Empty on a snapshot written before the list.
+   */
+  val summaryMetrics: List<SummaryEntry> = emptyList(),
+  /** The metrics the card offers as its hero, in its picker's order. Empty before the list. */
+  val summaryHeroes: List<String> = emptyList(),
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
@@ -234,6 +241,8 @@ data class WidgetSnapshot(
         latest = parseLatest(root),
         impact = parseImpact(root),
         summaryCard = parseSummaryCard(root),
+        summaryMetrics = parseSummaryEntries(root.optJSONArray("summaryMetrics")),
+        summaryHeroes = stringArray(root.optJSONArray("summaryHeroes")),
         formHistory = parseFormHistory(root),
         impactLine = if (display.isNull("impactLine")) null else display.optString("impactLine"),
         metricLabels =
@@ -436,16 +445,9 @@ data class WidgetSnapshot(
       if (root.isNull("summaryCard")) return null
       val s = root.optJSONObject("summaryCard") ?: return null
       val hero = parseSummaryEntry(s.optJSONObject("hero")) ?: return null
-      val entriesArr = s.optJSONArray("entries")
-      val entries = ArrayList<SummaryEntry>()
-      if (entriesArr != null) {
-        for (i in 0 until entriesArr.length()) {
-          parseSummaryEntry(entriesArr.optJSONObject(i))?.let { entries.add(it) }
-        }
-      }
       return SummaryCard(
         hero = hero,
-        entries = entries,
+        entries = parseSummaryEntries(s.optJSONArray("entries")),
         sparkline = s.optString("sparkline", "none"),
         heroSparkline = floatArray(s.optJSONArray("heroSparkline")),
       )
@@ -464,6 +466,15 @@ data class WidgetSnapshot(
         asPercent = h.optBoolean("asPercent", false),
         zoneBounds = List(4) { i -> bounds.optInt(i) },
       )
+    }
+
+    private fun parseSummaryEntries(arr: JSONArray?): List<SummaryEntry> {
+      if (arr == null) return emptyList()
+      val entries = ArrayList<SummaryEntry>(arr.length())
+      for (i in 0 until arr.length()) {
+        parseSummaryEntry(arr.optJSONObject(i))?.let { entries.add(it) }
+      }
+      return entries
     }
 
     private fun parseSummaryEntry(o: JSONObject?): SummaryEntry? {

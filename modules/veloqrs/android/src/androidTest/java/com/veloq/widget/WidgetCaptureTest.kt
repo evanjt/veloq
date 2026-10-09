@@ -57,7 +57,7 @@ class WidgetCaptureTest {
   private val widgets =
     listOf(
       Widget("summary", R.xml.veloq_widget_info) { c, s, w, h ->
-        WidgetRenderer.render(c, s, w, h, null, 1)
+        WidgetRenderer.render(c, s, w, h, SummaryPlacement(), 1)
       },
       Widget("activity", R.xml.widget_activity_info) { c, s, w, h ->
         WidgetRenderer.renderActivity(c, s, w, h)

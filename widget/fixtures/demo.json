@@ -1002,6 +1002,11 @@
     ],
     "sparkline": "fitnessForm"
   },
+  "summaryHeroes": [
+    "fitness",
+    "form",
+    "hrv"
+  ],
   "summaryMetrics": [
     {
       "colorKey": "default",

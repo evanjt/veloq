@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "Dinne, kei GPS nötig",
     "entryManualCaption": "Vo Hand erfasst, Start macht s Formular uf",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Indoor"
+    "fieldModeIndoor": "Indoor",
+    "interruptedNotice": {
+      "body": "S System het Veloq während dinere Aktivität zuegmacht, drum het d Ufnahm gstoppt. Tipp zum Wiiterfahre.",
+      "channel": "Unterbrocheni Ufnahme",
+      "title": "Ufnahm gstoppt"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"

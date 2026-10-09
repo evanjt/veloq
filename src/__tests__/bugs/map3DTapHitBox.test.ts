@@ -76,6 +76,9 @@ function tap(features: Record<string, unknown[]>) {
         }),
     },
     URL: { createObjectURL: () => 'blob:stub', revokeObjectURL: () => {} },
+    Image: function Image(this: Record<string, unknown>) {
+      this.src = '';
+    },
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
@@ -91,6 +94,8 @@ function tap(features: Record<string, unknown[]>) {
         once: register,
         addSource: () => {},
         addLayer: () => {},
+        hasImage: () => false,
+        addImage: () => {},
         getSource: () => undefined,
         getLayer: () => ({}),
         getStyle: () => ({ layers: [] }),

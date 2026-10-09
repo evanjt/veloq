@@ -1688,3 +1688,30 @@ fn the_metric_list_is_carried_with_the_card_disabled_and_leaves_out_a_weight_wit
     assert!(s.summary_metrics.iter().any(|e| e.id == "fitness"));
     assert!(!s.summary_metrics.iter().any(|e| e.id == "weight"));
 }
+
+#[test]
+fn carries_the_cards_hero_list_whatever_the_card_leads_with_or_whether_it_is_enabled() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("hrv", &["rhr"]));
+    assert_eq!(compose_raw(&raw).summary_heroes, ["fitness", "form", "hrv"]);
+
+    let mut off = prefs("fitness", &[]);
+    off.enabled = false;
+    raw.summary_prefs = Some(off);
+    assert_eq!(compose_raw(&raw).summary_heroes, ["fitness", "form", "hrv"]);
+
+    raw.summary_prefs = None;
+    let s = compose_raw(&raw);
+    assert_eq!(
+        json(&s)["summaryHeroes"],
+        serde_json::json!(["fitness", "form", "hrv"])
+    );
+}
+
+#[test]
+fn every_hero_the_card_offers_has_an_entry_a_placement_can_draw() {
+    let s = compose_raw(&make_raw());
+    for hero in &s.summary_heroes {
+        assert!(s.summary_metrics.iter().any(|e| &e.id == hero), "{hero}");
+    }
+}

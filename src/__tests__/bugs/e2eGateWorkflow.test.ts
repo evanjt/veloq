@@ -204,6 +204,8 @@ describe('the map suite path filter', () => {
     'modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs',
     'modules/veloqrs/android/src/main/java/com/veloq/VeloqTileWebViewClient.java',
     'modules/veloqrs/android/src/main/java/com/veloq/TileBridge.java',
+    'modules/veloqrs/android/src/main/java/com/veloq/TileIntercept.java',
+    'modules/veloqrs/android/src/main/java/com/veloq/PendingTile.java',
   ];
 
   it.each(MAP_SURFACES)('runs the map suite for a change to %s', (file) => {

@@ -63,6 +63,12 @@ export interface RecordingNotificationPayload {
   traceColor: string;
   /** Flat lat,lng pairs, decimated to at most `TRACE_POINT_CAP` points. */
   trace: number[];
+  /**
+   * What the rider is told if Android kills the process mid-ride. The location
+   * service cannot come back from the background and no JavaScript runs at that
+   * restart, so the native side keeps these words and posts them itself.
+   */
+  interrupted: { channel: string; title: string; body: string };
 }
 
 interface VeloqRecordingNotificationModule {
@@ -80,6 +86,8 @@ interface VeloqRecordingNotificationModule {
   drainPendingActions(): string[];
   /** Whether expo-location's foreground service is in Android's running list. */
   serviceRunning(): boolean;
+  /** Take down the notice that a ride stopped when its process died. */
+  clearInterrupted(): void;
 }
 
 const VeloqRecordingNotification = requireOptionalNativeModule<VeloqRecordingNotificationModule>(
@@ -177,6 +185,14 @@ export function buildRecordingNotificationPayload(
     accentColor: brand.teal,
     traceColor: colors.textOnPrimary,
     trace: decimateTrace(streams.latlng),
+    interrupted: {
+      channel: translate('recording.interruptedNotice.channel', 'Interrupted recordings'),
+      title: translate('recording.interruptedNotice.title', 'Recording stopped'),
+      body: translate(
+        'recording.interruptedNotice.body',
+        'Veloq was closed during your activity, so it stopped recording. Tap to resume.'
+      ),
+    },
   };
 }
 
@@ -261,6 +277,20 @@ export function clearRecordingNotification(): void {
     VeloqRecordingNotification.clear();
   } catch (e) {
     log.warn('clearRecordingNotification failed:', e);
+  }
+}
+
+/**
+ * Take down the notice Android posted when a ride's process died. A ride that
+ * records again takes it down natively; this is for one the rider has settled
+ * another way.
+ */
+export function clearInterruptedRecordingNotice(): void {
+  if (!VeloqRecordingNotification?.clearInterrupted) return;
+  try {
+    VeloqRecordingNotification.clearInterrupted();
+  } catch (e) {
+    log.warn('clearInterruptedRecordingNotice failed:', e);
   }
 }
 

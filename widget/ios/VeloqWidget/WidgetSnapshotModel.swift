@@ -231,6 +231,9 @@ struct WidgetSnapshot: Codable {
   /// One entry for every metric the summary card can show, which a placement picks its own hero
   /// and supporting row from. Nil on a snapshot written before schema 12.
   let summaryMetrics: [WidgetSummaryEntry]?
+  /// The metrics the card offers as its hero, in its picker's order. Nil on a snapshot written
+  /// before the list.
+  let summaryHeroes: [String]?
   let display: WidgetDisplay
   let theme: WidgetThemeData
   /// Recent sports capped at what a launcher shows, most recent first,
