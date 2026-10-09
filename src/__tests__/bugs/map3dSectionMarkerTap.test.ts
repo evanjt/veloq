@@ -26,6 +26,8 @@ function runPage(hitsByLayer: Record<string, Hit[]>) {
     once: register,
     addSource: () => {},
     addLayer: () => {},
+    hasImage: () => false,
+    addImage: () => {},
     getSource: () => undefined,
     getLayer: () => ({}),
     getStyle: () => ({ layers: [] }),

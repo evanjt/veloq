@@ -542,16 +542,21 @@ const RULES = {
     pathspec: LAYER_SCRIPTS,
     check(sources) {
       const out = named(sources, LAYER_SCRIPTS);
+      let labelled = 0;
       for (const file of LAYER_SCRIPTS) {
         const text = sources.get(file);
         if (text === undefined) continue;
         const fields = text.split("'text-field'").length - 1;
         const fonts = text.split("'text-font'").length - 1;
-        if (fields === 0) out.push(`${file}  has no text-field for this rule to read`);
-        else if (fonts !== fields) {
+        labelled += fields;
+        if (fonts !== fields) {
           out.push(`${file}  names ${fields} text-field and ${fonts} text-font`);
         }
       }
+      // A script may draw only icons, but a set with no label at all means the
+      // labels moved somewhere this rule does not read.
+      if (labelled === 0)
+        out.push(`${LAYER_SCRIPTS.join(', ')}  have no text-field for this rule to read`);
       return out;
     },
     fix: "give every 'text-field' a 'text-font' from BUNDLED_GLYPH_STACKS in the same layout",

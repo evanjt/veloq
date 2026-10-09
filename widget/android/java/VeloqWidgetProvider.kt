@@ -15,8 +15,8 @@ import com.veloq.WidgetDataRefreshWorker
  * the VeloqWidget native module broadcasts an update when a fresh snapshot lands. One provider
  * serves all sizes; the renderer picks a layout by cell size.
  *
- * Which hero a placed instance leads with is chosen once, on the configure screen, and kept per
- * widget id by [SummaryWidgetChoice]. The card opens Fitness; its refresh control queues native work.
+ * A placed instance's hero, sparkline and supporting row are chosen on the configure screen and
+ * kept per widget id by [SummaryWidgetChoice]. The card opens Fitness; its refresh control queues native work.
  *
  * While one is placed, [WidgetAgeRefreshWorker] redraws it every 15 minutes so the age line stays
  * true. It is scheduled on every update as well as on first placement, because a widget placed
@@ -76,7 +76,7 @@ class VeloqWidgetProvider : AppWidgetProvider() {
     val w = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
     val h = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
     manager.updateAppWidget(
-      id, WidgetRenderer.render(context, snap, w, h, SummaryWidgetChoice.heroFor(context, id), id))
+      id, WidgetRenderer.render(context, snap, w, h, SummaryWidgetChoice.placementFor(context, id), id))
   }
 
   companion object {

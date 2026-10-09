@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "室内，无需 GPS",
     "entryManualCaption": "手动记录，开始将打开表单",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "室内"
+    "fieldModeIndoor": "室内",
+    "interruptedNotice": {
+      "body": "系统在你的活动期间关闭了 Veloq，录制因此停止。轻点以恢复。",
+      "channel": "已中断的录制",
+      "title": "录制已停止"
+    }
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"

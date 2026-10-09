@@ -1,0 +1,9 @@
+# Passes only on the feed of a signed-in library. Asserted rather than taken
+# as the fallback of the demo probe, so a probe that failed for another reason
+# fails the entry instead of naming the wrong library.
+appId: com.veloq.app.dev
+---
+- assertVisible:
+    id: "home-screen"
+- assertNotVisible:
+    id: "demo-mode-banner"

@@ -56,7 +56,7 @@ if (apk) {
     console.error('Build it again with `npm run android:debug`.');
     process.exit(1);
   }
-  refuseStub(apk, text, Buffer.byteLength(text));
+  refuseStub(apk, text, Buffer.byteLength(text), builtFrom(apk));
   process.exit(0);
 }
 
@@ -81,7 +81,7 @@ if (newest === null) {
 // metro reuses the router entry it transformed for the other checkout, and the
 // app root baked into it matches nothing here. It is newer than every source
 // file, so the staleness check above cannot see it.
-refuseStub(BUNDLE, readSafe(join(root, BUNDLE)), bundle.size);
+refuseStub(BUNDLE, readSafe(join(root, BUNDLE)), bundle.size, null);
 
 if (bundle.mtimeMs < newest.at) {
   console.error(`${BUNDLE} is older than the code it is meant to carry.`);
@@ -99,14 +99,54 @@ if (bundle.mtimeMs < newest.at) {
 }
 
 /**
+ * The commit an APK's stamp names, without a dirty tree's `+` suffix, or null
+ * when it carries none.
+ */
+function builtFrom(path) {
+  try {
+    const config = execFileSync('unzip', ['-p', path, 'assets/app.config'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const stamp = JSON.parse(config).extra?.buildCommit;
+    if (typeof stamp !== 'string') return null;
+    return stamp.split('+')[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The locale's text and where it came from. A build cut from an older commit
+ * carries that commit's strings, so it is judged against them, and the working
+ * tree stands in only when the commit is unknown or not in this repository.
+ */
+function localeAt(commit) {
+  if (commit) {
+    try {
+      const text = execFileSync('git', ['show', `${commit}:${LOCALE}`], {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return { text, source: `${LOCALE} at ${commit}` };
+    } catch {
+      // Not a commit this repository holds: the working tree is the best guess.
+    }
+  }
+  return { text: readSafe(join(root, LOCALE)), source: `${LOCALE} in the working tree` };
+}
+
+/**
  * Phrases the shipped locale file carries, long enough that a bundle holding
- * them is holding the app. Reading them out of the tree rather than naming
+ * them is holding the app. Reading them out of the locale rather than naming
  * them here keeps the check alive through a rename.
  */
-function probePhrases(path) {
+function probePhrases(text) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, 'utf8'));
+    parsed = JSON.parse(text);
   } catch {
     return [];
   }
@@ -133,13 +173,16 @@ function readSafe(path) {
 }
 
 /** Exits 1 naming the phrases a bundle lacks, unless it carries the app. */
-function refuseStub(label, text, size) {
-  const probes = probePhrases(join(root, LOCALE));
+function refuseStub(label, text, size, commit) {
+  const locale = localeAt(commit);
+  const probes = probePhrases(locale.text);
   if (probes.length !== PROBES || text === null) return;
   const missing = probes.filter((phrase) => !text.includes(phrase));
   if (missing.length === 0) return;
   console.error(`${label} does not carry the app.`);
-  console.error(`  ${missing.length} of ${PROBES} phrases from ${LOCALE} are missing from it:`);
+  console.error(
+    `  ${missing.length} of ${PROBES} phrases from ${locale.source} are missing from it:`
+  );
   for (const phrase of missing) console.error(`    ${phrase}`);
   console.error(`  bundle  ${(size / 1e6).toFixed(1)} MB`);
   console.error('');

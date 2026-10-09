@@ -396,6 +396,56 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       ],
       _routeId: 'route-valais-ride-2',
     },
+    // demo-test-8: 9 days ago, three laps of the rio loop other runs cover.
+    // Its sections are crossed once per lap, so the section screen lists its
+    // laps and one can be excluded.
+    {
+      id: 'demo-test-8',
+      start_date_local: (() => {
+        const d = new Date(referenceDate);
+        d.setDate(d.getDate() - 9);
+        d.setHours(7, 0, 0, 0);
+        return formatLocalISOString(d);
+      })(),
+      type: 'Run',
+      name: 'Rio Loop Laps',
+      description: 'Three laps of the beach loop.',
+      distance: 8600,
+      moving_time: 3300,
+      elapsed_time: 3420,
+      total_elevation_gain: 45,
+      total_elevation_loss: 45,
+      average_speed: 2.61,
+      max_speed: 3.6,
+      average_heartrate: 150,
+      max_heartrate: 172,
+      average_cadence: 84,
+      average_temp: 24,
+      calories: 610,
+      device_name: 'Demo Device',
+      trainer: false,
+      commute: false,
+      icu_average_watts: null,
+      icu_weighted_avg_watts: null,
+      icu_training_load: 60,
+      icu_intensity: 78,
+      icu_ftp: 250,
+      icu_atl: 41,
+      icu_ctl: 38,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: null,
+      stream_types: [
+        'time',
+        'latlng',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'velocity_smooth',
+        'grade_smooth',
+      ],
+      _routeId: 'route-rio-run-3-laps',
+    },
   ];
 
   return stableActivities;

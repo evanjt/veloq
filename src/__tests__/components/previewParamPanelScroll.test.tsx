@@ -107,4 +107,16 @@ describe('the parameter panel on a short screen', () => {
       expect(slider.props.disabled).toBeFalsy();
     }
   });
+
+  it('gives each slider a stable selector for drag checks', () => {
+    const { tree } = panel();
+
+    expect(tree.UNSAFE_getAllByType(Slider).map((slider) => slider.props.testID)).toEqual([
+      'param-slider-proximityThreshold',
+      'param-slider-minSectionLength',
+      'param-slider-maxSectionLength',
+      'param-slider-minActivities',
+      'param-slider-divergenceThreshold',
+    ]);
+  });
 });

@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "Indendørs, ingen GPS nødvendig",
     "entryManualCaption": "Manuel registrering, Start åbner formularen",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Indendørs"
+    "fieldModeIndoor": "Indendørs",
+    "interruptedNotice": {
+      "body": "Systemet lukkede Veloq under din aktivitet, så optagelsen stoppede. Tryk for at genoptage.",
+      "channel": "Afbrudte optagelser",
+      "title": "Optagelsen stoppede"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"

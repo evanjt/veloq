@@ -8,14 +8,13 @@ import WidgetKit
 // locally without any app round-trip. Refresh stays push-driven from the app, which sidesteps
 // the iOS 17 AppIntentTimelineProvider staleness bug.
 
+/// The card itself, then the heroes the app's summary card offers, in its picker's order.
 @available(iOS 17.0, *)
 enum WidgetMetric: String, AppEnum {
   case summary
-  case form
   case fitness
-  case fatigue
+  case form
   case hrv
-  case rhr
 
   static var typeDisplayRepresentation: TypeDisplayRepresentation {
     TypeDisplayRepresentation(name: "Metric")
@@ -24,11 +23,9 @@ enum WidgetMetric: String, AppEnum {
   static var caseDisplayRepresentations: [WidgetMetric: DisplayRepresentation] {
     [
       .summary: DisplayRepresentation(title: "Summary Card"),
-      .form: DisplayRepresentation(title: "Form"),
       .fitness: DisplayRepresentation(title: "Fitness"),
-      .fatigue: DisplayRepresentation(title: "Fatigue"),
+      .form: DisplayRepresentation(title: "Form"),
       .hrv: DisplayRepresentation(title: "HRV"),
-      .rhr: DisplayRepresentation(title: "RHR"),
     ]
   }
 }

@@ -156,6 +156,9 @@ mod transport_pool_sharing;
 #[path = "../visit_count_invariant.rs"]
 mod visit_count_invariant;
 
+#[path = "../basemap_cold_miss.rs"]
+mod basemap_cold_miss;
+
 #[path = "../basemap_not_found.rs"]
 mod basemap_not_found;
 

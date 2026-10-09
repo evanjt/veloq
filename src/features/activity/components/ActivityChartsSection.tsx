@@ -104,6 +104,8 @@ interface ActivityChartsSectionProps {
   newGround?: ActivityNewGround | undefined;
   /** The engine-resolved zone bands and time in each, from the detail screen read */
   hrZones?: HrZoneBand[] | undefined;
+  /** The screen's opening transition has ended, so the content below the top chart may mount */
+  transitionSettled: boolean;
   onPointSelect: (index: number | null) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   onExportGpx: () => void;
@@ -133,6 +135,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   fitnessImpact,
   newGround,
   hrZones,
+  transitionSettled,
   onPointSelect,
   onInteractionChange,
   onExportGpx,
@@ -150,6 +153,16 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
   const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
   const [intervalsExpanded, setIntervalsExpanded] = useState(false);
+  const [belowFoldMounted, setBelowFoldMounted] = useState(false);
+
+  // The stat cards and everything under them sit below the first screen. They
+  // mount a frame after the transition settles and after this tab's own first
+  // commit, so neither the opening tap's frame nor a late-mounting tab carries them.
+  React.useEffect(() => {
+    if (belowFoldMounted || !transitionSettled) return undefined;
+    const frame = requestAnimationFrame(() => setBelowFoldMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, [belowFoldMounted, transitionSettled]);
 
   // Get available chart types based on stream data
   const availableCharts = useMemo(() => {
@@ -434,114 +447,120 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
           </View>
         )}
 
-        {/* Insightful Stats */}
-        <ComponentErrorBoundary componentName="Activity Stats">
-          <InsightfulStats
-            activity={activity}
-            wellness={activityWellness}
-            maxHR={maxHR}
-            fitnessImpact={fitnessImpact}
-            newGround={newGround}
-          />
-        </ComponentErrorBoundary>
+        {belowFoldMounted && (
+          <>
+            {/* Insightful Stats */}
+            <ComponentErrorBoundary componentName="Activity Stats">
+              <InsightfulStats
+                activity={activity}
+                wellness={activityWellness}
+                maxHR={maxHR}
+                fitnessImpact={fitnessImpact}
+                newGround={newGround}
+              />
+            </ComponentErrorBoundary>
 
-        {/* Export GPX button */}
-        {coordinates.length > 0 && (
-          <Button
-            testID="activity-export-gpx"
-            style={styles.exportGpxButton}
-            onPress={onExportGpx}
-            loading={gpxExporting}
-            label={t('export.gpx')}
-            icon={<MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />}
-          />
+            {/* Export GPX button */}
+            {coordinates.length > 0 && (
+              <Button
+                testID="activity-export-gpx"
+                style={styles.exportGpxButton}
+                onPress={onExportGpx}
+                loading={gpxExporting}
+                label={t('export.gpx')}
+                icon={
+                  <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
+                }
+              />
+            )}
+
+            {/* Device attribution */}
+            {activity.device_name && (
+              <View style={styles.deviceAttributionContainer}>
+                <DeviceAttribution deviceName={activity.device_name} />
+              </View>
+            )}
+
+            {debugEnabled &&
+              activity &&
+              (() => {
+                const pageMetrics = getPageMetrics();
+                const ffiEntries =
+                  pageMetrics.length > 0
+                    ? pageMetrics.reduce<
+                        Record<string, { calls: number; totalMs: number; maxMs: number }>
+                      >((acc, m) => {
+                        if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                        acc[m.name].calls++;
+                        acc[m.name].totalMs += m.durationMs;
+                        acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                        return acc;
+                      }, {})
+                    : {};
+                const warnings: {
+                  level: 'warn' | 'error';
+                  message: string;
+                }[] = [];
+                if (streams?.latlng && streams.latlng.length > 2000) {
+                  warnings.push({
+                    level: 'warn',
+                    message: `Polyline points: ${streams.latlng.length}`,
+                  });
+                }
+                for (const [name, m] of Object.entries(ffiEntries)) {
+                  if (m.maxMs > 200) {
+                    warnings.push({
+                      level: 'error',
+                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                    });
+                  }
+                }
+                return (
+                  <>
+                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                    <DebugInfoPanel
+                      isDark={isDark}
+                      entries={[
+                        {
+                          label: 'Activity ID',
+                          value: activityId?.slice(0, 24) ?? '-',
+                        },
+                        { label: 'Sport', value: activity.type ?? '-' },
+                        {
+                          label: 'GPS Points',
+                          value: streams?.latlng ? String(streams.latlng.length) : '-',
+                        },
+                        {
+                          label: 'HR Samples',
+                          value: streams?.heartrate ? String(streams.heartrate.length) : '-',
+                        },
+                        {
+                          label: 'Power Samples',
+                          value: streams?.watts ? String(streams.watts.length) : '-',
+                        },
+                        {
+                          label: 'Cadence Samples',
+                          value: streams?.cadence ? String(streams.cadence.length) : '-',
+                        },
+                        {
+                          label: 'Sections Matched',
+                          value: String(engineSectionCount),
+                        },
+                        {
+                          label: 'Custom Sections',
+                          value: String(customSectionCount),
+                        },
+                        ...Object.entries(ffiEntries).map(([name, m]) => ({
+                          label: name,
+                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                        })),
+                      ]}
+                    />
+                  </>
+                );
+              })()}
+          </>
         )}
-
-        {/* Device attribution */}
-        {activity.device_name && (
-          <View style={styles.deviceAttributionContainer}>
-            <DeviceAttribution deviceName={activity.device_name} />
-          </View>
-        )}
-
-        {debugEnabled &&
-          activity &&
-          (() => {
-            const pageMetrics = getPageMetrics();
-            const ffiEntries =
-              pageMetrics.length > 0
-                ? pageMetrics.reduce<
-                    Record<string, { calls: number; totalMs: number; maxMs: number }>
-                  >((acc, m) => {
-                    if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                    acc[m.name].calls++;
-                    acc[m.name].totalMs += m.durationMs;
-                    acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                    return acc;
-                  }, {})
-                : {};
-            const warnings: {
-              level: 'warn' | 'error';
-              message: string;
-            }[] = [];
-            if (streams?.latlng && streams.latlng.length > 2000) {
-              warnings.push({
-                level: 'warn',
-                message: `Polyline points: ${streams.latlng.length}`,
-              });
-            }
-            for (const [name, m] of Object.entries(ffiEntries)) {
-              if (m.maxMs > 200) {
-                warnings.push({
-                  level: 'error',
-                  message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
-                });
-              }
-            }
-            return (
-              <>
-                {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                <DebugInfoPanel
-                  isDark={isDark}
-                  entries={[
-                    {
-                      label: 'Activity ID',
-                      value: activityId?.slice(0, 24) ?? '-',
-                    },
-                    { label: 'Sport', value: activity.type ?? '-' },
-                    {
-                      label: 'GPS Points',
-                      value: streams?.latlng ? String(streams.latlng.length) : '-',
-                    },
-                    {
-                      label: 'HR Samples',
-                      value: streams?.heartrate ? String(streams.heartrate.length) : '-',
-                    },
-                    {
-                      label: 'Power Samples',
-                      value: streams?.watts ? String(streams.watts.length) : '-',
-                    },
-                    {
-                      label: 'Cadence Samples',
-                      value: streams?.cadence ? String(streams.cadence.length) : '-',
-                    },
-                    {
-                      label: 'Sections Matched',
-                      value: String(engineSectionCount),
-                    },
-                    {
-                      label: 'Custom Sections',
-                      value: String(customSectionCount),
-                    },
-                    ...Object.entries(ffiEntries).map(([name, m]) => ({
-                      label: name,
-                      value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                    })),
-                  ]}
-                />
-              </>
-            );
-          })()}
       </ScrollView>
 
       {/* Fullscreen Chart Modal - Landscape */}

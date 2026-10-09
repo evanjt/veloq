@@ -71,7 +71,13 @@ const activity = {
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
 
+afterEach(() => jest.restoreAllMocks());
+
 it('gives the zones chart and the stat card the one max HR the screen read resolved', () => {
+  jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+    callback(0);
+    return 1;
+  });
   render(
     <ActivityChartsSection
       activity={activity}
@@ -89,6 +95,7 @@ it('gives the zones chart and the stat card the one max HR the screen read resol
       engineSectionCount={0}
       customSectionCount={0}
       maxHR={185}
+      transitionSettled
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}

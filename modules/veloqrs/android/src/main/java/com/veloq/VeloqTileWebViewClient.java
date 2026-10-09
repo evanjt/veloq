@@ -11,13 +11,13 @@ import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 /**
  * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
- * fetch and keep the tile when the store does not have it. Serves the sprite
- * and glyphs out of the app's assets.
+ * fetch and keep the tile when the store does not have it, answering the page
+ * at once with a body that follows. Serves the sprite and glyphs out of the
+ * app's assets.
  *
  * <p>Android calls this on a background thread with no JavaScript context, so
  * the only route into Rust is {@link TileBridge}, which this module owns.
@@ -29,49 +29,7 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
   private static final String TILE_PATH = "/veloq-tile/";
   private static final String ASSET_PATH = "/veloq-asset/";
 
-  /**
-   * What the bytes are, from the extension the page asked for.
-   *
-   * Never from the source name. The page passes the style's own source key,
-   * `openmaptiles`, `ne2_shaded` and the satellite ids, and none of them
-   * begins with the `vector` or `terrain` prefix a name match needed, so every
-   * tile including the vector basemap was answered as imagery.
-   *
-   * The fallback is imagery because that is what a template naming no
-   * extension is: several satellite hosts carry z/x/y in query parameters and
-   * end in no path extension at all, while the vector source always names
-   * `pbf`.
-   */
-  private static String mimeFor(String extension) {
-    switch (extension) {
-      case "pbf":
-      case "mvt":
-        return "application/x-protobuf";
-      case "png":
-        return "image/png";
-      case "webp":
-        return "image/webp";
-      case "jpg":
-      case "jpeg":
-        return "image/jpeg";
-      default:
-        return "image/jpeg";
-    }
-  }
-
-  /** The reason phrase for a status the store can answer without a tile. */
-  private static String reasonFor(int status) {
-    switch (status) {
-      case 404:
-        return "No Tile";
-      case 429:
-        return "Too Many Requests";
-      case 503:
-        return "Service Unavailable";
-      default:
-        return "Bad Gateway";
-    }
-  }
+  private static final TileIntercept TILES = new TileIntercept(TileBridge::answer);
 
   private static WebResourceResponse empty(int status, String reason, Map<String, String> headers) {
     return new WebResourceResponse("image/jpeg", null, status, reason, headers,
@@ -108,7 +66,7 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
     byte[] bytes = TileBridge.getGlyph(request[0], request[1], status);
     if (bytes == null || bytes.length == 0) {
       int code = status[0] == 200 ? 404 : status[0];
-      return empty(code, reasonFor(code), headers);
+      return empty(code, TileIntercept.reasonFor(code), headers);
     }
     return new WebResourceResponse("application/x-protobuf", null, 200, "OK", headers,
         new ByteArrayInputStream(bytes));
@@ -133,35 +91,9 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
     headers.put("Cache-Control", "no-store");
 
     try {
-      String rest = url.substring(at + TILE_PATH.length());
-      int q = rest.indexOf('?');
-      if (q >= 0) rest = rest.substring(0, q);
-      // <source>/<z>/<x>/<y>[.ext]
-      String[] parts = rest.split("/");
-      if (parts.length != 4) return empty(400, "Bad Tile Path", headers);
-      String source = parts[0];
-      String extension = "";
-      int dot = parts[3].indexOf('.');
-      if (dot >= 0) {
-        extension = parts[3].substring(dot + 1).toLowerCase(Locale.ROOT);
-        parts[3] = parts[3].substring(0, dot);
-      }
-      int z = Integer.parseInt(parts[1]);
-      int x = Integer.parseInt(parts[2]);
-      int y = Integer.parseInt(parts[3]);
-
-      // What Rust says the page is to be told. A 429 or a 503 is the tile host
-      // asking to be left alone, and the page's throttle backoff counts only
-      // those, so they cross as themselves. It starts at 502 so a native call
-      // that returns without writing it reads as a failure, not a refusal.
-      int[] status = {502};
-      byte[] bytes = TileBridge.getOrFetch(source, z, x, y, status);
-      if (bytes == null || bytes.length == 0) {
-        int code = status[0] == 200 ? 404 : status[0];
-        return empty(code, reasonFor(code), headers);
-      }
-      return new WebResourceResponse(mimeFor(extension), null, 200, "OK", headers,
-          new ByteArrayInputStream(bytes));
+      TileIntercept.Answer answer = TILES.answer(url.substring(at + TILE_PATH.length()));
+      return new WebResourceResponse(answer.mime, null, answer.status, answer.reason, headers,
+          answer.body);
     } catch (Throwable t) {
       Log.w(TAG, "tile intercept failed for " + url, t);
       return empty(500, "Tile Error", headers);

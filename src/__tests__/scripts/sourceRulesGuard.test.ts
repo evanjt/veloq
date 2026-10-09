@@ -372,10 +372,23 @@ describe('glyph-stacks', () => {
     expect(output).toContain('map3D.ts  names 2 text-field and 1 text-font');
   });
 
-  it('fails a script that no longer labels anything, so the rule reads nothing', () => {
+  it('passes a script that draws only icons', () => {
     const root = fixture({ ...SCRIPTS, 'src/features/maps/lib/htmlBuilders/map3D.ts': '\n' });
 
-    expect(runRule('glyph-stacks', root).output).toContain('has no text-field');
+    expect(runRule('glyph-stacks', root).status).toBe(0);
+  });
+
+  it('fails when no script labels anything, so the rule reads nothing', () => {
+    const root = fixture({
+      'src/features/maps/components/Map3DWebView.tsx': '\n',
+      'src/features/maps/lib/htmlBuilders/map3DScripts.ts': '\n',
+      'src/features/maps/lib/htmlBuilders/map3D.ts': '\n',
+    });
+
+    const { status, output } = runRule('glyph-stacks', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('have no text-field');
   });
 });
 

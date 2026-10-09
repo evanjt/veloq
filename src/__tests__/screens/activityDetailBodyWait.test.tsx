@@ -27,6 +27,9 @@ jest.mock('expo-router', () => ({
     },
   }),
 }));
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: () => {},
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
   ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {

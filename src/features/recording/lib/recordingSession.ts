@@ -19,7 +19,7 @@ import {
 } from './recordingNotification';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { buildAutoPauseDetector, evaluateAutoPause, setAutoPauseDetector } from './manualPause';
-import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBackup';
+import { writeRideBackup } from './rideBackup';
 import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS, SERVICE_WATCH_MS } from './constants';
 import {
   beginLiveActivity,
@@ -219,7 +219,11 @@ function backgroundNotification() {
 async function handleAppStateChange(next: AppStateStatus): Promise<void> {
   const previous = appState;
   appState = next;
-  if (!running || useRecordingStore.getState().mode !== 'gps') return;
+  if (!running) return;
+  // The backup timer stops with the screen, so the ride goes to disk on the way
+  // out and the background batches carry it from there.
+  if (previous === 'active' && next.match(/inactive|background/)) writeBackup();
+  if (useRecordingStore.getState().mode !== 'gps') return;
 
   if (previous === 'active' && next.match(/inactive|background/)) {
     // The service is already running, so leaving only drops the watch that
@@ -234,16 +238,13 @@ async function handleAppStateChange(next: AppStateStatus): Promise<void> {
 }
 
 function writeBackup(): void {
-  const backup = buildRecordingBackup({
-    ...useRecordingStore.getState(),
-    autoPaused: useRecordingLiveStore.getState().autoPaused,
-  });
-  if (backup) saveRecordingBackup(backup);
+  void writeRideBackup();
 }
 
 /**
  * Crash-recovery backups. Written on every status transition and on each lap,
  * plus periodically while recording, so a kill loses at most one interval.
+ * JS timers pause in the background, where each location batch writes instead.
  * The stopped-state backup is written by the stop handler; clearing happens
  * only on discard or once the recording is safely persisted.
  */

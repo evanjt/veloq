@@ -29,6 +29,12 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'act-1' }),
   router: { back: jest.fn(), push: jest.fn() },
 }));
+let mockTransitionTask: (() => void) | null = null;
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: (task: () => void) => {
+    mockTransitionTask = task;
+  },
+}));
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -232,10 +238,15 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
 }));
 
 let capturedOnPointSelect: ((index: number | null) => void) | null = null;
+let capturedTransitionSettled: boolean | null = null;
 let capturedSectionEncounters: { sectionId: string; direction: string }[] = [];
 jest.mock('@/features/activity/components/ActivityChartsSection', () => ({
-  ActivityChartsSection: (props: { onPointSelect: (index: number | null) => void }) => {
+  ActivityChartsSection: (props: {
+    onPointSelect: (index: number | null) => void;
+    transitionSettled: boolean;
+  }) => {
     capturedOnPointSelect = props.onPointSelect;
+    capturedTransitionSettled = props.transitionSettled;
     return null;
   },
 }));
@@ -271,6 +282,8 @@ describe('activity detail screen', () => {
     capturedHeaderProps = {};
     mockRouteMatchingOn = true;
     capturedOnPointSelect = null;
+    capturedTransitionSettled = null;
+    mockTransitionTask = null;
     mockUseSectionOverlays.mockReset();
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
     mockDetail.encounters = [];
@@ -288,6 +301,15 @@ describe('activity detail screen', () => {
     view.rerender(<ActivityDetailScreen />);
     await act(async () => {});
     expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record');
+  });
+
+  it('hands the charts the opening transition the route read before its content mounted', async () => {
+    render(<ActivityDetailScreen />);
+    await act(async () => {});
+    expect(capturedTransitionSettled).toBe(false);
+
+    await act(async () => mockTransitionTask?.());
+    expect(capturedTransitionSettled).toBe(true);
   });
 
   it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {

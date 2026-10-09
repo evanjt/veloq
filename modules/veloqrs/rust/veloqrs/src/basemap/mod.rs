@@ -29,6 +29,7 @@ mod jni;
 mod notfound;
 mod preseed;
 mod store;
+mod throttle;
 
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use preseed::{
@@ -43,7 +44,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The one store for the process, once TypeScript has said where it lives.
 ///
@@ -467,18 +468,11 @@ pub fn page_status(error: &TileFetchError) -> u16 {
 }
 
 /// One tile's bytes for whatever source the page named, or the status to
-/// answer the page with when there are none. The two entry points, JNI and C,
-/// share this so they differ only in how the answer crosses.
-///
-/// The heatmap is drawn here rather than fetched from a host, so it is not a
-/// basemap source and has no template: a miss means the pass has not reached
-/// that tile, which is a 404.
+/// answer the page with when there are none, with a miss fetched on the
+/// caller's thread. The C entry point uses this, since its handler already
+/// runs off the main thread on a queue of its own.
 pub(crate) fn tile_bytes(source: &str, z: u8, x: u32, y: u32) -> Result<Vec<u8>, u16> {
-    if source == HEATMAP_SOURCE {
-        crate::persistence::tiles::heatmap_tile_bytes(z, x, y).ok_or(NO_TILE)
-    } else {
-        fetch_tile(source, z, x, y)
-    }
+    fetch_tile(source, z, x, y)
 }
 
 /// Keep a tile fetched under `template`, unless a refresh has since moved the
@@ -510,13 +504,58 @@ pub fn get_or_fetch(source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
 }
 
 /// One tile's bytes, from the store if it is there and from the tile host if
-/// it is not, or the status the page is to be answered with.
+/// it is not, or the status the page is to be answered with. A miss is
+/// fetched on the caller's thread.
 ///
 /// This is the whole point of the store being Rust's: the page asks for a
 /// tile and never learns whether it was on disk, so cache-first, fetch-on-miss
 /// and eviction stay in one place instead of being split across a WebView's
 /// per-origin storage.
 pub fn fetch_tile(source: &str, z: u8, x: u32, y: u32) -> Result<Vec<u8>, u16> {
+    match lookup_tile(source, z, x, y) {
+        TileLookup::Ready(bytes) => Ok(bytes),
+        TileLookup::Refused(status) => Err(status),
+        TileLookup::Miss(miss) => crate::runtime::block_on(miss.fetch()),
+    }
+}
+
+/// What can be said about a tile without asking its host.
+pub enum TileLookup {
+    /// The bytes are in hand: from the store, the bundled floor or the
+    /// heatmap.
+    Ready(Vec<u8>),
+    /// There is no tile, and this is the status the page is answered with.
+    Refused(u16),
+    /// The host is to be asked.
+    Miss(TileMiss),
+}
+
+/// One tile the host is to be asked for, with everything asking it needs.
+pub struct TileMiss {
+    store: Arc<TileStore>,
+    source: String,
+    template: String,
+    url: String,
+    z: u8,
+    x: u32,
+    y: u32,
+}
+
+/// Answer a tile from what is already held, and say when the host has to be
+/// asked. Only reads: the store, the bundled floor, the ground the host has
+/// refused and a host that asked to be left alone. A source naming a TileJSON
+/// may still fetch that document here, once a day.
+pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
+    // The heatmap is drawn here rather than fetched from a host, so it is not a
+    // basemap source and has no template: a miss means the pass has not
+    // reached that tile, which is a 404.
+    if source == HEATMAP_SOURCE {
+        return match crate::persistence::tiles::heatmap_tile_bytes(z, x, y) {
+            Some(bytes) => TileLookup::Ready(bytes),
+            None => TileLookup::Refused(NO_TILE),
+        };
+    }
+
     // The allowlist first, and before the store is touched. The WebView passes
     // whatever source name the page asked for, so a read came first and the
     // store admitted the name: it joined it onto the tile root, read an
@@ -525,26 +564,34 @@ pub fn fetch_tile(source: &str, z: u8, x: u32, y: u32) -> Result<Vec<u8>, u16> {
     // The bundled floor needs neither a template nor a store: it is a fixed
     // set of names, so answering from it admits nothing the page chose.
     let floor = bundled::tile(source, z, x, y);
+    let held_or_floor = |floor: Option<&[u8]>| match floor {
+        Some(bytes) => TileLookup::Ready(bytes.to_vec()),
+        None => TileLookup::Refused(NO_TILE),
+    };
     if template_for(source).is_none() {
-        return floor.map(<[u8]>::to_vec).ok_or(NO_TILE);
+        return held_or_floor(floor);
     }
 
     let Some(store) = store() else {
-        return floor.map(<[u8]>::to_vec).ok_or(NO_TILE);
+        return held_or_floor(floor);
     };
     if let Some(bytes) = store.get(source, z, x, y) {
-        return Ok(bytes);
+        return TileLookup::Ready(bytes);
     }
     // Under the store and over the network, and never written back.
     if let Some(bytes) = floor {
-        return Ok(bytes.to_vec());
+        return TileLookup::Ready(bytes.to_vec());
     }
 
     // Ground this source's host has already refused, for this tile or for one
     // it sits under. Asking again cannot produce a tile, and near a border it
     // is most of what a pan asks for.
     if notfound::is_refused(source, z, x, y) {
-        return Err(NO_TILE);
+        return TileLookup::Refused(NO_TILE);
+    }
+
+    if let Some(status) = throttle::holding(source, Instant::now()) {
+        return TileLookup::Refused(status);
     }
 
     // A source that names a TileJSON is resolved here rather than at style
@@ -552,51 +599,93 @@ pub fn fetch_tile(source: &str, z: u8, x: u32, y: u32) -> Result<Vec<u8>, u16> {
     // that document. Resolved and kept, so the miss below is the only request
     // a tile costs until the template is due a refresh. With no template at
     // all the TileJSON could not be fetched, which is the host failing.
-    let template = resolve_template(source)?;
+    let template = match resolve_template(source) {
+        Ok(template) => template,
+        Err(status) => {
+            throttle::remember(source, status, Instant::now());
+            return TileLookup::Refused(status);
+        }
+    };
 
-    let url = fill_template(&template, z, x, y);
+    TileLookup::Miss(TileMiss {
+        store,
+        source: source.to_string(),
+        url: fill_template(&template, z, x, y),
+        template,
+        z,
+        x,
+        y,
+    })
+}
 
-    let fetcher = INTERACTIVE.as_ref().ok_or(UPSTREAM_FAILED)?;
-    let bytes = match crate::runtime::block_on(fetcher.fetch(&url)) {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            if matches!(e, TileFetchError::Rejected { status: 404 }) {
-                notfound::remember_refused(source, z, x, y);
+impl TileMiss {
+    /// Ask the host, and keep what it sends. A 404 is remembered as refused
+    /// ground, and a 429 or a 503 holds the source's next misses.
+    pub async fn fetch(self) -> Result<Vec<u8>, u16> {
+        let Self {
+            store,
+            source,
+            template,
+            url,
+            z,
+            x,
+            y,
+        } = self;
+        let fetcher = INTERACTIVE.as_ref().ok_or(UPSTREAM_FAILED)?;
+        let bytes = match fetcher.fetch(&url).await {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                if matches!(e, TileFetchError::Rejected { status: 404 }) {
+                    notfound::remember_refused(&source, z, x, y);
+                }
+                log::warn!(
+                    "[basemap] {} {}/{}/{} did not fetch: {}",
+                    source,
+                    z,
+                    x,
+                    y,
+                    e
+                );
+                let status = page_status(&e);
+                throttle::remember(&source, status, Instant::now());
+                return Err(status);
             }
+        };
+
+        store.record_fetch(&source);
+        if let Err(e) = store_fetched(
+            &store,
+            &source,
+            &template,
+            z,
+            x,
+            y,
+            &extension_of(&url),
+            &bytes,
+        ) {
+            // The tile is still good to draw even if it could not be kept.
             log::warn!(
-                "[basemap] {} {}/{}/{} did not fetch: {}",
+                "[basemap] {} {}/{}/{} did not store: {}",
                 source,
                 z,
                 x,
                 y,
                 e
             );
-            return Err(page_status(&e));
         }
-    };
-
-    store.record_fetch(source);
-    if let Err(e) = store_fetched(
-        &store,
-        source,
-        &template,
-        z,
-        x,
-        y,
-        &extension_of(&url),
-        &bytes,
-    ) {
-        // The tile is still good to draw even if it could not be kept.
-        log::warn!(
-            "[basemap] {} {}/{}/{} did not store: {}",
-            source,
-            z,
-            x,
-            y,
-            e
-        );
+        Ok(bytes)
     }
-    Ok(bytes)
+
+    /// Ask the host on the engine's runtime and hand the answer to `done`,
+    /// without holding the caller's thread. `done` is called exactly once,
+    /// with a 502 if the fetch panicked, so a page waiting on it is never left
+    /// waiting for good.
+    pub fn spawn(self, done: impl FnOnce(Result<Vec<u8>, u16>) + Send + 'static) {
+        let fetch = crate::runtime::spawn(self.fetch());
+        crate::runtime::spawn(async move {
+            done(fetch.await.unwrap_or(Err(UPSTREAM_FAILED)));
+        });
+    }
 }
 
 #[cfg(test)]

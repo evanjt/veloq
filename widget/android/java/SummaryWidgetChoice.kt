@@ -3,38 +3,69 @@ package __PKG__.widget
 import android.content.Context
 
 /**
- * The hero one placed Summary widget was configured with, kept per widget id.
+ * The placement one Summary widget was configured with, kept per widget id: its hero, its
+ * sparkline setting and its supporting row.
  *
  * Nothing stored means the widget follows the app's summary card, so an athlete who dismisses
- * the picker, and every widget placed before it existed, keeps the card's own choice.
+ * the picker, and every widget placed before it existed, keeps the card's own choice. Whether a
+ * stored hero is still one the card offers is the model's to decide, against the snapshot.
  */
 object SummaryWidgetChoice {
   private const val PREFS = "veloq_summary_widget"
 
-  /** The stored hero key, or null when the widget follows the card. */
-  fun heroFor(context: Context, widgetId: Int): String? {
-    val stored = prefs(context).getString(key(widgetId), null)
-    return stored?.takeIf { it in SummaryWidget.HERO_CHOICES }
+  fun placementFor(context: Context, widgetId: Int): SummaryPlacement {
+    val prefs = prefs(context)
+    return SummaryPlacement(
+      hero = prefs.getString(heroKey(widgetId), null),
+      sparkline =
+        when (prefs.getString(sparklineKey(widgetId), null)) {
+          "on" -> true
+          "off" -> false
+          else -> null
+        },
+      supporting =
+        prefs.getString(supportingKey(widgetId), null)
+          ?.split(',')
+          ?.filter { it.isNotEmpty() }
+          .orEmpty(),
+    )
   }
 
-  /** Choosing the card's own entry clears the key, so following the card is the absence of a choice. */
-  fun choose(context: Context, widgetId: Int, hero: String) {
+  /** Each field left to follow the card is stored as nothing, so following is the absence of a choice. */
+  fun put(context: Context, widgetId: Int, placement: SummaryPlacement) {
     val editor = prefs(context).edit()
-    if (hero in SummaryWidget.HERO_CHOICES) {
-      editor.putString(key(widgetId), hero)
+    val hero = placement.hero
+    if (hero == null) editor.remove(heroKey(widgetId)) else editor.putString(heroKey(widgetId), hero)
+    when (placement.sparkline) {
+      null -> editor.remove(sparklineKey(widgetId))
+      true -> editor.putString(sparklineKey(widgetId), "on")
+      false -> editor.putString(sparklineKey(widgetId), "off")
+    }
+    val supporting = placement.supporting.take(SummaryWidget.SUPPORTING_MAX)
+    if (supporting.isEmpty()) {
+      editor.remove(supportingKey(widgetId))
     } else {
-      editor.remove(key(widgetId))
+      editor.putString(supportingKey(widgetId), supporting.joinToString(","))
     }
     editor.apply()
   }
 
+  /** A removed widget's choice is nobody's, and ids are reused. */
   fun forget(context: Context, widgetIds: IntArray) {
     val editor = prefs(context).edit()
-    for (id in widgetIds) editor.remove(key(id))
+    for (id in widgetIds) {
+      editor.remove(heroKey(id))
+      editor.remove(sparklineKey(id))
+      editor.remove(supportingKey(id))
+    }
     editor.apply()
   }
 
-  private fun key(widgetId: Int) = "hero_$widgetId"
+  private fun heroKey(widgetId: Int) = "hero_$widgetId"
+
+  private fun sparklineKey(widgetId: Int) = "sparkline_$widgetId"
+
+  private fun supportingKey(widgetId: Int) = "supporting_$widgetId"
 
   private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

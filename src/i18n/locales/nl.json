@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "Binnen, geen GPS nodig",
     "entryManualCaption": "Handmatig, Start opent het formulier",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Binnen"
+    "fieldModeIndoor": "Binnen",
+    "interruptedNotice": {
+      "body": "Het systeem heeft Veloq tijdens je activiteit gesloten, waardoor de opname is gestopt. Tik om te hervatten.",
+      "channel": "Onderbroken opnames",
+      "title": "Opname gestopt"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"

@@ -3,17 +3,27 @@ import { StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
+import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { ActivityDetailSkeleton, loadActivityDetailScreenContent } from '@/features/activity';
+import {
+  ActivityDetailSkeleton,
+  loadActivityDetailScreenContent,
+  type ActivityDetailScreenContentProps,
+} from '@/features/activity';
 import { colors, darkColors } from '@/theme';
 
 function ActivityDetailFirstFrame() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark } = useTheme();
-  const [Content, setContent] = useState<React.ComponentType | null>(null);
+  const [Content, setContent] =
+    useState<React.ComponentType<ActivityDetailScreenContentProps> | null>(null);
   const [posterSettled, setPosterSettled] = useState(false);
   const onPosterSettled = useCallback(() => setPosterSettled(true), []);
+  // The content mounts after the poster, often once the transition has ended,
+  // so the route reads the transition and hands the content the result.
+  const [transitionSettled, setTransitionSettled] = useState(false);
+  useAfterNavigationTransition(useCallback(() => setTransitionSettled(true), []));
 
   useEffect(() => {
     const fallback = setTimeout(onPosterSettled, 250);
@@ -36,7 +46,7 @@ function ActivityDetailFirstFrame() {
     };
   }, [posterSettled]);
 
-  if (Content) return <Content />;
+  if (Content) return <Content transitionSettled={transitionSettled} />;
 
   return (
     <ScreenSafeAreaView

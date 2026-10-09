@@ -66,7 +66,14 @@ import { overMapHeaderTint } from '@/shared/app/screenHeaders';
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
 const NO_ROUTE_GROUPS: NativeRouteGroup[] = [];
 
-export function ActivityDetailScreenContent() {
+export interface ActivityDetailScreenContentProps {
+  /** The route's opening transition has ended, read by the route that mounted before this */
+  transitionSettled: boolean;
+}
+
+export function ActivityDetailScreenContent({
+  transitionSettled,
+}: ActivityDetailScreenContentProps) {
   // Performance timing
   const perfEnd = logScreenRender('ActivityDetailScreen');
   useEffect(() => {
@@ -595,6 +602,7 @@ export function ActivityDetailScreenContent() {
           fitnessImpact={detail?.fitnessImpact}
           newGround={newGround}
           hrZones={detail?.hrZones}
+          transitionSettled={transitionSettled}
           onPointSelect={handlePointSelect}
           onInteractionChange={handleInteractionChange}
           onExportGpx={handleExportGpx}

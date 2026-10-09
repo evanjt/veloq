@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { hasDetailBody, readActivityBody } from '@/features/activity/lib/engineActivityBody';
 import {
   DETAIL_STREAM_TYPES,
@@ -12,6 +12,7 @@ import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { hasStarted } from 'veloqrs';
+import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
@@ -412,8 +413,23 @@ export function useActivityStreams(id: string) {
 
 export function useActivityDetailStreams(id: string) {
   const streams = useActivityStreams(id);
+  useTrackWaitTimeline(streams.isSuccess, streams.isDownloaded);
   const coordinates = useDetailCoordinates(id, streams.data?.latlng, streams.isLoading);
   return { ...streams, coordinates };
+}
+
+// The open is decided once the stored read has run, since `isDownloaded` is
+// also false while that read is pending.
+function useTrackWaitTimeline(readDone: boolean, downloaded: boolean) {
+  const wait = useRef<TrackWait | null | undefined>(undefined);
+  useEffect(() => {
+    if (!readDone || wait.current !== undefined) return;
+    wait.current = freshLoginTimeline.openTrack(downloaded);
+  }, [readDone, downloaded]);
+  useEffect(() => {
+    if (downloaded) wait.current?.landed();
+  }, [downloaded]);
+  useEffect(() => () => wait.current?.abandoned(), []);
 }
 
 /** Stable series value while the separately reported download is pending. */

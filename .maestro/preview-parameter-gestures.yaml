@@ -1,0 +1,71 @@
+# At phone-sized resolution, the preview card must still accept slider drags
+# and vertical scrolling after a result adds the diff and action rows, and the
+# last row must still drag once the card has scrolled to it.
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- openLink: "veloq://detection-preview"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "detection-preview-screen"
+    timeout: 30000
+- assertVisible:
+    id: "preview-param-panel"
+- copyTextFrom:
+    id: "param-edit-proximityThreshold"
+- evalScript: ${output.proximityBefore = maestro.copiedText}
+- swipe:
+    from:
+      id: "param-slider-proximityThreshold"
+    direction: RIGHT
+    duration: 700
+- copyTextFrom:
+    id: "param-edit-proximityThreshold"
+- assertTrue:
+    condition: ${maestro.copiedText != output.proximityBefore}
+    label: "The first slider changes its caption"
+- tapOn:
+    id: "preview-run-button"
+- extendedWaitUntil:
+    visible:
+      id: "preview-keep-button"
+    timeout: 300000
+- assertVisible:
+    id: "preview-param-panel"
+- takeScreenshot: "screenshots/preview-parameters-result"
+- swipe:
+    from:
+      id: "preview-param-panel"
+    direction: UP
+    duration: 700
+- assertVisible:
+    id: "param-edit-divergenceThreshold"
+- takeScreenshot: "screenshots/preview-parameters-scrolled"
+- copyTextFrom:
+    id: "param-edit-divergenceThreshold"
+- evalScript: ${output.divergenceBefore = maestro.copiedText}
+- swipe:
+    from:
+      id: "param-slider-divergenceThreshold"
+    direction: RIGHT
+    duration: 700
+- copyTextFrom:
+    id: "param-edit-divergenceThreshold"
+- assertTrue:
+    condition: ${maestro.copiedText != output.divergenceBefore}
+    label: "The last slider still drags once the card has scrolled"
+- extendedWaitUntil:
+    visible:
+      id: "preview-discard-button"
+    timeout: 300000
+- tapOn:
+    id: "preview-discard-button"

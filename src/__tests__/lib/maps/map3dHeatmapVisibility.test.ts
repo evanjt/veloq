@@ -82,6 +82,9 @@ function layersAddedBy(showHeatmap: boolean): LayerSpec[] {
         }),
     },
     URL: { createObjectURL: () => 'blob:stub', revokeObjectURL: () => {} },
+    Image: function Image(this: Record<string, unknown>) {
+      this.src = '';
+    },
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
@@ -95,6 +98,8 @@ function layersAddedBy(showHeatmap: boolean): LayerSpec[] {
         once: register,
         addSource: () => {},
         addLayer: (layer: LayerSpec) => added.push(layer),
+        hasImage: () => false,
+        addImage: () => {},
         getSource: () => undefined,
         getLayer: () => undefined,
         getStyle: () => ({ layers: [] }),

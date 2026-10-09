@@ -1305,7 +1305,12 @@
     "entryIndoorCaption": "Ambiente interno, sem GPS",
     "entryManualCaption": "Registro manual, Iniciar abre o formulário",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "Interior"
+    "fieldModeIndoor": "Interior",
+    "interruptedNotice": {
+      "body": "O sistema fechou o Veloq durante sua atividade, então a gravação parou. Toque para retomar.",
+      "channel": "Gravações interrompidas",
+      "title": "Gravação interrompida"
+    }
   },
   "routeDetail": {
     "routeNotFound": "Rota não encontrada"

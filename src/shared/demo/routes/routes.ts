@@ -52,10 +52,38 @@ const outAndBack = buildOutAndBack(
 );
 
 /**
+ * Synthetic repeats of a closed loop. Section detection sees the loop's
+ * sections crossed the same way round once per lap inside a single activity,
+ * which is what the section screen's lap list needs.
+ */
+function buildLaps(sourceId: string, id: string, name: string, laps: number): DemoRoute | null {
+  const source = baseRoutes.find((r) => r.id === sourceId);
+  if (!source) return null;
+  const loop = source.coordinates;
+  const coordinates = [...loop];
+  for (let lap = 1; lap < laps; lap++) coordinates.push(...loop.slice(1));
+  return {
+    id,
+    name,
+    type: source.type,
+    coordinates,
+    distance: source.distance * laps,
+    elevation: source.elevation * laps,
+    region: source.region,
+    attribution: source.attribution,
+  };
+}
+
+const laps = buildLaps('route-rio-run-3', 'route-rio-run-3-laps', 'Rio Run (3 laps)', 3);
+
+/**
  * Real routes from OpenStreetMap, plus synthetic demo derivations.
  * These are actual GPS routes from cycling paths, running trails, etc.
  */
-export const demoRoutes: DemoRoute[] = outAndBack ? [...baseRoutes, outAndBack] : baseRoutes;
+export const demoRoutes: DemoRoute[] = [
+  ...baseRoutes,
+  ...[outAndBack, laps].filter((r): r is DemoRoute => r !== null),
+];
 
 /**
  * Get a route's coordinates (exact, no variation)

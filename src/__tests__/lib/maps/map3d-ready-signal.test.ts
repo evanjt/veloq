@@ -92,6 +92,8 @@ function runPage(
       once: register,
       addSource: jest.fn(),
       addLayer: jest.fn(),
+      hasImage: () => false,
+      addImage: () => {},
       getSource: jest.fn(() => undefined),
       getLayer: jest.fn(() => undefined),
       getStyle: () => ({ layers: [] }),

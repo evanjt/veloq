@@ -2,6 +2,7 @@
   "modules/veloq-app-group/ios/VeloqAppGroupModule.swift": 1,
   "modules/veloq-backup-exclusion/ios/VeloqBackupExclusionModule.swift": 1,
   "modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift": 1,
+  "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/InterruptedRideNotifier.kt": 3,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RecordingActionReceiver.kt": 1,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt": 1,
   "modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt": 3,

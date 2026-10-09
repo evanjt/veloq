@@ -72,3 +72,4 @@ export { setVisibleRange } from './lib/previewRange';
 export type { ActivityType } from './types';
 
 export { loadActivityDetailScreenContent } from './loadActivityDetailScreenContent';
+export type { ActivityDetailScreenContentProps } from './components/ActivityDetailScreenContent';

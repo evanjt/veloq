@@ -2,7 +2,7 @@
  * Scenario: an athlete places the Summary widget from the Android widget gallery.
  *
  * Expected behaviour: the gallery names it in the athlete's language and describes it, the
- * launcher opens the hero picker as the widget is placed and again on reconfigure, and the picker
+ * launcher opens the card's picker as the widget is placed and again on reconfigure, and the picker
  * is optional so dismissing it leaves a working widget. The picker's activity is registered
  * whatever the Record flag says, because it belongs to the Summary widget and not to Record, and
  * every resource the manifest and the provider info point at exists in the generated project.
@@ -104,7 +104,18 @@ describe('the Summary widget in the Android gallery', () => {
         ).map((s) => s.getAttribute('name'))
       );
 
-    const wanted = ['widget_summary_label', 'widget_summary_description', 'widget_summary_choose'];
+    const wanted = [
+      'widget_summary_label',
+      'widget_summary_description',
+      'widget_summary_choose',
+      'widget_summary_metric',
+      'widget_summary_follow_card',
+      'widget_summary_sparkline',
+      'widget_summary_supporting',
+      'widget_summary_on',
+      'widget_summary_off',
+      'widget_summary_save',
+    ];
     expect(Object.keys(files).length).toBeGreaterThan(1);
     for (const [dir, xml] of Object.entries(files)) {
       for (const name of wanted)

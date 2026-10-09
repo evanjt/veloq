@@ -1285,7 +1285,12 @@
     "entryIndoorCaption": "屋内、GPS不要",
     "entryManualCaption": "手動入力、開始でフォームを開きます",
     "fieldModeGps": "GPS",
-    "fieldModeIndoor": "屋内"
+    "fieldModeIndoor": "屋内",
+    "interruptedNotice": {
+      "body": "アクティビティ中にシステムがVeloqを終了したため、記録が停止しました。タップして再開します。",
+      "channel": "中断された記録",
+      "title": "記録が停止しました"
+    }
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"

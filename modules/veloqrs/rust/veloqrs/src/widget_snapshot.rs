@@ -230,6 +230,9 @@ pub struct WidgetSnapshot {
     /// second read. Independent of the card's own choice and of whether it is
     /// enabled; a weight with no reading is left out, as on the card.
     pub summary_metrics: Vec<SummaryEntry>,
+    /// The metrics the card offers as its hero, in its picker's order, so a
+    /// widget's picker offers the card's list rather than one of its own.
+    pub summary_heroes: Vec<&'static str>,
     pub display: Display,
     pub theme: serde_json::Value,
     pub record_shortcuts: Vec<RecordShortcut>,
@@ -658,6 +661,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             .iter()
             .filter_map(|id| summary_entry(data, ctx, id, false))
             .collect(),
+        summary_heroes: SUMMARY_HERO_IDS.to_vec(),
         display: display(ctx, impact.as_ref(), today_zone),
         latest,
         impact,
@@ -921,6 +925,9 @@ fn form_metric(as_percent: bool, w: Option<&WidgetWellnessSummary>) -> MetricVal
 // ---------------------------------------------------------------------------
 // Summary card
 // ---------------------------------------------------------------------------
+
+/// The metrics the in-app summary card offers as its hero, in its picker's order.
+const SUMMARY_HERO_IDS: [&str; 3] = ["fitness", "form", "hrv"];
 
 /// The metrics the in-app summary card offers, in the order its picker lists them.
 const SUMMARY_METRIC_IDS: [&str; 10] = [

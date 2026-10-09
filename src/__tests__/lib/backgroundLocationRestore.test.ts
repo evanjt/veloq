@@ -181,8 +181,13 @@ describe('background location in a headless runtime', () => {
     expect(state.rawSpeed?.value).toBeCloseTo(10, 1);
   });
 
-  it('leaves a live in-memory session alone', async () => {
+  it('leaves a live in-memory session in the foreground alone', async () => {
     const rt = freshRuntime();
+    // In the foreground the session's own timer writes the backup.
+    Object.defineProperty(require('react-native').AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
     rt.useRecordingStore.getState().startRecording('Ride', 'gps');
 
     await rt.handleBackgroundLocations(locationsFrom([70], [100]));
