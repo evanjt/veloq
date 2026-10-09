@@ -721,7 +721,6 @@
       "sheetMetaOne": "Open the section below for the underlying effort history.",
       "sheetMetaMany": "Open any section below for the underlying effort history."
     },
-    "sourceActivities": "Source activities",
     "current": "Current",
     "previous": "Previous",
     "methodology": {
@@ -906,7 +905,20 @@
       "noEfforts": "No recorded efforts"
     },
     "beta": "Beta",
-    "recentPersonalRecord": "Recent record"
+    "recentPersonalRecord": "Recent record",
+    "caption": {
+      "latestAgainstMean": "Latest {{latest}} ms, mean {{avg}} ms",
+      "thisWeekAgainstLast": "This week {{current}}, last week {{previous}}",
+      "lastWeekAgainstAverage": "Last week {{current}}, 4-week average {{previous}}",
+      "fromTo": "From {{previous}} to {{current}}"
+    },
+    "graphic": {
+      "openSection": "Open {{name}}",
+      "openTheSection": "Open the section",
+      "openFitness": "Open the fitness chart",
+      "openStrength": "Open strength training",
+      "openDetail": "Open the detail"
+    }
   },
   "licenses": {
     "openRepository": "Open repository",
@@ -991,6 +1003,7 @@
     },
     "closeMap": "Close map",
     "closePopup": "Close activity popup",
+    "closeRoutePopup": "Close route popup",
     "closeSectionPopup": "Close section popup",
     "colorByGradient": "Colour by gradient",
     "disable3D": "Disable 3D view",
@@ -1010,6 +1023,7 @@
     "tapSelectStart": "Tap to select start point",
     "toggleStyle": "Toggle map style",
     "viewDetails": "View Details",
+    "viewRouteDetails": "View route details",
     "viewSectionDetails": "View section details",
     "zoomToActivity": "Zoom to activity",
     "periodThisYear": "This year"

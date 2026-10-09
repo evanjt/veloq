@@ -25,7 +25,7 @@ import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
-import { Button, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple, useTabBarClearance } from '@/shared/ui';
 import { getEngine } from '@/shared/native/engine';
 import {
   groupSectionEncounters,
@@ -87,6 +87,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onRematch,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
+  const tabBarClearance = useTabBarClearance();
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -653,9 +654,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           renderItem={renderEncounterItem}
           ListEmptyComponent={renderSectionsListEmpty}
           ListFooterComponent={renderSectionsListFooter}
-          contentContainerStyle={
-            groups.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
-          }
+          contentContainerStyle={[
+            groups.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent,
+            { paddingBottom: spacing.xl + tabBarClearance },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={4}
@@ -682,11 +684,9 @@ const styles = StyleSheet.create({
   },
   tabScrollContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   tabScrollContentEmpty: {
     flexGrow: 1,
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   emptyStateContainer: {
     flex: 1,

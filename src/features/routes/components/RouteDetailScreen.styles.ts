@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 
 import { colors, darkColors, spacing } from '@/theme';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
 export const styles = StyleSheet.create({
   container: {
@@ -13,9 +12,6 @@ export const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   // Hero section styles
   mapContainer: {

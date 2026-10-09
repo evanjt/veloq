@@ -31,7 +31,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   const { isDark } = useTheme();
 
   const history = insight.supportingData?.history;
-  const series = history && history.kind !== 'line' ? history.series[0] : undefined;
+  const series = history && 'series' in history ? history.series[0] : undefined;
   const avgPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvAverage');
   const latestPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvLatest');
 

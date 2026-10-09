@@ -32,8 +32,14 @@ import {
   HEATMAP_WEEKS,
 } from '../lib/heatmapGrid';
 
-/** Nothing: the grid reads the engine and owns its own highlight. */
-type ActivityHeatmapProps = object;
+interface ActivityHeatmapProps {
+  /**
+   * False holds the grid's box empty, with no picture recorded and no canvas
+   * mounted, so a screen can paint its first frame before the Skia work. The
+   * box is the canvas's own size, so drawing it moves nothing. Default true.
+   */
+  drawn?: boolean;
+}
 
 /** How the Health screen pushes a scrubbed day into the heatmap. */
 export interface ActivityHeatmapHandle {
@@ -71,7 +77,7 @@ function columnAt(offset: number): number {
 }
 
 export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityHeatmapProps>(
-  function ActivityHeatmap(_props, ref) {
+  function ActivityHeatmap({ drawn = true }, ref) {
     const [highlightDate, setHighlight] = useState<string | null>(null);
     useImperativeHandle(ref, () => ({ setHighlight }), []);
     const { t } = useTranslation();
@@ -136,6 +142,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
     // Pre-render entire heatmap grid as a single Skia Picture (zero React elements)
     const heatmapPicture = useMemo(() => {
+      if (!drawn) return null;
       const recorder = Skia.PictureRecorder();
       const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, GRID_WIDTH, GRID_HEIGHT));
       const paint = Skia.Paint();
@@ -167,7 +174,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       }
 
       return recorder.finishRecordingAsPicture();
-    }, [grid, intensities, intensityColors, dividerColor]);
+    }, [drawn, grid, intensities, intensityColors, dividerColor]);
 
     // Built once with the grid, off the same layout, so a scrub tick is one
     // lookup rather than a walk of the year.
@@ -312,9 +319,13 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               </View>
 
               <View>
-                <Canvas style={{ width: GRID_WIDTH, height: GRID_HEIGHT }}>
-                  <Picture picture={heatmapPicture} />
-                </Canvas>
+                {heatmapPicture ? (
+                  <Canvas style={styles.grid}>
+                    <Picture picture={heatmapPicture} />
+                  </Canvas>
+                ) : (
+                  <View testID="activity-heatmap-placeholder" style={styles.grid} />
+                )}
                 {highlightPos && (
                   <View
                     style={[
@@ -390,6 +401,10 @@ const styles = StyleSheet.create({
   },
   body: {
     flexDirection: 'row',
+  },
+  grid: {
+    width: GRID_WIDTH,
+    height: GRID_HEIGHT,
   },
   gutter: {
     width: GUTTER_WIDTH,

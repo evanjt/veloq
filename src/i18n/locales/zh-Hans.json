@@ -681,7 +681,6 @@
     "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
     "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
     "howCalculated": "这是如何计算的？",
-    "sourceActivities": "来源活动",
     "current": "当前",
     "previous": "上一个",
     "methodology": {
@@ -906,7 +905,20 @@
       "noEfforts": "暂无成绩记录"
     },
     "beta": "测试版",
-    "recentPersonalRecord": "最近的个人纪录"
+    "recentPersonalRecord": "最近的个人纪录",
+    "caption": {
+      "latestAgainstMean": "最新 {{latest}} ms，平均 {{avg}} ms",
+      "thisWeekAgainstLast": "本周 {{current}}，上周 {{previous}}",
+      "lastWeekAgainstAverage": "上周 {{current}}，4周平均 {{previous}}",
+      "fromTo": "从 {{previous}} 到 {{current}}"
+    },
+    "graphic": {
+      "openSection": "打开{{name}}",
+      "openTheSection": "打开路段",
+      "openFitness": "打开体能图表",
+      "openStrength": "打开力量训练",
+      "openDetail": "打开详情"
+    }
   },
   "licenses": {
     "openRepository": "打开代码仓库",
@@ -991,6 +1003,7 @@
     },
     "closeMap": "关闭地图",
     "closePopup": "关闭活动弹窗",
+    "closeRoutePopup": "关闭路线弹窗",
     "closeSectionPopup": "关闭路段弹窗",
     "disable3D": "禁用 3D 视图",
     "enable3D": "启用 3D 视图",
@@ -1009,6 +1022,7 @@
     "tapSelectStart": "点击选择起点",
     "toggleStyle": "切换地图样式",
     "viewDetails": "查看详情",
+    "viewRouteDetails": "查看路线详情",
     "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动",
     "colorByGradient": "按坡度着色",

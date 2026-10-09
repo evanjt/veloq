@@ -15,30 +15,12 @@ appId: com.veloq.app.dev
       - tapOn:
           id: "recording-return-pill"
 
-      # The lock re-engages on every entry to the live screen. Swipe the full
-      # width of the track; a direction swipe anchored to the handle travels
-      # only the handle's width. Track centre is 82% on Android, 85% on iOS.
+      # The lock re-engages on every entry to the live screen.
       - runFlow:
           when:
             visible:
               id: "unlock-track"
-          commands:
-            - runFlow:
-                when:
-                  platform: Android
-                commands:
-                  - swipe:
-                      start: 12%, 82%
-                      end: 90%, 82%
-                      duration: 800
-            - runFlow:
-                when:
-                  platform: iOS
-                commands:
-                  - swipe:
-                      start: 12%, 85%
-                      end: 90%, 85%
-                      duration: 800
+          file: unlock-recording.yaml
 
       # Stop is a long press and only offers itself once paused.
       - runFlow:

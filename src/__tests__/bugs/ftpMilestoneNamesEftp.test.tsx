@@ -8,10 +8,10 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
-import type { TFunc } from '@/features/insights/types';
+import type { Insight, TFunc } from '@/features/insights/types';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { FitnessMilestoneContent } from '@/features/insights/components/content/FitnessMilestoneContent';
 import { MethodologySection } from '@/features/insights/components/MethodologySection';
@@ -68,6 +68,13 @@ describe('the fitness milestone sheet', () => {
     return textOf(render(element).toJSON()).join(' ');
   }
 
+  /** The method as it reads once "How was this calculated?" is open. */
+  function method(insight: Insight): string {
+    const view = render(<MethodologySection insight={insight} />);
+    fireEvent.press(view.getByTestId('methodology-toggle'));
+    return `${insight.methodology?.name} ${textOf(view.toJSON()).join(' ')}`;
+  }
+
   function milestones() {
     return generateFitnessMilestoneInsights(POWER, PACE, null, NOW, t);
   }
@@ -98,13 +105,13 @@ describe('the fitness milestone sheet', () => {
     const power = milestones().find((i) => i.id === 'fitness_milestone-ftp');
     if (!power) throw new Error('no power milestone');
     const card = rendered(<InsightListCard insight={power} onPress={jest.fn()} />);
-    const method = `${power.methodology?.name} ${rendered(<MethodologySection insight={power} />)}`;
+    const methodText = method(power);
 
     expect(card).toContain('eFTP');
     expect(card).not.toMatch(/(^|[^e])FTP/);
-    expect(method).toContain('eFTP');
-    expect(method).not.toMatch(/(^|[^e])FTP (?!setting)/);
-    expect(method).toContain('30 days');
+    expect(methodText).toContain('eFTP');
+    expect(methodText).not.toMatch(/(^|[^e])FTP (?!setting)/);
+    expect(methodText).toContain('30 days');
   });
 
   it('names critical speed on the pace sheet, not a threshold pace', () => {
@@ -134,11 +141,11 @@ describe('the fitness milestone sheet', () => {
   it('states the critical speed, the 42-day curve and the 90-day lookback in the pace method', () => {
     const pace = milestones().find((i) => i.id === 'fitness_milestone-pace');
     if (!pace) throw new Error('no pace milestone');
-    const method = `${pace.methodology?.name} ${rendered(<MethodologySection insight={pace} />)}`;
+    const methodText = method(pace);
 
-    expect(method.toLowerCase()).toContain('critical speed');
-    expect(method).toContain('42-day');
-    expect(method).toContain('90 days');
-    expect(method.toLowerCase()).not.toContain('threshold');
+    expect(methodText.toLowerCase()).toContain('critical speed');
+    expect(methodText).toContain('42-day');
+    expect(methodText).toContain('90 days');
+    expect(methodText.toLowerCase()).not.toContain('threshold');
   });
 });

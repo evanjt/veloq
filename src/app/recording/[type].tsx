@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { tapTo } from '@/shared/app/navigation';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { useTabBarClearance } from '@/shared/ui';
 import {
   screenRecordingMode,
   useRecordingStore,
@@ -64,6 +64,7 @@ function RecordingContent() {
   useRecordingKeepAwake();
 
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
   const { type, pairedEventId, from } = useLocalSearchParams<{
     type: string;
@@ -159,7 +160,7 @@ function RecordingContent() {
   const openReview = useCallback(() => tapTo('/recording/review'), []);
   const openSensorPairing = useCallback(() => tapTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
-  const bottomPadding = insets.bottom + TAB_BAR_SAFE_PADDING;
+  const bottomPadding = insets.bottom + tabBarClearance;
   const unlockTrackStyle = useMemo(
     () => ({ paddingTop: spacing.sm, paddingBottom: bottomPadding }),
     [bottomPadding]
@@ -332,7 +333,7 @@ function RecordingContent() {
 
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (
-        <View style={unlockTrackStyle}>
+        <View testID="recording-unlock-slot" style={unlockTrackStyle}>
           <UnlockTrack onUnlock={unlock} />
         </View>
       ) : (

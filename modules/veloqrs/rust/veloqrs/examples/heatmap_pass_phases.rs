@@ -106,6 +106,9 @@ fn main() {
     let tiles_dir = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles_dir).expect("tiles dir");
     assert!(persistent_engine_init(db.to_str().unwrap().to_string()));
+    // On a handset the engine's first init lowers the global level to Warn,
+    // which would hide the phase lines this binary exists to print.
+    log::set_max_level(log::LevelFilter::Info);
     with_persistent_engine(|engine| {
         for chunk in baseline.chunks(50) {
             let rows = chunk

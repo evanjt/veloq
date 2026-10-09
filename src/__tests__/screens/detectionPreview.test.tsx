@@ -10,7 +10,6 @@ import { PreviewDiffStrip } from '@/features/routes/components/preview/PreviewDi
 import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 import DetectionPreviewScreen from '@/app/detection-preview';
 import { initialiseI18n, changeLanguage } from '@/i18n';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { layout } from '@/theme';
 import type {
   PreviewCentre,
@@ -77,9 +76,12 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
+let mockSegments: string[] = ['detection-preview'];
+
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { back: jest.fn(), push: jest.fn() },
+  useSegments: () => mockSegments,
   useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, []),
 }));
 
@@ -186,9 +188,11 @@ function flatten(style: unknown) {
 }
 
 /**
- * Scenario: the preview controls scroll under the app's own bottom tab bar.
- * Expected behaviour: the panel reserves the tab bar and its gradient on top
- * of the system inset, so the Preview button clears the bar on every device.
+ * Scenario: the preview is a stack screen, and the tab bar draws only inside
+ * the tabs group, so nothing covers the bottom of the panel but the system
+ * inset. On a 640 dp screen every dp the panel pads is a dp the parameter card
+ * loses.
+ * Expected behaviour: the panel pads by the system inset alone.
  */
 describe('detection preview bottom buffer', () => {
   beforeEach(() => {
@@ -237,20 +241,20 @@ describe('detection preview bottom buffer', () => {
     mockInsets.bottom = 0;
   });
 
-  it('reserves the tab bar when the device has no gesture inset', () => {
+  it('reserves nothing for the tab bar when the device has no gesture inset', () => {
     mockInsets.bottom = 0;
-    expect(panelPaddingBottom()).toBe(TAB_BAR_SAFE_PADDING);
+    expect(panelPaddingBottom()).toBe(0);
   });
 
-  it('adds the tab bar on top of a large gesture inset', () => {
-    mockInsets.bottom = 48;
-    expect(panelPaddingBottom()).toBe(48 + TAB_BAR_SAFE_PADDING);
+  it('keeps the gesture inset whole', () => {
+    mockInsets.bottom = 34;
+    expect(panelPaddingBottom()).toBe(34);
   });
 
-  it('clears the tab bar whatever the inset', () => {
+  it('pads by the inset alone whatever its size', () => {
     for (const bottom of [0, 16, 34, 48]) {
       mockInsets.bottom = bottom;
-      expect(panelPaddingBottom()).toBeGreaterThanOrEqual(bottom + TAB_BAR_SAFE_PADDING);
+      expect(panelPaddingBottom()).toBe(bottom);
     }
   });
 });

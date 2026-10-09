@@ -26,7 +26,6 @@ import {
   insightIcon,
   layout,
   typography,
-  verdictColor,
 } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { pressable, pressRipple, EngineReadFailure } from '@/shared/ui';
@@ -113,7 +112,8 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
 
 /**
  * Detail content for stale PR / opportunity insights.
- * Shows section map + FTP comparison data points + tappable section list.
+ * Shows section map + context copy + tappable section list. Its numbers sit under
+ * the sheet's "How was this calculated?".
  */
 export const StalePRContent = React.memo(function StalePRContent({ insight }: StalePRContentProps) {
   const { isDark } = useTheme();
@@ -142,26 +142,6 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
           {contextCopy.meta}
         </Text>
       </View>
-
-      {dataPoints.length > 0 ? (
-        <View style={[styles.dataCard, isDark && styles.dataCardDark]}>
-          {dataPoints.map((dp, i) => (
-            <View key={i} style={styles.dataRow}>
-              <Text style={[styles.dataLabel, isDark && styles.dataLabelDark]}>{dp.label}</Text>
-              <Text
-                style={[
-                  styles.dataValue,
-                  isDark && styles.dataValueDark,
-                  dp.context === 'good' && { color: verdictColor('positive', isDark) },
-                ]}
-              >
-                {String(dp.value)}
-                {dp.unit ?? ''}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
 
       {sections.length > 0 ? (
         <View style={styles.sectionList}>
@@ -245,35 +225,6 @@ const styles = StyleSheet.create({
   },
   contextMetaDark: {
     color: darkColors.textSecondary,
-  },
-  dataCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  dataCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dataLabel: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  dataLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  dataValue: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  dataValueDark: {
-    color: darkColors.textPrimary,
   },
   sectionList: {
     gap: spacing.xs,

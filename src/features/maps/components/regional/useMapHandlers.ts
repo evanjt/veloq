@@ -23,6 +23,7 @@ import type { MapCameraState, MapFeatureHit, MapPressEvent, MapSurfaceRef } from
 import {
   CLUSTER_SOURCE_ID,
   CLUSTER_CIRCLE_LAYER_ID,
+  ROUTES_LINE_LAYER_ID,
   SECTIONS_LINE_LAYER_ID,
   SPIDER_POINT_LAYER_ID,
   UNCLUSTERED_POINT_LAYER_ID,
@@ -52,7 +53,7 @@ interface UseMapHandlersOptions {
   setShowSections: (value: boolean | ((prev: boolean) => boolean)) => void;
   showRoutes: boolean;
   setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectedRoute: (value: null) => void;
+  setSelectedRouteId: (value: string | null) => void;
   currentZoomRef: React.MutableRefObject<number>;
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
   onCameraSettled?: (center: [number, number], zoom: number, bounds?: LngLatBounds) => void;
@@ -105,7 +106,7 @@ export function useMapHandlers({
   setShowActivities,
   setShowSections,
   setShowRoutes,
-  setSelectedRoute,
+  setSelectedRouteId,
   currentZoomRef,
   currentCenterRef,
   onCameraSettled,
@@ -153,6 +154,8 @@ export function useMapHandlers({
   // PERF: Show popup immediately, load route data after
   const handleMarkerTap = useCallback(
     (activity: ActivityBoundsItem) => {
+      // One popup at a time: the activity's takes the place of a route's.
+      setSelectedRouteId(null);
       // Show popup immediately with activity info (no route yet)
       setSelected({
         activity,
@@ -230,7 +233,7 @@ export function useMapHandlers({
         }
       });
     },
-    [setSelected]
+    [setSelected, setSelectedRouteId]
   );
 
   // Close popup
@@ -279,9 +282,10 @@ export function useMapHandlers({
   const handleEmptyPress = useCallback(() => {
     if (selectedRef.current) setSelected(null);
     setSelectedSectionId(null);
+    setSelectedRouteId(null);
     setSectionChoices([]);
     setSpider(null);
-  }, [setSelected, setSelectedSectionId, setSectionChoices, setSpider]);
+  }, [setSelected, setSelectedSectionId, setSelectedRouteId, setSectionChoices, setSpider]);
 
   // One tap handler for the whole surface. The page resolves which layer the
   // finger landed on, so there is no platform-specific hit test left here.
@@ -299,10 +303,23 @@ export function useMapHandlers({
         setSectionChoices(ids.length > 1 ? ids : []);
         if (ids.length === 1) setSelectedSectionId(ids[0] ?? null);
         if (ids.length > 1) setSelectedSectionId(null);
+        setSelectedRouteId(null);
         return;
       }
 
       setSectionChoices([]);
+
+      if (feature.layerId === ROUTES_LINE_LAYER_ID) {
+        const routeId = feature.properties?.id;
+        if (typeof routeId !== 'string' || routeId.length === 0) return;
+        // The route's popup sits where the activity's and the section's do,
+        // so it takes their place.
+        if (selectedRef.current) setSelected(null);
+        setSelectedSectionId(null);
+        setSpider(null);
+        setSelectedRouteId(routeId);
+        return;
+      }
 
       if (feature.layerId === SPIDER_POINT_LAYER_ID) {
         const activityId = feature.properties?.id;
@@ -385,7 +402,9 @@ export function useMapHandlers({
       activities,
       handleEmptyPress,
       handleMarkerTap,
+      setSelected,
       setSelectedSectionId,
+      setSelectedRouteId,
       setSectionChoices,
       setSpider,
       surfaceRef,
@@ -481,11 +500,11 @@ export function useMapHandlers({
     setShowRoutes((current) => {
       if (current) {
         // We're hiding routes, clear selection
-        setSelectedRoute(null);
+        setSelectedRouteId(null);
       }
       return !current;
     });
-  }, [setShowRoutes, setSelectedRoute]);
+  }, [setShowRoutes, setSelectedRouteId]);
 
   // Reset bearing to north (and pitch in 3D mode)
   const resetOrientation = useCallback(() => {

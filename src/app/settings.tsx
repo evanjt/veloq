@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import {
   ScreenSafeAreaView,
   ScreenScrollView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -128,6 +128,7 @@ function SettingsScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
 
   const { data: athleteRow } = useAthlete();
   const athlete = athleteRow ?? undefined;
@@ -224,7 +225,10 @@ function SettingsScreenContent() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <ScreenScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
+      <ScreenScrollView
+        testID="settings-scrollview"
+        contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
+      >
         {/* Account */}
         <AccountRow
           athlete={athlete}
@@ -380,9 +384,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.background,
-  },
-  content: {
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   accountCard: {
     marginTop: spacing.md,

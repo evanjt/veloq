@@ -1,0 +1,27 @@
+# Open the detection preview the way an athlete does: settings, the routes and
+# sections row, then the preview row. Waits for the current catalogue to load.
+appId: com.veloq.app.dev
+---
+- runFlow:
+    file: navigate-to-settings.yaml
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-detection"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+    visibilityPercentage: 100
+- tapOn:
+    id: "settings-nav-detection"
+- extendedWaitUntil:
+    visible:
+      id: "detection-settings-screen"
+    timeout: 10000
+- tapOn:
+    id: "detection-preview-row"
+- extendedWaitUntil:
+    visible:
+      id: "detection-preview-screen"
+    timeout: 30000
+- assertVisible:
+    id: "preview-param-panel"

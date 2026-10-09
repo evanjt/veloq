@@ -4,7 +4,7 @@ Registrazione
 Registra le attivit con GPS, pausa automatica, split chilometrici e visualizzazione delle zone di frequenza cardiaca. Taglia la registrazione prima di salvarla. Carica come file FIT oppure metti in coda per dopo. Inserimento manuale per le attivit indoor.
 
 Insights
-Insights giornalieri personalizzati basati sul tuo allenamento: PR di sezione, traguardi di fitness, confronti settimanali, pattern di attivit e consigli sulla forma. Sempre positivi e consapevoli dei giorni di riposo.
+Insights giornalieri dal tuo allenamento: PR e tendenze di sezione, traguardi di fitness, confronti settimanali, tendenze HRV e progressi nella forza. Ognuno mostra i suoi numeri e come sono stati calcolati.
 
 Mappe
 Visualizza le tue attivit su mappe interattive con terreno 3D, mappe di calore dei percorsi e filtro temporale. Scegli tra stili chiaro, scuro e satellite. Scorri i grafici e osserva la tua posizione aggiornarsi sulla mappa in tempo reale.
@@ -19,7 +19,7 @@ Fitness
 Segui la tua forma con monitoraggio CTL/ATL/TSB e zone visive. Monitora HRV, frequenza cardiaca a riposo, sonno e benessere. Consulta curve di potenza e passo per sport.
 
 Privacy
-Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano un token del dispositivo sul nostro server con scadenza automatica di 30 giorni -- nessun dato personale viene conservato. Open source con licenza Apache 2.0.
+I tuoi dati di allenamento restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.
 
 Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attivit. Prova la modalit demo integrata per esplorare senza un account.
 

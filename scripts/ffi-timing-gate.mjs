@@ -5,7 +5,11 @@
 // then to a regression factor over the committed baseline for that call.
 //
 // A call is named `name@place`, the place being gesture, tap, mount or launch.
-// An untagged call is held to the tap and mount budget.
+// An untagged call is held to the tap and mount budget. The ring also carries
+// app spans (`snapshot.wait`, `tab.fitness`, `flow.expand`), always dotted, which
+// time waits and frames rather than an engine call blocking the JS thread, so the
+// gate leaves them out. A regression must pass the factor and the absolute floor
+// both, since a sub-millisecond call moves by more than 1.3 times on noise alone.
 //
 // Usage: node scripts/ffi-timing-gate.mjs <ringJsonPath> [--baseline path]
 
@@ -27,10 +31,19 @@ export function placeOf(name) {
   return Object.hasOwn(PLACE_BUDGET_MS, place) ? place : DEFAULT_PLACE;
 }
 
+export function isEngineCall(name) {
+  return !name.split('@')[0].includes('.');
+}
+
+export function engineCalls(summary) {
+  return Object.fromEntries(Object.entries(summary).filter(([name]) => isEngineCall(name)));
+}
+
 export function judge(summary, baseline) {
   const factor = baseline.regressionFactor ?? 1.3;
+  const floorMs = baseline.minRegressionMs ?? 0;
   const failures = [];
-  for (const [name, stat] of Object.entries(summary)) {
+  for (const [name, stat] of Object.entries(engineCalls(summary))) {
     const place = placeOf(name);
     const budget = PLACE_BUDGET_MS[place];
     if (stat.p95Ms > budget) {
@@ -38,7 +51,7 @@ export function judge(summary, baseline) {
       continue;
     }
     const held = baseline.budgets?.[name];
-    if (held && stat.p95Ms > held.p95Ms * factor) {
+    if (held && stat.p95Ms > held.p95Ms * factor && stat.p95Ms - held.p95Ms > floorMs) {
       failures.push(
         `${name}: p95 ${stat.p95Ms}ms exceeds baseline ${held.p95Ms}ms x${factor} = ${round(held.p95Ms * factor)}ms`
       );
@@ -91,13 +104,13 @@ function main() {
   const args = process.argv.slice(2);
   const flag = args.indexOf('--baseline');
   const baselinePath = flag === -1 ? join(here, 'ffi-baseline.json') : args[flag + 1];
-  const ringPath = args.find((a, i) => !a.startsWith('--') && i !== flag + 1);
+  const ringPath = args.find((a, i) => !a.startsWith('--') && (flag === -1 || i !== flag + 1));
   if (!ringPath) {
     console.error('Usage: node scripts/ffi-timing-gate.mjs <ringJsonPath> [--baseline path]');
     process.exit(2);
   }
   const dump = readJson(ringPath);
-  const summary = dump.ffiMetrics ?? dump;
+  const summary = engineCalls(dump.ffiMetrics ?? dump);
   const names = Object.keys(summary).sort();
   if (names.length === 0) {
     console.error(`No FFI calls in ${ringPath}. Turn debug on in a release build and use the app.`);

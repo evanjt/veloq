@@ -13,6 +13,7 @@ import {
   PLAY_CHANGELOG_MAX_CHARS,
   changelogCharCount,
   oversizedChangelogs,
+  unsupportedClaimsIn,
   validateMetadata,
 } from '../../../scripts/validate-store-metadata';
 
@@ -49,6 +50,41 @@ describe('validateMetadata', () => {
 
   it('reports nothing else broken either', () => {
     expect(validateMetadata().map((e) => e.message)).toEqual([]);
+  });
+});
+
+describe('unsupportedClaimsIn', () => {
+  it('refuses advice and patterns no insight kind produces', () => {
+    expect(
+      unsupportedClaimsIn(
+        'Daily insights: fitness milestones, activity patterns, and form advice. ' +
+          'Positive, rest-day-aware framing.'
+      )
+    ).toEqual(['form advice', 'activity patterns', 'positive framing']);
+  });
+
+  it('refuses a no-personal-data promise in any case and any locale', () => {
+    expect(unsupportedClaimsIn('A device token, No Personal Data is retained.')).toEqual([
+      'no personal data kept',
+    ]);
+    expect(unsupportedClaimsIn('keine persönlichen Daten werden gespeichert')).toEqual([
+      'no personal data kept',
+    ]);
+    expect(unsupportedClaimsIn('不保留任何个人数据')).toEqual(['no personal data kept']);
+  });
+
+  it('accepts a listing that names what the server stores', () => {
+    expect(
+      unsupportedClaimsIn(
+        'Section PRs and trends, HRV trends. Optional push notifications store your ' +
+          'athlete ID and a device token on our server, deleted after 30 days.'
+      )
+    ).toEqual([]);
+  });
+
+  it('finds no unsupported claim in any store description', () => {
+    const claims = validateMetadata().filter((e) => e.type === 'unsupported_claim');
+    expect(claims.map((e) => e.message)).toEqual([]);
   });
 });
 

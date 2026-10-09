@@ -6,26 +6,15 @@
 
 appId: com.veloq.app.dev
 ---
-# Swipe the full width of the track. A direction swipe anchored to the handle
-# only travels the handle's own width, far short of the unlock threshold, so
-# the sweep is explicit. The track sits above the bottom inset, which differs
-# per platform: measured centre is 82% on Android and 85% on iOS.
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - swipe:
-          start: 12%, 82%
-          end: 90%, 82%
-          duration: 800
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - swipe:
-          start: 12%, 85%
-          end: 90%, 85%
-          duration: 800
+# Anchor on the handle by test ID so the swipe starts on the track whatever
+# the screen height or bottom inset. From an element, Maestro carries a RIGHT
+# swipe to 90% of the screen width on the element's own row, past the 80%
+# release threshold.
+- swipe:
+    from:
+      id: "unlock-track-handle"
+    direction: RIGHT
+    duration: 800
 
 # Which buttons come back depends on the recording state: auto-pause engages
 # after three seconds under 2 km/h, so a phone on a desk shows Resume rather

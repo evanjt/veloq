@@ -17,7 +17,7 @@ import {
   ErrorStatePreset,
   ComponentErrorBoundary,
   ActivityCardSkeleton,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   canDrawProfilePhoto,
   IconButton,
   SearchBar,
@@ -38,6 +38,7 @@ import {
   useActivitySectionHighlights,
   ActivityCard,
   setVisibleRange,
+  createScrollHold,
 } from '@/features/activity';
 import { useStrengthCardData } from '@/features/strength';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
@@ -121,6 +122,11 @@ function FeedScreenContent() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
+  const listContentStyle = useMemo(
+    () => ({ paddingBottom: spacing.xl + tabBarClearance }),
+    [tabBarClearance]
+  );
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -138,6 +144,12 @@ function FeedScreenContent() {
   // WebViews. They come down while it is offscreen and the queue waits.
   const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
+  // No preview render starts while the list moves, so the scroll keeps the cores.
+  const [scrollHold] = useState(createScrollHold);
+  useEffect(
+    () => scrollHold.connect((held) => snapshotRef.current?.holdForScroll(held)),
+    [scrollHold]
+  );
   useEffect(() => {
     const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
     return () => clearTimeout(timeout);
@@ -700,6 +712,10 @@ function FeedScreenContent() {
         ref={listRef}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={VIEWABILITY_CONFIG}
+        onScrollBeginDrag={scrollHold.onScrollBeginDrag}
+        onScrollEndDrag={scrollHold.onScrollEndDrag}
+        onMomentumScrollBegin={scrollHold.onMomentumScrollBegin}
+        onMomentumScrollEnd={scrollHold.onMomentumScrollEnd}
         testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
@@ -708,7 +724,7 @@ function FeedScreenContent() {
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderListEmpty}
         ListFooterComponent={renderFooter}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={listContentStyle}
         contentOffset={INITIAL_CONTENT_OFFSET}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
@@ -797,9 +813,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-  listContent: {
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   emptyContainer: {
     flex: 1,

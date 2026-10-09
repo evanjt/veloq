@@ -23,6 +23,7 @@ import { colors, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
+  type BaseMap3DLayer,
   boundsOfLngLat,
   featureCollection,
   getNextStyle,
@@ -471,6 +472,16 @@ export const SectionMapView = memo(function SectionMapView({
     [isFullscreen, fullscreenSpecArgs]
   );
 
+  // Fullscreen in 3D draws the trim and the highlighted activity and lap the
+  // inline 3D map does, from the same collections.
+  const fullscreenLayer3D = useMemo<BaseMap3DLayer>(
+    () => ({
+      sectionTrimGeoJSON,
+      highlightedTraceGeoJSON: overlays3D.highlightGeoJSON,
+    }),
+    [sectionTrimGeoJSON, overlays3D.highlightGeoJSON]
+  );
+
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
@@ -721,6 +732,7 @@ export const SectionMapView = memo(function SectionMapView({
           onClose={closeFullscreen}
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
+          layer3D={fullscreenLayer3D}
         />
         {hasLegendLayers(fullscreenLegendLayers) && (
           <SectionMapLegend

@@ -66,7 +66,9 @@ const activity = {
 
 function renderCard(index = 0) {
   const requestSnapshot = jest.fn();
-  const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+  const snapshotRef = {
+    current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+  };
   const tree = render(
     <ActivityMapPreview
       activity={activity}

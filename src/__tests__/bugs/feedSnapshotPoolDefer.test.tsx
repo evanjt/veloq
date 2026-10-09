@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
@@ -72,12 +72,21 @@ jest.mock('@/features/recording', () => ({
   PendingUploadsCard: () => null,
 }));
 const mockPoolMounted = jest.fn();
-jest.mock('@/features/maps/components/TerrainSnapshotWebView', () => ({
-  TerrainSnapshotWebView: () => {
-    mockPoolMounted();
-    return null;
-  },
-}));
+const mockHoldForScroll = jest.fn();
+jest.mock('@/features/maps/components/TerrainSnapshotWebView', () => {
+  const { forwardRef, useImperativeHandle } = jest.requireActual('react');
+  return {
+    TerrainSnapshotWebView: forwardRef(function MockPool(_props: unknown, ref: unknown) {
+      mockPoolMounted();
+      useImperativeHandle(ref, () => ({
+        requestSnapshot: jest.fn(),
+        retryFailed: jest.fn(),
+        holdForScroll: mockHoldForScroll,
+      }));
+      return null;
+    }),
+  };
+});
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   ...jest.requireActual('@/features/maps/lib/storage/terrainPreviewCache'),
   initTerrainPreviewCache: jest.fn(),
@@ -92,17 +101,14 @@ const PENDING_KEY = 'veloq-pending-terrain-snapshots';
 beforeEach(() => {
   jest.useFakeTimers();
   mockPoolMounted.mockClear();
+  mockHoldForScroll.mockClear();
 });
 
 afterEach(() => {
   jest.useRealTimers();
 });
 
-it('mounts the snapshot pool only after its defer, with a stale pending list stored', async () => {
-  await AsyncStorage.setItem(
-    PENDING_KEY,
-    JSON.stringify([{ activityId: 'i1', timestamp: Date.now() }])
-  );
+const renderFeed = () => {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -116,6 +122,14 @@ it('mounts the snapshot pool only after its defer, with a stale pending list sto
       <FeedScreen />
     </QueryClientProvider>
   );
+};
+
+it('mounts the snapshot pool only after its defer, with a stale pending list stored', async () => {
+  await AsyncStorage.setItem(
+    PENDING_KEY,
+    JSON.stringify([{ activityId: 'i1', timestamp: Date.now() }])
+  );
+  renderFeed();
 
   await act(async () => {
     await jest.advanceTimersByTimeAsync(499);
@@ -126,4 +140,31 @@ it('mounts the snapshot pool only after its defer, with a stale pending list sto
     await jest.advanceTimersByTimeAsync(1);
   });
   expect(mockPoolMounted).toHaveBeenCalled();
+});
+
+/**
+ * Scenario: the athlete flings the feed once the pool is up.
+ * Expected behaviour: the pool is held from the drag until the fling settles,
+ * so no map render starts under the scroll.
+ */
+it('holds the snapshot pool from a drag until its fling settles', async () => {
+  renderFeed();
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(500);
+  });
+  const list = screen.getByTestId('home-activity-list');
+  const fling = { nativeEvent: { velocity: { x: 0, y: 2 } } };
+
+  fireEvent(list, 'scrollBeginDrag', fling);
+  fireEvent(list, 'scrollEndDrag', fling);
+  fireEvent(list, 'momentumScrollBegin', fling);
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(1000);
+  });
+
+  expect(mockHoldForScroll.mock.calls).toEqual([[true], [true]]);
+
+  fireEvent(list, 'momentumScrollEnd', fling);
+
+  expect(mockHoldForScroll.mock.calls).toEqual([[true], [true], [false]]);
 });

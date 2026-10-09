@@ -23,15 +23,18 @@ export const CLUSTER_CIRCLE_LAYER_ID = 'cluster-circles';
 export const UNCLUSTERED_POINT_LAYER_ID = 'unclustered-point';
 export const SPIDER_POINT_LAYER_ID = 'spider-points';
 export const SECTIONS_LINE_LAYER_ID = 'sections-line';
+export const ROUTES_LINE_LAYER_ID = 'routes-line';
 
 /**
- * Tap precedence: the fanned-out markers sit above everything else.
+ * Tap precedence: the fanned-out markers sit above everything else, and the
+ * route lines, drawn under the sections, come last.
  */
 export const REGIONAL_INTERACTIVE_LAYERS = [
   SPIDER_POINT_LAYER_ID,
   CLUSTER_CIRCLE_LAYER_ID,
   UNCLUSTERED_POINT_LAYER_ID,
   SECTIONS_LINE_LAYER_ID,
+  ROUTES_LINE_LAYER_ID,
 ];
 
 interface RegionalSourceInput {
@@ -94,6 +97,7 @@ interface RegionalLayerInput {
   hasRouteData: boolean;
   selectedActivityId: string | null;
   selectedSectionId: string | null;
+  selectedRouteId?: string | null;
   /** Line colour for the selected activity's route. */
   routeColor: string;
 }
@@ -112,11 +116,13 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
     hasRouteData,
     selectedActivityId,
     selectedSectionId,
+    selectedRouteId,
     routeColor,
   } = input;
 
   const isSelectedActivity = ['==', ['get', 'id'], selectedActivityId ?? ''];
   const isSelectedSection = ['==', ['get', 'id'], selectedSectionId ?? ''];
+  const isSelectedRoute = ['==', ['get', 'id'], selectedRouteId ?? ''];
   const spiderVisible = hasSpider && showActivities;
   const layers: MapLayerSpec[] = [];
 
@@ -142,16 +148,35 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   // the heatmap draws from disk tiles. The activity points below are what a tap
   // needs, and the clustered source's points sit at each activity's start.
   layers.push(
-    // Route lines draw under the section lines.
+    // Route lines draw under the section lines. The selected route is raised
+    // on a casing, the way the selected section is.
     {
-      id: 'routes-line',
+      id: 'routes-outline',
+      type: 'line',
+      source: 'routes',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': mapLayerColors.casing,
+        'line-width': selectedRouteId ? ['case', isSelectedRoute, 7, 0] : 0,
+        'line-opacity': selectedRouteId && showRoutes ? 0.8 : 0,
+      },
+      visible: showRoutes,
+    },
+    {
+      id: ROUTES_LINE_LAYER_ID,
       type: 'line',
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1.5, 12, 2.5, 18, 4],
-        'line-opacity': showRoutes ? 0.8 : 0,
+        'line-width': selectedRouteId
+          ? ['case', isSelectedRoute, 5, 2]
+          : ['interpolate', ['linear'], ['zoom'], 6, 1.5, 12, 2.5, 18, 4],
+        'line-opacity': showRoutes
+          ? selectedRouteId
+            ? ['case', isSelectedRoute, 1, 0.5]
+            : 0.8
+          : 0,
       },
       visible: showRoutes,
     },

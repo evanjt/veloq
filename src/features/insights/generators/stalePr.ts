@@ -72,13 +72,11 @@ function supportingSection(opportunity: StalePROpportunity): SupportingSection {
 function opportunityHistory(opportunity: StalePROpportunity, t: TFunc) {
   const activity = opportunity.bestActivityId;
   const target = `/section/${opportunity.sectionId}${activity ? `?activityId=${encodeURIComponent(activity)}` : ''}`;
-  return sparkline(
-    opportunity.recentEfforts,
-    t('insights.data.recentEfforts'),
-    target,
-    'timeline',
-    markedActivity(opportunity.recentEfforts, activity)
-  );
+  return sparkline(opportunity.recentEfforts, t('insights.data.recentEfforts'), target, {
+    kind: 'timeline',
+    mark: markedActivity(opportunity.recentEfforts, activity),
+    format: (seconds) => formatDuration(Math.round(seconds)),
+  });
 }
 
 /**

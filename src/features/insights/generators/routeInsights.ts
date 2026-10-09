@@ -4,6 +4,7 @@ import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { sparkline } from '../lib/sparkline';
+import { formatDuration } from '@/shared/format/format';
 import { TIME } from '@/shared/app/time';
 
 const MAX_ROUTES_IN_BODY = 3;
@@ -117,7 +118,8 @@ export function generateRouteInsights(
           ...sparkline(
             row.recentEfforts,
             t('insights.data.recentEfforts'),
-            `/route/${row.routeId}`
+            `/route/${row.routeId}`,
+            { format: (seconds) => formatDuration(Math.round(seconds)) }
           ),
           routes,
         },

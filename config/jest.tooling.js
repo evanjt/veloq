@@ -75,6 +75,7 @@ const toolingSuites = [
   'src/__tests__/bugs/reachabilityAuditExitCode.test.ts',
   'src/__tests__/bugs/recordingFlowsCleanUpFirst.test.ts',
   'src/__tests__/bugs/recordingFlowsSurviveAutoPause.test.ts',
+  'src/__tests__/bugs/recordingFlowsUnlockAndGrant.test.ts',
   'src/__tests__/bugs/renderEngineReadLintExitCode.test.ts',
   'src/__tests__/bugs/rustCoverageGateExitCode.test.ts',
   'src/__tests__/bugs/rustFmtGate.test.ts',

@@ -55,7 +55,7 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { isEngineReady } from '@/shared/native/engine';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, EngineReadFailure, useHeroMapHeight } from '@/shared/ui';
+import { Button, EngineReadFailure, useHeroMapHeight, useTabBarClearance } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -103,6 +103,7 @@ function SectionDetailScreenContent() {
     previewVersion?: string;
   }>();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
   const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
@@ -345,7 +346,7 @@ function SectionDetailScreenContent() {
         <ScrollView
           ref={scrollRef}
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

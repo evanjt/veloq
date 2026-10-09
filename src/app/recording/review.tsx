@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { replaceTo, tapBack } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -44,6 +44,7 @@ const MAP_FRACTION = 0.45;
 function ReviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
   const params = useLocalSearchParams<{
@@ -227,7 +228,7 @@ function ReviewScreenContent() {
 
       {/* Bottom sheet content */}
       <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Activity Name */}

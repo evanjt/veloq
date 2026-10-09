@@ -9,7 +9,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { getAllSectionDisplayNames, ledgerDate } from '@/features/routes';
@@ -21,6 +21,7 @@ import { tapTo } from '@/shared/app/navigation';
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const locale = getIntlLocale();
 
   const readRetired = useEngineRead(['sections', 'detectionApplied']);
@@ -36,7 +37,13 @@ function SectionRetiredScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScreenScrollView contentContainerStyle={styles.content} testID="section-retired-list">
+      <ScreenScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: layout.screenPadding + tabBarClearance },
+        ]}
+        testID="section-retired-list"
+      >
         {retired.length === 0 ? (
           <Text style={[styles.empty, isDark && styles.textSecondaryDark]}>
             {t('sectionHistory.retiredEmpty')}
@@ -90,7 +97,6 @@ const styles = StyleSheet.create({
   containerDark: { backgroundColor: darkColors.background },
   content: {
     padding: layout.screenPadding,
-    paddingBottom: TAB_BAR_SAFE_PADDING,
     gap: spacing.sm,
   },
   card: {

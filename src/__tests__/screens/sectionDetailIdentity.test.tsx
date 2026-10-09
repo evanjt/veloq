@@ -47,6 +47,7 @@ jest.mock('@/shared/ui', () => ({
   Button: () => null,
   EngineReadFailure: () => null,
   useHeroMapHeight: () => 300,
+  useTabBarClearance: () => 0,
 }));
 jest.mock('@/features/settings', () => ({
   useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),

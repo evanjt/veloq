@@ -2967,20 +2967,30 @@ pub mod pooled {
         // layer row. Neither touches a route group or a track.
         let (route_count, route_lines) = if route_lines {
             match crate::persistence::route_lines::pooled::layer_with_generation(conn) {
-                Ok(Some((generation, lines))) => (
-                    lines.len() as u32,
-                    Some(crate::ffi_types::FfiRouteLineLayer {
-                        generation: generation as f64,
-                        routes: lines
-                            .into_iter()
-                            .map(|line| crate::ffi_types::FfiRouteLine {
-                                route_id: line.route_id,
-                                route_number: line.number,
-                                polyline: line.polyline,
-                            })
-                            .collect(),
-                    }),
-                ),
+                Ok(Some((generation, lines))) => {
+                    // Names and sizes change without a regroup, so they are
+                    // read beside the layer rather than stored in it.
+                    let ids: Vec<&str> = lines.iter().map(|line| line.route_id.as_str()).collect();
+                    let names = crate::persistence::routes::pooled::route_names_for(conn, &ids);
+                    let sizes = crate::persistence::routes::pooled::activity_counts(conn, &ids);
+                    let routes = lines
+                        .into_iter()
+                        .map(|line| crate::ffi_types::FfiRouteLine {
+                            name: names.get(&line.route_id).cloned().unwrap_or_default(),
+                            activity_count: sizes.get(&line.route_id).copied().unwrap_or_default(),
+                            route_id: line.route_id,
+                            route_number: line.number,
+                            polyline: line.polyline,
+                        })
+                        .collect::<Vec<_>>();
+                    (
+                        routes.len() as u32,
+                        Some(crate::ffi_types::FfiRouteLineLayer {
+                            generation: generation as f64,
+                            routes,
+                        }),
+                    )
+                }
                 _ => (0, None),
             }
         } else {

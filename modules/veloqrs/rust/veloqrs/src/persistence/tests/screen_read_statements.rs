@@ -362,7 +362,6 @@ fn step_ceiling(name: &str) -> f64 {
         "stats"
         | "activity_count"
         | "map_screen_data"
-        | "map_screen_data_with_route_lines"
         | "startup_data"
         | "fitness_screen_data"
         | "section_detail_performance"
@@ -379,6 +378,9 @@ fn step_ceiling(name: &str) -> f64 {
         // it grows with the library and no faster.
         "training_screen_data" => 3.0,
         "get_section_summaries" | "map_screen_data_with_sections" => 3.5,
+        // The layer names every route it draws and counts its activities, a
+        // lookup per route, so it grows with the routes and no faster.
+        "map_screen_data_with_route_lines" => 3.0,
         "insights_data" => 1.62,
         "activity_detail_data" | "section_detail_data" | "route_detail_data" => 2.6,
         other => panic!("{other} has no step ceiling"),
@@ -440,6 +442,53 @@ fn map_screen_data_carries_the_route_count_and_the_lines_only_when_asked() {
     let layer = with_lines.route_lines.expect("the layer is on");
     assert_eq!(layer.routes.len() as u32, routes);
     assert!(layer.routes.iter().all(|line| !line.polyline.is_empty()));
+}
+
+#[test]
+fn map_screen_data_names_each_route_line_and_counts_its_activities() {
+    let mut engine = seeded(SMALL);
+    let sizes: std::collections::HashMap<String, u32> = engine
+        .get_groups()
+        .iter()
+        .map(|group| (group.group_id.clone(), group.activity_ids.len() as u32))
+        .collect();
+    let read = |engine: &mut PersistentEngine| {
+        engine
+            .map_screen_data(
+                NOW - 365 * DAY,
+                NOW,
+                vec![],
+                crate::MapDistanceBand::All,
+                true,
+                true,
+                false,
+                String::new(),
+            )
+            .route_lines
+            .expect("the layer is on")
+            .routes
+    };
+    let lines = read(&mut engine);
+    let typed = lines
+        .first()
+        .expect("the seed draws a route")
+        .route_id
+        .clone();
+    engine
+        .set_route_name(&typed, Some("Harbour loop"))
+        .expect("rename");
+
+    let lines = read(&mut engine);
+    let shown = engine.get_all_route_names();
+    for line in &lines {
+        assert_eq!(Some(&line.activity_count), sizes.get(&line.route_id));
+        assert_eq!(Some(&line.name), shown.get(&line.route_id));
+    }
+    let renamed = lines
+        .iter()
+        .find(|line| line.route_id == typed)
+        .expect("still drawn");
+    assert_eq!(renamed.name, "Harbour loop");
 }
 
 #[test]

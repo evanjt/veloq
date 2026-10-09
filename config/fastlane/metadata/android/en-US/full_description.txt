@@ -4,7 +4,7 @@ Your training data, visualized. Veloq brings recording, maps, charts, insights, 
 Track activities with GPS, auto-pause, km splits, and heart rate zone display. Trim your recording before saving. Upload as FIT files, or queue for later. Manual entry for indoor activities.
 
 <b>Insights</b>
-Daily personalized insights based on your training: section PRs, fitness milestones, weekly comparisons, activity patterns, and form advice. Positive, rest-day-aware framing.
+Daily insights from your own training: section PRs and trends, fitness milestones, weekly comparisons, HRV trends and strength progression. Each one shows its numbers and how they were calculated.
 
 <b>Maps</b>
 View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
@@ -19,7 +19,7 @@ Heart rate, power, pace, elevation, and cadence, all synchronized with the map. 
 Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
 
 <b>Privacy</b>
-All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry, no personal data is retained. Open source under Apache 2.0.
+Your training data stays on your device. No analytics, no tracking. Optional push notifications store your intervals.icu athlete ID and a device token on our server, deleted automatically after 30 days. Open source under Apache 2.0.
 
 Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 

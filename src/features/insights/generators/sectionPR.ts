@@ -7,6 +7,8 @@ import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
 
+const formatEffortTime = (seconds: number) => formatDuration(Math.round(seconds));
+
 export function generateSectionPRInsights(
   recentPRs: SectionPR[],
   now: number,
@@ -42,8 +44,11 @@ export function generateSectionPRInsights(
             pr.recentEfforts,
             t('insights.data.recentEfforts'),
             `/section/${pr.sectionId}${pr.bestActivityId ? `?activityId=${encodeURIComponent(pr.bestActivityId)}` : ''}`,
-            'timeline',
-            markedActivity(pr.recentEfforts, pr.bestActivityId)
+            {
+              kind: 'timeline',
+              mark: markedActivity(pr.recentEfforts, pr.bestActivityId),
+              format: formatEffortTime,
+            }
           ),
           sections: [
             {

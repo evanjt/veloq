@@ -30,7 +30,7 @@ jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
   return {
     ScreenSafeAreaView: View,
-    TAB_BAR_SAFE_PADDING: 0,
+    useTabBarClearance: () => 0,
     ChartSkeleton: View,
     ErrorStatePreset: View,
     ExplanationCard: View,

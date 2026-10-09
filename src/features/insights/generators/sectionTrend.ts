@@ -1,4 +1,11 @@
-import type { Insight, SectionTrendData, SupportingSection, TFunc } from '../types';
+import type {
+  HistoryChange,
+  Insight,
+  InsightHistory,
+  SectionTrendData,
+  SupportingSection,
+  TFunc,
+} from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxAgeDaysFor } from '../lib/config';
 import { sectionPairKey } from '../lib/sectionIdentity';
@@ -30,6 +37,22 @@ function supportingSections(trends: SectionTrendData[]): SupportingSection[] {
   }));
 }
 
+/**
+ * Each section's signed change as the engine measured it, in the rows' order.
+ * A section the engine compared nothing on has no change and draws no bar,
+ * rather than a bar at zero.
+ */
+function sectionChanges(sections: SectionTrendData[]): InsightHistory | undefined {
+  const bars: HistoryChange[] = [];
+  for (const section of sections) {
+    const change = section.ranking?.improvementChange;
+    if (change != null && Number.isFinite(change)) {
+      bars.push({ key: section.sectionId, value: change });
+    }
+  }
+  return bars.length > 0 ? { kind: 'changes', bars } : undefined;
+}
+
 export interface SectionTrendCounts {
   faster: number;
   slower: number;
@@ -59,6 +82,7 @@ export function generateSectionTrendInsights(
     (age, section) => Math.min(age, section.daysSinceLast ?? 0),
     Infinity
   );
+  const history = sectionChanges(sections);
 
   return [
     makeInsight({
@@ -78,7 +102,10 @@ export function generateSectionTrendInsights(
         comparisonKind: 'self',
         repetitionCount: best.traversalCount,
       },
-      supportingData: { sections: supportingSections(sections) },
+      supportingData: {
+        sections: supportingSections(sections),
+        ...(history ? { history } : {}),
+      },
       methodology: {
         name: t('insights.methodology.sectionTrendName'),
         description: t('insights.methodology.sectionTrend'),

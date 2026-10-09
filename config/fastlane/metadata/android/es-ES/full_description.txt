@@ -4,7 +4,7 @@ Tus datos de entrenamiento, visualizados. Veloq reúne grabación, mapas, gráfi
 Registra actividades con GPS, pausa automática, parciales por km y visualización de zonas de frecuencia cardíaca. Recorta tu grabación antes de guardar. Sube como archivos FIT, o ponlos en cola para más tarde. Entrada manual para actividades en interior.
 
 <b>Insights</b>
-Insights diarios personalizados basados en tu entrenamiento: récords en secciones, hitos de fitness, comparaciones semanales, patrones de actividad y consejos de forma. Enfoque positivo y consciente de los días de descanso.
+Insights diarios a partir de tu propio entrenamiento: récords y tendencias en secciones, hitos de fitness, comparaciones semanales, tendencias de VFC y progresión de fuerza. Cada uno muestra sus cifras y cómo se calcularon.
 
 <b>Mapas</b>
 Visualiza tus actividades en mapas interactivos con terreno 3D, mapas de calor de rutas y filtrado por línea temporal. Elige entre estilos claro, oscuro y satélite. Desplázate por los gráficos y observa tu posición actualizarse en el mapa en tiempo real.
@@ -19,7 +19,7 @@ Frecuencia cardíaca, potencia, ritmo, altitud y cadencia, todo sincronizado con
 Sigue tu forma con seguimiento CTL/ATL/TSB y zonas visuales. Monitoriza HRV, frecuencia cardíaca en reposo, sueño y bienestar. Consulta curvas de potencia y ritmo por deporte.
 
 <b>Privacidad</b>
-Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con caducidad automática de 30 días, no se conservan datos personales. Código abierto bajo Apache 2.0.
+Tus datos de entrenamiento permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan tu ID de atleta de intervals.icu y un token de dispositivo en nuestro servidor, que se eliminan automáticamente a los 30 días. Código abierto bajo Apache 2.0.
 
 Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 

@@ -1,10 +1,10 @@
 /**
  * Scenario: the non-GPS review screen sits under a native header that takes a collapsing large
- * title on iOS. `contentInsetAdjustmentBehavior: 'automatic'` adds the home-indicator inset, so the
- * scroll content pads by the tab bar clearance alone.
+ * title on iOS. `contentInsetAdjustmentBehavior: 'automatic'` adds the home-indicator inset, and the
+ * review is a stack screen where the tab bar does not draw.
  *
  * Expected behaviour: rendered on iOS under a bottom safe area, the scroll view lets the system
- * inset its content and pads by the tab bar clearance alone.
+ * inset its content and adds no bottom padding of its own.
  */
 
 import React from 'react';
@@ -15,13 +15,13 @@ import ReviewScreen from '@/app/recording/review';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { push: jest.fn(), back: jest.fn() },
   useLocalSearchParams: () => ({}),
   Stack: { Screen: () => null },
+  useSegments: () => ['recording', 'review'],
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
@@ -68,14 +68,12 @@ describe('review screen scroll view', () => {
     expect(headerLargeTitle('recording/review', 'android')).toBe(false);
   });
 
-  it('insets the system way and pads by the tab bar clearance alone', () => {
+  it('insets the system way and pads nothing for a tab bar', () => {
     Platform.OS = 'ios';
     const { UNSAFE_getAllByType } = render(<ReviewScreen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(
-      TAB_BAR_SAFE_PADDING
-    );
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(0);
   });
 });

@@ -25,7 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { Button, EngineReadFailure, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, EngineReadFailure, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   usePreviewDetect,
@@ -65,6 +65,7 @@ function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
 
   const client = useMemo(() => getEngine(), []);
   const { centres, labels, error: centresReadError } = usePreviewCentres(client);
@@ -254,7 +255,7 @@ function DetectionPreviewScreenContent() {
       </View>
 
       <View
-        style={[styles.panel, { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }]}
+        style={[styles.panel, { paddingBottom: insets.bottom + tabBarClearance }]}
         testID="preview-control-panel"
       >
         {centresReadError !== undefined ? (

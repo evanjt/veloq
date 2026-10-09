@@ -36,8 +36,27 @@ jest.mock('expo-location', () => ({
 // handed and the camera moves sent through its ref.
 const mockSurfaceProbe: {
   sources: Record<string, { data?: GeoJSON.FeatureCollection }>;
+  initialCamera: unknown;
   setCamera: jest.Mock;
-} = { sources: {}, setCamera: jest.fn() };
+} = { sources: {}, initialCamera: null, setCamera: jest.fn() };
+
+// The real 3D layer is rendered, wrapped so the test can read what it was
+// handed and drive the callbacks its page would.
+const mockMap3DProbe: { props: Record<string, unknown> | null } = { props: null };
+
+jest.mock('@/features/maps/components/Map3DWebView', () => {
+  const ReactLocal = require('react');
+  const actual = jest.requireActual('@/features/maps/components/Map3DWebView');
+  return {
+    ...actual,
+    Map3DWebView: ReactLocal.forwardRef(
+      (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
+        mockMap3DProbe.props = props;
+        return ReactLocal.createElement(actual.Map3DWebView, { ...props, ref });
+      }
+    ),
+  };
+});
 
 jest.mock('@/features/maps/components/MapSurface', () => {
   const ReactLocal = require('react');
@@ -45,8 +64,14 @@ jest.mock('@/features/maps/components/MapSurface', () => {
   return {
     ...actual,
     MapSurface: ReactLocal.forwardRef(
-      (props: { sources: (typeof mockSurfaceProbe)['sources'] }, ref: React.Ref<unknown>) => {
+      (
+        props: { sources: (typeof mockSurfaceProbe)['sources']; initialCamera: unknown },
+        ref: React.Ref<unknown>
+      ) => {
         mockSurfaceProbe.sources = props.sources;
+        // The surface builds its page from the camera it mounted with and
+        // reads no later one, so that is the camera recorded.
+        mockSurfaceProbe.initialCamera = ReactLocal.useRef(props.initialCamera).current;
         return ReactLocal.createElement(actual.MapSurface, {
           ...props,
           ref: (instance: { setCamera: (...args: unknown[]) => void } | null) => {
@@ -196,6 +221,92 @@ describe('BaseMapView', () => {
     ).not.toThrow();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+  });
+
+  describe('in 3D', () => {
+    const TRIM: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { kind: 'trimmed' },
+          geometry: { type: 'LineString', coordinates: ROUTE.slice(0, 2) },
+        },
+      ],
+    };
+    const HIGHLIGHT: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { activityId: 'ride-a' },
+          geometry: { type: 'LineString', coordinates: ROUTE },
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      mockMap3DProbe.props = null;
+    });
+
+    function enter3D() {
+      fireEvent.press(screen.getByTestId('map-3d-toggle'));
+      act(() => {
+        (mockMap3DProbe.props!.onMapReady as () => void)();
+      });
+    }
+
+    it('hands the terrain layer the overlays the caller drew in 2D', () => {
+      renderMap({
+        routeCoordinates: ROUTE,
+        layer3D: { sectionTrimGeoJSON: TRIM, highlightedTraceGeoJSON: HIGHLIGHT },
+      });
+
+      enter3D();
+
+      expect(mockMap3DProbe.props!.sectionTrimGeoJSON).toBe(TRIM);
+      expect(mockMap3DProbe.props!.highlightedTraceGeoJSON).toBe(HIGHLIGHT);
+    });
+
+    it('sends a section marker tap on the terrain layer to the caller', () => {
+      const onSectionClick = jest.fn();
+      renderMap({ routeCoordinates: ROUTE, layer3D: { onSectionClick } });
+
+      enter3D();
+      act(() => {
+        (mockMap3DProbe.props!.onSectionClick as (id: string) => void)('hill-climb');
+      });
+
+      expect(onSectionClick).toHaveBeenCalledWith('hill-climb');
+    });
+
+    it('brings the flat map back where the terrain camera was left', () => {
+      renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+
+      enter3D();
+      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      act(() => {
+        (mockMap3DProbe.props!.onCameraStateChange as (c: unknown, g: boolean) => void)(
+          { center: [7.6, 46.7], zoom: 14, bearing: 30, pitch: 60 },
+          true
+        );
+      });
+      fireEvent.press(screen.getByTestId('map-3d-toggle'));
+
+      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(mockSurfaceProbe.initialCamera).toEqual({ center: [7.6, 46.7], zoom: 14 });
+    });
+
+    it('fits the bounds again on a later visit when the terrain camera never moved', () => {
+      renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+
+      enter3D();
+      fireEvent.press(screen.getByTestId('map-3d-toggle'));
+
+      expect(mockSurfaceProbe.initialCamera).toEqual(
+        expect.objectContaining({ bounds: { sw: BOUNDS.sw, ne: BOUNDS.ne } })
+      );
+    });
   });
 
   describe('the locate button', () => {

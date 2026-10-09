@@ -308,6 +308,7 @@ jobs:
         run: |
           cd android && ./gradlew :veloqrs:testDebugUnitTest \
             :veloq-recording-notification:testDebugUnitTest \
+            :veloq-backup-exclusion:testDebugUnitTest \
             -PreactNativeArchitectures="$ABIS" \
             --no-daemon
 

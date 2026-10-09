@@ -8,10 +8,16 @@
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
+import { spacing } from '@/theme';
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useSegments: () => ['settings'],
+}));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -123,5 +129,12 @@ describe('Settings hub grouping', () => {
       return row.findAllByType(Text).length < 2;
     });
     expect(bare).toEqual([]);
+  });
+
+  it('ends the list at its own spacing, with no tab bar to clear on a stack screen', () => {
+    const screen = render(<SettingsScreen />);
+    const content = screen.getByTestId('settings-scrollview').props.contentContainerStyle;
+
+    expect(StyleSheet.flatten(content).paddingBottom).toBe(spacing.xl);
   });
 });

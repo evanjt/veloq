@@ -565,3 +565,66 @@ fn a_swept_pass_draws_what_a_cold_pass_draws() {
     );
     assert_eq!(after_removal, cold_set);
 }
+
+/// Scenario: a cold pass over a library whose rides reach every zoom and many
+/// tiles at each.
+///
+/// Expected behaviour: each stored point is projected onto the map once for
+/// the whole pass, not once for every zoom it is planned at and every tile it
+/// is drawn into, which made a pass cost the library's points times its zooms
+/// and a low-zoom tile cost every point of every ride under it.
+#[test]
+fn a_pass_projects_each_point_once() {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("projected-once.db");
+    let rides: Vec<Vec<GpsPoint>> = (0..12)
+        .map(|i| {
+            let lat = 46.23 + f64::from(i) * 0.002;
+            line((lat, 7.30), (lat, 7.40), 400)
+        })
+        .collect();
+    for (i, ride) in rides.iter().enumerate() {
+        store_through_the_ffi(&format!("ride-{i}"), ride);
+    }
+    settle();
+    let (db, activities) = with_persistent_engine(|e| {
+        let activities: Vec<(String, Bounds)> = e
+            .activity_metadata
+            .iter()
+            .map(|(id, m)| (id.clone(), m.bounds))
+            .collect();
+        (e.db_path.clone(), activities)
+    })
+    .expect("engine");
+    let tiles = tmp.path().join("tiles");
+    std::fs::create_dir_all(&tiles).unwrap();
+
+    // One worker, so every projection the pass makes lands on the thread
+    // that counts them.
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let (run, projected) = pool.install(|| {
+        crate::tiles::work::take_projections();
+        let run = background_generate_tiles(
+            &db,
+            &tiles.to_string_lossy(),
+            &activities,
+            &AtomicU32::new(0),
+            &AtomicU32::new(0),
+            &crate::persistence::CancelToken::new(),
+            None,
+        );
+        (run, crate::tiles::work::take_projections())
+    });
+
+    let points: usize = rides.iter().map(Vec::len).sum();
+    assert_eq!(activities.len(), rides.len());
+    assert!(run.generated > 50, "the pass drew {} tiles", run.generated);
+    assert!(
+        projected <= 2 * points,
+        "{projected} projections for {points} stored points"
+    );
+}

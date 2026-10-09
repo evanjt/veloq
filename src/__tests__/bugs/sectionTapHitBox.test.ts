@@ -17,6 +17,7 @@ import {
   SURFACE_HIT_TEST_RADIUS_PX,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { MapSurfaceHtmlConfig } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import { REGIONAL_INTERACTIVE_LAYERS } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 
 type Geometry = [number, number] | [[number, number], [number, number]];
 
@@ -73,9 +74,11 @@ function runPage(hits: Hit[] = [SECTION_HIT], interactiveLayers: string[] = ['se
       addLayer: jest.fn(),
       getSource: jest.fn(() => undefined),
       getLayer: jest.fn(() => ({})),
-      queryRenderedFeatures: (geometry: Geometry) => {
+      // MapLibre returns only features on the layers it was asked about.
+      queryRenderedFeatures: (geometry: Geometry, options?: { layers?: string[] }) => {
         queried.push(geometry);
-        return hits;
+        const asked = options?.layers;
+        return asked ? hits.filter((hit) => asked.includes(hit.layer.id)) : hits;
       },
       resize: jest.fn(),
       getCanvas: () => ({ style: {} }),
@@ -257,5 +260,40 @@ describe('a long press still reports the one feature it landed on', () => {
     };
     expect(press.feature?.layerId).toBe('sections-line');
     expect(press.feature?.properties.id).toBe('s1');
+  });
+});
+
+describe('a route line on the global map takes a tap', () => {
+  const ROUTE_HIT: Hit = {
+    layer: { id: 'routes-line' },
+    properties: { id: 'loop-7', number: 7 },
+    geometry: null,
+  };
+  const START: Hit = {
+    layer: { id: 'unclustered-point' },
+    properties: { id: 'a1' },
+    geometry: { type: 'Point', coordinates: [6.6, 46.5] },
+  };
+
+  const pressOn = (hits: Hit[]) => {
+    const { posted, map } = runPage(hits, [...REGIONAL_INTERACTIVE_LAYERS]);
+    map.fire('click', { point: { x: 100, y: 200 }, lngLat: { lng: 6.6, lat: 46.5 } });
+    return posted.find((m) => m.type === 'mapClick') as {
+      feature: { layerId: string; properties: { id: string } } | null;
+    };
+  };
+
+  it('reports the route under the finger', () => {
+    const press = pressOn([ROUTE_HIT]);
+    expect(press.feature?.layerId).toBe('routes-line');
+    expect(press.feature?.properties.id).toBe('loop-7');
+  });
+
+  it('leaves the tap to a section drawn over the route', () => {
+    expect(pressOn([ROUTE_HIT, SECTION_HIT]).feature?.layerId).toBe('sections-line');
+  });
+
+  it('leaves the tap to an activity start on the route', () => {
+    expect(pressOn([ROUTE_HIT, START]).feature?.layerId).toBe('unclustered-point');
   });
 });

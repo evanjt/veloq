@@ -697,7 +697,6 @@
     "loadBody": "TSS : {{currentTss}} cette semaine vs {{previousTss}} la semaine dernière. Durée : {{currentDuration}} vs {{previousDuration}}.",
     "volumeBody": "Durée d'entraînement : {{current}} cette semaine vs {{previous}} la semaine dernière. Ceci mesure le temps, pas la charge d'entraînement (TSS).",
     "howCalculated": "Comment est-ce calculé ?",
-    "sourceActivities": "Activités sources",
     "current": "Actuel",
     "previous": "Précédent",
     "methodology": {
@@ -923,7 +922,20 @@
       "noEfforts": "Aucun effort enregistré"
     },
     "beta": "Bêta",
-    "recentPersonalRecord": "Record personnel récent"
+    "recentPersonalRecord": "Record personnel récent",
+    "caption": {
+      "latestAgainstMean": "Dernière {{latest}} ms, moyenne {{avg}} ms",
+      "thisWeekAgainstLast": "Cette semaine {{current}}, semaine dernière {{previous}}",
+      "lastWeekAgainstAverage": "Semaine dernière {{current}}, moyenne sur 4 semaines {{previous}}",
+      "fromTo": "De {{previous}} à {{current}}"
+    },
+    "graphic": {
+      "openSection": "Ouvrir {{name}}",
+      "openTheSection": "Ouvrir la section",
+      "openFitness": "Ouvrir le graphique de forme",
+      "openStrength": "Ouvrir la musculation",
+      "openDetail": "Ouvrir le détail"
+    }
   },
   "licenses": {
     "openRepository": "Ouvrir le dépôt",
@@ -1009,6 +1021,7 @@
     },
     "closeMap": "Fermer la carte",
     "closePopup": "Fermer le popup d'activité",
+    "closeRoutePopup": "Fermer la popup de route",
     "closeSectionPopup": "Fermer la popup de section",
     "disable3D": "Désactiver la vue 3D",
     "enable3D": "Activer la vue 3D",
@@ -1027,6 +1040,7 @@
     "tapSelectStart": "Appuyez pour sélectionner le point de départ",
     "toggleStyle": "Changer le style de carte",
     "viewDetails": "Voir les détails",
+    "viewRouteDetails": "Voir les détails de la route",
     "viewSectionDetails": "Voir les détails de la section",
     "zoomToActivity": "Zoom sur l'activité",
     "colorByGradient": "Couleur par inclinaison",

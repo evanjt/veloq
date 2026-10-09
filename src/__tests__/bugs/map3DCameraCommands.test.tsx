@@ -87,7 +87,7 @@ function mountHandlers(is3DMode: boolean, selected: unknown = null) {
       setShowSections: jest.fn(),
       showRoutes: true,
       setShowRoutes: jest.fn(),
-      setSelectedRoute: jest.fn(),
+      setSelectedRouteId: jest.fn(),
       userLocation: null,
       setUserLocation: jest.fn(),
       setLocationLoading: jest.fn(),

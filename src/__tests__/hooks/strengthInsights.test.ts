@@ -112,6 +112,7 @@ describe('generateStrengthInsights', () => {
       kind: 'bars',
       target: '/insights?tab=strength',
       mark: { date: 4000 },
+      scale: { top: '5', bottom: '0' },
       series: [
         {
           label: 'Chest',
@@ -127,6 +128,7 @@ describe('generateStrengthInsights', () => {
       kind: 'bars',
       target: '/insights?tab=strength',
       mark: { date: 4000 },
+      scale: { top: '4', bottom: '0' },
       series: [
         {
           label: 'insights.strengthSnapshot.sessionsLabel',
@@ -138,6 +140,7 @@ describe('generateStrengthInsights', () => {
       kind: 'bars',
       target: '/insights?tab=strength',
       mark: { date: 4000 },
+      scale: { top: '5', bottom: '0' },
       series: [
         {
           label: 'insights.strengthProgression.sparklineLabel',

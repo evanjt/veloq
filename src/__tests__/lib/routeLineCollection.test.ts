@@ -14,6 +14,8 @@ import { encodeTrack } from '../__shared__/trackBytes';
 const line = (routeId: string, routeNumber: number | undefined, pts: [number, number][]) => ({
   routeId,
   routeNumber,
+  name: `Loop ${routeId}`,
+  activityCount: 2,
   polyline: encodeTrack(pts.map(([latitude, longitude]) => ({ latitude, longitude }))),
 });
 

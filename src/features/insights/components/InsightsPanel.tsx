@@ -11,9 +11,9 @@ import { InsightDebugPanel } from './InsightDebugPanel';
 import {
   ErrorStatePreset,
   ExplanationCard,
-  TAB_BAR_SAFE_PADDING,
   pressable,
   pressRipple,
+  useTabBarClearance,
 } from '@/shared/ui';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -55,6 +55,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   onInsightOpened,
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const { t } = useTranslation();
   const [debugOpen, setDebugOpen] = useState(false);
   const openSheet = useSheetOpener();
@@ -80,7 +81,10 @@ export const InsightsPanel = React.memo(function InsightsPanel({
 
   return (
     <View style={styles.container} testID="insights-panel">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: layout.screenPadding + tabBarClearance }}
+      >
         {__DEV__ ? (
           <Pressable
             accessibilityRole="button"
@@ -149,9 +153,6 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.sm,
     marginBottom: spacing.xs,
-  },
-  scrollContent: {
-    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   explanation: {
     paddingTop: spacing.md,

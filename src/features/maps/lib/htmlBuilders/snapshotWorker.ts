@@ -13,6 +13,7 @@
  */
 import { consoleBridgeScript, mapLibreHead, terrainVisibilityScript } from './shared';
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
+import { regionalSatelliteSourceIds } from '@/features/maps/components/mapStyles';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -96,6 +97,9 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
     // Bridge console to React Native
     ${consoleBridgeScript({ workerId: 'window._workerId' })}
 
+    // The sources whose 404 is out of coverage rather than a missing tile.
+    window._regionalSatelliteSources = ${JSON.stringify(regionalSatelliteSourceIds())};
+
     // Generation counter for race condition guard
     window._snapshotGen = 0;
 
@@ -162,11 +166,13 @@ ${terrainVisibilityScript()}
 
       window.map.on('error', function(e) {
         var msg = e.error ? e.error.message : JSON.stringify(e);
-        // Only count server errors (429, 5xx) and network failures as tile errors.
-        // 404s are expected from regional satellite sources (swisstopo, eox, ign)
-        // that return 404 for tiles outside their coverage area.
         var status = e.error && e.error.status;
-        if (status === 404 || /HTTP 404/.test(msg)) return;
+        // A 404 from a regional satellite source is a tile outside its
+        // coverage, drawn by the global layer beneath. From any other source
+        // it is a hole in the picture, and the tile store answers a refusal
+        // as 404 too. A 404 with no source is a sprite or glyph, not a tile.
+        var is404 = status === 404 || /HTTP 404/.test(msg);
+        if (is404 && (!e.sourceId || window._regionalSatelliteSources.indexOf(e.sourceId) !== -1)) return;
         window._rn_log('Map error: ' + msg);
         if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
           window._tileErrorCount++;

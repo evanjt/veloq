@@ -3035,6 +3035,11 @@ pub struct FfiRouteLine {
     pub route_id: String,
     /// The number the route is shown under, absent until one is minted
     pub route_number: Option<u32>,
+    /// The name the route is shown under, read when the map is, so a rename
+    /// shows without the layer being rebuilt
+    pub name: String,
+    /// The activities in the route
+    pub activity_count: u32,
     /// The representative's signature in `codec::encode_polyline` form
     pub polyline: Vec<u8>,
 }

@@ -21,6 +21,7 @@ import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { SyncProgressStrip } from './SyncProgressStrip';
 import { pressable, pressRipple } from './pressFeedback';
+import { GRADIENT_HEIGHT, TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
 
 const log = debug.create('BottomTabBar');
 
@@ -33,10 +34,6 @@ const MENU_ITEMS = [
   { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
 
-// Dimensions
-export const TAB_BAR_HEIGHT = 60; // Height for icons + labels
-export const GRADIENT_HEIGHT = 20; // Small fade zone above icons
-export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total padding for content
 const ICON_SIZE = 26;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
@@ -110,8 +107,7 @@ function BottomTabBarComponent() {
 
   // Stack screens own their whole bottom edge. Drawing the bar over them hides
   // the last rows of a list and lets a stray touch leave a live recording.
-  // Reading the group, not a pathname list, covers a new stack screen unedited.
-  if (segments[0] !== '(tabs)') return null;
+  if (!isTabBarRoute(segments)) return null;
 
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 

@@ -38,10 +38,10 @@ describe('the insights tour slide', () => {
     expect(queryByText('whatsNew.v030.insightsSectionPrs')).toBeNull();
   });
 
-  it('draws the section the example record was set on', () => {
+  it('draws each example card with the graphic of its history', () => {
     const { getAllByTestId } = render(<InsightsSlide />);
 
-    expect(getAllByTestId(/^section-preview-/)).toHaveLength(1);
+    expect(getAllByTestId('insight-graphic')).toHaveLength(2);
   });
 
   it('says how an insight is made, through the translator', () => {

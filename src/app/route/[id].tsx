@@ -50,6 +50,7 @@ import {
   HeroNameRow,
   HeroStatsRow,
   useHeroMapHeight,
+  useTabBarClearance,
 } from '@/shared/ui';
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
@@ -62,7 +63,7 @@ import type {
   FfiSectionSportCount,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { colors } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
@@ -90,6 +91,7 @@ function RouteDetailScreenContent() {
     activityId?: string;
   }>();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
@@ -248,7 +250,7 @@ function RouteDetailScreenContent() {
       <StatusBar barStyle="light-content" />
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RoutePerformanceSection, DataRangeFooter } from '@/features/routes';
-import { ComponentErrorBoundary, EmptyState, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ComponentErrorBoundary, EmptyState, useTabBarClearance } from '@/shared/ui';
 import type { ActivityType } from '@/types';
 import { spacing } from '@/theme';
 
@@ -22,11 +22,15 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
   isDark,
 }: ActivityRoutesSectionProps) {
   const { t } = useTranslation();
+  const tabBarClearance = useTabBarClearance();
 
   return (
     <ScrollView
       style={styles.tabScrollView}
-      contentContainerStyle={styles.tabScrollContent}
+      contentContainerStyle={[
+        styles.tabScrollContent,
+        { paddingBottom: spacing.xl + tabBarClearance },
+      ]}
       showsVerticalScrollIndicator={false}
       testID="activity-routes-list"
     >
@@ -54,6 +58,5 @@ const styles = StyleSheet.create({
   },
   tabScrollContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
 });

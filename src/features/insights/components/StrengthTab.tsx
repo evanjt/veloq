@@ -18,7 +18,7 @@ import {
   StrengthBalanceView,
   STRENGTH_PERIODS,
 } from '@/features/strength';
-import { ErrorStatePreset, ExplanationCard, TAB_BAR_SAFE_PADDING, ToggleButton } from '@/shared/ui';
+import { ErrorStatePreset, ExplanationCard, ToggleButton, useTabBarClearance } from '@/shared/ui';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
@@ -47,6 +47,7 @@ export const StrengthTab = React.memo(function StrengthTab({
   linkedPeriod,
 }: StrengthTabProps) {
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const [period, setPeriod] = useState<StrengthPeriod>(linkedPeriod?.period ?? DEFAULT_PERIOD);
@@ -129,7 +130,7 @@ export const StrengthTab = React.memo(function StrengthTab({
     <ScrollView
       testID="strength-tab"
       style={styles.container}
-      contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING + 16 }]}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance + 16 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Period selector */}

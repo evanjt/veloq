@@ -5,6 +5,7 @@
 //! LUT to produce heatmap tiles with additive intensity.
 
 use image::{ImageBuffer, Rgba, RgbaImage};
+use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -170,19 +171,207 @@ fn line_intensity_for_zoom(zoom: u8) -> f32 {
 // Web Mercator Math
 // ============================================================================
 
+/// Tiles across the map at a zoom, which is what turns a world coordinate
+/// into a tile coordinate. A power of two, so the scaling is exact.
+#[inline]
+fn zoom_scale(zoom: u8) -> f64 {
+    2.0_f64.powi(zoom as i32)
+}
+
+/// Longitude as a world X coordinate, where the map spans 0 to 1.
+#[inline]
+fn lon_to_world_x(lon: f64) -> f64 {
+    (lon + 180.0) / 360.0
+}
+
+/// Latitude as a world Y coordinate, where the map spans 0 to 1 from north.
+#[inline]
+fn lat_to_world_y(lat: f64) -> f64 {
+    #[cfg(test)]
+    work::projected();
+    let lat_rad = lat.to_radians();
+    (1.0 - (lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / PI) / 2.0
+}
+
 /// Convert longitude to tile X coordinate at given zoom
 #[inline]
 pub fn lon_to_tile_x(lon: f64, zoom: u8) -> f64 {
-    let n = 2.0_f64.powi(zoom as i32);
-    (lon + 180.0) / 360.0 * n
+    lon_to_world_x(lon) * zoom_scale(zoom)
 }
 
 /// Convert latitude to tile Y coordinate at given zoom
 #[inline]
 pub fn lat_to_tile_y(lat: f64, zoom: u8) -> f64 {
-    let n = 2.0_f64.powi(zoom as i32);
-    let lat_rad = lat.to_radians();
-    (1.0 - (lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / PI) / 2.0 * n
+    lat_to_world_y(lat) * zoom_scale(zoom)
+}
+
+/// A track placed on the map once, as world coordinates.
+///
+/// A tile coordinate at any zoom is the world coordinate times a power of two,
+/// which is exact, so a pass that plans a track at every zoom and draws it into
+/// every tile it reaches scales these instead of projecting each point again.
+/// Projecting is the costly part of placing a point, and doing it per zoom and
+/// per tile made a low-zoom tile cost every point of every track under it.
+///
+/// A point that is not valid is held as NaN, which keeps the gap it leaves in
+/// the line: a valid longitude always projects to a number.
+pub struct ProjectedTrack {
+    points: Vec<(f64, f64)>,
+    /// The valid points' extent as `(min_x, max_x, min_y, max_y)`, if any.
+    extent: Option<(f64, f64, f64, f64)>,
+}
+
+impl ProjectedTrack {
+    pub fn new(track: &[GpsPoint]) -> Self {
+        let points = track
+            .iter()
+            .map(|point| {
+                if point.is_valid() {
+                    (
+                        lon_to_world_x(point.longitude),
+                        lat_to_world_y(point.latitude),
+                    )
+                } else {
+                    (f64::NAN, f64::NAN)
+                }
+            })
+            .collect::<Vec<_>>();
+        let extent = points
+            .iter()
+            .filter(|(x, _)| !x.is_nan())
+            .fold(None, |extent, &(x, y)| {
+                let (x0, x1, y0, y1) = extent.unwrap_or((x, x, y, y));
+                Some((x0.min(x), x1.max(x), y0.min(y), y1.max(y)))
+            });
+        Self { points, extent }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.points.is_empty()
+    }
+
+    /// The valid points' tile coordinates at a zoom, `None` for each invalid one.
+    fn tile_coords(&self, zoom: u8) -> impl Iterator<Item = Option<(f64, f64)>> + '_ {
+        let n = zoom_scale(zoom);
+        self.points
+            .iter()
+            .map(move |&(x, y)| (!x.is_nan()).then_some((x * n, y * n)))
+    }
+
+    /// [`tiles_along_track`] for this track.
+    pub fn tiles_along(&self, zoom: u8) -> std::collections::HashSet<(u32, u32)> {
+        self.tiles(zoom, true)
+    }
+
+    /// The walk's set, read off the extent where that gives the same answer.
+    fn tiles(&self, zoom: u8, halo: bool) -> std::collections::HashSet<(u32, u32)> {
+        self.tiles_from_bounds(zoom, halo)
+            .unwrap_or_else(|| walk_track_tiles(self, zoom, halo))
+    }
+
+    /// The tiles the walk would find, read off the track's extent alone, when
+    /// that is possible: the track sits in one tile, and on at least one axis
+    /// no point is close enough to an edge to reach a neighbour. A tile's
+    /// coordinate is the world coordinate times a power of two, so the extent
+    /// at a zoom is exactly the scaled extent, and the nearest point to an
+    /// edge is the extreme one. With both axes near an edge only the walk can
+    /// say whether one point is near both, which is what puts the corner tile
+    /// in, so it is left to the walk.
+    ///
+    /// At low zoom nearly every ride sits in one tile, and every ride in the
+    /// library reaches the ground any one ride sweeps, so this is what keeps a
+    /// pass after one stored ride from walking every point of every ride.
+    fn tiles_from_bounds(
+        &self,
+        zoom: u8,
+        halo: bool,
+    ) -> Option<std::collections::HashSet<(u32, u32)>> {
+        let Some((x0, x1, y0, y1)) = self.extent else {
+            return Some(std::collections::HashSet::new());
+        };
+        let n = zoom_scale(zoom);
+        let (x0, x1, y0, y1) = (x0 * n, x1 * n, y0 * n, y1 * n);
+        if ![x0, x1, y0, y1].iter().all(|v| v.is_finite()) {
+            return None;
+        }
+        let (tx, ty) = (x0.floor(), y0.floor());
+        let max_xy = (1i64 << zoom).max(1) as f64;
+        if x1.floor() != tx
+            || y1.floor() != ty
+            || tx < 0.0
+            || ty < 0.0
+            || tx >= max_xy
+            || ty >= max_xy
+        {
+            return None;
+        }
+        let offsets = |near: f64, far: f64| -> Vec<i64> {
+            if !halo {
+                return vec![0];
+            }
+            let lo = *halo_range(near).start();
+            let hi = *halo_range(far).end();
+            (lo..=hi).collect()
+        };
+        let dxs = offsets(x0 - tx, x1 - tx);
+        let dys = offsets(y0 - ty, y1 - ty);
+        if dxs.len() > 1 && dys.len() > 1 {
+            return None;
+        }
+        let (tx, ty) = (tx as i64, ty as i64);
+        let max_xy = max_xy as i64;
+        let mut tiles = std::collections::HashSet::new();
+        for dy in &dys {
+            for dx in &dxs {
+                let (x, y) = (tx + dx, ty + dy);
+                if x >= 0 && y >= 0 && x < max_xy && y < max_xy {
+                    tiles.insert((x as u32, y as u32));
+                }
+            }
+        }
+        Some(tiles)
+    }
+}
+
+/// The work this thread has done, so a test can count it rather than time it:
+/// latitudes projected onto the map, which is the costly half of placing a
+/// point, and pixels a stroke measured its distance to.
+#[cfg(test)]
+pub(crate) mod work {
+    use std::cell::Cell;
+
+    thread_local! {
+        static PROJECTIONS: Cell<usize> = const { Cell::new(0) };
+        static PIXELS: Cell<usize> = const { Cell::new(0) };
+        static WALKS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn walked() {
+        WALKS.with(|c| c.set(c.get() + 1));
+    }
+
+    /// The track walks since the last call.
+    pub(crate) fn take_walks() -> usize {
+        WALKS.with(|c| c.replace(0))
+    }
+
+    pub(crate) fn projected() {
+        PROJECTIONS.with(|c| c.set(c.get() + 1));
+    }
+
+    pub(crate) fn pixel_measured() {
+        PIXELS.with(|c| c.set(c.get() + 1));
+    }
+
+    /// The projections since the last call.
+    pub(crate) fn take_projections() -> usize {
+        PROJECTIONS.with(|c| c.replace(0))
+    }
+
+    /// The pixels measured since the last call.
+    pub(crate) fn take_pixels() -> usize {
+        PIXELS.with(|c| c.replace(0))
+    }
 }
 
 /// Convert tile X coordinate to longitude
@@ -232,8 +421,19 @@ pub const DRAW_MARGIN: f32 = 100.0;
 /// both have to be placed before either can be judged.
 #[inline]
 fn gps_to_pixel_unbounded(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> (f32, f32) {
-    let global_x = lon_to_tile_x(point.longitude, z);
-    let global_y = lat_to_tile_y(point.latitude, z);
+    tile_to_pixel(
+        (
+            lon_to_tile_x(point.longitude, z),
+            lat_to_tile_y(point.latitude, z),
+        ),
+        tile_x,
+        tile_y,
+    )
+}
+
+/// A tile coordinate in this tile's pixel frame.
+#[inline]
+fn tile_to_pixel((global_x, global_y): (f64, f64), tile_x: u32, tile_y: u32) -> (f32, f32) {
     (
         ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32,
         ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32,
@@ -285,7 +485,7 @@ fn halo_range(frac: f64) -> std::ops::RangeInclusive<i64> {
 /// Much tighter than `tiles_for_bounds`: a long point-to-point activity
 /// enumerates ~O(segments) tiles instead of the full bbox rectangle.
 pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::HashSet<(u32, u32)> {
-    walk_track_tiles(points, zoom, true)
+    ProjectedTrack::new(points).tiles_along(zoom)
 }
 
 /// The tiles a track passes through at a given zoom and no more: every tile
@@ -296,33 +496,40 @@ pub fn tiles_touched_by_track(
     points: &[GpsPoint],
     zoom: u8,
 ) -> std::collections::HashSet<(u32, u32)> {
-    walk_track_tiles(points, zoom, false)
+    ProjectedTrack::new(points).tiles(zoom, false)
 }
 
 /// The one walk behind both sets. `halo` adds, for each point, the
 /// neighbours its drawing margin reaches.
 fn walk_track_tiles(
-    points: &[GpsPoint],
+    track: &ProjectedTrack,
     zoom: u8,
     halo: bool,
 ) -> std::collections::HashSet<(u32, u32)> {
+    #[cfg(test)]
+    work::walked();
     let max_xy: i64 = (1i64 << zoom).max(1);
     let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
 
+    // Consecutive points mostly land in the tile just added, and the set
+    // already holds it, so that one is not hashed again.
+    let mut last: Option<(i64, i64)> = None;
     let mut add = |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
+        if last == Some((tx, ty)) {
+            return;
+        }
+        last = Some((tx, ty));
         if tx >= 0 && ty >= 0 && tx < max_xy && ty < max_xy {
             tiles.insert((tx as u32, ty as u32));
         }
     };
 
     let mut prev_valid: Option<(f64, f64)> = None;
-    for point in points {
-        if !point.is_valid() {
+    for point in track.tile_coords(zoom) {
+        let Some((gx, gy)) = point else {
             prev_valid = None;
             continue;
-        }
-        let gx = lon_to_tile_x(point.longitude, zoom);
-        let gy = lat_to_tile_y(point.latitude, zoom);
+        };
         let tx = gx.floor() as i64;
         let ty = gy.floor() as i64;
         if halo {
@@ -451,10 +658,12 @@ impl TileSpan {
 /// The tiles [`invalidate_tiles_along_track`] takes for a track, as spans, so
 /// a sweep can say which ground it changed.
 pub fn track_spans(track: &[GpsPoint], min_zoom: u8, max_zoom: u8) -> Vec<TileSpan> {
+    let track = ProjectedTrack::new(track);
     let mut spans = Vec::new();
     for z in min_zoom..=max_zoom {
         spans.extend(
-            tiles_along_track(track, z)
+            track
+                .tiles_along(z)
                 .into_iter()
                 .map(|(x, y)| TileSpan::tile(z, x, y)),
         );
@@ -567,6 +776,13 @@ impl IntensityBuffer {
     fn is_empty(&self) -> bool {
         self.data.iter().all(|&v| v == 0)
     }
+
+    /// Add another buffer's ink to this one, pixel by pixel.
+    fn absorb(&mut self, other: &Self) {
+        for (mine, theirs) in self.data.iter_mut().zip(&other.data) {
+            *mine = mine.saturating_add(*theirs);
+        }
+    }
 }
 
 #[inline]
@@ -676,20 +892,72 @@ fn draw_line_intensity(
         return;
     }
 
-    let min_x = (x0.min(x1) - outer).floor().max(0.0) as i32;
-    let max_x = (x0.max(x1) + outer).ceil().min(buf.width as f32 - 1.0) as i32;
-    let min_y = (y0.min(y1) - outer).floor().max(0.0) as i32;
-    let max_y = (y0.max(y1) + outer).ceil().min(buf.height as f32 - 1.0) as i32;
+    let (min_x, max_x, min_y, max_y) = stroke_box(buf, (x0, y0, x1, y1), outer);
+
+    // A pixel takes ink only within `outer` of the line through the segment,
+    // and on each row those pixels are one run either side of where the line
+    // crosses it. Walking that run rather than the whole box keeps a diagonal
+    // stroke's cost to its length times its width instead of its length
+    // squared.
+    let len = (dx * dx + dy * dy).sqrt();
+    let crosses_rows = dy.abs() >= 1.0;
+    let half_run = outer * len / dy.abs() + RUN_SLACK;
 
     for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let px = x as f32 + 0.5;
-            let py = y as f32 + 0.5;
-            let dist = distance_to_segment(px, py, x0, y0, x1, y1);
-            let coverage = 1.0 - smoothstep(radius, outer, dist);
-            buf.add_f(x, y, coverage, intensity);
+        let (run_min_x, run_max_x) = if crosses_rows {
+            let at = x0 + (y as f32 + 0.5 - y0) * dx / dy;
+            (
+                ((at - half_run - 0.5).ceil() as i32).max(min_x),
+                ((at + half_run - 0.5).floor() as i32).min(max_x),
+            )
+        } else {
+            (min_x, max_x)
+        };
+        for x in run_min_x..=run_max_x {
+            ink_pixel(buf, x, y, (x0, y0, x1, y1), radius, outer, intensity);
         }
     }
+}
+
+/// How far past `outer` a stroke's row run reaches, in pixels.
+///
+/// Rounding moves where a run's ends land by around a hundredth of a pixel,
+/// so reaching a tenth further keeps every pixel within `outer` in the run.
+/// A pixel left out is beyond `outer`, where a stroke lays no ink.
+const RUN_SLACK: f32 = 0.1;
+
+/// The pixels a stroke's ink can reach, as `(min_x, max_x, min_y, max_y)`.
+fn stroke_box(
+    buf: &IntensityBuffer,
+    (x0, y0, x1, y1): (f32, f32, f32, f32),
+    outer: f32,
+) -> (i32, i32, i32, i32) {
+    (
+        (x0.min(x1) - outer).floor().max(0.0) as i32,
+        (x0.max(x1) + outer).ceil().min(buf.width as f32 - 1.0) as i32,
+        (y0.min(y1) - outer).floor().max(0.0) as i32,
+        (y0.max(y1) + outer).ceil().min(buf.height as f32 - 1.0) as i32,
+    )
+}
+
+/// One pixel's share of a stroke, by its distance from the segment.
+#[inline]
+fn ink_pixel(
+    buf: &mut IntensityBuffer,
+    x: i32,
+    y: i32,
+    (x0, y0, x1, y1): (f32, f32, f32, f32),
+    radius: f32,
+    outer: f32,
+    intensity: f32,
+) {
+    #[cfg(test)]
+    work::pixel_measured();
+    let px = x as f32 + 0.5;
+    let py = y as f32 + 0.5;
+    let dist = distance_to_segment(px, py, x0, y0, x1, y1);
+    let coverage = 1.0 - smoothstep(radius, outer, dist);
+    buf.add_f(x, y, coverage, intensity);
 }
 
 // ============================================================================
@@ -755,12 +1023,12 @@ fn close_run(
 }
 
 /// Draw each track into the buffer and return how many strokes that took.
-fn stroke_tracks<T: AsRef<[GpsPoint]>>(
+fn stroke_tracks(
     buf: &mut IntensityBuffer,
     z: u8,
     x: u32,
     y: u32,
-    tracks: &[T],
+    tracks: &[&ProjectedTrack],
 ) -> usize {
     let line_width = line_width_for_zoom(z);
     let width_intensity = (line_width, line_intensity_for_zoom(z));
@@ -768,20 +1036,19 @@ fn stroke_tracks<T: AsRef<[GpsPoint]>>(
     let mut strokes = 0;
 
     for track in tracks {
-        let track = track.as_ref();
         // The last point kept, and the latest point dropped for sitting within
         // half a pixel of it. The dropped one is drawn to when the run ends, so
         // a track still reaches its true end.
         let mut kept: Option<(f32, f32)> = None;
         let mut dropped: Option<(f32, f32)> = None;
 
-        for point in track {
-            if !point.is_valid() {
+        for point in track.tile_coords(z) {
+            let Some(point) = point else {
                 strokes += close_run(buf, &mut kept, &mut dropped, reach, width_intensity);
                 continue;
-            }
+            };
 
-            let (px, py) = gps_to_pixel_unbounded(point, z, x, y);
+            let (px, py) = tile_to_pixel(point, x, y);
             let Some((kx, ky)) = kept else {
                 kept = Some((px, py));
                 continue;
@@ -804,6 +1071,40 @@ fn stroke_tracks<T: AsRef<[GpsPoint]>>(
     strokes
 }
 
+/// Tracks in one share of a tile's strokes. A tile holding more is stroked in
+/// shares the pool can take on several workers, so the few tiles over home
+/// ground, which hold most of the library, are not each left to one worker
+/// while the rest of the pool sits idle.
+const TRACKS_PER_SHARE: usize = 24;
+
+/// Every track's ink in one tile's buffer.
+///
+/// Shares are stroked into buffers of their own and then added together. Ink
+/// only ever adds, and a saturating sum of values that are never negative is
+/// the same whichever order and grouping it is taken in, so the buffer is the
+/// one a single worker stroking every track would leave.
+fn stroke_tile(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> IntensityBuffer {
+    if tracks.len() <= TRACKS_PER_SHARE {
+        let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+        stroke_tracks(&mut buf, z, x, y, tracks);
+        return buf;
+    }
+    tracks
+        .par_chunks(TRACKS_PER_SHARE)
+        .fold(
+            || IntensityBuffer::new(TILE_SIZE, TILE_SIZE),
+            |mut buf, share| {
+                stroke_tracks(&mut buf, z, x, y, share);
+                buf
+            },
+        )
+        .reduce_with(|mut sum, part| {
+            sum.absorb(&part);
+            sum
+        })
+        .unwrap_or_else(|| IntensityBuffer::new(TILE_SIZE, TILE_SIZE))
+}
+
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
 ///
@@ -816,8 +1117,17 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     y: u32,
     tracks: &[T],
 ) -> Option<Vec<u8>> {
-    let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-    stroke_tracks(&mut buf, z, x, y, tracks);
+    let projected: Vec<ProjectedTrack> = tracks
+        .iter()
+        .map(|track| ProjectedTrack::new(track.as_ref()))
+        .collect();
+    let projected: Vec<&ProjectedTrack> = projected.iter().collect();
+    draw_heatmap_tile(z, x, y, &projected)
+}
+
+/// [`generate_heatmap_tile`] for tracks already placed on the map.
+pub fn draw_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> Option<Vec<u8>> {
+    let buf = stroke_tile(z, x, y, tracks);
 
     // Skip empty tiles entirely
     if buf.is_empty() {
@@ -982,9 +1292,10 @@ pub fn invalidate_tiles_along_track(
     min_zoom: u8,
     max_zoom: u8,
 ) -> u32 {
+    let track = ProjectedTrack::new(track);
     let mut deleted = 0u32;
     for z in min_zoom..=max_zoom {
-        for (x, y) in tiles_along_track(track, z) {
+        for (x, y) in track.tiles_along(z) {
             // The marker has to go with the tile, or it claims the ground is
             // drawn and the redraw is skipped. One tile either way.
             let png = std::fs::remove_file(tile_path(base_path, z, x, y, "png")).is_ok();
@@ -1156,7 +1467,7 @@ mod tests {
         let ty = lat_to_tile_y(path[0].latitude, zoom).floor() as u32;
         for tx in first..=last {
             let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-            strokes += stroke_tracks(&mut buf, zoom, tx, ty, &[path]);
+            strokes += stroke_tracks(&mut buf, zoom, tx, ty, &[&ProjectedTrack::new(path)]);
             peak = peak.max(buf.data.iter().copied().max().unwrap_or(0));
         }
         (strokes, peak)
@@ -1204,11 +1515,201 @@ mod tests {
         let ty = lat_to_tile_y(path[0].latitude, zoom).floor() as u32;
         let end = gps_to_pixel_unbounded(tail.last().unwrap(), zoom, tx, ty);
         let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-        stroke_tracks(&mut buf, zoom, tx, ty, &[gapped]);
+        stroke_tracks(&mut buf, zoom, tx, ty, &[&ProjectedTrack::new(&gapped)]);
         let (ex, ey) = (end.0.floor() as i32, end.1.floor() as i32);
         let lit = (ex - 1..=ex)
             .any(|x| x >= 0 && (x as u32) < TILE_SIZE && buf.get(x as u32, ey as u32) > 0);
         assert!(lit, "the track's last point at {end:?} was thinned away");
+    }
+
+    /// Scenario: one long diagonal segment, the shape a street-level tile is
+    /// drawn from when fixes are tens of pixels apart.
+    ///
+    /// Expected behaviour: the stroke measures the pixels along its length and
+    /// across its width, not every pixel of the square the segment spans.
+    #[test]
+    fn a_stroke_measures_its_length_times_its_width_not_its_box() {
+        for (width, (x0, y0), (x1, y1)) in [
+            (1.4, (10.3, 20.7), (410.9, 380.2)),
+            (6.0, (500.1, 4.4), (12.6, 490.8)),
+            (3.2, (40.0, 100.5), (470.0, 160.25)),
+        ] {
+            let (dx, dy): (f32, f32) = (x1 - x0, y1 - y0);
+            let length = (dx * dx + dy * dy).sqrt();
+            let across = 2.0 * (stroke_reach(width) + 2.0);
+            let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+            work::take_pixels();
+            draw_line_intensity(&mut buf, x0, y0, x1, y1, width, 10.0);
+            let measured = work::take_pixels() as f32;
+            assert!(
+                measured <= 1.5 * (length + across) * across,
+                "{measured} pixels for a {length:.0} px stroke {width} px wide"
+            );
+            assert!(!buf.is_empty());
+        }
+    }
+
+    /// A track about a kilometre long centred on `(lat, lon)`, east to west.
+    fn short_track(lat: f64, lon: f64) -> Vec<GpsPoint> {
+        (0..=100)
+            .map(|i| GpsPoint::new(lat, lon + (f64::from(i) - 50.0) * 0.000_14))
+            .collect()
+    }
+
+    /// Scenario: short rides at a spot a third of the way across its tile at
+    /// every zoom, so no point is near a tile edge until street level.
+    ///
+    /// Expected behaviour: the planner reads such a ride's tiles off its
+    /// bounds at those zooms rather than walking every point.
+    #[test]
+    fn a_track_inside_one_tile_is_not_walked() {
+        // World X and Y of a third: lon -60, and the latitude whose Mercator
+        // Y is a third.
+        let lat = (PI / 3.0).sinh().atan().to_degrees();
+        work::take_walks();
+        for k in 0..20 {
+            let track = ProjectedTrack::new(&short_track(lat + f64::from(k) * 0.000_5, -60.0));
+            for z in 1..=10 {
+                assert_eq!(track.tiles_along(z).len(), 1, "z{z}");
+            }
+        }
+        assert_eq!(work::take_walks(), 0);
+    }
+
+    /// Expected behaviour: wherever the planner reads a track's tiles off its
+    /// bounds, it reads the set the walk gives, halo included, near an edge,
+    /// on a corner, across a seam and with gaps.
+    #[test]
+    fn tiles_read_off_bounds_are_the_tiles_walked() {
+        let third = (PI / 3.0).sinh().atan().to_degrees();
+        let mut tracks = vec![
+            short_track(third, -60.0),
+            // Sion: beside a meridian seam at the lowest zooms.
+            short_track(46.23, 7.35),
+            // Hugging the equator and the prime meridian, a corner at every zoom.
+            short_track(0.000_3, 0.000_3),
+            short_track(-0.000_3, 0.0),
+            // A long ride that crosses seams.
+            line_track(46.0, 6.0, 47.0, 8.0, 400),
+        ];
+        let mut gapped = short_track(46.23, 7.35);
+        gapped.insert(30, GpsPoint::new(f64::NAN, 7.0));
+        gapped.push(GpsPoint::new(91.0, 0.0));
+        tracks.push(gapped);
+        tracks.push(vec![GpsPoint::new(f64::NAN, f64::NAN)]);
+        tracks.push(Vec::new());
+
+        let mut read = 0;
+        for track in &tracks {
+            let projected = ProjectedTrack::new(track);
+            for z in 0..=17 {
+                for halo in [true, false] {
+                    let walked = walk_track_tiles(&projected, z, halo);
+                    if let Some(from_bounds) = projected.tiles_from_bounds(z, halo) {
+                        read += 1;
+                        assert_eq!(from_bounds, walked, "z{z} halo {halo}");
+                    }
+                }
+            }
+        }
+        assert!(read > 50, "only {read} sets were read off bounds");
+    }
+
+    fn line_track(lat0: f64, lon0: f64, lat1: f64, lon1: f64, points: u32) -> Vec<GpsPoint> {
+        (0..=points)
+            .map(|i| {
+                let t = f64::from(i) / f64::from(points);
+                GpsPoint::new(lat0 + (lat1 - lat0) * t, lon0 + (lon1 - lon0) * t)
+            })
+            .collect()
+    }
+
+    /// Expected behaviour: a stroke drawn along its row runs lays exactly the
+    /// ink it would by measuring every pixel of its box, at every zoom's width
+    /// and intensity, for short and long segments at every angle, including
+    /// the longest a tile draws and ones that start far outside the tile.
+    #[test]
+    fn a_stroke_drawn_by_rows_matches_its_whole_box() {
+        let mut state = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f32 / (1u64 << 53) as f32
+        };
+        let reach = MAX_DRAWN_SEGMENT_TILES * TILE_SIZE as f32;
+        for case in 0..6_000 {
+            let zoom = (case % 18) as u8;
+            let (width, intensity) = (line_width_for_zoom(zoom), line_intensity_for_zoom(zoom));
+            let spread = match case % 4 {
+                0 => 4.0,
+                1 => 60.0,
+                2 => 700.0,
+                _ => reach,
+            };
+            let x0 = next() * 700.0 - 100.0;
+            let y0 = next() * 700.0 - 100.0;
+            let x1 = x0 + (next() - 0.5) * spread;
+            let y1 = y0 + (next() - 0.5) * spread * if case % 7 == 0 { 0.002 } else { 1.0 };
+
+            let mut rows = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+            draw_line_intensity(&mut rows, x0, y0, x1, y1, width, intensity);
+
+            let mut whole = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+            let radius = (width * 0.5).max(0.75);
+            let outer = radius + 1.0;
+            if (x1 - x0).abs() < 0.001 && (y1 - y0).abs() < 0.001 {
+                continue;
+            }
+            let (min_x, max_x, min_y, max_y) = stroke_box(&whole, (x0, y0, x1, y1), outer);
+            for y in min_y..=max_y {
+                for x in min_x..=max_x {
+                    ink_pixel(&mut whole, x, y, (x0, y0, x1, y1), radius, outer, intensity);
+                }
+            }
+            assert!(
+                rows.data == whole.data,
+                "case {case}: ({x0}, {y0}) to ({x1}, {y1}) at z{zoom}"
+            );
+        }
+    }
+
+    /// Scenario: a tile under home ground, where hundreds of rides cross the
+    /// same pixels often enough to saturate them.
+    ///
+    /// Expected behaviour: stroking the tile in shares leaves exactly the
+    /// buffer one pass over every track leaves, saturated pixels included.
+    #[test]
+    fn a_tile_stroked_in_shares_matches_one_stroked_whole() {
+        let zoom = 12;
+        let lat = 46.23;
+        let tx = lon_to_tile_x(7.35, zoom).floor() as u32;
+        let ty = lat_to_tile_y(lat, zoom).floor() as u32;
+        let rides: Vec<ProjectedTrack> = (0..150)
+            .map(|k| {
+                let k = f64::from(k);
+                // Twenty times back and forth over the same few hundred
+                // metres, every ride on the same line, so the middle pixels
+                // take far more ink than a pixel holds.
+                let track: Vec<GpsPoint> = (0..800)
+                    .map(|i| {
+                        let leg = f64::from(i % 40);
+                        let along = if (i / 40) % 2 == 0 { leg } else { 40.0 - leg };
+                        GpsPoint::new(lat, 7.35 + along * 0.000_2 + k * 0.000_001)
+                    })
+                    .collect();
+                ProjectedTrack::new(&track)
+            })
+            .collect();
+        let tracks: Vec<&ProjectedTrack> = rides.iter().collect();
+
+        let mut whole = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+        stroke_tracks(&mut whole, zoom, tx, ty, &tracks);
+        let shared = stroke_tile(zoom, tx, ty, &tracks);
+
+        assert!(tracks.len() > 2 * TRACKS_PER_SHARE);
+        assert!(whole.data.contains(&u16::MAX), "no pixel saturated");
+        assert!(shared.data == whole.data);
     }
 
     #[test]

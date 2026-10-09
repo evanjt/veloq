@@ -90,6 +90,25 @@ function makeState(overrides: Partial<Parameters<typeof buildRecordingBackup>[0]
   };
 }
 
+/** The backup a version-1 build wrote: no status, stop time, pauses or owner. */
+function makeVersionOneBackup() {
+  const lap = { distance: 10, avgSpeed: 10, avgHeartrate: null, avgPower: null, avgCadence: null };
+  return {
+    version: 1,
+    activityType: 'Ride',
+    mode: 'gps',
+    startTime: 1_000_000,
+    pausedDuration: 4_000,
+    streams: { ...makeStreams(), altitude: [400, null, 402] },
+    laps: [
+      { ...lap, index: 0, startTime: 0, endTime: 1 },
+      { ...lap, index: 1, startTime: 1, endTime: 2 },
+    ],
+    pairedEventId: null,
+    savedAt: 1_000_500,
+  };
+}
+
 beforeEach(async () => {
   mockFileStore.clear();
   await AsyncStorage.clear();
@@ -175,19 +194,38 @@ describe('save/load round-trip', () => {
     expect(loaded!.streams.latlng).toHaveLength(3);
   });
 
-  it('rejects a version-1 backup', async () => {
-    const v1 = {
-      version: 1,
-      activityType: 'Ride',
-      mode: 'gps',
-      startTime: 1_000_000,
-      pausedDuration: 0,
-      streams: makeStreams(),
-      laps: [],
-      pairedEventId: null,
-      savedAt: 1_000_500,
-    };
-    mockFileStore.set(BACKUP_PATH, JSON.stringify(v1));
+  it('restores a version-1 backup paused, as the build that wrote it did', async () => {
+    mockFileStore.set(BACKUP_PATH, JSON.stringify(makeVersionOneBackup()));
+
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.status).toBe('paused');
+    expect(loaded?.stopTime).toBeNull();
+    expect(loaded?.pauseIntervals).toEqual([]);
+    expect(loaded?.athleteId).toBeUndefined();
+    expect(loaded?.startTime).toBe(1_000_000);
+    expect(loaded?.pausedDuration).toBe(4_000);
+    expect(loaded?.streams.latlng).toEqual(makeStreams().latlng);
+    expect(loaded?.streams.altitude).toEqual([400, NaN, 402]);
+    expect(loaded?.laps).toEqual([
+      expect.objectContaining({
+        startTime: 0,
+        endTime: 1,
+        startIndex: 0,
+        endIndex: 1,
+        movingEndTime: 1,
+      }),
+      expect.objectContaining({
+        startTime: 1,
+        endTime: 2,
+        startIndex: 2,
+        endIndex: 2,
+        movingEndTime: 2,
+      }),
+    ]);
+  });
+
+  it('rejects a backup of a version no build wrote', async () => {
+    mockFileStore.set(BACKUP_PATH, JSON.stringify({ ...makeVersionOneBackup(), version: 3 }));
     expect(await loadRecordingBackup()).toBeNull();
   });
 
@@ -265,6 +303,22 @@ describe('an ownerless backup from a build before the athlete stamp', () => {
 
     useAuthStore.setState({ athleteId: 'i2' });
     expect(await loadRecordingBackup()).toBeNull();
+  });
+
+  it('offers a version-1 ride to the athlete whose library it was written beside', async () => {
+    mockFileStore.set(BACKUP_PATH, JSON.stringify(makeVersionOneBackup()));
+    await adoptOwnerlessRecordingBackup(async () => 'i1');
+
+    useAuthStore.setState({ athleteId: 'i1' });
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.athleteId).toBe('i1');
+    expect(loaded?.status).toBe('paused');
+    expect(loaded?.startTime).toBe(1_000_000);
+    expect(loaded?.stopTime).toBeNull();
+    expect(loaded?.streams.latlng).toEqual(makeStreams().latlng);
+    expect(loaded?.streams.time).toEqual(makeStreams().time);
+    expect(JSON.parse(mockFileStore.get(ATHLETE_PATH)!).version).toBe(2);
+    expect(mockFileStore.has(BACKUP_PATH)).toBe(false);
   });
 
   it('stays on disk untouched and offered to nobody when no library is named', async () => {

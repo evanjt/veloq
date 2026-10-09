@@ -522,6 +522,17 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
   };
 }
 
+/**
+ * The satellite sources that draw only inside their own bounds. Their servers
+ * answer 404 for a tile outside coverage, and the global layer beneath still
+ * draws there, so such a 404 leaves no hole in the picture.
+ */
+export function regionalSatelliteSourceIds(): string[] {
+  return Object.entries(getCombinedSatelliteStyle().sources)
+    .filter(([, source]) => source.bounds !== undefined)
+    .map(([id]) => id);
+}
+
 // Check if a style should use dark UI elements
 export function isDarkStyle(style: MapStyleType): boolean {
   return style === 'dark' || style === 'satellite';

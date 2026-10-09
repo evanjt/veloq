@@ -102,8 +102,14 @@ export function generateEfficiencyTrendInsights(
           trend.points.map((point) => ({ date: point.date, value: point.hrPaceRatio })),
           t('insights.efficiencyTrend.seriesLabel'),
           `/section/${trend.sectionId}`,
-          'sparkline',
-          firstEffort && lastEffort ? { from: firstEffort.date, to: lastEffort.date } : undefined
+          // The ratio is heart rate times pace, a number with no unit a reader
+          // knows, so the card prints no scale for it.
+          {
+            mark:
+              firstEffort && lastEffort
+                ? { from: firstEffort.date, to: lastEffort.date }
+                : undefined,
+          }
         ),
         // The ratio is heart rate times pace, so its slope and the engine's
         // direction describe the same movement.

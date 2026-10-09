@@ -5,7 +5,7 @@ import {
   terrain3DSource,
 } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { resolveStyleExpression } from './styleResolution';
+import { resolveStyleForWebView } from './styleResolution';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { colors, colorWithOpacity, mapLayerColors } from '@/theme';
 
@@ -31,6 +31,47 @@ export const SNAPSHOT_JPEG_QUALITY = 0.8;
  * pair here is what lets a test say the two moved together.
  */
 export const QUALITY_CACHE_VERSION = 7;
+
+/**
+ * How long a render may wait for its tiles, counted from its start and
+ * covering a turned camera too. A render not loaded by then posts
+ * `snapshotError` rather than a picture with tiles missing. It stays under the
+ * host's `SNAPSHOT_TIMEOUT_MS`, which fails a render without a retry.
+ */
+const RENDER_TIMEOUT_MS = 6000;
+
+/**
+ * How far a probed pixel may sit from the style's background colour, per
+ * channel, and still be read as background. Kept small, because dark imagery
+ * such as deep water can sit near a dark background.
+ */
+const BACKGROUND_TOLERANCE = 6;
+
+/**
+ * The colour of a style's `background` layer as red, green and blue, or null
+ * when it has none or the colour is not a hex string.
+ */
+function styleBackgroundRgb(style: unknown): [number, number, number] | null {
+  const layers = (style as { layers?: { type?: string; paint?: Record<string, unknown> }[] })
+    ?.layers;
+  const color = layers?.find((layer) => layer.type === 'background')?.paint?.['background-color'];
+  if (typeof color !== 'string') return null;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())?.[1];
+  if (!hex) return null;
+  const digits = hex.length === 3 ? hex.replace(/./g, (d) => d + d) : hex;
+  return [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/**
+ * The colour a 3D render's gap probe reads as a region no tile drew.
+ *
+ * Satellite imagery covers the globe, so its style's background shows only
+ * where an imagery tile is missing. The light and dark styles draw bare land
+ * as their background, so a pixel of it there is not a gap and they have none.
+ */
+function gapBackgroundFor(mapStyle: MapStyleType, style: unknown): [number, number, number] | null {
+  return mapStyle === 'satellite' ? styleBackgroundRgb(style) : null;
+}
 
 export interface SnapshotRequest {
   activityId: string;
@@ -81,7 +122,9 @@ export function buildRenderSnapshotScript(
 
   // Every style is an inline object, so the vector tiles, sprite and glyphs
   // all go through the interceptor and the page fetches no style.
-  const { styleJSON: styleConfig } = resolveStyleExpression(request.mapStyle);
+  const { inline: style } = resolveStyleForWebView(request.mapStyle);
+  const styleConfig = style ? JSON.stringify(style) : 'null';
+  const gapBackground = gapBackgroundFor(request.mapStyle, style);
 
   const coordsJSON = JSON.stringify(request.coordinates);
   const cameraJSON = JSON.stringify(request.camera);
@@ -108,6 +151,7 @@ export function buildRenderSnapshotScript(
               // Stamped before anything is decided, so the elapsed posted back
               // covers the whole render and not the branch it ended up in.
               window._renderStart = Date.now();
+              var deadlineAt = window._renderStart + ${RENDER_TIMEOUT_MS};
               window._renderPath = 'setStyle';
               // Reset before either path can emit source events.
               window._tileStats = {};
@@ -139,6 +183,9 @@ export function buildRenderSnapshotScript(
               var terrainSource = ${terrainSourceJSON};
               var skyConfig = ${skyConfigJSON};
               var hillshadePaint = ${hillshadePaintJSON};
+              var gapBackground = ${JSON.stringify(gapBackground)};
+              // The pitch the frame is drawn at, which a turned camera changes.
+              var drawnPitch = camera.pitch;
               ${HILLSHADE_INSERT_INDEX_SCRIPT}
           var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
@@ -153,6 +200,22 @@ export function buildRenderSnapshotScript(
 
               function isStale() {
                 return window._snapshotGen !== myGen;
+              }
+
+              // Anything short of a complete picture ends here, and the host
+              // retries it. A posted snapshot is saved as final.
+              function postRenderError(error) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  phases: window._phases,
+                  tileStats: window._tileStats,
+                  type: 'snapshotError',
+                  workerId: workerId,
+                  activityId: activityId,
+                  gen: myGen,
+                  error: error,
+                  tileErrors: window._tileErrorCount,
+                  tileThrottles: window._tileThrottleCount,
+                }));
               }
 
               window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle + (isFlat ? ' (flat)' : ' (3d)'));
@@ -190,80 +253,58 @@ export function buildRenderSnapshotScript(
                     }
                     if (whiteCount >= 2) {
                       window._rn_log('White tile detected (' + whiteCount + '/8 samples), rejecting');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        phases: window._phases,
-                        tileStats: window._tileStats,
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'White tile detected',
-                        tileErrors: window._tileErrorCount,
-                        tileThrottles: window._tileThrottleCount,
-                      }));
+                      postRenderError('White tile detected');
                       return;
                     }
                   }
 
                   if (ctx && !isFlat) {
                     var pixel = new Uint8Array(4);
-                    // Gap pixel detection - sample 6 interior points in the terrain area
+                    // A grid over the whole frame, since the far corner of a
+                    // pitched view is where the last tiles land. Rows above the
+                    // horizon are sky, so they are not sampled: the horizon
+                    // sits (90 - pitch) degrees above the view's centre ray,
+                    // and a margin below it covers the fog over far ground.
+                    var fov = (window.map.transform && window.map.transform.fov) || 36.87;
+                    var aboveCentre = 90 - drawnPitch;
+                    var groundTop = 0;
+                    if (aboveCentre < fov / 2) {
+                      var rad = Math.PI / 180;
+                      groundTop = h / 2 - (h / 2) * Math.tan(aboveCentre * rad) / Math.tan(fov / 2 * rad) + h * 0.05;
+                    }
                     var gapCount = 0;
-                    var interiorPoints = [
-                      [Math.floor(w * 0.3), Math.floor(h * 0.5)],
-                      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
-                      [Math.floor(w * 0.7), Math.floor(h * 0.5)],
-                      [Math.floor(w * 0.3), Math.floor(h * 0.7)],
-                      [Math.floor(w * 0.5), Math.floor(h * 0.7)],
-                      [Math.floor(w * 0.7), Math.floor(h * 0.7)],
-                    ];
-                    for (var gi = 0; gi < interiorPoints.length; gi++) {
-                      var gx = interiorPoints[gi][0];
-                      var gy = h - interiorPoints[gi][1] - 1;
-                      ctx.readPixels(gx, gy, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixel);
-                      var r = pixel[0], g = pixel[1], b = pixel[2];
-                      var isGap = false;
-                      // Pure black = failed DEM tile
-                      if (r === 0 && g === 0 && b === 0) isGap = true;
-                      // Satellite: dark blue sky colour range
-                      else if (isSatellite && r < 40 && g < 70 && b > 70 && b < 120) isGap = true;
-                      // Dark style: only catch failed DEM tiles (near pure black)
-                      else if (!isSatellite && isDark && r < 5 && g < 5 && b < 5) isGap = true;
-                      // Light style: pale beige background range
-                      else if (!isSatellite && !isDark && r > 220 && g > 210 && b > 200 && r < 245 && g < 235 && b < 225) isGap = true;
-                      if (isGap) gapCount++;
+                    var sampled = 0;
+                    for (var gc = 0; gc < 5; gc++) {
+                      for (var gr = 0; gr < 4; gr++) {
+                        var gx = Math.floor(w * (gc + 0.5) / 5);
+                        var gyTop = Math.floor(h * (gr + 0.5) / 4);
+                        if (gyTop < groundTop) continue;
+                        sampled++;
+                        ctx.readPixels(gx, h - gyTop - 1, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixel);
+                        var r = pixel[0], g = pixel[1], b = pixel[2];
+                        // Pure black is a failed terrain tile, in every style.
+                        var isGap = r === 0 && g === 0 && b === 0;
+                        if (!isGap && gapBackground) {
+                          isGap = Math.abs(r - gapBackground[0]) <= ${BACKGROUND_TOLERANCE}
+                            && Math.abs(g - gapBackground[1]) <= ${BACKGROUND_TOLERANCE}
+                            && Math.abs(b - gapBackground[2]) <= ${BACKGROUND_TOLERANCE};
+                        }
+                        if (isGap) gapCount++;
+                      }
                     }
                     if (gapCount >= 3) {
-                      window._rn_log('Gap detected (' + gapCount + '/6 interior samples), rejecting');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        phases: window._phases,
-                        tileStats: window._tileStats,
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'Gap detected (' + gapCount + '/6)',
-                        tileErrors: window._tileErrorCount,
-                        tileThrottles: window._tileThrottleCount,
-                      }));
+                      window._rn_log('Gap detected (' + gapCount + '/' + sampled + ' samples), rejecting');
+                      postRenderError('Gap detected (' + gapCount + '/' + sampled + ')');
                       return;
                     }
                   }
 
-                  // Tile error count gate - catches gaps outside sampled pixel locations
-                  if (window._tileErrorCount >= 2) {
+                  // MapLibre counts a failed tile as loaded, so a render can
+                  // finish with a hole in it. One counted tile error is enough
+                  // to refuse the picture, wherever the hole falls.
+                  if (window._tileErrorCount >= 1) {
                     window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      phases: window._phases,
-                      tileStats: window._tileStats,
-                      type: 'snapshotError',
-                      workerId: workerId,
-                      activityId: activityId,
-                      gen: myGen,
-                      error: 'Tile errors: ' + window._tileErrorCount,
-                      tileErrors: window._tileErrorCount,
-                      tileThrottles: window._tileThrottleCount,
-                    }));
+                    postRenderError('Tile errors: ' + window._tileErrorCount);
                     return;
                   }
 
@@ -295,24 +336,16 @@ export function buildRenderSnapshotScript(
                   }));
                 } catch(e) {
                   window._rn_log('Capture error: ' + e.message);
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    phases: window._phases,
-                    tileStats: window._tileStats,
-                    type: 'snapshotError',
-                    workerId: workerId,
-                    activityId: activityId,
-                    gen: myGen,
-                    error: e.message,
-                    tileErrors: window._tileErrorCount,
-                    tileThrottles: window._tileThrottleCount,
-                  }));
+                  postRenderError(e.message);
                 }
               }
 
               // A 3D render is checked once its style has loaded: when the
               // terrain hides the route the camera turns, and the capture
-              // waits for the tiles the new view asks for. A camera the
-              // athlete saved is theirs and is never turned.
+              // waits for the tiles the new view asks for, inside the same
+              // deadline the render started with, which keeps it short of the
+              // host's own timeout. A camera the athlete saved is theirs and
+              // is never turned.
               function captureAfterCamera() {
                 if (isStale()) return;
                 var picked = camera;
@@ -323,6 +356,7 @@ export function buildRenderSnapshotScript(
                     window._rn_log('Camera check failed: ' + e.message);
                   }
                 }
+                drawnPitch = picked.pitch;
                 if (picked === camera) {
                   requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
                   return;
@@ -332,14 +366,20 @@ export function buildRenderSnapshotScript(
                   center: picked.center, zoom: picked.zoom,
                   bearing: picked.bearing, pitch: picked.pitch,
                 });
-                var turnedAt = Date.now();
                 var turnPoll = setInterval(function() {
-                  if (isStale()) { clearInterval(turnPoll); return; }
-                  if (window.map.isStyleLoaded() || Date.now() - turnedAt > 2500) {
+                  if (isStale()) { clearInterval(turnPoll); clearTimeout(turnTimeout); return; }
+                  if (window.map.isStyleLoaded()) {
                     clearInterval(turnPoll);
+                    clearTimeout(turnTimeout);
                     requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
                   }
                 }, 200);
+                var turnTimeout = setTimeout(function() {
+                  clearInterval(turnPoll);
+                  if (isStale()) return;
+                  window._rn_log('Turned camera timeout (${RENDER_TIMEOUT_MS / 1000}s)');
+                  postRenderError('Turned camera render timeout');
+                }, Math.max(0, deadlineAt - Date.now()));
               }
 
               function boundsSpans() {
@@ -439,9 +479,8 @@ export function buildRenderSnapshotScript(
 
                   var fpPoll = setInterval(function() {
                     if (done || isStale()) { clearInterval(fpPoll); return; }
-                    var elapsed = Date.now() - fpStart;
-                    if (window.map.isStyleLoaded() || elapsed > 5000) {
-                      fpCapture('Fast path loaded after ' + elapsed + 'ms, capturing...');
+                    if (window.map.isStyleLoaded()) {
+                      fpCapture('Fast path loaded after ' + (Date.now() - fpStart) + 'ms, capturing...');
                     }
                   }, 200);
 
@@ -449,17 +488,10 @@ export function buildRenderSnapshotScript(
                     clearInterval(fpPoll);
                     if (!done && !isStale()) {
                       done = true;
-                      window._rn_log('Fast path timeout (6s)');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        phases: window._phases,
-                        tileStats: window._tileStats,
-                        type: 'snapshotError', workerId: workerId, activityId: activityId,
-                        gen: myGen, error: 'Fast path render timeout',
-                        tileErrors: window._tileErrorCount,
-                        tileThrottles: window._tileThrottleCount,
-                      }));
+                      window._rn_log('Fast path timeout (${RENDER_TIMEOUT_MS / 1000}s)');
+                      postRenderError('Fast path render timeout');
                     }
-                  }, 6000);
+                  }, ${RENDER_TIMEOUT_MS});
                   return;
                 }
               }
@@ -548,7 +580,9 @@ export function buildRenderSnapshotScript(
               // that mounts the lot.
               phase('style');
 
-              // Wait for everything to load (DEM + vector + route tiles)
+              // Wait for everything to load (DEM + vector + route tiles). A
+              // render still loading at the deadline is not captured: it posts
+              // an error below and the host retries it.
               var done = false;
               var setStyleTime = Date.now();
 
@@ -556,7 +590,7 @@ export function buildRenderSnapshotScript(
                 if (done || isStale()) { clearInterval(readyPoll); return; }
                 var elapsed = Date.now() - setStyleTime;
 
-                if (window.map.isStyleLoaded() || elapsed > 5000) {
+                if (window.map.isStyleLoaded()) {
                   done = true;
                   clearInterval(readyPoll);
                   window._currentBaseStyle = mapStyle;
@@ -572,20 +606,10 @@ export function buildRenderSnapshotScript(
                 clearInterval(readyPoll);
                 if (!done && !isStale()) {
                   done = true;
-                  window._rn_log('Hard timeout (6s), skipping');
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    phases: window._phases,
-                    tileStats: window._tileStats,
-                    type: 'snapshotError',
-                    workerId: workerId,
-                    activityId: activityId,
-                    gen: myGen,
-                    error: 'Render timeout',
-                    tileErrors: window._tileErrorCount,
-                    tileThrottles: window._tileThrottleCount,
-                  }));
+                  window._rn_log('Hard timeout (${RENDER_TIMEOUT_MS / 1000}s), skipping');
+                  postRenderError('Render timeout');
                 }
-              }, 6000);
+              }, ${RENDER_TIMEOUT_MS});
 
               } // end applyStyle
 

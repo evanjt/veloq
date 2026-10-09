@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ScreenSafeAreaView,
   ScreenScrollView,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   EmptyState,
   signalColor,
 } from '@/shared/ui';
@@ -37,6 +37,7 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
 function SensorSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
 
   const scanning = useSensorStore((s) => s.scanning);
   const discovered = useSensorStore((s) => s.discovered);
@@ -108,7 +109,7 @@ function SensorSettingsScreenContent() {
       style={[styles.container, { backgroundColor: bg }]}
     >
       <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
       >
         {/* Paired sensors */}
         <View style={styles.section}>

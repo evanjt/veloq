@@ -28,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Straight from the module, not the app barrel: the barrel reaches the
 // in-app purchase binding, which a screen that only needs the theme should not.
 import { useTheme } from '@/shared/app/useTheme';
-import { Button, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { GroupSort, SectionSort, hasStarted, type PreviewCentre } from 'veloqrs';
@@ -98,6 +98,7 @@ function RouteGroupingPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const bg = isDark ? darkColors.background : colors.background;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -204,7 +205,7 @@ function RouteGroupingPreviewScreenContent() {
       testID="route-grouping-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={[styles.column, { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }]}>
+      <View style={[styles.column, { paddingBottom: insets.bottom + tabBarClearance }]}>
         <View style={styles.mapWrap}>
           <GroupingPreviewMap
             routes={routes}

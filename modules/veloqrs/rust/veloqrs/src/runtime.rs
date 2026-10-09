@@ -1,7 +1,7 @@
 //! Shared process-wide async runtime.
 //!
 //! Every outbound network call used to build its own multi-thread tokio runtime
-//! per FFI call (8 worker threads each), then drop it. That is wasteful and means
+//! per FFI call, then drop it. That is wasteful and means
 //! there is no single place to host a long-lived service loop. This module owns
 //! one runtime for the whole process; all fetches and the future sync service run
 //! on it.
@@ -9,11 +9,15 @@
 use std::sync::LazyLock;
 use tokio::runtime::Runtime;
 
+/// Workers on the shared runtime. A full sync keeps them well under one core,
+/// since they wait on the network, so more would only add threads to schedule.
+const NET_WORKER_THREADS: usize = 2;
+
 /// One multi-thread tokio runtime for the whole process, built lazily on first
 /// use and kept for the process lifetime.
 pub static ASYNC_RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(8)
+        .worker_threads(NET_WORKER_THREADS)
         .thread_name("veloq-net")
         .enable_all()
         .build()
@@ -86,5 +90,11 @@ mod tests {
             format!("{}-{}", a.await.unwrap(), b.await.unwrap())
         });
         assert_eq!(out, "left-right");
+    }
+
+    #[test]
+    fn shared_runtime_runs_the_network_worker_budget() {
+        assert_eq!(ASYNC_RUNTIME.metrics().num_workers(), NET_WORKER_THREADS);
+        assert_eq!(NET_WORKER_THREADS, 2);
     }
 }

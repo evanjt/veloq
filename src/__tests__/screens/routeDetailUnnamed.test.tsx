@@ -58,6 +58,7 @@ jest.mock('@/shared/ui', () => {
     HeroStatsRow: () => null,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     useHeroMapHeight: () => 300,
+    useTabBarClearance: () => 0,
   };
 });
 

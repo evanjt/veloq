@@ -65,6 +65,10 @@ export function generateHrvTrendInsight(
           ? 'insights.hrvTrend.lastTwoDays'
           : `insights.hrvTrend.${trendKey}`
       ),
+      subtitle: t('insights.caption.latestAgainstMean', {
+        latest: Math.round(trend.latest),
+        avg: Math.round(trend.avg),
+      }),
       // Two rules end in `trendingDown` and they are different claims, so the
       // body says which one fired rather than reporting a falling average
       // over a window whose average did not fall.
@@ -117,10 +121,13 @@ export function generateHrvTrendInsight(
           trend.sparkline,
           t('insights.data.hrvSevenDay'),
           fitnessTarget({ range: rangeCovering(trend.dataPoints) }),
-          'sparkline',
-          trend.windowSplit !== undefined && lastReading
-            ? { from: trend.windowSplit, to: lastReading.date }
-            : undefined
+          {
+            mark:
+              trend.windowSplit !== undefined && lastReading
+                ? { from: trend.windowSplit, to: lastReading.date }
+                : undefined,
+            format: (ms) => `${Math.round(ms)} ms`,
+          }
         ),
       },
       methodology: {

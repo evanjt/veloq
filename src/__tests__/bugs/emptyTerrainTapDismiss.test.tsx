@@ -28,6 +28,7 @@ function mount() {
       selected: { activity: { id: 'a1' } },
       setSelected,
       setSelectedSectionId,
+      setSelectedRouteId: jest.fn(),
       setSectionChoices,
       setSpider,
       currentZoomRef: { current: 14 },

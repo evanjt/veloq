@@ -7,6 +7,7 @@
  * 2. All required metadata files exist for each locale
  * 3. Changelog exists for current version code
  * 4. Android changelogs fit Google Play's 500-character cap
+ * 5. No description makes a claim the app or the privacy policy contradicts
  *
  * Usage:
  *   npx tsx scripts/validate-store-metadata.ts [--version-code <code>]
@@ -87,17 +88,132 @@ export function changelogCharCount(text: string): number {
   return [...text].length;
 }
 
+/**
+ * A claim a store description must not make, in the wording each store locale
+ * used for it. A tag push uploads these texts to both stores, so a claim the
+ * app or the privacy policy contradicts is published with the release.
+ */
+interface ListingClaim {
+  claim: string;
+  reason: string;
+  phrases: string[];
+}
+
+export const UNSUPPORTED_LISTING_CLAIMS: ListingClaim[] = [
+  {
+    claim: 'form advice',
+    reason: 'no insight kind gives advice: insights state the numbers and do not coach',
+    phrases: [
+      'form advice',
+      'formrådgivning',
+      'Formtipps',
+      'consejos de forma',
+      'conseils de forme',
+      'consigli sulla forma',
+      'コンディションのアドバイス',
+      'vormadvies',
+      'porady dotyczące formy',
+      'orientações sobre forma',
+      '状态建议',
+    ],
+  },
+  {
+    claim: 'activity patterns',
+    reason: 'no insight kind detects activity patterns',
+    phrases: [
+      'activity patterns',
+      'aktivitetsmønstre',
+      'Aktivitätsmuster',
+      'patrones de actividad',
+      "tendances d'activite",
+      'pattern di attivit',
+      'アクティビティパターン',
+      'activiteitspatronen',
+      'wzorce aktywności',
+      'padrões de atividade',
+      '活动模式',
+    ],
+  },
+  {
+    claim: 'positive framing',
+    reason: 'insights report a decline as plainly as an improvement, with no encouragement added',
+    phrases: [
+      'Positive, rest-day-aware',
+      'Positiv, hviledagsbevidst',
+      'Positiv formuliert',
+      'Enfoque positivo',
+      'Un ton toujours positif',
+      'Sempre positivi',
+      'ポジティブ',
+      'Positieve, rustdag-bewuste',
+      'Pozytywne komunikaty',
+      'Enquadramento positivo',
+      '积极正向',
+    ],
+  },
+  {
+    claim: 'no personal data kept',
+    reason: 'push registration stores the athlete id, as the privacy policy says',
+    phrases: [
+      'no personal data',
+      'nothing personal',
+      'ingen personlige data',
+      'keine persönlichen Daten',
+      'ohne persönliche Daten',
+      'no se conservan datos personales',
+      'sin datos personales',
+      'aucune donnee personnelle',
+      'aucune donnée personnelle',
+      'nessun dato personale',
+      'senza dati personali',
+      '個人データは保持されません',
+      '個人情報は含みません',
+      'geen persoonlijke gegevens',
+      'zonder persoonlijke gegevens',
+      'żadne dane osobowe',
+      'bez danych osobowych',
+      'nenhum dado pessoal',
+      'sem dados pessoais',
+      '不保留任何个人数据',
+      '不含任何个人信息',
+    ],
+  },
+];
+
+/** The unsupported claims a description's text makes, by claim name. */
+export function unsupportedClaimsIn(text: string): string[] {
+  const lower = text.toLowerCase();
+  return UNSUPPORTED_LISTING_CLAIMS.filter((c) =>
+    c.phrases.some((p) => lower.includes(p.toLowerCase()))
+  ).map((c) => c.claim);
+}
+
 interface ValidationError {
   type:
     | 'missing_locale'
     | 'missing_file'
     | 'missing_changelog'
     | 'empty_file'
-    | 'changelog_too_long';
+    | 'changelog_too_long'
+    | 'unsupported_claim';
   platform: 'android' | 'ios';
   locale: string;
   file?: string;
   message: string;
+}
+
+function claimErrors(platform: 'android' | 'ios', locale: string, file: string): ValidationError[] {
+  const filePath = path.join(METADATA_DIR, platform, locale, file);
+  if (!fs.existsSync(filePath)) return [];
+  return unsupportedClaimsIn(fs.readFileSync(filePath, 'utf-8')).map((claim) => ({
+    type: 'unsupported_claim',
+    platform,
+    locale,
+    file,
+    message:
+      `Unsupported claim in ${platform}/${locale}/${file}: ${claim} ` +
+      `(${UNSUPPORTED_LISTING_CLAIMS.find((c) => c.claim === claim)?.reason})`,
+  }));
 }
 
 function getAppLocales(): string[] {
@@ -211,6 +327,8 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
       }
     }
 
+    errors.push(...claimErrors('android', locale, 'full_description.txt'));
+
     // Check changelog for current version
     if (versionCode) {
       const changelogPath = path.join(localeDir, 'changelogs', `${versionCode}.txt`);
@@ -285,6 +403,8 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
         });
       }
     }
+
+    errors.push(...claimErrors('ios', locale, 'description.txt'));
   }
 
   return errors;

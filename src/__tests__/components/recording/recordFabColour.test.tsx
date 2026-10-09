@@ -12,7 +12,8 @@ import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { RecordFAB } from '@/features/recording/components/RecordFAB';
-import { brand, colors, darkColors, recording } from '@/theme';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
+import { brand, colors, darkColors, recording, spacing } from '@/theme';
 
 /** WCAG 2.2 AA for a graphical object, which is what a glyph on a fill is. */
 const AA_GRAPHIC = 3;
@@ -38,8 +39,15 @@ jest.mock('@/shared/app', () => ({
 }));
 
 // The barrel reaches the engine through SyncErrorBanner, which has no native
-// module under Jest. Only the one constant is wanted here.
-jest.mock('@/shared/ui', () => ({ TAB_BAR_SAFE_PADDING: 12 }));
+// module under Jest. Only the clearance is wanted here.
+jest.mock('@/shared/ui', () => ({
+  useTabBarClearance: jest.requireActual('@/shared/ui/tabBarClearance').useTabBarClearance,
+}));
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useSegments: () => ['(tabs)'],
+}));
 
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
@@ -102,6 +110,10 @@ describe('the record button reads as recording', () => {
     expect(fab.props.accessibilityRole).toBe('button');
     expect(fab.props.accessibilityLabel).toBe('Start Activity');
     expect(view.UNSAFE_queryAllByProps({ name: 'record-circle-outline' })).not.toHaveLength(0);
+  });
+
+  it('floats above the tab bar on the feed, by the inset plus the bar', () => {
+    expect(fabStyle(false).bottom).toBe(24 + TAB_BAR_SAFE_PADDING + spacing.md);
   });
 
   it('stays hidden while a session is running', () => {

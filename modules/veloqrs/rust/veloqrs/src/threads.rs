@@ -26,11 +26,37 @@ pub fn name_cpu_pool() {
     });
 }
 
-/// The pool's shape: named workers, each started at background priority.
+/// The pool's shape: the budget's worker count, named, each started at background priority.
 fn cpu_pool_builder() -> rayon::ThreadPoolBuilder {
     rayon::ThreadPoolBuilder::new()
+        .num_threads(cpu_budget(configured_cpus()))
         .thread_name(|i| format!("veloq-cpu-{i}"))
         .start_handler(|_| lower_background_priority())
+}
+
+/// Workers for the pool on a device with `cpus` cores: all but two, never fewer than one.
+///
+/// The two left over keep the JavaScript and render threads off a full runqueue
+/// while a detect or tile pass runs with nobody touching the screen.
+fn cpu_budget(cpus: usize) -> usize {
+    cpus.saturating_sub(2).max(1)
+}
+
+/// Cores the device has, whatever cpuset the calling thread sits in.
+///
+/// `available_parallelism` follows the cpuset, and Android puts a headless
+/// start in one that holds three of eight cores, so a pool sized from it at
+/// that moment stays that size for the life of the process.
+fn configured_cpus() -> usize {
+    #[cfg(unix)]
+    {
+        // SAFETY: reads a system constant and touches no memory.
+        let configured = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) };
+        if configured > 0 {
+            return configured as usize;
+        }
+    }
+    std::thread::available_parallelism().map_or(1, |n| n.get())
 }
 
 /// Longest thread name the kernel keeps whole.
@@ -201,5 +227,19 @@ mod tests {
             niceness.iter().all(|n| *n == spawner.max(10)),
             "{niceness:?}"
         );
+    }
+
+    #[test]
+    fn cpu_budget_leaves_two_cores_and_keeps_one_worker() {
+        assert_eq!(cpu_budget(1), 1);
+        assert_eq!(cpu_budget(2), 1);
+        assert_eq!(cpu_budget(3), 1);
+        assert_eq!(cpu_budget(8), 6);
+    }
+
+    #[test]
+    fn cpu_pool_takes_the_budget_of_the_configured_cores() {
+        let pool = cpu_pool_builder().build().unwrap();
+        assert_eq!(pool.current_num_threads(), cpu_budget(configured_cpus()));
     }
 }

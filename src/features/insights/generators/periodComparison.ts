@@ -70,6 +70,16 @@ export function signedPercent(ratio: number): string {
   return `${ratio > 0 ? '+' : '-'}${percent}%`;
 }
 
+/** A comparison's total as the caption states it, in the unit it was compared in. */
+function captionValue(value: number, useTss: boolean): string {
+  return useTss ? `${Math.round(value)} TSS` : formatDurationCompact(value);
+}
+
+/** A weekly bar's value, which `displayValue` holds in minutes for time, as the caption states it. */
+function weeklyCaption(value: number, useTss: boolean): string {
+  return captionValue(useTss ? value : value * 60, useTss);
+}
+
 /** A comparison's own value as the card shows it: TSS as it stands, seconds as minutes. */
 function displayValue(value: number, useTss: boolean): number {
   return Math.round(useTss ? value : value / 60);
@@ -134,14 +144,22 @@ export function generatePeriodComparisonInsights(
   };
   const comparedWeek = chronicWeeks?.[chronicWeeks.length - 1];
 
+  const caption = t('insights.caption.thisWeekAgainstLast', {
+    current: captionValue(weekOverWeek.current, useTss),
+    previous: captionValue(weekOverWeek.previous, useTss),
+  });
+
   const comparisonSupportingData: InsightSupportingData = {
     // The weekly totals in the comparison's unit, including the compared week.
     ...sparkline(
       weeklySeries(chronicWeeks, useTss),
       t('insights.data.weeklyLoad'),
       weeksTarget(chronicWeeks, WEEK_OVER_WEEK_DAYS),
-      'bars',
-      comparedWeek ? { date: comparedWeek.start } : undefined
+      {
+        kind: 'bars',
+        mark: comparedWeek ? { date: comparedWeek.start } : undefined,
+        format: (value) => weeklyCaption(value, useTss),
+      }
     ),
     trend,
     comparisonData: {
@@ -188,6 +206,7 @@ export function generatePeriodComparisonInsights(
         icon,
         iconTone,
         title: t(upKey, { percent }),
+        subtitle: caption,
         body,
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
@@ -209,6 +228,7 @@ export function generatePeriodComparisonInsights(
         icon,
         iconTone,
         title: t(downKey, { percent }),
+        subtitle: caption,
         body,
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
@@ -253,6 +273,10 @@ function generateLastWeekVsAverageInsight(
       icon: trendIcon(metric, trend.direction),
       iconTone: verdictRung(trend.verdict),
       title: t('insights.weeklyLoad.title', { percent, direction }),
+      subtitle: t('insights.caption.lastWeekAgainstAverage', {
+        current: captionValue(comparison.current, useTss),
+        previous: captionValue(comparison.previous, useTss),
+      }),
       navigationTarget: weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
       timestamp: now,
       // A week against a chronic average: the week's activities plus the ones
@@ -267,8 +291,11 @@ function generateLastWeekVsAverageInsight(
           weeklySeries(chronicWeeks, useTss),
           t('insights.data.weeklyLoad'),
           weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
-          'bars',
-          comparedWeek ? { date: comparedWeek.start } : undefined
+          {
+            kind: 'bars',
+            mark: comparedWeek ? { date: comparedWeek.start } : undefined,
+            format: (value) => weeklyCaption(value, useTss),
+          }
         ),
         trend,
         comparisonData: {

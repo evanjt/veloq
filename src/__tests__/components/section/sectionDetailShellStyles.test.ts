@@ -39,7 +39,6 @@ describe('the section screen shell styles', () => {
         'container',
         'containerDark',
         'scrollView',
-        'scrollContent',
         'listFooterContainer',
         'exportGpxButton',
         'rescanRefusal',

@@ -118,7 +118,7 @@ fn the_reference_moves_to_the_member_whose_pass_is_closest_in_length() {
     );
 
     let moved = engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
     assert_eq!(moved.as_deref(), Some("close"));
@@ -142,7 +142,7 @@ fn a_tie_breaks_on_the_activity_id() {
     );
 
     let moved = engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
     assert_eq!(
@@ -171,7 +171,7 @@ fn an_excluded_member_is_never_the_new_reference() {
 
     assert_eq!(
         engine
-            .reanchor_section_reference("s1", "gone")
+            .reanchor_section_reference("s1", "gone", None)
             .expect("call"),
         None,
         "nothing left to anchor to"
@@ -192,7 +192,7 @@ fn a_section_with_no_other_member_is_left_alone() {
 
     assert_eq!(
         engine
-            .reanchor_section_reference("s1", "gone")
+            .reanchor_section_reference("s1", "gone", None)
             .expect("call"),
         None
     );
@@ -211,7 +211,7 @@ fn the_line_becomes_the_new_members_own_slice_and_the_old_one_is_kept() {
     );
 
     engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
     let expected = engine.get_gps_track("close").expect("track")[12..=42].to_vec();
@@ -255,7 +255,7 @@ fn the_reference_triple_follows_the_new_anchor_half_open() {
     );
 
     engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
     assert_eq!(
@@ -283,7 +283,7 @@ fn the_outgoing_line_survives_the_delete_and_the_new_version_reverts_whole() {
     let new_line = engine.get_gps_track("close").expect("track")[12..=42].to_vec();
 
     engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
     engine.remove_activity("gone").expect("delete");
 
@@ -324,7 +324,7 @@ fn the_move_is_written_into_the_ledger_with_both_ids() {
     );
 
     engine
-        .reanchor_section_reference("s1", "gone")
+        .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
     let (kind, details): (String, Option<String>) = conn(&dir)
@@ -342,4 +342,203 @@ fn the_move_is_written_into_the_ledger_with_both_ids() {
     assert_eq!(parsed["from"].as_str(), Some("gone"));
     assert_eq!(parsed["to"].as_str(), Some("close"));
     assert_eq!(parsed["cause"].as_str(), Some("activity_removed"));
+}
+
+/// The same ride stored twice: once under the key the device minted when it
+/// was saved, and once by the sync under the id the server gave it, before
+/// the upload's answer said they are one.
+fn engine_with_uploaded_twin(
+    dir: &TempDir,
+    section_type: &str,
+    members: &[&str],
+    synced_track: Vec<GpsPoint>,
+) -> (PersistentEngine, String) {
+    let provisional = veloqrs::mint_local_activity_id();
+    let path = db_path(dir);
+    let mut engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("open");
+    engine
+        .add_activity(provisional.clone(), track(0.0), "Ride".into())
+        .expect("store the saved ride");
+    engine
+        .add_activity("i9".to_string(), synced_track, "Ride".into())
+        .expect("store the server's copy");
+    assert_eq!(engine.intervals_id(&provisional), None, "still provisional");
+
+    let polyline = track(0.0)[10..=40].to_vec();
+    let blob = veloqrs::persistence::codec::serialize_track_points(&polyline);
+    let source = (section_type == "custom").then_some(provisional.as_str());
+    conn(dir)
+        .execute(
+            "INSERT INTO sections
+                 (id, name, sport_type, section_type, polyline_blob, distance_meters,
+                  visit_count, created_at, source_activity_id, start_index, end_index,
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                  representative_activity_id, rep_start_index, rep_end_index, geometry_source)
+             VALUES ('s1', 'Hill', 'Ride', ?, ?, 1000.0, ?, datetime('now'),
+                     ?, 10, 40, 0, 0, 0, 0, ?, 10, 41, 'exact')",
+            params![
+                section_type,
+                blob,
+                members.len() as u32,
+                source,
+                provisional
+            ],
+        )
+        .expect("seed the section");
+    for member in members {
+        let id = if *member == "provisional" {
+            provisional.as_str()
+        } else {
+            member
+        };
+        conn(dir)
+            .execute(
+                "INSERT INTO section_activities
+                     (section_id, activity_id, start_index, end_index, distance_meters, excluded)
+                 VALUES ('s1', ?, 10, 40, 1000.0, 0)",
+                params![id],
+            )
+            .expect("seed a member");
+    }
+    // The version the athlete named, cut from the saved ride's stream.
+    engine
+        .record_section_geometry("s1", &polyline, true, Some((&provisional, 10, 41)))
+        .expect("record the version cut from the saved ride");
+    (engine, provisional)
+}
+
+fn activity_exists(conn: &Connection, id: &str) -> bool {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM activities WHERE id = ?)",
+        params![id],
+        |row| row.get(0),
+    )
+    .expect("read the activity")
+}
+
+fn last_ledger_entry(conn: &Connection) -> (String, serde_json::Value) {
+    let (kind, details): (String, Option<String>) = conn
+        .query_row(
+            "SELECT kind, details FROM section_history
+             WHERE section_id = 's1' ORDER BY id DESC LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("read the ledger");
+    let details = details.map_or(serde_json::Value::Null, |d| {
+        serde_json::from_str(&d).expect("json details")
+    });
+    (kind, details)
+}
+
+/// Scenario: the athlete cuts a section from a ride saved on the device, and
+/// the upload's answer arrives after the sync already stored the server's copy.
+///
+/// Expected behaviour: the line moves onto the server's copy before the saved
+/// ride is removed, the ledger says so, and the version cut from the saved
+/// ride still reads its line.
+#[test]
+fn an_upload_answer_moves_a_custom_section_onto_the_servers_copy() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, provisional) =
+        engine_with_uploaded_twin(&dir, "custom", &["provisional", "i9"], track(0.0));
+    let line = track(0.0)[10..=40].to_vec();
+
+    assert!(
+        engine
+            .record_upload(&provisional, "i9")
+            .expect("record the answer")
+    );
+
+    let db = conn(&dir);
+    assert!(!activity_exists(&db, &provisional), "the duplicate is gone");
+    assert_eq!(anchor_of(&db), (Some("i9".to_string()), Some(10), Some(40)));
+    assert_eq!(
+        reference_of(&db),
+        (
+            Some("i9".to_string()),
+            Some(10),
+            Some(41),
+            Some("exact".to_string())
+        )
+    );
+    let (kind, details) = last_ledger_entry(&db);
+    assert_eq!(kind, "reference_reanchored");
+    assert_eq!(details["from"].as_str(), Some(provisional.as_str()));
+    assert_eq!(details["to"].as_str(), Some("i9"));
+    assert_eq!(
+        engine.section_geometry_polyline("s1", 1),
+        Some(line),
+        "the version cut from the saved ride outlives its stream"
+    );
+}
+
+/// A detected section carries only the representative triple, and a named
+/// one is pinned at a version cut from it.
+#[test]
+fn an_upload_answer_moves_a_detected_sections_representative_onto_the_servers_copy() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, provisional) =
+        engine_with_uploaded_twin(&dir, "auto", &["provisional", "i9"], track(0.0));
+    assert!(engine.pin_section_geometry("s1", 1).expect("pin"));
+
+    engine
+        .record_upload(&provisional, "i9")
+        .expect("record the answer");
+
+    let db = conn(&dir);
+    assert!(!activity_exists(&db, &provisional));
+    assert_eq!(reference_of(&db).0.as_deref(), Some("i9"));
+    assert_eq!(last_ledger_entry(&db).0, "reference_reanchored");
+    assert_eq!(
+        engine.section_geometry_polyline("s1", 1),
+        Some(track(0.0)[10..=40].to_vec()),
+        "the pinned version still reads its line"
+    );
+}
+
+/// The saved ride is the section's only member: the server's copy is not
+/// matched yet, but it is the same ride, so it carries the line.
+#[test]
+fn an_upload_answer_moves_a_sections_only_member_onto_the_servers_copy() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, provisional) =
+        engine_with_uploaded_twin(&dir, "custom", &["provisional"], track(0.0));
+
+    engine
+        .record_upload(&provisional, "i9")
+        .expect("record the answer");
+
+    let db = conn(&dir);
+    assert!(!activity_exists(&db, &provisional));
+    assert_eq!(anchor_of(&db), (Some("i9".to_string()), Some(10), Some(40)));
+    assert_eq!(
+        engine.section_geometry_polyline("s1", 1),
+        Some(track(0.0)[10..=40].to_vec())
+    );
+}
+
+/// The server's copy does not hold the line and no other member does, so
+/// nothing can carry it: the saved ride is kept, as a ride the census finds
+/// gone is kept, and the section still reads from it.
+#[test]
+fn an_upload_answer_keeps_the_saved_ride_when_nothing_else_can_carry_the_line() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, provisional) =
+        engine_with_uploaded_twin(&dir, "custom", &["provisional"], track(0.05));
+
+    assert!(
+        !engine
+            .record_upload(&provisional, "i9")
+            .expect("record the answer"),
+        "the duplicate stays, so nothing was settled"
+    );
+
+    let db = conn(&dir);
+    assert!(
+        activity_exists(&db, &provisional),
+        "the only stream is kept"
+    );
+    assert_eq!(anchor_of(&db).0.as_deref(), Some(provisional.as_str()));
+    assert!(engine.get_gps_track(&provisional).is_some());
 }

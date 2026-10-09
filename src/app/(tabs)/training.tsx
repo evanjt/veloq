@@ -6,7 +6,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ScreenSafeAreaView,
   ErrorStatePreset,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   Shimmer,
   IconButton,
   ToggleButton,
@@ -42,6 +42,9 @@ import { onPullRefresh } from '@/shared/ui/haptics';
 
 const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
 
+/** The frames the screen mounts its cards across after the first. */
+const MOUNT_STAGES = 3;
+
 function HealthScreenContent() {
   useTabFirstFrame('/training');
   const perfEnd = logScreenRender('HealthScreen');
@@ -49,6 +52,7 @@ function HealthScreenContent() {
   const queryClient = useQueryClient();
   const { notice, requestRefresh } = useSyncRefreshNotice();
   const { isDark, colors: themeColors } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
@@ -57,19 +61,20 @@ function HealthScreenContent() {
     perfEnd();
   });
 
-  // Defer below-fold cards across two frames to spread Skia canvas initialisation.
-  // Frame 0: ActivityHeatmap (Skia Picture, single draw call) + WellnessTrendsChart (Skia).
-  // Frame 1: WeeklySummary (pure RN, cheap).
-  // Frame 2: SeasonComparison (Skia canvas).
-  const [belowFoldReady, setBelowFoldReady] = useState(false);
-  const [chartsReady, setChartsReady] = useState(false);
+  // The first frame carries no Skia canvas, even when every read is cached:
+  // the header, the heatmap's frame and the chart placeholders paint first.
+  // Stage 1: the heatmap picture and WellnessTrendsChart (Skia).
+  // Stage 2: WeeklySummary (pure RN).
+  // Stage 3: SeasonComparison (Skia).
+  const [stage, setStage] = useState(0);
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      setBelowFoldReady(true);
-      requestAnimationFrame(() => setChartsReady(true));
-    });
+    if (stage >= MOUNT_STAGES) return undefined;
+    const id = requestAnimationFrame(() => setStage(stage + 1));
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [stage]);
+  const skiaReady = stage >= 1;
+  const belowFoldReady = stage >= 2;
+  const chartsReady = stage >= 3;
 
   // A metric linked here names its chart. The weekly card mounts a frame late,
   // so the scroll waits for its layout rather than for this screen's.
@@ -160,7 +165,10 @@ function HealthScreenContent() {
         ref={scrollRef}
         onScrollBeginDrag={onScrollBeginDrag}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: layout.screenPadding + tabBarClearance },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -173,7 +181,7 @@ function HealthScreenContent() {
       >
         {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          <ActivityHeatmap ref={heatmap} />
+          <ActivityHeatmap ref={heatmap} drawn={skiaReady} />
         </View>
 
         {/* Time range selector with smoothing config */}
@@ -216,7 +224,7 @@ function HealthScreenContent() {
               {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
             </Text>
           </View>
-          {wellnessLoading && !wellness ? (
+          {!skiaReady || (wellnessLoading && !wellness) ? (
             <Shimmer width="100%" height={200} borderRadius={layout.borderRadius} />
           ) : (
             <WellnessTrendsChart
@@ -229,7 +237,7 @@ function HealthScreenContent() {
           )}
         </View>
 
-        {/* Below-fold cards - frame 1: WeeklySummary (pure RN).
+        {/* Below-fold cards - stage 2: WeeklySummary (pure RN).
               Always mount once belowFoldReady - the component renders its own
               empty/loading states and the testID must be present for automated
               tests to find the widget during data load. */}
@@ -246,7 +254,7 @@ function HealthScreenContent() {
           </View>
         )}
 
-        {/* Below-fold Skia card - frame 2: SeasonComparison */}
+        {/* Below-fold Skia card - stage 3: SeasonComparison */}
         {chartsReady && (
           <View style={[styles.card, isDark && styles.cardDark]}>
             <SeasonComparison height={180} />
@@ -274,7 +282,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
-    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   card: {
     backgroundColor: colors.surface,

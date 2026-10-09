@@ -30,6 +30,7 @@ import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
@@ -41,6 +42,23 @@ import {
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
+
+/**
+ * What the caller draws over the route in 3D, in the terrain page's own
+ * collections, and the section tap it answers. The page cannot read the flat
+ * map's layer specs, so a caller that draws overlays in 2D hands the same data
+ * here in this form.
+ */
+export type BaseMap3DLayer = Pick<
+  React.ComponentProps<typeof Map3DWebView>,
+  | 'routesGeoJSON'
+  | 'sectionsGeoJSON'
+  | 'tracesGeoJSON'
+  | 'sectionMarkersGeoJSON'
+  | 'sectionTrimGeoJSON'
+  | 'highlightedTraceGeoJSON'
+  | 'onSectionClick'
+>;
 
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
@@ -79,6 +97,8 @@ export interface BaseMapViewProps {
   overlayImages?: MapImageSpec[] | undefined;
   /** Overlay layers that respond to a tap, most specific first. */
   interactiveLayers?: string[] | undefined;
+  /** The overlays and the section tap in the form the 3D layer takes. */
+  layer3D?: BaseMap3DLayer | undefined;
   /** Custom control buttons to add to the control stack */
   extraControls?: ReactNode | undefined;
   /** Close button handler (for fullscreen maps) */
@@ -105,6 +125,7 @@ export function BaseMapView({
   underRouteLayers = NO_LAYERS,
   overlayImages,
   interactiveLayers,
+  layer3D,
   extraControls,
   onClose,
 }: BaseMapViewProps) {
@@ -218,20 +239,30 @@ export function BaseMapView({
   }, [locate, is3DMode, is3DReady]);
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
-  // captured on the way out and handed back to the remount.
+  // captured on the way out. The remount opens where the 3D camera was left,
+  // or where 2D was if the 3D one never reported. The surface reads its camera
+  // only when it mounts, so the 3D one is read from the ref at that render and
+  // a pan in 3D re-renders nothing.
   const show2DSurface = !(is3DMode && is3DReady);
   const [cameraOnHide, setCameraOnHide] = useState<{ center: LngLat; zoom: number } | null>(null);
+  const camera3DRef = useRef<Camera3DState | null>(null);
   useEffect(() => {
     if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
   }, [show2DSurface]);
+  // A camera from an earlier 3D visit is not where this one was left.
+  useEffect(() => {
+    if (is3DMode) camera3DRef.current = null;
+  }, [is3DMode]);
+  const handleCamera3DChange = useCallback((camera: Camera3DState) => {
+    camera3DRef.current = camera;
+  }, []);
 
-  const initialCamera = useMemo(() => {
-    if (cameraOnHide) return cameraOnHide;
+  const fitCamera = useMemo(() => {
     const fitBounds: LngLatBounds | undefined = bounds
       ? { sw: bounds.sw, ne: bounds.ne }
       : undefined;
     return { bounds: fitBounds, padding };
-  }, [bounds, padding, cameraOnHide]);
+  }, [bounds, padding]);
 
   const userLocationCollection = useMemo(
     () => buildUserLocationCollection(userLocation),
@@ -410,7 +441,7 @@ export function BaseMapView({
           <MapSurface
             ref={surfaceRef}
             mapStyle={mapStyle}
-            initialCamera={initialCamera}
+            initialCamera={cameraAfter3D(camera3DRef.current, cameraOnHide) ?? fitCamera}
             sources={sources}
             layers={layers}
             images={overlayImages}
@@ -435,6 +466,7 @@ export function BaseMapView({
             pointerEvents={is3DReady ? 'auto' : 'none'}
           >
             <Map3DWebView
+              {...layer3D}
               ref={map3DRef}
               coordinates={routeCoords}
               mapStyle={mapStyle}
@@ -443,6 +475,7 @@ export function BaseMapView({
               onMapFailed={() => setIs3DMode(false)}
               onTerrainUnavailable={onTerrainUnavailable}
               onBearingChange={handleBearingChange}
+              onCameraStateChange={handleCamera3DChange}
             />
           </Animated.View>
         </ComponentErrorBoundary>

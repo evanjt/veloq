@@ -193,7 +193,7 @@ describe('ActivityMapPreview', () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
     const snapshotRef = {
-      current: { requestSnapshot, retryFailed: jest.fn() },
+      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
 
     render(
@@ -218,7 +218,9 @@ describe('ActivityMapPreview', () => {
     mockHasOverride = true;
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
-    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+    const snapshotRef = {
+      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+    };
 
     render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
@@ -230,7 +232,9 @@ describe('ActivityMapPreview', () => {
   it('leaves an ordinary card in the queue it landed in', () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
-    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+    const snapshotRef = {
+      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+    };
 
     render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
@@ -259,7 +263,9 @@ describe('ActivityMapPreview', () => {
 
   it('serves the cached flat render without queuing anything', () => {
     const requestSnapshot = jest.fn();
-    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+    const snapshotRef = {
+      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+    };
 
     render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />

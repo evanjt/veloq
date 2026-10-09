@@ -21,7 +21,7 @@ import {
 import {
   ComponentErrorBoundary,
   ErrorStatePreset,
-  TAB_BAR_SAFE_PADDING,
+  useTabBarClearance,
   Shimmer,
   Button,
   pressable,
@@ -138,6 +138,7 @@ function MapScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -315,7 +316,7 @@ function MapScreenContent() {
           layout={LinearTransition.duration(SHEET_FADE_MS)}
           style={[
             styles.infoBar,
-            { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
+            { paddingBottom: tabBarClearance + 16 },
             isDark && styles.infoBarDark,
           ]}
         >

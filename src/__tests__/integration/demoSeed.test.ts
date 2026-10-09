@@ -6,7 +6,8 @@
 
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { getEngine } from '@/shared/native/engine';
-import { PACE_SNAPSHOT_WINDOW_DAYS } from '@/shared/app/constants';
+import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
+import { timeRangeToDays } from '@/features/wellness';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -113,6 +114,31 @@ describe('seedDemoEngine', () => {
       .map((c: unknown[]) => c[2]);
     expect(paceWindows).toContain(42);
   });
+
+  /**
+   * The Fitness tab asks for a curve under whichever period its picker shows,
+   * six months by default. A period the seed skips reads as never downloaded,
+   * with a retry that has no credential to fetch with.
+   */
+  it.each(TIME_RANGES.map((range) => [range.id, timeRangeToDays(range.id)]))(
+    'stores every curve the Fitness tab draws for the %s period',
+    (_period, days) => {
+      seedDemoEngine();
+
+      const stored = engine.setCurveBody.mock.calls.map(
+        ([kind, sport, window, gap]: [string, string, number, boolean]) =>
+          `${kind}:${sport}:${window}:${gap}`
+      );
+      expect(stored).toEqual(
+        expect.arrayContaining([
+          `power:Ride:${days}:false`,
+          `pace:Run:${days}:false`,
+          `pace:Run:${days}:true`,
+          `pace:Swim:${days}:false`,
+        ])
+      );
+    }
+  );
 
   it('stores planned workouts so the record screen can show them', () => {
     seedDemoEngine();

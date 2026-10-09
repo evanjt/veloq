@@ -12,7 +12,7 @@ import { generateRouteInsights } from '../generators/routeInsights';
 import type { RouteInsightCounts } from '../generators/routeInsights';
 import { generateSectionTrendInsights } from '../generators/sectionTrend';
 import type { SectionTrendCounts } from '../generators/sectionTrend';
-import { insightPairKeys } from './sectionIdentity';
+import { insightPairKeys, sectionPairKey } from './sectionIdentity';
 import {
   generateSectionChangedInsights,
   type SectionChangeInput,
@@ -294,15 +294,18 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // ranked list the bundle already carries is where it is. Joined here rather
   // than threaded through five generators: only `sectionTrend` is built from
   // the ranked rows, and the other four know a section id and nothing else.
+  // A ranking is one sport's, so the join is on the (section, sport) pair: the
+  // card's sport is the one its own supporting section names.
   const rankingBySection = new Map(
     (data.sectionTrends ?? [])
       .filter((s) => s.ranking)
-      .map((s) => [s.sectionId, s.ranking as SectionRankingScores])
+      .map((s) => [sectionPairKey(s.sectionId, s.sportType), s.ranking as SectionRankingScores])
   );
   for (const insight of passed) {
     const id = insight.meta?.sectionId;
     if (!id || insight.meta?.ranking) continue;
-    const ranking = rankingBySection.get(id);
+    const sport = insight.supportingData?.sections?.find((s) => s.sectionId === id)?.sportType;
+    const ranking = rankingBySection.get(sectionPairKey(id, sport));
     if (ranking && insight.meta) insight.meta.ranking = ranking;
   }
 

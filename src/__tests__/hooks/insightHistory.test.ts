@@ -46,6 +46,7 @@ describe('insight card histories', () => {
         },
       ],
       mark: { date: DAY * 2 },
+      scale: { top: '4:00', bottom: '4:20' },
       target: '/section/ridge?activityId=ride-2',
     });
   });
@@ -216,7 +217,9 @@ describe('insight card histories', () => {
         mark: { from: previousDate, to: latestDate },
         series: [{ points }],
       });
-      expect(card.supportingData?.history?.target).toContain('/fitness?date=');
+      expect(card.supportingData?.history).toMatchObject({
+        target: expect.stringContaining('/fitness?date='),
+      });
     }
   });
 
@@ -271,5 +274,173 @@ describe('insight card histories', () => {
       points,
       target: '/section/ridge',
     });
+  });
+});
+
+describe('the scale a card graphic prints', () => {
+  const hrvCard = () =>
+    generateHrvTrendInsight(
+      {
+        label: 'trendingUp',
+        avg: 52,
+        latest: 55,
+        dataPoints: 3,
+        windowSplit: DAY * 2,
+        sparkline: [
+          { value: 50.4, date: DAY },
+          { value: 52, date: DAY * 2 },
+          { value: 55.2, date: DAY * 3 },
+        ],
+      },
+      NOW,
+      t
+    )[0];
+
+  it('prints the fastest time at the top of a stale record timeline', () => {
+    const [card] = generateStalePRInsights(
+      [
+        {
+          sectionId: 'ridge',
+          sectionName: 'Ridge',
+          bestTimeSecs: 240,
+          daysSinceLast: 60,
+          traversalCount: 4,
+          fitnessMetric: 'power',
+          currentValue: 260,
+          previousValue: 240,
+          gainPercent: 8,
+          unit: 'W',
+          sportType: 'Ride',
+          bestActivityId: 'ride-2',
+          recentEfforts: [
+            { value: 260, date: DAY, activityId: 'ride-1' },
+            { value: 240, date: DAY * 2, activityId: 'ride-2' },
+            { value: 250, date: DAY * 3, activityId: 'ride-3' },
+          ],
+        } as StalePrOpportunity,
+      ],
+      t,
+      NOW
+    );
+    expect(card.supportingData?.history).toMatchObject({
+      scale: { top: '4:00', bottom: '4:20' },
+    });
+  });
+
+  it('prints the highest reading at the top of the HRV sparkline, in milliseconds', () => {
+    expect(hrvCard().supportingData?.history).toMatchObject({
+      scale: { top: '55 ms', bottom: '50 ms' },
+    });
+  });
+
+  it('prints the FTP and threshold pace in their units, the faster pace at the top', () => {
+    const previousDate = 1_700_000_000;
+    const latestDate = previousDate + DAY * 2;
+    const watts = [230, 240, 250].map((value, index) => ({
+      value,
+      date: previousDate + index * DAY,
+    }));
+    const speeds = [3, 3.2, 3.5].map((value, index) => ({
+      value,
+      date: previousDate + index * DAY,
+    }));
+    const [ftp, pace] = generateFitnessMilestoneInsights(
+      {
+        previousFtp: 230,
+        latestFtp: 250,
+        deltaWatts: 20,
+        previousDate,
+        latestDate,
+        sampleCount: 3,
+        history: watts,
+      },
+      {
+        previousPace: 3,
+        latestPace: 3.5,
+        gainPercent: 16,
+        deltaSeconds: 20,
+        previousDate,
+        latestDate,
+        sampleCount: 3,
+        history: speeds,
+      },
+      null,
+      NOW,
+      t
+    );
+    expect(ftp.supportingData?.history).toMatchObject({
+      scale: { top: '250 W', bottom: '230 W' },
+    });
+    // 3.5 m/s is 4:46 a kilometre and 3 m/s is 5:33.
+    expect(pace.supportingData?.history).toMatchObject({
+      scale: { top: '4:46/km', bottom: '5:33/km' },
+    });
+  });
+
+  it('prints the tallest week and the zero line of weekly bars', () => {
+    const week = (totalTss: number, totalDuration = 3600) => ({
+      count: 2,
+      totalDuration,
+      totalDistance: 1,
+      totalTss,
+    });
+    const weeks = [
+      { start: DAY, stats: week(100, 3600) },
+      { start: DAY * 8, stats: week(320, 7200) },
+      { start: DAY * 15, stats: week(300, 5400) },
+    ];
+    const [byLoad] = generatePeriodComparisonInsights(
+      week(400),
+      week(300),
+      week(200),
+      weeks,
+      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3 },
+      null,
+      NOW,
+      t
+    );
+    expect(byLoad.supportingData?.history).toMatchObject({
+      scale: { top: '320 TSS', bottom: '0 TSS' },
+    });
+
+    const [byTime] = generatePeriodComparisonInsights(
+      week(0, 9000),
+      week(0, 5400),
+      week(0, 3600),
+      weeks.map((row) => ({ ...row, stats: { ...row.stats, totalTss: 0 } })),
+      { metric: 'duration', current: 9000, previous: 5400, ratio: 2 / 3 },
+      null,
+      NOW,
+      t
+    );
+    expect(byTime.supportingData?.history).toMatchObject({
+      scale: { top: '2h', bottom: '0m' },
+    });
+  });
+
+  it('prints no scale for the efficiency ratio, which has no unit to print', () => {
+    const [card] = generateEfficiencyTrendInsights(
+      [
+        {
+          sectionId: 'ridge',
+          sectionName: 'Ridge',
+          sportType: 'Ride',
+          points: [1, 2, 3].map((day) => ({
+            date: day * DAY,
+            paceSecsPerKm: 240,
+            avgHr: 150,
+            hrPaceRatio: 36000 - day * 100,
+          })),
+          trendSlope: -100,
+          direction: 0,
+          hrChangeBpm: -5,
+          effortCount: 3,
+        } as EfficiencyTrend,
+      ],
+      NOW,
+      t
+    );
+    expect(card.supportingData?.history).toBeDefined();
+    expect(card.supportingData?.history).not.toHaveProperty('scale');
   });
 });

@@ -10366,6 +10366,15 @@ export type FfiRouteLine = {
    */
   routeNumber?: number;
   /**
+   * The name the route is shown under, read when the map is, so a rename
+   * shows without the layer being rebuilt
+   */
+  name: string;
+  /**
+   * The activities in the route
+   */
+  activityCount: number;
+  /**
    * The representative's signature in `codec::encode_polyline` form
    */
   polyline: ArrayBuffer;
@@ -10395,18 +10404,24 @@ const FfiConverterTypeFfiRouteLine = (() => {
       return {
         routeId: FfiConverterString.readFromCursor(c),
         routeNumber: FfiConverterOptionalUInt32.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        activityCount: FfiConverterUInt32.readFromCursor(c),
         polyline: FfiConverterArrayBuffer.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.routeId, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.routeNumber, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
       FfiConverterArrayBuffer.writeIntoCursor(value.polyline, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.routeId) +
         FfiConverterOptionalUInt32.allocationSize(value.routeNumber) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterArrayBuffer.allocationSize(value.polyline)
       );
     }

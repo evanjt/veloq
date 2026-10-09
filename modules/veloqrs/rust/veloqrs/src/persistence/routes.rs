@@ -2122,6 +2122,25 @@ pub(crate) mod pooled {
         }
     }
 
+    /// The activities in each of `ids`, keyed by group. A group written
+    /// before the count was stored is counted from its members.
+    pub(crate) fn activity_counts(conn: &Connection, ids: &[&str]) -> HashMap<String, u32> {
+        let mut counts = HashMap::new();
+        for chunk in ids.chunks(500) {
+            let marks = vec!["?"; chunk.len()].join(",");
+            for group in group_summaries_where(
+                conn,
+                "0.0",
+                &format!("WHERE route_groups.id IN ({marks})"),
+                rusqlite::params_from_iter(chunk.iter()),
+                &HashMap::new(),
+            ) {
+                counts.insert(group.group_id, group.activity_count);
+            }
+        }
+        counts
+    }
+
     /// Name the groups of a page, reading the names of those routes alone.
     pub(crate) fn name_groups(
         conn: &Connection,

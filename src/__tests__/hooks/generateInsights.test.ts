@@ -704,7 +704,14 @@ describe('generateInsights', () => {
         withComparisons({
           ...EMPTY_INPUT,
           recentPRs: [
-            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1, traversalCount: 12 },
+            {
+              sectionId: 's1',
+              sectionName: 'Hill',
+              bestTime: 300,
+              daysAgo: 1,
+              traversalCount: 12,
+              sportType: 'Ride',
+            },
           ],
           sectionTrends: [trendFor(ranking)],
         } as InsightInputData),

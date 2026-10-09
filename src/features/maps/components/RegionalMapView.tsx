@@ -36,6 +36,8 @@ import {
 import {
   ActivityPopup,
   SectionPopup,
+  RoutePopup,
+  type MapRouteSummary,
   SectionChooser,
   MapControlStack,
   ClusterCountOverlay,
@@ -60,11 +62,6 @@ import {
 } from '../lib/coordinates';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { tapTo } from '@/shared/app/navigation';
-
-// Stable no-op function reference for disabled callbacks.
-// Inline `() => {}` creates a new reference every render, which destabilises
-// useCallback dependency chains and causes Android MapLibre camera snap-back.
-const NOOP = () => {};
 
 /**
  * Global map of every activity, clustered.
@@ -151,6 +148,13 @@ export function RegionalMapView({
     return section ? [section] : [];
   });
   const [spider, setSpider] = useState<SpiderState | null>(null);
+  // The popup reads the route from the map read's own lines, so a rename or a
+  // new member shows on the next read.
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const selectedRoute = useMemo<MapRouteSummary | null>(() => {
+    if (!selectedRouteId) return null;
+    return routeLines?.routes.find((route) => route.routeId === selectedRouteId) ?? null;
+  }, [routeLines, selectedRouteId]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // Only load route signatures when the map tab is focused
@@ -303,7 +307,7 @@ export function RegionalMapView({
     setShowSections,
     showRoutes,
     setShowRoutes,
-    setSelectedRoute: NOOP,
+    setSelectedRouteId,
     currentZoomRef,
     currentCenterRef,
     onCameraSettled: handleCameraSettled,
@@ -401,6 +405,10 @@ export function RegionalMapView({
     setSelectedSectionId(null);
     setSectionChoices([]);
   }
+  // A route the read no longer draws, hidden or regrouped away, has no popup.
+  if (selectedRouteId && (!showRoutes || (routeLines && !selectedRoute))) {
+    setSelectedRouteId(null);
+  }
 
   const toggleStyle = () => {
     setMapStyleLocal((current) => {
@@ -412,6 +420,7 @@ export function RegionalMapView({
 
   // Handle 3D section click - receives section ID string, looks up section to select
   const handle3DSectionClick = useCallback((sectionId: string) => {
+    setSelectedRouteId(null);
     setSectionChoices([]);
     setSelectedSectionId(sectionId);
   }, []);
@@ -554,6 +563,7 @@ export function RegionalMapView({
         hasRouteData: routeHasData,
         selectedActivityId,
         selectedSectionId: selectedSection?.id ?? null,
+        selectedRouteId: selectedRoute?.routeId ?? null,
         routeColor,
       }),
     [
@@ -569,6 +579,7 @@ export function RegionalMapView({
       routeHasData,
       selectedActivityId,
       selectedSection,
+      selectedRoute,
       routeColor,
     ]
   );
@@ -715,6 +726,17 @@ export function RegionalMapView({
           onViewDetails={() => {
             setSelectedSectionId(null);
             tapTo(`/section/${selectedSection.id}`);
+          }}
+        />
+      )}
+      {selectedRoute && (
+        <RoutePopup
+          route={selectedRoute}
+          bottom={insets.bottom + 250}
+          onClose={() => setSelectedRouteId(null)}
+          onViewDetails={() => {
+            setSelectedRouteId(null);
+            tapTo(`/route/${selectedRoute.routeId}`);
           }}
         />
       )}
