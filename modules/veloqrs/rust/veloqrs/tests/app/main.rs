@@ -159,6 +159,9 @@ mod visit_count_invariant;
 #[path = "../basemap_cold_miss.rs"]
 mod basemap_cold_miss;
 
+#[path = "../basemap_geo_answer.rs"]
+mod basemap_geo_answer;
+
 #[path = "../basemap_not_found.rs"]
 mod basemap_not_found;
 

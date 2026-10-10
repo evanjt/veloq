@@ -9,6 +9,16 @@
 //! re-processed that activity, and only then is the whole track fetched and
 //! replaced, which is what evicts it from the processed set.
 //!
+//! A track the stream pass also owes its series is asked once for the whole
+//! series set instead, when the athlete's answers allow that download
+//! (`stream_backfill::series_permission`, read before every batch). The one
+//! answer carries the coordinates, so it settles the elevation, stocks the
+//! series store and the section maths' clock, and replaces a moved track,
+//! where the three passes asking apart cost three requests. A track the
+//! answers do not allow it for, or one outside the retention window, keeps
+//! the elevation-only ask: a series download asked for and thrown away is
+//! never made.
+//!
 //! A partly elevated library is worse than a uniformly flat one. A lift
 //! candidate survives when its own track has no elevation, but a track without
 //! elevation cannot rescue one, so a genuine climb is vetoed mid-conversion and
@@ -63,9 +73,13 @@
 //! code to clear it, so a forgotten pause can never strand the migration.
 
 use crate::governor::Lane;
-use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
+use crate::net::endpoints::{
+    DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES, fetch_altitude, fetch_streams,
+};
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::ParsedStreams;
+use crate::net::types::{
+    ParsedStreams, StreamDto, TrackClock, parse_streams, storable_series, track_clock, track_times,
+};
 use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::objects::observer::Announcement;
@@ -700,10 +714,17 @@ impl PersistentEngine {
 /// bytes and risks replacing geometry the catalogue was derived from. The
 /// whole track is asked for only when the stored sample count no longer
 /// matches upstream.
+///
+/// A track the stream pass also owes its series is asked once for the whole
+/// series set instead, when the athlete's answers allow that download at all.
+/// The one answer carries the coordinates, both altitudes, the series and the
+/// clock, so it settles this pass, the stream pass and the section maths'
+/// clock together, where asked separately they cost three requests.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Ask {
     Elevation,
     Track,
+    Wide,
 }
 
 /// One track's fetch, reduced to what the store step needs.
@@ -711,9 +732,12 @@ enum Fetched {
     /// An altitude series to splice onto the points already stored, and which
     /// series it is.
     Altitudes(Vec<f64>, ElevationSeries),
-    /// A whole track, re-fetched because the stored one no longer matches, and
-    /// the series its elevation came from.
-    Elevated(Vec<GpsPoint>, ElevationSeries),
+    /// A whole track, re-fetched because the stored one no longer matches, the
+    /// series its elevation came from, and its clock when the answer carried
+    /// one that fits.
+    Elevated(Vec<GpsPoint>, ElevationSeries, Vec<u32>),
+    /// The answer to the whole series set, coordinates included.
+    Wide(WideAnswer),
     /// The response arrived, carried an altitude series, and none of it was
     /// usable. Upstream has answered and the answer will not change.
     NoAltitude,
@@ -773,7 +797,82 @@ fn reduce(parsed: ParsedStreams) -> Fetched {
             }
         })
         .collect();
-    Fetched::Elevated(points, ElevationSeries::upstream(parsed.altitude_is_fixed))
+    let times = track_times(&parsed);
+    Fetched::Elevated(
+        points,
+        ElevationSeries::upstream(parsed.altitude_is_fixed),
+        times,
+    )
+}
+
+/// One track's answer to the whole series set, reduced to the index space its
+/// coordinates make.
+struct WideAnswer {
+    /// The coordinates upstream holds, null samples dropped.
+    latlng: Vec<[f64; 2]>,
+    /// The altitude series `parse_streams` chose, one per coordinate.
+    altitude: Vec<f64>,
+    series: ElevationSeries,
+    /// The series the stream store keeps, in the same index space.
+    streams: Vec<StreamDto>,
+    /// What the answer says about the clock in the same index space.
+    clock: TrackClock,
+}
+
+impl WideAnswer {
+    fn has_altitude(&self) -> bool {
+        self.altitude.iter().any(|e| e.is_finite())
+    }
+
+    /// The track the answer describes, a sample's elevation the one at its own
+    /// index or none.
+    fn points(&self) -> Vec<GpsPoint> {
+        self.latlng
+            .iter()
+            .enumerate()
+            .map(
+                |(i, p)| match self.altitude.get(i).copied().filter(|e| e.is_finite()) {
+                    Some(ele) => GpsPoint::with_elevation(p[0], p[1], ele),
+                    None => GpsPoint::new(p[0], p[1]),
+                },
+            )
+            .collect()
+    }
+}
+
+/// Reduce an answer to the whole series set to the store step's cases.
+///
+/// With coordinates in it the answer is read whole. Without any it is read
+/// on the elevation ask's terms, since that is all it can say: its altitude
+/// is in upstream's own index, matched against the stored track by length,
+/// and nothing in it is addressable as a series. An answer with neither
+/// settles nothing, the same as an empty whole-track ask.
+fn reduce_wide(raw: Vec<StreamDto>) -> Fetched {
+    let streams = storable_series(&raw);
+    let carries_altitude = raw
+        .iter()
+        .any(|s| s.kind == "altitude" || s.kind == "fixed_altitude");
+    let parsed = parse_streams(raw);
+    if parsed.misaligned.iter().any(|m| m.series == "latlng") {
+        return Fetched::Failed(NetError::Decode(
+            "latlng misaligned in the series answer".to_string(),
+        ));
+    }
+    if parsed.latlng.is_empty() {
+        return if carries_altitude {
+            reduce_altitudes(Some(parsed))
+        } else {
+            Fetched::Empty
+        };
+    }
+    let clock = track_clock(&parsed);
+    Fetched::Wide(WideAnswer {
+        series: ElevationSeries::upstream(parsed.altitude_is_fixed),
+        latlng: parsed.latlng,
+        altitude: parsed.altitude,
+        streams,
+        clock,
+    })
 }
 
 /// Fetch one batch, bounded to [`FETCH_CONCURRENCY`] requests in flight.
@@ -804,6 +903,17 @@ async fn fetch_batch(
                         Err(e) => Fetched::Failed(e),
                     }
                 }
+                Ask::Wide => match transport
+                    .get_json::<Vec<StreamDto>>(
+                        &format!("/activity/{}/streams.json", named),
+                        &[("types", DEFAULT_STREAM_TYPES)],
+                        Lane::Backfill,
+                    )
+                    .await
+                {
+                    Ok(raw) => reduce_wide(raw),
+                    Err(e) => Fetched::Failed(e),
+                },
             };
             (id, outcome)
         })
@@ -921,6 +1031,13 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
         NEXT_START.load(Ordering::Relaxed) % queue.len()
     };
     let queue = rotated(&queue, start);
+
+    // A library past the large-download threshold is asked before the walk,
+    // so a yes reaches the tracks this pass asks for their series. The start
+    // itself stays deferred while this queue owes anything.
+    if !queue.is_empty() {
+        crate::net::stream_backfill::autostart_stream_backfill();
+    }
 
     BACKFILL.total.store(queue.len() as u32, Ordering::Relaxed);
     BACKFILL.completed.store(0, Ordering::Relaxed);
@@ -1067,7 +1184,7 @@ enum Stopped {
 /// prefix would stop every future pass at the same place.
 fn is_connectivity(e: &NetError) -> bool {
     match e {
-        NetError::Transport(_) | NetError::RateLimited => true,
+        NetError::Transport(_) | NetError::RateLimited | NetError::Deferred { .. } => true,
         NetError::Http { status, .. } => *status >= 500,
         _ => false,
     }
@@ -1183,13 +1300,44 @@ fn drain_queue(
     let keys: Vec<String> = queue.iter().map(|(id, _)| id.clone()).collect();
     let upstream = with_persistent_engine_for(install, |engine| engine.intervals_ids(&keys))
         .unwrap_or_default();
-    drain_queue_with_auth(
+    drain_queue_asking(
         install,
         queue,
         count_progress,
         || crate::objects::sync::still_signed_in(athlete_id),
+        |ids| wide_asks(install, ids),
         |ids, ask| crate::runtime::block_on(fetch_batch(transport, ids, ask, &upstream)),
     )
+}
+
+/// Which of `ids` to ask for the whole series set rather than elevation
+/// alone: the tracks the stream pass owes, which already puts them inside the
+/// retention window, and none at all unless the athlete's answers allow the
+/// series download. Read before every batch, so a yes given while the pass
+/// runs reaches the tracks it has not asked yet.
+///
+/// An unreadable answer is read as no. The elevation ask is the one this pass
+/// owes, and a series download the athlete never allowed is not one to make
+/// on a guess.
+fn wide_asks(install: u64, ids: &[String]) -> std::collections::HashSet<String> {
+    use crate::net::stream_backfill::{
+        STREAM_ATTEMPT_LIMIT, SeriesPermission, current_series_permission,
+    };
+    // A read, so it goes through the pool. The library it reads is the one
+    // installed now, and a walk whose library was replaced stops at the next
+    // batch boundary before anything it asks for is stored.
+    if engine_install() != install {
+        return std::collections::HashSet::new();
+    }
+    crate::objects::error::with_reader(|conn| {
+        if current_series_permission(conn)? != SeriesPermission::Granted {
+            return Ok(std::collections::HashSet::new());
+        }
+        crate::persistence::streams::pooled::owed_among(conn, ids, STREAM_ATTEMPT_LIMIT)
+    })
+    .ok()
+    .and_then(|owed: SqlResult<_>| owed.ok())
+    .unwrap_or_default()
 }
 
 /// The walk itself, with the fetch handed in.
@@ -1206,11 +1354,31 @@ fn drain_queue_with(
     drain_queue_with_auth(install, queue, count_progress, || true, fetch)
 }
 
+#[cfg(test)]
 fn drain_queue_with_auth(
     install: u64,
     queue: &[(String, String)],
     count_progress: bool,
+    still_signed_in: impl FnMut() -> bool,
+    fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
+) -> Walk {
+    drain_queue_asking(
+        install,
+        queue,
+        count_progress,
+        still_signed_in,
+        |_| std::collections::HashSet::new(),
+        fetch,
+    )
+}
+
+/// The walk, with which tracks to ask wide handed in beside the fetch.
+fn drain_queue_asking(
+    install: u64,
+    queue: &[(String, String)],
+    count_progress: bool,
     mut still_signed_in: impl FnMut() -> bool,
+    mut wide: impl FnMut(&[String]) -> std::collections::HashSet<String>,
     mut fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
 ) -> Walk {
     let mut outcome = BackfillOutcome {
@@ -1274,7 +1442,16 @@ fn drain_queue_with_auth(
         }
 
         let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
-        let fetched = fetch(&ids, Ask::Elevation);
+        let asked_wide = wide(&ids);
+        let (wide_ids, narrow_ids): (Vec<String>, Vec<String>) =
+            ids.into_iter().partition(|id| asked_wide.contains(id));
+        let mut fetched = Vec::with_capacity(batch.len());
+        if !narrow_ids.is_empty() {
+            fetched.extend(fetch(&narrow_ids, Ask::Elevation));
+        }
+        if !wide_ids.is_empty() {
+            fetched.extend(fetch(&wide_ids, Ask::Wide));
+        }
 
         // A rejected credential rejects every remaining request too. Spending
         // the rest of the library on 401s helps nobody, so the pass stops and
@@ -1298,7 +1475,12 @@ fn drain_queue_with_auth(
 
         let mut plan = Plan::default();
         for (id, result) in fetched {
-            if plan.sort(id, result, Ask::Elevation, &sports, &mut outcome) {
+            let ask = if asked_wide.contains(&id) {
+                Ask::Wide
+            } else {
+                Ask::Elevation
+            };
+            if plan.sort(id, result, ask, &sports, &mut outcome) {
                 consecutive_failures = 0;
             } else {
                 consecutive_failures += 1;
@@ -1310,8 +1492,9 @@ fn drain_queue_with_auth(
         // did move and the catalogue has to be re-derived from what it holds
         // now. That, and an unreadable answer, are the only reasons a whole
         // track is ever downloaded again.
-        let (spliced, mut moved) = splice_batch(install, &plan.splice);
-        outcome.elevated += spliced;
+        let (spliced, mut moved, wide) = splice_batch(install, &plan.splice, &plan.wide, &sports);
+        outcome.elevated += spliced + wide.elevated;
+        outcome.unavailable += wide.unavailable;
         moved.append(&mut plan.whole);
         if !moved.is_empty() {
             log::info!(
@@ -1326,8 +1509,13 @@ fn drain_queue_with_auth(
                 .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
             {
                 refused.append(&mut plan.refused);
-                outcome.elevated +=
-                    store_batch(install, &plan.store, &plan.states, &plan.sources) as u32;
+                outcome.elevated += store_batch(
+                    install,
+                    &plan.store,
+                    &plan.states,
+                    &plan.sources,
+                    &plan.clocks,
+                ) as u32;
                 let owed: std::collections::HashSet<&str> =
                     moved.iter().map(String::as_str).collect();
                 plan.attempted.retain(|id| !owed.contains(id.as_str()));
@@ -1351,7 +1539,13 @@ fn drain_queue_with_auth(
         }
         refused.append(&mut plan.refused);
 
-        outcome.elevated += store_batch(install, &plan.store, &plan.states, &plan.sources) as u32;
+        outcome.elevated += store_batch(
+            install,
+            &plan.store,
+            &plan.states,
+            &plan.sources,
+            &plan.clocks,
+        ) as u32;
         outcome.retired += retire_batch(install, &plan.attempted);
         if count_progress {
             BACKFILL
@@ -1386,6 +1580,11 @@ struct Plan {
     store: Vec<(String, Vec<GpsPoint>, String)>,
     /// The series each of `store` carries, recorded once its points land.
     sources: Vec<(String, u8)>,
+    /// The clock each of `store` carried, stored once its points land.
+    clocks: Vec<(String, Vec<u32>)>,
+    /// Answers to the whole series set, each stored with everything it
+    /// carries.
+    wide: Vec<(String, WideAnswer)>,
     /// Activities the elevation ask could not settle, which the whole track
     /// can.
     whole: Vec<String>,
@@ -1416,11 +1615,18 @@ impl Plan {
                 self.splice.push((id, altitudes, series));
                 true
             }
-            Fetched::Elevated(points, series) => {
+            Fetched::Elevated(points, series, times) => {
                 let sport = sport(&id);
                 self.sources
                     .push((id.clone(), elevation_source_of(&points, series)));
+                if !times.is_empty() {
+                    self.clocks.push((id.clone(), times));
+                }
                 self.store.push((id, points, sport));
+                true
+            }
+            Fetched::Wide(answer) => {
+                self.wide.push((id, answer));
                 true
             }
             Fetched::NoAltitude => {
@@ -1461,20 +1667,25 @@ impl Plan {
     }
 }
 
-/// Splice each fetched altitude series onto the track already stored.
+/// Splice each fetched altitude series onto the track already stored, and
+/// store each answer to the whole series set with everything it carries, in
+/// one take of the engine.
 ///
-/// Returns how many landed and the ids whose stored sample count no longer
-/// matches upstream, which are the only ones that need the whole track. The
-/// splice sets provenance in the same statement, so nothing here goes through
+/// Returns how many altitude series landed, the ids whose stored sample count
+/// no longer matches upstream, which are the only ones that need the whole
+/// track, and what the whole-set answers came to. The splice sets provenance
+/// in the same statement, so nothing here goes through
 /// `record_elevation_state`.
 fn splice_batch(
     install: u64,
     splice: &[(String, Vec<f64>, ElevationSeries)],
-) -> (u32, Vec<String>) {
-    if splice.is_empty() {
-        return (0, Vec::new());
+    wide: &[(String, WideAnswer)],
+    sports: &std::collections::HashMap<&str, &str>,
+) -> (u32, Vec<String>, WideStored) {
+    if splice.is_empty() && wide.is_empty() {
+        return (0, Vec::new(), WideStored::default());
     }
-    with_persistent_engine_for(install, |engine| {
+    let (spliced, moved, stored) = with_persistent_engine_for(install, |engine| {
         let mut spliced = 0;
         let mut moved = Vec::new();
         for (id, altitudes, series) in splice {
@@ -1484,28 +1695,35 @@ fn splice_batch(
                 Err(e) => log::warn!("[Elevation] splice of {} failed: {}", id, e),
             }
         }
-        (spliced, moved)
+        (spliced, moved, store_wide_answers(engine, wide, sports))
     })
-    .unwrap_or((0, Vec::new()))
+    .unwrap_or_default();
+    // Outside the closure, so the reader this wakes is not woken into the
+    // engine lock this thread still holds.
+    announce(stored.mutated.clone(), stored.clocked.clone());
+    (spliced, moved, stored)
 }
 
 /// Re-ingest the elevated tracks and stamp provenance for the whole batch:
-/// `states` for every track, `sources` for the tracks re-ingested.
-/// Returns how many tracks landed with elevation.
+/// `states` for every track, `sources` and `clocks` for the tracks
+/// re-ingested. Returns how many tracks landed with elevation.
 fn store_batch(
     install: u64,
     to_store: &[(String, Vec<GpsPoint>, String)],
     states: &[(String, u8)],
     sources: &[(String, u8)],
+    clocks: &[(String, Vec<u32>)],
 ) -> usize {
-    let (stored, mutated) = with_persistent_engine_for(install, |engine| {
+    let (stored, mutated, clocked) = with_persistent_engine_for(install, |engine| {
         // The re-ingest upserts the activity row in place, so its date, name
         // and distance survive, and the section_activities links keyed on the
         // id are never cascade-deleted.
         let mut stored = 0;
         let mut mutated = Vec::new();
+        let mut clocked = Vec::new();
         let mut all_states = states.to_vec();
         if !to_store.is_empty() {
+            drop_series_of_moved_tracks(engine, to_store);
             match engine.add_activities_batch(to_store.to_vec()) {
                 Ok(ids) => {
                     stored = to_store.len();
@@ -1519,6 +1737,16 @@ fn store_batch(
                     if let Err(e) = engine.record_elevation_source(sources) {
                         log::warn!("[Elevation] series not recorded: {}", e);
                     }
+                    for (id, times) in clocks {
+                        match engine.store_track_series(id, &[], Some(times)) {
+                            Ok(true) => clocked.push(id.clone()),
+                            Ok(false) => {}
+                            Err(e) => log::warn!("[Elevation] clock of {} not stored: {}", id, e),
+                        }
+                    }
+                    if !clocked.is_empty() {
+                        engine.backfill_section_performance_cache();
+                    }
                 }
                 Err(e) => log::warn!("[Elevation] batch store failed: {}", e),
             }
@@ -1527,17 +1755,172 @@ fn store_batch(
         if let Err(e) = engine.record_elevation_state(&all_states) {
             log::warn!("[Elevation] provenance not recorded: {}", e);
         }
-        (stored, mutated)
+        (stored, mutated, clocked)
     })
-    .unwrap_or((0, Vec::new()));
+    .unwrap_or_default();
 
     // Outside the closure, so the reader this wakes is not woken into the
     // engine lock this thread still holds. A splice replaces a stored track,
     // so every preview line drawn from one is stale until its reader is told.
+    announce(mutated, clocked);
+    stored
+}
+
+/// Drop the stored series of every track about to be replaced by one of
+/// another length. They address the points the track is losing, and nothing
+/// else would ever take them out: the stream pass lists only an activity with
+/// no series at all.
+fn drop_series_of_moved_tracks(
+    engine: &PersistentEngine,
+    to_store: &[(String, Vec<GpsPoint>, String)],
+) {
+    let ids: Vec<String> = to_store.iter().map(|(id, _, _)| id.clone()).collect();
+    let held = engine.track_point_counts(&ids);
+    for (id, points, _) in to_store {
+        if held.get(id).is_some_and(|&n| n != points.len())
+            && let Err(e) = engine.drop_activity_streams(id)
+        {
+            log::warn!("[Elevation] series of moved {} not dropped: {}", id, e);
+        }
+    }
+}
+
+/// Tell readers what a store step changed, once the engine lock is let go.
+fn announce(mutated: Vec<String>, clocked: Vec<String>) {
     if !mutated.is_empty() {
         crate::objects::observer::notify(Announcement::GpsTracksMutated(mutated));
     }
-    stored
+    if !clocked.is_empty() {
+        crate::objects::observer::notify(Announcement::TimeStreamsStored(clocked));
+    }
+}
+
+/// What storing a batch's answers to the whole series set came to.
+#[derive(Debug, Default)]
+struct WideStored {
+    /// Tracks elevated.
+    elevated: u32,
+    /// Tracks upstream has no altitude for.
+    unavailable: u32,
+    /// Tracks replaced with another, to announce.
+    mutated: Vec<String>,
+    /// Tracks whose clock landed, to announce.
+    clocked: Vec<String>,
+}
+
+/// Store each answer to the whole series set with everything it carries,
+/// inside the caller's take of the engine.
+///
+/// Each track's writes end with the one that takes it out of this queue, so
+/// an interrupted store leaves the track owed and the next pass asks again,
+/// rather than leaving elevation that arrived without its series:
+///
+/// - A track of the stored length takes the elevation, the series and the
+///   clock in one transaction.
+/// - A track of another length is upstream having re-processed the activity.
+///   Its old series are dropped, the track is replaced, the new series and
+///   clock land in its index space, and the provenance is recorded last,
+///   since the replace leaves it unknown.
+/// - A track upstream has no altitude for keeps its points, takes the series
+///   when they address them, and is then recorded as unavailable.
+///
+/// An answer that carried no series the store keeps settles the stream pass's
+/// ask for that activity, which would get the same answer.
+fn store_wide_answers(
+    engine: &mut PersistentEngine,
+    answers: &[(String, WideAnswer)],
+    sports: &std::collections::HashMap<&str, &str>,
+) -> WideStored {
+    use crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT;
+    use crate::persistence::ELEVATION_STATE_UNAVAILABLE;
+    let mut elevated = 0;
+    let mut unavailable = 0;
+    let mut mutated = Vec::new();
+    let mut clocked = Vec::new();
+    {
+        for (id, answer) in answers {
+            let stored = (|| -> SqlResult<(bool, bool)> {
+                let settle = |engine: &PersistentEngine| {
+                    if answer.streams.is_empty() {
+                        engine.settle_stream_backfill(id, STREAM_ATTEMPT_LIMIT)
+                    } else {
+                        Ok(())
+                    }
+                };
+                if answer.has_altitude() {
+                    if let Some(clock) = engine.splice_track_elevation_with_series(
+                        id,
+                        &answer.altitude,
+                        answer.series,
+                        &answer.streams,
+                        answer.clock.to_store(),
+                    )? {
+                        settle(engine)?;
+                        return Ok((true, clock));
+                    }
+                    if answer.latlng.len() >= 2 {
+                        let points = answer.points();
+                        let state = crate::ffi::elevation_state_of(&points);
+                        let source = elevation_source_of(&points, answer.series);
+                        let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
+                        engine.drop_activity_streams(id)?;
+                        mutated.extend(engine.add_activities_batch(vec![(
+                            id.clone(),
+                            points,
+                            sport.to_string(),
+                        )])?);
+                        let clock = engine.store_track_series(
+                            id,
+                            &answer.streams,
+                            answer.clock.to_store(),
+                        )?;
+                        settle(engine)?;
+                        engine.record_elevation_source(&[(id.clone(), source)])?;
+                        engine.record_elevation_state(&[(id.clone(), state)])?;
+                        return Ok((true, clock));
+                    }
+                }
+                let held = engine.track_point_counts(std::slice::from_ref(id));
+                let clock = if held.get(id) == Some(&answer.latlng.len()) {
+                    let clock =
+                        engine.store_track_series(id, &answer.streams, answer.clock.to_store())?;
+                    settle(engine)?;
+                    clock
+                } else {
+                    // The series address a track this device does not hold,
+                    // which is the stream pass's own reason to count an ask.
+                    engine.record_stream_backfill_attempt(id)?;
+                    false
+                };
+                engine.record_elevation_state(&[(id.clone(), ELEVATION_STATE_UNAVAILABLE)])?;
+                Ok((false, clock))
+            })();
+            match stored {
+                Ok((true, clock)) => {
+                    elevated += 1;
+                    if clock {
+                        clocked.push(id.clone());
+                    }
+                }
+                Ok((false, clock)) => {
+                    unavailable += 1;
+                    if clock {
+                        clocked.push(id.clone());
+                    }
+                }
+                Err(e) => log::warn!("[Elevation] store of {} failed, left owed: {}", id, e),
+            }
+        }
+    }
+    if !clocked.is_empty() {
+        engine.backfill_section_performance_cache();
+    }
+    WideStored {
+        elevated,
+        unavailable,
+        mutated,
+        clocked,
+    }
 }
 
 /// Count this batch's unsettled asks against their tracks, and report how many
@@ -1982,6 +2365,15 @@ mod tests {
     };
     use tempfile::TempDir;
 
+    /// Expected behaviour: a request the budget held back is asked again, not
+    /// left for the next run as though upstream had answered for the track.
+    #[test]
+    fn a_deferral_is_asked_again_rather_than_held_against_the_track() {
+        assert!(is_connectivity(&NetError::Deferred {
+            until: chrono::Utc::now(),
+        }));
+    }
+
     /// A restore lands while a pass is splicing. The batch finishes and writes
     /// elevation computed from the old library's tracks into the restored
     /// database, which is the item's failing case with this worker in it.
@@ -1994,13 +2386,15 @@ mod tests {
         let _second = init_global_engine("elevation_splice_second.db");
         assert_ne!(engine_install(), started_against);
 
-        let (spliced, moved) = splice_batch(
+        let (spliced, moved, _) = splice_batch(
             started_against,
             &[(
                 "a1".to_string(),
                 vec![100.0, 101.0],
                 ElevationSeries::Corrected,
             )],
+            &[],
+            &Default::default(),
         );
 
         assert_eq!(spliced, 0, "the splice is lost, not applied");
@@ -2013,13 +2407,15 @@ mod tests {
         let _serial = serial_global_state();
         let _dir = seeded_global_engine();
 
-        let (spliced, moved) = splice_batch(
+        let (spliced, moved, _) = splice_batch(
             engine_install(),
             &[(
                 "a0".to_string(),
                 vec![100.0, 101.0],
                 ElevationSeries::Corrected,
             )],
+            &[],
+            &Default::default(),
         );
 
         assert_eq!(
@@ -2277,7 +2673,7 @@ mod tests {
             altitude: vec![500.0, f64::NAN, 520.0],
             ..ParsedStreams::default()
         };
-        let Fetched::Elevated(points, _) = reduce(parsed) else {
+        let Fetched::Elevated(points, _, _) = reduce(parsed) else {
             panic!("a finite sample makes the track elevated");
         };
         assert_eq!(points.len(), 3);
@@ -4308,6 +4704,10 @@ mod tests {
 #[path = "tests/elevation_auth.rs"]
 mod auth_tests;
 
+#[cfg(test)]
+#[path = "tests/elevation_wide.rs"]
+mod wide_tests;
+
 /// Scenario: a climbing best keeps to the corrected series, so every track the
 /// backfill writes, and every track it wrote before the engine recorded the
 /// series, has to say which series its points carry.
@@ -4450,11 +4850,11 @@ mod series {
     fn the_reducers_keep_the_series_parse_streams_chose() {
         assert!(matches!(
             reduce(parsed(true)),
-            Fetched::Elevated(_, ElevationSeries::Corrected)
+            Fetched::Elevated(_, ElevationSeries::Corrected, _)
         ));
         assert!(matches!(
             reduce(parsed(false)),
-            Fetched::Elevated(_, ElevationSeries::Device)
+            Fetched::Elevated(_, ElevationSeries::Device, _)
         ));
         assert!(matches!(
             reduce_altitudes(Some(parsed(true))),
@@ -4487,9 +4887,10 @@ mod series {
                         (_, Ask::Elevation) => {
                             Fetched::Altitudes(vec![1.0; POINTS + 2], ElevationSeries::Device)
                         }
-                        (_, Ask::Track) => Fetched::Elevated(
+                        (_, Ask::Track | Ask::Wide) => Fetched::Elevated(
                             elevate(&line(0.01), &heights(800.0)),
                             ElevationSeries::Corrected,
+                            Vec::new(),
                         ),
                     };
                     (id.clone(), answer)

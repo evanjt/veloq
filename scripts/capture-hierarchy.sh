@@ -30,6 +30,12 @@ fi
 
 
 PLATFORM="${1:-android}"
+
+# On iOS the booted simulator is shared by every session on the Mac, so the
+# whole capture holds it, as the handset is held on Android.
+if [ "$PLATFORM" = "ios" ] && [ -z "${VELOQ_SIM_LOCK_HELD:-}" ]; then
+  exec "$(dirname "$0")/with-simulator-lock.sh" booted "$0" "$@"
+fi
 APP_ID="${APP_ID:-com.veloq.app.dev}"
 MAESTRO="$(dirname "$0")/with-maestro.sh"
 SNAPSHOT_DIR=".maestro/snapshots"

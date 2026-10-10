@@ -16,9 +16,7 @@ use std::time::Duration;
 
 use crate::net::NetError;
 use crate::objects::{WELLNESS_REFRESH_DAYS, refresh_wellness};
-use crate::push::{
-    open_native_engine, prepare_native_session, prepare_native_session_from_keychain,
-};
+use crate::push::{native_auth_choice, open_native_engine, prepare_native_session};
 use crate::widget_snapshot::{
     native_snapshot_json, native_snapshot_json_as_of_last_sync, stored_context,
 };
@@ -116,19 +114,29 @@ fn refresh_snapshot_within(
 
 /// Open the engine and set the credential, leaving both alone where the app
 /// already holds them.
+///
+/// Both callers run in the app's own process: the Android worker, and the iOS
+/// background refresh task. So both open the way the app does, minting this
+/// process's lease generation, and never the push extension's way. An engine
+/// this refresh opened is the one the app finds when the athlete then opens
+/// it in the same process, and the app reopens nothing it finds open, so a
+/// lease a killed earlier process left would otherwise read as held by this
+/// one for the life of the process.
 fn prepare(db_path: &str, credential: NativeCredential<'_>) -> Result<(), String> {
-    match credential {
+    let (method, secret, athlete_id) = match credential {
         NativeCredential::Method {
             method,
             secret,
             athlete_id,
-        } => prepare_native_session(db_path, method, secret, athlete_id),
+        } => (method, secret, athlete_id),
         NativeCredential::Keychain {
             access_token,
             api_key,
             athlete_id,
-        } => prepare_native_session_from_keychain(db_path, access_token, api_key, athlete_id),
-    }
+        } => native_auth_choice(access_token, api_key, athlete_id)
+            .ok_or_else(|| "the keychain held no credential this refresh can use".to_string())?,
+    };
+    prepare_native_session(db_path, method, secret, athlete_id)
 }
 
 /// The pull and the compose, against whatever engine and credential the

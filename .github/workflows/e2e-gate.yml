@@ -6,7 +6,9 @@ name: E2E Gate
 # gate runs failed for reasons outside the diff. Heavier tiers run in the daily
 # scheduled sweep in e2e.yml, which can also be dispatched by hand. The pack-map
 # flows run here too, but only when a push changes a map surface: a screen, the
-# tile store in the engine or the Android tile interceptor.
+# tile store in the engine or the Android tile interceptor. They run on an iOS
+# simulator as well when a push changes a map surface, the lockfile or a native
+# module, since a dependency bump that breaks the iOS map changes nothing else.
 
 on:
   push:
@@ -28,18 +30,19 @@ jobs:
   # run only when a push actually touches a map surface.
   changes:
     name: Detect Changed Areas
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       maps: ${{ steps.filter.outputs.maps }}
+      ios-maps: ${{ steps.filter.outputs.ios-maps }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
         id: filter
         with:
           filters: |
-            maps:
+            maps: &maps
               - 'src/features/maps/**'
               - 'src/features/**/*Map*'
               - 'src/app/\(tabs\)/map.tsx'
@@ -51,6 +54,10 @@ jobs:
               - 'modules/veloqrs/rust/veloqrs/src/tiles.rs'
               - 'modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs'
               - 'modules/veloqrs/android/src/main/java/com/veloq/*Tile*'
+            ios-maps:
+              - *maps
+              - 'package-lock.json'
+              - 'modules/**'
 
   # The shared Android build, with the same inputs as e2e.yml's, so gate runs
   # and dispatched E2E runs share the cached APK for identical source.
@@ -63,13 +70,24 @@ jobs:
       allow-stub: true
       retention-days: 3
 
+  # The Dev simulator app, from the same shared build and input hash as
+  # e2e.yml's, built only when the iOS map suite will run.
+  build-ios-dev:
+    name: Build iOS Dev
+    needs: changes
+    if: needs.changes.outputs.ios-maps == 'true'
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      variant: dev
+      retention-days: 3
+
   gate:
     name: Maestro Gate (tier0+tier1)
     needs: build-android-dev
     # Hosted Ubuntu + KVM: the only GitHub-hosted runner that can hardware-
     # accelerate an Android emulator. Hosted macOS is a nested VM with no HVF,
     # so qemu-system-aarch64 fails with HV_UNSUPPORTED and never boots.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +113,7 @@ jobs:
         uses: ./.github/actions/install-maestro
 
       - name: Run gate flows on emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         with:
@@ -160,7 +178,7 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: gate-report.xml
           check_name: E2E Gate Results
@@ -172,7 +190,7 @@ jobs:
       - name: Publish flaky results (non-blocking)
         if: always()
         continue-on-error: true
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: flaky-report.xml
           check_name: E2E Gate Flaky (non-blocking)
@@ -188,7 +206,7 @@ jobs:
     name: Maestro Map Suite
     needs: [changes, build-android-dev]
     if: needs.changes.outputs.maps == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
@@ -214,7 +232,7 @@ jobs:
         uses: ./.github/actions/install-maestro
 
       - name: Run map flows on emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         with:
@@ -271,10 +289,80 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: map-report.xml
           check_name: E2E Map Suite Results
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
+
+  # The map suite on an iOS simulator. The map renders in a WebView fed by the
+  # engine's tile handler on iOS, and nothing else runs a map flow there before
+  # the daily sweep.
+  ios-map-gate:
+    name: Maestro Map Suite (iOS)
+    needs: [changes, build-ios-dev]
+    if: needs.changes.outputs.ios-maps == 'true'
+    runs-on: macos-26
+    # Fourteen flows at the measured two minutes each, setup and a retry pass.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Boot simulator with the Dev app
+        uses: ./.github/actions/boot-ios-simulator
+        with:
+          artifact: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
+
+      - name: Run map flows on the simulator
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          .maestro/run-suite.sh ios-map-report.xml /tmp/maestro-debug-ios-map --include-tags=pack-map --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Collect Maestro artifacts
+        if: always()
+        run: |
+          mkdir -p /tmp/maestro-ios-map-artifacts
+          cp -r "$HOME/.maestro/tests" /tmp/maestro-ios-map-artifacts/tests 2>/dev/null || true
+          cp -r /tmp/maestro-debug-ios-map /tmp/maestro-ios-map-artifacts/debug 2>/dev/null || true
+          cp -f "$GITHUB_WORKSPACE"/screenshots/*.png /tmp/maestro-ios-map-artifacts/ 2>/dev/null || true
+          find ~/Library/Logs/DiagnosticReports -name "VeloqDev*" -exec cp {} /tmp/maestro-ios-map-artifacts/ \; 2>/dev/null || true
+
+      - name: Upload Maestro debug output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ios-map-debug
+          path: /tmp/maestro-ios-map-artifacts
+          retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default.
+          include-hidden-files: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ios-map-report
+          path: |
+            ios-map-report.xml
+            retry-reports/
+          # The flake evidence, kept as long as the gate's own.
+          retention-days: 90
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
+        with:
+          report_paths: ios-map-report.xml
+          check_name: E2E Map Suite Results (iOS)
           fail_on_failure: false
 
       - name: Fail if tests failed
@@ -286,9 +374,9 @@ jobs:
   # executed nothing would look identical to one that passed everything.
   gate-required:
     name: E2E Gate Required
-    needs: [changes, build-android-dev, gate, map-gate]
+    needs: [changes, build-android-dev, gate, map-gate, build-ios-dev, ios-map-gate]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check gate results
@@ -298,19 +386,31 @@ jobs:
           GATE: ${{ needs.gate.result }}
           MAP_GATE: ${{ needs.map-gate.result }}
           MAPS_CHANGED: ${{ needs.changes.outputs.maps }}
+          IOS_BUILD: ${{ needs.build-ios-dev.result }}
+          IOS_MAP_GATE: ${{ needs.ios-map-gate.result }}
+          IOS_MAPS_CHANGED: ${{ needs.changes.outputs.ios-maps }}
         run: |
           echo "changes=$CHANGES build-android-dev=$BUILD gate=$GATE map-gate=$MAP_GATE (maps changed: $MAPS_CHANGED)"
+          echo "build-ios-dev=$IOS_BUILD ios-map-gate=$IOS_MAP_GATE (iOS maps changed: $IOS_MAPS_CHANGED)"
           failed=0
           for result in "$CHANGES" "$BUILD" "$GATE"; do
             [ "$result" = success ] || failed=1
           done
-          # map-gate is the one job allowed to be skipped, and only when the
-          # path filter says no map surface changed.
-          if [ "$MAPS_CHANGED" = true ]; then
-            [ "$MAP_GATE" = success ] || failed=1
-          elif [ "$MAP_GATE" != skipped ]; then
-            [ "$MAP_GATE" = success ] || failed=1
-          fi
+          # A path-filtered job may be skipped only when its filter says
+          # nothing it covers changed.
+          filtered() {
+            changed="$1"
+            shift
+            for result in "$@"; do
+              if [ "$changed" = true ]; then
+                [ "$result" = success ] || failed=1
+              elif [ "$result" != skipped ]; then
+                [ "$result" = success ] || failed=1
+              fi
+            done
+          }
+          filtered "$MAPS_CHANGED" "$MAP_GATE"
+          filtered "$IOS_MAPS_CHANGED" "$IOS_BUILD" "$IOS_MAP_GATE"
           if [ "$failed" = 1 ]; then
             echo "::error::E2E gate did not pass. A skipped build or suite fails here rather than reporting green."
             exit 1

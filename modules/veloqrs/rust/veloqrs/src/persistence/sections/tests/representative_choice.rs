@@ -173,6 +173,7 @@ fn background_regroup_replaces_a_representative_nobody_chose() {
         &MatchConfig::default(),
         &prior,
         engine.group_generation,
+        &HashSet::new(),
     );
 
     let (stored, chosen) = stored_representative(&engine.db, &route);
@@ -195,6 +196,7 @@ fn background_regroup_keeps_the_representative_the_athlete_chose() {
         &MatchConfig::default(),
         &prior,
         engine.group_generation,
+        &HashSet::new(),
     );
 
     assert_eq!(

@@ -79,6 +79,8 @@ pub mod geocoded_names;
 pub mod geocoded_places;
 pub(crate) mod indicators;
 pub mod job_runs;
+pub mod memory;
+pub(crate) use memory::release_connection_memory;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
 pub mod new_ground;
@@ -104,6 +106,7 @@ pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, sus
 pub mod settings;
 pub(crate) mod settings_conn;
 pub mod streams;
+pub mod suspension;
 pub use bodies::BodiesOwed;
 pub use streams::StreamGap;
 pub mod tables;
@@ -1292,6 +1295,12 @@ pub struct PersistentEngine {
     /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
     evidence_cache_restored: bool,
+    /// Whether the stored `evidence_cache` row is the cache held in memory,
+    /// so dropping the in-memory copy loses nothing a restore cannot read
+    /// back. Set only where the cache is written whole and the write took, or
+    /// read back from the row; every other write, clear or fold leaves it
+    /// false, and a release keeps the cache then.
+    evidence_row_current: bool,
     evidence_cache_decodes: u64,
 
     /// A `clear_processed_activity_ids` whose DELETE failed, usually a
@@ -1307,6 +1316,11 @@ pub struct PersistentEngine {
     /// the value it captured at spawn to tell a store made while it ran from the
     /// stale flag it was started to clear.
     pub(crate) groups_dirty_epoch: u64,
+    /// Each grouped activity whose stored track was replaced since a regroup
+    /// last committed, with the epoch the replacement marked the grouping stale
+    /// at. A regroup measures the routes holding one again, and a commit made
+    /// from a snapshot at epoch `e` settles every entry at or below `e`.
+    pub(crate) moved_tracks: HashMap<String, u64>,
     /// The committed route catalogue `groups` was read from or written as. A
     /// background regroup captures it at spawn and commits only over that one.
     pub(crate) group_generation: u64,
@@ -1352,8 +1366,14 @@ pub struct PersistentEngine {
 /// WAL was taken to avoid, on its own thread, invisibly. NORMAL under WAL
 /// risks losing the last commits to a power cut, never a corrupt file, which
 /// is the trade this database makes.
+///
+/// `journal_size_limit` is per connection too. Without it a reset WAL is
+/// reused from the start and never shrinks, so the largest transaction any
+/// writer ever made sets the `-wal` size for good. With it the writer that
+/// restarts the log truncates it to the limit.
 pub(crate) fn apply_write_pragmas(conn: &Connection) -> SqlResult<()> {
-    conn.pragma_update(None, "synchronous", "NORMAL")
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.query_row("PRAGMA journal_size_limit = 4194304", [], |_| Ok(()))
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1512,6 +1532,7 @@ impl PersistentEngine {
         self.section_evidence_cache = SectionEvidenceCache::new();
         self.cache_folded_ids.clear();
         self.evidence_cache_restored = true;
+        self.evidence_row_current = false;
     }
 
     // ========================================================================
@@ -1570,10 +1591,12 @@ impl PersistentEngine {
             fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
             evidence_cache_restored: true,
+            evidence_row_current: false,
             evidence_cache_decodes: 0,
             pending_processed_clear: false,
             groups_dirty: false,
             groups_dirty_epoch: 0,
+            moved_tracks: HashMap::new(),
             group_generation: 0,
             route_names_word: String::new(),
             sections_dirty: false,
@@ -2210,6 +2233,9 @@ pub(crate) fn pooled_stats(conn: &Connection) -> PersistentEngineStats {
         oldest_date: oldest_date.map(|v| v as f64),
         newest_date: newest_date.map(|v| v as f64),
         activity_window_oldest: held_window_oldest(conn),
+        sqlite_heap_bytes: memory::sqlite_heap_bytes() as f64,
+        satellite_cache_bytes: crate::basemap::store()
+            .map_or(0, |store| store.satellite_cache_bytes()) as f64,
     }
 }
 
@@ -2851,6 +2877,12 @@ pub struct PersistentEngineStats {
     /// Unlike `oldest_date` it leaves out activities kept only because a
     /// section or record names them.
     pub activity_window_oldest: String,
+    /// Bytes SQLite holds on the heap across every connection in the process,
+    /// page caches included.
+    pub sqlite_heap_bytes: f64,
+    /// Bytes of satellite imagery held in memory, zero before a map has set
+    /// the tile path.
+    pub satellite_cache_bytes: f64,
 }
 
 // ============================================================================
@@ -2982,11 +3014,14 @@ where
 /// Put the memory tiers back in step with SQLite after a panic under the write
 /// lock.
 ///
-/// SQLite rolls a dropped transaction back. `activity_metadata`, the spatial
-/// index, `groups`, `sections`, the identity registries and the six LRUs do not
-/// go with it, so a panic between a memory write and its row write leaves the
-/// two disagreeing and every later read through the recovered lock serves a
-/// catalogue the database does not hold.
+/// A transaction opened as raw `BEGIN IMMEDIATE` or `SAVEPOINT` is not
+/// dropped by an unwind, so the connection comes back still inside it, holding
+/// the write lock and the half-written rows. It is rolled back first, so the
+/// reload reads committed state and the engine commits again. `activity_metadata`,
+/// the spatial index, `groups`, `sections`, the identity registries and the six
+/// LRUs do not go with the rollback, so a panic between a memory write and its
+/// row write leaves the two disagreeing and every later read through the
+/// recovered lock serves a catalogue the database does not hold.
 ///
 /// This is the load `initWithPath` runs, about 130 ms on a 490-activity
 /// library, paid once by whoever takes the lock next rather than by the call
@@ -2994,6 +3029,15 @@ where
 /// mutation site, which is many more places to keep right.
 fn reload_after_poison(engine: &mut PersistentEngine) {
     log::warn!("veloqrs: [Engine] write lock was poisoned; reloading the memory tiers from SQLite");
+    if !engine.db.is_autocommit() {
+        log::warn!("veloqrs: [Engine] rolling back the transaction the panic left open");
+        if let Err(e) = engine.db.execute_batch("ROLLBACK") {
+            log::error!(
+                "veloqrs: [Engine] could not roll back the transaction left open by a poison: {:?}",
+                e
+            );
+        }
+    }
     if let Err(e) = engine.load() {
         log::error!(
             "veloqrs: [Engine] could not reload the memory tiers after a poison: {:?}",
@@ -3043,6 +3087,8 @@ where
 {
     #[cfg(not(feature = "lock-trace"))]
     let _ = caller;
+    // Before the lock, so a write refused for a suspension never waits on it.
+    let _write = suspension::begin_write()?;
     #[cfg(feature = "lock-trace")]
     let mut timing = lock_trace::Timing::begin(caller);
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
@@ -3116,6 +3162,7 @@ pub(crate) fn try_with_persistent_engine_for<F, R>(install: u64, f: F) -> Option
 where
     F: FnOnce(&mut PersistentEngine) -> R,
 {
+    let _write = suspension::try_begin_write()?;
     let mut guard = match PERSISTENT_ENGINE.try_lock() {
         Ok(guard) => guard,
         Err(std::sync::TryLockError::WouldBlock) => return None,
@@ -3275,18 +3322,31 @@ pub(crate) fn file_can_be_a_database(path: &str) -> bool {
     read == head.len() && &head == HEADER
 }
 
-/// SQLite failures caused by contention or unavailable storage. They must not
-/// quarantine a healthy library.
-pub(crate) fn is_transient_open_error(e: &rusqlite::Error) -> bool {
-    matches!(
-        e.sqlite_error_code(),
-        Some(rusqlite::ErrorCode::DatabaseBusy)
-            | Some(rusqlite::ErrorCode::DatabaseLocked)
-            | Some(rusqlite::ErrorCode::CannotOpen)
-            | Some(rusqlite::ErrorCode::DiskFull)
-            | Some(rusqlite::ErrorCode::SystemIoFailure)
-            | Some(rusqlite::ErrorCode::ReadOnly)
-    )
+/// What a transient open failure waits for before the same file can open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TransientOpenFailure {
+    /// Contention, a momentary memory shortage or a WAL locking race, which
+    /// a retry can clear.
+    Retry,
+    /// Storage or permissions have to change before opening again.
+    StorageUnavailable,
+}
+
+/// Classifies SQLite failures that leave a healthy library on disk. They must
+/// not quarantine it.
+pub(crate) fn transient_open_failure(e: &rusqlite::Error) -> Option<TransientOpenFailure> {
+    use rusqlite::ErrorCode;
+    match e.sqlite_error_code()? {
+        ErrorCode::DatabaseBusy
+        | ErrorCode::DatabaseLocked
+        | ErrorCode::OutOfMemory
+        | ErrorCode::FileLockingProtocolFailed => Some(TransientOpenFailure::Retry),
+        ErrorCode::CannotOpen
+        | ErrorCode::DiskFull
+        | ErrorCode::SystemIoFailure
+        | ErrorCode::ReadOnly => Some(TransientOpenFailure::StorageUnavailable),
+        _ => None,
+    }
 }
 
 // ============================================================================
@@ -3503,26 +3563,16 @@ pub mod persistent_engine_ffi {
                         // fixes.
                         return record_init_outcome(outcome);
                     }
-                    if is_transient_open_error(&e) {
+                    if let Some(failure) = transient_open_failure(&e) {
                         // The next launch (or the banner retry) can succeed on the
                         // same file. Quarantining here would discard a healthy
-                        // cache over lock contention.
-                        //
-                        // Busy and locked can clear on retry. The others need
-                        // storage or permissions to change before opening again.
-                        return record_init_outcome(
-                            if matches!(
-                                e.sqlite_error_code(),
-                                Some(rusqlite::ErrorCode::CannotOpen)
-                                    | Some(rusqlite::ErrorCode::DiskFull)
-                                    | Some(rusqlite::ErrorCode::SystemIoFailure)
-                                    | Some(rusqlite::ErrorCode::ReadOnly)
-                            ) {
+                        // library over contention or a full disk.
+                        return record_init_outcome(match failure {
+                            TransientOpenFailure::Retry => FfiInitOutcome::Busy,
+                            TransientOpenFailure::StorageUnavailable => {
                                 FfiInitOutcome::StorageUnavailable
-                            } else {
-                                FfiInitOutcome::Busy
-                            },
-                        );
+                            }
+                        });
                     }
                     if mode == EngineOpenMode::Push {
                         return record_init_outcome(FfiInitOutcome::StorageUnavailable);
@@ -3613,7 +3663,8 @@ pub mod persistent_engine_ffi {
     /// engine-backed feature on every launch. The file also holds athlete
     /// records and handset recordings, so salvage every readable owned row
     /// before the next sync refills the replaceable data. Keep one quarantined
-    /// generation for recovery from anything the damaged file could not read.
+    /// generation, the oldest, for recovery from anything the damaged file
+    /// could not read, and delete nothing until the fresh file has opened.
     fn reopen_after_quarantine(db_path: &str) -> Option<PersistentEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
@@ -3622,25 +3673,25 @@ pub mod persistent_engine_ffi {
             return None;
         }
 
-        let ts = std::time::SystemTime::now()
+        let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
+        // A rename onto an existing name replaces it, so a generation taken in
+        // the same second as an earlier one would overwrite it.
+        let Some(ts) = (now..now + QUARANTINE_NAME_ATTEMPTS).find(|ts| {
+            QUARANTINE_SUFFIXES.iter().all(|suffix| {
+                std::fs::symlink_metadata(format!("{}.corrupt-{}{}", db_path, ts, suffix)).is_err()
+            })
+        }) else {
+            log::error!(
+                "veloqrs: [PersistentEngine] No free quarantine name beside '{}'",
+                db_path
+            );
+            return None;
+        };
 
-        // Drop older quarantine generations so the data dir cannot grow
-        // unbounded across repeated corruption events.
-        if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
-            let prefix = format!("{}.corrupt-", name.to_string_lossy());
-            if let Ok(entries) = std::fs::read_dir(parent) {
-                for entry in entries.flatten() {
-                    if entry.file_name().to_string_lossy().starts_with(&prefix) {
-                        let _ = std::fs::remove_file(entry.path());
-                    }
-                }
-            }
-        }
-
-        for suffix in ["", "-wal", "-shm"] {
+        for suffix in QUARANTINE_SUFFIXES {
             let src = format!("{}{}", db_path, suffix);
             if !std::path::Path::new(&src).exists() {
                 continue;
@@ -3705,6 +3756,7 @@ pub mod persistent_engine_ffi {
                     salvaged.recordings,
                     salvaged.route_names
                 );
+                prune_quarantine_generations(db_path);
                 Some(engine)
             }
             Err(e) => {
@@ -3713,6 +3765,52 @@ pub mod persistent_engine_ffi {
                     e
                 );
                 None
+            }
+        }
+    }
+
+    /// The main file and the sidecars SQLite keeps beside it.
+    const QUARANTINE_SUFFIXES: [&str; 3] = ["", "-wal", "-shm"];
+
+    /// How many seconds past now a quarantine looks for a name no earlier
+    /// generation holds before it gives up.
+    const QUARANTINE_NAME_ATTEMPTS: u64 = 64;
+
+    /// Remove every quarantined generation beside `db_path` but the oldest.
+    ///
+    /// The oldest holds the athlete's library as it was before the first
+    /// failure; a later one holds only what a fresh file gathered since. Run
+    /// only once a quarantine has fully succeeded, so a failed one deletes
+    /// nothing.
+    fn prune_quarantine_generations(db_path: &str) {
+        let path = std::path::Path::new(db_path);
+        let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+            return;
+        };
+        let prefix = format!("{}.corrupt-", name.to_string_lossy());
+        let Ok(entries) = std::fs::read_dir(parent) else {
+            return;
+        };
+        let generations: Vec<(u64, std::path::PathBuf)> = entries
+            .flatten()
+            .filter_map(|entry| {
+                let file_name = entry.file_name().to_string_lossy().into_owned();
+                let rest = file_name.strip_prefix(&prefix)?;
+                let digits = rest
+                    .find(|c: char| !c.is_ascii_digit())
+                    .unwrap_or(rest.len());
+                if !QUARANTINE_SUFFIXES.contains(&&rest[digits..]) {
+                    return None;
+                }
+                Some((rest[..digits].parse().ok()?, entry.path()))
+            })
+            .collect();
+        let Some(oldest) = generations.iter().map(|(ts, _)| *ts).min() else {
+            return;
+        };
+        for (ts, file) in generations {
+            if ts != oldest {
+                let _ = std::fs::remove_file(file);
             }
         }
     }
@@ -3960,6 +4058,60 @@ mod blocking_engine;
 mod tests {
     use super::*;
     use crate::Direction;
+
+    fn sqlite_failure(code: std::os::raw::c_int) -> rusqlite::Error {
+        rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(code), None)
+    }
+
+    /// Out of memory and a WAL locking protocol failure clear on a later
+    /// launch, so they ask for a retry rather than quarantining the library.
+    #[test]
+    fn out_of_memory_and_locking_protocol_failures_are_retried() {
+        for code in [rusqlite::ffi::SQLITE_NOMEM, rusqlite::ffi::SQLITE_PROTOCOL] {
+            let e = sqlite_failure(code);
+            assert_eq!(
+                transient_open_failure(&e),
+                Some(TransientOpenFailure::Retry),
+                "code {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn corrupt_and_foreign_files_still_quarantine() {
+        for code in [rusqlite::ffi::SQLITE_CORRUPT, rusqlite::ffi::SQLITE_NOTADB] {
+            assert_eq!(
+                transient_open_failure(&sqlite_failure(code)),
+                None,
+                "code {code}"
+            );
+        }
+        let uncoded = rusqlite::Error::InvalidParameterName("x".into());
+        assert_eq!(transient_open_failure(&uncoded), None);
+    }
+
+    #[test]
+    fn storage_failures_wait_for_storage_and_contention_retries() {
+        for code in [
+            rusqlite::ffi::SQLITE_CANTOPEN,
+            rusqlite::ffi::SQLITE_FULL,
+            rusqlite::ffi::SQLITE_IOERR,
+            rusqlite::ffi::SQLITE_READONLY,
+        ] {
+            assert_eq!(
+                transient_open_failure(&sqlite_failure(code)),
+                Some(TransientOpenFailure::StorageUnavailable),
+                "code {code}"
+            );
+        }
+        for code in [rusqlite::ffi::SQLITE_BUSY, rusqlite::ffi::SQLITE_LOCKED] {
+            assert_eq!(
+                transient_open_failure(&sqlite_failure(code)),
+                Some(TransientOpenFailure::Retry),
+                "code {code}"
+            );
+        }
+    }
 
     /// A handle whose worker sent nothing and then died, the shape a panic
     /// inside the fold leaves behind.
@@ -5227,10 +5379,13 @@ pub(crate) mod commit_counter {
     pub(crate) fn watch(engine: &PersistentEngine) -> Arc<AtomicUsize> {
         let commits = Arc::new(AtomicUsize::new(0));
         let seen = Arc::clone(&commits);
-        engine.db.commit_hook(Some(move || {
-            seen.fetch_add(1, Ordering::SeqCst);
-            false
-        }));
+        engine
+            .db
+            .commit_hook(Some(move || {
+                seen.fetch_add(1, Ordering::SeqCst);
+                false
+            }))
+            .unwrap();
         commits
     }
 
@@ -5308,6 +5463,43 @@ mod write_pragma_tests {
             conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i32>(0))
                 .unwrap(),
             1
+        );
+    }
+
+    /// SQLite reuses a reset WAL from the start and leaves the file at its high
+    /// water mark unless the connection sets a size limit, so one large
+    /// transaction would hold its bytes on disk for the rest of the install.
+    #[test]
+    fn a_reset_wal_is_truncated_after_one_large_transaction() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("probe.db");
+        let wal = dir.path().join("probe.db-wal");
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        super::apply_write_pragmas(&conn).unwrap();
+        conn.execute_batch("CREATE TABLE blobs (id INTEGER PRIMARY KEY, body BLOB)")
+            .unwrap();
+
+        conn.execute(
+            "INSERT INTO blobs (body) VALUES (zeroblob(?1))",
+            [10 * 1024 * 1024],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO blobs (body) VALUES (x'01')", [])
+            .unwrap();
+        conn.query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |_| Ok(()))
+            .unwrap();
+        conn.execute("INSERT INTO blobs (body) VALUES (x'02')", [])
+            .unwrap();
+
+        let page_size: i64 = conn
+            .query_row("PRAGMA page_size", [], |r| r.get(0))
+            .unwrap();
+        let one_frame = page_size + 24;
+        let wal_len = std::fs::metadata(&wal).unwrap().len();
+        assert!(
+            wal_len <= 4 * 1024 * 1024 + one_frame as u64,
+            "the -wal stayed at {wal_len} bytes after a checkpoint and a reset"
         );
     }
 }

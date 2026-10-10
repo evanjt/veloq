@@ -1,4 +1,4 @@
-import { readCalendarEvents } from '@/features/home';
+import { readPlannedWorkouts } from '@/features/home';
 import { formatLocalDate } from '@/shared/format/format';
 import { followablePlan, type PlanLine } from './planFollow';
 
@@ -9,5 +9,5 @@ import { followablePlan, type PlanLine } from './planFollow';
  */
 export function readPlannedWorkout(eventId: number): { name: string; lines: PlanLine[] } | null {
   const today = formatLocalDate(new Date());
-  return followablePlan(readCalendarEvents(today, today), eventId);
+  return followablePlan(readPlannedWorkouts(today, today), eventId);
 }

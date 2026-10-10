@@ -19,6 +19,7 @@ import {
 const injected: string[] = [];
 const reload = jest.fn();
 let onMessage: ((event: { nativeEvent: { data: string } }) => void) | null = null;
+let androidLayerType: string | undefined;
 
 jest.mock('react-native-webview', () => ({
   get WebView() {
@@ -27,10 +28,14 @@ jest.mock('react-native-webview', () => ({
 }));
 
 const mockWebView = React.forwardRef(function MockWebView(
-  props: { onMessage: (event: { nativeEvent: { data: string } }) => void },
+  props: {
+    onMessage: (event: { nativeEvent: { data: string } }) => void;
+    androidLayerType?: string;
+  },
   ref: React.Ref<{ injectJavaScript: (script: string) => void; reload: () => void }>
 ) {
   onMessage = props.onMessage;
+  androidLayerType = props.androidLayerType;
   React.useImperativeHandle(ref, () => ({
     injectJavaScript: (script: string) => injected.push(script),
     reload,
@@ -95,6 +100,12 @@ describe('MapSurface under memory pressure', () => {
 
     post({ type: 'mapReady' });
     expect(injected.length).toBeGreaterThan(0);
+    view.unmount();
+  });
+
+  it('holds no offscreen hardware layer, which redraws whole on every pan frame', () => {
+    const view = renderSurface();
+    expect(androidLayerType).not.toBe('hardware');
     view.unmount();
   });
 

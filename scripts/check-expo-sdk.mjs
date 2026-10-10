@@ -46,10 +46,47 @@ function sharesMajorMinor(candidate, reference) {
   return actual && target && actual[0] === target[0] && actual[1] === target[1];
 }
 
-// SDK 56 bundles 4.25.2. The 4.28.0 repair must be checked as an exact pin.
-const SDK_EXCEPTIONS = {
-  'react-native-screens': { bundled: '4.25.2', allowed: '4.28.0' },
+function isBelow(candidate, floor) {
+  const actual = versionOf(candidate);
+  const target = versionOf(floor);
+  if (!actual || !target) return true;
+  for (let i = 0; i < 3; i += 1) {
+    if (actual[i] !== target[i]) return actual[i] < target[i];
+  }
+  return false;
+}
+
+// A floor holds whatever the SDK bundles. While the bundle sits below it the
+// package is taken outside the SDK as an exact pin on the floor's major and
+// minor, so a repair never brings a new minor's peers in with it.
+const FLOORS = {
+  'react-native-screens': {
+    version: '4.28.0',
+    reason: 'earlier releases initialise native state without a lock and crash Fabric mounting',
+  },
+  'expo-task-manager': {
+    version: '56.0.24',
+    reason: 'earlier releases keep every task callback and leak the background location service',
+  },
+  'expo-location': {
+    version: '56.0.24',
+    reason: 'earlier releases leak location watches',
+  },
+  'react-native-reanimated': {
+    version: '4.3.4',
+    reason:
+      'earlier releases crash on withheld exiting animations, deadlock the CSS registry against the Fabric commit and leak a view unmounted mid-animation',
+  },
+  '@shopify/react-native-skia': {
+    version: '2.9.1',
+    reason:
+      'earlier releases dereference a null EGL surface on first canvas render, which crash-loops launch on some Android GPUs',
+  },
 };
+
+function heldAtFloor(candidate, floor) {
+  return /^\d/.test(candidate) && sharesMajorMinor(candidate, floor);
+}
 
 let bundled;
 let pkg;
@@ -84,20 +121,43 @@ function lockVersion(name) {
 
 const mismatches = [];
 const drift = [];
+const belowFloor = [];
 
-for (const [name, expectedRange] of Object.entries(bundled)) {
+for (const [name, floor] of Object.entries(FLOORS)) {
+  if (!(name in declared)) continue;
+  const resolved = lockVersion(name);
+  if (
+    isBelow(declared[name], floor.version) ||
+    resolved === null ||
+    isBelow(resolved, floor.version)
+  ) {
+    belowFloor.push({
+      name,
+      declared: declared[name],
+      resolved: resolved ?? 'missing',
+      floor: floor.version,
+      reason: floor.reason,
+    });
+  }
+}
+
+for (const [name, bundledRange] of Object.entries(bundled)) {
   if (!(name in declared)) continue;
 
   const declaredRange = declared[name];
-  const exception = SDK_EXCEPTIONS[name];
-  const expected = exception?.bundled === expectedRange ? exception.allowed : expectedRange;
+  const floor = FLOORS[name];
+  const held = floor !== undefined && isBelow(bundledRange, floor.version);
+  const expected = held ? `an exact pin from ${floor.version} on its minor` : bundledRange;
 
-  if (!matchesSdk(declaredRange, expected)) {
+  if (
+    held ? !heldAtFloor(declaredRange, floor.version) : !matchesSdk(declaredRange, bundledRange)
+  ) {
     mismatches.push({ name, declared: declaredRange, expected });
   }
 
   const resolved = lockVersion(name);
-  if (resolved === null || !matchesSdk(resolved, expected)) {
+  const lockExpected = held ? declaredRange : bundledRange;
+  if (resolved === null || !matchesSdk(resolved, lockExpected)) {
     drift.push({ name, declared: declaredRange, resolved: resolved ?? 'missing' });
   }
 }
@@ -141,6 +201,18 @@ if (mismatches.length > 0) {
     { key: 'name', header: 'package' },
     { key: 'declared', header: 'declared' },
     { key: 'expected', header: 'expected' },
+  ]);
+}
+
+if (belowFloor.length > 0) {
+  failed = true;
+  console.error('\nBelow a required floor (package.json or package-lock.json):');
+  printTable(belowFloor, [
+    { key: 'name', header: 'package' },
+    { key: 'declared', header: 'declared' },
+    { key: 'resolved', header: 'lock' },
+    { key: 'floor', header: 'floor' },
+    { key: 'reason', header: 'why' },
   ]);
 }
 

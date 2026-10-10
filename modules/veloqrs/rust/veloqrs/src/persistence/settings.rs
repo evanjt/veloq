@@ -140,6 +140,105 @@ pub mod settings_keys {
     /// `setSetting` writes it here as well as to AsyncStorage. A push handler
     /// with no JavaScript reads the switch from this row.
     pub const NOTIFICATION_PREFERENCES: &str = "veloq-notification-preferences";
+
+    /// The request budget the governor keeps: until when a refusal's
+    /// cooldown holds (an RFC 3339 instant, empty for none), the budget day
+    /// and the backfill requests admitted on it, this install's offset on the
+    /// daily reset in seconds, and the cooldown ladder's rung. They describe
+    /// the device's use of the shared limits rather than the library, so a
+    /// clear leaves them.
+    pub const REQUEST_BUDGET_COOLDOWN_UNTIL: &str = "__request_budget_cooldown_until";
+    pub const REQUEST_BUDGET_DAY: &str = "__request_budget_day";
+    pub const REQUEST_BUDGET_BACKFILL_TODAY: &str = "__request_budget_backfill_today";
+    pub const REQUEST_BUDGET_DAY_OFFSET: &str = "__request_budget_day_offset";
+    pub const REQUEST_BUDGET_LADDER_STEP: &str = "__request_budget_ladder_step";
+}
+
+/// The request budget the settings rows hold, from any connection. `None`
+/// when no day has been written, which is an install that has never sent a
+/// backfill request; a value that will not parse reads as absent.
+pub fn request_budget_from(
+    conn: &rusqlite::Connection,
+) -> SqlResult<Option<crate::governor::StoredBudget>> {
+    let Some(day) = setting_from(conn, settings_keys::REQUEST_BUDGET_DAY)?
+        .and_then(|raw| chrono::NaiveDate::parse_from_str(&raw, "%Y-%m-%d").ok())
+    else {
+        return Ok(None);
+    };
+    let number = |key: &str| -> SqlResult<u32> {
+        Ok(setting_from(conn, key)?
+            .and_then(|raw| raw.parse::<u32>().ok())
+            .unwrap_or(0))
+    };
+    let cooldown_until = setting_from(conn, settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL)?
+        .and_then(|raw| chrono::DateTime::parse_from_rfc3339(&raw).ok())
+        .map(|at| at.with_timezone(&chrono::Utc));
+    Ok(Some(crate::governor::StoredBudget {
+        cooldown_until,
+        day,
+        backfill_today: number(settings_keys::REQUEST_BUDGET_BACKFILL_TODAY)?,
+        day_offset_secs: number(settings_keys::REQUEST_BUDGET_DAY_OFFSET)?,
+        ladder_step: number(settings_keys::REQUEST_BUDGET_LADDER_STEP)?,
+    }))
+}
+
+/// Write the request budget to the settings rows, every key in one
+/// transaction, so another process never reads a cooldown beside the count of
+/// another moment.
+pub fn set_request_budget_on(
+    conn: &rusqlite::Connection,
+    stored: &crate::governor::StoredBudget,
+) -> SqlResult<usize> {
+    let pairs = [
+        (
+            settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL,
+            stored
+                .cooldown_until
+                .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+                .unwrap_or_default(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_DAY,
+            stored.day.format("%Y-%m-%d").to_string(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_BACKFILL_TODAY,
+            stored.backfill_today.to_string(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_DAY_OFFSET,
+            stored.day_offset_secs.to_string(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_LADDER_STEP,
+            stored.ladder_step.to_string(),
+        ),
+    ]
+    .map(|(key, value)| (key.to_string(), value));
+    set_settings_on(conn, &pairs)
+}
+
+/// The governor's budget kept in the settings rows, through the settings
+/// write connection, so a request never waits on the engine lock to learn
+/// whether it may go. With no library open it holds nothing, and the budget
+/// runs on what it has in memory.
+pub struct RequestBudgetRows;
+
+impl crate::governor::BudgetStore for RequestBudgetRows {
+    fn load(&self) -> Option<crate::governor::StoredBudget> {
+        super::settings_conn::with_settings_conn(request_budget_from)?.unwrap_or_else(|e| {
+            log::warn!("veloqrs: [budget] could not read the request budget: {e}");
+            None
+        })
+    }
+
+    fn save(&self, stored: &crate::governor::StoredBudget) {
+        if let Some(Err(e)) =
+            super::settings_conn::with_settings_conn(|conn| set_request_budget_on(conn, stored))
+        {
+            log::warn!("veloqrs: [budget] could not write the request budget: {e}");
+        }
+    }
 }
 
 /// What a push handler needs to write a sentence: the resolved templates for
@@ -501,5 +600,77 @@ impl PersistentEngine {
     pub(crate) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
         self.section_config = section_config_from(&self.db)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::governor::StoredBudget;
+
+    fn at(rfc3339: &str) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    }
+
+    /// Expected behaviour: what one process writes, a relaunch or another
+    /// process reads back exactly, and a cleared cooldown reads as none.
+    #[test]
+    fn the_request_budget_round_trips_through_the_settings_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("budget.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        assert_eq!(request_budget_from(&engine.db).unwrap(), None);
+
+        let held = StoredBudget {
+            cooldown_until: Some(at("2026-03-04T10:10:00Z")),
+            day: chrono::NaiveDate::from_ymd_opt(2026, 3, 4).unwrap(),
+            backfill_today: 412,
+            day_offset_secs: 1_234,
+            ladder_step: 2,
+        };
+        assert_eq!(set_request_budget_on(&engine.db, &held).unwrap(), 5);
+        drop(engine);
+
+        let reopened = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        assert_eq!(request_budget_from(&reopened.db).unwrap(), Some(held));
+        assert_eq!(
+            set_request_budget_on(&reopened.db, &held).unwrap(),
+            0,
+            "an unchanged budget writes nothing"
+        );
+
+        let cleared = StoredBudget {
+            cooldown_until: None,
+            backfill_today: 413,
+            ..held
+        };
+        assert_eq!(set_request_budget_on(&reopened.db, &cleared).unwrap(), 2);
+        assert_eq!(request_budget_from(&reopened.db).unwrap(), Some(cleared));
+    }
+
+    #[test]
+    fn a_request_budget_value_that_will_not_parse_reads_as_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("budget.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        engine
+            .set_setting(settings_keys::REQUEST_BUDGET_DAY, "yesterday")
+            .unwrap();
+        assert_eq!(request_budget_from(&engine.db).unwrap(), None);
+
+        engine
+            .set_setting(settings_keys::REQUEST_BUDGET_DAY, "2026-03-04")
+            .unwrap();
+        engine
+            .set_setting(settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL, "soon")
+            .unwrap();
+        engine
+            .set_setting(settings_keys::REQUEST_BUDGET_BACKFILL_TODAY, "-4")
+            .unwrap();
+        let read = request_budget_from(&engine.db).unwrap().unwrap();
+        assert_eq!(read.cooldown_until, None);
+        assert_eq!(read.backfill_today, 0);
     }
 }

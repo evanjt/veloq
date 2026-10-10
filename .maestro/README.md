@@ -253,19 +253,27 @@ locked and every later step then fails on a missing `control-pause`.
 ## CI Integration
 
 E2E tests run in `.github/workflows/e2e-gate.yml` (after every push to main)
-and `.github/workflows/e2e.yml` (dispatch, and a weekly Android sweep):
+and `.github/workflows/e2e.yml` (daily at 03:00 UTC, and by dispatch):
 
-- **Every push to main**: tier0 + tier1, excluding `flaky`, retried once. The
-  quarantined `flaky` flows run in the same job as a non-blocking check.
-- **Pushes touching a map surface**: the `pack-map` flows run in an
-  extra job, gated on changes under `src/features/maps/**`,
-  `src/features/routes/components/*Map*` and
-  `src/features/recording/components/RecordingMap.tsx`. They are slow and
-  GPU-sensitive, so unrelated pushes do not pay for them.
-- **Weekly / manual dispatch**: heavier tiers. iOS runs only by dispatch.
+- **Every push to main**: tier0 + tier1 on Android, excluding `flaky`, each
+  failed flow retried once. The quarantined `flaky` flows run in the same job
+  as a non-blocking check.
+- **Pushes touching a map surface**: the `pack-map` flows run on Android in an
+  extra job, gated on the `maps` path filter in `e2e-gate.yml`: the map
+  screens, the engine's tile store and the Android tile interceptor. They are
+  slow and GPU-sensitive, so unrelated pushes do not pay for them.
+- **Pushes touching a map surface, `package-lock.json` or `modules/**`**: the
+  `pack-map` flows run on an iOS simulator too, from the Dev simulator app the
+  shared iOS build makes. A dependency bump that breaks the iOS map changes
+  nothing else.
+- **Daily, or dispatched with a tier list**: tier0 to tier3 on both platforms.
+  Android runs as one job. iOS runs as shards by pack, narrowed by tier where
+  one pack is too slow, each inside an hour. The shard list sits in the
+  `e2e-ios` matrix in `e2e.yml`.
 
-Both gate jobs share the APK built by `build-android-dev`, and both run on
-hosted Ubuntu with KVM. Hosted macOS is a nested VM with no hardware
-acceleration, so the emulator never boots there.
+Every suite goes through `.maestro/run-suite.sh`, which retries only the failed
+flows and restarts a dead device first. The Android jobs run on hosted Ubuntu
+with KVM, since hosted macOS is a nested VM with no hardware acceleration and
+the emulator never boots there. The iOS jobs run on hosted macOS simulators.
 
 Results are reported as GitHub Check annotations via JUnit reports.

@@ -5,6 +5,16 @@ use log::info;
 use std::sync::Arc;
 
 /// What the clear-cache wipe removed.
+/// What the Developer Dashboard reads that no other screen does: the native
+/// push worker's recent runs and the request budget.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiDashboardData {
+    /// What each recent native push run did, newest first.
+    pub push_runs: Vec<crate::push::FfiPushRun>,
+    /// The request budget, or `None` where the governor only paces.
+    pub request_budget: Option<crate::governor::FfiRequestBudget>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct DerivedClearCounts {
     pub sections_removed: u32,
@@ -259,14 +269,35 @@ impl VeloqEngine {
         with_reader(crate::persistence::pooled_stats)
     }
 
-    /// What each recent native push run did, newest first, for the Developer
-    /// Dashboard.
+    /// Give back what the engine holds in memory and can rebuild, when the OS
+    /// asks the process for memory. Parked readers close and every connection
+    /// hands back its page cache. At the hard level, the last warning before
+    /// the process is killed, the LRUs and the satellite rasters go too, at the
+    /// cost of a recompute or a refetch on the next read.
     ///
-    /// Off the read pool rather than the engine lock: it is a diagnostic
-    /// opened while the foreground is live, and it answers `[]` on an install
-    /// that has had no push rather than refusing.
-    fn push_runs(&self) -> Vec<crate::push::FfiPushRun> {
-        crate::push::runs::recent()
+    /// Async because it waits for the engine lock, which a sync or a detection
+    /// run can hold for seconds.
+    async fn release_memory(&self, hard: bool) {
+        let released = crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || crate::persistence::memory::release_memory(hard))
+            .await;
+        if let Err(e) = released {
+            log::warn!("veloqrs: [VeloqEngine] the memory release thread died: {e}");
+        }
+    }
+
+    /// The Developer Dashboard's own read: the recent native push runs and the
+    /// request budget's counts, cooldown and next reset.
+    ///
+    /// Neither takes the engine lock: the runs come off the read pool and the
+    /// budget from the governor and the settings rows, since it is a
+    /// diagnostic opened while the foreground is live. An install that has
+    /// had no push answers no runs rather than refusing.
+    fn dashboard_data(&self) -> FfiDashboardData {
+        FfiDashboardData {
+            push_runs: crate::push::runs::recent(),
+            request_budget: crate::governor::request_budget(),
+        }
     }
 
     /// Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
@@ -885,7 +916,10 @@ mod tests {
         let engine = VeloqEngine;
         let parity = |when: &str| {
             let pooled = engine.get_stats().unwrap();
-            let own = with_persistent_engine(|e| e.stats()).unwrap();
+            let mut own = with_persistent_engine(|e| e.stats()).unwrap();
+            // Process-wide figures that move between the two reads, not rows.
+            own.sqlite_heap_bytes = pooled.sqlite_heap_bytes;
+            own.satellite_cache_bytes = pooled.satellite_cache_bytes;
             assert_eq!(format!("{pooled:?}"), format!("{own:?}"), "after {when}");
             pooled
         };
@@ -913,6 +947,52 @@ mod tests {
         let cleared = parity("a clear");
         assert_eq!(cleared.activity_count, 0);
         assert_eq!(cleared.group_count, 0);
+    }
+
+    /// Scenario: the OS asks for memory twice, first as the app leaves the
+    /// screen and then as its last warning. Expected behaviour: the first gives
+    /// back what costs nothing to rebuild, the parked readers, and keeps the
+    /// caches; the last empties the engine's LRUs and the satellite rasters as
+    /// well. The Developer Dashboard's figures follow, and the engine reads on.
+    #[test]
+    fn releasing_memory_keeps_the_caches_until_the_hard_level() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("release_memory.db");
+        let tiles = tempfile::TempDir::new().unwrap();
+        crate::basemap::set_path(tiles.path().to_string_lossy().into_owned());
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        seed_activity("a2");
+        let signatures = || with_persistent_engine(|e| e.stats().signature_cache_size).unwrap();
+        assert!(signatures() > 0, "an add caches the signature it built");
+        crate::basemap::store()
+            .unwrap()
+            .put("satellite-eox", 5, 0, 0, "jpg", &[7; 64], false)
+            .unwrap();
+        let before = engine.get_stats().unwrap();
+        assert_eq!(before.satellite_cache_bytes, 64.0);
+        assert!(before.sqlite_heap_bytes > 0.0);
+        assert!(crate::persistence::read_pool::idle_len() > 0);
+
+        crate::runtime::block_on(engine.release_memory(false));
+        assert_eq!(crate::persistence::read_pool::idle_len(), 0);
+        assert_eq!(signatures(), before.signature_cache_size);
+        assert!(
+            crate::basemap::store()
+                .unwrap()
+                .get("satellite-eox", 5, 0, 0)
+                .is_some(),
+            "a refetch is not worth it below the hard level"
+        );
+
+        crate::runtime::block_on(engine.release_memory(true));
+        assert_eq!(signatures(), 0);
+        let after = engine.get_stats().unwrap();
+        assert_eq!(after.satellite_cache_bytes, 0.0);
+        assert_eq!(after.signature_cache_size, 0);
+        assert_eq!(after.activity_count, 2, "the library reads on");
+
+        crate::basemap::close();
     }
 
     #[test]

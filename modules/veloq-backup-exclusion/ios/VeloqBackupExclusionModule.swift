@@ -46,6 +46,8 @@ public final class VeloqBackupExclusionModule: Module {
     // A backup folder the athlete picked, held by a bookmark from one launch to
     // the next. Every call that takes the bookmark answers with `bookmark` set
     // only when the system reported it stale, and the caller keeps that one.
+    // A coordinated copy or listing in a cloud folder waits until the files
+    // download, so those three run off the JavaScript thread.
     Function("bookmarkFolder") { (uri: String) throws -> String in
       guard let url = URL(string: uri), url.isFileURL else {
         throw Self.unavailable("not a file URL")
@@ -53,7 +55,7 @@ public final class VeloqBackupExclusionModule: Module {
       return try makeFolderBookmark(url).base64EncodedString()
     }
 
-    Function("writeToBookmarkedFolder") {
+    AsyncFunction("writeToBookmarkedFolder") {
       (bookmark: String, from: String, name: String) throws -> [String: Any] in
       let (_, refreshed) = try Self.inFolder(bookmark) {
         try copyIntoFolder($0, from: from, name: name)
@@ -61,14 +63,14 @@ public final class VeloqBackupExclusionModule: Module {
       return Self.answer(refreshed)
     }
 
-    Function("listBookmarkedFolder") { (bookmark: String) throws -> [String: Any] in
+    AsyncFunction("listBookmarkedFolder") { (bookmark: String) throws -> [String: Any] in
       let (files, refreshed) = try Self.inFolder(bookmark) { try listFolder($0) }
       var answer = Self.answer(refreshed)
       answer["files"] = files.map { ["name": $0.name, "size": $0.size] as [String: Any] }
       return answer
     }
 
-    Function("readFromBookmarkedFolder") {
+    AsyncFunction("readFromBookmarkedFolder") {
       (bookmark: String, name: String, to: String) throws -> [String: Any] in
       let (_, refreshed) = try Self.inFolder(bookmark) {
         try copyOutOfFolder($0, name: name, to: to)

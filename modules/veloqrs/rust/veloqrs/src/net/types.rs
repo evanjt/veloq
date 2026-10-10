@@ -191,6 +191,59 @@ pub struct ParsedStreams {
     pub misaligned: Vec<SeriesLengthMismatch>,
 }
 
+/// What a response that asked for `time` says about the clock of the track
+/// its coordinates make.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrackClock {
+    /// Whole seconds at each point of the track. A negative sample is clamped
+    /// rather than dropped.
+    Fits(Vec<u32>),
+    /// The response carried no `time`: upstream has none for the activity.
+    Absent,
+    /// A `time` that cannot address the track: no coordinates to mask it by,
+    /// or another length than `latlng`. The mask would still hand back one
+    /// sample per point, padding or cutting the series, and a section reads
+    /// its lap times by indexing that series with the stored track's own
+    /// indices, so it is not stored and the activity stays owed a clock.
+    OutOfStep,
+}
+
+/// The one reading of a response's clock against its coordinates, shared by
+/// every request that asks for `time` so none of them stores a clock the
+/// others would refuse.
+pub fn track_clock(parsed: &ParsedStreams) -> TrackClock {
+    if parsed.time.is_empty() {
+        return TrackClock::Absent;
+    }
+    let aligned = !parsed.latlng.is_empty()
+        && parsed.time.len() == parsed.latlng.len()
+        && !parsed.misaligned.iter().any(|m| m.series == "time");
+    if !aligned {
+        return TrackClock::OutOfStep;
+    }
+    TrackClock::Fits(parsed.time.iter().map(|v| (*v).max(0) as u32).collect())
+}
+
+/// The clock when it fits the track, else empty.
+pub fn track_times(parsed: &ParsedStreams) -> Vec<u32> {
+    match track_clock(parsed) {
+        TrackClock::Fits(times) => times,
+        TrackClock::Absent | TrackClock::OutOfStep => Vec::new(),
+    }
+}
+
+impl TrackClock {
+    /// What a store step records: the clock, an empty one for a recorded
+    /// absence, or `None` for nothing to record.
+    pub fn to_store(&self) -> Option<&[u32]> {
+        match self {
+            TrackClock::Fits(times) => Some(times),
+            TrackClock::Absent => Some(&[]),
+            TrackClock::OutOfStep => None,
+        }
+    }
+}
+
 /// Minutes per kilometre for one speed sample in metres per second. A missing
 /// sample stays NaN so a chart reads it as absent; a stopped or non-finite
 /// speed reads 0 rather than an infinite pace.

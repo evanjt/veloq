@@ -1,5 +1,6 @@
 import BackgroundTasks
 import ExpoModulesCore
+import UIKit
 import WidgetKit
 
 /// Rewrites the widget snapshot while the app is closed.
@@ -60,15 +61,27 @@ enum VeloqWidgetRefreshTask {
     }
   }
 
+  /// How long the engine is given to end its writes when the refresh is done,
+  /// and when the system's time has already run out.
+  private static let quietDeadlineMs: UInt32 = 5_000
+  private static let expiredQuietDeadlineMs: UInt32 = 1_000
+
   private static func run(_ task: BGAppRefreshTask) {
     // Rescheduled first, so a run that is cut short still leaves the next one.
     schedule()
+    // The engine stopped writing when the app last went to the background,
+    // and the refresh writes the wellness it pulls.
+    veloq_engine_resume_after_suspension()
 
     let finish = OneShot()
     task.expirationHandler = {
       // Out of time: leave the file as it is. The engine call cannot be
-      // cancelled, so its answer is discarded when it arrives.
-      if finish.claim() { task.setTaskCompleted(success: false) }
+      // cancelled, so its answer is discarded when it arrives, but its writes
+      // are stopped before the system suspends the app again.
+      if finish.claim() {
+        quietEngineIfInBackground(deadlineMs: expiredQuietDeadlineMs)
+        task.setTaskCompleted(success: false)
+      }
     }
 
     // Off the main thread, because every engine call blocks for its whole
@@ -76,13 +89,27 @@ enum VeloqWidgetRefreshTask {
     DispatchQueue.global(qos: .utility).async {
       let snapshot = refreshedSnapshot()
       guard finish.claim() else { return }
-      guard let snapshot, WidgetSnapshotFile.write(snapshot) else {
-        task.setTaskCompleted(success: false)
-        return
-      }
-      WidgetCenter.shared.reloadAllTimelines()
-      task.setTaskCompleted(success: true)
+      let written = snapshot.map { WidgetSnapshotFile.write($0) } ?? false
+      if written { WidgetCenter.shared.reloadAllTimelines() }
+      quietEngineIfInBackground(deadlineMs: quietDeadlineMs)
+      task.setTaskCompleted(success: written)
     }
+  }
+
+  /// Stop the engine writing before the system suspends the app again, since
+  /// the library sits in the App Group container and a lock held on it there
+  /// at suspension ends the app. Left alone when the athlete has opened the app
+  /// meanwhile. The state is read and the background reported on the main
+  /// thread, where the foreground resume also runs, so the two cannot cross.
+  private static func quietEngineIfInBackground(deadlineMs: UInt32) {
+    let reportBackground = {
+      guard UIApplication.shared.applicationState == .background else { return false }
+      veloq_engine_entered_background()
+      return true
+    }
+    let inBackground =
+      Thread.isMainThread ? reportBackground() : DispatchQueue.main.sync(execute: reportBackground)
+    if inBackground { _ = veloq_engine_prepare_for_suspension(deadlineMs) }
   }
 
   /// The snapshot the engine composed, as the file holds it, or nil when there

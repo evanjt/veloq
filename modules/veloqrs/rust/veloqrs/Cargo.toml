@@ -29,8 +29,8 @@ tracematch = { path = "../tracematch" }
 uniffi = { version = "0.31", features = ["cli"] }
 
 # Persistence
-rusqlite = { version = "0.31", features = ["bundled", "backup"] }
-rusqlite_migration = "1.2"
+rusqlite = { version = "0.40", features = ["bundled", "backup"] }
+rusqlite_migration = "2.6"
 tempfile = "3.27"
 rmp-serde = "1.1"
 postcard = { version = "1", features = ["alloc"] }
@@ -54,11 +54,13 @@ fitparser = "0.11"
 # Common
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# `raw_value` keeps each field of a bulk answer as the text the server sent,
+# so a body split out of it is the body the single endpoint answers.
+serde_json = { version = "1.0", features = ["raw_value"] }
 chrono = "0.4"
 lru = "0.18"
 rayon = "1.10"
-image = { version = "0.25", default-features = false, features = ["png"] }
+png = "0.18"
 rstar = "0.12"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
@@ -79,10 +81,12 @@ uniffi = { version = "0.31", features = ["build"] }
 # The commit hook counts transactions, which is how a page write proves it
 # is one commit and not one per row, and the trace hook counts statements,
 # which is how a loop proves it reads a blob once rather than once per row.
-rusqlite = { version = "0.31", features = ["hooks", "trace"] }
+rusqlite = { version = "0.40", features = ["hooks", "trace"] }
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"
+# Decodes heatmap tiles back to RGBA to check what they draw.
+image = { version = "0.25", default-features = false, features = ["png"] }
 # Local mock HTTP server for request-path / endpoint tests (services mocked).
 httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
@@ -195,6 +199,17 @@ required-features = ["synthetic"]
 [[test]]
 name = "track_read"
 path = "tests/track_read.rs"
+
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
+[[test]]
+name = "screen_read_bytes"
+path = "tests/screen_read_bytes.rs"
+
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
+[[test]]
+name = "evidence_cache_release"
+path = "tests/evidence_cache_release.rs"
+required-features = ["synthetic"]
 
 # Area: heatmap tiles and their scheme handler.
 [[test]]

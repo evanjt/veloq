@@ -1,22 +1,35 @@
 name: Install Maestro
-description: Install the Maestro CLI and expose it on PATH (idempotent)
+description: Install a pinned Maestro CLI, checked against its recorded checksum, and expose it on PATH (idempotent)
 
-# Deliberately unpinned: pinning MAESTRO_VERSION broke before when the CDN
-# removed the pinned release (404). Latest is the lesser risk here.
+# The release archive comes from the project's GitHub releases rather than the
+# install script's CDN, which once removed a pinned version (404). A release
+# asset stays at its URL, and the checksum refuses an archive replaced in place.
+# To move the version, take the new archive's sha256 from that release's
+# checksums_sha256.txt.
 
 runs:
   using: composite
   steps:
     - name: Install Maestro
       shell: bash
+      env:
+        MAESTRO_VERSION: 2.11.0
+        MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
       run: |
         if command -v maestro &>/dev/null; then
           echo "Maestro already on PATH: $(command -v maestro)"
         elif [ -f "$HOME/.maestro/bin/maestro" ]; then
-          echo "Found script-installed Maestro"
+          echo "Found installed Maestro"
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
         else
-          curl -Ls "https://get.maestro.mobile.dev" | bash
+          tmp=$(mktemp -d)
+          curl -fsSL -o "$tmp/maestro.zip" \
+            "https://github.com/mobile-dev-inc/Maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  $tmp/maestro.zip" | shasum -a 256 -c -
+          unzip -q "$tmp/maestro.zip" -d "$tmp"
+          rm -rf "$HOME/.maestro"
+          mv "$tmp/maestro" "$HOME/.maestro"
+          rm -rf "$tmp"
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
         fi
         # $GITHUB_PATH only affects later steps, so put the freshly installed

@@ -342,10 +342,13 @@ mod tests {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let commits = Arc::new(AtomicUsize::new(0));
         let seen = Arc::clone(&commits);
-        engine.db.commit_hook(Some(move || {
-            seen.fetch_add(1, Ordering::SeqCst);
-            false
-        }));
+        engine
+            .db
+            .commit_hook(Some(move || {
+                seen.fetch_add(1, Ordering::SeqCst);
+                false
+            }))
+            .unwrap();
 
         engine
             .set_activity_metrics((0..50).map(metric).collect())

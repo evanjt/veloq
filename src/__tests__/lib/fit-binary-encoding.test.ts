@@ -32,6 +32,7 @@ const RECORD_HEART_RATE = 3;
 const RECORD_CADENCE = 4;
 const RECORD_SPEED = 6;
 const RECORD_POWER = 7;
+const RECORD_ENHANCED_SPEED = 73;
 const LAP_TOTAL_ELAPSED = 7;
 const LAP_AVG_HEART_RATE = 15;
 const SESSION_TOTAL_ELAPSED = 7;
@@ -48,6 +49,7 @@ const SESSION_TOTAL_DESCENT = 23;
 const INVALID_UINT8 = 0xff;
 const INVALID_UINT16 = 0xffff;
 const INVALID_SINT32 = 0x7fffffff;
+const INVALID_UINT32 = 0xffffffff;
 
 // Record message: 1 header byte plus the eleven fields of the record definition.
 const RECORD_MESSAGE_BYTES = 33;
@@ -1020,6 +1022,55 @@ describe('generateFitFile', () => {
       const session = onlyMessage(buffer, MESG_SESSION);
       expect(session.fields.get(SESSION_SPORT)).toBe(0);
       expect(session.fields.get(SESSION_SUB_SPORT)).toBe(0);
+    });
+  });
+
+  describe('speed encoding', () => {
+    async function encodeSpeeds(speed: number[]) {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: makeStreams({
+          time: speed.map((_, i) => i),
+          latlng: speed.map(() => [45.0, 10.0] as [number, number]),
+          altitude: speed.map(() => 100),
+          heartrate: speed.map(() => 0),
+          power: speed.map(() => 0),
+          cadence: speed.map(() => 0),
+          speed,
+          distance: speed.map(() => 0),
+        }),
+        laps: [],
+      });
+      return messagesOfType(buffer, MESG_RECORD);
+    }
+
+    it('writes speed and enhanced_speed in mm/s', async () => {
+      const records = await encodeSpeeds([0, 8.5]);
+      expect(records.map((r) => r.fields.get(RECORD_SPEED))).toEqual([0, 8500]);
+      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_SPEED))).toEqual([0, 8500]);
+    });
+
+    it('writes the invalid sentinels for a negative or non-finite speed', async () => {
+      const records = await encodeSpeeds([-1, NaN, Infinity, 5]);
+      expect(records.map((r) => r.fields.get(RECORD_SPEED))).toEqual([
+        INVALID_UINT16,
+        INVALID_UINT16,
+        INVALID_UINT16,
+        5000,
+      ]);
+      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_SPEED))).toEqual([
+        INVALID_UINT32,
+        INVALID_UINT32,
+        INVALID_UINT32,
+        5000,
+      ]);
+    });
+
+    it('clamps a speed past the field range below the invalid sentinel', async () => {
+      const records = await encodeSpeeds([70, 5e6]);
+      expect(records.map((r) => r.fields.get(RECORD_SPEED))).toEqual([65534, 65534]);
+      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_SPEED))).toEqual([70000, 0xfffffffe]);
     });
   });
 

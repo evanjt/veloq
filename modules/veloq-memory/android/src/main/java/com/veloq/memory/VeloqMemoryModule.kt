@@ -9,9 +9,11 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 /**
- * Forwards `ComponentCallbacks2.onTrimMemory` to JavaScript. Android's last level,
- * `TRIM_MEMORY_COMPLETE`, is the only warning before the low-memory killer runs, and
- * React Native routes trim levels to Fresco alone, so nothing else in the app hears them.
+ * Forwards `ComponentCallbacks2.onTrimMemory` to JavaScript unchanged. The last level the
+ * system sends is the only warning before the low-memory killer runs: `TRIM_MEMORY_COMPLETE`
+ * below API 34, `TRIM_MEMORY_BACKGROUND` from 34, which sends neither `MODERATE`, `COMPLETE`
+ * nor `onLowMemory`. JavaScript decides which is the last. React Native routes trim levels
+ * to Fresco alone, so nothing else in the app hears them.
  * The callbacks are registered on the application context, which outlives the activity.
  */
 class VeloqMemoryModule : Module() {

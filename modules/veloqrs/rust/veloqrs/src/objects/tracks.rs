@@ -49,20 +49,23 @@ pub(crate) fn sort_claims(verdicts: Vec<(String, Claim)>) -> TrackClaims {
     claims
 }
 
-/// How a failed download is released. A request that never reached the server
-/// says nothing about the activity, so it frees the lease without growing the
-/// backoff.
+/// How a failed download is released. A request that never reached the server,
+/// or that the request budget held back, says nothing about the activity, so it
+/// frees the lease without growing the backoff.
 pub(crate) fn failure_release(error: &str) -> Release {
-    if error.starts_with("transport error") {
+    if network_absent(error) {
         Release::Deferred
     } else {
         Release::failed(FfiStartOutcome::Failed, Some(error))
     }
 }
 
-/// Whether a failure says the network is absent, so a retry now is wasted.
+/// Whether a failure says the network is absent or the request budget held
+/// the request back, so a retry now is wasted and the failure says nothing
+/// about the activity.
 pub(crate) fn network_absent(error: &str) -> bool {
     error.starts_with("transport error")
+        || error.starts_with(crate::net::transport::DEFERRED_ERROR_PREFIX)
 }
 
 /// The ids a run still asks the server about: those not already refused for
@@ -150,6 +153,8 @@ pub(crate) fn release_tracks(
 
 #[cfg(test)]
 mod tests {
+    use crate::net::transport::NetError;
+
     #[test]
     fn a_lost_network_is_not_a_settled_failure() {
         let failed = vec![
@@ -181,6 +186,24 @@ mod tests {
         assert_eq!(without_refused(&ids, &["b".to_string()]), vec!["a", "c"]);
         assert_eq!(without_refused(&ids, &[]), ids);
         assert!(without_refused(&[], &["b".to_string()]).is_empty());
+    }
+
+    /// Expected behaviour: a track the request budget held back is neither a
+    /// settled failure counted against its census row, nor a reason to grow
+    /// its backoff or to ask again within the run.
+    #[test]
+    fn a_deferral_is_neither_settled_nor_backed_off() {
+        let deferred = NetError::Deferred {
+            until: chrono::Utc::now(),
+        }
+        .to_string();
+        let failed = vec![
+            ("a".to_string(), deferred.clone()),
+            ("b".to_string(), "HTTP 500".to_string()),
+        ];
+        assert_eq!(settled_failures(&failed), vec!["b"]);
+        assert!(matches!(failure_release(&deferred), Release::Deferred));
+        assert!(network_absent(&deferred));
     }
 
     #[test]

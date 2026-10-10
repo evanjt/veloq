@@ -48,6 +48,37 @@ const mockSetAutoEnabled = jest.fn();
 const mockPickFolder = jest.fn(async (): Promise<string | null> => null);
 const mockForgetFolder = jest.fn();
 
+let mockDriveSupported = false;
+let mockDriveAccount: string | null = null;
+const DRIVE_BACKUPS = [
+  {
+    id: 'veloq-2026-10-02T06-00-00-000Z.zip',
+    timestamp: '2026-10-02T06:00:00.000Z',
+    sizeBytes: 2048,
+    appVersion: '',
+  },
+];
+const mockDriveSignIn = jest.fn(async (): Promise<string | null> => null);
+const mockDriveForget = jest.fn(async () => {});
+const mockCarrierSignedIn = jest.fn(async (_id: string) => ({ wroteZip: false, carriers: {} }));
+
+jest.mock('@/features/settings/lib/autobackup/backends/googleDriveBackend', () => ({
+  googleDriveBackend: {
+    id: 'googleDrive',
+    name: 'Google Drive',
+    isAvailable: async () => mockDriveAccount !== null,
+    listBackups: async () => DRIVE_BACKUPS,
+    download: (id: string, path: string) => mockDownload(id, path),
+  },
+  isGoogleDriveSupported: () => mockDriveSupported,
+  getGoogleDriveAccount: () => mockDriveAccount,
+  loadGoogleDriveAccount: async () => mockDriveAccount,
+  signInToGoogleDrive: () => mockDriveSignIn(),
+  forgetGoogleDrive: () => mockDriveForget(),
+}));
+jest.mock('@/features/settings/lib/autobackup/autoBackup', () => ({
+  onBackupCarrierSignedIn: (id: string) => mockCarrierSignedIn(id),
+}));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -162,6 +193,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 }));
 
 beforeEach(() => {
+  mockDriveSupported = false;
+  mockDriveAccount = null;
+  mockDriveSignIn.mockReset();
+  mockDriveSignIn.mockResolvedValue(null);
+  mockDriveForget.mockClear();
+  mockCarrierSignedIn.mockClear();
   mockGeneration = 0;
   mockWebdavUrl = null;
   mockFolderName = null;
@@ -1034,5 +1071,95 @@ describe('one layout', () => {
         'backup.moreInfo'
       );
     }
+  });
+});
+
+describe('the Google Drive destination', () => {
+  it('is not offered where the build cannot reach Google Drive', () => {
+    render(<BackupSection />);
+    expect(screen.queryByTestId('backup-carrier-google-drive')).toBeNull();
+  });
+
+  it('signs in from its row, names the account and sends a copy it was owed', async () => {
+    mockDriveSupported = true;
+    mockDriveSignIn.mockResolvedValue('rider@example.org');
+    render(<BackupSection />);
+    expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
+      'backup.carrierGoogleDriveNone'
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
+    });
+
+    expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
+      'rider@example.org'
+    );
+    expect(mockCarrierSignedIn).toHaveBeenCalledWith('googleDrive');
+    expect(screen.getByTestId('backup-google-drive-sign-out')).toBeTruthy();
+    expect(screen.queryByTestId('backup-google-drive-sign-in')).toBeNull();
+  });
+
+  it('keeps the row signed out when the athlete dismisses the picker', async () => {
+    mockDriveSupported = true;
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
+    });
+
+    expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
+      'backup.carrierGoogleDriveNone'
+    );
+    expect(mockCarrierSignedIn).not.toHaveBeenCalled();
+  });
+
+  it('offers a sign-in beside the failure when the sign-in lapsed', async () => {
+    mockDriveSupported = true;
+    mockDriveAccount = 'rider@example.org';
+    mockFailures = { googleDrive: { kind: 'signin', status: 401, at: Date.now() } };
+    render(<BackupSection />);
+
+    expect(await screen.findByTestId('backup-carrier-failure-google-drive')).toBeTruthy();
+    expect(screen.getByTestId('backup-google-drive-sign-in')).toBeTruthy();
+    expect(screen.getByTestId('backup-google-drive-sign-out')).toBeTruthy();
+  });
+
+  it('lists its backups among the restore choices once signed in, and restores one', async () => {
+    mockDriveSupported = true;
+    mockDriveAccount = 'rider@example.org';
+    acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
+    render(<BackupSection />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+    expect(screen.getByTestId('backup-group-googleDrive')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('backup-entry-googleDrive-veloq-2026-10-02T06-00-00-000Z.zip')
+      );
+    });
+    expect(mockDownload).toHaveBeenCalledWith(
+      'veloq-2026-10-02T06-00-00-000Z.zip',
+      expect.stringMatching(/restore-selected-\d+\.zip$/)
+    );
+  });
+
+  it('signs out and forgets the account, which leaves the row signed out', async () => {
+    mockDriveSupported = true;
+    mockDriveAccount = 'rider@example.org';
+    render(<BackupSection />);
+    await act(async () => {});
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('backup-google-drive-sign-out'));
+    });
+
+    expect(mockDriveForget).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
+      'backup.carrierGoogleDriveNone'
+    );
   });
 });

@@ -12,6 +12,7 @@ import {
 } from '@/features/stats/lib/combinedPlotData';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval } from '@/types';
+import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
 
 function powerConfig(): ChartConfig {
   return {
@@ -52,15 +53,15 @@ function altitudeConfig(): ChartConfig {
   } as unknown as ChartConfig;
 }
 
-function streams(overrides: Partial<ActivityStreams> = {}): ActivityStreams {
-  return {
+function streams(overrides: StreamArrays = {}): ActivityStreams {
+  return streamsFromArrays({
     time: Array.from({ length: 10 }, (_, i) => i * 10),
     distance: Array.from({ length: 10 }, (_, i) => i * 100),
     watts: [100, 120, 150, 180, 200, 210, 220, 205, 180, 160],
     heartrate: [120, 130, 140, 150, 155, 160, 162, 158, 150, 145],
     altitude: [100, 105, 112, 120, 115, 118, 125, 130, 128, 135],
     ...overrides,
-  } as ActivityStreams;
+  });
 }
 
 describe('buildChartData', () => {
@@ -355,7 +356,7 @@ describe('buildChartData golden', () => {
       altitude.push(Math.round((540 + climb + Math.sin(i / 47) * 8) * 10) / 10);
     }
 
-    return { time, distance, watts, heartrate, altitude } as ActivityStreams;
+    return streamsFromArrays({ time, distance, watts, heartrate, altitude });
   }
 
   function goldenConfigs(): Record<ChartTypeId, ChartConfig> {

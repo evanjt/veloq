@@ -17,20 +17,19 @@ import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
+import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
 import { planHighlightSend } from '@/features/maps/lib/highlightThrottle';
-import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
-import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
+import { heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { useHeatmapGeneration } from '@/features/maps/lib/heatmapGeneration';
 import {
   buildMap3DHtml,
   buildFitBoundsScript,
+  buildMap3DSetStyleScript,
   buildSetCameraScript,
   buildSetRouteGradientScript,
   buildSetRouteScript,
-  buildStyleOverlayScript,
   buildUpdateLayersScript,
   LAYER_KEYS,
-  resolveStyleExpression,
 } from '@/features/maps/lib/htmlBuilders';
 import type {
   LayerKey,
@@ -51,7 +50,6 @@ import {
 import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import { pageOpensAt } from '@/features/maps/lib/settledCamera';
 import type { MapStyleType } from './mapStyles';
-import { HILLSHADE_INSERT_INDEX_SCRIPT, TERRAIN_3D_CONFIG, terrain3DSource } from './mapStyles';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
@@ -297,14 +295,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // sources send their current state again once a swap has settled.
     const [styleEpoch, setStyleEpoch] = useState(0);
 
-    // Cleanup on unmount - stop WebView loading and mark map as not ready.
-    // The WebView is captured on mount: React detaches the ref before this
-    // cleanup runs, so reading it here finds null and the page keeps loading.
     useEffect(() => {
-      const webView = webViewRef.current;
       return () => {
         mapReadyRef.current = false;
-        webView?.stopLoading();
       };
     }, []);
 
@@ -432,97 +425,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       if (mapStyle === appliedStyleRef.current) return;
       appliedStyleRef.current = mapStyle;
 
-      const isSatellite = mapStyle === 'satellite';
-      const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
-
-      const { styleJSON: styleConfig } = resolveStyleExpression(mapStyle);
-
-      // Serialize shared terrain config for injection
-      const terrainSourceJSON = JSON.stringify(terrain3DSource());
-      const skyConfigJSON = JSON.stringify(
-        isSatellite
-          ? TERRAIN_3D_CONFIG.sky.satellite
-          : isDark
-            ? TERRAIN_3D_CONFIG.sky.dark
-            : TERRAIN_3D_CONFIG.sky.light
+      webViewRef.current.injectJavaScript(
+        buildMap3DSetStyleScript({
+          mapStyle,
+          routeColor: routeColorRef.current,
+          terrainExaggeration,
+          heatmapGeneration: heatmapGenerationRef.current,
+          showHeatmap: showHeatmapRef.current,
+        })
       );
-      const hillshadePaintJSON = JSON.stringify(
-        isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
-      );
-
-      webViewRef.current.injectJavaScript(`
-        (function() {
-          if (!window.map) return;
-
-          ${buildStyleOverlayScript()}
-
-          var isSatellite = ${isSatellite};
-          var isDark = ${isDark};
-          var coords = window._routeCoords || [];
-          var routeColor = ${jsLiteral(routeColorRef.current)};
-          var terrainSource = ${terrainSourceJSON};
-          var skyConfig = ${skyConfigJSON};
-          var hillshadePaint = ${hillshadePaintJSON};
-          ${HILLSHADE_INSERT_INDEX_SCRIPT}
-          var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
-
-          // Build style: either JSON object or fetch URL-based style
-          function applyNewStyle(styleObj) {
-            styleObj.sources['terrain'] = terrainSource;
-            styleObj.terrain = { source: 'terrain', exaggeration: ${terrainExaggeration} };
-            styleObj.sky = skyConfig;
-
-            // Insert hillshade before the first transportation/building layer found
-            if (!isSatellite) {
-              var hillshadeIdx = hillshadeInsertIndex(styleObj.layers, hillshadeInsertCandidates);
-              styleObj.layers.splice(hillshadeIdx, 0, {
-                id: 'hillshading',
-                type: 'hillshade',
-                source: 'terrain',
-                layout: { visibility: 'visible' },
-                paint: hillshadePaint,
-              });
-            }
-
-            // The route, its markers and the scrub marker are always part of
-            // the style, empty and hidden when there is nothing to draw, so a
-            // later setRoute or scrub finds its source.
-            var overlays = veloqOverlays(coords, routeColor);
-            for (var sid in overlays.sources) styleObj.sources[sid] = overlays.sources[sid];
-            for (var oi = 0; oi < overlays.layers.length; oi++) styleObj.layers.push(overlays.layers[oi]);
-
-            window.map.setStyle(styleObj);
-            console.log('[3D] Style changed via setStyle()');
-
-            // Re-add heatmap raster overlay (setStyle clears all sources/layers).
-            // Probe for 'route-outline' before inserting under it - it's only
-            // present in activity-detail mode (when route coordinates exist).
-            window.map.once('style.load', function() {
-              if (!window.map.getSource('heatmap-tiles')) {
-                window.map.addSource('heatmap-tiles', {
-                  type: 'raster',
-                  tiles: [${jsLiteral(heatmapTileTemplate(heatmapGenerationRef.current))}],
-                  tileSize: 256,
-                  minzoom: ${HEATMAP_SOURCE_MINZOOM},
-                  maxzoom: 17
-                });
-                var heatmapBeforeId = window.map.getLayer('route-outline') ? 'route-outline' : undefined;
-                window.map.addLayer({
-                  id: 'heatmap-layer',
-                  type: 'raster',
-                  source: 'heatmap-tiles',
-                  layout: { visibility: ${showHeatmapRef.current} ? 'visible' : 'none' },
-                  paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
-                }, heatmapBeforeId);
-              }
-            });
-          }
-
-          var styleJSON = ${styleConfig};
-          applyNewStyle(styleJSON);
-        })();
-        true;
-      `);
 
       // A setStyle wipes every source, so the page holds nothing to patch.
       forgetLayers();
@@ -764,13 +675,34 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onMapFailed?.('webview load error');
     }, [forgetLayers, onMapFailed]);
 
-    // Reload WebView on crash (iOS content process termination / Android render process gone)
-    const handleWebViewCrash = useCallback(() => {
-      mapReadyRef.current = false;
-      forgetLayers();
-      onMapReloading?.();
-      webViewRef.current?.reload();
-    }, [forgetLayers, onMapReloading]);
+    // A page whose renderer died comes back empty. A new view opens at the
+    // camera the athlete left, the way a released map comes back.
+    const { viewKey, lost, onRendererGone } = useRendererRecovery('3D map', {
+      forget: () => {
+        mapReadyRef.current = false;
+        forgetLayers();
+        onMapReloading?.();
+      },
+      restart: (how) => {
+        if (how === 'reload') {
+          webViewRef.current?.reload();
+          return;
+        }
+        const saved = savedCameraRef.current;
+        if (saved && !pageOpensAt(pageCameraRef.current, saved)) {
+          setPageEpoch((epoch) => epoch + 1);
+        }
+      },
+      exhausted: () => onMapFailed?.('renderer kept dying'),
+    });
+
+    // Stop the view that is going away. It is captured each time one mounts:
+    // React detaches the ref before this cleanup runs, so reading it here finds
+    // null and the page keeps loading.
+    useEffect(() => {
+      const webView = webViewRef.current;
+      return () => webView?.stopLoading();
+    }, [viewKey, lost]);
 
     // A released map comes back in the same WebView. The page opens at the
     // camera it was built with, so one the athlete has moved since gets a new
@@ -907,28 +839,30 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
     return (
       <View style={styles.container}>
-        <WebView
-          ref={webViewRef}
-          source={{ html, baseUrl: mapPageBaseUrl() }}
-          style={styles.webview}
-          scrollEnabled={false}
-          bounces={false}
-          overScrollMode="never"
-          nestedScrollEnabled={true}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={false}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          originWhitelist={['*']}
-          mixedContentMode="always"
-          androidLayerType="hardware"
-          nativeConfig={veloqWebViewNativeConfig}
-          onMessage={handleMessage}
-          onError={handleWebViewError}
-          onContentProcessDidTerminate={handleWebViewCrash}
-          onRenderProcessGone={handleWebViewCrash}
-        />
+        {!lost && (
+          <WebView
+            key={viewKey}
+            ref={webViewRef}
+            source={{ html, baseUrl: mapPageBaseUrl() }}
+            style={styles.webview}
+            scrollEnabled={false}
+            bounces={false}
+            overScrollMode="never"
+            nestedScrollEnabled={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={false}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            originWhitelist={['*']}
+            mixedContentMode="always"
+            nativeConfig={veloqWebViewNativeConfig}
+            onMessage={handleMessage}
+            onError={handleWebViewError}
+            onContentProcessDidTerminate={onRendererGone}
+            onRenderProcessGone={onRendererGone}
+          />
+        )}
       </View>
     );
   }

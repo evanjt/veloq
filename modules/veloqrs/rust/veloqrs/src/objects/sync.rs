@@ -13,7 +13,7 @@
 //! upload verbs are async and resolve to an `FfiCallOutcome` the caller branches
 //! on, while still running their I/O on the shared runtime.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
@@ -29,7 +29,7 @@ use super::observer::Announcement;
 use super::start::{FfiStartOutcome, FfiStartResult};
 #[cfg(test)]
 use crate::governor;
-use crate::governor::{AuthMethod, Lane};
+use crate::governor::{AuthMethod, Dispatch, Intent, Lane};
 use crate::net::endpoints;
 use crate::net::offline_prefetch::{
     ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS, CurveKey, curve_window, every_curve_window,
@@ -44,6 +44,21 @@ use crate::persistence::bodies::CurveKind;
 use super::record_dependency::fetch_owed_record_activities;
 
 const INTERVALS_BASE_URL: &str = "https://intervals.icu/api/v1";
+
+/// The sync's own requests paced as backfill: the census, the newest five and
+/// their bodies, the window at the head of the feed and wellness. The budget
+/// gives them the sync's small allowance and holds them through a cooldown.
+const SYNC_REQUEST: Dispatch = Dispatch::new(Lane::Backfill, Intent::Sync);
+
+/// The profile slice and the calendar: paced as interactive, since the feed's
+/// summary card waits on them, and budgeted as the sync.
+const PROFILE_SLICE: Dispatch = Dispatch::new(Lane::Interactive, Intent::Sync);
+
+/// The library behind the head window, which nobody is waiting on.
+const LIBRARY_HISTORY: Dispatch = Dispatch::new(Lane::Backfill, Intent::Backfill);
+
+/// A window the athlete asked for, by scrolling the feed or widening the range.
+const ASKED_WINDOW: Dispatch = Dispatch::new(Lane::Backfill, Intent::User);
 
 /// The lifecycle state TypeScript renders.
 ///
@@ -219,7 +234,9 @@ impl From<&NetError> for SyncFailure {
     fn from(e: &NetError) -> Self {
         let reason = match e {
             NetError::Unauthorized => FfiSyncErrorReason::Unauthorized,
-            NetError::RateLimited => FfiSyncErrorReason::RateLimited,
+            // The budget holding the work back reads to the athlete as the
+            // server asking for a pause, which is what it answers.
+            NetError::RateLimited | NetError::Deferred { .. } => FfiSyncErrorReason::RateLimited,
             NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
             NetError::Transport(_) => FfiSyncErrorReason::Network,
             NetError::Io(_) | NetError::Storage(_) => FfiSyncErrorReason::Storage,
@@ -304,6 +321,9 @@ impl FfiCallOutcome {
         let (kind, status, detail) = match e {
             NetError::Unauthorized => (FfiCallKind::Unauthorized, Some(401), None),
             NetError::RateLimited => (FfiCallKind::RateLimited, Some(429), None),
+            // Nothing was sent, or the refusal set a cooldown: the caller
+            // waits as it waits on a 429, and sends again later.
+            NetError::Deferred { .. } => (FfiCallKind::RateLimited, None, None),
             NetError::Http { status, body } => {
                 (FfiCallKind::Http, Some(*status), server_detail(body))
             }
@@ -977,29 +997,56 @@ async fn store_body_or_fail<F>(
 where
     F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
 {
+    store_bodies_or_fail(install, vec![(kind, activity_id)], write).await
+}
+
+/// [`store_body_or_fail`] for one write that lands several bodies, each
+/// announced as `(kind, activity_id)` once the write is in SQLite.
+async fn store_bodies_or_fail<F>(
+    install: u64,
+    bodies: Vec<(&'static str, String)>,
+    write: F,
+) -> Result<(), NetError>
+where
+    F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
+{
+    let kinds = bodies
+        .iter()
+        .map(|(kind, _)| *kind)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .join("+");
+    let failed_kinds = kinds.clone();
     let stored = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         write(engine).map_err(|e| {
-            log::warn!("[Sync] {} store failed: {}", kind, e);
+            log::warn!("[Sync] {} store failed: {}", failed_kinds, e);
             e.to_string()
         })
     })
     .await;
     match stored {
         Some(Ok(())) => {
-            BODIES_STORED.fetch_add(1, Ordering::Relaxed);
-            observer::notify(Announcement::BodyStored {
-                kind: kind.to_string(),
-                activity_id,
-            });
+            BODIES_STORED.fetch_add(bodies.len() as u64, Ordering::Relaxed);
+            for (kind, activity_id) in bodies {
+                observer::notify(Announcement::BodyStored {
+                    kind: kind.to_string(),
+                    activity_id,
+                });
+            }
             Ok(())
         }
         // The write reached the engine and the engine refused it. Counting
         // that as a step that landed is what stamped `lastSuccessAt` on a run
         // whose page is not in the library.
-        Some(Err(message)) => Err(NetError::Storage(format!("{kind} store failed: {message}"))),
+        Some(Err(message)) => Err(NetError::Storage(format!(
+            "{kinds} store failed: {message}"
+        ))),
         // No engine answered, so nothing was even attempted.
         None => {
-            discarded(kind, &activity_id);
+            for (kind, activity_id) in &bodies {
+                discarded(kind, activity_id);
+            }
             Err(NetError::EngineClosed)
         }
     }
@@ -1224,6 +1271,12 @@ where
             }
             Err(e) if e.is_network_absent() => {
                 log::info!("[Sync] on-demand fetch had no network: {}", e);
+                Release::Deferred
+            }
+            // The request budget held it back. The work is still owed and
+            // nothing failed, so the key's backoff must not grow for it.
+            Err(e) if e.is_deferred() => {
+                log::info!("[Sync] on-demand fetch {}", e);
                 Release::Deferred
             }
             Err(e) => {
@@ -1527,9 +1580,15 @@ pub(crate) async fn send_activity_rpe(intervals_id: String, rpe: u32) -> FfiCall
 /// as a refused upload does.
 pub(crate) async fn read_back_activity(intervals_id: String) -> FfiCallOutcome {
     run_write(move |transport, _athlete_id| async move {
-        endpoints::fetch_activity_body(&transport, &intervals_id, Lane::Backfill)
-            .await
-            .map(|_| Some(intervals_id))
+        // Paced as backfill, but the recording waits on it to be deleted, so
+        // it is the athlete's request and the budget always lets it go.
+        endpoints::fetch_activity_body(
+            &transport,
+            &intervals_id,
+            Dispatch::new(Lane::Backfill, Intent::User),
+        )
+        .await
+        .map(|_| Some(intervals_id))
     })
     .await
 }
@@ -1722,11 +1781,19 @@ pub(crate) async fn perform_sync(
     let head_landed = step!(
         FfiSyncStep::Activities,
         async {
-            sync_activity_windows(install, &transport, &athlete_id, head, &cancelled).await?;
+            sync_activity_windows(
+                install,
+                &transport,
+                &athlete_id,
+                head,
+                SYNC_REQUEST,
+                &cancelled,
+            )
+            .await?;
             // A window without a count-limited request ahead of it lands the
             // newest rows here, so those activities owe bodies only now.
             if !has_first_use_window {
-                ready_newest_activities(install, &transport, &cancelled).await?;
+                ready_newest_activities(install, &transport, &athlete_id, &cancelled).await?;
             }
             Ok(())
         }
@@ -1735,14 +1802,30 @@ pub(crate) async fn perform_sync(
     let (oldest, newest) = calendar_window();
     step!(
         FfiSyncStep::Calendar,
-        fetch_and_store_calendar(install, &transport, &athlete_id, &oldest, &newest).await
+        fetch_and_store_calendar(
+            install,
+            &transport,
+            &athlete_id,
+            &oldest,
+            &newest,
+            PROFILE_SLICE
+        )
+        .await
     );
     // The rest of the library behind the head window and the calendar, so a
     // ninety-day backfill does not hold the fitness and health screens on
     // nothing.
     let rest_landed = step!(
         FfiSyncStep::RemainingActivities,
-        sync_activity_windows(install, &transport, &athlete_id, rest, &cancelled).await
+        sync_activity_windows(
+            install,
+            &transport,
+            &athlete_id,
+            rest,
+            LIBRARY_HISTORY,
+            &cancelled
+        )
+        .await
     );
     // A cancel stops the windows without an error, so it is read here too: a
     // refetch that stopped part way has not brought every body up to the set.
@@ -1759,9 +1842,13 @@ pub(crate) async fn perform_sync(
     );
     step!(
         FfiSyncStep::IntervalBodies,
-        sync_interval_bodies(install, &transport, &cancelled, &|done, total| {
-            svc.set_step_items(done, total)
-        })
+        sync_interval_bodies(
+            install,
+            &transport,
+            &athlete_id,
+            &cancelled,
+            &|done, total| { svc.set_step_items(done, total) }
+        )
         .await
     );
     step!(
@@ -1824,7 +1911,16 @@ pub(crate) async fn perform_window_sync(
             eligible_ids: None,
         })
         .collect();
-    match sync_activity_windows(install, &transport, &athlete_id, &windows, &cancelled).await {
+    match sync_activity_windows(
+        install,
+        &transport,
+        &athlete_id,
+        &windows,
+        ASKED_WINDOW,
+        &cancelled,
+    )
+    .await
+    {
         Ok(()) if !svc.is_cancelled() => {
             svc.complete_step();
             svc.finish(SyncState::Idle, None, true);
@@ -1891,12 +1987,10 @@ async fn sync_athlete(
     transport: &Transport,
     athlete_id: &str,
 ) -> Result<(), NetError> {
-    let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
+    let body = endpoints::fetch_athlete_body(transport, athlete_id, PROFILE_SLICE).await?;
     let sport_settings = match embedded_sport_settings(&body) {
         Some(settings) => settings,
-        None => {
-            endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?
-        }
+        None => endpoints::fetch_sport_settings_body(transport, athlete_id, PROFILE_SLICE).await?,
     };
     // A dropped write leaves the previous athlete's profile, FTP and zones
     // standing with nothing to say so, and the step above counts as done. The
@@ -2138,6 +2232,7 @@ async fn sync_activity_windows(
     transport: &Transport,
     athlete_id: &str,
     windows: &[ActivityWindow],
+    dispatch: Dispatch,
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<(), NetError> {
     let mut stored = false;
@@ -2148,9 +2243,10 @@ async fn sync_activity_windows(
         // The outcome is dropped because the loop's own gate owns the terminal
         // state: an abandoned window is followed by a step check that finishes
         // the job unsuccessfully, so reporting it twice would say nothing new.
-        let outcome =
-            sync_planned_activity_window(install, transport, athlete_id, window, None, cancelled)
-                .await?;
+        let outcome = sync_planned_activity_window(
+            install, transport, athlete_id, window, None, dispatch, cancelled,
+        )
+        .await?;
         stored |= outcome == WindowOutcome::Stored;
     }
     // After the windows, so a page whose metrics write failed a moment ago is
@@ -2222,7 +2318,7 @@ async fn sync_newest_activities(
     // summary windows: a failed body leaves the census advanced, so the next
     // sync owes no window at all and would otherwise never ask again.
     let Some(window) = first_use_window(windows) else {
-        return ready_newest_activities(install, transport, cancelled).await;
+        return ready_newest_activities(install, transport, athlete_id, cancelled).await;
     };
     let outcome = sync_planned_activity_window(
         install,
@@ -2230,6 +2326,7 @@ async fn sync_newest_activities(
         athlete_id,
         &window,
         Some(FIRST_USE_ACTIVITIES),
+        SYNC_REQUEST,
         cancelled,
     )
     .await?;
@@ -2239,7 +2336,7 @@ async fn sync_newest_activities(
         repair_missing_activity_metrics(install).await;
         observer::notify(Announcement::ActivitiesStored);
     }
-    ready_newest_activities(install, transport, cancelled).await
+    ready_newest_activities(install, transport, athlete_id, cancelled).await
 }
 
 /// The series the detail screen reads, as the key its stored body sits under.
@@ -2289,13 +2386,16 @@ fn note_known_absent(install: u64, activity_id: &str, kind: &'static str) {
 /// window behind them or any bulk request, so an athlete
 /// who loses the connection right after the first screen can open any of the
 /// five. What each activity lacks is derived from SQLite, so a pass cut short
-/// resumes on what is still owed. A successful empty body is stored and counts
-/// as ready; a 404 or 410 ends that body's wait and stores nothing. Any other
-/// failure leaves the activity's other bodies to be fetched and fails the
-/// step, so the next sync asks again.
+/// resumes on what is still owed. The detail and interval bodies of all five
+/// come in one bulk request, and only what its answer leaves unsettled is
+/// asked for one activity at a time. A successful empty body is stored and
+/// counts as ready; a 404 or 410 ends that body's wait and stores nothing. Any
+/// other failure leaves the activity's other bodies to be fetched and fails
+/// the step, so the next sync asks again.
 pub(crate) async fn ready_newest_activities(
     install: u64,
     transport: &Transport,
+    athlete_id: &str,
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<(), NetError> {
     let _download_slot = crate::http::claim_interactive_download();
@@ -2307,7 +2407,35 @@ pub(crate) async fn ready_newest_activities(
     .ok_or(NetError::EngineClosed)?
     .map_err(|e| NetError::Storage(format!("first-use queue read failed: {e}")))?;
 
+    // Detail and interval bodies for all of them in one bulk request; the
+    // streams have no bulk form and are asked for one activity at a time.
+    let mut wanted: Vec<String> = Vec::new();
+    for gap in &owed {
+        let id = &gap.activity_id;
+        if (gap.detail && !is_known_absent(install, id, "detail"))
+            || (gap.intervals && !is_known_absent(install, id, "intervals"))
+        {
+            wanted.push(id.clone());
+        }
+    }
     let mut last_error: Option<NetError> = None;
+    let mut unsettled: Vec<UnsettledBodies> = Vec::new();
+    if !wanted.is_empty() && !cancelled() {
+        let pairs = upstream_pairs(install, wanted).await?;
+        let pass = fetch_bodies_in_bulk(
+            install,
+            transport,
+            athlete_id,
+            &pairs,
+            SYNC_REQUEST,
+            cancelled,
+            &|_| {},
+        )
+        .await?;
+        last_error = pass.error;
+        unsettled = pass.unsettled;
+    }
+
     for gap in owed {
         if cancelled() {
             return Ok(());
@@ -2315,7 +2443,13 @@ pub(crate) async fn ready_newest_activities(
         let Some(upstream) = upstream_id(install, &gap.activity_id).await else {
             continue;
         };
-        match ready_activity(install, transport, &gap, &upstream, Lane::Backfill).await {
+        // What the bulk answer settled is not asked again, and what it left is
+        // asked for one body at a time, as the single endpoints answer it.
+        let mut gap = gap;
+        let left = unsettled.iter().find(|u| u.activity_id == gap.activity_id);
+        gap.detail &= left.is_some_and(|u| !u.detail_stored);
+        gap.intervals &= left.is_some();
+        match ready_activity(install, transport, &gap, &upstream, SYNC_REQUEST).await {
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
             Err(e) => last_error = Some(e),
             Ok(()) => {}
@@ -2341,20 +2475,22 @@ pub(crate) async fn ready_activity(
     transport: &Transport,
     gap: &crate::persistence::BodiesOwed,
     upstream: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<(), NetError> {
+    let dispatch = dispatch.into();
     let id = gap.activity_id.clone();
     let mut outcomes: Vec<Result<(), NetError>> = Vec::new();
     let absent = |kind: &'static str| is_known_absent(install, &id, kind);
     let mut kinds: Vec<&'static str> = Vec::new();
     if gap.detail && !absent("detail") {
         kinds.push("detail");
-        outcomes.push(ready_detail_body(install, transport, &id, upstream, lane).await);
+        outcomes.push(ready_detail_body(install, transport, &id, upstream, dispatch).await);
     }
     if gap.streams && !absent("streams") {
         kinds.push("streams");
         let fetched =
-            endpoints::fetch_streams_body(transport, upstream, DETAIL_STREAM_TYPES_KEY, lane).await;
+            endpoints::fetch_streams_body(transport, upstream, DETAIL_STREAM_TYPES_KEY, dispatch)
+                .await;
         outcomes.push(match fetched {
             Ok(body) => {
                 // The track is stored before the body, so a pass cut short
@@ -2396,7 +2532,7 @@ pub(crate) async fn ready_activity(
     }
     if gap.intervals && !absent("intervals") {
         kinds.push("intervals");
-        let fetched = endpoints::fetch_intervals_body(transport, upstream, lane).await;
+        let fetched = endpoints::fetch_intervals_body(transport, upstream, dispatch).await;
         outcomes.push(match fetched {
             Ok(body) => {
                 let id = id.clone();
@@ -2426,6 +2562,10 @@ pub(crate) async fn ready_activity(
 #[cfg(test)]
 #[path = "tests/first_use_queue.rs"]
 mod first_use_queue_tests;
+
+#[cfg(test)]
+#[path = "tests/bulk_bodies.rs"]
+mod bulk_bodies_tests;
 
 /// Store the track, time series and stream series a fetched streams body
 /// carries, and attach the activity to the catalogue, so the activity opens
@@ -2475,9 +2615,9 @@ async fn ready_detail_body(
     transport: &Transport,
     activity_id: &str,
     upstream: &str,
-    lane: Lane,
+    dispatch: Dispatch,
 ) -> Result<(), NetError> {
-    let body = endpoints::fetch_activity_body(transport, upstream, lane).await?;
+    let body = endpoints::fetch_activity_body(transport, upstream, dispatch).await?;
     let Some(date) = detail_body_date(&body) else {
         return Ok(());
     };
@@ -2653,7 +2793,16 @@ async fn sync_activity_window(
         range: (oldest.to_string(), newest.to_string()),
         eligible_ids: None,
     };
-    sync_planned_activity_window(install, transport, athlete_id, &window, limit, cancelled).await
+    sync_planned_activity_window(
+        install,
+        transport,
+        athlete_id,
+        &window,
+        limit,
+        LIBRARY_HISTORY,
+        cancelled,
+    )
+    .await
 }
 
 async fn sync_planned_activity_window(
@@ -2662,6 +2811,7 @@ async fn sync_planned_activity_window(
     athlete_id: &str,
     window: &ActivityWindow,
     limit: Option<u32>,
+    dispatch: Dispatch,
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<WindowOutcome, NetError> {
     if cancelled() {
@@ -2674,7 +2824,7 @@ async fn sync_planned_activity_window(
         &window.range.1,
         true,
         limit,
-        Lane::Backfill,
+        dispatch,
     )
     .await?;
     if items.is_empty() {
@@ -2877,15 +3027,11 @@ async fn fetch_and_store_calendar(
     athlete_id: &str,
     oldest: &str,
     newest: &str,
+    dispatch: Dispatch,
 ) -> Result<(), NetError> {
-    let items = endpoints::fetch_calendar_events_bodies(
-        transport,
-        athlete_id,
-        oldest,
-        newest,
-        Lane::Interactive,
-    )
-    .await?;
+    let items =
+        endpoints::fetch_calendar_events_bodies(transport, athlete_id, oldest, newest, dispatch)
+            .await?;
     let rows: Vec<(String, i64, String)> = items
         .into_iter()
         .filter_map(|(id, start, raw)| {
@@ -3132,9 +3278,11 @@ const NO_INTERVALS_BODY: &str = r#"{"icu_intervals":[]}"#;
 ///
 /// `sync_activity_intervals` is demand-driven: the detail screen asks the
 /// first time it is opened, so an activity never opened online shows no lap
-/// table offline and nothing says the laps were simply never downloaded. One
-/// request per activity, once, which is what keeps the library as complete
-/// offline as it is online.
+/// table offline and nothing says the laps were simply never downloaded. The
+/// sweep asks through the bulk endpoint, which answers the detail body with
+/// the intervals, so a library owing a body for every activity, as an upgrade
+/// to interval bodies does, costs one request per 200 activities rather than
+/// one each.
 ///
 /// The queue is derived from SQLite rather than stored: an id whose body
 /// landed leaves it, so a sweep killed halfway resumes by re-deriving what is
@@ -3143,6 +3291,7 @@ const NO_INTERVALS_BODY: &str = r#"{"icu_intervals":[]}"#;
 async fn sync_interval_bodies(
     install: u64,
     transport: &Transport,
+    athlete_id: &str,
     cancelled: &(dyn Fn() -> bool + Sync),
     progress: &(dyn Fn(u32, u32) + Sync),
 ) -> Result<(), NetError> {
@@ -3156,55 +3305,320 @@ async fn sync_interval_bodies(
     .ok_or(NetError::EngineClosed)?
     .map_err(|e| NetError::Io(format!("interval queue read failed: {}", e)))?;
 
-    let mut last_error: Option<NetError> = None;
-    let owed = u32::try_from(missing.len()).unwrap_or(u32::MAX);
-    progress(0, owed);
+    let owed_total = u32::try_from(missing.len()).unwrap_or(u32::MAX);
+    progress(0, owed_total);
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let owed = upstream_pairs(install, missing.clone()).await?;
+    // An id with nothing upstream to ask for is handled by being skipped, so a
+    // run of them still reaches the total.
+    let skipped = missing.len() - owed.len();
+    let report = |handled: usize| {
+        progress(
+            u32::try_from(skipped + handled).unwrap_or(u32::MAX),
+            owed_total,
+        )
+    };
 
-    for (index, activity_id) in missing.into_iter().enumerate() {
+    let pass = fetch_bodies_in_bulk(
+        install,
+        transport,
+        athlete_id,
+        &owed,
+        Dispatch::from(Lane::Backfill),
+        cancelled,
+        &report,
+    )
+    .await?;
+    let mut last_error = pass.error;
+    let mut handled = pass.handled;
+    for unsettled in pass.unsettled {
         if cancelled() {
             return Ok(());
         }
-        // Reported when an activity is handled, however it ended, so a run of
-        // refused or unresolvable ids still reaches the total.
-        let handled = u32::try_from(index + 1).unwrap_or(u32::MAX);
-        let Some(upstream) = upstream_id(install, &activity_id).await else {
-            progress(handled, owed);
-            continue;
-        };
-        match endpoints::fetch_intervals_body(transport, &upstream, Lane::Backfill).await {
-            Ok(body) => {
-                let id = activity_id.clone();
-                store_body_or_fail(install, "intervals", activity_id, move |engine| {
-                    engine.set_interval_body(&id, &body)
-                })
-                .await?;
-            }
+        match fetch_one_interval_body(
+            install,
+            transport,
+            &unsettled.activity_id,
+            &unsettled.upstream,
+            Lane::Backfill,
+        )
+        .await
+        {
+            Ok(()) => {}
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
-            // The server answering for this one activity: it has no interval
-            // body to give, and the sweep is not failed for it.
-            Err(NetError::Http { status, .. }) if matches!(status, 404 | 410 | 422) => {
-                log::info!(
-                    "[Sync] intervals for {} refused with {}; recorded as none",
-                    activity_id,
-                    status
-                );
-                // Stored as an empty body so the queue, which is derived from
-                // the missing rows, does not ask for it again on every sync.
-                let id = activity_id.clone();
-                store_body_or_fail(install, "intervals", activity_id, move |engine| {
-                    engine.set_interval_body(&id, NO_INTERVALS_BODY)
-                })
-                .await?;
-            }
+            Err(e @ (NetError::Storage(_) | NetError::EngineClosed)) => return Err(e),
             Err(e) => last_error = Some(e),
         }
-        progress(handled, owed);
+        handled += 1;
+        report(handled);
     }
 
     match last_error {
         Some(e) => Err(e),
         None => Ok(()),
     }
+}
+
+/// Each key paired with the id a URL upstream names it by, in the order given.
+/// A device-minted key no upload has named is left out, since upstream has no
+/// such activity to ask for.
+async fn upstream_pairs(
+    install: u64,
+    keys: Vec<String>,
+) -> Result<Vec<(String, String)>, NetError> {
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        let stored = engine.intervals_ids(&keys);
+        keys.into_iter()
+            .filter_map(|key| {
+                let upstream = resolve_upstream(&key, stored.get(&key).cloned())?;
+                Some((key, upstream))
+            })
+            .collect::<Vec<_>>()
+    })
+    .await
+    .ok_or(NetError::EngineClosed)
+}
+
+/// The smallest chunk a timed-out bulk request is halved down to. Below it a
+/// link that cannot carry the answer is failing on its own, not on the size.
+const BULK_BODIES_FLOOR: usize = 25;
+
+/// An owed activity the bulk answer did not settle: the answer left it out,
+/// or carried it with no intervals.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct UnsettledBodies {
+    activity_id: String,
+    upstream: String,
+    /// The answer carried its detail body and it was stored.
+    detail_stored: bool,
+}
+
+/// What a bulk pass did.
+#[derive(Debug, Default)]
+struct BulkPass {
+    /// Activities whose chunk ended, however it ended, less the unsettled.
+    handled: usize,
+    /// What only a single request can settle.
+    unsettled: Vec<UnsettledBodies>,
+    /// The last failure that left a chunk owed, so the step is not reported
+    /// complete while bodies are still missing.
+    error: Option<NetError>,
+}
+
+/// Fetch and store the detail and interval bodies of `owed`, given as
+/// `(key, upstream id)`, through the bulk endpoint, at most
+/// [`endpoints::BULK_ACTIVITIES_MAX`] a request.
+///
+/// The one owner of a bulk body fetch: the interval sweep and the first-use
+/// readying both come through here. A chunk that does not come back, which is
+/// a timeout on a weak link far more often than an outage, is halved and asked
+/// again, down to [`BULK_BODIES_FLOOR`], and the smaller size holds for the
+/// rest of the pass since the link is still the same link. A refused
+/// credential or a write that fails ends the pass; any other failure leaves
+/// that chunk owed and moves on. `handled` is told the running count of
+/// activities whose chunk has ended.
+async fn fetch_bodies_in_bulk(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    owed: &[(String, String)],
+    dispatch: Dispatch,
+    cancelled: &(dyn Fn() -> bool + Sync),
+    handled: &(dyn Fn(usize) + Sync),
+) -> Result<BulkPass, NetError> {
+    let mut pass = BulkPass::default();
+    let mut size = endpoints::BULK_ACTIVITIES_MAX;
+    let mut start = 0;
+    while start < owed.len() {
+        if cancelled() {
+            return Ok(pass);
+        }
+        let chunk = &owed[start..(start + size).min(owed.len())];
+        let upstream: Vec<String> = chunk.iter().map(|(_, id)| id.clone()).collect();
+        match endpoints::fetch_activity_bodies_in_bulk(transport, athlete_id, &upstream, dispatch)
+            .await
+        {
+            Ok(items) => {
+                let answer = match_bulk_answer(chunk, items);
+                store_bulk_bodies(install, answer.details, answer.intervals).await?;
+                pass.handled += chunk.len() - answer.unsettled.len();
+                pass.unsettled.extend(answer.unsettled);
+                if let Some(e) = answer.mismatch {
+                    pass.error = Some(e);
+                }
+            }
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(NetError::Transport(e)) if chunk.len() > BULK_BODIES_FLOOR => {
+                size = (chunk.len() / 2).max(BULK_BODIES_FLOOR);
+                log::info!(
+                    "[Sync] a bulk body request for {} activities did not come back ({e}); asking {size} at a time",
+                    chunk.len()
+                );
+                continue;
+            }
+            // At the floor the link is not carrying anything, so the rest of
+            // the pass would fail the same way and is left for the next sync.
+            Err(e @ NetError::Transport(_)) => {
+                pass.error = Some(e);
+                return Ok(pass);
+            }
+            Err(e) => {
+                pass.handled += chunk.len();
+                pass.error = Some(e);
+            }
+        }
+        start += chunk.len();
+        handled(pass.handled);
+    }
+    Ok(pass)
+}
+
+/// One bulk answer matched to the chunk that asked for it.
+#[derive(Debug, Default)]
+struct MatchedAnswer {
+    /// `(key, date, body)` for each item in the detail form.
+    details: Vec<(String, i64, String)>,
+    /// `(key, body)` for each item that carried intervals.
+    intervals: Vec<(String, String)>,
+    unsettled: Vec<UnsettledBodies>,
+    /// Set when the answer named an id the chunk did not ask for.
+    mismatch: Option<NetError>,
+}
+
+/// Match a bulk answer to `chunk` by id, since the answer is sorted by id and
+/// not by the order asked.
+///
+/// An item counts as a detail body only in the detail form, which a stub for
+/// an activity the server cannot share is not. An item with no intervals is
+/// left for the single request to settle, as is an id the answer left out,
+/// but only when the answer's ids are a subset of those asked: an answer that
+/// names an id nobody asked for is not this request's answer, so nothing it
+/// omits is taken as absent.
+fn match_bulk_answer(
+    chunk: &[(String, String)],
+    items: Vec<endpoints::BulkActivityBodies>,
+) -> MatchedAnswer {
+    let mut keys_by_upstream: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (key, upstream) in chunk {
+        keys_by_upstream
+            .entry(upstream.as_str())
+            .or_default()
+            .push(key.as_str());
+    }
+    let mut answer = MatchedAnswer::default();
+    let mut answered: HashSet<String> = HashSet::new();
+    let mut strays = 0usize;
+    for item in items {
+        let Some(keys) = keys_by_upstream.get(item.id.as_str()) else {
+            strays += 1;
+            continue;
+        };
+        let date = detail_form_date(&item.detail);
+        for key in keys {
+            if let Some(date) = date {
+                answer
+                    .details
+                    .push((key.to_string(), date, item.detail.clone()));
+            }
+            match &item.intervals {
+                Some(body) => answer.intervals.push((key.to_string(), body.clone())),
+                None => answer.unsettled.push(UnsettledBodies {
+                    activity_id: key.to_string(),
+                    upstream: item.id.clone(),
+                    detail_stored: date.is_some(),
+                }),
+            }
+        }
+        answered.insert(item.id);
+    }
+    if strays > 0 {
+        log::warn!("[Sync] a bulk answer named {strays} activities that were not asked for");
+        answer.mismatch = Some(NetError::Decode(format!(
+            "bulk answer named {strays} activities not asked for"
+        )));
+        return answer;
+    }
+    for (key, upstream) in chunk {
+        if !answered.contains(upstream) {
+            answer.unsettled.push(UnsettledBodies {
+                activity_id: key.clone(),
+                upstream: upstream.clone(),
+                detail_stored: false,
+            });
+        }
+    }
+    answer
+}
+
+/// The start of a body as epoch seconds when it is the detail form, the one
+/// carrying `icu_athlete_id`, as `GET /activity/{id}` answers it. A list row
+/// or a stub is `None`.
+fn detail_form_date(body: &str) -> Option<i64> {
+    let parsed = serde_json::from_str::<serde_json::Value>(body).ok()?;
+    let athlete = parsed.get("icu_athlete_id").and_then(|id| id.as_str());
+    if athlete.is_none_or(str::is_empty) {
+        return None;
+    }
+    parsed
+        .get("start_date_local")
+        .and_then(|d| d.as_str())
+        .and_then(|d| start_date_to_timestamp(Some(d)))
+}
+
+/// Store one bulk answer's bodies in one engine call. The detail bodies go
+/// first: the interval sweep's queue is the missing interval bodies, so a
+/// write that stops between the two leaves the activity owed and both are
+/// fetched again.
+async fn store_bulk_bodies(
+    install: u64,
+    details: Vec<(String, i64, String)>,
+    intervals: Vec<(String, String)>,
+) -> Result<(), NetError> {
+    if details.is_empty() && intervals.is_empty() {
+        return Ok(());
+    }
+    let announced = details
+        .iter()
+        .map(|(id, _, _)| ("activity_detail", id.clone()))
+        .chain(intervals.iter().map(|(id, _)| ("intervals", id.clone())))
+        .collect();
+    store_bodies_or_fail(install, announced, move |engine| {
+        engine.store_activity_detail_bodies(&details)?;
+        engine.set_interval_bodies(&intervals)
+    })
+    .await
+}
+
+/// Fetch one activity's interval body through the single endpoint and store
+/// it. A 404, 410 or 422 is the server answering that it has none to give, and
+/// is stored as `NO_INTERVALS_BODY` so the queue, derived from the missing
+/// rows, does not ask again on every sync.
+async fn fetch_one_interval_body(
+    install: u64,
+    transport: &Transport,
+    activity_id: &str,
+    upstream: &str,
+    lane: Lane,
+) -> Result<(), NetError> {
+    let body = match endpoints::fetch_intervals_body(transport, upstream, lane).await {
+        Ok(body) => body,
+        Err(NetError::Http { status, .. }) if matches!(status, 404 | 410 | 422) => {
+            log::info!(
+                "[Sync] intervals for {} refused with {}; recorded as none",
+                activity_id,
+                status
+            );
+            NO_INTERVALS_BODY.to_string()
+        }
+        Err(e) => return Err(e),
+    };
+    let id = activity_id.to_string();
+    store_body_or_fail(install, "intervals", id.clone(), move |engine| {
+        engine.set_interval_body(&id, &body)
+    })
+    .await
 }
 
 /// Persist the athlete's history summary. It spans all history, not the synced
@@ -3217,7 +3631,7 @@ async fn sync_activity_history_summary(
 ) -> Result<(), NetError> {
     let today = chrono::Local::now().date_naive().to_string();
     let summary =
-        endpoints::fetch_activity_history_summary(transport, athlete_id, &today, Lane::Backfill)
+        endpoints::fetch_activity_history_summary(transport, athlete_id, &today, SYNC_REQUEST)
             .await?;
 
     // The same pull that answers the timeline slider is the census. A request
@@ -3337,7 +3751,7 @@ async fn sync_wellness(
     athlete_id: &str,
     oldest: chrono::NaiveDate,
 ) -> Result<(), NetError> {
-    sync_wellness_window(install, transport, athlete_id, oldest, Lane::Backfill).await
+    sync_wellness_window(install, transport, athlete_id, oldest, SYNC_REQUEST).await
 }
 
 /// The targeted wellness pull: the trailing `days` on the interactive lane,
@@ -3350,7 +3764,7 @@ pub(crate) async fn refresh_wellness(
     days: i64,
 ) -> Result<(), NetError> {
     let oldest = chrono::Local::now().date_naive() - chrono::Duration::days(days);
-    sync_wellness_window(install, transport, athlete_id, oldest, Lane::Interactive).await
+    sync_wellness_window(install, transport, athlete_id, oldest, PROFILE_SLICE).await
 }
 
 /// Persist wellness from `oldest` through today, typed columns plus the
@@ -3360,7 +3774,7 @@ async fn sync_wellness_window(
     transport: &Transport,
     athlete_id: &str,
     oldest: chrono::NaiveDate,
-    lane: Lane,
+    dispatch: Dispatch,
 ) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
     let days = endpoints::fetch_wellness_with_bodies(
@@ -3368,7 +3782,7 @@ async fn sync_wellness_window(
         athlete_id,
         &oldest.to_string(),
         &newest.to_string(),
-        lane,
+        dispatch,
     )
     .await?;
     if days.is_empty() {
@@ -3679,7 +4093,15 @@ impl SyncManager {
         spawn_once(
             JobKey::new("calendar", &[&oldest, &newest]),
             move |install, transport, athlete_id| async move {
-                fetch_and_store_calendar(install, &transport, &athlete_id, &oldest, &newest).await
+                fetch_and_store_calendar(
+                    install,
+                    &transport,
+                    &athlete_id,
+                    &oldest,
+                    &newest,
+                    Lane::Interactive.into(),
+                )
+                .await
             },
         )
     }
@@ -4260,6 +4682,64 @@ mod tests {
             );
         }
 
+        /// Scenario: a key failed once, so it carries one attempt and a backoff.
+        /// Its next run is held back by the request budget.
+        ///
+        /// Expected behaviour: the deferral is no failure. The attempt count
+        /// and the time it last failed stay as they were, so the budget holding
+        /// work back never grows the key's backoff toward the hour it caps at.
+        #[test]
+        fn deferred_release_leaves_job_attempts_unchanged() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            assert_eq!(
+                spawn_once_at(
+                    key(),
+                    || 1_000,
+                    |_i, _t, _a| async {
+                        Err::<(), NetError>(NetError::Http {
+                            status: 500,
+                            body: "upstream".to_string(),
+                        })
+                    }
+                ),
+                FfiStartOutcome::Started
+            );
+            drain_spawned();
+            let failed = with_persistent_engine(|engine| {
+                engine.job_attempt(&key()).expect("read").expect("a row")
+            })
+            .expect("engine");
+            assert_eq!(failed.attempts, 1);
+
+            let after_backoff = 1_000 + attempt_backoff_ms(0);
+            for _ in 0..3 {
+                assert_eq!(
+                    spawn_once_at(
+                        key(),
+                        move || after_backoff,
+                        |_i, _t, _a| async {
+                            Err::<(), NetError>(NetError::Deferred {
+                                until: chrono::Utc::now() + chrono::TimeDelta::minutes(10),
+                            })
+                        }
+                    ),
+                    FfiStartOutcome::Started,
+                    "a deferral grew the backoff"
+                );
+                drain_spawned();
+            }
+            let row = with_persistent_engine(|engine| {
+                engine.job_attempt(&key()).expect("read").expect("a row")
+            })
+            .expect("engine");
+            assert_eq!(row.attempts, failed.attempts);
+            assert_eq!(row.last_attempt_at, failed.last_attempt_at);
+            assert_eq!(row.lease_gen, 0, "the deferral gave the lease back");
+        }
+
         /// `ReleaseGuard` held the key against a panicking job before the move
         /// and has to keep holding it, or the resource could never be asked
         /// for again.
@@ -4703,6 +5183,14 @@ mod tests {
                 .matches(note_activities);
             then.status(200).json_body(activities);
         });
+        // The bulk body endpoint answers ids it does not know with an empty
+        // list, never a 404.
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_matches(httpmock::Regex::new(r"^/athlete/i1/activities/.+").expect("pattern"))
+                .query_param("intervals", "true");
+            then.status(200).json_body(json!([]));
+        });
     }
 
     /// Scenario: a first launch. The census owes one run of days, so the plan
@@ -4835,18 +5323,18 @@ mod tests {
                 {"type": "time", "data": time},
             ]));
         });
+        let bodies: Vec<_> = (0..FIRST_USE_ACTIVITIES)
+            .map(|i| {
+                json!({"id": format!("r{i}"), "icu_athlete_id": "i1",
+                       "start_date_local": format!("{}T08:30:00", days[0]),
+                       "type": "Ride", "icu_intervals": []})
+            })
+            .collect();
         server.mock(|when, then| {
             when.method(GET)
-                .path_matches(httpmock::Regex::new(r"^/activity/r\d/intervals$").expect("pattern"));
-            then.status(200).json_body(json!({"icu_intervals": []}));
-        });
-        server.mock(|when, then| {
-            when.method(GET)
-                .path_matches(httpmock::Regex::new(r"^/activity/r\d$").expect("pattern"));
-            then.status(200).json_body(json!({
-                "icu_athlete_id": "i1", "start_date_local": format!("{}T08:30:00", days[0]),
-                "type": "Ride"
-            }));
+                .path("/athlete/i1/activities/r0,r1,r2,r3,r4")
+                .query_param("intervals", "true");
+            then.status(200).json_body(json!(bodies));
         });
         mock_ordered_profile_slice(&server);
         taken_requests();
@@ -4984,6 +5472,20 @@ mod tests {
                 "start_date_local": format!("{}T08:30:00", days[0]),
             }));
         });
+        let bodies: Vec<serde_json::Value> = (0..5)
+            .map(|i| {
+                json!({"id": format!("r{i}"), "icu_athlete_id": "i1",
+                       "start_date_local": format!("{}T08:30:00", days[i]),
+                       "icu_intervals": []})
+            })
+            .collect();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities/r0,r1,r2,r3,r4")
+                .query_param("intervals", "true")
+                .matches(note_activity_body);
+            then.status(200).json_body(json!(bodies));
+        });
         mock_ordered_profile_slice_with_activities(&server, json!(landed));
         taken_requests();
 
@@ -5012,8 +5514,8 @@ mod tests {
         let early_bodies: Vec<_> = bodies.iter().filter(|i| **i < first_bulk).collect();
         assert_eq!(
             early_bodies.len(),
-            15,
-            "three bodies for each of five: {names:?}"
+            6,
+            "one bulk request for the details and intervals, and the streams of each of five: {names:?}"
         );
         assert!(
             early_bodies.iter().all(|i| **i > 3),
@@ -5728,6 +6230,7 @@ mod tests {
         let intervals = crate::runtime::block_on(sync_interval_bodies(
             crate::persistence::engine_install(),
             &transport,
+            "i1",
             &|| false,
             &|_, _| {},
         ));
@@ -6315,7 +6818,15 @@ mod tests {
         let transport = transport_to(server.base_url());
         crate::runtime::block_on(async {
             let windows = owed_activity_windows("i1", true).await.windows;
-            sync_activity_windows(install, &transport, "i1", &windows, &|| false).await
+            sync_activity_windows(
+                install,
+                &transport,
+                "i1",
+                &windows,
+                LIBRARY_HISTORY,
+                &|| false,
+            )
+            .await
         })
         .expect("default sync");
         mock.assert();
@@ -6767,7 +7278,15 @@ mod tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(async {
                 let windows = owed_activity_windows("i1", true).await.windows;
-                sync_activity_windows(install, &transport, "i1", &windows, &|| false).await
+                sync_activity_windows(
+                    install,
+                    &transport,
+                    "i1",
+                    &windows,
+                    LIBRARY_HISTORY,
+                    &|| false,
+                )
+                .await
             })
         }
 
@@ -8080,67 +8599,15 @@ mod body_count_tests {
             || false
         }
 
-        #[test]
-        fn every_activity_without_a_body_is_fetched_once() {
-            let _guard = serial_global_state();
-            let _dir = init_global_engine();
-            library_of(&["a1", "a2"]);
-
-            let server = MockServer::start();
-            let intervals = server.mock(|when, then| {
-                when.method(GET).path_matches(
-                    httpmock::Regex::new(r"^/activity/a\d/intervals$").expect("pattern"),
-                );
-                then.status(200)
-                    .json_body(json!({"icu_intervals": [{"type": "WORK"}]}));
-            });
-
-            let transport = transport_to(server.base_url());
-            crate::runtime::block_on(sync_interval_bodies(
-                crate::persistence::engine_install(),
-                &transport,
-                &never_cancelled(),
-                &|_, _| {},
-            ))
-            .expect("the sweep");
-
-            intervals.assert_hits(2);
-            assert!(stored("a1").is_some());
-            assert!(stored("a2").is_some());
-            restore_service();
-        }
-
-        #[test]
-        fn the_sweep_reports_activities_done_of_activities_owed() {
-            let _guard = serial_global_state();
-            let _dir = init_global_engine();
-            library_of(&["a1", "a2", "a3"]);
-
-            let server = MockServer::start();
-            server.mock(|when, then| {
-                when.method(GET).path_matches(
-                    httpmock::Regex::new(r"^/activity/a\d/intervals$").expect("pattern"),
-                );
-                then.status(200)
-                    .json_body(json!({"icu_intervals": [{"type": "WORK"}]}));
-            });
-
-            let transport = transport_to(server.base_url());
-            let reports = std::sync::Mutex::new(Vec::new());
-            crate::runtime::block_on(sync_interval_bodies(
-                crate::persistence::engine_install(),
-                &transport,
-                &never_cancelled(),
-                &|done, total| reports.lock().unwrap().push((done, total)),
-            ))
-            .expect("the sweep");
-
-            assert_eq!(
-                *reports.lock().unwrap(),
-                vec![(0, 3), (1, 3), (2, 3), (3, 3)],
-                "the owed count is declared up front, then each fetched body advances it"
-            );
-            restore_service();
+        /// The bulk request for `ids` in either order, since rows sharing a
+        /// date come out of the queue in no fixed order.
+        fn bulk_for_both(when: httpmock::When) -> httpmock::When {
+            when.method(GET)
+                .path_matches(
+                    httpmock::Regex::new(r"^/athlete/i1/activities/(a1,a2|a2,a1)$")
+                        .expect("pattern"),
+                )
+                .query_param("intervals", "true")
         }
 
         /// The sweep is a step of the run, not a helper nothing calls: before
@@ -8154,9 +8621,11 @@ mod body_count_tests {
 
             let server = MockServer::start();
             server.mock(|when, then| {
-                when.method(GET).path("/activity/a1/intervals");
+                when.method(GET)
+                    .path("/athlete/i1/activities/a1")
+                    .query_param("intervals", "true");
                 then.status(200)
-                    .json_body(json!({"icu_intervals": [{"type": "WORK"}]}));
+                    .json_body(json!([{"id": "a1", "icu_intervals": [{"type": "WORK"}]}]));
             });
             server.mock(|when, then| {
                 when.method(GET);
@@ -8193,25 +8662,30 @@ mod body_count_tests {
             .expect("seed");
 
             let server = MockServer::start();
-            let asked = server.mock(|when, then| {
-                when.method(GET).path("/activity/a1/intervals");
-                then.status(200).json_body(json!({"icu_intervals": []}));
+            let only_a2 = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities/a2")
+                    .query_param("intervals", "true");
+                then.status(200)
+                    .json_body(json!([{"id": "a2", "icu_intervals": []}]));
             });
-            server.mock(|when, then| {
+            let anything_else = server.mock(|when, then| {
                 when.method(GET);
-                then.status(200).json_body(json!({"icu_intervals": []}));
+                then.status(500);
             });
 
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_interval_bodies(
                 crate::persistence::engine_install(),
                 &transport,
+                "i1",
                 &never_cancelled(),
                 &|_, _| {},
             ))
             .expect("the sweep");
 
-            asked.assert_hits(0);
+            only_a2.assert_hits(1);
+            anything_else.assert_hits(0);
             assert_eq!(
                 stored("a1").as_deref(),
                 Some(r#"{"icu_intervals":[]}"#),
@@ -8221,67 +8695,20 @@ mod body_count_tests {
         }
 
         #[test]
-        fn a_cancelled_sync_stops_the_sweep() {
-            let _guard = serial_global_state();
-            let _dir = init_global_engine();
-            library_of(&["a1"]);
-
-            let server = MockServer::start();
-            let any = server.mock(|when, then| {
-                when.method(GET);
-                then.status(200).json_body(json!({"icu_intervals": []}));
-            });
-
-            let transport = transport_to(server.base_url());
-            crate::runtime::block_on(sync_interval_bodies(
-                crate::persistence::engine_install(),
-                &transport,
-                &|| true,
-                &|_, _| {},
-            ))
-            .expect("the sweep");
-
-            any.assert_hits(0);
-            restore_service();
-        }
-
-        #[test]
-        fn a_refused_credential_ends_the_sweep_rather_than_being_carried() {
-            let _guard = serial_global_state();
-            let _dir = init_global_engine();
-            library_of(&["a1", "a2"]);
-
-            let server = MockServer::start();
-            server.mock(|when, then| {
-                when.method(GET);
-                then.status(401);
-            });
-
-            let transport = transport_to(server.base_url());
-            let outcome = crate::runtime::block_on(sync_interval_bodies(
-                crate::persistence::engine_install(),
-                &transport,
-                &never_cancelled(),
-                &|_, _| {},
-            ));
-
-            assert!(
-                matches!(outcome, Err(NetError::Unauthorized)),
-                "a dead credential is terminal, not one more failed activity"
-            );
-            restore_service();
-        }
-
-        #[test]
         fn a_server_that_refuses_every_activity_is_an_answer_not_a_failed_sweep() {
+            let single_path = httpmock::Regex::new(r"^/activity/a\d/intervals$").expect("pattern");
             for status in [404u16, 410, 422] {
                 let _guard = serial_global_state();
                 let _dir = init_global_engine();
                 library_of(&["a1", "a2"]);
 
                 let server = MockServer::start();
-                let asked = server.mock(|when, then| {
-                    when.method(GET);
+                let bulk = server.mock(|when, then| {
+                    bulk_for_both(when);
+                    then.status(200).json_body(json!([]));
+                });
+                let single = server.mock(|when, then| {
+                    when.method(GET).path_matches(single_path.clone());
                     then.status(status);
                 });
 
@@ -8289,66 +8716,32 @@ mod body_count_tests {
                 let outcome = crate::runtime::block_on(sync_interval_bodies(
                     crate::persistence::engine_install(),
                     &transport,
+                    "i1",
                     &never_cancelled(),
                     &|_, _| {},
                 ));
 
                 assert!(outcome.is_ok(), "{status} for an activity failed the sweep");
-                asked.assert_hits(2);
-                assert!(
-                    stored("a1").is_some(),
+                bulk.assert_hits(1);
+                single.assert_hits(2);
+                assert_eq!(
+                    stored("a1").as_deref(),
+                    Some(NO_INTERVALS_BODY),
                     "{status}: an answered refusal leaves the queue"
                 );
 
                 crate::runtime::block_on(sync_interval_bodies(
                     crate::persistence::engine_install(),
                     &transport,
+                    "i1",
                     &never_cancelled(),
                     &|_, _| {},
                 ))
                 .expect("the second sweep");
-                asked.assert_hits(2);
+                bulk.assert_hits(1);
+                single.assert_hits(2);
                 restore_service();
             }
-        }
-
-        #[test]
-        fn one_activity_that_fails_does_not_cost_the_others_their_bodies() {
-            let _guard = serial_global_state();
-            let _dir = init_global_engine();
-            library_of(&["a1", "a2"]);
-
-            let server = MockServer::start();
-            server.mock(|when, then| {
-                when.method(GET).path("/activity/a1/intervals");
-                then.status(500);
-            });
-            server.mock(|when, then| {
-                when.method(GET);
-                then.status(200).json_body(json!({"icu_intervals": []}));
-            });
-
-            let transport = transport_to(server.base_url());
-            let outcome = crate::runtime::block_on(sync_interval_bodies(
-                crate::persistence::engine_install(),
-                &transport,
-                &never_cancelled(),
-                &|_, _| {},
-            ));
-
-            assert!(
-                outcome.is_err(),
-                "a failed activity is not a completed step"
-            );
-            assert!(
-                stored("a2").is_some(),
-                "the activities that landed are still on disk"
-            );
-            assert!(
-                stored("a1").is_none(),
-                "the one that failed keeps its place in the queue for the next sync"
-            );
-            restore_service();
         }
     }
 
@@ -8402,6 +8795,7 @@ mod body_count_tests {
             crate::runtime::block_on(ready_newest_activities(
                 crate::persistence::engine_install(),
                 &transport_to(server.base_url()),
+                "i1",
                 &|| false,
             ))
         }
@@ -8426,7 +8820,45 @@ mod body_count_tests {
                 .is_some_and(|body| body.contains("icu_athlete_id"))
         }
 
+        /// The bulk answer for each run of the newest, `r0` first, every item
+        /// in the detail form with an empty interval list.
+        fn mock_bulk_bodies(server: &MockServer) {
+            for count in 1..=FIRST_USE_ACTIVITIES as usize {
+                let ids: Vec<String> = (0..count).map(|i| format!("r{i}")).collect();
+                let items: Vec<_> = ids
+                    .iter()
+                    .map(|id| {
+                        json!({"id": id, "icu_athlete_id": "i1",
+                               "start_date_local": "2026-09-01T08:30:00",
+                               "type": "Ride", "icu_intervals": []})
+                    })
+                    .collect();
+                server.mock(|when, then| {
+                    when.method(GET)
+                        .path(format!("/athlete/i1/activities/{}", ids.join(",")))
+                        .query_param("intervals", "true");
+                    then.status(200).json_body(json!(items));
+                });
+            }
+        }
+
+        /// A bulk answer for `r0` and `r1` that leaves `r0` out, so `r0` is
+        /// asked for one body at a time.
+        fn mock_bulk_leaving_out_r0(server: &MockServer) {
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities/r0,r1")
+                    .query_param("intervals", "true");
+                then.status(200).json_body(json!([{
+                    "id": "r1", "icu_athlete_id": "i1",
+                    "start_date_local": "2026-09-01T08:30:00",
+                    "type": "Ride", "icu_intervals": []
+                }]));
+            });
+        }
+
         fn mock_all_bodies(server: &MockServer) {
+            mock_bulk_bodies(server);
             server.mock(|when, then| {
                 when.method(GET).path_matches(
                     httpmock::Regex::new(r"^/activity/r\d/streams\.json$").expect("pattern"),
@@ -8511,6 +8943,7 @@ mod body_count_tests {
             let _dir = init_global_engine();
             library_of(5);
             let server = MockServer::start();
+            mock_bulk_bodies(&server);
             for i in 0..5 {
                 let id = format!("r{i}");
                 server.mock(|when, then| {
@@ -8694,6 +9127,7 @@ mod body_count_tests {
             let _dir = init_global_engine();
             library_of(2);
             let server = MockServer::start();
+            mock_bulk_leaving_out_r0(&server);
             server.mock(|when, then| {
                 when.method(GET).path("/activity/r0/intervals");
                 then.status(500);
@@ -8741,6 +9175,7 @@ mod body_count_tests {
                 let _dir = init_global_engine();
                 library_of(2);
                 let failing = MockServer::start();
+                mock_bulk_leaving_out_r0(&failing);
                 failing.mock(|when, then| {
                     when.method(GET).path("/activity/r0/intervals");
                     then.status(500);

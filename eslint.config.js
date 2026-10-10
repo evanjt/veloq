@@ -78,6 +78,8 @@ const scaleSelectors = [
 // Type-aware rules (@typescript-eslint/no-unsafe-*) are deliberately absent: they
 // need full project type information, which costs minutes on this tree. `tsc
 // --noEmit` already runs in pre-commit and in CI.
+const unusedVarsOptions = { argsIgnorePattern: '^_', varsIgnorePattern: '^_' };
+
 module.exports = [
   {
     ignores: [
@@ -108,11 +110,10 @@ module.exports = [
     files: ['**/*.{js,jsx,ts,tsx}'],
     plugins: { '@typescript-eslint': tseslint.plugin },
     rules: {
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
+      // The typescript-eslint rule reads typescript-eslint's scope analysis, so
+      // under espree it reports every JavaScript binding as used only as a type.
+      // JavaScript files take the core rule with the same options.
+      'no-unused-vars': ['error', unusedVarsOptions],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'warn',
 
@@ -142,6 +143,14 @@ module.exports = [
       // object type as a props type.
       'react/no-unused-prop-types': 'off',
       'react/no-direct-mutation-state': 'error',
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    plugins: { '@typescript-eslint': tseslint.plugin },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', unusedVarsOptions],
     },
   },
   {

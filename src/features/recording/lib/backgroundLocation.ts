@@ -14,7 +14,11 @@ import {
   evaluateAutoPause,
   setAutoPauseDetector,
 } from './manualPause';
-import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
+import {
+  installRecordingNotificationActions,
+  locationServiceRunning,
+  updateRecordingNotification,
+} from './recordingNotification';
 import { loadRecordingBackup } from './storage/recordingBackup';
 import { writeRideBackup, writeRideBackupIfDue } from './rideBackup';
 import { BACKGROUND_LOCATION_TASK } from './backgroundLocationTask';
@@ -80,6 +84,10 @@ async function restoreSessionFromBackup(): Promise<boolean> {
 
   const { restoreRecordingBackup } = require('./restoreRecordingBackup');
   restoreRecordingBackup(backup, { headless: true });
+  // Every batch from here re-posts the notification with its buttons, and no
+  // session runs here to listen for them. The hold lasts as long as the
+  // runtime does, and a session started later shares it.
+  installRecordingNotificationActions();
   log.log('Restored a recording from its backup in a headless runtime');
   return true;
 }

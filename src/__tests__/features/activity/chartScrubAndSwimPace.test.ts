@@ -29,15 +29,16 @@ import {
   YARDS_100_IN_METRES,
 } from '@/shared/format/format';
 import { stoppedSpeedMs } from '@/shared/recording';
+import { streamsFromArrays as streamsOf } from '@/features/activity/lib/streams';
 
 function streamsWithGap() {
-  return {
+  return streamsOf({
     heartrate: [150, NaN, 152],
     watts: [200, NaN, 210],
     cadence: [90, NaN, 91],
     velocity_smooth: [3.0, NaN, 0],
     gap: [3.1, NaN, 3.2].map((v) => paceMinutesFromSample(v)),
-  };
+  });
 }
 
 function scrub(id: keyof typeof CHART_CONFIGS, index: number, isMetric = true) {
@@ -69,10 +70,10 @@ describe('the scrub chip over a missing sample', () => {
   });
 
   it('reads - over a stop and a crawl, for pace, GAP and swim pace', () => {
-    const streams = {
+    const streams = streamsOf({
       velocity_smooth: [3, 3, 0, 0.05],
       gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)),
-    };
+    });
     for (const isMetric of [true, false]) {
       for (const id of ['pace', 'gap'] as const) {
         const config = CHART_CONFIGS[id];
@@ -82,7 +83,7 @@ describe('the scrub chip over a missing sample', () => {
         expect(formatScrubValue(config, raw[0], isMetric)).not.toBe('-');
       }
       const swim = chartConfigsFor('Swim').pace;
-      const raw = swim.getStream?.({ velocity_smooth: [1, 1, 0, 0.05] }) ?? [];
+      const raw = swim.getStream?.(streamsOf({ velocity_smooth: [1, 1, 0, 0.05] })) ?? [];
       expect(formatScrubValue(swim, raw[2], isMetric)).toBe('-');
       expect(formatScrubValue(swim, raw[3], isMetric)).toBe('-');
       expect(formatScrubValue(swim, raw[0], isMetric)).not.toBe('-');
@@ -95,15 +96,16 @@ describe('the scrub chip over a missing sample', () => {
 
   it('treats a sample at the stop threshold as moving and one just under as a stop', () => {
     const at = 0.5 / 3.6;
-    const pace = CHART_CONFIGS.pace.getStream?.({ velocity_smooth: [at, at * 0.99] }) ?? [];
+    const pace =
+      CHART_CONFIGS.pace.getStream?.(streamsOf({ velocity_smooth: [at, at * 0.99] })) ?? [];
     expect(formatScrubValue(CHART_CONFIGS.pace, pace[0], true)).not.toBe('-');
     expect(formatScrubValue(CHART_CONFIGS.pace, pace[1], true)).toBe('-');
   });
 
   it('draws a stopped pace sample as NaN and leaves the speed point finite', () => {
-    const streams = { distance: [0, 3, 6, 9], velocity_smooth: [3, 3, 0, 0] };
+    const streams = streamsOf({ distance: [0, 3, 6, 9], velocity_smooth: [3, 3, 0, 0] });
     const { chartData } = buildChartData(
-      streams as never,
+      streams,
       ['pace', 'speed'],
       CHART_CONFIGS,
       true,
@@ -130,7 +132,8 @@ describe('swim pace per 100 yd', () => {
 
   it('agrees with formatSwimPace for the same speed', () => {
     for (const speed of [0.6, 0.8333, 1.0, 1.25, 1.6]) {
-      const perHundredMetres = swim.getStream?.({ velocity_smooth: [speed] })?.[0] ?? NaN;
+      const perHundredMetres =
+        swim.getStream?.(streamsOf({ velocity_smooth: [speed] }))?.[0] ?? NaN;
       expect(formatScrubValue(swim, perHundredMetres, false)).toBe(formatSwimPace(speed, false));
       expect(formatScrubValue(swim, perHundredMetres, true)).toBe(formatSwimPace(speed, true));
     }
@@ -150,7 +153,7 @@ describe('swim pace per 100 yd', () => {
 
 describe('the chart converts units as the shared formatters do', () => {
   it.each([1.2, 2.5, 3.0, 4.4, 6.1])('agrees at %d m/s in both unit systems', (speed) => {
-    const streams = { velocity_smooth: [speed] };
+    const streams = streamsOf({ velocity_smooth: [speed] });
     for (const isMetric of [true, false]) {
       const kph = CHART_CONFIGS.speed.getStream?.(streams)?.[0];
       expect(
@@ -186,7 +189,7 @@ function idleChip(
 
 describe('the idle chip formats as the scrub does', () => {
   it('agrees with a scrub of the same value in both unit systems', () => {
-    const streams = { heartrate: [150, 150], altitude: [100, 100], temp: [12.4, 12.4] };
+    const streams = streamsOf({ heartrate: [150, 150], altitude: [100, 100], temp: [12.4, 12.4] });
     for (const isMetric of [true, false]) {
       for (const [id, value] of [
         ['heartrate', 150],
@@ -203,14 +206,14 @@ describe('the idle chip formats as the scrub does', () => {
   it('reads the absent mark where the formatter gives nothing, as the scrub does', () => {
     const blank = { ...CHART_CONFIGS.heartrate, formatValue: () => '' };
     const configs = { heartrate: blank } as unknown as Record<ChartTypeId, ChartConfig>;
-    const chip = idleChip(configs, { heartrate: [150, 150] }, 'heartrate');
+    const chip = idleChip(configs, streamsOf({ heartrate: [150, 150] }), 'heartrate');
     expect(formatScrubValue(blank, 150, true)).toBe('-');
     expect(chip?.value).toBe('-');
     expect(chip?.maxValueWidth).toBe('-');
   });
 
   it('keeps the + on elevation gain, converted for an imperial athlete', () => {
-    const streams = { altitude: [100, 110, 105, 120] };
+    const streams = streamsOf({ altitude: [100, 110, 105, 120] });
     expect(idleChip(CHART_CONFIGS, streams, 'elevation', true, 25)?.value).toBe('+25');
     expect(idleChip(CHART_CONFIGS, streams, 'elevation', false, 25)?.value).toBe(
       `+${formatScrubValue(CHART_CONFIGS.elevation, 25, false)}`
@@ -220,8 +223,8 @@ describe('the idle chip formats as the scrub does', () => {
 });
 
 describe('the idle pace chip over a run with stops', () => {
-  const stopped = { velocity_smooth: [3, 3, 0, 0] };
-  const crawling = { velocity_smooth: [3, 3, 0.05, 0.05] };
+  const stopped = streamsOf({ velocity_smooth: [3, 3, 0, 0] });
+  const crawling = streamsOf({ velocity_smooth: [3, 3, 0.05, 0.05] });
 
   it.each([
     ['stopped', stopped],
@@ -238,7 +241,7 @@ describe('the idle pace chip over a run with stops', () => {
   });
 
   it('is the pace of the mean speed, not the mean of the paces', () => {
-    const streams = { velocity_smooth: [2, 4] };
+    const streams = streamsOf({ velocity_smooth: [2, 4] });
     expect(idleChip(CHART_CONFIGS, streams, 'pace')?.value).toBe(formatPaceCompact(3, true));
   });
 
@@ -247,20 +250,20 @@ describe('the idle pace chip over a run with stops', () => {
   });
 
   it('reads the moving grade adjusted pace', () => {
-    const streams = { gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)) };
+    const streams = streamsOf({ gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)) });
     expect(idleChip(CHART_CONFIGS, streams, 'gap')?.value).toBe('5:33');
   });
 
   it('reads a swim pace per 100 of the moving speed', () => {
     const swim = chartConfigsFor('Swim');
-    const streams = { velocity_smooth: [1, 1, 0, 0.05] };
+    const streams = streamsOf({ velocity_smooth: [1, 1, 0, 0.05] });
     for (const isMetric of [true, false]) {
       expect(idleChip(swim, streams, 'pace', isMetric)?.value).toBe(formatSwimPace(1, isMetric));
     }
   });
 
   it('reads the absent mark for a pace with no moving sample', () => {
-    const chip = idleChip(CHART_CONFIGS, { velocity_smooth: [0, 0.05] }, 'pace');
+    const chip = idleChip(CHART_CONFIGS, streamsOf({ velocity_smooth: [0, 0.05] }), 'pace');
     expect(chip?.value).toBe('-');
   });
 
@@ -272,7 +275,10 @@ describe('the idle pace chip over a run with stops', () => {
   });
 
   it('leaves stops and crawls out of the pace axis', () => {
-    const streams = { distance: [0, 3, 6, 8.5, 8.6], velocity_smooth: [3, 3, 2.5, 0.05, 0] };
+    const streams = streamsOf({
+      distance: [0, 3, 6, 8.5, 8.6],
+      velocity_smooth: [3, 3, 2.5, 0.05, 0],
+    });
     const { seriesInfo } = buildChartData(streams, ['pace'], CHART_CONFIGS, true, null, 'distance');
     expect(seriesInfo[0].range.min).toBeCloseTo(paceMinutesFromSpeed(3), 9);
     expect(seriesInfo[0].range.max).toBeCloseTo(paceMinutesFromSpeed(2.5), 9);
@@ -281,7 +287,7 @@ describe('the idle pace chip over a run with stops', () => {
 
 describe('the idle chips drop stops by the sport the activity was', () => {
   const chip = (type: Parameters<typeof chartConfigsFor>[0], id: ChartTypeId, v: number[]) =>
-    computeAllAverages(chartConfigsFor(type), { velocity_smooth: v }, true, 0).find(
+    computeAllAverages(chartConfigsFor(type), streamsOf({ velocity_smooth: v }), true, 0).find(
       (m) => m.id === id
     )?.value;
 

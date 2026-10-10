@@ -34,6 +34,7 @@ fn test_recompute_saves_numbers_before_reload() {
         &MatchConfig::default(),
         &[],
         engine.group_generation,
+        &HashSet::new(),
     );
     let numbered: u32 = engine
         .db
@@ -149,6 +150,7 @@ fn test_background_save_rebuilds_the_route_line_layer() {
         &MatchConfig::default(),
         &[],
         engine.group_generation,
+        &HashSet::new(),
     );
     assert_eq!(save, GroupSave::Committed);
 

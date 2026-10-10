@@ -176,7 +176,7 @@ fn add_section_ridden(id: &str, track: Vec<GpsPoint>, started: i64) {
             "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
                  end_index, distance_meters)
              VALUES (?1, ?2, 'same', 0, ?3, 1000)",
-            params![id, ride, last],
+            params![id, ride, last as i64],
         )
         .unwrap();
     })

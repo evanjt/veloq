@@ -59,7 +59,7 @@ interface UseMapLayersResult {
   /** Perpendicular tick marks at each section's start/end. Cuts through stacked
    *  portion overlays so section boundaries are visible even when portions overlap. */
   sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
-  /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
+  /** GeoJSON for geo-anchored section markers, drawn as circle and symbol layers */
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for PR-only section markers in fullscreen modal */
   fullscreenPRMarkersGeoJSON: GeoJSON.FeatureCollection;
@@ -67,7 +67,7 @@ interface UseMapLayersResult {
   routeCoords: [number, number][];
   /** The highlighted point from chart selection, or null */
   highlightPoint: LatLng | null;
-  /** GeoJSON for highlight point (ShapeSource + CircleLayer) */
+  /** GeoJSON for highlight point, drawn as a circle layer */
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
   /**
    * MapLibre `line-gradient` interpolation expression for the route line,

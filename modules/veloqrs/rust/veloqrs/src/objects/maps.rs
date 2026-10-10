@@ -40,6 +40,10 @@ impl MapManager {
     #[allow(clippy::too_many_arguments)]
     /// Everything the map tab paints with: the engine total, the sport types
     /// the filter chips offer, and the activities inside the window.
+    ///
+    /// `held_route_lines` and `held_sections` are the stamps of the layers the
+    /// caller already holds. A layer whose stamp is still current comes back
+    /// without its lines, so a filter change does not ship them again.
     fn get_screen_data(
         &self,
         start_date: f64,
@@ -50,6 +54,8 @@ impl MapManager {
         route_lines: bool,
         sections: bool,
         name_needle: String,
+        held_route_lines: Option<f64>,
+        held_sections: Option<f64>,
     ) -> Result<crate::FfiMapScreenData, VeloqError> {
         let start_date = crate::ffi_types::int_from_wire(start_date);
         let end_date = crate::ffi_types::int_from_wire(end_date);
@@ -63,8 +69,10 @@ impl MapManager {
                 sport_types,
                 distance_band,
                 is_metric,
-                route_lines,
-                sections,
+                crate::persistence::screens::pooled::MapLayers {
+                    route_lines: route_lines.then_some(held_route_lines),
+                    sections: sections.then_some(held_sections),
+                },
                 name_needle,
             )
         })
@@ -149,6 +157,8 @@ mod tests {
                 false,
                 false,
                 String::new(),
+                None,
+                None,
             )
             .unwrap();
         assert_eq!(screen.activity_count, 1);
@@ -164,6 +174,8 @@ mod tests {
                 false,
                 false,
                 String::new(),
+                None,
+                None,
             )
             .unwrap();
         assert_eq!(
@@ -194,6 +206,8 @@ mod tests {
                 false,
                 false,
                 String::new(),
+                None,
+                None,
             )
             .expect("the map tab reads while a writer holds the engine")
         });
@@ -330,5 +344,221 @@ mod tests {
             assert_eq!(line.center_lat, want.center_lat);
             assert_eq!(line.center_lng, want.center_lng);
         }
+    }
+    /// Two places ridden four times each, a section on each place, so the map
+    /// read carries both layers.
+    fn seed_layers(e: &mut crate::persistence::PersistentEngine) {
+        for i in 0..8u32 {
+            let id = format!("a{i}");
+            let base = f64::from(i / 4) * 0.05;
+            let track: Vec<GpsPoint> = (0..100)
+                .map(|p| GpsPoint {
+                    latitude: 46.0 + base + f64::from(p) * 0.0001,
+                    longitude: 7.0,
+                    elevation: Some(500.0 + f64::from(p)),
+                })
+                .collect();
+            e.add_activity(id.clone(), track.clone(), "Ride".into())
+                .unwrap();
+            // The map's window reads the metrics a sync fills.
+            e.set_activity_metrics(vec![crate::types::ActivityMetrics {
+                activity_id: id.clone(),
+                name: format!("ride {i}"),
+                date: 1_700_000_000 - i64::from(i) * 86_400,
+                distance: 12_345.0,
+                moving_time: 3_600,
+                elapsed_time: 3_600,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".into(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }])
+            .unwrap();
+            if i % 4 == 0 {
+                e.create_section(crate::sections::CreateSectionParams {
+                    sport_type: "Ride".into(),
+                    polyline: track,
+                    distance_meters: 1_100.0,
+                    name: Some(format!("Section {i}")),
+                    source_activity_id: Some(id.clone()),
+                    start_index: Some(0),
+                    end_index: Some(99),
+                })
+                .unwrap();
+            }
+        }
+        assert!(!e.get_groups().is_empty(), "the seed has no route groups");
+    }
+
+    fn read_layers(
+        maps: &MapManager,
+        needle: &str,
+        held_route_lines: Option<f64>,
+        held_sections: Option<f64>,
+    ) -> crate::FfiMapScreenData {
+        maps.get_screen_data(
+            1_600_000_000.0,
+            1_800_000_000.0,
+            Vec::new(),
+            crate::MapDistanceBand::All,
+            true,
+            true,
+            true,
+            needle.into(),
+            held_route_lines,
+            held_sections,
+        )
+        .unwrap()
+    }
+
+    fn stamps(screen: &crate::FfiMapScreenData) -> (Option<f64>, Option<f64>) {
+        (
+            screen.route_lines.as_ref().and_then(|layer| layer.stamp),
+            screen.sections.as_ref().and_then(|layer| layer.stamp),
+        )
+    }
+
+    /// Scenario: the athlete types a name into the map's search, each letter
+    /// a new map read, with both layers shown and nothing written meanwhile.
+    ///
+    /// Expected behaviour: the first read ships both layers; a read that
+    /// passes their stamps back narrows the activities and ships neither
+    /// layer again, while its counts and the route generation stay as they
+    /// were. A stamp that is not current ships the layer.
+    #[test]
+    fn a_filter_change_ships_no_layer_the_caller_holds() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("map_layers_held.db");
+        let maps = MapManager::new();
+        with_persistent_engine(seed_layers).unwrap();
+
+        let first = read_layers(&maps, "", None, None);
+        let routes = first.route_lines.as_ref().expect("the route layer is on");
+        let drawn = routes.routes.as_ref().expect("first read ships the lines");
+        assert!(!drawn.is_empty());
+        let sections = first.sections.as_ref().expect("the overlay is on");
+        assert_eq!(
+            sections
+                .sections
+                .as_ref()
+                .expect("first read ships the overlay")
+                .len(),
+            2
+        );
+        let (route_stamp, section_stamp) = stamps(&first);
+        assert!(route_stamp.is_some() && section_stamp.is_some());
+        assert_eq!(first.activities.len(), 8);
+
+        let typed = read_layers(&maps, "ride 3", route_stamp, section_stamp);
+        assert_eq!(typed.activities.len(), 1, "the needle still narrows");
+        let held_routes = typed.route_lines.as_ref().expect("the route layer is on");
+        assert!(
+            held_routes.routes.is_none(),
+            "held route lines shipped again"
+        );
+        assert_eq!(held_routes.generation, routes.generation);
+        assert_eq!(held_routes.stamp, route_stamp);
+        assert_eq!(typed.route_count, first.route_count);
+        let held_sections = typed.sections.as_ref().expect("the overlay is on");
+        assert!(
+            held_sections.sections.is_none(),
+            "held overlay shipped again"
+        );
+        assert_eq!(held_sections.stamp, section_stamp);
+        assert_eq!(typed.section_count, first.section_count);
+
+        let unknown = read_layers(
+            &maps,
+            "ride",
+            route_stamp.map(|stamp| stamp + 1.0),
+            section_stamp.map(|stamp| stamp + 1.0),
+        );
+        assert!(unknown.route_lines.and_then(|layer| layer.routes).is_some());
+        assert!(unknown.sections.and_then(|layer| layer.sections).is_some());
+    }
+
+    /// Scenario: the map holds both layers, then a section and a route are
+    /// renamed, each a commit that rebuilds nothing the layers are stamped
+    /// with on their own.
+    ///
+    /// Expected behaviour: each write moves the stamp, so the next read ships
+    /// the layer again carrying the new name rather than leaving the old one
+    /// on the map.
+    #[test]
+    fn a_rename_ships_the_layer_it_names_again() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("map_layers_renamed.db");
+        let maps = MapManager::new();
+        with_persistent_engine(seed_layers).unwrap();
+
+        let first = read_layers(&maps, "", None, None);
+        let (route_stamp, section_stamp) = stamps(&first);
+        let section_id = first.sections.as_ref().unwrap().sections.as_ref().unwrap()[0]
+            .id
+            .clone();
+        with_persistent_engine(|e| e.set_section_name(&section_id, Some("Quarry climb")))
+            .unwrap()
+            .unwrap();
+
+        let renamed = read_layers(&maps, "", route_stamp, section_stamp);
+        let (route_stamp, _) = stamps(&renamed);
+        let overlay = renamed.sections.expect("the overlay is on");
+        assert_ne!(overlay.stamp, section_stamp, "a rename left the stamp");
+        let shipped = overlay.sections.expect("a rename ships the overlay");
+        let named = shipped
+            .iter()
+            .find(|section| section.id == section_id)
+            .expect("still drawn");
+        assert_eq!(named.name.as_deref(), Some("Quarry climb"));
+
+        let route_id = renamed.route_lines.unwrap().routes.unwrap()[0]
+            .route_id
+            .clone();
+        with_persistent_engine(|e| e.set_route_name(&route_id, Some("Orchard loop")))
+            .unwrap()
+            .unwrap();
+        let lines = read_layers(&maps, "", route_stamp, None)
+            .route_lines
+            .and_then(|layer| layer.routes)
+            .expect("a rename ships the route lines");
+        let named = lines
+            .iter()
+            .find(|line| line.route_id == route_id)
+            .expect("still drawn");
+        assert_eq!(named.name, "Orchard loop");
+    }
+
+    /// Scenario: the overlay is hidden and shown again, which drops what the
+    /// caller held, with nothing written in between, and then a section is
+    /// renamed.
+    ///
+    /// Expected behaviour: the overlay's lines are decoded and re-encoded once
+    /// per database state, not once per read, and a commit builds them again.
+    #[test]
+    fn the_overlay_is_built_once_per_database_state() {
+        use crate::persistence::sections::pooled::MAP_SECTION_BUILDS;
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("map_overlay_built_once.db");
+        let maps = MapManager::new();
+        with_persistent_engine(seed_layers).unwrap();
+        let builds = || MAP_SECTION_BUILDS.with(std::cell::Cell::get);
+
+        let start = builds();
+        let first = read_layers(&maps, "", None, None);
+        read_layers(&maps, "ride", None, None);
+        read_layers(&maps, "ride 1", None, None);
+        assert_eq!(builds(), start + 1, "one database state, one overlay build");
+
+        let section_id = first.sections.unwrap().sections.unwrap()[0].id.clone();
+        with_persistent_engine(|e| e.set_section_name(&section_id, Some("Quarry climb")))
+            .unwrap()
+            .unwrap();
+        read_layers(&maps, "", None, None);
+        read_layers(&maps, "", None, None);
+        assert_eq!(builds(), start + 2, "a commit builds the overlay again");
     }
 }

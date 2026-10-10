@@ -1,8 +1,8 @@
 /**
  * Scenario: an idle map source has nothing to draw.
- * Expected behaviour: every surface hands Fabric the one shared empty
- * collection. A second referential identity re-mounts a ShapeSource for no
- * reason, and on iOS that is the fragile path.
+ * Expected behaviour: every surface hands the map the one shared empty
+ * collection. The surface patcher compares sources by identity, so a second
+ * empty object is a source it cannot skip and sends again for nothing.
  */
 
 import { renderHook } from '@testing-library/react-native';

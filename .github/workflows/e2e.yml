@@ -50,7 +50,7 @@ jobs:
     name: E2E Android (Maestro)
     # Hosted Ubuntu + KVM (see e2e-gate.yml): hosted macOS can't boot an Android
     # emulator (nested VM, no HVF -> qemu fails with HV_UNSUPPORTED).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
         uses: ./.github/actions/install-maestro
 
       - name: Run Maestro tests on emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         with:
@@ -161,7 +161,7 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: maestro-report.xml
           check_name: E2E Android Results
@@ -180,7 +180,7 @@ jobs:
   widget-captures-android:
     needs: build-android-dev
     name: Widget captures (Android)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +198,7 @@ jobs:
           path: modules/veloqrs/android/build/outputs/apk/androidTest/debug
 
       - name: Capture the widgets on an emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
           arch: x86_64
@@ -229,78 +229,99 @@ jobs:
   e2e-ios:
     needs: build-ios-dev
 
-    name: E2E iOS (Maestro)
+    name: E2E iOS (Maestro, ${{ matrix.shard.name }})
     runs-on: macos-26
-    # 85 flows at the measured 1.4 minutes each, plus about a quarter hour of
-    # setup. At 120 the sweep was cancelled three times running, reaching 77,
-    # 60 and 59 flows, so no complete iOS result had ever been seen.
-    timeout-minutes: 180
+    # One job ran every flow and was cancelled at 120 minutes and again at 180,
+    # so no iOS report was ever seen. Each shard is a set of packs, narrowed by
+    # tier where one pack alone is too slow, and holds the flows whose measured
+    # time, plus setup and a retry pass for half of them, fits inside the hour.
+    # src/__tests__/bugs/e2eIosSweepFinishes.test.ts holds the measurements and
+    # refuses a shard that outgrows its timeout or a flow no shard runs.
+    timeout-minutes: 60
+    strategy:
+      # A failed shard must not cancel the others, since a cancelled shard
+      # leaves no report.
+      fail-fast: false
+      matrix:
+        shard:
+          - name: map
+            packs: pack-map
+            tiers: tier0,tier1,tier2,tier3
+          - name: routes
+            packs: pack-routes
+            tiers: tier2,tier3
+          - name: settings
+            packs: pack-settings
+            tiers: tier2,tier3
+          - name: routes-settings-core
+            packs: pack-routes,pack-settings
+            tiers: tier0,tier1
+          - name: recording
+            packs: pack-recording
+            tiers: tier0,tier1,tier2,tier3
+          - name: activity-data
+            packs: pack-activity,pack-data
+            tiers: tier0,tier1,tier2,tier3
+          - name: nav-auth-home
+            packs: pack-nav,pack-auth,pack-home,pack-training
+            tiers: tier0,tier1,tier2,tier3
+          - name: fitness-stress
+            packs: pack-fitness,pack-stress
+            tiers: tier0,tier1,tier2,tier3
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download iOS app
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
-          path: /tmp/ios-artifact
-
-      - name: Extract iOS app
-        run: |
-          mkdir -p ios/build/Build/Products/Release-iphonesimulator
-          ZIP=$(find /tmp/ios-artifact -name "*.zip" | head -1)
-          unzip "$ZIP" -d ios/build/Build/Products/Release-iphonesimulator/
 
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
 
-      - name: Find and boot simulator
+      - name: Boot simulator with the Dev app
         id: simulator
-        run: |
-          DEVICE="iPhone 17 Pro Max"
-          UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
-          if [ -z "$UDID" ]; then
-            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
-          fi
-          echo "Using simulator: $UDID"
-          xcrun simctl boot "$UDID" || true
-          echo "udid=$UDID" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/boot-ios-simulator
+        with:
+          artifact: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
 
-      - name: Wait for simulator readiness
-        run: |
-          for i in $(seq 1 30); do
-            if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
-              echo "SpringBoard is running"
-              break
-            fi
-            echo "Waiting for SpringBoard... ($i/30)"
-            sleep 2
-          done
-          sleep 5
-
-      - name: Install app
-        run: |
-          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app
-
+      # Maestro includes a flow carrying any included tag, so the packs go in
+      # --include-tags and the tiers this shard does not hold, or the dispatch
+      # did not ask for, go in --exclude-tags. A shard left with no tier runs
+      # nothing and writes no report.
       - name: Run Maestro tests
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+          PACKS: ${{ matrix.shard.packs }}
+          SHARD_TIERS: ${{ matrix.shard.tiers }}
+          TIERS: ${{ inputs.tier || 'tier0,tier1,tier2,tier3' }}
         run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/ \
-            --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
-            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+          exclude=""
+          held=""
+          for tier in tier0 tier1 tier2 tier3; do
+            case ",$TIERS," in *",$tier,"*) asked=1 ;; *) asked=0 ;; esac
+            case ",$SHARD_TIERS," in *",$tier,"*) mine=1 ;; *) mine=0 ;; esac
+            if [ "$asked" = 1 ] && [ "$mine" = 1 ]; then
+              held=1
+            else
+              exclude="$exclude${exclude:+,}$tier"
+            fi
+          done
+          case ",$TIERS," in *",tier4,"* | *",tier5,"*) echo "::warning::Flows past tier3 carry no pack, so no iOS shard runs them." ;; esac
+          if [ -z "$held" ]; then
+            echo "This shard holds none of the tiers asked for ($TIERS)."
+            exit 0
+          fi
+          args=(--include-tags="$PACKS")
+          [ -z "$exclude" ] || args+=(--exclude-tags="$exclude")
+          .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug "${args[@]}" || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
       - name: Capture diagnostic logs
         if: always()
         run: |
-          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "VeloqDev" OR processImagePath CONTAINS "VeloqDev"' > /tmp/ios-sim-log.txt 2>&1 || true
+          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 60m --predicate 'process == "VeloqDev" OR processImagePath CONTAINS "VeloqDev"' > /tmp/ios-sim-log.txt 2>&1 || true
           find ~/Library/Logs/DiagnosticReports -name "VeloqDev*" -exec cp {} /tmp/ \; 2>/dev/null || true
 
       - name: Collect screenshots
         if: always()
         run: |
           mkdir -p screenshots-flat
-          find "$GITHUB_WORKSPACE"/screenshots ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          find "$GITHUB_WORKSPACE"/screenshots ~/.maestro /tmp/maestro-debug -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
           done
@@ -309,7 +330,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-ios
+          name: screenshots-ios-${{ matrix.shard.name }}
           path: screenshots-flat/
           retention-days: 14
 
@@ -317,7 +338,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-sim-logs
+          name: ios-sim-logs-${{ matrix.shard.name }}
           path: |
             /tmp/ios-sim-log.txt
             /tmp/VeloqDev*
@@ -327,16 +348,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-ios-report
-          path: maestro-report.xml
+          name: maestro-ios-report-${{ matrix.shard.name }}
+          path: |
+            maestro-report.xml
+            retry-reports/
           retention-days: 7
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: maestro-report.xml
-          check_name: E2E iOS Results
+          check_name: E2E iOS Results (${{ matrix.shard.name }})
           fail_on_failure: false
 
       - name: Fail if tests failed
@@ -385,16 +408,17 @@ jobs:
     needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android, widget-captures-android, widget-captures-ios]
     if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
     name: E2E Summary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       # continue-on-error is intentional on both report downloads: the summary must
       # still render when one platform job died before uploading its report. The
       # summary step below emits an explicit failure row for a missing report.
-      - name: Download iOS report
+      # One report per shard, each in its own directory under the pattern.
+      - name: Download iOS reports
         uses: actions/download-artifact@v8
         with:
-          name: maestro-ios-report
+          pattern: maestro-ios-report-*
           path: /tmp/reports/ios
         continue-on-error: true
 
@@ -422,21 +446,33 @@ jobs:
             echo ""
             echo "| Platform | Result | Status |"
             echo "|----------|--------|--------|"
-            for platform in ios android; do
-              report="/tmp/reports/$platform/maestro-report.xml"
+            row() {
+              label="$1"
+              report="$2"
               if [ -f "$report" ]; then
                 tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
                 failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
                 if [ "$failures" = "0" ] || [ -z "$failures" ]; then
-                  echo "| $platform | ${tests:-0} passed | :white_check_mark: |"
+                  echo "| $label | ${tests:-0} passed | :white_check_mark: |"
                 else
                   passed=$((tests - failures))
-                  echo "| $platform | $passed/$tests passed ($failures failed) | :x: |"
+                  echo "| $label | $passed/$tests passed ($failures failed) | :x: |"
                 fi
               else
-                echo "| $platform | Report missing: platform job failed or did not upload | :x: |"
+                echo "| $label | Report missing: platform job failed or did not upload | :x: |"
               fi
+            }
+            for dir in /tmp/reports/ios/maestro-ios-report-*; do
+              [ -d "$dir" ] || continue
+              row "ios ${dir##*/maestro-ios-report-}" "$dir/maestro-report.xml"
             done
+            # A cancelled shard uploads nothing, so the shards above are only
+            # those that wrote a report, and the job result is what says the
+            # rest did not finish.
+            if [ "$IOS_RESULT" != "success" ]; then
+              echo "| ios | Shards ended $IOS_RESULT: a shard missing above did not finish | :x: |"
+            fi
+            row android /tmp/reports/android/maestro-report.xml
             for platform in ios android; do
               case "$platform" in
                 ios) producer="$IOS_PRODUCER" ;;

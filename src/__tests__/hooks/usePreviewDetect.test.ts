@@ -446,12 +446,15 @@ describe('usePreviewDetect', () => {
     expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
     expect(result.current.status).toBe('cancelled');
 
-    // The worker still announces the run it was told to abandon.
+    // The cancel is cooperative, so the run is followed until the worker
+    // announces its end, and nothing it produced is shown.
+    expect(detaches).toBe(0);
+    (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
     fireFinished();
     act(() => {
       jest.advanceTimersByTime(2000);
     });
-    expect(client.pollPreviewDetect).not.toHaveBeenCalled();
+    expect(client.takePreviewResult).not.toHaveBeenCalled();
     expect(result.current.status).toBe('cancelled');
     expect(detaches).toBe(2);
   });
@@ -1023,6 +1026,219 @@ describe('usePreviewDetect', () => {
 
       expect(getPreviewProgress).not.toHaveBeenCalled();
       expect(result.current.progress).toBeNull();
+    });
+  });
+
+  describe('a run left behind by reset or cancel', () => {
+    const NEXT_CENTRE = { lat: 30, lng: 40 };
+
+    /**
+     * An engine whose one slot stays held until the worker announces the run's
+     * end, so a start before then is refused as busy, as the engine does.
+     */
+    function makeSlotClient() {
+      let held = false;
+      let polled: PreviewPollStatus = 'idle';
+      const client = makeClient({
+        startPreviewDetect: jest.fn(() => {
+          if (held) return StartOutcome.Busy;
+          held = true;
+          polled = 'running';
+          return StartOutcome.Started;
+        }),
+        pollPreviewDetect: jest.fn(() => polled),
+        takePreviewResult: jest.fn(() => RESULT),
+      });
+      const endRun = (status: PreviewPollStatus) => {
+        held = false;
+        polled = status;
+        fireFinished();
+      };
+      return { client, endRun };
+    }
+
+    it('reset cancels the live run and a Preview tapped before it ends starts once it has', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe('idle');
+
+      act(() => {
+        result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
+      });
+      expect(result.current.refusal).toBeNull();
+
+      endRun('cancelled');
+
+      expect(client.takePreviewResult).not.toHaveBeenCalled();
+      expect(client.startPreviewDetect).toHaveBeenLastCalledWith(NEXT_CENTRE.lat, NEXT_CENTRE.lng, {
+        ...LIVE_CONFIG,
+        ...PARAMS,
+      });
+      expect(result.current.refusal).toBeNull();
+      expect(result.current.status).toBe('running');
+
+      endRun('complete');
+      expect(result.current.status).toBe('complete');
+      expect(result.current.result).toEqual(RESULT);
+    });
+
+    it('does not paint a reset run that completes before its cancel is noticed', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      endRun('complete');
+
+      expect(client.takePreviewResult).not.toHaveBeenCalled();
+      expect(result.current).toMatchObject({ status: 'idle', result: null, refusal: null });
+      expect(finishListeners.size).toBe(0);
+    });
+
+    it('does not say a reset run is slow while it winds down', () => {
+      const { client } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS * 2);
+      });
+
+      expect(result.current.lapsed).toBe(false);
+      expect(result.current.status).toBe('idle');
+    });
+
+    it('a Preview tapped after cancel, before the run ends, starts once it has', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.cancel();
+      });
+      expect(result.current.status).toBe('cancelled');
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      expect(result.current.refusal).toBeNull();
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+
+      endRun('cancelled');
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
+      expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
+        ...LIVE_CONFIG,
+        ...PARAMS,
+      });
+      expect(result.current.refusal).toBeNull();
+      expect(result.current.status).toBe('running');
+    });
+
+    it('starts nothing after a cancel that nothing follows, and stays cancelled', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.cancel();
+      });
+      endRun('complete');
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(client.takePreviewResult).not.toHaveBeenCalled();
+      expect(result.current.status).toBe('cancelled');
+      expect(finishListeners.size).toBe(0);
+    });
+
+    it('a second cancel drops a queued Preview and asks the engine nothing more', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      act(() => {
+        result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
+      });
+      act(() => {
+        result.current.cancel();
+      });
+      endRun('cancelled');
+
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe('cancelled');
+    });
+
+    it('runs the last of several Preview taps made while the run winds down', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      act(() => {
+        result.current.start(1, 2, PARAMS);
+      });
+      act(() => {
+        result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
+      });
+      endRun('cancelled');
+
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
+      expect(client.startPreviewDetect).toHaveBeenLastCalledWith(NEXT_CENTRE.lat, NEXT_CENTRE.lng, {
+        ...LIVE_CONFIG,
+        ...PARAMS,
+      });
+    });
+
+    it('unmount during the wind-down asks the engine nothing more and starts nothing', () => {
+      const { client, endRun } = makeSlotClient();
+      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.reset();
+      });
+      act(() => {
+        result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
+      });
+      unmount();
+      expect(finishListeners.size).toBe(0);
+      endRun('cancelled');
+
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
     });
   });
 });

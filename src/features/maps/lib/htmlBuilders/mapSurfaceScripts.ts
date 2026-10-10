@@ -534,15 +534,18 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         _post({ type: 'clusterLeaves', requestId: requestId, features: [] });
         return;
       }
-      source.getClusterLeaves(clusterId, limit, offset, function(error, features) {
-        _post({
-          type: 'clusterLeaves',
-          requestId: requestId,
-          features: error ? [] : (features || []).map(function(feature) {
+      // MapLibre 5 answers with a Promise and ignores a callback argument, and
+      // a request with no post leaves its caller waiting.
+      Promise.resolve()
+        .then(function() { return source.getClusterLeaves(clusterId, limit, offset); })
+        .then(function(features) {
+          return (features || []).map(function(feature) {
             return { properties: feature.properties || {}, geometry: feature.geometry || null };
-          }),
+          });
+        }, function() { return []; })
+        .then(function(features) {
+          _post({ type: 'clusterLeaves', requestId: requestId, features: features });
         });
-      });
     };
 
     window._veloq.clusterExpansionZoom = function(requestId, sourceId, clusterId) {
@@ -551,13 +554,14 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         _post({ type: 'clusterExpansionZoom', requestId: requestId, zoom: null });
         return;
       }
-      source.getClusterExpansionZoom(clusterId, function(error, zoom) {
-        _post({
-          type: 'clusterExpansionZoom',
-          requestId: requestId,
-          zoom: error ? null : zoom,
+      Promise.resolve()
+        .then(function() { return source.getClusterExpansionZoom(clusterId); })
+        .then(function(zoom) {
+          return typeof zoom === 'number' ? zoom : null;
+        }, function() { return null; })
+        .then(function(zoom) {
+          _post({ type: 'clusterExpansionZoom', requestId: requestId, zoom: zoom });
         });
-      });
     };
 
     // Screen positions for the React Native overlays that sit above the map.

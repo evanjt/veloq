@@ -796,6 +796,8 @@ async function handleIntervalsWebhook(
     for (const event of payload.events) {
       if (!event.athlete_id || !event.type) continue;
       if (!PROCESSED_EVENTS.has(event.type)) continue;
+      // The guard narrows the field here and not inside the prune closure below.
+      const athleteId = event.athlete_id;
 
       // Deduplicate: skip if we already processed this event recently.
       // Bypass with `"skip_dedupe": true` at the top of the webhook body for
@@ -853,7 +855,7 @@ async function handleIntervalsWebhook(
             });
           }
           for (const token of dead) {
-            await clearTokenOwner(env, event.athlete_id, token);
+            await clearTokenOwner(env, athleteId, token);
           }
           console.log(
             `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`

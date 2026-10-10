@@ -21,4 +21,4 @@ xcrun swiftc \
   -o "$BUILD/replace-file-check" \
   "$MODULE/ios/AtomicReplace.swift" "$MODULE/ios-check/main.swift"
 
-xcrun simctl spawn booted "$BUILD/replace-file-check"
+"$ROOT/scripts/with-simulator-lock.sh" booted xcrun simctl spawn booted "$BUILD/replace-file-check"

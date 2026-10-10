@@ -43,6 +43,7 @@ pub use history::{
     SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
 };
 pub(crate) use identity::SECTION_IDENTITY_KEY;
+pub(crate) use identity::SECTION_INTENT_KINDS;
 pub(crate) use identity::SectionIdentity;
 pub use identity::content_id_for;
 pub(crate) use identity::{identity_blob_for, purge_activity_from_tiers};
@@ -2679,6 +2680,40 @@ pub(crate) fn forced_portions(
     }
 }
 
+/// How far off a section line the strict cut finds a pass: the padding its
+/// own bounds test grows the line by.
+pub(crate) fn strict_reach_m(config: &tracematch::SectionConfig) -> f64 {
+    config.proximity_threshold
+}
+
+/// How far off a section line [`forced_portions`] finds a pass. Its bounds
+/// test pads by the larger of the threshold and its lateral tolerance, and
+/// that tolerance sits below the relaxed bar.
+pub(crate) fn forced_reach_m(config: &tracematch::SectionConfig) -> f64 {
+    config.proximity_threshold * FORCED_PROXIMITY_FACTOR
+}
+
+/// Whether a track spanning `track` comes within `reach_m` of `line`'s box.
+///
+/// A cut builds the line's matcher and index before its own bounds test, so
+/// a caller holding many sections asks this first and cuts only those it
+/// admits. The box is never narrower than the cut's: a degree of latitude is
+/// taken as shorter than it is, and a degree of longitude at the line's
+/// pole-most latitude, where it is shortest. A section refused here is one
+/// the cut would have found no pass on.
+pub(crate) fn may_reach(track: &tracematch::Bounds, line: &[GpsPoint], reach_m: f64) -> bool {
+    let Some(line) = tracematch::Bounds::from_points(line) else {
+        return false;
+    };
+    let pole = line.min_lat.abs().max(line.max_lat.abs());
+    let d_lat = reach_m / 110_000.0;
+    let d_lng = reach_m / (111_320.0 * pole.to_radians().cos()).max(1.0);
+    track.max_lat >= line.min_lat - d_lat
+        && track.min_lat <= line.max_lat + d_lat
+        && track.max_lng >= line.min_lng - d_lng
+        && track.min_lng <= line.max_lng + d_lng
+}
+
 /// A pass cut with a lateral tolerance runs on past the line, one tolerance
 /// before its start and after its end. Trim it to the points nearest the
 /// line's two ends, so its distance and lap time describe the section. A pass
@@ -2899,6 +2934,14 @@ pub(crate) mod pooled {
         }
     }
 
+    #[cfg(test)]
+    thread_local! {
+        /// How many overlays this thread has built, each a decode and re-encode
+        /// of every line in it.
+        pub(crate) static MAP_SECTION_BUILDS: std::cell::Cell<usize> =
+            const { std::cell::Cell::new(0) };
+    }
+
     /// [`PersistentEngine::get_map_sections`] on a connection. `names` is the
     /// corridor-name overlay: the engine passes its cached map, a pooled reader
     /// `named::pooled::overlay_names`.
@@ -2908,6 +2951,8 @@ pub(crate) mod pooled {
         min_visits: Option<u32>,
         names: &std::collections::BTreeMap<String, String>,
     ) -> Vec<crate::FfiMapSection> {
+        #[cfg(test)]
+        MAP_SECTION_BUILDS.with(|builds| builds.set(builds.get() + 1));
         let mut summaries =
             super::queries::pooled::section_summaries_filtered(conn, None, true, names);
         if let Some(sport) = sport_type {

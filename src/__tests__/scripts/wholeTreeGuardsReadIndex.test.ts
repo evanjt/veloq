@@ -33,6 +33,29 @@ const BARE_SPAWN = ['std::thread::sp', 'awn(|| {})'].join('');
 
 const JEST_SETUP = "require('./jest.tempDirs');\nafterAll(() => {\n  tracker.removeAll();\n});\n";
 
+const PEER_PACKAGE = {
+  name: 'peer-fixture',
+  version: '1.0.0',
+  dependencies: { 'example-host': '1.0.0', 'example-peer': '1.0.0' },
+};
+
+function peerLock(range: string): string {
+  return JSON.stringify({
+    name: 'peer-fixture',
+    version: '1.0.0',
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      '': PEER_PACKAGE,
+      'node_modules/example-host': {
+        version: '1.0.0',
+        peerDependencies: { 'example-peer': range },
+      },
+      'node_modules/example-peer': { version: '1.0.0' },
+    },
+  });
+}
+
 const CASES: Record<string, Case> = {
   'lint-rgba-literals': {
     guard: 'lint-rgba-literals.mjs',
@@ -166,6 +189,14 @@ const CASES: Record<string, Case> = {
     target: 'modules/veloqrs/src/generated/veloqrs.ts',
     clean: 'export const a = 1;\n',
     violation: '// @ts-nocheck\nexport const a = 1;\n',
+  },
+  'check-peer-ranges': {
+    guard: 'check-peer-ranges.mjs',
+    tree: { 'package.json': JSON.stringify(PEER_PACKAGE), 'allow.json': '[]' },
+    target: 'package-lock.json',
+    clean: peerLock('^1'),
+    violation: peerLock('>= 2.0.0'),
+    args: ['--allow', 'allow.json'],
   },
   'lint-bash-empty-arrays': {
     guard: 'lint-bash-empty-arrays.mjs',

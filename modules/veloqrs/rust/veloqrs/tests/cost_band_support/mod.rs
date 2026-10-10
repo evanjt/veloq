@@ -7,7 +7,9 @@
 //!
 //! These gates read a wall clock, so they run where the clock is steady: the
 //! corpus machine, in release, behind `real-corpus`. A shared runner measures
-//! the runner.
+//! the runner. They also read the heap through the counting allocator the
+//! included module installs, which is the code's number rather than the
+//! machine's and so takes the tighter `*_bytes` band.
 
 #![allow(dead_code)]
 
@@ -21,6 +23,16 @@ use std::path::Path;
 pub use bitwise::baseline::{self, Band};
 #[allow(unused_imports)]
 pub use bitwise::median_and_p95;
+
+/// Run `body` and return what it produced with how far the live heap rose
+/// above what was live when it started, in bytes. The allocator is
+/// process-wide, so `body` must be the only thing running: call it between
+/// quiesced spans, never while a background worker is still folding.
+pub fn peak_rise<T>(body: impl FnOnce() -> T) -> (T, u64) {
+    baseline::anchor_peak();
+    let out = body();
+    (out, baseline::peak_rise_bytes())
+}
 
 /// Judge `measured` against the baseline at `path`. A baseline recorded on
 /// another shape of input is re-derived rather than compared, so growth reads

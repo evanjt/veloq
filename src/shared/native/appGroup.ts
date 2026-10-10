@@ -7,6 +7,14 @@ const log = debug.create('AppGroup');
 
 interface VeloqAppGroupModule {
   containerPath(): string | null;
+  beginBackgroundTask?(name: string): number | null;
+  endBackgroundTask?(id: number): void;
+  prepareEngineForSuspension?(deadlineMs: number): Promise<boolean>;
+}
+
+function appGroupModule(): VeloqAppGroupModule | null {
+  if (Platform.OS !== 'ios') return null;
+  return requireOptionalNativeModule<VeloqAppGroupModule>('VeloqAppGroup');
 }
 
 /**
@@ -18,8 +26,7 @@ interface VeloqAppGroupModule {
  * database, not where the database has to be for the app itself to work.
  */
 export function appGroupPath(): string | null {
-  if (Platform.OS !== 'ios') return null;
-  const mod = requireOptionalNativeModule<VeloqAppGroupModule>('VeloqAppGroup');
+  const mod = appGroupModule();
   if (!mod) return null;
   try {
     return mod.containerPath() ?? null;
@@ -27,4 +34,44 @@ export function appGroupPath(): string | null {
     log.warn('could not read the App Group container:', e);
     return null;
   }
+}
+
+/**
+ * Ask iOS to keep the process running while `name` finishes, and answer the
+ * task's id for `endBackgroundTask`. Null where there is no such thing: on
+ * Android, without the native module, or when the system grants no time. The
+ * native side ends the task itself if the system's time runs out first.
+ */
+export function beginBackgroundTask(name: string): number | null {
+  const mod = appGroupModule();
+  if (!mod?.beginBackgroundTask) return null;
+  try {
+    return mod.beginBackgroundTask(name) ?? null;
+  } catch (e) {
+    log.warn('could not begin a background task:', e);
+    return null;
+  }
+}
+
+/** End a task `beginBackgroundTask` began. Null and an id already ended are no-ops. */
+export function endBackgroundTask(id: number | null): void {
+  if (id === null) return;
+  const mod = appGroupModule();
+  try {
+    mod?.endBackgroundTask?.(id);
+  } catch (e) {
+    log.warn('could not end a background task:', e);
+  }
+}
+
+/**
+ * Stop the engine writing and wait up to `deadlineMs` for the writes in flight
+ * to end, resolving with whether none is left open. The native side calls the
+ * engine's own suspension entry off the main thread. Null where there is no
+ * shared container to protect: on Android, or without the native module.
+ */
+export async function prepareEngineForSuspension(deadlineMs: number): Promise<boolean | null> {
+  const mod = appGroupModule();
+  if (!mod?.prepareEngineForSuspension) return null;
+  return mod.prepareEngineForSuspension(deadlineMs);
 }

@@ -271,6 +271,82 @@ describe('streams that do not arrive', () => {
   });
 });
 
+/// Scenario: the caller hands over the gap its screen read when it loaded, and
+/// that list is not re-read as streams land. Three of five arrive before the
+/// deadline, so a retry with the same list asks again for three already stored.
+/// Rust skips those, never announces them, and the retry reports them missing.
+///
+/// Expected behaviour: a retry reads the gap afresh and waits only on what is
+/// still missing, while a new activity set takes the caller's list again.
+describe('a retry after some streams landed', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e'];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListeners.clear();
+    missing.mockReturnValue([]);
+    startsWith(StartOutcome.Started);
+    mockIsOnline = true;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('waits only on the streams still missing, not the list it was handed', async () => {
+    jest.useFakeTimers();
+    const { result } = renderSync(ids, ids);
+    await act(async () => {});
+    announce(['a', 'b', 'c']);
+    await act(async () => {
+      jest.advanceTimersByTime(30_001);
+    });
+    expect(result.current).toMatchObject({ ready: true, outstanding: 2 });
+
+    missing.mockReturnValue(['d', 'e']);
+    act(() => result.current.refetch());
+    await act(async () => {});
+    expect(syncTimeStreams).toHaveBeenLastCalledWith(['d', 'e']);
+
+    announce(['d', 'e']);
+    await act(async () => {});
+
+    expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
+  });
+
+  it('settles at once on retry when every stream has landed since', async () => {
+    startsWith(StartOutcome.Held);
+    const { result } = renderSync(ids, ids);
+    await act(async () => {});
+    expect(result.current.outstanding).toBe(5);
+
+    missing.mockReturnValue([]);
+    act(() => result.current.refetch());
+    await act(async () => {});
+
+    expect(syncTimeStreams).toHaveBeenCalledTimes(1);
+    expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
+  });
+
+  it('takes the caller list again for a new activity set after a retry', async () => {
+    startsWith(StartOutcome.Held);
+    const { result, rerender } = renderHook(
+      ({ all, known }: { all: string[]; known: string[] }) => useSectionTimeStreamSync(all, known),
+      { initialProps: { all: ['a'], known: ['a'] } }
+    );
+    await act(async () => {});
+    act(() => result.current.refetch());
+    await act(async () => {});
+    const readsBefore = missing.mock.calls.length;
+
+    rerender({ all: ['x', 'y'], known: ['y'] });
+    await act(async () => {});
+
+    expect(missing).toHaveBeenCalledTimes(readsBefore);
+    expect(syncTimeStreams).toHaveBeenLastCalledWith(['y']);
+  });
+});
+
 describe('a wait the caller has moved on from', () => {
   beforeEach(() => {
     jest.clearAllMocks();

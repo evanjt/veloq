@@ -1,9 +1,9 @@
 //! Scenario: a sync attaches each downloaded activity to the stored catalogue
 //! one at a time, on the private corpus.
-//! Expected behaviour: the per-activity median and p95 stay inside a band of
-//! the baseline recorded beside the corpus. There is no absolute ceiling, a
-//! slowdown fails the band and the baseline moves only on a rebase that gives
-//! its reason.
+//! Expected behaviour: the per-activity median and p95, and the highest heap
+//! any one attach rose to, stay inside a band of the baseline recorded beside
+//! the corpus. There is no absolute ceiling, a slowdown fails the band and the
+//! baseline moves only on a rebase that gives its reason.
 //!
 //! Run: `cargo test --release -p veloqrs --features real-corpus --test attach_cost_band -- --nocapture`
 //! Rebase: set `TRACEMATCH_BITWISE_REBASE` to the reason, after reading the report.
@@ -14,7 +14,7 @@ mod cost_band_support;
 
 use std::time::Instant;
 
-use cost_band_support::{Band, corpus, judge, median_and_p95};
+use cost_band_support::{Band, corpus, judge, median_and_p95, peak_rise};
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::WorkerPoll;
@@ -68,14 +68,21 @@ fn attaching_one_activity_stays_inside_its_band() {
     engine.get_groups();
 
     let mut attach_us: Vec<u64> = Vec::with_capacity(ATTACHED);
+    let mut peak_bytes = 0;
     for (id, track) in &tracks[split..] {
         add(&mut engine, id, track);
-        let t = Instant::now();
-        engine.attach_new_activities(std::slice::from_ref(id));
-        attach_us.push(t.elapsed().as_micros() as u64);
+        let (us, rise) = peak_rise(|| {
+            let t = Instant::now();
+            engine.attach_new_activities(std::slice::from_ref(id));
+            t.elapsed().as_micros() as u64
+        });
+        attach_us.push(us);
+        peak_bytes = peak_bytes.max(rise);
     }
     let (median, p95) = median_and_p95(&attach_us);
-    println!("attach over {split} stored: median {median} us, p95 {p95} us");
+    println!(
+        "attach over {split} stored: median {median} us, p95 {p95} us, peak rise {peak_bytes} bytes"
+    );
 
     judge(
         &corpus::dir(CORPUS).join(BASELINE),
@@ -83,6 +90,7 @@ fn attaching_one_activity_stays_inside_its_band() {
         &[
             ("perf_attach_median_us", median),
             ("perf_attach_p95_us", p95),
+            ("perf_attach_peak_bytes", peak_bytes),
         ],
         &BAND,
     );

@@ -54,16 +54,12 @@ pub enum FitParseError {
 
 /// Parse a FIT binary file and return extracted exercise sets or a typed error.
 ///
-/// Wraps [`parse_fit_sets`] with explicit error reporting so callers can
-/// distinguish an unparseable file from a valid-but-empty one (e.g. a cardio
-/// activity with no `Set` messages).
+/// The error keeps an unparseable file apart from a valid-but-empty one (e.g.
+/// a cardio activity with no `Set` messages).
 pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitParseError> {
     if data.is_empty() {
         return Err(FitParseError::Empty);
     }
-    // Decoded once and handed on. Reporting the failure used to mean decoding
-    // the file here and again inside `parse_fit_sets`, so every strength
-    // upload parsed its FIT twice.
     let records = decode(data).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
     Ok(sets_from_records(&records))
 }
@@ -122,17 +118,6 @@ fn semicircles_to_degrees(value: &fitparser::Value) -> Option<f64> {
         _ => return None,
     };
     Some(semicircles * (180.0 / 2_147_483_648.0))
-}
-
-/// Parse a FIT binary file and extract exercise set data.
-///
-/// Returns an empty vec if the file has no set messages or is invalid.
-pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
-    let records = match decode(data) {
-        Ok(r) => r,
-        Err(_) => return Vec::new(),
-    };
-    sets_from_records(&records)
 }
 
 /// The exercise sets among already-decoded FIT records.
@@ -420,7 +405,7 @@ pub(crate) fn recorded_ride_fit() -> Vec<u8> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     /// Scenario: a ride's provisional row is written from the FIT the device
     /// saved, at save time or by the replay at the next launch, so the track
     /// has to come back out of the file the app's own writer produced.
@@ -514,7 +499,7 @@ mod tests {
     /// A FIT file of `Set` messages. Local message 0 writes `category` with
     /// one slot and local message 1 with three, which is how a watch that
     /// ranks candidates writes it.
-    fn fit_file(sets: &[(u8, u8, u16, &[u16])]) -> Vec<u8> {
+    pub(crate) fn fit_file(sets: &[(u8, u8, u16, &[u16])]) -> Vec<u8> {
         const SET: u16 = 225;
         let definition = |local: u8, slots: u8| {
             let mut bytes = vec![0x40 | local, 0, 0];
@@ -573,13 +558,6 @@ mod tests {
         assert_eq!(
             read,
             vec![(28, 0, Some(5)), (0xFFFF, 1, None), (0, 0, Some(8))]
-        );
-        assert_eq!(
-            parse_fit_sets(&file)
-                .iter()
-                .map(|s| s.exercise_category)
-                .collect::<Vec<_>>(),
-            vec![28, 0xFFFF, 0]
         );
     }
 
@@ -664,10 +642,18 @@ mod tests {
         assert!(groups.is_empty());
     }
 
+    /// One flipped byte in the trailing CRC fails the whole file, and that
+    /// must read as a decode failure, never as a file with no sets.
     #[test]
-    fn test_parse_empty_data() {
-        assert!(parse_fit_sets(&[]).is_empty());
-        assert!(parse_fit_sets(&[0; 10]).is_empty());
+    fn a_file_with_a_broken_crc_is_a_decode_error() {
+        let mut file = fit_file(&[(0, 1, 5, &[28])]);
+        let last = file.len() - 1;
+        file[last] ^= 0xFF;
+
+        assert!(matches!(
+            parse_fit_strength_sets(&file),
+            Err(FitParseError::Decode(_))
+        ));
     }
 
     #[test]

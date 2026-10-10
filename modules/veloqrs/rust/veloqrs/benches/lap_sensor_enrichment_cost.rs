@@ -583,7 +583,9 @@ fn reader_latency_under_the_sensor_pass() {
                 while !stop.load(Ordering::Relaxed) {
                     let t0 = Instant::now();
                     let n: usize = conn
-                        .query_row("SELECT count(*) FROM sections", [], |r| r.get(0))
+                        .query_row("SELECT count(*) FROM sections", [], |r| {
+                            r.get::<_, i64>(0).map(|n| n as usize)
+                        })
                         .expect("count sections");
                     out.push(t0.elapsed().as_micros());
                     std::hint::black_box(n);

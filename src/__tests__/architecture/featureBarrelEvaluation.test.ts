@@ -103,7 +103,7 @@ describe.each([
       'useStartupData',
       'FeedFirstSyncStandby',
       'summaryCardTarget',
-      'readCalendarEvents',
+      'readPlannedWorkouts',
     ],
   ],
   [

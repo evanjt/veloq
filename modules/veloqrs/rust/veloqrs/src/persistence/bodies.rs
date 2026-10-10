@@ -6,6 +6,8 @@
 //! means anything alongside the sport, window and gap flag it was computed
 //! for, so a typed row would be both lossy and ambiguous.
 
+use std::borrow::Cow;
+
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
@@ -367,17 +369,32 @@ impl PersistentEngine {
         pooled::stored_curve(&self.db, kind, sport, days, gap)
     }
 
-    /// Store an activity's interval body.
+    /// Store an activity's interval body, without the null fields of its intervals and groups.
     pub fn set_interval_body(&self, activity_id: &str, raw: &str) -> SqlResult<()> {
-        self.db.execute(
-            "INSERT INTO interval_bodies (activity_id, raw, updated_at)
-             VALUES (?, ?, strftime('%s', 'now'))
-             ON CONFLICT(activity_id) DO UPDATE SET
-                raw = excluded.raw,
-                updated_at = excluded.updated_at",
-            params![activity_id, raw],
-        )?;
-        Ok(())
+        self.set_interval_bodies(&[(activity_id.to_owned(), raw.to_owned())])
+    }
+
+    /// Store several activities' interval bodies in one transaction, each without the
+    /// null fields of its intervals and groups.
+    pub fn set_interval_bodies(&self, rows: &[(String, String)]) -> SqlResult<()> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let transaction = self.db.unchecked_transaction()?;
+        {
+            let mut upsert = transaction.prepare(
+                "INSERT INTO interval_bodies (activity_id, raw, updated_at)
+                 VALUES (?, ?, strftime('%s', 'now'))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    raw = excluded.raw,
+                    updated_at = excluded.updated_at",
+            )?;
+            for (activity_id, raw) in rows {
+                let raw = interval_body_to_store(raw);
+                upsert.execute(params![activity_id, raw.as_ref()])?;
+            }
+        }
+        transaction.commit()
     }
 
     /// An activity's stored interval body, or `None` if never fetched.
@@ -753,6 +770,34 @@ impl PersistentEngine {
         self.db.busy_timeout(std::time::Duration::from_secs(5))?;
         touched.map(|_| ())
     }
+}
+
+/// An interval body as it is stored: every null-valued key dropped from each object in
+/// `icu_intervals` and `icu_groups`. Nearly half of those keys arrive null, and every reader
+/// treats an absent key and a null one alike. A body that is not a JSON object, or has no
+/// such null, is stored as given.
+fn interval_body_to_store(raw: &str) -> Cow<'_, str> {
+    let Ok(serde_json::Value::Object(mut body)) = serde_json::from_str(raw) else {
+        return Cow::Borrowed(raw);
+    };
+    let mut dropped = false;
+    for key in ["icu_intervals", "icu_groups"] {
+        let Some(serde_json::Value::Array(objects)) = body.get_mut(key) else {
+            continue;
+        };
+        for object in objects
+            .iter_mut()
+            .filter_map(serde_json::Value::as_object_mut)
+        {
+            let before = object.len();
+            object.retain(|_, field| !field.is_null());
+            dropped |= object.len() != before;
+        }
+    }
+    if !dropped {
+        return Cow::Borrowed(raw);
+    }
+    serde_json::to_string(&body).map_or(Cow::Borrowed(raw), Cow::Owned)
 }
 
 #[cfg(test)]
@@ -1537,6 +1582,90 @@ mod tests {
             engine.get_interval_body("a1").unwrap().as_deref(),
             Some(r#"{"id":"a1"}"#)
         );
+    }
+
+    /// Three anonymised bodies in the shape the server sends, nearly half their
+    /// interval and group keys null.
+    const FETCHED_BODIES: &str =
+        include_str!("../../../../../../src/__tests__/__fixtures__/intervalBodies.json");
+
+    /// The fields a lap row reads, where an absent key and a null one are both `None`.
+    #[derive(serde::Deserialize, PartialEq, Debug)]
+    struct LapRow {
+        id: i64,
+        start_index: i64,
+        end_index: i64,
+        #[serde(default)]
+        average_watts: Option<f64>,
+        #[serde(default)]
+        average_heartrate: Option<f64>,
+        #[serde(default)]
+        average_dfa_a1: Option<f64>,
+        #[serde(default)]
+        label: Option<String>,
+        #[serde(default)]
+        segment_effort_ids: Option<Vec<i64>>,
+    }
+
+    #[derive(serde::Deserialize, PartialEq, Debug)]
+    struct LapRows {
+        icu_intervals: Vec<LapRow>,
+    }
+
+    fn without_nulls(value: &serde_json::Value) -> serde_json::Value {
+        let mut value = value.clone();
+        for key in ["icu_intervals", "icu_groups"] {
+            for object in value[key].as_array_mut().unwrap() {
+                object
+                    .as_object_mut()
+                    .unwrap()
+                    .retain(|_, field| !field.is_null());
+            }
+        }
+        value
+    }
+
+    #[test]
+    fn interval_bodies_are_stored_without_their_null_fields() {
+        let (_dir, engine) = engine();
+        let fixture: serde_json::Value = serde_json::from_str(FETCHED_BODIES).unwrap();
+        for (name, body) in fixture.as_object().unwrap() {
+            let fetched = serde_json::to_string(body).unwrap();
+            engine.set_interval_body(name, &fetched).unwrap();
+            let stored = engine.get_interval_body(name).unwrap().unwrap();
+
+            assert!(
+                stored.len() * 100 <= fetched.len() * 55,
+                "{name}: stored {} of {} bytes",
+                stored.len(),
+                fetched.len()
+            );
+            let read: serde_json::Value = serde_json::from_str(&stored).unwrap();
+            assert_eq!(read, without_nulls(body), "{name}");
+            assert_eq!(
+                serde_json::from_str::<LapRows>(&stored).unwrap(),
+                serde_json::from_str::<LapRows>(&fetched).unwrap(),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_interval_body_with_nothing_to_drop_is_stored_as_given() {
+        let (_dir, engine) = engine();
+        for raw in [
+            r#"{"icu_intervals":[]}"#,
+            r#"{"icu_intervals":[{"id":1,"start_index":0,"end_index":9}],"icu_groups":[]}"#,
+            r#"{"id":"a1","analyzed":null}"#,
+            "not json",
+            "[null]",
+        ] {
+            engine.set_interval_body("a1", raw).unwrap();
+            assert_eq!(
+                engine.get_interval_body("a1").unwrap().as_deref(),
+                Some(raw)
+            );
+        }
     }
 
     fn metric(id: &str, date: i64) -> crate::types::ActivityMetrics {

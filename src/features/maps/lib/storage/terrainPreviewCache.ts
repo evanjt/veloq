@@ -123,14 +123,24 @@ function cacheKey(
 /** In-memory index of cached compound keys, least recently served first. */
 let cachedKeys: string[] = [];
 let initialised = false;
+/** The load running now, shared by every caller that arrives while it runs. */
+let loading: Promise<void> | null = null;
 /** Keys whose save has taken a slot under the cap but not yet indexed. */
 const slotsInFlight = new Set<string>();
 
 /**
  * Load index from disk on app start.
  * Scans the directory for existing JPEG files and populates the in-memory index.
+ * A call made while a load runs joins it rather than scanning a second time.
  */
-export async function initTerrainPreviewCache(): Promise<void> {
+export function initTerrainPreviewCache(): Promise<void> {
+  loading ??= loadIndex().finally(() => {
+    loading = null;
+  });
+  return loading;
+}
+
+async function loadIndex(): Promise<void> {
   try {
     // Check cache version - clear stale snapshots from previous rendering logic
     const storedVersion = await AsyncStorage.getItem(VERSION_KEY);
@@ -445,11 +455,15 @@ export async function saveTerrainPreview(
  * Delete every cached snapshot for one activity, both renders and all styles.
  * Used when the camera override changes to force regeneration.
  *
- * The index is dropped first and the files after. A caller that requests a new
+ * The index entries are dropped before the files. A caller that requests a new
  * snapshot without awaiting this would otherwise see the entry still indexed
  * and drop its request against a file that is on its way out.
  */
 export async function deleteTerrainPreviewsForActivity(activityId: string): Promise<void> {
+  // The files are found through the index, so it has to be built first: a
+  // launch that never reached the feed has an empty one, and the superseded
+  // render would stay on disk to be served.
+  if (!initialised) await initTerrainPreviewCache();
   const prefix = `${activityId}_`;
   const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
   cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));

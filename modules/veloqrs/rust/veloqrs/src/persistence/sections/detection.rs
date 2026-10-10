@@ -344,10 +344,17 @@ fn regroup_on_worker(
     match_config: &MatchConfig,
     existing_groups: &[RouteGroup],
     generation: u64,
+    moved_tracks: &HashSet<String>,
     apply_on: ApplyOn,
 ) -> (Vec<RouteGroup>, GroupSave) {
-    let (groups, save) =
-        recompute_and_save_groups(conn, install, match_config, existing_groups, generation);
+    let (groups, save) = recompute_and_save_groups(
+        conn,
+        install,
+        match_config,
+        existing_groups,
+        generation,
+        moved_tracks,
+    );
     if save == GroupSave::Committed && apply_on == ApplyOn::Worker {
         super::super::with_persistent_engine_for(
             install,
@@ -362,6 +369,14 @@ pub(crate) fn worker_write(
     install: u64,
     write: impl FnOnce() -> SqlResult<()>,
 ) -> SqlResult<()> {
+    // Before the lifecycle lock, so a worker waiting out a suspension does
+    // not hold it.
+    let Some(_write) = super::super::suspension::begin_write() else {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_INTERRUPT),
+            Some("the engine is suspended".to_string()),
+        ));
+    };
     let _lifecycle = super::super::ENGINE_LIFECYCLE
         .lock()
         .unwrap_or_else(|error| error.into_inner());
@@ -885,6 +900,7 @@ impl PersistentEngine {
         let current_groups = self.groups.clone();
         let group_generation = self.group_generation;
         let groups_epoch_at_spawn = self.groups_dirty_epoch;
+        let moved_tracks: HashSet<String> = self.moved_tracks.keys().cloned().collect();
 
         // Build sport type map + activity_ids in a single pass over metadata.
         // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
@@ -1142,6 +1158,7 @@ impl PersistentEngine {
                     &match_config,
                     &current_groups,
                     group_generation,
+                    &moved_tracks,
                     apply_on,
                 );
                 (groups, save == GroupSave::Superseded)
@@ -1712,7 +1729,13 @@ impl PersistentEngine {
                         _ if self.cache_folded_ids.is_empty() => {
                             self.clear_persisted_evidence_cache()
                         }
-                        Some(row) => self.write_evidence_row(&row),
+                        Some(row) => {
+                            // Encoded before the lock, so a config that moved
+                            // since files the row under a digest a restore
+                            // would refuse.
+                            let current = row.digest == self.evidence_config_digest();
+                            self.evidence_row_current = self.write_evidence_row(&row) && current;
+                        }
                         None => self.persist_evidence_cache(),
                     }
                 }
@@ -1897,9 +1920,10 @@ impl PersistentEngine {
             SectionEvidenceCache::new(),
         );
         let folded = std::mem::take(&mut self.cache_folded_ids);
-        self.persist_evidence_blob(&cache, &folded);
+        let written = self.persist_evidence_blob(&cache, &folded);
         self.section_evidence_cache = cache;
         self.cache_folded_ids = folded;
+        self.evidence_row_current = written;
     }
 
     /// Persist a mid-fold checkpoint in place of the last completed cache.
@@ -1926,14 +1950,16 @@ impl PersistentEngine {
             || self.evidence_cache_debt() > 0
     }
 
+    /// Returns whether the row now holds `cache`.
     fn persist_evidence_blob(
         &mut self,
         cache: &SectionEvidenceCache,
         folded_ids: &HashSet<String>,
-    ) {
+    ) -> bool {
         let digest = super::section_config_digest(&self.section_config);
-        if let Some(row) = encode_evidence_row(cache, folded_ids, digest) {
-            self.write_evidence_row(&row);
+        match encode_evidence_row(cache, folded_ids, digest) {
+            Some(row) => self.write_evidence_row(&row),
+            None => false,
         }
     }
 
@@ -1946,7 +1972,12 @@ impl PersistentEngine {
     }
 
     /// Write an already-encoded row. The lock is held for the `INSERT` alone.
-    pub fn write_evidence_row(&mut self, row: &EvidenceRow) {
+    ///
+    /// Returns whether the row took. Whatever it holds now, it is no longer
+    /// known to be the cache in memory, so a caller that wrote that cache says
+    /// so itself.
+    pub fn write_evidence_row(&mut self, row: &EvidenceRow) -> bool {
+        self.evidence_row_current = false;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -1961,19 +1992,41 @@ impl PersistentEngine {
                  cache = excluded.cache,
                  updated_at = excluded.updated_at,
                  dirty_clusters = excluded.dirty_clusters",
-            params![row.digest, row.folded_blob, row.cache_blob, now, row.dirty_clusters],
+            params![row.digest, row.folded_blob, row.cache_blob, now, row.dirty_clusters as i64],
         ) {
             log::warn!("veloqrs: evidence cache not written, staying cold: {e}");
+            return false;
         }
+        true
     }
 
     /// Drop the persisted evidence cache row. Paired with every in-memory
     /// invalidation, so a restart can never adopt a cache the running engine
     /// had already decided was stale.
     pub(crate) fn clear_persisted_evidence_cache(&mut self) {
+        self.evidence_row_current = false;
         if let Err(e) = self.db.execute("DELETE FROM evidence_cache", []) {
             log::warn!("veloqrs: evidence cache row not cleared: {e}");
         }
+    }
+
+    /// Drop the in-memory evidence cache when the stored row holds it, so the
+    /// next read restores it from there. Returns whether anything was dropped.
+    ///
+    /// A cache the row does not hold is kept: a failed write, a checkpoint
+    /// written over it, or a fold newer than the row would cost a cold
+    /// rebatch to rebuild, against a decode for one the row does hold.
+    /// Measured after one detect at 1,181 activities, the cache held 42.7 MB
+    /// in memory and its row 15.0 MB.
+    pub fn release_evidence_cache(&mut self) -> bool {
+        if !self.evidence_cache_restored
+            || !self.evidence_row_current
+            || self.cache_folded_ids.is_empty()
+        {
+            return false;
+        }
+        self.mark_evidence_cache_unrestored();
+        true
     }
 
     pub(crate) fn mark_evidence_cache_unrestored(&mut self) {
@@ -2069,6 +2122,7 @@ impl PersistentEngine {
             Ok((cache, folded)) => {
                 self.section_evidence_cache = cache;
                 self.cache_folded_ids = folded.into_iter().collect();
+                self.evidence_row_current = true;
                 true
             }
             Err(e) => {
@@ -2695,6 +2749,7 @@ mod tests {
             &MatchConfig::default(),
             &prior,
             engine.group_generation,
+            &HashSet::new(),
         );
 
         let saved: HashSet<String> = {
@@ -2730,6 +2785,7 @@ mod tests {
             &MatchConfig::default(),
             &[],
             engine.group_generation,
+            &HashSet::new(),
         );
         assert!(!groups.is_empty());
         assert!(groups.iter().all(|group| group.sport_type.is_empty()));

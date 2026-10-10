@@ -54,6 +54,13 @@ const GUARDS = [
       'stale generated bindings after a Rust signature or doc comment changes its UniFFI checksum',
   },
   {
+    name: 'check:build-inputs',
+    kind: 'correctness',
+    cmd: node('check-build-inputs.mjs'),
+    catches:
+      'a directory or iOS source outside the source hash or the native filter, so CI reuses or skips the iOS build',
+  },
+  {
     name: 'check:module-version',
     kind: 'correctness',
     cmd: node('check-module-version.mjs'),
@@ -81,10 +88,31 @@ const GUARDS = [
       'a missing worklets lifecycle repair that leaves vsync running while Android caches the app',
   },
   {
+    name: 'check:webview-hooks',
+    kind: 'correctness',
+    cmd: node('check-webview-hooks.mjs'),
+    catches:
+      'a web view library upgrade that renames or changes a private hook the tile overrides replace, which still compiles and drops tiles or the crash client',
+  },
+  {
     name: 'check:expo',
     kind: 'correctness',
     cmd: node('check-expo-sdk.mjs'),
     catches: 'an Expo package on a different SDK major than expo, which breaks the native build',
+  },
+  {
+    name: 'check:peer-ranges',
+    kind: 'correctness',
+    cmd: node('check-peer-ranges.mjs'),
+    catches:
+      'a dependency bump that legacy-peer-deps installs off its peer range, such as react-i18next 17 on i18next 25',
+  },
+  {
+    name: 'check:maplibre-attribution',
+    kind: 'correctness',
+    cmd: node('check-maplibre-attribution.mjs'),
+    catches:
+      'a map page mounting the attribution control while the bundled renderer still lets markup through its sanitiser',
   },
   {
     name: 'check:debug-push-receiver',
@@ -98,6 +126,13 @@ const GUARDS = [
     cmd: ['bash', 'scripts/check-no-private-data.sh', '--all'],
     catches:
       'a GPS track, a database or a private/ file tracked from a hookless commit, which stays public once pushed',
+  },
+  {
+    name: 'check:oauth-proxy-types',
+    kind: 'correctness',
+    cmd: node('check-oauth-proxy-types.mjs'),
+    catches:
+      'a type error in the OAuth proxy, its own package that no other local gate typechecks, which fails CI on the next push',
   },
   {
     name: 'config:sports:check',
@@ -422,7 +457,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, or a tag release that skips a store deploy and ends green with nothing uploaded',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, or a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys',
   },
   {
     name: 'lint:counted-translation',

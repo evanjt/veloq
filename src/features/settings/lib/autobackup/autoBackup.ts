@@ -29,12 +29,14 @@ import { debug } from '@/shared/debug/debug';
 import type { BackupBackend, BackupEntry } from './backends/types';
 import { backupCarriers } from './backends/carriers';
 import { forgetBackupFolder } from './backends/folderBackend';
+import { forgetGoogleDrive } from './backends/googleDriveBackend';
 import {
   BackupTransferError,
   isBackupTransferError,
   type BackupFailureKind,
 } from './backends/errors';
 import { getWebdavConfig } from './webdavConfig';
+import { getGoogleDriveAccount } from './googleDriveAccount';
 import { zipFingerprint, type ZipFingerprint } from './zipFingerprint';
 import { heldBackupFolder } from '@/shared/native/backupFolder';
 import { readBackCopyUri } from '@/shared/storage/cacheFiles';
@@ -89,7 +91,8 @@ export function cleanUpRetiredBackupSettings(): void {
  * The engine's wipe keeps its settings on purpose, so without this the next
  * athlete inherits the previous one's WebDAV choice or folder with auto-backup
  * on, and their first sync writes their record there. The zips already in the
- * folder stay: the folder is the athlete's own storage.
+ * folder and in Google Drive stay: both are the athlete's own storage. The
+ * Google account is forgotten at once and its grant given back after.
  */
 export function forgetBackupCarrier(): void {
   const engine = getEngine();
@@ -104,6 +107,7 @@ export function forgetBackupCarrier(): void {
     engine?.deleteSetting(key);
   }
   forgetBackupFolder();
+  void forgetGoogleDrive();
 }
 
 /** Whether the platform zip needs no offer on this library. */
@@ -124,7 +128,7 @@ export function getLastBackupTimestamp(): number | null {
 }
 
 /** A place a run writes to: the device backup's zip, or one of the carriers. */
-export type BackupDestination = 'device' | 'webdav' | 'folder';
+export type BackupDestination = 'device' | 'webdav' | 'folder' | 'googleDrive';
 
 interface DestinationStamp {
   at: number;
@@ -144,6 +148,8 @@ function destinationTarget(id: string): string | null {
       return getWebdavConfig()?.url ?? null;
     case 'folder':
       return heldBackupFolder();
+    case 'googleDrive':
+      return getGoogleDriveAccount();
     default:
       return null;
   }
@@ -241,7 +247,10 @@ function recordBackupFailure(carrierId: string, error: unknown): void {
   });
 }
 
-/** The carriers a run could not hand the zip to for a reason that passes. */
+/**
+ * The carriers a run could not hand the zip to, for a reason that passes or
+ * for a sign-in that lapsed.
+ */
 function getOwedCarriers(): string[] {
   const raw = getEngine()?.getSetting(SETTING_OWED_CARRIERS);
   if (!raw) return [];
@@ -251,6 +260,15 @@ function getOwedCarriers(): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * The owed carriers a trigger sends to. One whose sign-in lapsed is waiting on
+ * the athlete and goes when they sign in again, rather than on every trigger.
+ */
+function owedCarriersDue(): string[] {
+  const failures = getBackupFailures();
+  return getOwedCarriers().filter((id) => failures[id]?.kind !== 'signin');
 }
 
 function writeOwedCarriers(ids: string[]): void {
@@ -280,7 +298,7 @@ function isScheduledBackupDue(): boolean {
  */
 async function carriersToRun(force: boolean): Promise<'all' | Set<string> | null> {
   if (force || isScheduledBackupDue()) return 'all';
-  const owed = getOwedCarriers();
+  const owed = owedCarriersDue();
   if (owed.length === 0 || !(await isRadioUp())) return null;
   return new Set(owed);
 }
@@ -379,10 +397,18 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     // unwritten. A permanent failure is shown to the athlete instead, and the
     // stamp is not written when nothing at all took the zip.
     const owed: string[] = [];
+    const wasOwed = new Set(getOwedCarriers());
+    // Whether a copy is owed for a reason that passes, which the next trigger
+    // retries. One waiting on a sign-in does not hold the schedule back.
+    let anyOwedPassing = false;
     let anyFailed = false;
     let anyWritten = false;
     for (const carrier of backupCarriers) {
-      if (targets !== 'all' && !targets.has(carrier.id)) continue;
+      if (targets !== 'all' && !targets.has(carrier.id)) {
+        // An owed carrier this run did not reach is waiting on the athlete.
+        if (wasOwed.has(carrier.id)) owed.push(carrier.id);
+        continue;
+      }
       if (libraryMoved()) return { wroteZip: false, carriers: {} };
       if (!(await carrier.isAvailable())) {
         log.log(`${carrier.id} not set up, skipping`);
@@ -394,6 +420,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         log.log(`Radio is down, keeping platform archive for a later ${carrier.id} upload`);
         carriers[carrier.id] = { status: 'skipped', reason: 'no-radio' };
         owed.push(carrier.id);
+        anyOwedPassing = true;
         continue;
       }
       try {
@@ -408,7 +435,8 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         const kind = isBackupTransferError(error) ? error.kind : 'unknown';
         carriers[carrier.id] = { status: 'failed', kind };
         anyFailed = true;
-        if (!isBackupTransferError(error) || !error.permanent) owed.push(carrier.id);
+        if (!isBackupTransferError(error) || error.keepsCopyOwed) owed.push(carrier.id);
+        if (!isBackupTransferError(error) || !error.permanent) anyOwedPassing = true;
         continue;
       }
       if (libraryMoved()) return NOTHING_WRITTEN;
@@ -419,7 +447,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     }
 
     writeOwedCarriers(owed);
-    if (owed.length === 0 && (anyWritten || !anyFailed))
+    if (!anyOwedPassing && (anyWritten || !anyFailed))
       engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
     if (libraryMoved()) return NOTHING_WRITTEN;
     log.log(`Record backup complete: ${entry.sizeBytes} bytes`);
@@ -467,6 +495,16 @@ async function verifyCarrierCopy(
 }
 
 /**
+ * The athlete has just signed in to a carrier again. Its standing failure
+ * clears, and a copy it is still owed goes now rather than at the next run.
+ */
+export async function onBackupCarrierSignedIn(carrierId: string): Promise<BackupRunResult> {
+  clearBackupFailure(carrierId);
+  if (!getOwedCarriers().includes(carrierId)) return NOTHING_WRITTEN;
+  return performBackup();
+}
+
+/**
  * Whether the device has a radio at all. A read that throws counts as up, so
  * a permission problem or an unimplemented platform never costs a backup.
  */
@@ -489,10 +527,14 @@ export function onSyncComplete(): void {
 
 /**
  * Trigger: call when app goes to background.
- * Uses the standard 24h throttle.
+ * Uses the standard 24h throttle. Settles once the run has ended, whatever
+ * its outcome, so the caller can give it time before the process is suspended.
  */
-export function onAppBackground(): void {
-  performBackup().catch(() => {});
+export function onAppBackground(): Promise<void> {
+  return performBackup().then(
+    () => undefined,
+    () => undefined
+  );
 }
 
 /**
@@ -500,7 +542,7 @@ export function onAppBackground(): void {
  * Backs up if the last backup is > 7 days old, or sends a copy still owed.
  */
 export function onAppForeground(): void {
-  if (getOwedCarriers().length === 0) {
+  if (owedCarriersDue().length === 0) {
     if (!isAutoBackupEnabled()) return;
 
     const lastBackup = getLastBackupTimestamp();
@@ -515,7 +557,7 @@ export function onAppForeground(): void {
  * Runs only while a copy is still owed.
  */
 export function onBackupReconnect(): void {
-  if (getOwedCarriers().length === 0) return;
+  if (owedCarriersDue().length === 0) return;
   performBackup().catch(() => {});
 }
 

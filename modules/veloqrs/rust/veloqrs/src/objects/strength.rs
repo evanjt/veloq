@@ -27,23 +27,41 @@ use std::sync::Arc;
 /// activity. Both fetch paths share it so one download can only ever produce one
 /// verdict, written the same way.
 async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
-    let sets = fit::parse_fit_sets(data);
-    info!(
-        "[Strength] Parsed {} sets for {} ({} bytes)",
-        sets.len(),
-        activity_id,
-        data.len()
-    );
+    // A file the decoder refuses is not a session with no sets: settling it as
+    // empty would show the athlete nothing and never fetch it again.
+    let sets = match fit::parse_fit_strength_sets(data) {
+        Ok(sets) => {
+            info!(
+                "[Strength] Parsed {} sets for {} ({} bytes)",
+                sets.len(),
+                activity_id,
+                data.len()
+            );
+            Some(sets)
+        }
+        Err(e) => {
+            log::warn!(
+                "[Strength] FIT for {} ({} bytes) is undecodable: {}",
+                activity_id,
+                data.len(),
+                e
+            );
+            None
+        }
+    };
 
     // Off the tokio workers: the write lock is blocking and there are eight
     // workers, so taking it from inside the download future parks one for the
     // whole transaction. The closure is `'static`, so it takes owned data.
     let id = activity_id.to_string();
     let stored = with_persistent_engine_blocking_for(install, move |e| -> Result<(), VeloqError> {
-        e.settle_exercise_sets(&id, &sets)
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })
+        match &sets {
+            Some(sets) => e.settle_exercise_sets(&id, sets),
+            None => e.mark_fit_outcome(&id, FitOutcome::Undecodable),
+        }
+        .map_err(|err| VeloqError::Database {
+            msg: format!("{}", err),
+        })
     })
     .await;
     match stored {
@@ -1414,6 +1432,64 @@ mod tests {
         assert!(
             with_engine(|e| e.is_fit_processed("a1").unwrap()).unwrap(),
             "the verdict must be committed before the announcement"
+        );
+    }
+
+    fn fit_outcome(activity_id: &str) -> Option<String> {
+        with_engine(|e| {
+            e.db.query_row(
+                "SELECT outcome FROM fit_file_status WHERE activity_id = ?",
+                [activity_id],
+                |row| row.get(0),
+            )
+            .ok()
+        })
+        .unwrap()
+    }
+
+    /// Scenario: the downloaded FIT fails its CRC check.
+    ///
+    /// Expected behaviour: the activity is settled as undecodable rather than
+    /// as a session with no sets, and the reader is still told it settled.
+    #[test]
+    fn a_download_that_fails_to_decode_is_not_settled_as_empty() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_undecodable.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let mut file = crate::fit::tests::fit_file(&[(0, 1, 5, &[28])]);
+        let last = file.len() - 1;
+        file[last] ^= 0xFF;
+        crate::runtime::block_on(store_parsed_sets(
+            crate::persistence::engine_install(),
+            "a4",
+            &file,
+        ));
+        crate::objects::observer::flush();
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a4"]);
+        assert_eq!(fit_outcome("a4").as_deref(), Some("undecodable"));
+    }
+
+    /// The same file with its CRC intact decodes, so its sets are stored.
+    #[test]
+    fn a_download_that_decodes_is_settled_with_its_sets() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_decodes.db");
+
+        let file = crate::fit::tests::fit_file(&[(0, 1, 5, &[28])]);
+        crate::runtime::block_on(store_parsed_sets(
+            crate::persistence::engine_install(),
+            "a5",
+            &file,
+        ));
+
+        assert_eq!(fit_outcome("a5").as_deref(), Some("parsed"));
+        assert_eq!(
+            with_engine(|e| e.get_exercise_sets("a5").unwrap().len()).unwrap(),
+            1
         );
     }
 

@@ -1,5 +1,5 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams } from 'expo-router';
@@ -165,6 +165,9 @@ function MapScreenContent() {
   const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
   const [distanceFilter, setDistanceFilter] = useState<MapDistanceBand>(MapDistanceBand.All);
   const [nameNeedle, setNameNeedle] = useState('');
+  // The field shows each keystroke at once. The map reads the needle in a render React
+  // defers behind it, and a keystroke that lands first replaces that render.
+  const searchedNeedle = useDeferredValue(nameNeedle);
   const [focusActivityId, setFocusActivityId] = useState<string | undefined>(undefined);
   const [resultsOpen, setResultsOpen] = useState(false);
   // The filter sheet opens lowered, the period chips alone over the map.
@@ -194,13 +197,14 @@ function MapScreenContent() {
     routeLines,
     sectionCount,
     sections,
+    sectionsGeoJSON,
   } = useEngineMapActivities({
     startDate: periodStart,
     endDate: ALL_TIME_END,
     selectedTypes,
     distanceBand: distanceFilter,
     isMetric,
-    nameNeedle,
+    nameNeedle: searchedNeedle,
     showRoutes,
     showSections,
     sectionsEnabled,
@@ -302,6 +306,7 @@ function MapScreenContent() {
           routeLines={routeLines}
           sectionCount={sectionCount}
           sections={sections}
+          sectionsGeoJSON={sectionsGeoJSON}
           onAttributionChange={setAttribution}
           selectActivityId={selectActivityId}
           focusActivityId={focusActivityId}

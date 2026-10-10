@@ -20,29 +20,33 @@ fn count_stream_reads(engine: &super::PersistentEngine) -> StreamReads {
     };
     let times = Arc::clone(&reads.times);
     let series_data = Arc::clone(&reads.series_data);
-    engine.db.authorizer(Some(move |context: AuthContext<'_>| {
-        if let AuthAction::Read {
-            table_name,
-            column_name,
-            ..
-        } = context.action
-        {
-            if table_name == "time_streams" && column_name == "times" {
-                times.fetch_add(1, Ordering::Relaxed);
+    engine
+        .db
+        .authorizer(Some(move |context: AuthContext<'_>| {
+            if let AuthAction::Read {
+                table_name,
+                column_name,
+                ..
+            } = context.action
+            {
+                if table_name == "time_streams" && column_name == "times" {
+                    times.fetch_add(1, Ordering::Relaxed);
+                }
+                if table_name == "activity_streams" && column_name == "data" {
+                    series_data.fetch_add(1, Ordering::Relaxed);
+                }
             }
-            if table_name == "activity_streams" && column_name == "data" {
-                series_data.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-        Authorization::Allow
-    }));
+            Authorization::Allow
+        }))
+        .unwrap();
     reads
 }
 
 fn stop_counting(engine: &super::PersistentEngine) {
     engine
         .db
-        .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+        .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .unwrap();
 }
 
 #[test]

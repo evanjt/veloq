@@ -60,6 +60,11 @@ export interface SectionStatsCardsProps {
   activityColor: string;
   onSetAsReference?: ((activityId: string) => void) | undefined;
   referenceActivityId?: string | undefined;
+  /**
+   * Every activity's time stream is read, so the overall bests are the
+   * record. Until then they draw no record mark. Absent means settled.
+   */
+  recordsSettled?: boolean | undefined;
 }
 
 export function SectionStatsCards({
@@ -70,6 +75,7 @@ export function SectionStatsCards({
   activityColor,
   onSetAsReference,
   referenceActivityId,
+  recordsSettled = true,
 }: SectionStatsCardsProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -101,6 +107,9 @@ export function SectionStatsCards({
     return null;
   }
 
+  const forwardPr = recordsSettled ? calendarSummary.forwardPr : undefined;
+  const reversePr = recordsSettled ? calendarSummary.reversePr : undefined;
+
   return (
     <Card variant="flat" padding="none" testID="section-calendar">
       <View style={styles.calendarSection}>
@@ -117,13 +126,9 @@ export function SectionStatsCards({
                   : formatDuration(entry.bestTime)
               : '';
           const isYearFwdPr =
-            yearFwd &&
-            calendarSummary.forwardPr &&
-            yearFwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+            yearFwd && forwardPr && yearFwd.bestActivityId === forwardPr.bestActivityId;
           const isYearRevPr =
-            yearRev &&
-            calendarSummary.reversePr &&
-            yearRev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+            yearRev && reversePr && yearRev.bestActivityId === reversePr.bestActivityId;
 
           return (
             <View key={yearData.year}>
@@ -191,13 +196,9 @@ export function SectionStatsCards({
                   const isMonthRevYearBest =
                     rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
                   const isMonthFwdOverallPr =
-                    fwd &&
-                    calendarSummary.forwardPr &&
-                    fwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+                    fwd && forwardPr && fwd.bestActivityId === forwardPr.bestActivityId;
                   const isMonthRevOverallPr =
-                    rev &&
-                    calendarSummary.reversePr &&
-                    rev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+                    rev && reversePr && rev.bestActivityId === reversePr.bestActivityId;
 
                   return (
                     <View

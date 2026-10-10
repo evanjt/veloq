@@ -156,3 +156,61 @@ pub unsafe extern "C" fn veloq_glyph_get_or_fetch(
         }
     })
 }
+
+/// One `veloq-geo` answer's bytes, `path` being everything after the marker,
+/// or null with `len` left at zero. `status` is what the handler answers the
+/// page with: 200 with the bytes, and without them 400 for a path that is not
+/// `<kind>/<key>`, 404 for nothing stored there and 503 before the engine is
+/// open. The bytes go back through [`veloq_tile_free`].
+///
+/// # Safety
+///
+/// `path` is a NUL-terminated string or null, `len` points at a writable
+/// `usize` or is null, and `status` points at a writable `u16` or is null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_geo_get(
+    path: *const c_char,
+    len: *mut usize,
+    status: *mut u16,
+) -> *mut u8 {
+    crate::ffi_refuse_on_panic("geo answer", std::ptr::null_mut(), || {
+        let report = |code: u16| {
+            if !status.is_null() {
+                // SAFETY: the caller's contract above says `status` is writable.
+                unsafe { *status = code };
+            }
+        };
+        report(super::UPSTREAM_FAILED);
+        let null = std::ptr::null_mut();
+        if len.is_null() {
+            report(super::geo::BAD_PATH);
+            return null;
+        }
+        // SAFETY: the caller's contract above says `len` is writable.
+        unsafe { *len = 0 };
+        if path.is_null() {
+            report(super::geo::BAD_PATH);
+            return null;
+        }
+        // SAFETY: the caller's contract above says `path` is NUL-terminated.
+        let Ok(path) = unsafe { CStr::from_ptr(path) }.to_str() else {
+            report(super::geo::BAD_PATH);
+            return null;
+        };
+
+        match super::geo_answer(path) {
+            Ok(bytes) => {
+                let bytes = bytes.into_boxed_slice();
+                // SAFETY: `len` is writable, and the box is leaked to the caller
+                // for `veloq_tile_free` to reclaim.
+                unsafe { *len = bytes.len() };
+                report(200);
+                Box::into_raw(bytes) as *mut u8
+            }
+            Err(code) => {
+                report(code);
+                null
+            }
+        }
+    })
+}

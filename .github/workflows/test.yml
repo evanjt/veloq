@@ -21,7 +21,7 @@ permissions:
 jobs:
   jest:
     name: Jest (${{ matrix.tz }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured on GitHub runners on 2026-10-07 with a cold Jest cache, 1,115
     # suites: `npm test` took 6m16s on one runner and 9m07s on another, and a
     # third was still finishing suites steadily at 9m34s when the old
@@ -77,7 +77,7 @@ jobs:
 
   rust:
     name: Rust Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Whole job: compile, bench check, nextest and doctests. Measured on
     # GitHub runners in late September 2026: 14m19s on a cold cache, 1m38s of
     # it the bench check, and 7m26s on a warm cache with a 14s bench check.
@@ -95,10 +95,10 @@ jobs:
       # rust-toolchain.toml at the repository root names, so the caches share
       # content. A Jest test fails when a pin here drifts from that file.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: modules/veloqrs/rust
           key: test
@@ -107,7 +107,9 @@ jobs:
           cache-on-failure: true
 
       - name: Install nextest
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: nextest
 
       # veloqrs only. tracematch runs its own suite, the GeoLife corpus and
       # the synthetic lane in its own CI on the pinned sha, so repeating them
@@ -150,7 +152,7 @@ jobs:
 
   rust-lint:
     name: Rust Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -161,12 +163,12 @@ jobs:
       # Pinned to rust-toolchain.toml at the repository root, which is the
       # release the tree is formatted with. Bump both with a fresh `cargo fmt`.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
         with:
           components: rustfmt, clippy
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: modules/veloqrs/rust
           key: lint
@@ -188,7 +190,7 @@ jobs:
   # format drift failed two of them.
   js:
     name: JS Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       # Recursive: lint-detector-ordering.mjs and the tracematch-backed guards
@@ -223,13 +225,13 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:tooling
 
-      # Its own package, and Dependabot bumps it with nothing else checking it.
-      - name: Type check the OAuth proxy
+      # The three map pages, built as the app builds them, drawn in a headless
+      # Chromium with SwiftShader on the runner's own Chrome. The renderer is
+      # bundled outside npm, so no dependency update reaches it, and this is
+      # the one check that runs it.
+      - name: Smoke the map pages in Chromium
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        working-directory: oauth-proxy
-        run: |
-          npm ci
-          npx tsc --noEmit -p .
+        run: npm run test:map-pages
 
       # A personal routes.db was purged from history. Fail if the blob is
       # reachable again from any ref the checkout can see.
@@ -244,7 +246,7 @@ jobs:
 
   verify-bindings:
     name: Verify Bindings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -258,10 +260,10 @@ jobs:
           node-version: "${{ env.NODE_VERSION }}"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: modules/veloqrs/rust
           key: verify-bindings
@@ -271,6 +273,12 @@ jobs:
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      # Its own package, and Dependabot bumps it with nothing else checking it.
+      # The guards typecheck it with its own compiler and Workers types.
+      - name: Install the OAuth proxy dependencies
+        working-directory: oauth-proxy
+        run: npm ci
 
       - name: Run guard scripts and verify bindings
         run: npm run audit
@@ -282,7 +290,7 @@ jobs:
     name: CI Required
     needs: [jest, rust, rust-lint, js, verify-bindings]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check results

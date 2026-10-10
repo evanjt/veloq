@@ -56,7 +56,12 @@ function surface(mapStyle: 'dark' | 'satellite', coordinates: [number, number][]
 
 function styleSwapped(script: string): StyleObj {
   let applied: StyleObj | undefined;
-  const map = { setStyle: (s: StyleObj) => (applied = s), once: () => {} };
+  const map = {
+    setStyle: (s: StyleObj) => (applied = s),
+    getTerrain: () => null,
+    setTerrain: () => {},
+    once: () => {},
+  };
   const win = { map, _routeCoords: [] as number[][] };
   new Function('window', 'fetch', script)(win, () => Promise.reject(new Error('offline')));
   return applied as StyleObj;

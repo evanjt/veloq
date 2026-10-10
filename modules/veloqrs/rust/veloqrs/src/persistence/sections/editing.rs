@@ -1317,6 +1317,50 @@ mod tests {
         assert_eq!(details["activity_id"], "a1");
     }
 
+    /// Scenario: the stored line is a consensus line denser than the
+    /// representative track, so track indices are not indices into it, and
+    /// the athlete pulls both ends in from the track.
+    /// Expected behaviour: the stored line becomes the track slice, end
+    /// points included, and the reference range describes it exactly.
+    #[test]
+    fn an_expand_inside_the_section_keeps_the_track_slice_end_points() {
+        let (mut engine, track) = engine_with_section(30, "auto");
+        let consensus: Vec<GpsPoint> = (0..60)
+            .map(|i| GpsPoint {
+                latitude: 46.002 + i as f64 * 0.0004,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = ? WHERE id = 's1'",
+                params![codec::serialize_track_points(&consensus)],
+            )
+            .unwrap();
+
+        engine.expand_section_bounds("s1", "a1", 10, 20).unwrap();
+
+        let stored = engine.stored_section_polyline("s1").unwrap();
+        assert_eq!(stored.len(), 11, "track points 10 through 20 inclusive");
+        assert_eq!(stored.first(), track.get(10));
+        assert_eq!(stored.last(), track.get(20));
+        let (rep, start, end, source): (String, i64, i64, String) = engine
+            .db
+            .query_row(
+                "SELECT representative_activity_id, rep_start_index, rep_end_index,
+                        geometry_source
+                 FROM sections WHERE id = 's1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(rep, "a1");
+        assert_eq!((start, end), (10, 21));
+        assert_eq!(source, crate::persistence::sections::SOURCE_EXACT);
+    }
+
     #[test]
     fn accepting_a_section_is_a_ledger_event() {
         let (mut engine, _) = engine_with_section(10, "auto");

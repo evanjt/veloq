@@ -1310,14 +1310,28 @@ pub(crate) mod pooled {
             0.0
         };
 
-        // Judged against the best of the other traversals, so a lone traversal
-        // and a tie both leave the badge off.
-        let latest_is_pr = if let Some(&latest) = dir_times.last() {
-            let (best, second) = crate::persistence::records::best_two(dir_times.iter().cloned());
-            let rival = crate::persistence::records::rival_of(latest, best, second);
-            crate::persistence::records::is_personal_record(latest, rival)
-        } else {
-            false
+        // The latest outing's fastest lap in this direction, judged by the
+        // section record rule against the other outings, so its own other laps
+        // are no rival, and a lone outing and a tie both leave the badge off.
+        let dir_laps: Vec<(&str, f64)> = rows
+            .iter()
+            .filter(|r| Some(r.direction.as_str()) == latest_direction)
+            .map(|r| (r.activity_id.as_str(), r.lap_time))
+            .collect();
+        let latest_is_pr = match dir_laps.last() {
+            Some(&(latest_activity, _)) => {
+                let fastest = dir_laps
+                    .iter()
+                    .filter(|(activity, _)| *activity == latest_activity)
+                    .map(|(_, time)| *time)
+                    .fold(f64::INFINITY, f64::min);
+                crate::persistence::records::holds_section_record(
+                    fastest,
+                    latest_activity,
+                    dir_laps.iter().copied(),
+                )
+            }
+            None => false,
         };
 
         RankInputs {
@@ -1396,7 +1410,7 @@ pub(crate) mod pooled {
         scope: &str,
     ) -> rusqlite::Result<HashMap<String, Vec<TraversalRow>>> {
         let sql = format!(
-            "{}{}{} ORDER BY s.id, am.date ASC",
+            "{}{}{} ORDER BY s.id, am.date ASC, sa.activity_id, sa.start_index",
             TRAVERSALS_BY_SPORT,
             complete_traversal_clause("sa", "s"),
             scope
@@ -1626,17 +1640,18 @@ pub(crate) mod pooled {
             let sql = format!(
                 "SELECT section_id, lap_time, date, activity_id FROM (
                      SELECT s.id AS section_id, sa.lap_time AS lap_time, am.date AS date,
-                            sa.activity_id AS activity_id,
+                            sa.activity_id AS activity_id, sa.start_index AS start_index,
                             ROW_NUMBER() OVER (
                                 PARTITION BY s.id
-                                ORDER BY am.date DESC, sa.activity_id DESC) AS rn
+                                ORDER BY am.date DESC, sa.activity_id DESC,
+                                         sa.start_index DESC) AS rn
                      FROM sections s
                      JOIN section_activities sa ON s.id = sa.section_id
                      JOIN activity_metrics am ON sa.activity_id = am.activity_id
                      WHERE am.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
                        AND s.id IN ({marks}){}
                  ) WHERE rn <= {SECTION_HISTORY_POINTS}
-                 ORDER BY section_id, date ASC",
+                 ORDER BY section_id, date ASC, activity_id ASC, start_index ASC",
                 complete_traversal_clause("sa", "s")
             );
             let mut params: Vec<&str> = vec![sport];
@@ -2016,3 +2031,7 @@ mod rank_inputs_tests;
 #[cfg(test)]
 #[path = "tests/direction_pr.rs"]
 mod direction_pr_tests;
+
+#[cfg(test)]
+#[path = "tests/outing_pr.rs"]
+mod outing_pr_tests;

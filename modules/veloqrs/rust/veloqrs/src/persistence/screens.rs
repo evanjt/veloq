@@ -217,7 +217,8 @@ fn chronic_week_average(chronic: &crate::FfiPeriodStats) -> crate::FfiPeriodStat
 /// The comparison card's claim is about the last four weeks, and a total plus
 /// an average cannot draw it: four weeks that fell steadily and four that
 /// jumped once sum the same. The weeks are cut from the same span the total is
-/// read over, so they add back up to it.
+/// read over, so they add back up to it. `stats` reads `[from, to)`, since
+/// each week ends at the second the next one starts.
 fn chronic_weeks(
     chronic_start: i64,
     chronic_end: i64,
@@ -257,6 +258,9 @@ fn chronic_weeks(
 /// The week-over-week comparison reads last week only up to the same point as
 /// this one, which is a fair verdict and a wrong bar: drawn beside whole weeks,
 /// a part of last week reads as a week that fell short.
+///
+/// `stats` reads `[from, to)`, so an activity at exactly Monday 00:00:00 is in
+/// one bar only.
 fn weekly_totals(
     p: &crate::FfiInsightsParams,
     current_week: &crate::FfiPeriodStats,
@@ -777,7 +781,8 @@ impl super::PersistentEngine {
     /// once the missing time streams have been fetched.
     ///
     /// Every read here answers one sport and one range, so the calendar, the
-    /// lap list, the chart and the summary describe the same efforts.
+    /// lap list, the chart and the summary describe the same efforts. The
+    /// delta curves come only once held, as the screen's own read serves them.
     pub fn section_detail_performance(
         &self,
         section_id: &str,
@@ -789,6 +794,7 @@ impl super::PersistentEngine {
             section_id,
             time_range_days,
             sport_filter,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
     }
 
@@ -982,8 +988,10 @@ impl super::PersistentEngine {
             sport_types,
             distance_band,
             is_metric,
-            route_lines,
-            sections,
+            pooled::MapLayers {
+                route_lines: route_lines.then_some(None),
+                sections: sections.then_some(None),
+            },
             name_needle,
             chips,
         )
@@ -1691,8 +1699,7 @@ pub mod pooled {
         sport_types: Vec<String>,
         distance_band: crate::MapDistanceBand,
         is_metric: bool,
-        route_lines: bool,
-        sections: bool,
+        layers: MapLayers,
         name_needle: String,
     ) -> crate::FfiMapScreenData {
         let chips =
@@ -1704,8 +1711,7 @@ pub mod pooled {
             sport_types,
             distance_band,
             is_metric,
-            route_lines,
-            sections,
+            layers,
             name_needle,
             chips,
         )
@@ -1716,12 +1722,15 @@ pub mod pooled {
     /// Every part of it is arithmetic over one sport's performances, so the
     /// engine method and this one share [`super::section_detail_from`] and
     /// differ only in where the performances come from: the engine's LRU and
-    /// memory tier on one path, a pooled connection on the other.
+    /// memory tier on one path, a pooled connection on the other. `curves`
+    /// says whether this read computes the lap curves or serves them only
+    /// once held.
     pub fn section_detail_performance(
         conn: &Connection,
         section_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        curves: crate::persistence::sections::lap_curves::pooled::CurveRead,
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::fitness::performances::{laps, pooled};
         let sports = laps::sports(conn, section_id);
@@ -1736,10 +1745,8 @@ pub mod pooled {
                     .unwrap_or_default()
             },
             |sport| {
-                Some(
-                    crate::persistence::sections::lap_curves::pooled::cached_lap_curves(
-                        conn, section_id, sport,
-                    ),
+                crate::persistence::sections::lap_curves::pooled::cached_lap_curves(
+                    conn, section_id, sport, curves,
                 )
             },
             |sport| {
@@ -2278,7 +2285,7 @@ pub mod pooled {
             super::previous_week_end(p, &current_week),
         );
         let chronic_period =
-            derivations::period_stats(conn, p.chronic_start as i64, p.prev_start as i64);
+            derivations::window_stats(conn, p.chronic_start as i64, p.prev_start as i64);
 
         // Trends
         let ftp_trend = derivations::ftp_trend_to(conn, &crate::persistence::wellness::today_iso());
@@ -2504,7 +2511,7 @@ pub mod pooled {
 
         let chronic_week_average = super::chronic_week_average(&chronic_period);
         let weekly_totals = super::weekly_totals(p, &current_week, |from, to| {
-            derivations::period_stats(conn, from, to)
+            derivations::window_stats(conn, from, to)
         });
         let (week_over_week, week_against_chronic) = super::complete_period_comparisons(
             conn,
@@ -2955,6 +2962,15 @@ pub mod pooled {
         })
     }
 
+    /// The two layers a map read may carry. `None` leaves a layer out; `Some`
+    /// asks for it, holding the stamp of the copy the caller already has, if
+    /// any.
+    #[derive(Debug, Clone, Copy, Default)]
+    pub struct MapLayers {
+        pub route_lines: Option<Option<f64>>,
+        pub sections: Option<Option<f64>>,
+    }
+
     /// The screen itself, given the chips whoever asked for it is entitled to.
     // Both map entry points pass their filters and layer switches through here.
     #[allow(clippy::too_many_arguments)]
@@ -2965,11 +2981,16 @@ pub mod pooled {
         sport_types: Vec<String>,
         distance_band: crate::MapDistanceBand,
         is_metric: bool,
-        route_lines: bool,
-        sections: bool,
+        layers: MapLayers,
         name_needle: String,
         available_sport_types: Vec<String>,
     ) -> crate::FfiMapScreenData {
+        // Taken before either layer is read, so a commit while they are read
+        // moves the next stamp rather than hiding under this one. The filters
+        // narrow the activities alone, so a filter change re-reads under the
+        // same stamp and a layer the caller holds is not shipped again.
+        let stamp = crate::persistence::read_cache::stamp(conn).map(|stamp| stamp as f64);
+        let holds = |held: Option<f64>| stamp.is_some() && held == stamp;
         let window = map_activities_filtered(conn, start_date, end_date);
         let category_counts = crate::sport::DISPLAY_GROUPS
             .iter()
@@ -2995,10 +3016,24 @@ pub mod pooled {
                     && (needle.is_empty() || activity.name.to_lowercase().contains(&needle))
             })
             .collect();
-        // Off, the read takes the count column alone; on, it takes the one
-        // layer row. Neither touches a route group or a track.
-        let (route_count, route_lines) = if route_lines {
-            match crate::persistence::route_lines::pooled::layer_with_generation(conn) {
+        // Off, or held by the caller, the read takes the count column alone;
+        // on, it takes the one layer row. Neither touches a route group or a
+        // track.
+        let (route_count, route_lines) = match layers.route_lines {
+            Some(held) if holds(held) => {
+                match crate::persistence::route_lines::pooled::counted_generation(conn) {
+                    Ok(Some((generation, count))) => (
+                        count,
+                        Some(crate::ffi_types::FfiRouteLineLayer {
+                            generation: generation as f64,
+                            stamp,
+                            routes: None,
+                        }),
+                    ),
+                    _ => (0, None),
+                }
+            }
+            Some(_) => match crate::persistence::route_lines::pooled::layer_with_generation(conn) {
                 Ok(Some((generation, lines))) => {
                     // Names and sizes change without a regroup, so they are
                     // read beside the layer rather than stored in it.
@@ -3019,16 +3054,18 @@ pub mod pooled {
                         routes.len() as u32,
                         Some(crate::ffi_types::FfiRouteLineLayer {
                             generation: generation as f64,
-                            routes,
+                            stamp,
+                            routes: Some(routes),
                         }),
                     )
                 }
                 _ => (0, None),
+            },
+            None => {
+                let count =
+                    crate::persistence::route_lines::pooled::route_count(conn).unwrap_or_default();
+                (count, None)
             }
-        } else {
-            let count =
-                crate::persistence::route_lines::pooled::route_count(conn).unwrap_or_default();
-            (count, None)
         };
         crate::FfiMapScreenData {
             activity_count: activity_count(conn),
@@ -3038,13 +3075,19 @@ pub mod pooled {
             route_count,
             route_lines,
             section_count: crate::persistence::sections::queries::pooled::section_count(conn),
-            sections: sections.then(|| {
-                crate::persistence::sections::pooled::map_sections(
-                    conn,
-                    None,
-                    Some(1),
-                    &crate::persistence::sections::named::pooled::overlay_names(conn),
-                )
+            sections: layers.sections.map(|held| crate::FfiMapSectionLayer {
+                stamp,
+                sections: (!holds(held)).then(|| {
+                    let overlay = crate::persistence::read_cache::map_sections(conn, || {
+                        crate::persistence::sections::pooled::map_sections(
+                            conn,
+                            None,
+                            Some(1),
+                            &crate::persistence::sections::named::pooled::overlay_names(conn),
+                        )
+                    });
+                    overlay.as_ref().clone()
+                }),
             }),
         }
     }
@@ -4313,6 +4356,57 @@ mod tests {
         assert_eq!(weekly.compared_start, this_week.start);
     }
 
+    /// Scenario: activities dated at exactly Monday 00:00:00, the second one
+    /// week ends and the next begins.
+    ///
+    /// Expected behaviour: each one counts in exactly one weekly bar, the bars
+    /// add up to the activities there are, and the chronic baseline holds none
+    /// of last week.
+    #[test]
+    fn test_insights_boundary_second_activities_count_in_one_week() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        // 2023-11-14 is a Tuesday.
+        let tuesday_noon = 1_699_963_200i64;
+        let (current_start, current_end, prev_start, prev_end) =
+            crate::widget_snapshot::week_bounds(tuesday_noon);
+        let day = 86_400i64;
+        let chronic_start = prev_start - 28 * day;
+        let engine = insights_engine(
+            dir.path().join("insights.db").to_str().unwrap(),
+            &[
+                ("chronic-inner".into(), chronic_start + 7 * day, 100.0),
+                ("last-monday".into(), prev_start, 200.0),
+                ("this-monday".into(), current_start, 300.0),
+            ],
+        );
+        let p = crate::FfiInsightsParams {
+            current_start: current_start as f64,
+            current_end: current_end as f64,
+            prev_start: prev_start as f64,
+            prev_end: prev_end as f64,
+            chronic_start: chronic_start as f64,
+            ..coverage_params()
+        };
+
+        let data = pooled_insights_data(&engine, &p);
+        let counts: Vec<u32> = data.weekly_totals.iter().map(|w| w.stats.count).collect();
+        let tss: Vec<f64> = data
+            .weekly_totals
+            .iter()
+            .map(|w| w.stats.total_tss)
+            .collect();
+
+        assert_eq!(counts, vec![0, 1, 0, 0, 1, 1]);
+        assert_eq!(tss, vec![0.0, 100.0, 0.0, 0.0, 200.0, 300.0]);
+        assert_eq!(data.chronic_period.count, 1);
+        assert_eq!(data.chronic_period.total_tss, 100.0);
+        let chronic_bars: u32 = counts[..4].iter().sum();
+        assert_eq!(chronic_bars, data.chronic_period.count);
+        assert_eq!(data.previous_week.count, 1);
+        assert_eq!(data.current_week.count, 1);
+    }
+
     /// Scenario: the insights tab is opened twice with nothing changed between.
     ///
     /// Expected behaviour: the second read is served from the section
@@ -4604,12 +4698,12 @@ mod tests {
         let path = dir.path().join("detail_queries.db");
         let db_path = path.to_str().expect("utf-8");
         crate::persistence::read_pool::bind(db_path);
-        let mut engine = engine_with_a_traversed_section(db_path);
+        let engine = engine_with_a_traversed_section(db_path);
 
         DETAIL_SQL.lock().unwrap().clear();
-        engine.db.trace(Some(record_detail_sql));
+        crate::test_trace::trace_statements!(engine.db, record_detail_sql);
         let detail = pooled::section_detail_data(&engine.db, "auto1");
-        engine.db.trace(None);
+        crate::test_trace::untrace(&engine.db);
 
         assert!(detail.section.is_some());
         assert!(
@@ -4630,7 +4724,13 @@ mod tests {
         let engine = engine_with_a_traversed_section(path.to_str().expect("utf-8"));
 
         // The fixture's efforts are from 2023, so a one-day window holds none.
-        let detail = pooled::section_detail_performance(&engine.db, "auto1", 1, None);
+        let detail = pooled::section_detail_performance(
+            &engine.db,
+            "auto1",
+            1,
+            None,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        );
         assert!(
             detail.chart_data.points.is_empty(),
             "nothing inside a one-day window"
@@ -4710,7 +4810,13 @@ mod tests {
         sport: Option<&str>,
     ) -> crate::FfiSectionPerformanceData {
         crate::persistence::read_cache::clear();
-        pooled::section_detail_performance(&engine.db, "auto1", days, sport)
+        pooled::section_detail_performance(
+            &engine.db,
+            "auto1",
+            days,
+            sport,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        )
     }
 
     fn lap_ids(points: &[crate::FfiSectionChartPoint]) -> Vec<String> {
@@ -4762,7 +4868,13 @@ mod tests {
         engine.upsert_wellness(&rows).expect("wellness");
 
         crate::persistence::read_cache::clear();
-        let detail = pooled::section_detail_performance(&engine.db, "auto1", 0, None);
+        let detail = pooled::section_detail_performance(
+            &engine.db,
+            "auto1",
+            0,
+            None,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        );
 
         let hrv = detail
             .correlations
@@ -5665,8 +5777,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::All,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
 
@@ -5714,8 +5825,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::All,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(pooled.activity_count, 1);
@@ -5744,8 +5854,7 @@ mod tests {
             vec!["GravelRide".into()],
             crate::MapDistanceBand::All,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(screen.available_sport_types, vec!["GravelRide"]);
@@ -5792,8 +5901,7 @@ mod tests {
             vec!["Ride".into()],
             crate::ffi_types::MapDistanceBand::XShort,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(screen.activity_count, 6);
@@ -5834,8 +5942,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::Short,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(
@@ -5853,8 +5960,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::Medium,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(
@@ -5872,8 +5978,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::Long,
             true,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(
@@ -5890,8 +5995,7 @@ mod tests {
             vec![],
             crate::MapDistanceBand::Short,
             false,
-            false,
-            false,
+            pooled::MapLayers::default(),
             String::new(),
         );
         assert_eq!(

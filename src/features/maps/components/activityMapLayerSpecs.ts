@@ -66,7 +66,7 @@ type GeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
 // The surface patcher compares each source by identity, so a wrapper is made
 // once per data object. A scrub then re-serialises the highlight alone rather
-// than the whole track twice over.
+// than the whole track.
 const plainSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
 const lineMetricSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
 
@@ -83,10 +83,10 @@ function geojsonSource(data: GeoJSONData, lineMetrics = false): MapSourceSpec {
 export function buildActivitySources(input: ActivitySourceInput): Record<string, MapSourceSpec> {
   return {
     overlay: geojsonSource(input.overlayGeoJSON),
-    route: geojsonSource(input.routeGeoJSON),
-    // A separate source because line-gradient needs line-progress, and that
-    // only exists on a source built with lineMetrics.
-    'route-gradient': geojsonSource(input.routeGeoJSON, true),
+    // One source for the solid and the gradient line: line-gradient needs
+    // line-progress, which only a lineMetrics source has, and the solid line
+    // draws from it unchanged. Two would send and tile the whole track twice.
+    route: geojsonSource(input.routeGeoJSON, true),
     portions: geojsonSource(input.consolidatedPortionsGeoJSON),
     'section-boundaries': geojsonSource(input.sectionBoundariesGeoJSON),
     'section-markers': geojsonSource(input.sectionMarkersGeoJSON),
@@ -156,7 +156,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
     {
       id: 'route-gradient-line',
       type: 'line',
-      source: 'route-gradient',
+      source: 'route',
       layout: roundLine,
       paint: {
         'line-color': activityColor,

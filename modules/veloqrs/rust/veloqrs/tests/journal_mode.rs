@@ -122,3 +122,17 @@ fn a_backup_file_still_validates_after_the_source_became_wal() {
     veloqrs::ffi::validate_backup_database(backup.to_str().unwrap().to_string())
         .expect("a backup taken from a WAL database has to validate");
 }
+
+#[test]
+fn the_linked_sqlite_carries_the_wal_reset_fix() {
+    // SQLite 3.7.0 to 3.51.2 can corrupt a WAL file when two connections in
+    // separate threads or processes write or checkpoint at the same instant.
+    // The engine writes from more than one connection, and on iOS the push
+    // extension opens the same file from its own process, so the bundled
+    // library has to be 3.51.3 or later.
+    assert!(
+        rusqlite::version_number() >= 3_051_003,
+        "bundled SQLite {} predates the WAL-reset fix in 3.51.3",
+        rusqlite::version()
+    );
+}

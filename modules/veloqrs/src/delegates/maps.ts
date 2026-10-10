@@ -11,6 +11,10 @@ import type { DelegateHost } from './host';
 /**
  * Everything the map tab paints with in one round-trip: the engine total, the
  * sport types the filter chips offer, and the activities inside the window.
+ *
+ * `heldRouteLines` and `heldSections` are the stamps of the layers the caller
+ * already holds. A layer still current under its stamp comes back without its
+ * lines.
  */
 export function getMapScreenData(
   host: DelegateHost,
@@ -21,7 +25,9 @@ export function getMapScreenData(
   isMetric: boolean,
   routeLines: boolean,
   sections: boolean,
-  nameNeedle: string
+  nameNeedle: string,
+  heldRouteLines?: number,
+  heldSections?: number
 ): FfiMapScreenData | undefined {
   if (!host.ready) return undefined;
   const startTs = startDate.getTime() / 1000;
@@ -37,7 +43,9 @@ export function getMapScreenData(
         isMetric,
         routeLines,
         sections,
-        nameNeedle
+        nameNeedle,
+        heldRouteLines,
+        heldSections
       )
   );
 }

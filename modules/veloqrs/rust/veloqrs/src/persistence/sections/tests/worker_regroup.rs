@@ -92,6 +92,7 @@ fn test_regroup_on_worker_adopts_commit_when_run_never_applies() {
             &MatchConfig::default(),
             &prior,
             generation,
+            &HashSet::new(),
             ApplyOn::Worker,
         );
         member_ids(&committed, "t")
@@ -111,6 +112,7 @@ fn test_foreground_regroup_adopts_a_commit_nobody_adopted() {
             &MatchConfig::default(),
             &prior,
             generation,
+            &HashSet::new(),
             ApplyOn::Caller,
         );
         member_ids(&committed, "t")
@@ -385,6 +387,7 @@ fn test_reopened_engine_takes_the_stored_group_generation() {
         &MatchConfig::default(),
         &prior,
         generation,
+        &HashSet::new(),
         ApplyOn::Caller,
     );
     member_ids(&load_groups_from_db(&conn), "t");
@@ -424,6 +427,7 @@ fn test_clear_resets_the_group_generation() {
         &MatchConfig::default(),
         &[],
         generation,
+        &HashSet::new(),
         ApplyOn::Caller,
     );
     let stored = load_groups_from_db(&conn);
@@ -465,6 +469,7 @@ fn commit_nobody_adopts(dir: &tempfile::TempDir, t_track: f64) -> std::path::Pat
         &MatchConfig::default(),
         &prior,
         generation,
+        &HashSet::new(),
         ApplyOn::Caller,
     );
     path
@@ -645,6 +650,7 @@ fn test_representative_choice_follows_a_commit_landing_before_its_write() {
             &MatchConfig::default(),
             &prior,
             generation,
+            &HashSet::new(),
             ApplyOn::Caller,
         );
     });
@@ -691,6 +697,7 @@ fn commit_before_each_representative_write(path: std::path::PathBuf, install: u6
             &MatchConfig::default(),
             &prior,
             generation,
+            &HashSet::new(),
             ApplyOn::Caller,
         );
         if left > 1 {

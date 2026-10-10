@@ -1,6 +1,7 @@
 {
   "platforms": ["apple"],
   "apple": {
-    "modules": ["VeloqAppGroupModule"]
+    "modules": ["VeloqAppGroupModule"],
+    "appDelegateSubscribers": ["VeloqEngineSuspensionSubscriber"]
   }
 }

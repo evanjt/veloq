@@ -182,6 +182,7 @@ describe('tile counts belong to one render', () => {
         _heartbeat: { start: jest.fn() },
         ReactNativeWebView: { postMessage },
         map: {
+          getTerrain: () => null,
           setStyle: jest.fn(() => {
             starts.push({ ...page._tileStats });
             // MapLibre can report a source synchronously while mounting a style.
@@ -236,6 +237,7 @@ it.each([false, true])(
         _heartbeat: { start: jest.fn() },
         ReactNativeWebView: { postMessage },
         map: {
+          getTerrain: () => null,
           setStyle: () => {
             page._tileStats.terrain = { loaded: 3, total: 4 };
           },

@@ -33,4 +33,4 @@ export {
   type WidgetContext,
   type WidgetSnapshotPayload,
 } from './lib/widgetSnapshot';
-export { readCalendarEvents } from './lib/calendarEvents';
+export { readPlannedWorkouts } from './lib/calendarEvents';

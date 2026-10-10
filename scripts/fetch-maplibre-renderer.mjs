@@ -14,10 +14,13 @@
 // and no metro assetExts entry.
 //
 // The version is pinned here and asserted by the tests, so a renderer bump is
-// a deliberate commit rather than whatever unpkg served that day.
+// a deliberate commit rather than whatever unpkg served that day. A bump is
+// judged by `npm run test:map-pages`, which draws every page with it in a
+// headless Chromium, and by check-maplibre-attribution.mjs.
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -36,10 +39,9 @@ async function fetchText(file) {
   return text;
 }
 
-// A `</script` anywhere in the source would close the tag it is inlined into.
-// Neutralised here rather than per page build, which would rescan a megabyte
-// every time a map opens.
-const forInlining = (text) => text.replace(/<\/script/gi, '<\\/script');
+// The source is rewritten for the `<script>` it is inlined into and kept
+// pure ASCII, in scripts/lib/maplibre-inlining.js, where its tests reach it.
+const { forInlining } = createRequire(import.meta.url)('./lib/maplibre-inlining.js');
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
 

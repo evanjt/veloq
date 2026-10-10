@@ -180,6 +180,8 @@ fn terrain_areas_keep_rank_order_and_stop_at_the_live_pool_share() {
 
 #[test]
 fn a_failed_ranked_refresh_keeps_the_previous_offline_pins() {
+    // A source of its own: the 503 holds it process-wide, and the suite runs
+    // its tests on threads of one process.
     let server = MockServer::start();
     server.mock(|when, then| {
         when.method(GET);
@@ -187,10 +189,10 @@ fn a_failed_ranked_refresh_keeps_the_previous_offline_pins() {
     });
     let (store, _tmp) = store();
     store
-        .put("terrain", 8, 2, 3, "png", &bytes(100, 9), true)
+        .put("terrain-offline", 8, 2, 3, "png", &bytes(100, 9), true)
         .unwrap();
     let plan = vec![veloqrs::basemap::PlannedTile {
-        source: "terrain".into(),
+        source: "terrain-offline".into(),
         z: 8,
         x: 4,
         y: 5,
@@ -203,15 +205,15 @@ fn a_failed_ranked_refresh_keeps_the_previous_offline_pins() {
         &fetcher(),
         &plan,
         200,
-        "terrain",
+        "terrain-offline",
     ));
 
     assert_eq!(outcome.failed, 1);
     store
-        .put("terrain", 9, 6, 7, "png", &bytes(100, 1), false)
+        .put("terrain-offline", 9, 6, 7, "png", &bytes(100, 1), false)
         .unwrap();
     store.evict_to(100).unwrap();
-    assert_eq!(store.get("terrain", 8, 2, 3), Some(bytes(100, 9)));
+    assert_eq!(store.get("terrain-offline", 8, 2, 3), Some(bytes(100, 9)));
 }
 
 // ============================================================================

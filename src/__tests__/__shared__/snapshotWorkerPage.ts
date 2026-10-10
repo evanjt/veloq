@@ -9,6 +9,9 @@ type Handler = (event: Record<string, unknown>) => void;
 
 export interface FakeMap {
   setStyle: jest.Mock;
+  /** No terrain is mounted unless a test says otherwise. */
+  getTerrain: jest.Mock;
+  setTerrain: jest.Mock;
   jumpTo: jest.Mock;
   remove: jest.Mock;
   /** Whether every tile of the mounted style has arrived. True unless a test says otherwise. */
@@ -85,6 +88,8 @@ export function bootWorkerPage(
     },
     off: jest.fn(),
     setStyle: jest.fn(),
+    getTerrain: jest.fn(() => null),
+    setTerrain: jest.fn(),
     jumpTo: jest.fn(),
     // A removed map fires nothing more, so its listeners go with it.
     remove: jest.fn(() => {

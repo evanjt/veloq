@@ -1,18 +1,18 @@
 /**
  * Hook for building all GeoJSON data for the regional map.
- * Builders cover activity markers, sections, the selected activity's route, and user location.
+ * Builders cover activity markers, the selected activity's route, and user location. The
+ * section overlay is built where the map read is held, in `sectionLineCollection`.
  *
- * CRITICAL INVARIANT: All GeoJSON builders return valid FeatureCollection (never null)
- * to avoid iOS Fabric crash when ShapeSources are conditionally added/removed.
- * Visibility is controlled via layer opacity, not feature presence.
+ * Invariant: every builder returns a FeatureCollection, never null, so each
+ * source spec stays in the list. With no data it returns the one shared
+ * EMPTY_FEATURE_COLLECTION, which the surface patcher compares by identity and
+ * skips unsent. Visibility is controlled via layer opacity, not feature presence.
  */
 
 import { useMemo } from 'react';
 
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem } from '@/types';
-import { sectionPalette, sectionPaletteIndex } from '@/theme/colors';
-import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 import { getActivityTypeConfig } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
@@ -27,15 +27,12 @@ export function getMarkerSize(_distance: number): number {
 interface UseMapGeoJSONOptions {
   allActivities: ActivityBoundsItem[];
   activityCenters: Record<string, [number, number]>;
-  /** Six fields and a line: everything the overlay draws, and nothing else. */
-  sections: MapSection[];
   userLocation: [number, number] | null;
   selected: SelectedActivity | null;
 }
 
 interface UseMapGeoJSONResult {
   markersGeoJSON: GeoJSON.FeatureCollection;
-  sectionsGeoJSON: GeoJSON.FeatureCollection;
   userLocationGeoJSON: GeoJSON.FeatureCollection;
   routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   routeHasData: boolean;
@@ -44,7 +41,6 @@ interface UseMapGeoJSONResult {
 export function useMapGeoJSON({
   allActivities,
   activityCenters,
-  sections,
   userLocation,
   selected,
 }: UseMapGeoJSONOptions): UseMapGeoJSONResult {
@@ -116,71 +112,9 @@ export function useMapGeoJSON({
   }, [allActivities, activityCenters]);
 
   // ===========================================
-  // 3. SECTIONS - Frequent road/trail section polylines
+  // 7. USER LOCATION - Rendered as a circle layer
   // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (sections.length === 0) return EMPTY_FEATURE_COLLECTION;
-
-    let skippedCount = 0;
-    const features = sections
-      .map((section) => {
-        // Filter out NaN coordinates and validate polyline has at least 2 points
-        // GeoJSON LineString requires minimum 2 coordinates to be valid
-        const originalCount = section.polyline.length;
-        const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
-
-        // Also filter Infinity values
-        const finitePoints = validPoints.filter(
-          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng)
-        );
-
-        // Skip sections with insufficient valid coordinates
-        if (finitePoints.length < 2) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[useMapGeoJSON] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`
-            );
-          }
-          return null;
-        }
-
-        const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
-        // Keyed by id so the colour matches the activity map and survives a re-order.
-
-        return {
-          type: 'Feature' as const,
-          id: section.id,
-          properties: {
-            id: section.id,
-            name: section.name ?? '',
-            visitCount: section.visitCount,
-            distanceMeters: section.distanceMeters,
-            color: sectionPalette[sectionPaletteIndex(section.id)],
-          },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[useMapGeoJSON] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [sections]);
-
-  // ===========================================
-  // 7. USER LOCATION - Rendered as CircleLayer to avoid Fabric crash
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no location
-  // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
+  // Never null: with no fix, the shared empty collection keeps the source unsent
   const userLocationGeoJSON = useMemo(
     () => buildUserLocationCollection(userLocation),
     [userLocation]
@@ -190,7 +124,7 @@ export function useMapGeoJSON({
   // 8. SELECTED ACTIVITY ROUTE - Full route line for selected activity
   // ===========================================
   // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
+  // Never null: with no route, the shared empty collection keeps the source unsent
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
     if (selected?.routeCoords && selected.routeCoords.length >= 2) {
@@ -259,7 +193,6 @@ export function useMapGeoJSON({
 
   return {
     markersGeoJSON,
-    sectionsGeoJSON,
     userLocationGeoJSON,
     routeGeoJSON,
     routeHasData,

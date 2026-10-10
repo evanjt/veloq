@@ -4,6 +4,7 @@ import { freshValue, useRecordingStore } from '@/features/recording/stores/Recor
 import { useClock } from '@/features/recording/hooks/useTimer';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
+import { athleteWeightKg } from '@/features/recording/lib/athleteWeight';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -60,11 +61,7 @@ export function useRecordingMetrics(): {
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const startTime = useRecordingStore((s) => s.startTime);
   const openPauseStart = useRecordingStore((s) => (s.status === 'paused' ? s._pauseStart : null));
-  const athleteWeight = useAuthStore((s) => {
-    // Weight comes from the intervals.icu API but is not typed on Athlete
-    const a = s.athlete as Record<string, unknown> | null;
-    return typeof a?.weight === 'number' ? a.weight : undefined;
-  });
+  const athleteWeight = useAuthStore((s) => athleteWeightKg(s.athlete));
 
   return useMemo(() => {
     // The tiles read the sensors, not the recorded streams. A stream starts at

@@ -28,6 +28,7 @@ let mockEvents: CalendarEvent[] = [];
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
+    getCalendarEventBodies: () => mockEvents.map((event) => JSON.stringify(event)),
     syncCalendarEvents: jest.fn(),
     subscribe: (event: string, listener: Listener) => {
       (mockListeners[event] ??= []).push(listener);
@@ -36,9 +37,6 @@ jest.mock('@/shared/native/engine', () => ({
       };
     },
   }),
-}));
-jest.mock('@/features/home/lib/calendarEvents', () => ({
-  readCalendarEvents: () => mockEvents,
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   requestNotificationPermission: jest.fn(async () => true),
@@ -98,9 +96,17 @@ jest.mock('@/features/recording/components/RecordingMap', () => ({
 
 const planned: CalendarEvent = {
   id: 77,
+  category: 'WORKOUT',
   name: 'Threshold 3 x 4 min',
   type: 'Run',
   moving_time: 2400,
+} as CalendarEvent;
+
+const note: CalendarEvent = {
+  id: 78,
+  category: 'NOTE',
+  name: 'Bike in for a service',
+  type: 'Ride',
 } as CalendarEvent;
 
 beforeAll(async () => {
@@ -253,6 +259,14 @@ describe("today's planned workout", () => {
 
     fireEvent.press(screen.getByTestId('record-event-77'));
     expect(navigateTo).toHaveBeenCalledWith('/recording/Run?from=entry&pairedEventId=77');
+  });
+
+  it('offers only the workout when a note shares its day', () => {
+    mockEvents = [note, planned];
+    render(<RecordScreen />);
+
+    expect(screen.getByTestId('record-event-77')).toBeTruthy();
+    expect(screen.queryByTestId('record-event-78')).toBeNull();
   });
 
   it('appears when the engine stores the calendar body for today', () => {

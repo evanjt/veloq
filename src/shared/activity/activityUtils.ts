@@ -20,7 +20,8 @@ export type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['na
  * Maps each activity type to a corresponding MaterialCommunityIcons icon name.
  * Activities with no specific mapping fall back to 'heart-pulse'.
  *
- * Keep in sync with ActivityType in src/types/activity.ts
+ * Curated, not exhaustive: `ActivityType` comes from the generated sport
+ * taxonomy, and a sport missing here takes the fallback icon.
  */
 const ACTIVITY_ICONS = {
   // Cycling

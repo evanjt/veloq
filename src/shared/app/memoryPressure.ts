@@ -1,11 +1,13 @@
 /**
  * Memory pressure reclaimers. Android delivers `onTrimMemory` levels, the last of
  * which is the signal immediately before the low-memory killer takes the process;
- * iOS delivers one undifferentiated `memoryWarning`. A subsystem registers what it
- * can rebuild, with the level from which losing it is worth the rebuild.
+ * iOS delivers one undifferentiated `memoryWarning`. From API 34 Android sends no
+ * level above `TRIM_MEMORY_BACKGROUND`, so that one is taken as the last. A
+ * subsystem registers what it can rebuild, with the level from which losing it is
+ * worth the rebuild.
  */
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
 
@@ -53,6 +55,17 @@ export function dispatchMemoryPressure(level: number): string[] {
   return released;
 }
 
+// The first API level that no longer sends TRIM_MEMORY_MODERATE or TRIM_MEMORY_COMPLETE.
+const ANDROID_LAST_TRIM_IS_BACKGROUND = 34;
+
+/** The level a delivered Android trim level is dispatched at on this OS version. */
+function androidDispatchLevel(level: number): number {
+  if (Platform.OS !== 'android' || Number(Platform.Version) < ANDROID_LAST_TRIM_IS_BACKGROUND) {
+    return level;
+  }
+  return level >= TRIM_BACKGROUND ? TRIM_COMPLETE : level;
+}
+
 interface VeloqMemoryModule {
   addListener(
     event: 'onTrimMemory',
@@ -74,14 +87,15 @@ export function clearNativeImageCache(): void {
 
 /**
  * Subscribes both platform signals. iOS gives no level and no second warning, so its
- * one warning is taken at the hardest level.
+ * one warning is taken at the hardest level, and so is Android's last level on an OS
+ * that sends no harder one.
  */
 export function startMemoryPressureListener(): () => void {
   const warning = AppState.addEventListener('memoryWarning', () => {
     dispatchMemoryPressure(TRIM_COMPLETE);
   });
   const trim = VeloqMemory?.addListener('onTrimMemory', ({ level }) => {
-    dispatchMemoryPressure(level);
+    dispatchMemoryPressure(androidDispatchLevel(level));
   });
   return () => {
     warning.remove();

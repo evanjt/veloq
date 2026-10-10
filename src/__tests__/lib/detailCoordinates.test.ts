@@ -21,10 +21,7 @@ describe('resolveDetailCoordinates', () => {
 
   it('prefers the stream over the stored track', () => {
     const coords = resolveDetailCoordinates({
-      streamLatLng: [
-        [-37.0, 144.0],
-        [-37.1, 144.1],
-      ],
+      streamLatLng: new Float64Array([-37.0, 144.0, -37.1, 144.1]),
       gpsTrack: TRACK,
     });
     expect(coords[0]).toEqual({ latitude: -37.0, longitude: 144.0 });
@@ -35,7 +32,10 @@ describe('resolveDetailCoordinates', () => {
   });
 
   it('treats an empty stream as absent rather than as an answer', () => {
-    const coords = resolveDetailCoordinates({ streamLatLng: [], gpsTrack: TRACK });
+    const coords = resolveDetailCoordinates({
+      streamLatLng: new Float64Array(0),
+      gpsTrack: TRACK,
+    });
     expect(coords).toEqual(TRACK);
   });
 

@@ -830,6 +830,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/features/settings/lib/backup.ts',
       'src/features/settings/lib/autobackup/backends/webdavBackend.ts',
+      'src/features/settings/lib/autobackup/backends/googleDriveBackend.ts',
     ],
     holds: 'a backup being restored',
     wiped: { files: ['file:///cache/restores/restore-temp.zip'] },
@@ -1162,6 +1163,12 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: {
       keychain: ['veloq-webdav-url', 'veloq-webdav-username', 'veloq-webdav-password'],
     },
+  },
+  {
+    where: 'the Google account the Drive carrier writes to, in SecureStore',
+    writers: ['src/features/settings/lib/autobackup/googleDriveAccount.ts'],
+    holds: "the address of the athlete's Google account",
+    wiped: { keychain: ['veloq-google-drive-account'] },
   },
   {
     where:

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   engine,
   hasStarted,
@@ -240,14 +240,19 @@ export function useSectionTimeStreamSync(
   // `ready` true early, and it held a subscription and a thirty-second timer
   // for the full timeout past unmount.
   const fetchMissingStreams = useCallback(
-    async (signal: AbortSignal) => {
+    async (signal: AbortSignal, isRetry: boolean) => {
       if (allActivityIds.length === 0) {
         setFetchComplete(true);
         return;
       }
 
-      // Check which activities are missing from cache (memory + SQLite)
-      const missingIds = knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
+      // The caller's list was read when its screen loaded and is not re-read
+      // as streams land, so a retry reads the gap afresh. Rust never announces
+      // a stream that was already stored, so waiting on one would count it
+      // missing at the deadline.
+      const missingIds =
+        (isRetry ? undefined : knownMissingIds) ??
+        engine.getActivitiesMissingTimeStreams(allActivityIds);
 
       // If all time streams are cached, we're done immediately
       if (missingIds.length === 0) {
@@ -281,13 +286,19 @@ export function useSectionTimeStreamSync(
     [allActivityIds, knownMissingIds]
   );
 
+  // The activity set and fetch key of the run before, so a run on the same
+  // set under a new key is known to be a retry.
+  const lastRun = useRef<{ ids: string[]; key: number } | null>(null);
+
   // Fetch missing streams when the activity set changes or refetch is triggered
   useEffect(() => {
     setFetchComplete(false);
     setOutstanding(0);
+    const isRetry = lastRun.current?.ids === allActivityIds && lastRun.current.key !== fetchKey;
+    lastRun.current = { ids: allActivityIds, key: fetchKey };
     const run = new AbortController();
     // An empty list settles inside, so there is one exit and one cleanup.
-    fetchMissingStreams(run.signal);
+    fetchMissingStreams(run.signal, isRetry);
     return () => run.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The fetch key retries the current activity set.
   }, [allActivityIds, fetchKey]);

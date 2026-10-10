@@ -24,11 +24,11 @@ interface BookmarkedResult {
 
 interface VeloqBackupFolderModule {
   bookmarkFolder(uri: string): string;
-  writeToBookmarkedFolder(bookmark: string, from: string, name: string): BookmarkedResult;
+  writeToBookmarkedFolder(bookmark: string, from: string, name: string): Promise<BookmarkedResult>;
   listBookmarkedFolder(
     bookmark: string
-  ): BookmarkedResult & { files: { name: string; size: number }[] };
-  readFromBookmarkedFolder(bookmark: string, name: string, to: string): BookmarkedResult;
+  ): Promise<BookmarkedResult & { files: { name: string; size: number }[] }>;
+  readFromBookmarkedFolder(bookmark: string, name: string, to: string): Promise<BookmarkedResult>;
   releaseFolderGrant(uri: string): void;
 }
 
@@ -82,11 +82,17 @@ export function forgetBackupFolder(): void {
   if (folder) releaseFolderGrant(folder);
 }
 
-/** Run a native call through the held iOS bookmark, keeping the bookmark it refreshed. */
-function throughBookmark<T extends BookmarkedResult>(call: (bookmark: string) => T): T {
+/**
+ * Run a native call through the held iOS bookmark, keeping the bookmark it
+ * refreshed. The call runs off the JavaScript thread, since a folder in a cloud
+ * drive holds it until the files download.
+ */
+async function throughBookmark<T extends BookmarkedResult>(
+  call: (bookmark: string) => Promise<T>
+): Promise<T> {
   const bookmark = heldBackupFolder();
   if (!bookmark) throw new Error('No backup folder chosen');
-  const result = call(bookmark);
+  const result = await call(bookmark);
   if (result.bookmark && result.bookmark !== bookmark) {
     getEngine()?.setSetting(SETTING_FOLDER, result.bookmark);
   }
@@ -94,21 +100,25 @@ function throughBookmark<T extends BookmarkedResult>(call: (bookmark: string) =>
 }
 
 /** Copy a file into the held iOS folder under `name`. */
-export function writeToBookmarkedFolder(from: string, name: string): void {
-  throughBookmark((bookmark) =>
-    nativeModule().writeToBookmarkedFolder(bookmark, plainPath(from), name)
+export async function writeToBookmarkedFolder(from: string, name: string): Promise<void> {
+  await throughBookmark(
+    async (bookmark) =>
+      await nativeModule().writeToBookmarkedFolder(bookmark, plainPath(from), name)
   );
 }
 
 /** The held iOS folder's regular files, by name and size. */
-export function listBookmarkedFolder(): { name: string; size: number }[] {
-  return throughBookmark((bookmark) => nativeModule().listBookmarkedFolder(bookmark)).files;
+export async function listBookmarkedFolder(): Promise<{ name: string; size: number }[]> {
+  const result = await throughBookmark(
+    async (bookmark) => await nativeModule().listBookmarkedFolder(bookmark)
+  );
+  return result.files;
 }
 
 /** Copy the file `name` out of the held iOS folder to `to`. */
-export function readFromBookmarkedFolder(name: string, to: string): void {
-  throughBookmark((bookmark) =>
-    nativeModule().readFromBookmarkedFolder(bookmark, name, plainPath(to))
+export async function readFromBookmarkedFolder(name: string, to: string): Promise<void> {
+  await throughBookmark(
+    async (bookmark) => await nativeModule().readFromBookmarkedFolder(bookmark, name, plainPath(to))
   );
 }
 

@@ -3,6 +3,7 @@ package com.veloq;
 import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -32,7 +33,7 @@ public class VeloqWebViewManager extends RNCWebViewManager implements ComponentC
 
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final MapWebViewReclaimer<RNCWebViewWrapper> reclaimer =
-      new MapWebViewReclaimer<>(mainHandler::post, view ->
+      new MapWebViewReclaimer<>(Build.VERSION.SDK_INT, mainHandler::post, view ->
           view.getWebView().evaluateJavascript(RELEASE_MAP_SCRIPT, null));
   private Context applicationContext;
 

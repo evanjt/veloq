@@ -387,6 +387,118 @@ pub(crate) struct IdentityRow {
     section: FrequentSection,
 }
 
+/// One tombstoned section: its real id and the identity fields a restore puts
+/// back on the batch candidate when the ground re-emerges. The candidate brings
+/// the line, the members and everything else, and the pure layer's tombstone
+/// holds the ground, so a grave carries no payload of its own.
+///
+/// Reads either this shape or the whole [`IdentityRow`] that graves were before
+/// it, so a registry written by an older build restores without a reseed.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(from = "GraveWire")]
+pub(crate) struct GraveRow {
+    real_id: String,
+    name: Option<String>,
+    created_at: Option<String>,
+    version: u32,
+    updated_at: Option<String>,
+    sport_type: String,
+}
+
+impl GraveRow {
+    /// The section the ground re-emerged as, under the grave's identity: the
+    /// batch candidate with the real id, name, birth date, version,
+    /// recalibration stamp and sport put back.
+    fn restore(self, mut section: FrequentSection) -> IdentityRow {
+        section.id = self.real_id.clone();
+        section.name = self.name;
+        section.created_at = self.created_at;
+        section.version = self.version;
+        section.updated_at = self.updated_at;
+        // Sport stays with the identity: the ground may re-emerge in another
+        // sport's cut, and a section that comes back as itself must not come
+        // back as another sport.
+        section.sport_type = self.sport_type;
+        IdentityRow {
+            real_id: self.real_id,
+            section,
+        }
+    }
+}
+
+impl From<IdentityRow> for GraveRow {
+    fn from(row: IdentityRow) -> Self {
+        let IdentityRow { real_id, section } = row;
+        Self {
+            real_id,
+            name: section.name,
+            created_at: section.created_at,
+            version: section.version,
+            updated_at: section.updated_at,
+            sport_type: section.sport_type,
+        }
+    }
+}
+
+/// A grave as persisted: the slim fields at the top level, or an older
+/// [`IdentityRow`] holding them inside `section`, whose other fields are skipped.
+#[derive(Deserialize)]
+struct GraveWire {
+    real_id: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    created_at: Option<String>,
+    #[serde(default)]
+    version: Option<u32>,
+    #[serde(default)]
+    updated_at: Option<String>,
+    #[serde(default)]
+    sport_type: Option<String>,
+    #[serde(default)]
+    section: Option<WholeGraveSection>,
+}
+
+/// The identity fields of a whole [`FrequentSection`], under its encoded names.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WholeGraveSection {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default, alias = "created_at")]
+    created_at: Option<String>,
+    #[serde(default)]
+    version: Option<u32>,
+    #[serde(default, alias = "updated_at")]
+    updated_at: Option<String>,
+    #[serde(default, alias = "sport_type")]
+    sport_type: Option<String>,
+}
+
+impl From<GraveWire> for GraveRow {
+    fn from(wire: GraveWire) -> Self {
+        let (name, created_at, version, updated_at, sport_type) = match wire.section {
+            Some(s) => (s.name, s.created_at, s.version, s.updated_at, s.sport_type),
+            None => (
+                wire.name,
+                wire.created_at,
+                wire.version,
+                wire.updated_at,
+                wire.sport_type,
+            ),
+        };
+        Self {
+            real_id: wire.real_id,
+            name,
+            created_at,
+            // A section's version starts at 1, as `FrequentSection` defaults it.
+            version: version.unwrap_or(1),
+            updated_at,
+            sport_type: sport_type.unwrap_or_default(),
+        }
+    }
+}
+
 /// The engine-held section identity registry: the pure churn brain plus the
 /// veloqrs payloads it carries. The whole blob is persisted so a debounce
 /// survives an app kill, and it reseeds from the DB rows when there is none.
@@ -408,8 +520,9 @@ pub(crate) struct SectionIdentity {
     rows: BTreeMap<String, IdentityRow>,
     /// Tombstoned (sustained-dissolve) sections, retained so a re-emerged ground
     /// returns under its OLD real id rather than a fresh one. Pure `s_<n>` id ->
-    /// payload, matching the pure layer's own tombstones.
-    graves: BTreeMap<String, IdentityRow>,
+    /// the identity a restore puts back, matching the pure layer's own
+    /// tombstones, which hold the ground.
+    graves: BTreeMap<String, GraveRow>,
     /// Activity ids already folded into the catalogue. A detect folds only ids
     /// not in here into carried sections (append-only), so re-clustering of an
     /// already-seen activity never moves it between sections in the visible view.
@@ -1112,30 +1225,15 @@ impl ReplaySource<'_> {
                     fold_new_activities(&mut row.section, Some(cut), &judged, &new_tracks, config);
                     row
                 }),
+                // The ground re-emerged; adopt the batch geometry and members
+                // but keep the OLD real id and birth date (comes back as
+                // itself). The prior is the grave, or the live row on a
+                // same-step bounce.
                 CandidateFate::Restored => old_graves
                     .get(&pid)
-                    .or_else(|| old_rows.get(&pid))
                     .cloned()
-                    .map(|mut row| {
-                        // The ground re-emerged; adopt the batch geometry and
-                        // members but keep the OLD real id and birth date
-                        // (comes back as itself). The prior is the grave, or
-                        // the live row on a same-step bounce.
-                        let real_id = row.real_id.clone();
-                        let prior =
-                            std::mem::replace(&mut row.section, payload.take().unwrap().clone());
-                        row.section.id = real_id;
-                        row.section.name = prior.name.clone();
-                        row.section.created_at = prior.created_at.clone();
-                        row.section.version = prior.version;
-                        row.section.updated_at = prior.updated_at.clone();
-                        // Sport stays with the identity here for the same
-                        // reason as an adopted carry: the ground may re-emerge
-                        // in another sport's cut, and a section that comes back
-                        // as itself must not come back as another sport.
-                        row.section.sport_type = prior.sport_type.clone();
-                        row
-                    }),
+                    .or_else(|| old_rows.get(&pid).cloned().map(GraveRow::from))
+                    .map(|grave| grave.restore(payload.take().unwrap().clone())),
                 CandidateFate::Minted => None,
             };
 
@@ -1187,13 +1285,16 @@ impl ReplaySource<'_> {
             .collect();
 
         // Newly tombstoned ids (a sustained dissolve fired this step): move their
-        // payload into the graves so a later re-emergence restores the real id.
-        for (pid, row) in old_rows.into_iter().chain(old_graves) {
+        // identity into the graves so a later re-emergence restores the real id.
+        let retired = old_rows
+            .into_iter()
+            .map(|(pid, row)| (pid, GraveRow::from(row)));
+        for (pid, grave) in retired.chain(old_graves) {
             if new_rows.contains_key(&pid) {
                 continue;
             }
             if identity.hysteresis.is_tombstoned(&pid) {
-                identity.graves.insert(pid, row);
+                identity.graves.insert(pid, grave);
             }
         }
 
@@ -1488,9 +1589,10 @@ impl PersistentEngine {
         self.section_identity_persist();
     }
 
-    /// Drop a removed activity from every section the registry carries (visible
-    /// rows and tombstoned graves) and from the in-memory catalogue, and forget it
-    /// as seen so a later re-add folds it back in. The append-only fold otherwise
+    /// Drop a removed activity from every visible section the registry carries
+    /// and from the in-memory catalogue, and forget it as seen so a later re-add
+    /// folds it back in. A grave holds no members: a restore takes them from
+    /// the batch, which no longer has the activity. The append-only fold otherwise
     /// keeps a removed contributor as a phantom member, which the activity_id
     /// foreign key now (correctly) refuses to persist, aborting the whole
     /// detection apply. Ground is untouched: only the gone activity leaves;
@@ -1551,9 +1653,6 @@ pub(crate) fn purge_activity_from_tiers(
     for (pid, dropped) in dropped_by_pid {
         identity.hysteresis.drop_visits(&pid, dropped);
     }
-    for row in identity.graves.values_mut() {
-        moved |= drop_from(&mut row.section, activity_id).0;
-    }
     moved |= identity.seen.remove(activity_id);
     for section in sections {
         drop_from(section, activity_id);
@@ -1562,6 +1661,12 @@ pub(crate) fn purge_activity_from_tiers(
     // activity, so an untouched registry writes nothing.
     moved
 }
+
+/// Every kind a `section_intents` row may carry, the set the table's `kind`
+/// CHECK allows. A row read from outside, such as a restored record, is held
+/// to this before it is written, so it can never reach the constraint.
+pub(crate) const SECTION_INTENT_KINDS: [&str; 5] =
+    ["disabled", "deleted", "named", "fixed", "lift"];
 
 impl PersistentEngine {
     /// Record a durable suppression intent for a corridor the user hid
@@ -2358,6 +2463,158 @@ mod tests {
         assert!(codec::deserialize_gps_composite::<SectionIdentity>(&positional).is_err());
     }
 
+    /// A tombstoned section as it reaches the graves after years of traffic:
+    /// a long line, many members and the clock stamps a mint and a recalibration
+    /// write.
+    fn retired_section(real_id: &str) -> FrequentSection {
+        let members: Vec<String> = (0..40).map(|i| format!("ride-{i:04}")).collect();
+        FrequentSection {
+            id: real_id.to_string(),
+            name: Some("Larkspur Climb".to_string()),
+            point_density: vec![2; 200],
+            polyline: line_at(46.0, 200),
+            activity_ids: members,
+            visit_count: 40,
+            created_at: Some("2021-03-04T05:06:07.123456789+00:00".to_string()),
+            updated_at: Some("2024-11-12T13:14:15.123456789+00:00".to_string()),
+            ..sample_registry_section()
+        }
+    }
+
+    /// Scenario: years of turnover leave hundreds of tombstoned sections, and
+    /// the registry blob is written on every apply and deep-cloned with it.
+    /// Expected behaviour: a grave costs what a restore reads back (its name,
+    /// birth date, version, recalibration stamp and sport), not the line and
+    /// members of a section nobody can see.
+    #[test]
+    fn a_grave_costs_what_a_restore_reads_and_no_more() {
+        const GRAVES: usize = 50;
+        let mut identity = SectionIdentity::default();
+        let empty = identity_blob_for(&identity).expect("encode").len();
+        let mut id_bytes = 0;
+        for i in 0..GRAVES {
+            let pid = format!("s_{i}");
+            let real_id = format!("ride:u0m6q{i:03}");
+            id_bytes += pid.len() + real_id.len();
+            let section = retired_section(&real_id);
+            identity
+                .graves
+                .insert(pid, IdentityRow { real_id, section }.into());
+        }
+        let full = identity_blob_for(&identity).expect("encode").len();
+
+        let per_grave = (full - empty - id_bytes) / GRAVES;
+        assert!(
+            per_grave <= 200,
+            "a grave costs {per_grave} bytes beyond its ids"
+        );
+    }
+
+    /// The registry as builds before the slim graves wrote it: every grave
+    /// carried its section's whole payload.
+    #[derive(Serialize)]
+    struct RegistryWithWholeGraves<'a> {
+        hysteresis: &'a HysteresisState,
+        rows: &'a BTreeMap<String, IdentityRow>,
+        graves: BTreeMap<String, IdentityRow>,
+        seen: &'a BTreeSet<String>,
+        mint_seq: u64,
+        around: &'a BTreeMap<String, BTreeSet<String>>,
+    }
+
+    /// Scenario: a library updates from a build whose graves carried whole
+    /// section payloads. The hill was named and dissolved under that build.
+    /// Expected behaviour: the blob restores without a reseed, the grave keeps
+    /// the hill's real id, and when the hill is ridden again it re-emerges under
+    /// that id with its name and birth date.
+    #[test]
+    fn a_registry_written_with_whole_graves_restores_and_the_ground_comes_back() {
+        let dir = TempDir::new().expect("tempdir");
+        let (mut engine, mut identity) = seeded(&dir);
+        let hill_row = {
+            let row = identity.rows.values_mut().next().expect("the hill row");
+            row.section.name = Some("Larkspur Climb".to_string());
+            row.section.created_at = Some("2021-03-04T05:06:07+00:00".to_string());
+            row.section.version = 4;
+            row.clone()
+        };
+        let hill_pid = pure_id_of(&identity, &hill_row.real_id).expect("the hill pid");
+        for (ride, catalogue) in VALLEY_RIDES[..3].iter().zip(valley_catalogues()) {
+            add_valley_ride(&mut engine, ride);
+            engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
+        }
+        assert!(identity.hysteresis.is_tombstoned(&hill_pid));
+
+        let older = RegistryWithWholeGraves {
+            hysteresis: &identity.hysteresis,
+            rows: &identity.rows,
+            graves: [(hill_pid.clone(), hill_row.clone())].into_iter().collect(),
+            seen: &identity.seen,
+            mint_seq: identity.mint_seq,
+            around: &identity.around,
+        };
+        let blob = codec::tag_blob(
+            SECTION_IDENTITY_BLOB_VERSION,
+            codec::serialize_named(&older).expect("encode"),
+        );
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at) VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob",
+                rusqlite::params![SECTION_IDENTITY_KEY, blob],
+            )
+            .expect("write the older blob");
+        engine.identity = SectionIdentity::default();
+
+        assert!(engine.section_identity_restore(), "no reseed");
+        let graves: Vec<(String, String)> = engine
+            .identity
+            .graves
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
+            .collect();
+        assert_eq!(graves, [(hill_pid.clone(), hill_row.real_id.clone())]);
+        let grave = &engine.identity.graves[&hill_pid];
+        assert_eq!(grave.name.as_deref(), Some("Larkspur Climb"));
+        assert_eq!(
+            grave.created_at.as_deref(),
+            Some("2021-03-04T05:06:07+00:00")
+        );
+        assert_eq!(grave.version, 4);
+        assert_eq!(grave.sport_type, "Ride");
+
+        engine
+            .add_activity("hill-2".into(), hill(), "Ride".into())
+            .expect("add_activity");
+        let mut restored = engine.identity.clone();
+        let applied = engine.section_identity_apply_into(
+            &mut restored,
+            SectionReplay::whole(vec![
+                raw_cut(valley_short(), &VALLEY_RIDES[..3]),
+                raw_cut(hill(), &["hill-1", "hill-2"]),
+            ]),
+        );
+
+        let hill = applied
+            .visible
+            .iter()
+            .find(|s| s.id == hill_row.real_id)
+            .expect("the hill re-emerges under its old id");
+        assert_eq!(hill.name.as_deref(), Some("Larkspur Climb"));
+        assert_eq!(
+            hill.created_at.as_deref(),
+            Some("2021-03-04T05:06:07+00:00")
+        );
+        assert_eq!(hill.version, 4);
+        assert_eq!(
+            hill.activity_ids,
+            ["hill-1", "hill-2"],
+            "members from the batch"
+        );
+        assert!(restored.graves.is_empty());
+    }
+
     fn track() -> Vec<GpsPoint> {
         (0..40)
             .map(|i| GpsPoint {
@@ -2582,12 +2839,11 @@ mod tests {
     /// The registry with the birth stamps cleared, which read the clock.
     fn registry_bytes(identity: &SectionIdentity) -> Vec<u8> {
         let mut identity = identity.clone();
-        for row in identity
-            .rows
-            .values_mut()
-            .chain(identity.graves.values_mut())
-        {
+        for row in identity.rows.values_mut() {
             row.section.created_at = None;
+        }
+        for grave in identity.graves.values_mut() {
+            grave.created_at = None;
         }
         codec::serialize_named(&identity).expect("encode")
     }
@@ -2638,11 +2894,10 @@ mod tests {
     }
 
     fn pure_id_of(identity: &SectionIdentity, real_id: &str) -> Option<String> {
-        identity
-            .rows
-            .iter()
-            .chain(identity.graves.iter())
-            .find(|(_, r)| r.real_id == real_id)
+        let row = identity.rows.iter().map(|(pid, r)| (pid, &r.real_id));
+        let grave = identity.graves.iter().map(|(pid, g)| (pid, &g.real_id));
+        row.chain(grave)
+            .find(|(_, id)| *id == real_id)
             .map(|(pid, _)| pid.clone())
     }
 

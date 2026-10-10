@@ -222,6 +222,8 @@ export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
 );
 
+export const decodeCoordsFlat = jest.fn(() => new Float64Array(0));
+
 /** Fresh jest.fn PreviewClient, one per test, defaulting to an idle engine. */
 export const createPreviewClientStub = () => ({
   subscribe: jest.fn(() => () => {}),
@@ -323,6 +325,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     hasStarted,
     startOutcome,
     decodeCoords,
+    decodeCoordsFlat,
     createPreviewClientStub,
     startFetchAndStore,
     takeFetchAndStoreResult,

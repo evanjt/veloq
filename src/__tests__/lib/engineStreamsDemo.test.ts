@@ -11,7 +11,9 @@ import {
   requestStreams,
   DETAIL_STREAM_TYPES,
 } from '@/features/activity/lib/engineStreams';
+import { resolveDetailCoordinates } from '@/features/activity/lib/detailCoordinates';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { getActivityStreams } from '@/shared/demo/activity';
 import { getEngine } from '@/shared/native/engine';
 import { streamBuffers } from '../__shared__/streamBuffers';
 
@@ -51,13 +53,29 @@ describe('readStreams in demo mode', () => {
     expect(streams?.latlng?.length).toBeGreaterThan(0);
   });
 
+  it('answers in the shape a stored body reads in, so the track draws the same', () => {
+    engine.getActivityStreams.mockReturnValue(null);
+    setDemoMode(true);
+
+    const streams = readStreams('demo-test-0', DETAIL_STREAM_TYPES)!;
+    const generated = getActivityStreams('demo-test-0')!;
+
+    expect(streams.time).toBeInstanceOf(Float64Array);
+    expect(streams.heartrate).toEqual(new Float64Array(generated.heartrate!));
+    expect(streams.latlng).toBeInstanceOf(Float64Array);
+    expect(streams.latlng).toHaveLength(generated.latlng!.length * 2);
+    expect(resolveDetailCoordinates({ streamLatLng: streams.latlng })).toEqual(
+      generated.latlng!.map(([latitude, longitude]) => ({ latitude, longitude }))
+    );
+  });
+
   it('still reads a stored body before falling back', () => {
     engine.getActivityStreams.mockReturnValue(streamBuffers({ time: [0, 5, 10] }));
     setDemoMode(true);
 
     const streams = readStreams('demo-test-0', DETAIL_STREAM_TYPES);
 
-    expect(streams?.time).toEqual([0, 5, 10]);
+    expect(streams?.time).toEqual(new Float64Array([0, 5, 10]));
   });
 
   it('returns null on a miss outside demo mode', () => {

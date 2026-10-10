@@ -116,5 +116,14 @@ export function renderSportTaxonomy(
     ...DISPLAY_NAMES.flatMap((name) => renderList(name, displayGroups[name])),
     '} as const;',
     '',
+    '/** Every sport the display groups name, once each, in group order. */',
+    'export const ACTIVITY_TYPES = [',
+    ...[...new Set(DISPLAY_NAMES.flatMap((name) => displayGroups[name]))].map(
+      (sport) => `  '${sport}',`
+    ),
+    '] as const;',
+    '',
+    'export type ActivityType = (typeof ACTIVITY_TYPES)[number];',
+    '',
   ].join('\n');
 }

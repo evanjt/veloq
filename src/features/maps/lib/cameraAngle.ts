@@ -94,7 +94,7 @@ function computeBoundsAndZoom(coordinates: [number, number][]): {
 
 export function calculateTerrainCamera(
   coordinates: [number, number][],
-  altitude?: number[]
+  altitude?: ArrayLike<number>
 ): TerrainCameraResult {
   if (coordinates.length === 0) {
     return {
@@ -204,7 +204,7 @@ export function calculateFlatCamera(coordinates: [number, number][]): TerrainCam
  */
 function computeElevationCamera(
   coordinates: [number, number][],
-  altitude: number[] | undefined,
+  altitude: ArrayLike<number> | undefined,
   centerLng: number,
   centerLat: number
 ): { bearing: number; pitch: number; elevationRange: number } | null {
@@ -294,7 +294,7 @@ export interface Terrain3DInput {
   mode: 'off' | 'always' | 'smart';
   /** [lng, lat] points of the track, empty before it loads */
   coordinates: [number, number][];
-  altitude: number[] | undefined;
+  altitude: ArrayLike<number> | undefined;
   gain: number;
   distance: number;
   /** The athlete's saved camera for this activity, if any */

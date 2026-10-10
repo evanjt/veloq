@@ -294,25 +294,47 @@ export function clearInterruptedRecordingNotice(): void {
   }
 }
 
+// One subscription for the runtime, however many holders want it. Two would
+// apply every press twice, and a lap would count twice.
+let actionSubscription: { remove(): void } | null = null;
+let actionHolders = 0;
+
 /**
  * Listen for the notification's buttons. A button can be pressed after the
  * runtime that drew the notification is gone, so the queue the receiver kept
  * is drained first and in order.
+ *
+ * Anything that can make the store live holds the listener: the receiver
+ * hands a press to any runtime with the module loaded and queues it only when
+ * there is none, so a live runtime with no listener drops it. The first holder
+ * subscribes and drains, later ones share that subscription, and it is removed
+ * when the last one lets go.
  */
 export function installRecordingNotificationActions(): () => void {
   if (!VeloqRecordingNotification) return () => {};
   const module = VeloqRecordingNotification;
-  try {
-    for (const pending of module.drainPendingActions()) {
-      const { action, session } = parsePendingAction(pending);
-      if (isAction(action)) applyRecordingNotificationAction(action, session);
+  if (!actionSubscription) {
+    try {
+      for (const pending of module.drainPendingActions()) {
+        const { action, session } = parsePendingAction(pending);
+        if (isAction(action)) applyRecordingNotificationAction(action, session);
+      }
+    } catch (e) {
+      log.warn('drainPendingActions failed:', e);
     }
-  } catch (e) {
-    log.warn('drainPendingActions failed:', e);
+    actionSubscription = module.addListener('onAction', ({ action, session }) => {
+      if (isAction(action)) applyRecordingNotificationAction(action, session);
+      updateRecordingNotification();
+    });
   }
-  const subscription = module.addListener('onAction', ({ action, session }) => {
-    if (isAction(action)) applyRecordingNotificationAction(action, session);
-    updateRecordingNotification();
-  });
-  return () => subscription.remove();
+  actionHolders++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    actionHolders--;
+    if (actionHolders > 0 || !actionSubscription) return;
+    actionSubscription.remove();
+    actionSubscription = null;
+  };
 }

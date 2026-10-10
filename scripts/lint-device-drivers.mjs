@@ -17,6 +17,11 @@
 // An invocation is a command, not a mention: comments and the text of a
 // message are left out, and so is `command -v`. The lock machinery reads
 // `adb devices` to choose which lock to take, so it is not a driver.
+//
+// A shared iOS simulator is the same hazard on the Mac: every session there
+// drives the one booted simulator, so a script that runs `simctl` against it
+// goes through `with-simulator-lock.sh`. Listing the simulators drives
+// nothing, and a script that creates a simulator of its own drives only that.
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +37,7 @@ const LOCK_MACHINERY = new Set([
   'scripts/device-lock-shell.sh',
   'scripts/device-lock-path.sh',
   'scripts/device-lock-handset.sh',
+  'scripts/with-simulator-lock.sh',
 ]);
 const WRAPPER = 'scripts/with-maestro.sh';
 
@@ -54,6 +60,7 @@ function nodeCode(source) {
 const SHELL_ADB = /(^|[\s;&|(`]|\$\()("?\$\{?ADB\}?"?|adb)\s+[-a-z"$]/;
 const SHELL_MAESTRO = /(^|[\s;&|(`]|\$\()maestro\s+[-a-z"$]/;
 const SHELL_MAESTRO_VAR = /(^|[\s;&|(`]|\$\()"?\$\{?MAESTRO\}?"?\s+[-a-z"$]/;
+const SHELL_SIMCTL = /\bsimctl\s+([a-z]+)/g;
 // A script that names the wrapper `MAESTRO` calls the wrapper through it.
 const MAESTRO_IS_WRAPPER = /^\s*MAESTRO=.*with-maestro\.sh/m;
 // A command string handed to `child_process`, not a message that starts with the word.
@@ -79,6 +86,17 @@ export function invocations(file, source) {
   return { adb: false, maestro: false };
 }
 
+/** Whether a shell script drives a simulator it shares with other sessions. */
+export function drivesSharedSimulator(file, source) {
+  if (!SHELL.test(file)) return false;
+  const verbs = source
+    .split('\n')
+    .map(shellCode)
+    .flatMap((l) => [...l.matchAll(SHELL_SIMCTL)].map((m) => m[1]));
+  if (verbs.includes('create')) return false;
+  return verbs.some((v) => v !== 'list');
+}
+
 /** Whether a script re-execs through the device lock unless it already holds it. */
 export function takesTheLock(source) {
   return source.includes('with-device-lock.sh') && source.includes('VELOQ_DEVICE_LOCK_HELD');
@@ -88,11 +106,15 @@ function main() {
   const sources = indexedSources(ROOT, ['scripts', '.maestro']);
   const unlocked = [];
   const bare = [];
+  const unlockedSimulator = [];
   let drivers = 0;
 
   for (const [file, bytes] of sources) {
     if (LOCK_MACHINERY.has(file)) continue;
     const source = bytes.toString('utf8');
+    if (drivesSharedSimulator(file, source) && !source.includes('with-simulator-lock.sh')) {
+      unlockedSimulator.push(file);
+    }
     const { adb, maestro } = invocations(file, source);
     if (!adb && !maestro) continue;
     drivers += 1;
@@ -114,7 +136,15 @@ function main() {
     console.error('\nMaestro chooses its own transport, so a bare call can drive a phone the');
     console.error('lock was not taken on. The wrapper pins the locked serial and checks it.');
   }
-  if (unlocked.length > 0 || bare.length > 0) process.exit(1);
+  if (unlockedSimulator.length > 0) {
+    if (unlocked.length > 0 || bare.length > 0) console.error('');
+    console.error('A script drives a shared simulator without the simulator lock:');
+    for (const file of unlockedSimulator.sort()) console.error(`  ${file}`);
+    console.error('\nRun the command through scripts/with-simulator-lock.sh <udid|booted>.');
+    console.error('Every session on the Mac shares its booted simulator, so an install');
+    console.error('lands under whatever another session is reading off it.');
+  }
+  if (unlocked.length > 0 || bare.length > 0 || unlockedSimulator.length > 0) process.exit(1);
 
   console.log(`device driver guard: ${drivers} scripts drive the handset, all under the lock.`);
 }

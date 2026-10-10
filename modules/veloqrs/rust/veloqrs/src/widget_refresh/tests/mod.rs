@@ -1,5 +1,6 @@
 use super::*;
 use crate::objects::{test_base_url, test_credentials};
+use crate::persistence::attempts::{Claim, JobKey, now_ms};
 use crate::test_globals::serial_global_state;
 use crate::widget_snapshot::WidgetContext;
 use httpmock::prelude::*;
@@ -370,4 +371,86 @@ fn a_snapshot_the_pull_refreshed_carries_no_as_of_marking() {
     assert!(snapshot.get("dataAsOf").is_none());
     assert!(snapshot["display"].get("dataAsOfLabel").is_none());
     crate::persistence::clear_persistent_engine();
+}
+
+/// A lease a killed earlier process left behind, then a cold refresh with
+/// `credential`, then the app's own open. Answers what the app's first claim
+/// on that key gets.
+fn claim_after_a_cold_refresh(name: &str, credential: NativeCredential<'_>) -> Claim {
+    let _guard = serial_global_state();
+    crate::persistence::clear_persistent_engine();
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let db_path = tmp.path().join(name);
+    let db_path = db_path.to_str().expect("a path").to_string();
+    let key = JobKey::new("sync", &["athlete-9"]);
+    {
+        let killed = crate::PersistentEngine::new(&db_path).expect("the earlier process");
+        killed.mint_lease_generation().expect("its generation");
+        assert_eq!(
+            killed.claim_job(&key, now_ms()).expect("its claim"),
+            Claim::Taken
+        );
+    }
+
+    refresh_snapshot_within(&db_path, credential, SHORT);
+    let opened = crate::persistence::persistent_engine_ffi::open_if_closed(db_path, true);
+    assert_eq!(opened, Some(false), "the refresh left the engine open");
+
+    let claim = crate::persistence::with_persistent_engine(|engine| {
+        engine.claim_job(&key, now_ms()).expect("the claim")
+    })
+    .expect("the engine");
+    crate::persistence::clear_persistent_engine();
+    claim
+}
+
+/// Scenario: the system runs the background refresh in the app's own process,
+/// the keychain answers, and the athlete then opens the app in that process.
+///
+/// Expected behaviour: the open the refresh made freed the lease the killed
+/// process held, so the app's first claim on it is taken.
+#[test]
+fn a_refresh_with_a_keychain_credential_frees_the_leases_a_killed_process_left() {
+    let claim = claim_after_a_cold_refresh(
+        "widget_refresh_keychain_lease.db",
+        NativeCredential::Keychain {
+            access_token: None,
+            api_key: Some("k"),
+            athlete_id: Some("9"),
+        },
+    );
+
+    assert_eq!(claim, Claim::Taken);
+}
+
+/// Scenario: the same, with the phone not yet unlocked, so the keychain
+/// answers nothing.
+///
+/// Expected behaviour: the same open, so the claim is taken here too.
+#[test]
+fn a_refresh_with_an_empty_keychain_frees_the_leases_a_killed_process_left() {
+    let claim = claim_after_a_cold_refresh(
+        "widget_refresh_empty_keychain_lease.db",
+        NativeCredential::Keychain {
+            access_token: None,
+            api_key: None,
+            athlete_id: None,
+        },
+    );
+
+    assert_eq!(claim, Claim::Taken);
+}
+
+#[test]
+fn a_refresh_with_a_stored_method_frees_the_leases_a_killed_process_left() {
+    let claim = claim_after_a_cold_refresh(
+        "widget_refresh_method_lease.db",
+        NativeCredential::Method {
+            method: "api_key",
+            secret: "k",
+            athlete_id: "9",
+        },
+    );
+
+    assert_eq!(claim, Claim::Taken);
 }

@@ -8,6 +8,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIsFocused } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { layout, mapLayerColors } from '@/theme';
@@ -76,6 +77,7 @@ export function homeRadiusCamera(home: LngLat, radiusM: number): MapCameraSpec {
 export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapProps) {
   const { isDark } = useTheme();
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const screenFocused = useIsFocused();
 
   const sources = useMemo<Record<string, MapSourceSpec>>(() => {
     const circle = circlePolygon(home, radiusM);
@@ -108,6 +110,7 @@ export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapPr
         layers={LAYERS}
         scrollEnabled={false}
         rotateEnabled={false}
+        released={!screenFocused}
         onPress={handlePress}
       />
     </View>

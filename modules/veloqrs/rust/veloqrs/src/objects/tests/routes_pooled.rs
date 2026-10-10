@@ -9,7 +9,7 @@ fn seed_groups() {
             engine.db.execute(
                 "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
                  VALUES (?1, ?2, ?3, 'Ride', ?4)",
-                rusqlite::params![id, members[0], serde_json::to_string(members).unwrap(), members.len()],
+                rusqlite::params![id, members[0], serde_json::to_string(members).unwrap(), members.len() as i64],
             ).unwrap();
         }
     }).unwrap();

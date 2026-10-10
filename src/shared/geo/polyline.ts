@@ -113,6 +113,42 @@ export function detectCoordinateFormat(tuples: [number, number][]): 'latLng' | '
   return 'latLng';
 }
 
+/** A pair the map can place: both finite and inside the globe's ranges. */
+function isPlaceable(lat: number, lng: number): boolean {
+  return (
+    lat != null &&
+    lng != null &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+/**
+ * The points of a flat `[lat, lng, lat, lng, ...]` track, as the engine
+ * decoder writes it.
+ *
+ * Each slot is read once and the order is the decoder's, so there is nothing
+ * to detect. A pair the map cannot place keeps its index as a NaN point, which
+ * holds the track aligned with the series sampled beside it.
+ */
+export function latLngsFromFlat(flat: ArrayLike<number>): LatLng[] {
+  const count = Math.floor(flat.length / 2);
+  const points: LatLng[] = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const lat = flat[i * 2];
+    const lng = flat[i * 2 + 1];
+    points[i] =
+      lat !== undefined && lng !== undefined && isPlaceable(lat, lng)
+        ? { latitude: lat, longitude: lng }
+        : { latitude: NaN, longitude: NaN };
+  }
+  return points;
+}
+
 /**
  * Convert coordinate tuples to LatLng objects with auto-format detection.
  *
@@ -139,18 +175,7 @@ export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
     const lat = format === 'latLng' ? first : second;
     const lng = format === 'latLng' ? second : first;
 
-    // Check for valid coordinates
-    const isValid =
-      lat != null &&
-      lng != null &&
-      !isNaN(lat) &&
-      !isNaN(lng) &&
-      lat >= -90 &&
-      lat <= 90 &&
-      lng >= -180 &&
-      lng <= 180;
-
-    if (isValid) {
+    if (isPlaceable(lat, lng)) {
       return { latitude: lat, longitude: lng };
     }
     // Return a sentinel value for invalid coordinates (will be filtered when used)

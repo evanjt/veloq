@@ -16,7 +16,7 @@
  * the server's own sample index, which hold everything upstream had for it.
  */
 
-import { streamsFromBuffers } from '@/features/activity/lib/streams';
+import { streamsFromArrays, streamsFromBuffers } from '@/features/activity/lib/streams';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityStreams } from '@/types';
@@ -75,7 +75,8 @@ function demoStreams(activityId: string): ActivityStreams | null {
   if (!useAuthStore.getState().isDemoMode) return null;
   const { getActivityStreams } =
     require('@/shared/demo/activity') as typeof import('@/shared/demo/activity');
-  return (getActivityStreams(activityId) as ActivityStreams | null) ?? null;
+  const generated = getActivityStreams(activityId);
+  return generated ? streamsFromArrays(generated) : null;
 }
 
 /** Ask Rust to fetch and store a series selection for an activity. */

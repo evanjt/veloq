@@ -5,7 +5,9 @@
 //! built once from the credential the transport holds - callers never pass an
 //! `auth_header` per request.
 
-use crate::governor::{self, AuthMethod, Governor, Lane, RateBudget};
+use crate::governor::{
+    self, Admission, AfterRefusal, AuthMethod, Dispatch, Governor, Lane, RateBudget,
+};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -95,6 +97,12 @@ pub enum NetError {
     Unauthorized,
     /// 429 after exhausting retries.
     RateLimited,
+    /// The request budget sent nothing, or a refusal set a cooldown: nothing
+    /// is sent for this work before `until`. Not a failure of the work, which
+    /// is still owed, and never a reason to back it off further.
+    Deferred {
+        until: chrono::DateTime<chrono::Utc>,
+    },
     /// Any other non-success HTTP status.
     Http { status: u16, body: String },
     /// Network / timeout failure after retries.
@@ -120,6 +128,9 @@ impl std::fmt::Display for NetError {
         match self {
             NetError::Unauthorized => write!(f, "unauthorized (401)"),
             NetError::RateLimited => write!(f, "rate limited (429) after retries"),
+            NetError::Deferred { until } => {
+                write!(f, "{DEFERRED_ERROR_PREFIX} until {}", until.to_rfc3339())
+            }
             NetError::Http { status, body } => write!(f, "HTTP {}: {}", status, body),
             NetError::EngineClosed => write!(f, "the engine closed during the run"),
             NetError::Transport(e) => write!(f, "transport error: {}", e),
@@ -130,6 +141,10 @@ impl std::fmt::Display for NetError {
     }
 }
 
+/// How a deferral's text begins, for the callers that carry a failure as its
+/// text and still have to tell a deferral from a failure.
+pub const DEFERRED_ERROR_PREFIX: &str = "deferred by the request budget";
+
 impl std::error::Error for NetError {}
 
 impl NetError {
@@ -138,6 +153,12 @@ impl NetError {
     /// rate limit or a 5xx is the server answering, and is not this.
     pub fn is_network_absent(&self) -> bool {
         matches!(self, NetError::Transport(_))
+    }
+
+    /// The request budget held the work back: it is owed, nothing is wrong
+    /// with it, and asking sooner than the deferral says sends nothing.
+    pub fn is_deferred(&self) -> bool {
+        matches!(self, NetError::Deferred { .. })
     }
 }
 
@@ -238,9 +259,9 @@ impl Transport {
         &self,
         path: &str,
         query: &[(&str, &str)],
-        lane: Lane,
+        dispatch: impl Into<Dispatch>,
     ) -> Result<T, NetError> {
-        let body = self.get_bytes(path, query, lane).await?;
+        let body = self.get_bytes(path, query, dispatch).await?;
         serde_json::from_slice::<T>(&body).map_err(|e| NetError::Decode(e.to_string()))
     }
 
@@ -249,8 +270,10 @@ impl Transport {
         &self,
         path: &str,
         query: &[(&str, &str)],
-        lane: Lane,
+        dispatch: impl Into<Dispatch>,
     ) -> Result<Vec<u8>, NetError> {
+        let dispatch = dispatch.into();
+        let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
         let started = Instant::now();
@@ -259,8 +282,11 @@ impl Transport {
         // too little for the retry to finish.
         let mut last: Option<NetError> = None;
         loop {
-            // Single shared choke point: pace every dispatch.
-            self.governor.acquire(lane).await;
+            // Single shared choke point: the budget, then the pace.
+            let probe = match self.governor.acquire(dispatch).await {
+                Admission::Deferred { until } => return Err(NetError::Deferred { until }),
+                admission => admission == Admission::Probe,
+            };
             let timeout = self.timeouts.attempt(lane, started);
             if timeout.is_zero() {
                 return Err(last.unwrap_or_else(budget_spent));
@@ -292,9 +318,18 @@ impl Transport {
                         return Err(NetError::Unauthorized);
                     }
                     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                        self.note_refusal(resp, &budget).await;
+                        if let AfterRefusal::Cooldown { until } =
+                            self.note_refusal(resp, &budget, probe).await
+                        {
+                            return Err(NetError::Deferred { until });
+                        }
                         attempt += 1;
-                        let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
+                        let wait = governor::decide_backoff(
+                            budget.retry_after_secs,
+                            attempt,
+                            true,
+                            self.governor.jitter(),
+                        );
                         if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
                             return Err(NetError::RateLimited);
                         }
@@ -306,7 +341,12 @@ impl Transport {
                     let body = resp.text().await.unwrap_or_default();
                     let failed = NetError::Http { status: code, body };
                     if status.is_server_error() && attempt < MAX_RETRIES {
-                        let wait = governor::decide_backoff(None, attempt + 1, false);
+                        let wait = governor::decide_backoff(
+                            None,
+                            attempt + 1,
+                            false,
+                            self.governor.jitter(),
+                        );
                         if self.retry_fits(lane, started, wait) {
                             attempt += 1;
                             last = Some(failed);
@@ -318,7 +358,8 @@ impl Transport {
                 }
                 Err(e) => {
                     attempt += 1;
-                    let wait = governor::decide_backoff(None, attempt, false);
+                    let wait =
+                        governor::decide_backoff(None, attempt, false, self.governor.jitter());
                     if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
                         // A retry sent with only what the budget had left, and
                         // timed out in it, says nothing new about the server,
@@ -348,9 +389,9 @@ impl Transport {
         &self,
         path: &str,
         body: &serde_json::Value,
-        lane: Lane,
+        dispatch: impl Into<Dispatch>,
     ) -> Result<Vec<u8>, NetError> {
-        self.write_json(reqwest::Method::POST, path, body, lane)
+        self.write_json(reqwest::Method::POST, path, body, dispatch.into())
             .await
     }
 
@@ -360,9 +401,9 @@ impl Transport {
         &self,
         path: &str,
         body: &serde_json::Value,
-        lane: Lane,
+        dispatch: impl Into<Dispatch>,
     ) -> Result<Vec<u8>, NetError> {
-        self.write_json(reqwest::Method::PUT, path, body, lane)
+        self.write_json(reqwest::Method::PUT, path, body, dispatch.into())
             .await
     }
 
@@ -371,14 +412,19 @@ impl Transport {
         method: reqwest::Method,
         path: &str,
         body: &serde_json::Value,
-        lane: Lane,
+        dispatch: Dispatch,
     ) -> Result<Vec<u8>, NetError> {
+        let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
         let started = Instant::now();
         loop {
-            // Same single choke point as the reads: writes share the pace.
-            self.governor.acquire(lane).await;
+            // Same single choke point as the reads: writes share the budget
+            // and the pace.
+            let probe = match self.governor.acquire(dispatch).await {
+                Admission::Deferred { until } => return Err(NetError::Deferred { until }),
+                admission => admission == Admission::Probe,
+            };
             let timeout = self.timeouts.attempt(lane, started);
             if timeout.is_zero() {
                 // Only a 429 is ever retried here, so a retry that finds the
@@ -405,7 +451,7 @@ impl Transport {
                 // budget left no time for at all does above.
                 return Err(NetError::RateLimited);
             }
-            match self.settle_write(send, attempt).await {
+            match self.settle_write(send, attempt, probe).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
                     if !self.retry_fits(lane, started, wait) {
@@ -433,14 +479,19 @@ impl Transport {
         file: &FilePart<'_>,
         fields: &[(&str, String)],
         query: &[(&str, &str)],
-        lane: Lane,
+        dispatch: impl Into<Dispatch>,
         timeout: Duration,
     ) -> Result<Vec<u8>, NetError> {
+        let dispatch = dispatch.into();
+        let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
         let started = Instant::now();
         loop {
-            self.governor.acquire(lane).await;
+            let probe = match self.governor.acquire(dispatch).await {
+                Admission::Deferred { until } => return Err(NetError::Deferred { until }),
+                admission => admission == Admission::Probe,
+            };
             if attempt > 0 && self.timeouts.attempt(lane, started).is_zero() {
                 return Err(NetError::RateLimited);
             }
@@ -457,7 +508,7 @@ impl Transport {
                 .query(query)
                 .timeout(timeout)
                 .multipart(form);
-            match self.settle_write(req.send().await, attempt).await {
+            match self.settle_write(req.send().await, attempt, probe).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
                     if !self.retry_fits(lane, started, wait) {
@@ -481,21 +532,29 @@ impl Transport {
         }
     }
 
-    /// Hand a 429 to the governor, which classifies it and holds the backfill
-    /// on an application quota refusal, and log the whole response, since the
-    /// shape of the application's refusal is known only from what reaches here.
-    async fn note_refusal(&self, resp: reqwest::Response, budget: &RateBudget) {
+    /// Hand a 429 to the governor, whose budget classifies it and decides
+    /// between an inline retry and a cooldown, and log the whole response,
+    /// since the shape of the application's refusal is known only from what
+    /// reaches here. `probe` is whether the refused request was a cooldown's
+    /// probe.
+    async fn note_refusal(
+        &self,
+        resp: reqwest::Response,
+        budget: &RateBudget,
+        probe: bool,
+    ) -> AfterRefusal {
         let status = resp.status().as_u16();
         let headers = resp.headers().clone();
         let body = resp.bytes().await.unwrap_or_default();
         let via = headers.get("via").and_then(|v| v.to_str().ok());
-        let (refusal, run) = self
+        let after = self
             .governor
-            .note_refusal(budget, via, &body, chrono::Utc::now());
+            .note_refusal(budget, via, &body, probe, chrono::Utc::now());
         log::warn!(
-            "veloqrs: [transport] refused as {refusal:?}, {run} in a row: {}",
+            "veloqrs: [transport] refused, {after:?}: {}",
             refusal_record(status, &headers, &body)
         );
+        after
     }
 
     /// Classify a write response under the write retry policy.
@@ -503,6 +562,7 @@ impl Transport {
         &self,
         send: Result<reqwest::Response, reqwest::Error>,
         attempt: u32,
+        probe: bool,
     ) -> WriteStep {
         let resp = match send {
             Ok(resp) => resp,
@@ -524,7 +584,10 @@ impl Transport {
             return WriteStep::Done(Err(NetError::Unauthorized));
         }
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            self.note_refusal(resp, &budget).await;
+            if let AfterRefusal::Cooldown { until } = self.note_refusal(resp, &budget, probe).await
+            {
+                return WriteStep::Done(Err(NetError::Deferred { until }));
+            }
             if attempt >= MAX_RETRIES {
                 return WriteStep::Done(Err(NetError::RateLimited));
             }
@@ -532,6 +595,7 @@ impl Transport {
                 budget.retry_after_secs,
                 attempt + 1,
                 true,
+                self.governor.jitter(),
             ));
         }
         let code = status.as_u16();
@@ -718,69 +782,163 @@ mod tests {
         assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
     }
 
-    /// Expected behaviour: a refusal that passed through the application, and
-    /// a success whose budget pair is low, both hold the backfill on the
-    /// governor the transport shares.
+    fn budgeted(base: String) -> (Transport, Arc<Governor>) {
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            governor::Budget::new(0),
+            None,
+            || 0.0,
+        ));
+        let t = Transport::with_governor(base, AuthMethod::ApiKey("k"), gov.clone()).unwrap();
+        (t, gov)
+    }
+
+    /// Expected behaviour: a refusal through the application with a long
+    /// `Retry-After` is not retried inline. It sets the cooldown for the whole
+    /// of it, the request reports a deferral rather than a failure, and the
+    /// next backfill request sends nothing at all.
     #[test]
-    fn an_app_quota_refusal_and_a_low_budget_hold_the_backfill() {
+    fn a_long_retry_after_sets_the_cooldown_and_sends_nothing_more() {
+        let server = MockServer::start();
+        let quota = server.mock(|when, then| {
+            when.method(GET).path("/quota");
+            then.status(429)
+                .header("retry-after", "600")
+                .header("via", "1.1 Caddy")
+                .body("{\"status\":429}");
+        });
+        let (t, gov) = budgeted(server.base_url());
+        let before = chrono::Utc::now();
+
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
+        let Err(NetError::Deferred { until }) = res else {
+            panic!("expected a deferral, got {res:?}");
+        };
+        assert!(until >= before + chrono::TimeDelta::seconds(600), "{until}");
+        assert!(until <= chrono::Utc::now() + chrono::TimeDelta::seconds(600));
+        assert_eq!(quota.hits(), 1, "a long Retry-After was retried inline");
+
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Deferred { until: u }) if u == until));
+        let res = crate::runtime::block_on(t.post_json(
+            "/quota",
+            &json!({}),
+            governor::Dispatch::new(Lane::Interactive, governor::Intent::Sync),
+        ));
+        assert!(matches!(res, Err(NetError::Deferred { .. })));
+        assert_eq!(quota.hits(), 1, "a deferred request was sent");
+        assert_eq!(
+            gov.budget_snapshot(chrono::Utc::now())
+                .unwrap()
+                .cooldown_until,
+            Some(until)
+        );
+    }
+
+    /// Expected behaviour: an edge burst is retried inline once, and a second
+    /// refusal in a row ends the retries in a cooldown, on reads and writes
+    /// alike.
+    #[test]
+    fn an_edge_burst_is_retried_once_and_the_next_refusal_cools_down() {
+        let server = MockServer::start();
+        let read = server.mock(|when, then| {
+            when.method(GET).path("/edge");
+            then.status(429).header("retry-after", "0");
+        });
+        let (t, _gov) = budgeted(server.base_url());
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/edge", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
+        assert_eq!(read.hits(), 2);
+
+        let write = server.mock(|when, then| {
+            when.method(POST).path("/edge");
+            then.status(429).header("retry-after", "0");
+        });
+        let (t, _gov) = budgeted(server.base_url());
+        let res = crate::runtime::block_on(t.post_json("/edge", &json!({}), Lane::Interactive));
+        assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
+        assert_eq!(write.hits(), 2);
+    }
+
+    /// Expected behaviour: inside a cooldown a user request goes as the one
+    /// probe, is not retried inline when refused, and its refusal holds every
+    /// intent until the next midnight; a probe that answers ends the cooldown.
+    #[test]
+    fn a_probe_is_sent_once_and_its_refusal_holds_until_midnight() {
         let server = MockServer::start();
         server.mock(|when, then| {
             when.method(GET).path("/quota");
             then.status(429)
-                .header("retry-after", "0")
-                .header("via", "1.1 Caddy")
-                .header("x-ratelimit-remaining", "0,0")
-                .body("{\"status\":429}");
+                .header("retry-after", "60")
+                .header("via", "1.1 Caddy");
         });
-        server.mock(|when, then| {
+        let probe = server.mock(|when, then| {
+            when.method(GET).path("/probe");
+            then.status(429).header("retry-after", "1");
+        });
+        let (t, gov) = budgeted(server.base_url());
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Deferred { .. })));
+
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
+        let Err(NetError::Deferred { until }) = res else {
+            panic!("expected a deferral, got {res:?}");
+        };
+        assert_eq!(probe.hits(), 1, "the probe was retried inline");
+        let now = chrono::Utc::now();
+        assert!(until > now + chrono::TimeDelta::minutes(5), "{until}");
+        assert_eq!(until.time(), chrono::NaiveTime::MIN, "{until}");
+
+        // The next user request inside five minutes is not sent.
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::Deferred { .. })));
+        assert_eq!(probe.hits(), 1);
+
+        gov.note_success(&RateBudget::default(), now);
+        let ok = server.mock(|when, then| {
+            when.method(GET).path("/ok");
+            then.status(200).json_body(json!({}));
+        });
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(ok.hits(), 1);
+    }
+
+    /// Expected behaviour: a success whose budget pair is low holds the
+    /// backfill on the governor the transport shares, and sends nothing for
+    /// it, while a user request still goes.
+    #[test]
+    fn a_low_budget_figure_holds_the_backfill_and_not_the_user() {
+        let server = MockServer::start();
+        let low = server.mock(|when, then| {
             when.method(GET).path("/low");
             then.status(200)
                 .header("x-ratelimit-limit", "2500,8000")
                 .header("x-ratelimit-remaining", "300,6000")
                 .json_body(json!({}));
         });
-        let refusals = server.mock(|when, then| {
-            when.method(POST).path("/edge");
-            then.status(429).header("retry-after", "0");
-        });
-
-        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
-        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov.clone())
-            .unwrap();
-        let now = chrono::Utc::now();
-
-        let res: Result<serde_json::Value, _> =
-            crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
-        assert!(matches!(res, Err(NetError::RateLimited)));
-        let midnight = (now.date_naive().succ_opt().unwrap())
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc();
-        assert!(gov.backfill_hold_until(now) >= Some(midnight));
-
-        let low = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
-        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), low.clone())
-            .unwrap();
+        let (t, _gov) = budgeted(server.base_url());
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/low", &[], Lane::Interactive));
         assert!(res.is_ok());
-        let held = low
-            .backfill_hold_until(now)
-            .expect("a low 15-minute figure holds");
-        assert!(held > now && held <= chrono::Utc::now() + chrono::TimeDelta::minutes(15));
-
-        let edge = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
-        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), edge.clone())
-            .unwrap();
-        let res = crate::runtime::block_on(t.post_json("/edge", &json!({}), Lane::Interactive));
-        assert!(matches!(res, Err(NetError::RateLimited)));
-        let (kind, run) = edge.note_refusal(&RateBudget::default(), None, b"", now);
-        assert_eq!(kind, governor::Refusal::AppQuota);
-        assert_eq!(
-            run as usize,
-            refusals.hits() + 1,
-            "every write refusal counts toward the run"
-        );
+        let now = chrono::Utc::now();
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/low", &[], Lane::Backfill));
+        let Err(NetError::Deferred { until }) = res else {
+            panic!("expected a deferral, got {res:?}");
+        };
+        assert!(until > now && until <= chrono::Utc::now() + chrono::TimeDelta::minutes(15));
+        assert_eq!(low.hits(), 1);
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/low", &[], Lane::Interactive));
+        assert!(res.is_ok());
+        assert_eq!(low.hits(), 2);
     }
 
     #[test]

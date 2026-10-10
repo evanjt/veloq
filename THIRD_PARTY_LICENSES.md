@@ -382,7 +382,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | chrono | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
 | lru | MIT | https://github.com/jeromefroe/lru-rs |
 | rayon | MIT OR Apache-2.0 | https://github.com/rayon-rs/rayon |
-| image | MIT | https://github.com/image-rs/image |
+| png | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
 | tempfile | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
 | rstar | MIT OR Apache-2.0 | https://github.com/georust/rstar |
 | zip | MIT | https://github.com/zip-rs/zip2 |

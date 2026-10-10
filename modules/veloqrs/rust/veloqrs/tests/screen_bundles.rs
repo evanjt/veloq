@@ -1112,7 +1112,7 @@ fn route_with_attempts() -> Setup {
         .execute(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
              VALUES ('loop', 'ride_old', ?1, 'Ride', ?2)",
-            params![serde_json::to_string(&ids).unwrap(), ids.len()],
+            params![serde_json::to_string(&ids).unwrap(), ids.len() as i64],
         )
         .expect("insert group");
     for a in &ATTEMPTS {
@@ -1341,7 +1341,7 @@ fn route_of(attempts: &[HeartAttempt]) -> Setup {
         .execute(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
              VALUES ('loop', ?1, ?2, 'Ride', ?3)",
-            params![ids[0], serde_json::to_string(&ids).unwrap(), ids.len()],
+            params![ids[0], serde_json::to_string(&ids).unwrap(), ids.len() as i64],
         )
         .expect("insert group");
     for a in attempts {

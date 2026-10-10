@@ -25,7 +25,7 @@ import { resolveDetailCoordinates } from '@/features/activity/lib/detailCoordina
 
 export function useDetailCoordinates(
   activityId: string,
-  streamLatLng: [number, number][] | undefined,
+  streamLatLng: Float64Array | undefined,
   streamsPending = false
 ): LatLng[] {
   // The bulk ingest announces a stored track on `activities`, the same channel

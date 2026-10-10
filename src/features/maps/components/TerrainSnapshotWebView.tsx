@@ -21,6 +21,7 @@ import React, {
   useEffect,
   forwardRef,
   useMemo,
+  useState,
 } from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -66,6 +67,11 @@ import type {
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
 import { debug } from '@/shared/debug/debug';
+import {
+  createRendererRecovery,
+  type RendererRecovery,
+  type RendererRestart,
+} from '@/features/maps/lib/rendererRecovery';
 import {
   createSnapshotQueueTrace,
   holdShouldReport,
@@ -265,6 +271,11 @@ interface WorkerState {
    * Cleared whenever the WebView goes, since a fresh page holds nothing.
    */
   lastRenderRef: { current: { mapStyle: string; flat: boolean } | null };
+  /** Part of the WebView's key, moved when the page comes back in a new view. */
+  viewGenerationRef: { current: number };
+  /** The worker spent its renderer restarts, so it has no WebView and takes no work. */
+  lostRef: { current: boolean };
+  recovery: RendererRecovery;
 }
 
 interface TerrainSnapshotWebViewProps {
@@ -282,21 +293,41 @@ export const TerrainSnapshotWebView = forwardRef<
 >(function TerrainSnapshotWebView({ suspended = false }, ref) {
   const { width: screenWidth } = useWindowDimensions();
   const { colors } = useTheme();
+  // A worker's view coming back or going for good is the one thing that
+  // re-renders the pool.
+  const [, setViewGenerations] = useState(0);
+  // What a worker does when its renderer dies, kept current every render and
+  // read by each worker's recovery when it is needed.
+  const workerRecoveryRef = useRef<{
+    forget: (worker: WorkerState) => void;
+    restart: (worker: WorkerState, how: RendererRestart) => void;
+    exhausted: (worker: WorkerState) => void;
+  } | null>(null);
   // Lazy-init worker pool - created once, never recreated
   const workersRef = useRef<WorkerState[] | null>(null);
   if (workersRef.current === null) {
-    workersRef.current = Array.from({ length: POOL_SIZE }, (_, i) => ({
-      id: i,
-      webViewRef: { current: null },
-      processingRef: { current: false },
-      mapReadyRef: { current: false },
-      documentReadyRef: { current: false },
-      generationRef: { current: 0 },
-      timeoutRef: { current: null },
-      currentRequestRef: { current: null },
-      mountedAtRef: { current: Date.now() },
-      lastRenderRef: { current: null },
-    }));
+    workersRef.current = Array.from({ length: POOL_SIZE }, (_, i) => {
+      const worker: WorkerState = {
+        id: i,
+        webViewRef: { current: null },
+        processingRef: { current: false },
+        mapReadyRef: { current: false },
+        documentReadyRef: { current: false },
+        generationRef: { current: 0 },
+        timeoutRef: { current: null },
+        currentRequestRef: { current: null },
+        mountedAtRef: { current: Date.now() },
+        lastRenderRef: { current: null },
+        viewGenerationRef: { current: 0 },
+        lostRef: { current: false },
+        recovery: createRendererRecovery(`snapshot worker ${i}`, () => ({
+          forget: () => workerRecoveryRef.current?.forget(worker),
+          restart: (how) => workerRecoveryRef.current?.restart(worker, how),
+          exhausted: () => workerRecoveryRef.current?.exhausted(worker),
+        })),
+      };
+      return worker;
+    });
   }
   const workers = workersRef.current;
   const workerHtmls = useMemo(() => workers.map((w) => buildSnapshotWorkerHtml(w.id)), [workers]);
@@ -509,8 +540,9 @@ export const TerrainSnapshotWebView = forwardRef<
   // A killed WebView renderer (Android reclaims background webview processes)
   // would otherwise leave the worker permanently dead: mapReady never re-fires,
   // queued requests wedge, and every card waiting on one waits for good. Reset
-  // the worker, requeue its in-flight request, and reload - mapReady re-arms it.
-  const handleWorkerGone = useCallback((worker: WorkerState) => {
+  // the worker and requeue its in-flight request. Its page then comes back
+  // through the renderer recovery, and mapReady re-arms it.
+  const forgetWorkerPage = useCallback((worker: WorkerState) => {
     traceRef.current.record(
       {
         kind: 'workerGone',
@@ -520,15 +552,12 @@ export const TerrainSnapshotWebView = forwardRef<
       Date.now()
     );
     if (__DEV__) {
-      console.warn(`[TerrainSnapshot:${worker.id}] WebView process gone - reloading`);
+      console.warn(`[TerrainSnapshot:${worker.id}] WebView process gone`);
     }
     worker.mapReadyRef.current = false;
     worker.documentReadyRef.current = false;
     worker.processingRef.current = false;
-    // A reload is a boot of its own, so `snapshot.boot` times it from here
-    // rather than from whenever the pool was first built. The fresh page holds
-    // no style either, so it is no longer worth preferring for one.
-    worker.mountedAtRef.current = Date.now();
+    // The fresh page holds no style, so it is no longer worth preferring for one.
     worker.lastRenderRef.current = null;
     if (worker.timeoutRef.current) {
       clearTimeout(worker.timeoutRef.current);
@@ -539,8 +568,29 @@ export const TerrainSnapshotWebView = forwardRef<
     if (current) {
       queueRef.current.unshift(current);
     }
-    worker.webViewRef.current?.reload();
   }, []);
+
+  workerRecoveryRef.current = {
+    forget: forgetWorkerPage,
+    restart: (worker, how) => {
+      // A restart is a boot of its own, so `snapshot.boot` times it from here
+      // rather than from whenever the pool was first built.
+      worker.mountedAtRef.current = Date.now();
+      if (how === 'reload') {
+        worker.webViewRef.current?.reload();
+        return;
+      }
+      worker.viewGenerationRef.current++;
+      setViewGenerations((generation) => generation + 1);
+    },
+    // The other worker takes the requeued request, and with none left the
+    // watchdog fails what is queued, as it does for a pool that never booted.
+    exhausted: (worker) => {
+      worker.lostRef.current = true;
+      setViewGenerations((generation) => generation + 1);
+      processNextRef.current?.();
+    },
+  };
 
   const processNext = useCallback(() => {
     if (disposedRef.current || suspendedRef.current || scrollHeldRef.current) return;
@@ -1020,9 +1070,9 @@ export const TerrainSnapshotWebView = forwardRef<
   // stay mounted while the feed is away, so their documents and styles survive
   // and a resume boots nothing. A worker that was mid-render may not finish
   // drawing while detached, so its request goes back to the front of the queue
-  // rather than being counted as failed. A page Android reclaims meanwhile is
-  // reloaded by `handleWorkerGone`, and the watchdog armed on resume covers one
-  // that never comes back.
+  // rather than being counted as failed. A page Android reclaims meanwhile
+  // comes back through the renderer recovery, and the watchdog armed on resume
+  // covers one that never comes back.
   const wasSuspendedRef = useRef(suspended);
   useEffect(() => {
     // Mount is not a resume, so only a change of state goes into the trace.
@@ -1074,6 +1124,7 @@ export const TerrainSnapshotWebView = forwardRef<
         recycleTimerRef.current = null;
       }
       for (const worker of workers) {
+        worker.recovery.cancel();
         if (worker.timeoutRef.current) {
           clearTimeout(worker.timeoutRef.current);
           worker.timeoutRef.current = null;
@@ -1151,32 +1202,34 @@ export const TerrainSnapshotWebView = forwardRef<
   return (
     <View style={[styles.container, { width: screenWidth }]} pointerEvents="none">
       <View style={styles.surface}>
-        {workers.map((worker) => (
-          <WebView
-            key={worker.id}
-            ref={worker.webViewRef as React.RefObject<WebView>}
-            source={{
-              html: workerHtmls[worker.id],
-              baseUrl: mapPageBaseUrl(),
-            }}
-            style={StyleSheet.absoluteFill}
-            scrollEnabled={false}
-            bounces={false}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={false}
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            androidLayerType="hardware"
-            nativeConfig={veloqWebViewNativeConfig}
-            onMessage={handleMessage}
-            onLoadEnd={() => {
-              worker.documentReadyRef.current = true;
-            }}
-            onRenderProcessGone={() => handleWorkerGone(worker)}
-            onContentProcessDidTerminate={() => handleWorkerGone(worker)}
-          />
-        ))}
+        {workers.map((worker) =>
+          worker.lostRef.current ? null : (
+            <WebView
+              key={`${worker.id}:${worker.viewGenerationRef.current}`}
+              ref={worker.webViewRef as React.RefObject<WebView>}
+              source={{
+                html: workerHtmls[worker.id],
+                baseUrl: mapPageBaseUrl(),
+              }}
+              style={StyleSheet.absoluteFill}
+              scrollEnabled={false}
+              bounces={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={false}
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              androidLayerType="hardware"
+              nativeConfig={veloqWebViewNativeConfig}
+              onMessage={handleMessage}
+              onLoadEnd={() => {
+                worker.documentReadyRef.current = true;
+              }}
+              onRenderProcessGone={worker.recovery.gone}
+              onContentProcessDidTerminate={worker.recovery.gone}
+            />
+          )
+        )}
       </View>
       {/* The map surface stays live at near-zero opacity, which a hardware-layer WebView
           can ignore, so an opaque fill over it keeps place labels out of the feed. */}

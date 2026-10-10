@@ -47,6 +47,7 @@ fn run_with_bulk(server: &MockServer, cancelled: bool) -> Result<(), NetError> {
     let outcome = crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
         &transport_to(server),
+        "i1",
         &|| {
             assert!(
                 should_yield_to_interactive(BULK_RUN),
@@ -64,6 +65,23 @@ fn run_with_bulk(server: &MockServer, cancelled: bool) -> Result<(), NetError> {
 }
 
 fn mock_all_bodies(server: &MockServer) {
+    for count in 1..=FIRST_USE_ACTIVITIES as usize {
+        let ids: Vec<String> = (0..count).map(|index| format!("r{index}")).collect();
+        let items: Vec<_> = ids
+            .iter()
+            .map(|id| {
+                json!({"id": id, "icu_athlete_id": "i1",
+                       "start_date_local": "2026-09-01T08:30:00",
+                       "type": "Ride", "icu_intervals": []})
+            })
+            .collect();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path(format!("/athlete/i1/activities/{}", ids.join(",")))
+                .query_param("intervals", "true");
+            then.status(200).json_body(json!(items));
+        });
+    }
     server.mock(|when, then| {
         when.method(GET)
             .path_matches(httpmock::Regex::new(r"^/activity/r\d/streams\.json$").expect("pattern"));

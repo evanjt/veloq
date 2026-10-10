@@ -219,7 +219,8 @@ impl RouteManager {
     ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
         // Off the engine lock: every read behind this is committed rows. The
         // delta curves come only once held, since computing them can take
-        // longer than a tap may block, and `curves_pending` says they are owed.
+        // longer than a tap may block, and `curves_pending` says they are owed:
+        // `SectionManager::load_detail_performance` computes them.
         with_reader(|conn| {
             crate::persistence::screens::pooled::route_detail_performance(
                 conn,
@@ -229,33 +230,6 @@ impl RouteManager {
                 CurveRead::Held,
             )
         })
-    }
-
-    /// The same read with the delta curves computed, off the JS thread. Each
-    /// attempt's track and time stream is decoded and projected onto the
-    /// route's line, which on a long route or a well-ridden one runs past a
-    /// tap's budget. The curves are held afterwards, so the read above serves
-    /// them until the database moves.
-    async fn load_detail_performance(
-        &self,
-        group_id: String,
-        time_range_days: u32,
-        sport_filter: Option<String>,
-    ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
-        crate::runtime::ASYNC_RUNTIME
-            .spawn_blocking(move || {
-                with_reader(|conn| {
-                    crate::persistence::screens::pooled::route_detail_performance(
-                        conn,
-                        &group_id,
-                        time_range_days,
-                        sport_filter.as_deref(),
-                        CurveRead::Computed,
-                    )
-                })
-            })
-            .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })?
     }
 
     fn set_representative(
@@ -348,7 +322,7 @@ mod tests {
         let _tmp = init_global_engine("routes.db");
         let routes = RouteManager::new();
         crate::persistence::with_persistent_engine(|engine| {
-            engine.db.trace(Some(traced::record));
+            crate::test_trace::trace_statements!(engine.db, traced::record);
         })
         .expect("engine");
 
@@ -368,7 +342,7 @@ mod tests {
         );
 
         crate::persistence::with_persistent_engine(|engine| {
-            engine.db.trace(None);
+            crate::test_trace::untrace(&engine.db);
         })
         .expect("engine");
     }

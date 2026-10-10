@@ -407,26 +407,19 @@ pub(crate) fn store_track(
                         e
                     );
                 }
-                // Empty unless the fetch was widened. The track is already down,
-                // so a failure here costs the series and not the activity.
-                if !streams.is_empty()
-                    && let Err(e) = engine.store_activity_streams(activity_id, streams)
-                {
-                    log::warn!("[Streams] {} stored without its series: {}", activity_id, e);
-                }
-                // The wide response already carried `time` in this same index
-                // space. Dropping it left every activity just stored named by
-                // `get_activities_missing_time_streams`, and the pass behind this
-                // one fetched the heaviest series in the response a second time,
-                // one activity at a time. Empty for a narrow fetch, which carries
-                // no `time` at all and still owes that pass.
-                if !times.is_empty() {
-                    // Deferred: the attach below fills this activity's lap times
-                    // at insert, and the batch's backfill runs once in
-                    // `attach_finalize`.
-                    time_stream_persisted = !engine
-                        .store_time_streams_flat(&[activity_id.to_string()], times, &[0])
-                        .is_empty();
+                // The series are empty unless the fetch was widened. The clock
+                // came in the same response and index space, so storing it
+                // spares the pass behind this one a request per activity. The
+                // track is already down, so a failure here costs the series
+                // and not the activity. The attach below fills this activity's
+                // lap times at insert, and the batch's backfill runs once in
+                // `attach_finalize`.
+                let clock = (!times.is_empty()).then_some(times);
+                match engine.store_track_series(activity_id, streams, clock) {
+                    Ok(clock) => time_stream_persisted = clock,
+                    Err(e) => {
+                        log::warn!("[Streams] {} stored without its series: {}", activity_id, e)
+                    }
                 }
             }
             let portions = if ok && attach {

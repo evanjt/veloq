@@ -162,6 +162,20 @@ export function mapLibreHead(options: { title?: string; mapHeight?: string } = {
 }
 
 /**
+ * The one statement every page swaps its style with. `map` and `style` are
+ * page expressions.
+ *
+ * Terrain is cleared first. A swap to a style with another sprite or glyph
+ * set builds a new style, which has no projection until it loads, and the
+ * renderer goes on drawing the old terrain's depth pass against it in the
+ * meantime and throws from inside its frame. A style that names `terrain`
+ * turns it back on as it loads.
+ */
+export function setStyleStatement(map: string, style: string): string {
+  return `if (${map}.getTerrain()) ${map}.setTerrain(null); ${map}.setStyle(${style});`;
+}
+
+/**
  * Tears the page's map down in place. `map.remove()` releases the GL context
  * and every texture; the page is reloaded before anything asks for it again.
  */

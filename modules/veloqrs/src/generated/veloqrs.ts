@@ -1059,9 +1059,6 @@ const FfiConverterTypeDerivedClear = (() => {
   return new FFIConverter();
 })();
 
-/**
- * What the clear-cache wipe removed.
- */
 export type DerivedClearCounts = {
   sectionsRemoved: number;
   activitiesRemoved: number;
@@ -5915,6 +5912,218 @@ const FfiConverterTypeFfiCutoverDiff = (() => {
 })();
 
 /**
+ * One run of `activity_push_json`, as the dashboard shows it.
+ */
+export type FfiPushRun = {
+  /**
+   * Seconds since the epoch, the unit every other date on the surface uses.
+   */
+  ts: number;
+  activityId: string;
+  outcome: string;
+  /**
+   * The sentence behind a `failed`, or nothing for the outcomes that are
+   * their own explanation.
+   */
+  detail?: string;
+};
+
+/**
+ * Generated factory for {@link FfiPushRun} record objects.
+ */
+export const FfiPushRun = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPushRun, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPushRun>,
+  });
+})();
+
+const FfiConverterTypeFfiPushRun = (() => {
+  type TypeName = FfiPushRun;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        ts: FfiConverterFloat64.readFromCursor(c),
+        activityId: FfiConverterString.readFromCursor(c),
+        outcome: FfiConverterString.readFromCursor(c),
+        detail: FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.ts, c);
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.outcome, c);
+      FfiConverterOptionalString.writeIntoCursor(value.detail, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.ts) +
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.outcome) +
+        FfiConverterOptionalString.allocationSize(value.detail)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The request budget as the Developer Dashboard shows it. Instants are
+ * seconds since the epoch, the unit every other date on the surface uses.
+ */
+export type FfiRequestBudget = {
+  userToday: number;
+  syncToday: number;
+  backfillToday: number;
+  backfillPerDay?: number;
+  backfillLastFifteenMinutes: number;
+  backfillPerFifteenMinutes: number;
+  syncLastFifteenMinutes: number;
+  syncPerFifteenMinutes: number;
+  /**
+   * Until when a refusal's cooldown holds, or none.
+   */
+  cooldownUntil?: number;
+  /**
+   * When this install's daily count next resets.
+   */
+  nextReset: number;
+};
+
+/**
+ * Generated factory for {@link FfiRequestBudget} record objects.
+ */
+export const FfiRequestBudget = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRequestBudget, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRequestBudget>,
+  });
+})();
+
+const FfiConverterTypeFfiRequestBudget = (() => {
+  type TypeName = FfiRequestBudget;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        userToday: FfiConverterUInt32.readFromCursor(c),
+        syncToday: FfiConverterUInt32.readFromCursor(c),
+        backfillToday: FfiConverterUInt32.readFromCursor(c),
+        backfillPerDay: FfiConverterOptionalUInt32.readFromCursor(c),
+        backfillLastFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        backfillPerFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        syncLastFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        syncPerFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        cooldownUntil: FfiConverterOptionalFloat64.readFromCursor(c),
+        nextReset: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.userToday, c);
+      FfiConverterUInt32.writeIntoCursor(value.syncToday, c);
+      FfiConverterUInt32.writeIntoCursor(value.backfillToday, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.backfillPerDay, c);
+      FfiConverterUInt32.writeIntoCursor(value.backfillLastFifteenMinutes, c);
+      FfiConverterUInt32.writeIntoCursor(value.backfillPerFifteenMinutes, c);
+      FfiConverterUInt32.writeIntoCursor(value.syncLastFifteenMinutes, c);
+      FfiConverterUInt32.writeIntoCursor(value.syncPerFifteenMinutes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.cooldownUntil, c);
+      FfiConverterFloat64.writeIntoCursor(value.nextReset, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.userToday) +
+        FfiConverterUInt32.allocationSize(value.syncToday) +
+        FfiConverterUInt32.allocationSize(value.backfillToday) +
+        FfiConverterOptionalUInt32.allocationSize(value.backfillPerDay) +
+        FfiConverterUInt32.allocationSize(value.backfillLastFifteenMinutes) +
+        FfiConverterUInt32.allocationSize(value.backfillPerFifteenMinutes) +
+        FfiConverterUInt32.allocationSize(value.syncLastFifteenMinutes) +
+        FfiConverterUInt32.allocationSize(value.syncPerFifteenMinutes) +
+        FfiConverterOptionalFloat64.allocationSize(value.cooldownUntil) +
+        FfiConverterFloat64.allocationSize(value.nextReset)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What the clear-cache wipe removed.
+ * What the Developer Dashboard reads that no other screen does: the native
+ * push worker's recent runs and the request budget.
+ */
+export type FfiDashboardData = {
+  /**
+   * What each recent native push run did, newest first.
+   */
+  pushRuns: Array<FfiPushRun>;
+  /**
+   * The request budget, or `None` where the governor only paces.
+   */
+  requestBudget?: FfiRequestBudget;
+};
+
+/**
+ * Generated factory for {@link FfiDashboardData} record objects.
+ */
+export const FfiDashboardData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiDashboardData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiDashboardData>,
+  });
+})();
+
+const FfiConverterTypeFfiDashboardData = (() => {
+  type TypeName = FfiDashboardData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        pushRuns: FfiConverterSequenceTypeFfiPushRun.readFromCursor(c),
+        requestBudget:
+          FfiConverterOptionalTypeFfiRequestBudget.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiPushRun.writeIntoCursor(value.pushRuns, c);
+      FfiConverterOptionalTypeFfiRequestBudget.writeIntoCursor(
+        value.requestBudget,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiPushRun.allocationSize(value.pushRuns) +
+        FfiConverterOptionalTypeFfiRequestBudget.allocationSize(
+          value.requestBudget,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Whether a local day's recorded activity load can be totalled.
  */
 export enum FfiDayLoadStatus {
@@ -8044,8 +8253,9 @@ export type FfiHrvTrend = {
   label: string;
   /**
    * Which rule produced `label`: `halves` for the window's two halves
-   * moving past the deadband, `lastTwoDays` for the override that two
-   * consecutive readings below the window mean fires. Both can say
+   * moving apart by more than their own scatter, `lastTwoDays` for the
+   * override fired by two consecutive readings below the window mean and
+   * apart from the readings before them. Both can say
    * `trendingDown` and they are not the same claim.
    */
   reason: string;
@@ -10446,7 +10656,17 @@ export type FfiRouteLineLayer = {
    * double, which holds every generation a library reaches exactly.
    */
   generation: number;
-  routes: Array<FfiRouteLine>;
+  /**
+   * The database state the layer was read in, which the caller passes back
+   * to say it still holds these lines. `None` when the read could not vouch
+   * for one.
+   */
+  stamp?: number;
+  /**
+   * The lines, absent when the caller passed back this layer's `stamp`:
+   * nothing has committed since, so the lines and names it holds are these.
+   */
+  routes?: Array<FfiRouteLine>;
 };
 
 /**
@@ -10472,17 +10692,25 @@ const FfiConverterTypeFfiRouteLineLayer = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         generation: FfiConverterFloat64.readFromCursor(c),
-        routes: FfiConverterSequenceTypeFfiRouteLine.readFromCursor(c),
+        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
+        routes: FfiConverterOptionalSequenceTypeFfiRouteLine.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterFloat64.writeIntoCursor(value.generation, c);
-      FfiConverterSequenceTypeFfiRouteLine.writeIntoCursor(value.routes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
+      FfiConverterOptionalSequenceTypeFfiRouteLine.writeIntoCursor(
+        value.routes,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterFloat64.allocationSize(value.generation) +
-        FfiConverterSequenceTypeFfiRouteLine.allocationSize(value.routes)
+        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
+        FfiConverterOptionalSequenceTypeFfiRouteLine.allocationSize(
+          value.routes,
+        )
       );
     }
   }
@@ -10587,6 +10815,68 @@ const FfiConverterTypeFfiMapSection = (() => {
 })();
 
 /**
+ * The section overlay the map draws, stamped so a filter change that re-reads
+ * the map does not ship a catalogue the caller already holds.
+ */
+export type FfiMapSectionLayer = {
+  /**
+   * The database state the overlay was read in, passed back to say the
+   * caller still holds it. `None` when the read could not vouch for one.
+   */
+  stamp?: number;
+  /**
+   * The sections, absent when the caller passed back this layer's `stamp`.
+   */
+  sections?: Array<FfiMapSection>;
+};
+
+/**
+ * Generated factory for {@link FfiMapSectionLayer} record objects.
+ */
+export const FfiMapSectionLayer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapSectionLayer, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSectionLayer>,
+  });
+})();
+
+const FfiConverterTypeFfiMapSectionLayer = (() => {
+  type TypeName = FfiMapSectionLayer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
+        sections:
+          FfiConverterOptionalSequenceTypeFfiMapSection.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
+      FfiConverterOptionalSequenceTypeFfiMapSection.writeIntoCursor(
+        value.sections,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
+        FfiConverterOptionalSequenceTypeFfiMapSection.allocationSize(
+          value.sections,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Everything the map tab paints with in one call.
  */
 export type FfiMapScreenData = {
@@ -10621,9 +10911,9 @@ export type FfiMapScreenData = {
    */
   sectionCount: number;
   /**
-   * Map sections with lines, present only while the layer is requested
+   * The section overlay, present only while the layer is requested
    */
-  sections?: Array<FfiMapSection>;
+  sections?: FfiMapSectionLayer;
 };
 
 /**
@@ -10657,8 +10947,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         routeCount: FfiConverterUInt32.readFromCursor(c),
         routeLines: FfiConverterOptionalTypeFfiRouteLineLayer.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
-        sections:
-          FfiConverterOptionalSequenceTypeFfiMapSection.readFromCursor(c),
+        sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -10678,7 +10967,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         c,
       );
       FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
-      FfiConverterOptionalSequenceTypeFfiMapSection.writeIntoCursor(
+      FfiConverterOptionalTypeFfiMapSectionLayer.writeIntoCursor(
         value.sections,
         c,
       );
@@ -10698,7 +10987,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
           value.routeLines,
         ) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
-        FfiConverterOptionalSequenceTypeFfiMapSection.allocationSize(
+        FfiConverterOptionalTypeFfiMapSectionLayer.allocationSize(
           value.sections,
         )
       );
@@ -11899,69 +12188,6 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * One run of `activity_push_json`, as the dashboard shows it.
- */
-export type FfiPushRun = {
-  /**
-   * Seconds since the epoch, the unit every other date on the surface uses.
-   */
-  ts: number;
-  activityId: string;
-  outcome: string;
-  /**
-   * The sentence behind a `failed`, or nothing for the outcomes that are
-   * their own explanation.
-   */
-  detail?: string;
-};
-
-/**
- * Generated factory for {@link FfiPushRun} record objects.
- */
-export const FfiPushRun = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPushRun, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPushRun>,
-  });
-})();
-
-const FfiConverterTypeFfiPushRun = (() => {
-  type TypeName = FfiPushRun;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        ts: FfiConverterFloat64.readFromCursor(c),
-        activityId: FfiConverterString.readFromCursor(c),
-        outcome: FfiConverterString.readFromCursor(c),
-        detail: FfiConverterOptionalString.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterFloat64.writeIntoCursor(value.ts, c);
-      FfiConverterString.writeIntoCursor(value.activityId, c);
-      FfiConverterString.writeIntoCursor(value.outcome, c);
-      FfiConverterOptionalString.writeIntoCursor(value.detail, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterFloat64.allocationSize(value.ts) +
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterString.allocationSize(value.outcome) +
-        FfiConverterOptionalString.allocationSize(value.detail)
       );
     }
   }
@@ -15909,8 +16135,9 @@ export type FfiSectionPerformanceData = {
   curves?: FfiSectionLapCurves;
   /**
    * True when this read left the curves owed rather than computing them:
-   * the route screen's read serves them only once held, and
-   * `RouteManager::load_detail_performance` computes them off the JS thread.
+   * a detail screen's read serves them only once held, and
+   * `SectionManager::load_detail_performance` computes them off the JS
+   * thread.
    */
   curvesPending: boolean;
   /**
@@ -18521,6 +18748,16 @@ export type PersistentEngineStats = {
    * section or record names them.
    */
   activityWindowOldest: string;
+  /**
+   * Bytes SQLite holds on the heap across every connection in the process,
+   * page caches included.
+   */
+  sqliteHeapBytes: number;
+  /**
+   * Bytes of satellite imagery held in memory, zero before a map has set
+   * the tile path.
+   */
+  satelliteCacheBytes: number;
 };
 
 /**
@@ -18557,6 +18794,8 @@ const FfiConverterTypePersistentEngineStats = (() => {
         oldestDate: FfiConverterOptionalFloat64.readFromCursor(c),
         newestDate: FfiConverterOptionalFloat64.readFromCursor(c),
         activityWindowOldest: FfiConverterString.readFromCursor(c),
+        sqliteHeapBytes: FfiConverterFloat64.readFromCursor(c),
+        satelliteCacheBytes: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -18571,6 +18810,8 @@ const FfiConverterTypePersistentEngineStats = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.oldestDate, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.newestDate, c);
       FfiConverterString.writeIntoCursor(value.activityWindowOldest, c);
+      FfiConverterFloat64.writeIntoCursor(value.sqliteHeapBytes, c);
+      FfiConverterFloat64.writeIntoCursor(value.satelliteCacheBytes, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -18584,7 +18825,9 @@ const FfiConverterTypePersistentEngineStats = (() => {
         FfiConverterUInt32.allocationSize(value.gpsTrackCount) +
         FfiConverterOptionalFloat64.allocationSize(value.oldestDate) +
         FfiConverterOptionalFloat64.allocationSize(value.newestDate) +
-        FfiConverterString.allocationSize(value.activityWindowOldest)
+        FfiConverterString.allocationSize(value.activityWindowOldest) +
+        FfiConverterFloat64.allocationSize(value.sqliteHeapBytes) +
+        FfiConverterFloat64.allocationSize(value.satelliteCacheBytes)
       );
     }
   }
@@ -19084,6 +19327,43 @@ const FfiConverterTypeFfiInitOutcome = (() => {
           return c.writeI32(6);
         case FfiInitOutcome.VersionMismatch:
           return c.writeI32(7);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Whose attempts a performance read answers: a section's laps, or a route's
+ * whole activities in the section read's shape.
+ */
+export enum FfiPerformanceSubject {
+  Section,
+  Route,
+}
+
+const FfiConverterTypeFfiPerformanceSubject = (() => {
+  type TypeName = FfiPerformanceSubject;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiPerformanceSubject.Section;
+        case 2:
+          return FfiPerformanceSubject.Route;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiPerformanceSubject.Section:
+          return c.writeI32(1);
+        case FfiPerformanceSubject.Route:
+          return c.writeI32(2);
       }
     }
     allocationSize(value: TypeName): number {
@@ -20118,6 +20398,7 @@ export enum VeloqError_Tags {
   TileStore = "TileStore",
   Busy = "Busy",
   NameTaken = "NameTaken",
+  Suspended = "Suspended",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -20391,6 +20672,37 @@ export const VeloqError = (() => {
     }
   }
 
+  type Suspended__interface = {
+    tag: VeloqError_Tags.Suspended;
+  };
+  /**
+   * The app is going into the background and the engine has stopped
+   * writing so that no lock on the library outlives the process. Asking
+   * again once the app is back in the foreground succeeds.
+   */
+  class Suspended_ extends UniffiError implements Suspended__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.Suspended;
+    constructor() {
+      super("VeloqError", "Suspended");
+    }
+
+    static new(): Suspended_ {
+      return new Suspended_();
+    }
+
+    static override instanceOf(obj: any): obj is Suspended_ {
+      return obj.tag === VeloqError_Tags.Suspended;
+    }
+    static hasInner(obj: any): obj is Suspended_ {
+      return false;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -20405,6 +20717,7 @@ export const VeloqError = (() => {
     TileStore: TileStore_,
     Busy: Busy_,
     NameTaken: NameTaken_,
+    Suspended: Suspended_,
   });
 })();
 export type VeloqError = InstanceType<
@@ -20416,7 +20729,8 @@ export type VeloqError = InstanceType<
     | "ReferenceActivity"
     | "TileStore"
     | "Busy"
-    | "NameTaken"]
+    | "NameTaken"
+    | "Suspended"]
 >;
 
 // FfiConverter for enum VeloqError
@@ -20455,6 +20769,8 @@ const FfiConverterTypeVeloqError = (() => {
           return new VeloqError.NameTaken({
             name: FfiConverterString.readFromCursor(c),
           });
+        case 9:
+          return new VeloqError.Suspended();
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -20505,6 +20821,10 @@ const FfiConverterTypeVeloqError = (() => {
           c.writeI32(8);
           const inner = value.inner;
           FfiConverterString.writeIntoCursor(inner.name, c);
+          return;
+        }
+        case VeloqError_Tags.Suspended: {
+          c.writeI32(9);
           return;
         }
         default:
@@ -20558,6 +20878,9 @@ const FfiConverterTypeVeloqError = (() => {
           let size = 4;
           size += FfiConverterString.allocationSize(inner.name);
           return size;
+        }
+        case VeloqError_Tags.Suspended: {
+          return 4;
         }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -24915,6 +25238,10 @@ export interface MapManagerLike {
   /**
    * Everything the map tab paints with: the engine total, the sport types
    * the filter chips offer, and the activities inside the window.
+   *
+   * `held_route_lines` and `held_sections` are the stamps of the layers the
+   * caller already holds. A layer whose stamp is still current comes back
+   * without its lines, so a filter change does not ship them again.
    */
   getScreenData(
     startDate: number,
@@ -24925,6 +25252,8 @@ export interface MapManagerLike {
     routeLines: boolean,
     sections: boolean,
     nameNeedle: string,
+    heldRouteLines: number | undefined,
+    heldSections: number | undefined,
   ) /*throws*/ : FfiMapScreenData;
   queryViewport(
     minLat: number,
@@ -24980,6 +25309,10 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
   /**
    * Everything the map tab paints with: the engine total, the sport types
    * the filter chips offer, and the activities inside the window.
+   *
+   * `held_route_lines` and `held_sections` are the stamps of the layers the
+   * caller already holds. A layer whose stamp is still current comes back
+   * without its lines, so a filter change does not ship them again.
    */
   getScreenData(
     startDate: number,
@@ -24990,6 +25323,8 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
     routeLines: boolean,
     sections: boolean,
     nameNeedle: string,
+    heldRouteLines: number | undefined,
+    heldSections: number | undefined,
   ): FfiMapScreenData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -25012,6 +25347,14 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
           FfiConverterBool.lower(routeLines, nativeModule().rustbuffer_alloc),
           FfiConverterBool.lower(sections, nativeModule().rustbuffer_alloc),
           FfiConverterString.lower(nameNeedle, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalFloat64.lower(
+            heldRouteLines,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalFloat64.lower(
+            heldSections,
+            nativeModule().rustbuffer_alloc,
+          ),
           callStatus,
         );
       },
@@ -26107,19 +26450,6 @@ export interface RouteManagerLike {
     coordinates: Array<number>,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<Array<LiveRouteOverlap>>;
-  /**
-   * The same read with the delta curves computed, off the JS thread. Each
-   * attempt's track and time stream is decoded and projected onto the
-   * route's line, which on a long route or a well-ridden one runs past a
-   * tap's budget. The curves are held afterwards, so the read above serves
-   * them until the database moves.
-   */
-  loadDetailPerformance(
-    groupId: string,
-    timeRangeDays: number,
-    sportFilter: string | undefined,
-    asyncOpts_?: { signal: AbortSignal },
-  ) /*throws*/ : Promise<FfiSectionPerformanceData>;
   setName(routeId: string, name: string) /*throws*/ : void;
   setRepresentative(
     routeId: string,
@@ -26465,74 +26795,6 @@ export class RouteManager
     }
   }
 
-  /**
-   * The same read with the delta curves computed, off the JS thread. Each
-   * attempt's track and time stream is decoded and projected onto the
-   * route's line, which on a long route or a well-ridden one runs past a
-   * tap's budget. The curves are held afterwards, so the read above serves
-   * them until the database moves.
-   */
-  async loadDetailPerformance(
-    groupId: string,
-    timeRangeDays: number,
-    sportFilter: string | undefined,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiSectionPerformanceData> /*throws*/ {
-    const __stack = uniffiIsDebug ? new Error().stack : undefined;
-    try {
-      return await uniffiRustCallAsync(
-        /*rustCaller:*/ uniffiCaller,
-        /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_load_detail_performance(
-            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(groupId, nativeModule().rustbuffer_alloc),
-            FfiConverterUInt32.lower(
-              timeRangeDays,
-              nativeModule().rustbuffer_alloc,
-            ),
-            FfiConverterOptionalString.lower(
-              sportFilter,
-              nativeModule().rustbuffer_alloc,
-            ),
-          );
-        },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        // Async returns always go through the JS-side converter: the
-        // FFI symbol returns the future handle (u64), and the user-level
-        // RustBuffer comes back via the shared `rust_future_complete_*`
-        // export. The bytes the runtime hands back must be deserialized
-        // here using the per-callable return-type converter.
-        // Borrowed view over foreign memory: the call site owns the free,
-        // as on the sync paths. Unconditional, a no-op where buffers are
-        // already JS-owned.
-        /*liftFunc:*/ (__rb) => {
-          try {
-            return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
-          } finally {
-            nativeModule().rustbuffer_free(__rb);
-          }
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-        /*asyncOpts:*/ asyncOpts_,
-        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-      );
-    } catch (__error: any) {
-      if (uniffiIsDebug && __error instanceof Error) {
-        __error.stack = __stack;
-      }
-      throw __error;
-    }
-  }
-
   setName(routeId: string, name: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -26710,9 +26972,9 @@ export interface SectionManagerLike {
    * Read through the pool, so opening the screen while a sync page commits
    * does not wait out the write. Every part of the bundle is arithmetic over
    * one set of performances and that set is a query, so nothing here needs
-   * the memory tier. The engine method is still the write path's, and
-   * `screens::tests::the_pooled_section_performance_matches_the_one_a_lock_holder_gets`
-   * holds the two to one answer.
+   * the memory tier. The delta curves come only once held, since computing
+   * them can take longer than a tap may block, and `curves_pending` says
+   * they are owed.
    */
   getDetailPerformance(
     sectionId: string,
@@ -26794,6 +27056,20 @@ export interface SectionManagerLike {
    * the next full detection run.
    */
   indexNewActivity(activityId: string) /*throws*/ : FfiIndexActivitySummary;
+  /**
+   * A section's or a route's performance read with the delta curves
+   * computed, off the JS thread. Each lap's track and time stream is
+   * decoded and projected onto the line, which on a long or well-ridden
+   * one runs past a tap's budget. The curves are held afterwards, so the
+   * screen's own read serves them until the database moves.
+   */
+  loadDetailPerformance(
+    subject: FfiPerformanceSubject,
+    id: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<FfiSectionPerformanceData>;
   /**
    * Match an activity's GPS track against all existing sections.
    * Returns all matches found (may be empty if activity doesn't traverse any section).
@@ -27150,9 +27426,9 @@ export class SectionManager
    * Read through the pool, so opening the screen while a sync page commits
    * does not wait out the write. Every part of the bundle is arithmetic over
    * one set of performances and that set is a query, so nothing here needs
-   * the memory tier. The engine method is still the write path's, and
-   * `screens::tests::the_pooled_section_performance_matches_the_one_a_lock_holder_gets`
-   * holds the two to one answer.
+   * the memory tier. The delta curves come only once held, since computing
+   * them can take longer than a tap may block, and `curves_pending` says
+   * they are owed.
    */
   getDetailPerformance(
     sectionId: string,
@@ -27613,6 +27889,79 @@ export class SectionManager
       return FfiConverterTypeFfiIndexActivitySummary.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * A section's or a route's performance read with the delta curves
+   * computed, off the JS thread. Each lap's track and time stream is
+   * decoded and projected onto the line, which on a long or well-ridden
+   * one runs past a tap's budget. The curves are held afterwards, so the
+   * screen's own read serves them until the database moves.
+   */
+  async loadDetailPerformance(
+    subject: FfiPerformanceSubject,
+    id: string,
+    timeRangeDays: number,
+    sportFilter: string | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSectionPerformanceData> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_load_detail_performance(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiPerformanceSubject.lower(
+              subject,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              timeRangeDays,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterOptionalString.lower(
+              sportFilter,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
     }
   }
 
@@ -30368,6 +30717,16 @@ export interface VeloqEngineLike {
    */
   clearObserver(): void;
   /**
+   * The Developer Dashboard's own read: the recent native push runs and the
+   * request budget's counts, cooldown and next reset.
+   *
+   * Neither takes the engine lock: the runs come off the read pool and the
+   * budget from the governor and the settings rows, since it is a
+   * diagnostic opened while the foreground is live. An install that has
+   * had no push answers no runs rather than refusing.
+   */
+  dashboardData(): FfiDashboardData;
+  /**
    * Drop the persistent engine entirely, closing the SQLite connection.
    * The next call to `create()` will re-initialise from scratch.
    *
@@ -30438,16 +30797,21 @@ export interface VeloqEngineLike {
   ) /*throws*/ : PersistentEngineStats;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
-  /**
-   * What each recent native push run did, newest first, for the Developer
-   * Dashboard.
-   *
-   * Off the read pool rather than the engine lock: it is a diagnostic
-   * opened while the foreground is live, and it answers `[]` on an install
-   * that has had no push rather than refusing.
-   */
-  pushRuns(): Array<FfiPushRun>;
   recordings(): RecordingManagerLike;
+  /**
+   * Give back what the engine holds in memory and can rebuild, when the OS
+   * asks the process for memory. Parked readers close and every connection
+   * hands back its page cache. At the hard level, the last warning before
+   * the process is killed, the LRUs and the satellite rasters go too, at the
+   * cost of a recompute or a refetch on the next read.
+   *
+   * Async because it waits for the engine lock, which a sync or a detection
+   * run can hold for seconds.
+   */
+  releaseMemory(
+    hard: boolean,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<void>;
   /**
    * Apply record JSON off the JS thread, including converted legacy records.
    */
@@ -30685,6 +31049,32 @@ export class VeloqEngine
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
+  }
+
+  /**
+   * The Developer Dashboard's own read: the recent native push runs and the
+   * request budget's counts, cooldown and next reset.
+   *
+   * Neither takes the engine lock: the runs come off the read pool and the
+   * budget from the governor and the settings rows, since it is a
+   * diagnostic opened while the foreground is live. An install that has
+   * had no push answers no runs rather than refusing.
+   */
+  dashboardData(): FfiDashboardData {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_dashboard_data(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiDashboardData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
   }
 
   /**
@@ -31029,31 +31419,6 @@ export class VeloqEngine
     );
   }
 
-  /**
-   * What each recent native push run did, newest first, for the Developer
-   * Dashboard.
-   *
-   * Off the read pool rather than the engine lock: it is a diagnostic
-   * opened while the foreground is live, and it answers `[]` on an install
-   * that has had no push rather than refusing.
-   */
-  pushRuns(): Array<FfiPushRun> {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_push_runs(
-          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiPushRun.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   recordings(): RecordingManagerLike {
     return FfiConverterTypeRecordingManager.lift(
       uniffiCaller.rustCall(
@@ -31066,6 +31431,47 @@ export class VeloqEngine
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
+  }
+
+  /**
+   * Give back what the engine holds in memory and can rebuild, when the OS
+   * asks the process for memory. Parked readers close and every connection
+   * hands back its page cache. At the hard level, the last warning before
+   * the process is killed, the LRUs and the satellite rasters go too, at the
+   * cost of a recompute or a refetch on the next read.
+   *
+   * Async because it waits for the engine lock, which a sync or a detection
+   * run can hold for seconds.
+   */
+  async releaseMemory(
+    hard: boolean,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<void> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_release_memory(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            FfiConverterBool.lower(hard, nativeModule().rustbuffer_alloc),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_void,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_void,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_void,
+        /*liftFunc:*/ (_v) => {},
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -31857,6 +32263,16 @@ const FfiConverterSequenceTypeFfiCalendarYearSummary = new FfiConverterArray(
 const FfiConverterOptionalTypeFfiCutoverSettingsReset =
   new FfiConverterOptional(FfiConverterTypeFfiCutoverSettingsReset);
 
+// FfiConverter for Array<FfiPushRun>
+const FfiConverterSequenceTypeFfiPushRun = new FfiConverterArray(
+  FfiConverterTypeFfiPushRun,
+);
+
+// FfiConverter for FfiRequestBudget | undefined
+const FfiConverterOptionalTypeFfiRequestBudget = new FfiConverterOptional(
+  FfiConverterTypeFfiRequestBudget,
+);
+
 // FfiConverter for Array<number>
 const FfiConverterSequenceFloat32 = new FfiConverterArray(FfiConverterFloat32);
 
@@ -32009,6 +32425,11 @@ const FfiConverterSequenceTypeFfiRouteLine = new FfiConverterArray(
   FfiConverterTypeFfiRouteLine,
 );
 
+// FfiConverter for Array<FfiRouteLine> | undefined
+const FfiConverterOptionalSequenceTypeFfiRouteLine = new FfiConverterOptional(
+  FfiConverterSequenceTypeFfiRouteLine,
+);
+
 // FfiConverter for FfiRouteLineLayer | undefined
 const FfiConverterOptionalTypeFfiRouteLineLayer = new FfiConverterOptional(
   FfiConverterTypeFfiRouteLineLayer,
@@ -32022,6 +32443,11 @@ const FfiConverterSequenceTypeFfiMapSection = new FfiConverterArray(
 // FfiConverter for Array<FfiMapSection> | undefined
 const FfiConverterOptionalSequenceTypeFfiMapSection = new FfiConverterOptional(
   FfiConverterSequenceTypeFfiMapSection,
+);
+
+// FfiConverter for FfiMapSectionLayer | undefined
+const FfiConverterOptionalTypeFfiMapSectionLayer = new FfiConverterOptional(
+  FfiConverterTypeFfiMapSectionLayer,
 );
 
 // FfiConverter for Array<FfiDepartedRide>
@@ -32423,11 +32849,6 @@ const FfiConverterSequenceTypeSettingPair = new FfiConverterArray(
 // FfiConverter for Array<FfiUnplacedRecord>
 const FfiConverterSequenceTypeFfiUnplacedRecord = new FfiConverterArray(
   FfiConverterTypeFfiUnplacedRecord,
-);
-
-// FfiConverter for Array<FfiPushRun>
-const FfiConverterSequenceTypeFfiPushRun = new FfiConverterArray(
-  FfiConverterTypeFfiPushRun,
 );
 
 // FfiConverter for FfiCutoverDiff | undefined
@@ -33532,7 +33953,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data() !==
-    26219
+    16920
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_get_screen_data",
@@ -33787,14 +34208,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_load_detail_performance() !==
-    55711
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_load_detail_performance",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name() !==
     45774
   ) {
@@ -33916,7 +34329,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance() !==
-    59896
+    30426
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance",
@@ -34056,6 +34469,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance() !==
+    9191
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance",
     );
   }
   if (
@@ -34675,6 +35096,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_dashboard_data() !==
+    55935
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_dashboard_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !==
     54214
   ) {
@@ -34787,19 +35216,19 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_push_runs() !==
-    4812
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_push_runs",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !==
     31277
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_recordings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_release_memory() !==
+    54307
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_release_memory",
     );
   }
   if (
@@ -34990,6 +35419,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCurveActivity,
     FfiConverterTypeFfiCutoverDiff,
     FfiConverterTypeFfiCutoverSettingsReset,
+    FfiConverterTypeFfiDashboardData,
     FfiConverterTypeFfiDayLoad,
     FfiConverterTypeFfiDayLoadStatus,
     FfiConverterTypeFfiDepartedRide,
@@ -35033,6 +35463,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapCategoryCount,
     FfiConverterTypeFfiMapScreenData,
     FfiConverterTypeFfiMapSection,
+    FfiConverterTypeFfiMapSectionLayer,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
@@ -35047,6 +35478,7 @@ export default Object.freeze({
     FfiConverterTypeFfiNewGroundBadge,
     FfiConverterTypeFfiPaceCurve,
     FfiConverterTypeFfiPaceTrend,
+    FfiConverterTypeFfiPerformanceSubject,
     FfiConverterTypeFfiPeriodComparison,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPlaceNameKind,
@@ -35066,6 +35498,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRecordRestoreResult,
     FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiReferenceSource,
+    FfiConverterTypeFfiRequestBudget,
     FfiConverterTypeFfiRetiredSection,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,

@@ -16,6 +16,7 @@ import type {
   GroupSummary,
   LiveRouteOverlap,
 } from '../generated/veloqrs';
+import { FfiPerformanceSubject } from '../generated/veloqrs';
 import { validateId, validateName } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -219,6 +220,8 @@ export async function loadRouteDetailPerformance(
 ): Promise<FfiSectionPerformanceData | undefined> {
   if (!host.ready || !groupId) return undefined;
   return host.timedAsync('loadRouteDetailPerformance', () =>
-    host.engine.routes().loadDetailPerformance(groupId, timeRangeDays, sportFilter)
+    host.engine
+      .sections()
+      .loadDetailPerformance(FfiPerformanceSubject.Route, groupId, timeRangeDays, sportFilter)
   );
 }

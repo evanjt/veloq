@@ -502,10 +502,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   level: 'warn' | 'error';
                   message: string;
                 }[] = [];
-                if (streams?.latlng && streams.latlng.length > 2000) {
+                const gpsPoints = streams?.latlng ? streams.latlng.length / 2 : 0;
+                if (gpsPoints > 2000) {
                   warnings.push({
                     level: 'warn',
-                    message: `Polyline points: ${streams.latlng.length}`,
+                    message: `Polyline points: ${gpsPoints}`,
                   });
                 }
                 for (const [name, m] of Object.entries(ffiEntries)) {
@@ -529,7 +530,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                         { label: 'Sport', value: activity.type ?? '-' },
                         {
                           label: 'GPS Points',
-                          value: streams?.latlng ? String(streams.latlng.length) : '-',
+                          value: streams?.latlng ? String(gpsPoints) : '-',
                         },
                         {
                           label: 'HR Samples',

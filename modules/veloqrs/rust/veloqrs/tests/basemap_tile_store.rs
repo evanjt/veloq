@@ -298,6 +298,43 @@ fn clearing_the_store_empties_the_satellite_cache() {
     assert_eq!(store.get("satellite-ign", 5, 0, 0), None);
 }
 
+/// Scenario: the process is told memory is short while satellite previews sit
+/// in the cache. Expected behaviour: every satellite byte is given back, the
+/// next read of one misses so the caller fetches it again, and the vector tiles
+/// on disk are not touched, since only memory was asked for.
+#[test]
+fn releasing_memory_empties_the_satellite_cache_and_keeps_the_tree() {
+    let (store, _tmp) = store();
+    store
+        .put("satellite-eox", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+    store
+        .put("satellite-ign", 5, 0, 1, "jpg", &bytes(32, 2), false)
+        .expect("put");
+    store
+        .put(VECTOR, 5, 0, 0, "pbf", &bytes(16, 3), false)
+        .expect("put");
+    assert_eq!(store.satellite_cache_bytes(), 96);
+
+    store.release_memory();
+
+    assert_eq!(store.satellite_cache_bytes(), 0);
+    assert_eq!(store.get("satellite-eox", 5, 0, 0), None);
+    assert_eq!(store.get("satellite-ign", 5, 0, 1), None);
+    assert_eq!(store.get(VECTOR, 5, 0, 0), Some(bytes(16, 3)));
+    assert_eq!(store.size(), 16);
+
+    store
+        .put("satellite-eox", 5, 0, 0, "jpg", &bytes(64, 4), false)
+        .expect("put");
+    assert_eq!(
+        store.get("satellite-eox", 5, 0, 0),
+        Some(bytes(64, 4)),
+        "the cache keeps serving after a release"
+    );
+    assert_eq!(store.satellite_cache_bytes(), 64);
+}
+
 #[test]
 fn clearing_one_satellite_source_leaves_the_other_regions_cached() {
     let (store, _tmp) = store();

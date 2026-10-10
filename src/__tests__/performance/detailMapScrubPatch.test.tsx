@@ -3,13 +3,14 @@
  * route detail, so each new index hands the hero map a new highlighted
  * activity while every other trace stays where it was.
  *
- * Measures, per scrub tick, how many map sources the surface patcher
- * serialises, how many bytes that is, and how long the patch takes on this
- * machine. Only the highlight moves, so every source past the highlighted ones
- * is work the gesture pays for and throws away.
+ * Expected behaviour: a scrub tick costs the same with 50 traversals as with
+ * 200. Section detail moves the highlight by layer filter alone and sends no
+ * source; route detail sends only the one highlighted attempt and its two
+ * endpoint dots. Every number here is a count or a length, so a busy machine
+ * cannot move it.
  *
- * Collected only under `npm run test:perf`, because the timing measures the
- * machine as much as the code. The counts do not depend on the machine.
+ * An activity detail map mounting a six-hour ride sends the track once, not
+ * once per layer drawing it.
  */
 
 import React from 'react';
@@ -18,12 +19,15 @@ import { render, act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
+import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
+import type { LatLng } from '@/shared/geo/polyline';
 import type { FrequentSection, RoutePoint } from '@/types';
 
-type Tick = { serialised: number; bytes: number; ms: number; changed: string[]; layers: boolean };
+type Tick = { serialised: number; script: number; changed: string[] };
 
 const mockTicks: Tick[] = [];
 const mockPages = new Map<string, (event: { nativeEvent: { data: string } }) => void>();
+const mockInjected: string[] = [];
 
 jest.mock('react-native-webview', () => ({
   get WebView() {
@@ -37,7 +41,7 @@ const mockWebView = React.forwardRef(function MockWebView(
 ) {
   mockPages.set(props.testID ?? 'webview', props.onMessage);
   React.useImperativeHandle(ref, () => ({
-    injectJavaScript: () => {},
+    injectJavaScript: (script: string) => mockInjected.push(script),
     reload: () => {},
     stopLoading: () => {},
   }));
@@ -49,25 +53,16 @@ jest.mock('@/features/maps/lib/mapSurfacePatch', () => {
   return {
     ...actual,
     createSurfacePatcher: () => {
+      const { buildApplyScript } = jest.requireActual('@/features/maps/lib/htmlBuilders');
       const patcher = actual.createSurfacePatcher();
-      let prior: Record<string, unknown> = {};
       return {
         ...patcher,
-        next: (specs: { sources: Record<string, unknown> }) => {
-          const started = process.hrtime.bigint();
+        next: (specs: Parameters<typeof patcher.next>[0]) => {
           const result = patcher.next(specs);
-          const ms = Number(process.hrtime.bigint() - started) / 1e6;
-          let bytes = 0;
-          for (const [id, spec] of Object.entries(specs.sources)) {
-            if (prior[id] !== spec) bytes += JSON.stringify(spec).length;
-          }
-          prior = specs.sources;
           mockTicks.push({
             serialised: result.serialised,
-            bytes,
-            ms,
+            script: result.patch ? buildApplyScript(result.patch).length : 0,
             changed: result.patch?.sources ? Object.keys(result.patch.sources) : [],
-            layers: result.patch?.layers !== undefined && result.patch !== null,
           });
           return result;
         },
@@ -77,6 +72,11 @@ jest.mock('@/features/maps/lib/mapSurfacePatch', () => {
 });
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+
+jest.mock('react-native-iap', () => ({
+  useIAP: () => ({}),
+  ErrorCode: {},
+}));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
@@ -126,20 +126,68 @@ function ready() {
   }
 }
 
-function report(label: string, ticks: Tick[]) {
-  const sum = (pick: (t: Tick) => number) => ticks.reduce((s, t) => s + pick(t), 0);
-  const ms = ticks.map((t) => t.ms).sort((a, b) => a - b);
-  process.stderr.write(
-    `${label}: ${ticks.length} ticks, serialised/tick ${(sum((t) => t.serialised) / ticks.length).toFixed(1)}, ` +
-      `KB/tick ${(sum((t) => t.bytes) / ticks.length / 1024).toFixed(0)}, ` +
-      `patch ms median ${ms[Math.floor(ms.length / 2)].toFixed(2)} max ${ms[ms.length - 1].toFixed(2)}, ` +
-      `sent [${[...new Set(ticks.flatMap((t) => t.changed))].join(',')}], layers re-sent ${ticks.filter((t) => t.layers).length}\n`
-  );
+type TickCeiling = {
+  /** Specs the patcher may serialise in one tick. */
+  serialised: number;
+  /** Sources a tick may send. Everything else on the map stays where it was. */
+  sources: string[];
+  /** Characters of injected script per tick, icons and layers included. */
+  script: number;
+};
+
+// Section detail moves the highlight by the faded layer's filter, so a tick is
+// the layer list and nothing else: measured 3,049 characters. The list goes
+// whole because the page takes its order from it.
+const SECTION_TICK: TickCeiling = { serialised: 1, sources: [], script: 3_600 };
+
+// Route detail draws the highlighted attempt from its own source so the faded
+// collection never changes, which costs one attempt and its endpoints per
+// tick: measured 7,685 characters at 200 points.
+const ROUTE_TICK: TickCeiling = {
+  serialised: 3,
+  sources: ['endpoints', 'highlighted-trace'],
+  script: 9_200,
+};
+
+function expectScrubTicks(ticks: Tick[], ceiling: TickCeiling) {
+  expect(ticks).toHaveLength(SCRUB_TICKS);
+  for (const tick of ticks) {
+    expect(tick.serialised).toBeLessThanOrEqual(ceiling.serialised);
+    expect(tick.changed.filter((id) => !ceiling.sources.includes(id))).toEqual([]);
+    expect(tick.script).toBeLessThanOrEqual(ceiling.script);
+  }
 }
 
 beforeEach(() => {
   mockTicks.length = 0;
+  mockInjected.length = 0;
   mockPages.clear();
+});
+
+describe('activity detail map mount', () => {
+  // A six-hour ride recorded at one point a second.
+  const SIX_HOURS = 21_600;
+  const coordinates: LatLng[] = Array.from({ length: SIX_HOURS }, (_, i) => ({
+    latitude: 46.948 + Math.sin(i / 500) * 0.05,
+    longitude: 7.447 + (i / SIX_HOURS) * 0.4,
+  }));
+
+  it('sends the track once', () => {
+    render(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <ActivityMapView activityType="Ride" coordinates={coordinates} activeTab="charts" />
+      </SafeAreaProvider>
+    );
+    ready();
+
+    const applies = mockInjected.filter((s) => s.includes('window._veloq.apply('));
+    expect(applies).toHaveLength(1);
+    const mount = applies[0];
+    const patch = JSON.parse(mount.slice(mount.indexOf('(') + 1, mount.lastIndexOf(')')));
+    const trackChars = JSON.stringify(patch.sources.route.data).length;
+    expect(trackChars).toBeGreaterThan(SIX_HOURS * 10);
+    expect(mount.length).toBeLessThan(trackChars * 1.1);
+  });
 });
 
 describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
@@ -174,8 +222,7 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
     ready();
     mockTicks.length = 0;
     for (let i = 0; i < SCRUB_TICKS; i++) view.rerender(map(ids[i % ids.length]));
-    report(`section ${count}x${POINTS_PER_TRACE}`, mockTicks);
-    expect(mockTicks.length).toBeGreaterThan(0);
+    expectScrubTicks(mockTicks, SECTION_TICK);
   });
 
   it('route detail map', () => {
@@ -204,7 +251,6 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
     ready();
     mockTicks.length = 0;
     for (let i = 0; i < SCRUB_TICKS; i++) view.rerender(map(ids[i % ids.length]));
-    report(`route ${count}x${POINTS_PER_TRACE}`, mockTicks);
-    expect(mockTicks.length).toBeGreaterThan(0);
+    expectScrubTicks(mockTicks, ROUTE_TICK);
   });
 });

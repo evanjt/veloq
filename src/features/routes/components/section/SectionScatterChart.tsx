@@ -65,6 +65,11 @@ export interface SectionScatterChartProps {
   bestReverseRecord: DirectionBestRecord | null;
   bestForwardIsRecord: boolean;
   bestReverseIsRecord: boolean;
+  /**
+   * Every activity's time stream is read, so the engine's best point is the
+   * record. Until then the point draws no record mark. Absent means settled.
+   */
+  recordsSettled?: boolean | undefined;
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?:
@@ -105,6 +110,7 @@ export function SectionScatterChart({
   bestReverseRecord,
   bestForwardIsRecord,
   bestReverseIsRecord,
+  recordsSettled = true,
   forwardStats,
   reverseStats,
   onActivitySelect,
@@ -397,7 +403,8 @@ export function SectionScatterChart({
                       const dotColor = isReverse ? colors.reverseDirection : activityColor;
                       const isPointExcluded = dataPoint.isExcluded === true;
 
-                      const isBest = !isPointExcluded && dataPoint.isBest === true;
+                      const isBest =
+                        recordsSettled && !isPointExcluded && dataPoint.isBest === true;
 
                       // Track highlighted point for rendering last (on top)
                       const isHighlighted =
@@ -589,6 +596,7 @@ export function SectionScatterChart({
           onSetAsReference={onSetAsReference}
           onExcludeActivity={onExcludeActivity}
           onIncludeActivity={onIncludeActivity}
+          recordsSettled={recordsSettled}
           onClearSelection={() => {
             setSelectedPoint(null);
             onActivitySelect?.(null);

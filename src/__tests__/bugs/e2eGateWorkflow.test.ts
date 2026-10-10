@@ -29,7 +29,15 @@ type Step = {
   env?: Record<string, string>;
   with?: { script?: string; name?: string; 'retention-days'?: number };
 };
-type Job = { needs?: string | string[]; if?: string; steps?: Step[] };
+type Job = {
+  needs?: string | string[];
+  if?: string;
+  'runs-on'?: string;
+  uses?: string;
+  with?: Record<string, unknown>;
+  env?: Record<string, string>;
+  steps?: Step[];
+};
 type FilterStep = Step & { id?: string; with?: { filters?: string } };
 
 const gateSource = fs.readFileSync(GATE_PATH, 'utf8');
@@ -129,8 +137,12 @@ describe('flake evidence', () => {
   const reports = uploads.filter((u) => u.name.endsWith('-report'));
   const debugBundles = uploads.filter((u) => u.name.endsWith('-debug'));
 
-  it('uploads a report for the gate and for the map suite', () => {
-    expect(reports.map((r) => r.name).sort()).toEqual(['e2e-gate-report', 'e2e-map-report']);
+  it('uploads a report for the gate and for each map suite', () => {
+    expect(reports.map((r) => r.name).sort()).toEqual([
+      'e2e-gate-report',
+      'e2e-ios-map-report',
+      'e2e-map-report',
+    ]);
   });
 
   it.each(reports)('$name outlives the promotion window', ({ retention }) => {
@@ -218,5 +230,89 @@ describe('the map suite path filter', () => {
     'modules/veloqrs/rust/veloqrs/src/persistence/screens.rs',
   ])('leaves it off for a change to %s', (file) => {
     expect(isMapChange(file)).toBe(false);
+  });
+});
+
+/**
+ * Scenario: a dependency bump changes `package-lock.json` and crashes the map
+ * on iOS. The map flows ran after a push only on the Android emulator, and the
+ * iOS sweep never finished, so nothing ran a map flow on iOS at all.
+ *
+ * Expected behaviour: a push that changes a map surface, the lockfile or a
+ * native module runs the pack-map flows on an iOS simulator too, from the Dev
+ * simulator app the shared iOS build makes, through `run-suite.sh`.
+ */
+describe('the iOS map suite', () => {
+  const filterStep = (gate.jobs.changes.steps ?? []).find(
+    (step) => (step as FilterStep).id === 'filter'
+  ) as FilterStep;
+  // paths-filter flattens a list pulled in through a YAML alias.
+  const filters = Object.fromEntries(
+    Object.entries(yaml.load(filterStep.with?.filters ?? '') as Record<string, unknown[]>).map(
+      ([name, globs]) => [name, globs.flat() as string[]]
+    )
+  );
+  const iosJobName = jobNames.find(
+    (name) =>
+      /^macos/.test(String(gate.jobs[name]['runs-on'])) &&
+      scriptsOf(gate.jobs[name]).some((script) => script.includes('--include-tags=pack-map'))
+  );
+
+  it('runs the pack-map flows on a macOS runner', () => {
+    expect(iosJobName).toBeDefined();
+  });
+
+  it('retries the failed flows through run-suite.sh against the simulator', () => {
+    const job = gate.jobs[iosJobName!];
+    expect(scriptsOf(job).join('\n')).toMatch(
+      /\.maestro\/run-suite\.sh\s+\S+\s+\S+\s+--include-tags=pack-map/
+    );
+    // The boot action exports the simulator's health check and restart, since
+    // run-suite.sh falls back to adb and a simulator has none.
+    expect((job.steps ?? []).map((step) => step.uses)).toContain(
+      './.github/actions/boot-ios-simulator'
+    );
+  });
+
+  it('installs the Dev simulator app the shared iOS build makes', () => {
+    const builds = needsOf(gate.jobs[iosJobName!]).filter(
+      (name) => gate.jobs[name].uses === './.github/workflows/build-ios.yml'
+    );
+    expect(builds).toHaveLength(1);
+    expect(gate.jobs[builds[0]].with?.variant).toBe('dev');
+    expect(JSON.stringify(gate.jobs[iosJobName!].steps)).toContain(
+      `needs.${builds[0]}.outputs.simulator-artifact`
+    );
+  });
+
+  const filterName = Object.keys(filters).find((name) =>
+    String(gate.jobs[iosJobName ?? '']?.if ?? '').includes(`outputs.${name}`)
+  );
+
+  it('runs on its own filter, which the iOS build is gated on too', () => {
+    expect(filterName).toBeDefined();
+    expect(gate.jobs.changes as { outputs?: Record<string, string> }).toHaveProperty(
+      `outputs.${filterName}`
+    );
+    const build = needsOf(gate.jobs[iosJobName!]).find(
+      (name) => gate.jobs[name].uses === './.github/workflows/build-ios.yml'
+    );
+    expect(String(gate.jobs[build!].if)).toContain(`outputs.${filterName}`);
+  });
+
+  it.each([
+    'src/app/(tabs)/map.tsx',
+    'src/features/maps/components/RegionalMapView.tsx',
+    'modules/veloqrs/rust/veloqrs/src/tiles.rs',
+    'package-lock.json',
+    'modules/veloqrs/ios/VeloqTileSchemeHandler.m',
+  ])('runs for a change to %s', (file) => {
+    const isIosMapChange = picomatch(filters[filterName!] ?? [], { dot: true });
+    expect(isIosMapChange(file)).toBe(true);
+  });
+
+  it('leaves it off for a change no map or native module draws from', () => {
+    const isIosMapChange = picomatch(filters[filterName!] ?? [], { dot: true });
+    expect(isIosMapChange('src/features/settings/components/NotificationSection.tsx')).toBe(false);
   });
 });

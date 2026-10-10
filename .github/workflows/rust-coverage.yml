@@ -16,7 +16,7 @@ permissions:
 jobs:
   coverage:
     name: Coverage floor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
       # A dispatch measures regardless, which is how to re-run a sha by hand.
@@ -52,21 +52,25 @@ jobs:
       # and not with a stable release.
       - name: Setup Rust
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
         with:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-llvm-cov
 
       - name: Install nextest
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: nextest
 
       - name: Cache Rust
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: modules/veloqrs/rust
           key: coverage

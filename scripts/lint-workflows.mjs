@@ -51,6 +51,20 @@
 //   deploys    a workflow only a tag starts never skips a store deploy: no step sets
 //              `skip=true` for a missing credential and no job runs only when an
 //              earlier job found its artefact, so a green run means an upload
+//   pods       CocoaPods comes from the fastlane bundle, which pins one exact
+//              version and locks that version: no step runs `gem install
+//              cocoapods`, every `pod` runs as `bundle exec pod` against that
+//              Gemfile, and no pod failure is swallowed. CI otherwise installs
+//              whatever release is newest, which the Podfile.lock the machines
+//              write never named
+//   runners    no job runs on a floating `-latest` label, directly, in a label
+//              list or through its matrix, since the hosted image under one
+//              moves on GitHub's date and can change a toolchain the generated
+//              bindings or a release build depend on with no commit here
+//   pinned     every action and reusable workflow from outside this repository
+//              and GitHub's own actions/* is pinned to a full commit sha, since
+//              a tag or branch moves at the will of whoever holds that repository
+//              and the release jobs hand these steps the signing keys
 //
 // Usage: node scripts/lint-workflows.mjs [--root <dir>]
 
@@ -92,6 +106,14 @@ const NATIVE_BUILDS = [
   [/\bpod\s+install\b/, 'pod install'],
   [/\bfastlane\s+\w+\s+build_\w+/, 'a fastlane build lane'],
 ];
+
+/** The bundle CocoaPods is installed from, so CI and every machine run one version. */
+const POD_GEMFILE = 'config/fastlane/Gemfile';
+const POD_COMMAND = /(^|[\s;&|(])pod\s+[a-z]/;
+const GEM_INSTALL_PODS = /\bgem\s+install\b[^\n;&|]*\bcocoapods\b/;
+
+/** Set once any step runs pod, which is when the bundle has to pin it. */
+let podsRun = false;
 
 const failures = [];
 const fail = (file, where, message) =>
@@ -276,7 +298,24 @@ function checkRustSaves(file, id, steps) {
   });
 }
 
+/** A ref only the owner of the action's repository can move. */
+const FULL_SHA = /^[0-9a-f]{40}$/;
+
+/** Local actions and GitHub's own actions/* are the only refs left on a tag. */
+function checkPinned(file, where, uses) {
+  if (typeof uses !== 'string' || uses.startsWith('./') || uses.startsWith('actions/')) return;
+  const at = uses.lastIndexOf('@');
+  if (at === -1 || !FULL_SHA.test(uses.slice(at + 1))) {
+    fail(
+      file,
+      where,
+      `${uses} is not pinned to a commit. Pin the full 40-character sha with the tag in a trailing comment.`
+    );
+  }
+}
+
 function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
+  checkPinned(file, where, step.uses);
   const uses = action(step);
   const w = step.with ?? {};
   const build = nativeBuild(step.run);
@@ -405,6 +444,77 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
   }
   if (/\bexit\s+[1-9]\d*\s*\|\|\s*true\b/.test(text(step.run))) {
     fail(file, where, 'exit followed by || true never fails the step. Remove the || true.');
+  }
+  checkPodStep(file, where, step);
+}
+
+/**
+ * A step that installs or runs CocoaPods takes it from the pinned bundle. A
+ * plain `gem install` takes the newest release whatever the lockfiles say, and
+ * a swallowed failure leaves `pod` running at whatever version the image had.
+ */
+function checkPodStep(file, where, step) {
+  const lines = text(step.run)
+    .replace(/\\\r?\n/g, ' ')
+    .split('\n');
+  if (lines.some((line) => GEM_INSTALL_PODS.test(line))) {
+    fail(
+      file,
+      where,
+      `gem install cocoapods installs a version no lockfile names. Pin cocoapods in ${POD_GEMFILE} and run bundle exec pod.`
+    );
+  }
+  const podLines = lines.filter((line) => POD_COMMAND.test(line));
+  if (podLines.length === 0) return;
+  if (podLines.some((line) => !/\bbundle\s+exec\s+pod\b/.test(line))) {
+    fail(
+      file,
+      where,
+      `pod runs outside the bundle, at whatever version the runner has. Run it as bundle exec pod.`
+    );
+  }
+  if (podLines.some((line) => /\|\|\s*(true|:)(\s|;|$)/.test(line))) {
+    fail(
+      file,
+      where,
+      'a pod failure is swallowed by || true, so the step passes on a broken install.'
+    );
+  }
+  if (!text(step.env?.BUNDLE_GEMFILE).endsWith(POD_GEMFILE)) {
+    fail(
+      file,
+      where,
+      `pod runs without BUNDLE_GEMFILE naming ${POD_GEMFILE} in the step env, so bundler looks for another Gemfile.`
+    );
+  }
+  podsRun = true;
+}
+
+/**
+ * The pod bundle pins one exact cocoapods version and its lockfile resolves
+ * that version, so `bundle exec pod` runs the same release everywhere.
+ */
+function checkPodBundle(files) {
+  const gemfile = files.get(POD_GEMFILE);
+  const pin = gemfile?.match(
+    /^\s*gem\s+["']cocoapods["']\s*,\s*["']\s*(?:=\s*)?(\d+(?:\.\d+)*)["']\s*$/m
+  );
+  if (!pin) {
+    fail(
+      POD_GEMFILE,
+      '',
+      'a workflow runs pod, and cocoapods has no exact version here. Add gem "cocoapods", "<version>".'
+    );
+    return;
+  }
+  const lockfile = `${POD_GEMFILE}.lock`;
+  const locked = files.get(lockfile)?.match(/^ {4}cocoapods \(([^)]+)\)$/m)?.[1];
+  if (locked !== pin[1]) {
+    fail(
+      lockfile,
+      '',
+      `cocoapods is pinned at ${pin[1]} and locked at ${locked ?? 'nothing'}. Run bundle lock in config/fastlane.`
+    );
   }
 }
 
@@ -804,6 +914,39 @@ function checkTagDeploys(file, id, job) {
   });
 }
 
+const FLOATING_RUNNER = /-latest$/;
+
+/** The runner labels a job names, with each `matrix.KEY` expanded to its values. */
+function runnerLabels(job) {
+  const runsOn = job['runs-on'];
+  const named = Array.isArray(runsOn)
+    ? runsOn
+    : runsOn && typeof runsOn === 'object'
+      ? [runsOn.labels ?? []].flat()
+      : [runsOn];
+  return named.flatMap((label) => {
+    const key = text(label).match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
+    if (!key) return [text(label)];
+    const matrix = job.strategy?.matrix ?? {};
+    return [
+      ...[matrix[key] ?? []].flat(),
+      ...[matrix.include ?? []].flat().map((entry) => entry?.[key]),
+    ].map(text);
+  });
+}
+
+function checkRunner(file, id, job) {
+  for (const label of runnerLabels(job)) {
+    if (FLOATING_RUNNER.test(label)) {
+      fail(
+        file,
+        `job ${id} runs-on`,
+        `runs on ${label}, which moves to a new image on GitHub's date; name the image version.`
+      );
+    }
+  }
+}
+
 function checkAggregators(file, workflow) {
   const jobs = workflow.jobs ?? {};
   const ids = Object.keys(jobs);
@@ -873,11 +1016,18 @@ for (const [file, { doc, isAction }] of parsed) {
     checkArtifactIdentity(file, id, job.steps ?? []);
     checkVariant(file, id, job, doc.env);
     checkCall(file, id, job, workflows);
+    checkRunner(file, id, job);
+    checkPinned(file, `job ${id}`, job.uses);
     if (startsOnTagOnly(triggers)) checkTagDeploys(file, id, job);
   }
   checkSchedule(file, doc, triggers);
   checkAggregators(file, doc);
   checkBenchesChecked(file, doc);
+}
+
+if (podsRun) {
+  const bundle = indexedSources(root, [POD_GEMFILE, `${POD_GEMFILE}.lock`]);
+  checkPodBundle(new Map([...bundle].map(([file, bytes]) => [file, bytes.toString('utf8')])));
 }
 
 if (failures.length > 0) {
@@ -889,5 +1039,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  'Workflow guard: caches write from main only, no schedule re-runs a sha, every job is reported, each platform builds in one place.'
+  'Workflow guard: caches write from main only, no schedule re-runs a sha, every job is reported, each platform builds in one place, every runner names its image, every third-party action is pinned to a commit.'
 );

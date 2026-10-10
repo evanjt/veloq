@@ -19,6 +19,7 @@ import type {
   SectionSummary,
   FfiSectionChartData,
 } from '../../generated/veloqrs';
+import { FfiPerformanceSubject } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import { present } from '../optional';
 import type { FfiSectionMatch } from '../shared-types';
@@ -220,5 +221,23 @@ export function getSectionDetailPerformance(
   if (!host.ready || !sectionId) return undefined;
   return host.timed('getSectionDetailPerformance', () =>
     host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
+  );
+}
+
+/**
+ * The same read with the delta curves computed, on a Rust thread. Rejects with
+ * the engine's message when the read fails.
+ */
+export async function loadSectionDetailPerformance(
+  host: DelegateHost,
+  sectionId: string,
+  timeRangeDays: number,
+  sportFilter?: string
+): Promise<FfiSectionPerformanceData | undefined> {
+  if (!host.ready || !sectionId) return undefined;
+  return host.timedAsync('loadSectionDetailPerformance', () =>
+    host.engine
+      .sections()
+      .loadDetailPerformance(FfiPerformanceSubject.Section, sectionId, timeRangeDays, sportFilter)
   );
 }

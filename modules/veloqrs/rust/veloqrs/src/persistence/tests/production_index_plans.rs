@@ -31,9 +31,9 @@ fn plans_of(
 ) -> Vec<String> {
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()).clear();
-    engine.db.trace(Some(record));
+    crate::test_trace::trace_statements!(engine.db, record);
     read(engine);
-    engine.db.trace(None);
+    crate::test_trace::untrace(&engine.db);
     let issued: Vec<String> = STATEMENTS
         .lock()
         .unwrap_or_else(|e| e.into_inner())

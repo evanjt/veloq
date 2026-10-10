@@ -86,6 +86,8 @@ interface RegionalMapViewProps {
   /** Route matching is on; off, zooming never turns the sections layer on. */
   sectionsEnabled?: boolean;
   sections?: MapSection[];
+  /** The overlay's lines, the same object while the engine's stamp is unchanged */
+  sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** Callback when attribution text changes */
   onAttributionChange?: (attribution: string) => void;
   /** Activity to open the popup for, once it is among `activities`. */
@@ -103,6 +105,7 @@ export function RegionalMapView({
   sectionCount = 0,
   sectionsEnabled = true,
   sections = [],
+  sectionsGeoJSON = EMPTY_FEATURE_COLLECTION,
   onAttributionChange,
   selectActivityId,
   focusActivityId,
@@ -321,14 +324,12 @@ export function RegionalMapView({
   });
 
   // All GeoJSON data for map layers
-  const { markersGeoJSON, sectionsGeoJSON, userLocationGeoJSON, routeGeoJSON, routeHasData } =
-    useMapGeoJSON({
-      allActivities: activities,
-      activityCenters,
-      sections,
-      userLocation,
-      selected,
-    });
+  const { markersGeoJSON, userLocationGeoJSON, routeGeoJSON, routeHasData } = useMapGeoJSON({
+    allActivities: activities,
+    activityCenters,
+    userLocation,
+    selected,
+  });
 
   // The markers are drawn into the canvas, so a link names the activity whose
   // popup opens. Each id opens once, so closing the popup leaves it closed.
@@ -603,11 +604,7 @@ export function RegionalMapView({
             // so the WebView clears the previous data via setData; undefined
             // leaves the layer's last value cached and visible.
             routesGeoJSON={routesGeoJSON}
-            sectionsGeoJSON={
-              showSections
-                ? (sectionsGeoJSON ?? EMPTY_FEATURE_COLLECTION)
-                : EMPTY_FEATURE_COLLECTION
-            }
+            sectionsGeoJSON={showSections ? sectionsGeoJSON : EMPTY_FEATURE_COLLECTION}
             // Global map in 3D mirrors the 2D paradigm: only points, never the
             // full activity polylines. tracesGeoJSON is always empty here;
             // activity locations come through pointMarkersGeoJSON below as

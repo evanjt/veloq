@@ -51,7 +51,12 @@ fn rows(engine: &PersistentEngine, id: &str) -> Vec<Row> {
         )
         .unwrap()
         .query_map([id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            Ok((
+                row.get(0)?,
+                row.get::<_, i64>(1)? as usize,
+                row.get::<_, i64>(2)? as usize,
+                row.get(3)?,
+            ))
         })
         .unwrap()
         .map(Result::unwrap)

@@ -274,21 +274,23 @@ fn rank_across_a_commit(path: &std::path::Path, write: fn(&rusqlite::Connection)
     let writer_path = path.to_path_buf();
     let mut write = Some(write);
     let mut calls = 0;
-    reader.progress_handler(
-        1,
-        Some(move || {
-            calls += 1;
-            if calls == 20
-                && let Some(write) = write.take()
-            {
-                let writer = rusqlite::Connection::open(&writer_path).expect("writer");
-                write(&writer);
-            }
-            false
-        }),
-    );
+    reader
+        .progress_handler(
+            1,
+            Some(move || {
+                calls += 1;
+                if calls == 20
+                    && let Some(write) = write.take()
+                {
+                    let writer = rusqlite::Connection::open(&writer_path).expect("writer");
+                    write(&writer);
+                }
+                false
+            }),
+        )
+        .unwrap();
     let ranked = ranked_sections_by_sports(&reader, &sports(), 100, &BTreeMap::new());
-    reader.progress_handler(1, None::<fn() -> bool>);
+    reader.progress_handler(1, None::<fn() -> bool>).unwrap();
     ranked[0]
         .sections
         .iter()
@@ -371,14 +373,14 @@ fn a_read_after_a_refresh_costs_what_it_keeps_not_what_the_library_holds() {
         let engine = library(sections, 12);
         refresh_rank_inputs(&engine.db).unwrap();
         STEPS.store(0, Ordering::SeqCst);
-        engine.db.progress_handler(1, Some(count_step));
+        engine.db.progress_handler(1, Some(count_step)).unwrap();
         std::hint::black_box(ranked_sections_by_sports(
             &engine.db,
             &sports(),
             4,
             &BTreeMap::new(),
         ));
-        engine.db.progress_handler(1, None::<fn() -> bool>);
+        engine.db.progress_handler(1, None::<fn() -> bool>).unwrap();
         STEPS.load(Ordering::SeqCst)
     };
     let (small, large) = (steps(8), steps(24));

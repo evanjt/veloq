@@ -21,11 +21,8 @@ import { getRouteCoordinates } from '@/shared/demo/routes/routes';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
 
-jest.mock('veloqrs', () => {
-  const coordinates: [number, number][] = jest
-    .requireActual('@/shared/demo/routes/routes')
-    .getRouteCoordinates('route-valais-ride-2');
-  return require('../__shared__/veloqrsStub').withOverrides({
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
     FfiCorrelation_Tags: {
       TooFew: 'TooFew',
       Undefined: 'Undefined',
@@ -33,9 +30,14 @@ jest.mock('veloqrs', () => {
       Mover: 'Mover',
     },
     // The section's polyline and the route's representative are the same line.
-    decodeCoords: () => coordinates.map(([latitude, longitude]) => ({ latitude, longitude })),
-  });
-});
+    decodeCoords: () =>
+      (
+        jest
+          .requireActual('@/shared/demo/routes/routes')
+          .getRouteCoordinates('route-valais-ride-2') as [number, number][]
+      ).map(([latitude, longitude]) => ({ latitude, longitude })),
+  })
+);
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 

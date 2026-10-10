@@ -121,9 +121,10 @@ fn an_empty_library_yields_an_empty_window() {
     );
 }
 
-/// HRV that ends where it started, so the two halves agree and the only rule
-/// that can push the verdict down is the consecutive-day one.
-const STEADY_THEN_DOWN: [f64; 6] = [40.0, 50.0, 60.0, 60.0, 50.0, 40.0];
+/// HRV that holds steady and then drops on its last two readings. The halves
+/// differ by less than the window's own scatter, so the only rule that can
+/// push the verdict down is the consecutive-day one.
+const STEADY_THEN_DOWN: [f64; 6] = [55.0, 56.0, 55.0, 56.0, 46.0, 44.0];
 
 #[test]
 fn the_hrv_flag_does_not_read_a_decline_across_a_gap() {

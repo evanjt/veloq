@@ -181,3 +181,49 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 });
+
+describe('a script that drives a shared simulator', () => {
+  it('is refused when it installs on the booted simulator without the simulator lock', () => {
+    const result = guard({
+      'scripts/foo.sh': '#!/bin/sh\nxcrun simctl install booted Foo.app\n',
+    });
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('scripts/foo.sh');
+    expect(result.out).toContain('with-simulator-lock.sh');
+  });
+
+  it('passes when the command goes through the simulator lock', () => {
+    const result = guard({
+      'scripts/foo.sh':
+        '#!/bin/sh\n"$(dirname "$0")/with-simulator-lock.sh" booted xcrun simctl install booted Foo.app\n',
+    });
+
+    expect(result.code).toBe(0);
+  });
+
+  it('passes one that only lists the simulators', () => {
+    const result = guard({
+      'scripts/foo.sh': '#!/bin/sh\nxcrun simctl list devices booted -j\n',
+    });
+
+    expect(result.code).toBe(0);
+  });
+
+  it('passes one that creates a simulator of its own and drives only that', () => {
+    const result = guard({
+      'scripts/foo.sh':
+        '#!/bin/sh\nUDID=$(xcrun simctl create probe "iPhone 17")\nxcrun simctl boot "$UDID"\nxcrun simctl install "$UDID" Foo.app\n',
+    });
+
+    expect(result.code).toBe(0);
+  });
+
+  it('passes a message that names simctl', () => {
+    const result = guard({
+      'scripts/foo.sh': '#!/bin/sh\necho "install it with xcrun simctl install booted"\n',
+    });
+
+    expect(result.code).toBe(0);
+  });
+});

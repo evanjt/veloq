@@ -11,7 +11,12 @@
  * layers the caller declared interactive and only the resolved feature comes
  * out, so there is no platform-specific tap path on the React Native side.
  */
-import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+import {
+  consoleBridgeScript,
+  mapLibreHead,
+  setStyleStatement,
+  tileProtocolsScript,
+} from './shared';
 import { surfaceRuntimeScript } from './mapSurfaceScripts';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
@@ -277,17 +282,38 @@ ${surfaceRuntimeScript(config)}
 </html>`;
 }
 
-/** Apply a spec patch. Sources omitted from the patch keep their current data. */
-export function buildApplyScript(patch: {
-  sources?: Record<string, MapSourceSpec | null>;
-  /** Points to add to the end of a growing line already on the page. */
-  appends?: Record<string, GeoJSON.Position[]>;
-  layers?: MapLayerSpec[];
-  markers?: MapMarkerSpec[];
-  images?: MapImageSpec[];
-  interactiveLayers?: string[];
-}): string {
-  return `window._veloq && window._veloq.apply(${JSON.stringify(patch)}); true;`;
+/**
+ * Apply a spec patch. Sources omitted from the patch keep their current data.
+ *
+ * `sourceJson` holds sources already serialised, by id, and is spliced in as
+ * it stands, so a track the patcher stringified to diff is not stringified a
+ * second time to send. The script is the same either way.
+ */
+export function buildApplyScript(
+  patch: {
+    sources?: Record<string, MapSourceSpec | null>;
+    /** Points to add to the end of a growing line already on the page. */
+    appends?: Record<string, GeoJSON.Position[]>;
+    layers?: MapLayerSpec[];
+    markers?: MapMarkerSpec[];
+    images?: MapImageSpec[];
+    interactiveLayers?: string[];
+  },
+  sourceJson: Record<string, string> = {}
+): string {
+  const fields: string[] = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (key !== 'sources') {
+      fields.push(`${JSON.stringify(key)}:${JSON.stringify(value)}`);
+      continue;
+    }
+    const sources = Object.entries(value as Record<string, MapSourceSpec | null>).map(
+      ([id, spec]) => `${JSON.stringify(id)}:${sourceJson[id] ?? JSON.stringify(spec)}`
+    );
+    fields.push(`"sources":{${sources.join(',')}}`);
+  }
+  return `window._veloq && window._veloq.apply({${fields.join(',')}}); true;`;
 }
 
 /** Swap the base style, then replay the cached sources and layers over it. */
@@ -301,7 +327,7 @@ export function buildSetStyleScript(
       if (!window.map) return;
       function apply(next) {
         window.map.once('style.load', function() { window._veloq.rehydrate(); });
-        window.map.setStyle(next);
+        ${setStyleStatement('window.map', 'next')}
       }
       var inline = ${styleJSON};
       if (inline) {

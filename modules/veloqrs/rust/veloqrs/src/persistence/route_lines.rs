@@ -171,6 +171,12 @@ pub(crate) mod pooled {
     /// column and without decoding the blob. Zero when the layer is missing
     /// or stale.
     pub(crate) fn route_count(conn: &Connection) -> SqlResult<u32> {
+        Ok(counted_generation(conn)?.map_or(0, |(_, count)| count))
+    }
+
+    /// The current layer's generation and route count, without decoding the
+    /// blob. `None` when the layer is missing or stale.
+    pub(crate) fn counted_generation(conn: &Connection) -> SqlResult<Option<(u64, u32)>> {
         let generation = read_group_generation(conn)?;
         let count = conn
             .prepare_cached(
@@ -178,7 +184,7 @@ pub(crate) mod pooled {
             )?
             .query_row(params![generation as i64], |row| row.get::<_, i64>(0))
             .optional()?;
-        Ok(count.unwrap_or(0) as u32)
+        Ok(count.map(|count| (generation, count as u32)))
     }
 
     pub(crate) fn layer(conn: &Connection) -> SqlResult<Option<Vec<RouteLine>>> {

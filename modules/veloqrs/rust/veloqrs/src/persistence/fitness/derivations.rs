@@ -117,6 +117,13 @@ pub(crate) struct Effort {
 /// A section hands in its complete traversals and a route its counted
 /// attempts, so the two pages draw one series by one rule. Fewer than three
 /// efforts with a plausible pace is no trend.
+/// The smallest modelled change in the cost of a given speed over the whole
+/// window that an efficiency trend calls, as a fraction of the mean cost.
+const MIN_EFFICIENCY_CHANGE: f64 = 0.02;
+
+/// Fewest efforts an efficiency trend takes a direction from.
+const MIN_EFFICIENCY_DIRECTION_EFFORTS: usize = 5;
+
 pub(crate) fn efficiency_trend(
     subject_id: &str,
     sport_type: &str,
@@ -172,7 +179,8 @@ pub(crate) fn efficiency_trend(
         })
         .collect();
 
-    let (slope, _intercept) = linear_regression(&regression_points);
+    let change = crate::trend::slope_change(&regression_points);
+    let slope = change.map_or(0.0, |c| c.size);
 
     // Time range in days
     let time_range_days = regression_points.last().map(|(x, _)| *x).unwrap_or(0.0);
@@ -187,18 +195,28 @@ pub(crate) fn efficiency_trend(
         points.iter().map(|p| p.pace_secs_per_km).sum::<f64>() / points.len() as f64;
     let hr_change_bpm = slope * time_range_days / mean_pace;
 
-    // Improving when the cost of a given speed is falling by a fifth of a
-    // percent a day, which is the rate the old absolute -0.001 stood for
-    // on the ratio it was written against: a heart rate of 150 over 300
-    // seconds per km gave 0.5, and -0.001 of that is -0.2% a day.
-    const IMPROVING_FRACTION_PER_DAY: f64 = 0.002;
+    // A direction only when the slope's interval excludes zero, judged
+    // against the scatter of these efforts around their own fit, and when
+    // the modelled change over the whole window is more than two per cent of
+    // the mean cost. A fixed rate per day ignored the scatter, so a week of
+    // wind crossed it, and a real change over a season never did.
     let mean_ratio: f64 = points.iter().map(|p| p.hr_pace_ratio).sum::<f64>() / points.len() as f64;
-    let direction = if slope < -IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
-        crate::EfficiencyDirection::Improving
-    } else if slope > IMPROVING_FRACTION_PER_DAY * mean_ratio && points.len() >= 5 {
-        crate::EfficiencyDirection::Worsening
+    let floor_per_day = if time_range_days > 0.0 {
+        MIN_EFFICIENCY_CHANGE * mean_ratio / time_range_days
     } else {
-        crate::EfficiencyDirection::Flat
+        f64::INFINITY
+    };
+    let verdict = match change {
+        Some(change) if points.len() >= MIN_EFFICIENCY_DIRECTION_EFFORTS => {
+            crate::trend::classify_estimate(&change, floor_per_day)
+        }
+        _ => 0,
+    };
+    // A falling cost is the improvement.
+    let direction = match verdict {
+        -1 => crate::EfficiencyDirection::Improving,
+        1 => crate::EfficiencyDirection::Worsening,
+        _ => crate::EfficiencyDirection::Flat,
     };
 
     // The newest matched effort against the mean of the series it belongs
@@ -931,6 +949,15 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The totals of `[start_ts, end_ts)`, for windows that tile a span.
+    ///
+    /// `activity_metrics.date` is whole seconds and one window's end is the
+    /// next one's start, so `period_stats`, inclusive at both ends, would count
+    /// an activity at exactly that second in both.
+    pub fn window_stats(conn: &Connection, start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
+        period_stats(conn, start_ts, end_ts - 1)
+    }
+
     /// A date range's totals, or the error the read failed with.
     pub(crate) fn try_period_stats(
         conn: &Connection,
@@ -996,11 +1023,6 @@ pub(crate) mod pooled {
     }
 
     /// One entry per week anchor, each the totals of `[start, start + length)`.
-    ///
-    /// The windows are half-open because `activity_metrics.date` is whole
-    /// seconds and an anchor is the previous week's end. `period_stats` is
-    /// inclusive at both ends, so asking it for `start + length` counted an
-    /// activity at exactly Monday 00:00:00 in both weeks.
     pub fn weekly_summaries(
         conn: &Connection,
         week_starts: &[i64],
@@ -1009,7 +1031,7 @@ pub(crate) mod pooled {
         week_starts
             .iter()
             .map(|&start| {
-                let stats = period_stats(conn, start, start + week_length_secs - 1);
+                let stats = window_stats(conn, start, start + week_length_secs);
                 crate::FfiWeeklySummary {
                     week_start: start as f64,
                     count: stats.count,
@@ -2067,26 +2089,6 @@ pub(crate) fn calendar_from(
         section_distance,
     };
     Some(result)
-}
-
-/// Simple least-squares linear regression.
-/// Returns (slope, intercept) for the best-fit line y = slope*x + intercept.
-fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
-    let n = points.len() as f64;
-    if n < 2.0 {
-        return (0.0, 0.0);
-    }
-    let sum_x: f64 = points.iter().map(|(x, _)| x).sum();
-    let sum_y: f64 = points.iter().map(|(_, y)| y).sum();
-    let sum_xy: f64 = points.iter().map(|(x, y)| x * y).sum();
-    let sum_x2: f64 = points.iter().map(|(x, _)| x * x).sum();
-    let denom = n * sum_x2 - sum_x * sum_x;
-    if denom.abs() < f64::EPSILON {
-        return (0.0, sum_y / n);
-    }
-    let slope = (n * sum_xy - sum_x * sum_y) / denom;
-    let intercept = (sum_y - slope * sum_x) / n;
-    (slope, intercept)
 }
 
 impl PersistentEngine {
@@ -4720,5 +4722,110 @@ mod tests {
             local("2026-03-14", "23:59:59"),
         );
         assert!(days.is_empty());
+    }
+}
+
+/// Scenario: an efficiency series whose efforts scatter a few per cent either
+/// side of a constant cost, and one that moves cleanly over a long season.
+///
+/// Expected behaviour: the direction is called only when the slope's 95 per
+/// cent interval excludes zero and the modelled change over the window is
+/// worth calling, so scatter over a week is flat and a steady fall over a
+/// season is a trend however small its daily rate.
+#[cfg(test)]
+mod efficiency_direction_tests {
+    use super::{Effort, efficiency_trend};
+    use crate::EfficiencyDirection;
+
+    const DAY: i64 = 86_400;
+
+    /// One 1 km effort at 150 bpm, `offset` away from 300 seconds as a
+    /// fraction of it.
+    fn effort(day: i64, offset: f64) -> Effort {
+        Effort {
+            time_secs: 300.0 * (1.0 + offset),
+            avg_hr: 150.0,
+            distance_meters: 1000.0,
+            date: 1_700_000_000 + day * DAY,
+        }
+    }
+
+    fn direction(efforts: &[Effort]) -> EfficiencyDirection {
+        efficiency_trend("s1", "Run", "Hill", efforts)
+            .expect("enough efforts for a trend")
+            .direction
+    }
+
+    #[test]
+    fn a_week_of_scatter_whose_fit_leans_down_is_flat() {
+        // The fit falls 0.45 % a day, more than twice the old fixed rate, and
+        // its standard error is 0.65 % a day.
+        let efforts = [
+            effort(0, 0.03),
+            effort(2, -0.03),
+            effort(3, 0.03),
+            effort(5, 0.03),
+            effort(7, -0.03),
+        ];
+        assert_eq!(direction(&efforts), EfficiencyDirection::Flat);
+    }
+
+    #[test]
+    fn a_week_of_scatter_whose_fit_leans_up_is_flat() {
+        let efforts = [
+            effort(0, -0.03),
+            effort(2, 0.03),
+            effort(3, -0.03),
+            effort(5, -0.03),
+            effort(7, 0.03),
+        ];
+        assert_eq!(direction(&efforts), EfficiencyDirection::Flat);
+    }
+
+    #[test]
+    fn a_clean_ten_percent_fall_over_a_season_is_improving() {
+        let efforts: Vec<Effort> = (0..12)
+            .map(|i| effort(i * 300 / 11, -0.10 * i as f64 / 11.0))
+            .collect();
+        assert_eq!(direction(&efforts), EfficiencyDirection::Improving);
+    }
+
+    #[test]
+    fn a_clean_ten_percent_rise_over_a_season_is_worsening() {
+        let efforts: Vec<Effort> = (0..12)
+            .map(|i| effort(i * 300 / 11, 0.10 * i as f64 / 11.0))
+            .collect();
+        assert_eq!(direction(&efforts), EfficiencyDirection::Worsening);
+    }
+
+    #[test]
+    fn a_season_of_scatter_around_a_steady_fall_is_still_improving() {
+        // Half a per cent either side of a 10 % fall: the interval is narrow
+        // against a change that size.
+        let efforts: Vec<Effort> = (0..12)
+            .map(|i| {
+                let wobble = if i % 2 == 0 { 0.005 } else { -0.005 };
+                effort(i * 300 / 11, -0.10 * i as f64 / 11.0 + wobble)
+            })
+            .collect();
+        assert_eq!(direction(&efforts), EfficiencyDirection::Improving);
+    }
+
+    #[test]
+    fn a_change_the_interval_supports_but_too_small_to_matter_is_flat() {
+        // A clean half per cent over a season clears any interval and is not
+        // a change in fitness anyone could feel.
+        let efforts: Vec<Effort> = (0..12)
+            .map(|i| effort(i * 300 / 11, -0.005 * i as f64 / 11.0))
+            .collect();
+        assert_eq!(direction(&efforts), EfficiencyDirection::Flat);
+    }
+
+    #[test]
+    fn four_clean_efforts_are_too_few_to_call() {
+        let efforts: Vec<Effort> = (0..4)
+            .map(|i| effort(i * 30, -0.10 * i as f64 / 3.0))
+            .collect();
+        assert_eq!(direction(&efforts), EfficiencyDirection::Flat);
     }
 }

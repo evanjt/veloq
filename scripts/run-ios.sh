@@ -25,6 +25,7 @@ esac
 APP_VARIANT=$1
 export APP_VARIANT
 
+scripts/lib/ios-disk-preflight.sh
 node scripts/check-toolchain.mjs --platform ios
 node scripts/prepare-native.mjs --platform ios
 node scripts/build-record.js snapshot ios "$configuration"

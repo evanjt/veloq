@@ -23,7 +23,7 @@ const SETTLE_MS = 5000;
  * A handset on a virtual clock: `sleep` and every dump advance it, and the
  * screen, the card's bounds and whether a tap opens the card follow from it.
  */
-function fakeHandset(opensOnTap: boolean) {
+function fakeHandset(opensOnTap: boolean, layout: 'whole' | 'sliver' = 'whole') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-gestures-'));
   const bin = path.join(root, 'bin');
   const s = path.join(root, 'state');
@@ -84,8 +84,15 @@ case "$(screen)" in
     y=$(( 400 + $(offset) ))
     {
       echo '<node resource-id="home-screen" bounds="[0,0][1080,2340]">'
-      echo "<node resource-id=\\"activity-card-a1\\" bounds=\\"[0,$y][1080,$(( y + 600 ))]\\">"
-      echo "<node resource-id=\\"activity-card-bottom-a1\\" bounds=\\"[0,$(( y + 500 ))][1080,$(( y + 600 ))]\\" />"
+      if [ ${layout} = sliver ]; then
+        echo "<node resource-id=\\"activity-card-a0\\" bounds=\\"[36,$y][1044,$(( y + 112 ))]\\">"
+        echo "<node resource-id=\\"activity-card-bottom\\" bounds=\\"[36,$y][1044,$(( y + 112 ))]\\" />"
+        echo "<node resource-id=\\"activity-card-a1\\" bounds=\\"[36,$(( y + 148 ))][1044,$(( y + 867 ))]\\">"
+        echo "<node resource-id=\\"activity-card-bottom\\" bounds=\\"[36,$(( y + 651 ))][1044,$(( y + 867 ))]\\" />"
+      else
+        echo "<node resource-id=\\"activity-card-a1\\" bounds=\\"[0,$y][1080,$(( y + 600 ))]\\">"
+        echo "<node resource-id=\\"activity-card-bottom-a1\\" bounds=\\"[0,$(( y + 500 ))][1080,$(( y + 600 ))]\\" />"
+      fi
       echo '<node content-desc="Feed" bounds="[0,2200][200,2340]" />'
       echo '<node content-desc="Map" bounds="[300,2200][500,2340]" />'
     } > "$2" ;;
@@ -113,7 +120,8 @@ echo "UI hierchary dumped to: $2"`
         else
           top=$(( 400 + $(offset) ))
           moving=$(( $(now) - $(get swiped) < ${SETTLE_MS} ))
-          if [ ${opensOnTap ? 1 : 0} = 1 ] && [ "$moving" = 0 ] && [ "$y" -ge "$top" ] && [ "$y" -le $(( top + 600 )) ]; then
+          if [ ${layout} = sliver ]; then lo=$(( top + 651 )) hi=$(( top + 867 )); else lo=$top hi=$(( top + 600 )); fi
+          if [ ${opensOnTap ? 1 : 0} = 1 ] && [ "$moving" = 0 ] && [ "$y" -ge "$lo" ] && [ "$y" -le "$hi" ]; then
             put screen opening; put detail_at $(( $(now) + 1000 ))
           fi
         fi ;;
@@ -158,6 +166,20 @@ describe('measure-gestures.sh activity open', () => {
     expect(result.stderr).not.toContain('not back on the feed');
     expect(lines('starts')).toHaveLength(1);
     expect(lines('feed-backs')).toEqual([]);
+  });
+
+  it('opens the first card whose stats band is whole when the top card is a clipped sliver', () => {
+    const { out, run, lines } = fakeHandset(true, 'sliver');
+    run();
+
+    const files = fs.readdirSync(out);
+    expect(files.filter((f) => f.startsWith('activity-open-')).sort()).toEqual([
+      'activity-open-0.txt',
+      'activity-open-1.txt',
+      'activity-open-2.txt',
+    ]);
+    expect(lines('feed-backs')).toEqual([]);
+    expect(lines('starts')).toHaveLength(1);
   });
 
   it('marks an open that never shows the detail bad and sends no Back from the feed', () => {

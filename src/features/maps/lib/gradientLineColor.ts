@@ -8,7 +8,7 @@
  *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
  *   <LineLayer style={{ lineGradient: ['interpolate', ['linear'], ['line-progress'], ...stops] }} />
  *
- * Requires the `ShapeSource` to set `lineMetrics: true` so that
+ * Requires the GeoJSON source spec to set `lineMetrics: true` so that
  * `line-progress` expressions are available.
  */
 
@@ -93,8 +93,8 @@ export function gradientToColor(percent: number): string {
  * Returns `null` if there isn't enough data to render a gradient.
  */
 export function buildGradientLineStops(
-  gradient: number[] | undefined,
-  distance: number[] | undefined,
+  gradient: ArrayLike<number> | undefined,
+  distance: ArrayLike<number> | undefined,
   maxStops = 100,
   hasPosition?: boolean[]
 ): (string | number)[] | null {
@@ -104,8 +104,8 @@ export function buildGradientLineStops(
     const keep = (_: unknown, i: number) => hasPosition[i];
     const usable = distance && distance.length === gradient.length;
     return buildGradientLineStops(
-      gradient.filter(keep),
-      usable ? distance.filter(keep) : undefined,
+      Array.prototype.filter.call(gradient, keep) as number[],
+      usable ? (Array.prototype.filter.call(distance, keep) as number[]) : undefined,
       maxStops
     );
   }
@@ -136,7 +136,10 @@ export function buildGradientLineStops(
 }
 
 /** Distance can place the samples only when it covers each one and never runs backwards. */
-function usableDistance(distance: number[] | undefined, n: number): distance is number[] {
+function usableDistance(
+  distance: ArrayLike<number> | undefined,
+  n: number
+): distance is ArrayLike<number> {
   if (!distance || distance.length !== n) return false;
   for (let i = 0; i < n; i++) {
     if (!Number.isFinite(distance[i])) return false;

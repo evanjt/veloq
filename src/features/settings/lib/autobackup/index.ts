@@ -15,6 +15,7 @@ export {
   getBackupFailures,
   cleanUpRetiredBackupSettings,
   forgetBackupCarrier,
+  onBackupCarrierSignedIn,
   getWebdavConfig,
   initWebdavConfig,
   setWebdavConfig,
@@ -29,6 +30,12 @@ export {
   pickBackupFolder,
   getBackupFolderName,
   forgetBackupFolder,
+  googleDriveBackend,
+  signInToGoogleDrive,
+  forgetGoogleDrive,
+  getGoogleDriveAccount,
+  loadGoogleDriveAccount,
+  isGoogleDriveSupported,
 } from './backends';
 export { failureMessageKey, isBackupTransferError } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';

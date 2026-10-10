@@ -458,6 +458,21 @@ describe('RecordingStore', () => {
 
       expect(useRecordingStore.getState().streams.speed[0]).toBe(7.5);
     });
+
+    it.each([
+      ['negative', -1],
+      ['NaN', NaN],
+      ['infinite', Infinity],
+    ])('records a %s OS speed on the first fix as 0', (_label, osSpeed) => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ speed: osSpeed, timestamp: startTime + 1000 }));
+
+      expect(useRecordingStore.getState().streams.speed[0]).toBe(0);
+    });
   });
 
   describe('sensor sample-and-hold', () => {

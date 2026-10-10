@@ -18,6 +18,7 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app/useTheme';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { useIsFocused } from 'expo-router';
 import {
   EMPTY_FEATURE_COLLECTION,
   MapSurface,
@@ -67,6 +68,7 @@ export function GroupingPreviewMap({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const screenFocused = useIsFocused();
 
   const lines = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
@@ -217,6 +219,7 @@ export function GroupingPreviewMap({
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
+        released={!screenFocused}
         testID="grouping-preview-map"
       />
       <View

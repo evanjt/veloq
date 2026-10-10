@@ -2129,8 +2129,9 @@ pub struct FfiWellnessSparklines {
 pub struct FfiHrvTrend {
     pub label: String,
     /// Which rule produced `label`: `halves` for the window's two halves
-    /// moving past the deadband, `lastTwoDays` for the override that two
-    /// consecutive readings below the window mean fires. Both can say
+    /// moving apart by more than their own scatter, `lastTwoDays` for the
+    /// override fired by two consecutive readings below the window mean and
+    /// apart from the readings before them. Both can say
     /// `trendingDown` and they are not the same claim.
     pub reason: String,
     pub avg: f64,
@@ -2631,12 +2632,21 @@ pub struct FfiSectionPerformanceData {
     /// direction holds a lap to compare with its reference.
     pub curves: Option<FfiSectionLapCurves>,
     /// True when this read left the curves owed rather than computing them:
-    /// the route screen's read serves them only once held, and
-    /// `RouteManager::load_detail_performance` computes them off the JS thread.
+    /// a detail screen's read serves them only once held, and
+    /// `SectionManager::load_detail_performance` computes them off the JS
+    /// thread.
     pub curves_pending: bool,
     /// Aerobic efficiency over the answered sport's counted efforts across the
     /// whole record, or `None` with fewer than three that carry heart rate.
     pub efficiency_trend: Option<FfiEfficiencyTrend>,
+}
+
+/// Whose attempts a performance read answers: a section's laps, or a route's
+/// whole activities in the section read's shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiPerformanceSubject {
+    Section,
+    Route,
 }
 
 /// Which lap a direction's deltas are measured against.
@@ -3025,8 +3035,8 @@ pub struct FfiMapScreenData {
     pub route_lines: Option<FfiRouteLineLayer>,
     /// Visible sections, regardless of whether the overlay was requested
     pub section_count: u32,
-    /// Map sections with lines, present only while the layer is requested
-    pub sections: Option<Vec<FfiMapSection>>,
+    /// The section overlay, present only while the layer is requested
+    pub sections: Option<FfiMapSectionLayer>,
 }
 
 /// The route-line layer the map draws, with the generation it was built from
@@ -3036,7 +3046,24 @@ pub struct FfiRouteLineLayer {
     /// The route group generation the lines were built from. Declared as a
     /// double, which holds every generation a library reaches exactly.
     pub generation: f64,
-    pub routes: Vec<FfiRouteLine>,
+    /// The database state the layer was read in, which the caller passes back
+    /// to say it still holds these lines. `None` when the read could not vouch
+    /// for one.
+    pub stamp: Option<f64>,
+    /// The lines, absent when the caller passed back this layer's `stamp`:
+    /// nothing has committed since, so the lines and names it holds are these.
+    pub routes: Option<Vec<FfiRouteLine>>,
+}
+
+/// The section overlay the map draws, stamped so a filter change that re-reads
+/// the map does not ship a catalogue the caller already holds.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMapSectionLayer {
+    /// The database state the overlay was read in, passed back to say the
+    /// caller still holds it. `None` when the read could not vouch for one.
+    pub stamp: Option<f64>,
+    /// The sections, absent when the caller passed back this layer's `stamp`.
+    pub sections: Option<Vec<FfiMapSection>>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

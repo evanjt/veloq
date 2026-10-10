@@ -1,13 +1,14 @@
 export { buildMap3DHtml } from './map3D';
 export type { Map3DHtmlConfig } from './map3D';
 export {
+  buildMap3DSetStyleScript,
   buildSetRouteGradientScript,
   buildSetRouteScript,
   buildStyleOverlayScript,
   buildUpdateLayersScript,
   LAYER_KEYS,
 } from './map3DScripts';
-export type { LayerKey, UpdateLayersParams } from './map3DScripts';
+export type { LayerKey, Map3DStyleSwap, UpdateLayersParams } from './map3DScripts';
 export { buildRenderSnapshotScript } from './terrainSnapshotScripts';
 export type { SnapshotRequest } from './terrainSnapshotScripts';
 export { buildRecycleSnapshotMapScript, buildSnapshotWorkerHtml } from './snapshotWorker';

@@ -303,9 +303,8 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       _routeId: 'route-rio-run-1-outback',
     },
     // demo-test-6: 7 days ago strength session. No GPS - WeightTraining
-    // activities don't have a track. Exercise sets are seeded via
-    // engine.bulkInsertExerciseSets() from src/data/demo/strengthSets.ts the
-    // first time the Strength tab is viewed.
+    // activities don't have a track. Its exercise sets are seeded from
+    // src/features/strength/demo.ts the first time the Strength tab is viewed.
     {
       id: 'demo-test-6',
       start_date_local: (() => {

@@ -12,8 +12,8 @@ jest.mock('@/shared/app', () => ({
 }));
 
 const sections: MapSection[] = [
-  { id: 'ridge', name: 'Ridge Road', distanceMeters: 1200, visitCount: 2, polyline: [] },
-  { id: 'canal', name: 'Canal Path', distanceMeters: 850, visitCount: 3, polyline: [] },
+  { id: 'ridge', name: 'Ridge Road', distanceMeters: 1200, visitCount: 2 },
+  { id: 'canal', name: 'Canal Path', distanceMeters: 850, visitCount: 3 },
 ];
 
 it('shows each section and selects the pressed row', () => {

@@ -32,9 +32,9 @@ fn count(_sql: &str) {
 
 fn statements_in(engine: &mut PersistentEngine, read: impl FnOnce(&mut PersistentEngine)) -> usize {
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
-    engine.db.trace(Some(count));
+    crate::test_trace::trace_statements!(engine.db, count);
     read(engine);
-    engine.db.trace(None);
+    crate::test_trace::untrace(&engine.db);
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -340,9 +340,9 @@ fn count_step() -> bool {
 /// The SQLite virtual machine steps `read` costs on `engine`'s connection.
 fn steps_in(engine: &mut PersistentEngine, read: impl FnOnce(&mut PersistentEngine)) -> usize {
     STEPS.store(0, std::sync::atomic::Ordering::SeqCst);
-    engine.db.progress_handler(1, Some(count_step));
+    engine.db.progress_handler(1, Some(count_step)).unwrap();
     read(engine);
-    engine.db.progress_handler(1, None::<fn() -> bool>);
+    engine.db.progress_handler(1, None::<fn() -> bool>).unwrap();
     STEPS.load(std::sync::atomic::Ordering::SeqCst)
 }
 
@@ -440,8 +440,12 @@ fn map_screen_data_carries_the_route_count_and_the_lines_only_when_asked() {
     );
     assert_eq!(with_lines.route_count, routes);
     let layer = with_lines.route_lines.expect("the layer is on");
-    assert_eq!(layer.routes.len() as u32, routes);
-    assert!(layer.routes.iter().all(|line| !line.polyline.is_empty()));
+    // The write connection is not one the read cache vouches for, so nothing
+    // read on it can be held and passed back.
+    assert!(layer.stamp.is_none());
+    let lines = layer.routes.expect("an unstamped read ships the lines");
+    assert_eq!(lines.len() as u32, routes);
+    assert!(lines.iter().all(|line| !line.polyline.is_empty()));
 }
 
 #[test]
@@ -467,6 +471,7 @@ fn map_screen_data_names_each_route_line_and_counts_its_activities() {
             .route_lines
             .expect("the layer is on")
             .routes
+            .expect("an unstamped read ships the lines")
     };
     let lines = read(&mut engine);
     let typed = lines
@@ -521,8 +526,13 @@ fn test_map_screen_data_section_overlay_gate() {
         String::new(),
     );
     assert_eq!(with_sections.section_count, count);
+    let overlay = with_sections.sections.expect("sections on");
+    assert!(overlay.stamp.is_none());
     assert_eq!(
-        with_sections.sections.expect("sections on").len() as u32,
+        overlay
+            .sections
+            .expect("an unstamped read ships the overlay")
+            .len() as u32,
         count
     );
 }

@@ -61,7 +61,7 @@ export interface ChartConfig {
   /** Metric unit */
   unitMetric?: string;
   /** Get stream from activity data */
-  getStream?: (streams: ActivityStreams) => number[] | undefined;
+  getStream?: (streams: ActivityStreams) => Float64Array | undefined;
   /** Convert value to imperial units */
   convertToImperial?: (value: number) => number;
   /** Format value for display */
@@ -273,7 +273,7 @@ export function getAvailableCharts(streams: ActivityStreams): ChartConfig[] {
     } else if (config.streamKey) {
       // Fallback to streamKey check
       const data = streams[config.streamKey as keyof ActivityStreams];
-      if (data && Array.isArray(data) && data.length > 0) {
+      if (data && data.length > 0) {
         available.push(config);
       }
     }

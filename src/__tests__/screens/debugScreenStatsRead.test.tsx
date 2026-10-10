@@ -32,7 +32,7 @@ jest.mock('veloqrs', () =>
     EngineClient: {
       getInstance: () => ({
         getStats: mockGetStats,
-        pushRuns: () => [],
+        dashboardData: () => ({ pushRuns: [], requestBudget: undefined }),
         engineEventDiagnostics: () => ({
           live: true,
           bindingInitError: null,

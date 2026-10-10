@@ -35,14 +35,14 @@ jobs:
   changes:
     name: Detect Native Changes
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       native: ${{ steps.filter.outputs.native }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
         id: filter
         with:
           filters: |
@@ -53,6 +53,7 @@ jobs:
               - 'app.config.js'
               - 'src/plugins/**'
               - 'widget/**'
+              - 'push/**'
               - 'expo-modules/**'
               - 'modules/**'
               - 'ios/**'
@@ -102,7 +103,7 @@ jobs:
     # newer push read as red in Build Required on a sha that was not broken.
     # Hosted Ubuntu with KVM, as in e2e-gate.yml. Hosted macOS has no HVF for the
     # emulator, and a self-hosted runner shares adb with whatever else is attached.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -128,7 +129,7 @@ jobs:
         uses: ./.github/actions/install-maestro
 
       - name: Run smoke test on emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         with:
@@ -173,7 +174,7 @@ jobs:
     name: Build Required
     needs: [changes, build-android, build-ios, e2e-smoke]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check results

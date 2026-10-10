@@ -36,6 +36,7 @@ pub(crate) fn with_settings_conn<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&Connection) -> R,
 {
+    let _write = super::suspension::begin_write()?;
     let (generation, path) = super::read_pool::binding()?;
     let mut slot = lock();
     if slot.as_ref().is_none_or(|w| w.generation != generation) {
@@ -55,6 +56,14 @@ where
 /// open on a file a quarantine or a restore has moved aside.
 pub(crate) fn forget() {
     *lock() = None;
+}
+
+/// Hand back the page cache the connection holds. The connection itself stays
+/// open, because the next preference write is a tap away.
+pub(crate) fn release_memory() {
+    if let Some(writer) = lock().as_ref() {
+        super::release_connection_memory(&writer.conn, "SettingsConn");
+    }
 }
 
 /// The file already exists and is already WAL, because the engine opened it

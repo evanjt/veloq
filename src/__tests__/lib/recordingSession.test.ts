@@ -226,6 +226,40 @@ describe('recordingSession', () => {
     expect(streams.latlng).toHaveLength(2);
   });
 
+  it('keeps a started gps ride on gps when the sport changes to one entered by hand', () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    useRecordingStore.getState().changeActivityType('Other');
+
+    expect(useRecordingStore.getState().mode).toBe('gps');
+    expect(useRecordingStore.getState().activityType).toBe('Other');
+  });
+
+  it('keeps a started indoor session on indoor when the sport changes to one entered by hand', () => {
+    useRecordingStore.getState().startRecording('VirtualRide', 'indoor');
+    useRecordingStore.getState().changeActivityType('WeightTraining');
+
+    expect(useRecordingStore.getState().mode).toBe('indoor');
+    expect(useRecordingStore.getState().activityType).toBe('WeightTraining');
+  });
+
+  it('keeps the watch and the backups running when the sport changes to one entered by hand', async () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+    (saveRecordingBackup as jest.Mock).mockClear();
+
+    useRecordingStore.getState().changeActivityType('Workout');
+    await settle();
+
+    expect(watchRemove).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(BACKUP_INTERVAL_MS * 2);
+    expect(saveRecordingBackup).toHaveBeenCalledTimes(2);
+
+    useRecordingStore.getState().changeActivityType('Run');
+    await settle();
+    expect(useRecordingStore.getState().mode).toBe('gps');
+    expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
+  });
+
   it('does not set a mode on a sport change before the ride has started', () => {
     useRecordingStore.getState().changeActivityType('Run');
     expect(useRecordingStore.getState().mode).toBeNull();

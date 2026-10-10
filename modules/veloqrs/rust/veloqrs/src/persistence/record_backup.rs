@@ -19,6 +19,10 @@ pub(crate) const RECORD_VERSION: u32 = 1;
 /// (`RECORD_TEMP_PREFIX` in `platformRecord.ts`).
 pub(crate) const RECORD_TEMP_PREFIX: &str = "veloq-record-";
 
+/// Largest inflated `record.json` a restore will read, far above any real
+/// record, so a small archive cannot inflate until the allocator aborts.
+pub(crate) const RECORD_JSON_LIMIT: u64 = 64 * 1024 * 1024;
+
 /// The file a record zip is written into before it replaces `destination`.
 fn record_temporary(destination: &Path) -> Result<tempfile::NamedTempFile, String> {
     let parent = destination.parent().ok_or("Backup path has no parent")?;
@@ -464,16 +468,18 @@ pub(crate) fn travels(table: &str) -> bool {
     ) || RECORD_TABLES.iter().any(|(name, _)| *name == table)
 }
 
+fn setting(db: &Connection, key: &str) -> Result<Option<String>, String> {
+    db.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+        row.get(0)
+    })
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
 /// Read only the athlete's decisions from one consistent SQLite snapshot.
 pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, String> {
-    let athlete_id = if table_exists(db, "settings")? {
-        db.query_row(
-            "SELECT value FROM settings WHERE key = '__athlete_id'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|e| e.to_string())?
+    let mut athlete_id = if table_exists(db, "settings")? {
+        setting(db, "__athlete_id")?
     } else {
         None
     };
@@ -487,28 +493,31 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
             entries.push(row);
         }
     }
+    // Rows still owed to this library ride along, so a backup taken while a
+    // restore waits or an import is paused never drops what they carry.
     if table_exists(db, "settings")? {
-        let raw: Option<String> = db
-            .query_row(
-                "SELECT value FROM settings WHERE key = '__record_restore_pending'",
-                [],
-                |row| row.get(0),
-            )
-            .optional()
+        let mut owed: Vec<RecordRow> = Vec::new();
+        if let Some(raw) = setting(db, super::record_restore::PENDING_KEY)? {
+            owed.extend(
+                serde_json::from_str::<Vec<RecordRow>>(&raw)
+                    .map_err(|e| format!("Unreadable pending record: {e}"))?,
+            );
+        }
+        if let Some(raw) = setting(db, super::record_restore::PAUSED_IMPORT_KEY)? {
+            let paused: RecordPayload =
+                serde_json::from_str(&raw).map_err(|e| format!("Unreadable paused import: {e}"))?;
+            athlete_id = athlete_id.or(paused.athlete_id);
+            owed.extend(paused.entries);
+        }
+        let mut seen: HashSet<String> = entries
+            .iter()
+            .map(serde_json::to_string)
+            .collect::<Result<_, _>>()
             .map_err(|e| e.to_string())?;
-        if let Some(raw) = raw {
-            let pending: Vec<RecordRow> = serde_json::from_str(&raw)
-                .map_err(|e| format!("Unreadable pending record: {e}"))?;
-            let mut seen: HashSet<String> = entries
-                .iter()
-                .map(serde_json::to_string)
-                .collect::<Result<_, _>>()
-                .map_err(|e| e.to_string())?;
-            for row in pending.into_iter().filter(|row| travels(&row.table)) {
-                let key = serde_json::to_string(&row).map_err(|e| e.to_string())?;
-                if seen.insert(key) {
-                    entries.push(row);
-                }
+        for row in owed.into_iter().filter(|row| travels(&row.table)) {
+            let key = serde_json::to_string(&row).map_err(|e| e.to_string())?;
+            if seen.insert(key) {
+                entries.push(row);
             }
         }
     }
@@ -566,10 +575,21 @@ pub(crate) fn read_record_zip(path: &str) -> Result<RecordPayload, String> {
     if archive.len() != 1 {
         return Err("Record backup must contain one entry".to_string());
     }
-    let mut entry = archive.by_name("record.json").map_err(|e| e.to_string())?;
-    let mut json = String::new();
-    entry.read_to_string(&mut json).map_err(|e| e.to_string())?;
-    let payload: RecordPayload = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    let entry = archive.by_name("record.json").map_err(|e| e.to_string())?;
+    let too_large = || format!("Record backup is over the {RECORD_JSON_LIMIT} byte size limit");
+    if entry.size() > RECORD_JSON_LIMIT {
+        return Err(too_large());
+    }
+    // The declared size is the archive's own claim, so the read is bounded too.
+    let mut json = Vec::new();
+    entry
+        .take(RECORD_JSON_LIMIT + 1)
+        .read_to_end(&mut json)
+        .map_err(|e| e.to_string())?;
+    if json.len() as u64 > RECORD_JSON_LIMIT {
+        return Err(too_large());
+    }
+    let payload: RecordPayload = serde_json::from_slice(&json).map_err(|e| e.to_string())?;
     if payload.version > RECORD_VERSION {
         return Err(format!(
             "Record backup version {} is newer than supported version {}",
@@ -644,8 +664,8 @@ mod tests {
     use rusqlite::Connection;
 
     use super::{
-        RECORD_TEMP_PREFIX, collect_record_payload, conversion_directory, convert_legacy_database,
-        read_record_zip, record_temporary, write_record_zip,
+        RECORD_JSON_LIMIT, RECORD_TEMP_PREFIX, collect_record_payload, conversion_directory,
+        convert_legacy_database, read_record_zip, record_temporary, write_record_zip,
     };
 
     #[test]
@@ -1162,6 +1182,69 @@ mod tests {
         assert_eq!(entry.compression(), zip::CompressionMethod::Deflated);
     }
 
+    /// Write a record zip whose one entry inflates to `len` spaces.
+    fn spaces_zip(path: &std::path::Path, len: u64) {
+        use std::io::Write;
+        let file = std::fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file("record.json", options).unwrap();
+        let chunk = vec![b' '; 1 << 20];
+        let mut left = len;
+        while left > 0 {
+            let n = left.min(chunk.len() as u64) as usize;
+            zip.write_all(&chunk[..n]).unwrap();
+            left -= n as u64;
+        }
+        zip.finish().unwrap();
+    }
+
+    /// Overwrite the declared uncompressed size in the local and central headers.
+    fn declare_size(path: &std::path::Path, size: u32) {
+        let mut bytes = std::fs::read(path).unwrap();
+        let find = |bytes: &[u8], signature: [u8; 4]| {
+            bytes.windows(4).rposition(|w| w == signature).unwrap()
+        };
+        let local = find(&bytes, [0x50, 0x4b, 0x03, 0x04]);
+        bytes[local + 22..local + 26].copy_from_slice(&size.to_le_bytes());
+        let central = find(&bytes, [0x50, 0x4b, 0x01, 0x02]);
+        bytes[central + 24..central + 28].copy_from_slice(&size.to_le_bytes());
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn test_record_zip_inflating_past_the_limit_is_refused_by_its_declared_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("record.zip");
+        spaces_zip(&path, RECORD_JSON_LIMIT + 1);
+        assert!(std::fs::metadata(&path).unwrap().len() < RECORD_JSON_LIMIT / 100);
+        let err = read_record_zip(path.to_str().unwrap()).err().unwrap();
+        assert!(err.contains("size limit"), "{err}");
+    }
+
+    #[test]
+    fn test_record_zip_understating_its_size_is_refused_once_reading_passes_the_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("record.zip");
+        spaces_zip(&path, RECORD_JSON_LIMIT + 1);
+        declare_size(&path, 16);
+        let file = std::fs::File::open(&path).unwrap();
+        let mut zip = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(zip.by_name("record.json").unwrap().size(), 16);
+        let err = read_record_zip(path.to_str().unwrap()).err().unwrap();
+        assert!(err.contains("size limit"), "{err}");
+    }
+
+    #[test]
+    fn test_record_zip_at_exactly_the_limit_is_read_past_the_size_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("record.zip");
+        spaces_zip(&path, RECORD_JSON_LIMIT);
+        let err = read_record_zip(path.to_str().unwrap()).err().unwrap();
+        assert!(!err.contains("size limit"), "{err}");
+    }
+
     #[test]
     fn test_record_backup_carries_dormant_rows_after_partial_restore() {
         let db = fixture();
@@ -1202,6 +1285,125 @@ mod tests {
                 .get("key")
                 .and_then(|value| value.as_str())
                 == Some("__record_restore_pending"))
+        );
+    }
+
+    /// The library's pin row as a backup reads it, so a paused import can name
+    /// the same row and the merge can be seen to keep it once.
+    fn library_pin(db: &Connection) -> serde_json::Value {
+        let payload = collect_record_payload(db).unwrap();
+        let pin = payload
+            .entries
+            .iter()
+            .find(|row| row.table == "section_pins")
+            .unwrap();
+        serde_json::to_value(pin).unwrap()
+    }
+
+    fn pause_import(db: &Connection, athlete_id: Option<&str>, entries: serde_json::Value) {
+        let paused = serde_json::json!({
+            "version": 1,
+            "athlete_id": athlete_id,
+            "entries": entries,
+        });
+        db.execute(
+            "INSERT INTO settings VALUES ('__record_import_paused', ?1, '1')",
+            [paused.to_string()],
+        )
+        .unwrap();
+    }
+
+    fn rows_naming<'a>(
+        payload: &'a super::RecordPayload,
+        table: &str,
+        id: &str,
+    ) -> Vec<&'a super::RecordRow> {
+        payload
+            .entries
+            .iter()
+            .filter(|row| {
+                row.table == table
+                    && ["id", "section_id"]
+                        .iter()
+                        .any(|key| row.values.get(*key).and_then(|v| v.as_str()) == Some(id))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_record_backup_carries_a_paused_import_with_nothing_placed() {
+        let db = fixture();
+        let pin = library_pin(&db);
+        pause_import(
+            &db,
+            Some("athlete-1"),
+            serde_json::json!([
+                {
+                    "table": "sections",
+                    "values": {"id": "hand-cut-climb", "section_type": "custom", "name": "Quarry climb"},
+                    "ground": null
+                },
+                {
+                    "table": "section_intents",
+                    "values": {"id": "intent-climb", "section_id": "hand-cut-climb"},
+                    "ground": null
+                },
+                {
+                    "table": "identity_state",
+                    "values": {"key": "registry"},
+                    "ground": null
+                },
+                pin,
+            ]),
+        );
+
+        let payload = collect_record_payload(&db).unwrap();
+
+        assert_eq!(rows_naming(&payload, "sections", "hand-cut-climb").len(), 1);
+        assert_eq!(
+            rows_naming(&payload, "section_intents", "intent-climb").len(),
+            1
+        );
+        assert_eq!(
+            rows_naming(&payload, "section_pins", "old-section").len(),
+            1
+        );
+        assert!(
+            !payload
+                .entries
+                .iter()
+                .any(|row| row.table == "identity_state")
+        );
+        assert!(!payload.entries.iter().any(|row| {
+            row.values.get("key").and_then(|value| value.as_str()) == Some("__record_import_paused")
+        }));
+        assert_eq!(payload.athlete_id.as_deref(), Some("athlete-1"));
+    }
+
+    #[test]
+    fn test_record_backup_takes_the_paused_import_athlete_when_the_library_has_none() {
+        let db = fixture();
+        db.execute("DELETE FROM settings WHERE key = '__athlete_id'", [])
+            .unwrap();
+        pause_import(&db, Some("athlete-7"), serde_json::json!([]));
+
+        let payload = collect_record_payload(&db).unwrap();
+
+        assert_eq!(payload.athlete_id.as_deref(), Some("athlete-7"));
+    }
+
+    #[test]
+    fn test_record_backup_rejects_an_unreadable_paused_import() {
+        let db = fixture();
+        db.execute(
+            "INSERT INTO settings VALUES ('__record_import_paused', 'broken', '1')",
+            [],
+        )
+        .unwrap();
+        assert!(
+            collect_record_payload(&db)
+                .unwrap_err()
+                .contains("Unreadable paused import")
         );
     }
 

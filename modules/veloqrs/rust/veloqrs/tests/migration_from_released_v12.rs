@@ -628,7 +628,7 @@ fn geometry_version_row(conn: &Connection, section_id: &str, version: i64) -> (S
     conn.query_row(
         "SELECT source, length(blob) FROM section_geometry WHERE section_id = ? AND version = ?",
         rusqlite::params![section_id, version],
-        |row| Ok((row.get(0)?, row.get(1)?)),
+        |row| Ok((row.get(0)?, row.get::<_, i64>(1)? as usize)),
     )
     .expect("the archived version")
 }
@@ -1013,4 +1013,248 @@ fn upgrading_a_released_v12_database_fills_the_ranking_inputs() {
     );
     assert!(expected > 0, "the fixture has no lap to rank");
     assert_eq!(stored, expected);
+}
+
+/// Two of the shipped rows are trackless, a pool swim and a strength session
+/// with metrics and no `activities` row. The census names them like any other.
+const FIXTURE_TRACKLESS: usize = 2;
+
+/// The newest date a census could have named, so no row is out of its range.
+const CENSUS_NEWEST: &str = "9999-12-31";
+
+/// The released dump with every key in a signed-in shape, upgraded by the
+/// engine. A demo library is never a census candidate, so only this shape
+/// takes the reconcile path every signed-in 0.3.x install takes on its first
+/// sync after the upgrade.
+fn upgraded_signed_in_fixture() -> (TempDir, std::path::PathBuf, PersistentEngine) {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    Connection::open(&path)
+        .expect("open fixture database")
+        .execute_batch(&signed_in_v12_fixture())
+        .expect("replay signed-in fixture");
+    let engine = PersistentEngine::new(path.to_str().expect("utf-8 path")).expect("upgrade");
+    (dir, path, engine)
+}
+
+fn stored_keys(conn: &Connection) -> Vec<String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id FROM activities
+             UNION SELECT activity_id FROM activity_metrics
+             ORDER BY 1",
+        )
+        .expect("prepare key read");
+    stmt.query_map([], |row| row.get(0))
+        .expect("read keys")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect keys")
+}
+
+fn library_counts(conn: &Connection) -> [i64; 4] {
+    [
+        count(conn, "SELECT COUNT(*) FROM activities"),
+        count(conn, "SELECT COUNT(*) FROM activity_metrics"),
+        count(conn, "SELECT COUNT(*) FROM sections"),
+        count(conn, "SELECT COUNT(*) FROM section_activities"),
+    ]
+}
+
+/// The server ids every candidate is compared on, as a whole census would
+/// carry them.
+fn census_naming_every_candidate(engine: &PersistentEngine) -> Vec<String> {
+    engine
+        .census_candidates(CENSUS_NEWEST)
+        .into_iter()
+        .map(|(_, intervals_id)| intervals_id)
+        .collect()
+}
+
+#[test]
+fn the_signed_in_fixture_is_the_released_dump_under_invented_keys_of_the_same_length() {
+    let _serial_state = super::serial_state();
+    let signed_in = signed_in_v12_fixture();
+    assert_eq!(
+        signed_in.len(),
+        FIXTURE
+            .lines()
+            .filter(|line| !line.starts_with("--"))
+            .map(|line| line.len() + 1)
+            .sum::<usize>()
+            + 2 * ("i900001".len() - "demo".len()),
+        "every activity key keeps its byte length, so every blob keeps its length prefixes; \
+         only the athlete id, in the settings row and the profile, grows"
+    );
+
+    let dir = TempDir::new().expect("tempdir");
+    let conn = Connection::open(dir.path().join("routes.db")).expect("open");
+    conn.execute_batch(&signed_in).expect("replay");
+    assert_eq!(user_version(&conn), 12);
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM activities WHERE id NOT GLOB 'i[0-9]*'"
+        ),
+        0,
+        "every activity carries an invented server-style key"
+    );
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM settings WHERE key = '__athlete_id' AND value = 'i900001'"
+        ),
+        1,
+        "the library belongs to a signed-in athlete"
+    );
+}
+
+#[test]
+fn a_signed_in_library_upgrades_with_every_row_named_by_its_server_id() {
+    let _serial_state = super::serial_state();
+    let (_dir, path, engine) = upgraded_signed_in_fixture();
+    drop(engine);
+
+    let conn = Connection::open(&path).expect("reopen");
+    assert_eq!(user_version(&conn), latest_version());
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM activities"),
+        FIXTURE_ACTIVITIES
+    );
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM activities WHERE intervals_id IS NULL OR intervals_id <> id"
+        ),
+        0,
+        "the key a released build wrote is the server's id, and the census compares on it"
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM sections"),
+        FIXTURE_SECTIONS
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM section_activities"),
+        FIXTURE_JUNCTION_ROWS
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM route_groups"),
+        FIXTURE_ROUTE_GROUPS
+    );
+}
+
+#[test]
+fn the_first_census_after_an_upgrade_keeps_every_activity_it_names() {
+    let _serial_state = super::serial_state();
+    let (_dir, path, mut engine) = upgraded_signed_in_fixture();
+    let conn = Connection::open(&path).expect("open");
+    let keys = stored_keys(&conn);
+    let before = library_counts(&conn);
+
+    let mut candidates: Vec<String> = engine
+        .census_candidates(CENSUS_NEWEST)
+        .into_iter()
+        .map(|(key, intervals_id)| {
+            assert_eq!(key, intervals_id, "an upgraded key is its own server id");
+            key
+        })
+        .collect();
+    candidates.sort();
+    assert_eq!(
+        candidates.len(),
+        FIXTURE_ACTIVITIES as usize + FIXTURE_TRACKLESS,
+        "every shipped row, tracked or not, is one the census can name"
+    );
+    assert_eq!(candidates, keys);
+
+    let census = census_naming_every_candidate(&engine);
+    let removed = engine.reconcile_against_census(&census, CENSUS_NEWEST);
+
+    assert!(
+        removed.is_empty(),
+        "a census naming every row removed {removed:?}"
+    );
+    assert_eq!(stored_keys(&conn), keys);
+    assert_eq!(library_counts(&conn), before);
+}
+
+#[test]
+fn the_first_census_after_an_upgrade_removes_only_what_it_leaves_out() {
+    let _serial_state = super::serial_state();
+    let (_dir, path, mut engine) = upgraded_signed_in_fixture();
+    let conn = Connection::open(&path).expect("open");
+    let keys = stored_keys(&conn);
+    let [activities, metrics, sections, junction] = library_counts(&conn);
+
+    // A ride no section is cut from, so nothing has to move before it goes.
+    let gone = keys
+        .iter()
+        .find(|key| {
+            engine.sections_anchored_to(key).is_empty()
+                && count(
+                    &conn,
+                    &format!("SELECT COUNT(*) FROM activities WHERE id = '{key}'"),
+                ) == 1
+        })
+        .expect("a tracked ride no section is cut from")
+        .clone();
+    let its_visits = count(
+        &conn,
+        &format!("SELECT COUNT(*) FROM section_activities WHERE activity_id = '{gone}'"),
+    );
+    assert!(
+        its_visits > 0,
+        "the ride left out must carry visits for the count to bite"
+    );
+
+    let census: Vec<String> = census_naming_every_candidate(&engine)
+        .into_iter()
+        .filter(|id| *id != gone)
+        .collect();
+    let removed = engine.reconcile_against_census(&census, CENSUS_NEWEST);
+
+    assert_eq!(removed, vec![gone.clone()]);
+    let survivors: Vec<String> = keys.iter().filter(|key| **key != gone).cloned().collect();
+    assert_eq!(stored_keys(&conn), survivors);
+    assert_eq!(
+        library_counts(&conn),
+        [activities - 1, metrics - 1, sections, junction - its_visits],
+        "only the ride left out and its own visits go"
+    );
+}
+
+#[test]
+fn the_first_census_after_an_upgrade_keeps_a_ride_a_section_cannot_do_without() {
+    let _serial_state = super::serial_state();
+    let (_dir, path, mut engine) = upgraded_signed_in_fixture();
+    let conn = Connection::open(&path).expect("open");
+    let keys = stored_keys(&conn);
+    let before = library_counts(&conn);
+
+    // A shipped section whose line is cut from a ride and whose junction holds
+    // no other ride to cut it from again.
+    let only: String = conn
+        .query_row(
+            "SELECT s.representative_activity_id FROM sections s
+             WHERE s.representative_activity_id IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM section_activities sa
+                               WHERE sa.section_id = s.id
+                                 AND sa.activity_id <> s.representative_activity_id)
+             ORDER BY s.id LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("a shipped section with no other member");
+
+    let census: Vec<String> = census_naming_every_candidate(&engine)
+        .into_iter()
+        .filter(|id| *id != only)
+        .collect();
+    let removed = engine.reconcile_against_census(&census, CENSUS_NEWEST);
+
+    assert!(
+        removed.is_empty(),
+        "{only} is a section's only ride and was removed"
+    );
+    assert_eq!(stored_keys(&conn), keys);
+    assert_eq!(library_counts(&conn), before);
 }

@@ -6,10 +6,10 @@
  */
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { computeAllAverages } from '@/features/stats/lib/combinedPlotData';
-import type { ActivityStreams } from '@/types';
+import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
 
-function chips(streams: ActivityStreams, elevationGain = 0) {
-  const values = computeAllAverages(CHART_CONFIGS, streams, true, elevationGain);
+function chips(streams: StreamArrays, elevationGain = 0) {
+  const values = computeAllAverages(CHART_CONFIGS, streamsFromArrays(streams), true, elevationGain);
   return Object.fromEntries(values.map((v) => [v.id, v]));
 }
 

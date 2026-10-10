@@ -122,6 +122,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
         &transport,
         "i1",
         &windows,
+        LIBRARY_HISTORY,
         &|| false,
     ))
     .unwrap();
@@ -399,9 +400,11 @@ fn test_changed_summary_invalidates_stored_interval_body() {
         }]));
     });
     let intervals = server.mock(|when, then| {
-        when.method(GET).path("/activity/a1/intervals");
+        when.method(GET)
+            .path("/athlete/i1/activities/a1")
+            .query_param("intervals", "true");
         then.status(200)
-            .json_body(serde_json::json!({"icu_intervals": []}));
+            .json_body(serde_json::json!([{"id": "a1", "icu_intervals": []}]));
     });
     let governor = std::sync::Arc::new(crate::governor::Governor::new(
         1000,
@@ -426,6 +429,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
     crate::runtime::block_on(sync_interval_bodies(
         crate::persistence::engine_install(),
         &transport,
+        "i1",
         &|| false,
         &|_, _| {},
     ))
@@ -531,6 +535,7 @@ fn test_launch_plans_old_changed_rows_without_old_never_fetched_rows() {
         &transport,
         "i1",
         &windows,
+        LIBRARY_HISTORY,
         &|| false,
     ))
     .unwrap();
@@ -627,6 +632,13 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
             {"id": "never", "type": "Ride", "name": "Outside library",
              "start_date_local": format!("{newest}T09:00:00")}
         ]));
+    });
+    // The bulk body endpoint answers ids it does not know with an empty list.
+    server.mock(|when, then| {
+        when.method(GET)
+            .path_matches(httpmock::Regex::new(r"^/athlete/i1/activities/.+").unwrap())
+            .query_param("intervals", "true");
+        then.status(200).json_body(serde_json::json!([]));
     });
     let governor = std::sync::Arc::new(crate::governor::Governor::new(
         1000,
@@ -765,6 +777,7 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
         &transport,
         "i1",
         &windows,
+        LIBRARY_HISTORY,
         &|| false,
     ))
     .unwrap();
