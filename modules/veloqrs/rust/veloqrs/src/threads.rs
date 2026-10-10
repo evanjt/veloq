@@ -81,7 +81,10 @@ where
     // refuses the thread, so this is the call it replaces and not a new risk.
     Builder::new()
         .name(name.to_string())
-        .spawn(work)
+        .spawn(move || {
+            crate::persistence::suspension::mark_engine_thread();
+            work()
+        })
         .unwrap_or_else(|err| panic!("veloqrs: [threads] could not spawn {name}: {err}"))
 }
 

@@ -8,3 +8,11 @@ export {
   getBackupFolderName,
   forgetBackupFolder,
 } from './folderBackend';
+export {
+  googleDriveBackend,
+  signInToGoogleDrive,
+  forgetGoogleDrive,
+  getGoogleDriveAccount,
+  loadGoogleDriveAccount,
+  isGoogleDriveSupported,
+} from './googleDriveBackend';

@@ -168,6 +168,61 @@ pub(crate) mod test_log {
     }
 }
 
+/// Counts the allocations a test makes, for the tests that hold a computation
+/// to a bound on its churn. Counted per thread, so tests running in parallel
+/// do not see each other's, and const-initialised so the counter itself never
+/// allocates.
+#[cfg(test)]
+pub(crate) mod test_alloc {
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::cell::Cell;
+
+    thread_local! {
+        static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
+        static BYTES: Cell<usize> = const { Cell::new(0) };
+    }
+
+    fn count(bytes: usize) {
+        let _ = ALLOCATIONS.try_with(|n| n.set(n.get() + 1));
+        let _ = BYTES.try_with(|n| n.set(n.get() + bytes));
+    }
+
+    struct Counting;
+
+    unsafe impl GlobalAlloc for Counting {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            count(layout.size());
+            unsafe { System.alloc(layout) }
+        }
+        unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+            count(layout.size());
+            unsafe { System.alloc_zeroed(layout) }
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            unsafe { System.dealloc(ptr, layout) }
+        }
+        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+            count(new_size);
+            unsafe { System.realloc(ptr, layout, new_size) }
+        }
+    }
+
+    #[global_allocator]
+    static ALLOCATOR: Counting = Counting;
+
+    /// What `run` allocated on this thread: how many allocations, reallocations
+    /// included, and how many bytes they asked for.
+    pub(crate) fn allocated_by<T>(run: impl FnOnce() -> T) -> (T, usize, usize) {
+        let (calls, bytes) = (ALLOCATIONS.with(Cell::get), BYTES.with(Cell::get));
+        let answer = run();
+        (
+            answer,
+            ALLOCATIONS.with(Cell::get) - calls,
+            BYTES.with(Cell::get) - bytes,
+        )
+    }
+}
+
 /// Fixtures for the process-wide engine, detection handle and suspension
 /// counter. They live at the crate root because tests in several modules race
 /// the same globals and have to take the same lock to stay honest.
@@ -338,6 +393,7 @@ pub(crate) mod test_globals {
             crate::net::connectivity::reset();
             crate::net::elevation_backfill::reset_pause();
             crate::objects::clear_test_credentials();
+            crate::persistence::suspension::reset();
             *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
     }
@@ -361,6 +417,7 @@ pub(crate) mod test_globals {
         crate::net::connectivity::reset();
         crate::net::elevation_backfill::reset_pause();
         crate::objects::clear_test_credentials();
+        crate::persistence::suspension::reset();
         *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(current().id());
         SerialGuard(guard, mode)
     }
@@ -644,6 +701,49 @@ pub(crate) mod test_globals {
         });
         assert_eq!(answer, 7);
     }
+}
+
+/// Statement tracing for tests that count or plan what SQLite ran.
+#[cfg(test)]
+pub(crate) mod test_trace {
+    use rusqlite::Connection;
+    use rusqlite::trace::{TraceEvent, TraceEventCodes};
+
+    /// The statement a trace event starts, with its bound values written in,
+    /// or `None` for any other event. A trigger body or a nested statement
+    /// arrives as a `--` comment with no values of its own and passes through
+    /// as SQLite gave it.
+    pub(crate) fn statement_sql(event: TraceEvent<'_>) -> Option<String> {
+        let TraceEvent::Stmt(stmt, sql) = event else {
+            return None;
+        };
+        if sql.starts_with("--") {
+            return Some(sql.to_string());
+        }
+        Some(stmt.expanded_sql().unwrap_or_else(|| sql.to_string()))
+    }
+
+    /// Removes the hook [`trace_statements`] installed.
+    pub(crate) fn untrace(conn: &Connection) {
+        conn.trace_v2(TraceEventCodes::empty(), None);
+    }
+
+    /// Hands every statement `$conn` runs to `$sink`, a `fn(&str)`, until
+    /// [`untrace`]. The hook takes a bare function pointer, so the sink is
+    /// named by path and keeps its state in a static.
+    macro_rules! trace_statements {
+        ($conn:expr, $sink:path) => {
+            $conn.trace_v2(
+                ::rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT,
+                Some(|event| {
+                    if let Some(sql) = $crate::test_trace::statement_sql(event) {
+                        $sink(&sql);
+                    }
+                }),
+            )
+        };
+    }
+    pub(crate) use trace_statements;
 }
 
 #[cfg(test)]

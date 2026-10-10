@@ -47,7 +47,7 @@ jest.mock('veloqrs', () =>
     EngineClient: {
       getInstance: () => ({
         getStats: () => ({ activityCount: 1 }),
-        pushRuns: mockPushRuns,
+        dashboardData: () => ({ pushRuns: mockPushRuns(), requestBudget: undefined }),
         engineEventDiagnostics: () => ({
           live: true,
           bindingInitError: null,

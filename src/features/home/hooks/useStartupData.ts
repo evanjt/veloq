@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { getEngine } from '@/shared/native/engine';
+import { timeAppWork } from '@/shared/debug/renderTimer';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { decodeCoords, SyncState } from 'veloqrs';
 import type {
@@ -33,20 +34,27 @@ export interface StartupResult {
   sparklines: WellnessSparklines | null;
 }
 
-function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<string, PreviewTrack> {
-  const tracks = new Map<string, PreviewTrack>();
-  for (const track of rawTracks) {
-    const decoded = decodeCoords(track.encodedCoords);
-    const coords = decoded.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
-    if (coords.length > 0) {
-      tracks.set(track.activityId, {
-        activityId: track.activityId,
-        coordinates: coords,
-        altitude: undefined, // preview cards render position only
-      });
+/** The metrics row for decoding the feed's preview tracks. */
+export const DECODE_PREVIEW_TRACKS = 'decode.previewTracks';
+
+export function buildPreviewTracks(
+  rawTracks: readonly PreviewTrackRecord[]
+): Map<string, PreviewTrack> {
+  return timeAppWork(DECODE_PREVIEW_TRACKS, () => {
+    const tracks = new Map<string, PreviewTrack>();
+    for (const track of rawTracks) {
+      const decoded = decodeCoords(track.encodedCoords);
+      const coords = decoded.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
+      if (coords.length > 0) {
+        tracks.set(track.activityId, {
+          activityId: track.activityId,
+          coordinates: coords,
+          altitude: undefined, // preview cards render position only
+        });
+      }
     }
-  }
-  return tracks;
+    return tracks;
+  });
 }
 
 function retainUnchangedPreviewTracks(

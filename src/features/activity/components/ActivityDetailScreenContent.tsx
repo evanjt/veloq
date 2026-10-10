@@ -51,7 +51,7 @@ import {
   submitSectionCreation,
   type TerrainCamera,
 } from '@/features/maps';
-import { convertLatLngTuples } from '@/shared/geo/polyline';
+import { latLngsFromFlat } from '@/shared/geo/polyline';
 import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
@@ -177,7 +177,7 @@ export function ActivityDetailScreenContent({
   // Convert representative activity latlng to coordinates for route overlay
   const routeOverlayCoordinates = useMemo(() => {
     if (activeTab !== 'routes' || !representativeStreams?.latlng) return null;
-    return convertLatLngTuples(representativeStreams.latlng);
+    return latLngsFromFlat(representativeStreams.latlng);
   }, [activeTab, representativeStreams]);
 
   const hasGpsData = coordinates.length > 0;

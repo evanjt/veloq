@@ -8,6 +8,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Modal, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useIsFocused } from 'expo-router';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
@@ -71,6 +72,7 @@ export function RouteMapView({
 }: RouteMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const screenFocused = useIsFocused();
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
     ? getStyleForActivity(selectedSportType)
@@ -249,6 +251,8 @@ export function RouteMapView({
           scrollEnabled={interactive}
           zoomEnabled={interactive}
           rotateEnabled={interactive}
+          // The fullscreen map covers the hero, so the hero holds no map under it.
+          released={!screenFocused || isFullscreen}
           onPress={onPress ? () => onPress() : undefined}
         />
         {showExpandIcon && (

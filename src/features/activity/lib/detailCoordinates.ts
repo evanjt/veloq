@@ -11,11 +11,11 @@
  * activities on 2026-09-12, so the tier could not fire and the skip it drove
  * kept the stored-track read from running for no reason.
  */
-import { convertLatLngTuples, type LatLng } from '@/shared/geo/polyline';
+import { latLngsFromFlat, type LatLng } from '@/shared/geo/polyline';
 
 export interface DetailCoordinateSources {
-  /** `latlng` as the stream body carries it, when that body has landed. */
-  streamLatLng?: [number, number][] | undefined;
+  /** `latlng` as the stream reader holds it, flat, when that body has landed. */
+  streamLatLng?: Float64Array | undefined;
   /** The stored track, decoded from what `getGpsTrack` returns. */
   gpsTrack?: LatLng[] | undefined;
 }
@@ -24,7 +24,7 @@ export function resolveDetailCoordinates(sources: DetailCoordinateSources): LatL
   const { streamLatLng, gpsTrack } = sources;
 
   if (streamLatLng && streamLatLng.length > 0) {
-    return convertLatLngTuples(streamLatLng);
+    return latLngsFromFlat(streamLatLng);
   }
   if (gpsTrack && gpsTrack.length > 0) {
     return gpsTrack.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));

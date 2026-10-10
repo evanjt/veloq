@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -101,6 +102,7 @@ export function PreviewMapView({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const screenFocused = useIsFocused();
 
   // A finished run supersedes the live catalogue for what is proposed and what
   // is gone. A matched row's own line is the proposed one, so the live line it
@@ -324,6 +326,7 @@ export function PreviewMapView({
         sources={sources}
         layers={layers}
         interactiveLayers={PREVIEW_INTERACTIVE_LAYERS}
+        released={!screenFocused}
         onPress={handlePress}
         onRegionDidChange={handleRegionDidChange}
         testID="preview-map"

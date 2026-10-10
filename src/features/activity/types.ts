@@ -1,76 +1,6 @@
-/**
- * Activity types supported by intervals.icu (based on Strava API types).
- * Keep in sync with:
- * - src/lib/validation/schemas.ts (ActivityTypeSchema)
- * - src/types/routes.ts (VALID_ACTIVITY_TYPES)
- * - src/lib/utils/activityUtils.ts (ACTIVITY_ICONS)
- */
-export type ActivityType =
-  // Cycling
-  | 'Ride'
-  | 'VirtualRide'
-  | 'EBikeRide'
-  | 'MountainBikeRide'
-  | 'GravelRide'
-  | 'TrackRide'
-  | 'Cyclocross'
-  | 'Velomobile'
-  | 'Handcycle'
-  // Running
-  | 'Run'
-  | 'VirtualRun'
-  | 'TrailRun'
-  | 'Treadmill'
-  // Walking/Hiking
-  | 'Walk'
-  | 'Hike'
-  // Swimming
-  | 'Swim'
-  | 'OpenWaterSwim'
-  // Snow sports
-  | 'AlpineSki'
-  | 'NordicSki'
-  | 'BackcountrySki'
-  | 'Snowboard'
-  | 'Snowshoe'
-  | 'RollerSki'
-  // Water sports
-  | 'Rowing'
-  | 'VirtualRow'
-  | 'Kayaking'
-  | 'Canoeing'
-  | 'Surfing'
-  | 'Kitesurf'
-  | 'Windsurf'
-  | 'StandUpPaddling'
-  | 'Sail'
-  // Skating
-  | 'IceSkate'
-  | 'InlineSkate'
-  | 'Skateboard'
-  // Gym/Fitness
-  | 'Workout'
-  | 'WeightTraining'
-  | 'Yoga'
-  | 'Pilates'
-  | 'Crossfit'
-  | 'Elliptical'
-  | 'StairStepper'
-  | 'HighIntensityIntervalTraining'
-  // Racket sports
-  | 'Tennis'
-  | 'Badminton'
-  | 'Pickleball'
-  | 'Racquetball'
-  | 'Squash'
-  | 'TableTennis'
-  // Other sports
-  | 'Soccer'
-  | 'Golf'
-  | 'RockClimbing'
-  | 'Wheelchair'
-  // Catch-all
-  | 'Other';
+import type { ActivityType } from '@/shared/native/sportTaxonomy.generated';
+
+export type { ActivityType };
 
 export interface Activity {
   id: string;
@@ -158,23 +88,24 @@ export interface ActivityDetail extends Activity {
 
 // Processed streams in a usable format
 export interface ActivityStreams {
-  time?: number[];
-  latlng?: [number, number][];
-  altitude?: number[];
-  heartrate?: number[];
-  watts?: number[];
-  cadence?: number[];
-  velocity_smooth?: number[];
-  distance?: number[];
-  grade_smooth?: number[];
-  temp?: number[];
+  time?: Float64Array;
+  /** Latitude and longitude in alternate slots, two a sample. */
+  latlng?: Float64Array;
+  altitude?: Float64Array;
+  heartrate?: Float64Array;
+  watts?: Float64Array;
+  cadence?: Float64Array;
+  velocity_smooth?: Float64Array;
+  distance?: Float64Array;
+  grade_smooth?: Float64Array;
+  temp?: Float64Array;
   /** W' balance stream in joules remaining. Sourced from intervals.icu's
    * `w_bal` stream. Only populated when the server has computed it (power +
    * FTP + W'). */
-  wbal?: number[];
+  wbal?: Float64Array;
   /** Grade-Adjusted Pace in min/km. Converted from intervals.icu's
    * `ga_velocity` stream (m/s) at parse time. */
-  gap?: number[];
+  gap?: Float64Array;
 }
 
 /**

@@ -19,7 +19,9 @@ const MAX_OVERRIDES = 100;
 
 /** In-memory cache for sync lookups */
 const overrides = new Map<string, TerrainCamera>();
-let initialised = false;
+let initPromise: Promise<void> | null = null;
+/** Moved by a wipe or a reload, so a load already in flight discards its read. */
+let generation = 0;
 
 /**
  * What a reader renders from: replaced on every change, so a subscriber can
@@ -33,9 +35,14 @@ function publish(): void {
   for (const listener of listeners) listener();
 }
 
-/** Called after every change to any activity's camera. */
+/**
+ * Called after every change to any activity's camera. A reader subscribing is
+ * what starts the load, so a screen shows the saved camera whichever screen
+ * the launch opened on.
+ */
 export function subscribeCameraOverrides(listener: () => void): () => void {
   listeners.add(listener);
+  void initCameraOverrides();
   return () => {
     listeners.delete(listener);
   };
@@ -47,26 +54,42 @@ export function getCameraOverridesSnapshot(): ReadonlyMap<string, TerrainCamera>
 }
 
 /**
- * Load overrides from AsyncStorage on app start.
+ * Load the stored overrides, once. Every write awaits this first, because a
+ * write persists the whole map: one made before the load would replace every
+ * stored camera with the few held in memory. Any screen can be the first to
+ * write, a launch can open straight into an activity, so the store loads
+ * itself rather than relying on whichever screen used to load it.
  */
-export async function initCameraOverrides(): Promise<void> {
-  if (initialised) return;
-  try {
-    const raw = await getSetting(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Record<string, TerrainCamera>;
-      const entries = Object.entries(parsed);
-      // Only load the most recent entries if persisted data exceeds limit
-      const toLoad = entries.length > MAX_OVERRIDES ? entries.slice(-MAX_OVERRIDES) : entries;
-      for (const [id, camera] of toLoad) {
-        overrides.set(id, camera);
+export function initCameraOverrides(): Promise<void> {
+  if (initPromise) return initPromise;
+  const loading = generation;
+  initPromise = (async () => {
+    let stored: [string, TerrainCamera][] = [];
+    try {
+      const raw = await getSetting(STORAGE_KEY);
+      if (raw) {
+        stored = Object.entries(JSON.parse(raw) as Record<string, TerrainCamera>);
       }
+    } catch {
+      // Best effort - start with empty overrides
     }
-  } catch {
-    // Best effort - start with empty overrides
-  }
-  initialised = true;
-  publish();
+    // A wipe or a reload while the read was out owns the map now.
+    if (loading !== generation) return;
+    // Stored entries go under anything already held, which is newer, and only
+    // the most recent are kept if the stored data exceeds the limit.
+    const merged = new Map(stored);
+    for (const [id, camera] of overrides) {
+      merged.delete(id);
+      merged.set(id, camera);
+    }
+    const entries = [...merged];
+    overrides.clear();
+    for (const [id, camera] of entries.slice(-MAX_OVERRIDES)) {
+      overrides.set(id, camera);
+    }
+    publish();
+  })();
+  return initPromise;
 }
 
 /**
@@ -82,6 +105,7 @@ export function getCameraOverride(activityId: string): TerrainCamera | undefined
  * so the feed regenerates them with the new angle.
  */
 export async function setCameraOverride(activityId: string, camera: TerrainCamera): Promise<void> {
+  await initCameraOverrides();
   // LRU eviction: delete oldest entry when at capacity
   if (overrides.size >= MAX_OVERRIDES && !overrides.has(activityId)) {
     const oldestKey = overrides.keys().next().value;
@@ -101,10 +125,12 @@ export async function setCameraOverride(activityId: string, camera: TerrainCamer
 
 /**
  * Delete a camera override for an activity, reverting to auto-calculated angle.
- * Also deletes cached terrain snapshots so the feed regenerates them.
+ * Also deletes cached terrain snapshots so the feed regenerates them. An
+ * activity with no saved camera has nothing to revert, and its previews stay.
  */
 export async function deleteCameraOverride(activityId: string): Promise<void> {
-  overrides.delete(activityId);
+  await initCameraOverrides();
+  if (!overrides.delete(activityId)) return;
   publish();
   await deleteTerrainPreviewsForActivity(activityId);
   persistOverrides();
@@ -115,7 +141,8 @@ export async function deleteCameraOverride(activityId: string): Promise<void> {
  * Used after backup restore to pick up freshly-written values.
  */
 export async function reloadCameraOverrides(): Promise<void> {
-  initialised = false;
+  generation += 1;
+  initPromise = null;
   overrides.clear();
   await initCameraOverrides();
 }
@@ -126,6 +153,9 @@ export async function reloadCameraOverrides(): Promise<void> {
  * map has to go too or the next override saved writes them all back.
  */
 export async function forgetCameraOverrides(): Promise<void> {
+  generation += 1;
+  // Nothing is stored once this returns, so there is nothing left to load.
+  initPromise = Promise.resolve();
   overrides.clear();
   publish();
   await removeSetting(STORAGE_KEY).catch(() => {});

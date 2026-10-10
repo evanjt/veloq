@@ -10,10 +10,12 @@
 //! is: the page knows which sources draw the basemap and Rust does not.
 
 use std::collections::HashSet;
+use std::future::Future;
 use std::ops::RangeInclusive;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
-use super::{TileFetcher, TileStore};
+use super::{TileFetchError, TileFetcher, TileStore, notfound, throttle};
 use crate::tiles::tiles_for_bounds;
 use tracematch::Bounds;
 
@@ -200,8 +202,27 @@ pub async fn seed_preseed(
     plan: &[PlannedTile],
     budget: u64,
 ) -> SeedOutcome {
+    seed_preseed_with(store, plan, budget, |url| fetcher.fetch(url)).await
+}
+
+/// `seed_preseed` with the request handed in, so a test can stand in for the
+/// host.
+async fn seed_preseed_with<'a, F, Fut>(
+    store: &TileStore,
+    plan: &'a [PlannedTile],
+    budget: u64,
+    mut fetch: F,
+) -> SeedOutcome
+where
+    F: FnMut(&'a str) -> Fut,
+    Fut: Future<Output = Result<Vec<u8>, TileFetchError>>,
+{
     let mut outcome = SeedOutcome::default();
     let generation = store.generation();
+    // Sources whose host asked to be left alone during this pass. Kept for the
+    // whole pass rather than read off the hold alone, because the hold lapses
+    // in seconds and a long plan would then ask the same host again.
+    let mut refused_sources: HashSet<&str> = HashSet::new();
     for tile in plan {
         if outcome.bytes >= budget {
             outcome.stopped_at_budget = true;
@@ -216,9 +237,31 @@ pub async fn seed_preseed(
             outcome.bytes += bytes;
             continue;
         }
-        let bytes = match fetcher.fetch(&tile.url).await {
+        // A host that has asked to be left alone, or ground it has said it
+        // has not got, is not asked again. The tile counts as failed, so a
+        // ranked pass keeps its old pins and the next pass asks again.
+        if refused_sources.contains(tile.source.as_str())
+            || throttle::holding(&tile.source, Instant::now()).is_some()
+            || notfound::is_refused(&tile.source, tile.z, tile.x, tile.y)
+        {
+            outcome.failed += 1;
+            continue;
+        }
+        let bytes = match fetch(&tile.url).await {
             Ok(bytes) => bytes,
             Err(e) => {
+                match e {
+                    TileFetchError::Rejected { status: 404 } => {
+                        notfound::remember_refused(&tile.source, tile.z, tile.x, tile.y);
+                    }
+                    TileFetchError::Rejected {
+                        status: status @ (429 | 503),
+                    } => {
+                        throttle::remember(&tile.source, status, Instant::now());
+                        refused_sources.insert(&tile.source);
+                    }
+                    _ => {}
+                }
                 log::warn!(
                     "[basemap] pre-seed {} {}/{}/{} did not fetch: {}",
                     tile.source,
@@ -451,6 +494,143 @@ pub fn seed_ground_background(bounds: Vec<Bounds>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use tempfile::TempDir;
+
+    fn planned(source: &str, count: u32) -> Vec<PlannedTile> {
+        (0..count)
+            .map(|x| PlannedTile {
+                source: source.to_string(),
+                z: 5,
+                x,
+                y: 0,
+                url: format!("https://tiles.test/{source}/5/{x}/0.png"),
+                ext: "png".to_string(),
+            })
+            .collect()
+    }
+
+    /// Runs a pass against a host that answers each request with the next of
+    /// `answers`, then with a tile, and returns the urls it was asked for.
+    fn seed_against(
+        plan: &[PlannedTile],
+        answers: Vec<Result<Vec<u8>, TileFetchError>>,
+    ) -> (SeedOutcome, Vec<String>) {
+        let dir = TempDir::new().unwrap();
+        let store = TileStore::new(dir.path());
+        let asked = RefCell::new(Vec::new());
+        let answers = RefCell::new(answers.into_iter());
+        let outcome = crate::runtime::block_on(seed_preseed_with(&store, plan, u64::MAX, |url| {
+            asked.borrow_mut().push(url.to_string());
+            let answer = answers.borrow_mut().next().unwrap_or_else(|| Ok(vec![1]));
+            std::future::ready(answer)
+        }));
+        (outcome, asked.into_inner())
+    }
+
+    #[test]
+    fn a_429_stops_the_pass_asking_that_host_and_holds_it() {
+        let plan = planned("seed-busy-429", 5);
+
+        let (outcome, asked) =
+            seed_against(&plan, vec![Err(TileFetchError::Rejected { status: 429 })]);
+
+        assert_eq!(asked.len(), 1);
+        assert_eq!(
+            throttle::holding("seed-busy-429", Instant::now()),
+            Some(429)
+        );
+        assert_eq!(outcome.fetched, 0);
+        assert_eq!(outcome.failed, 5);
+    }
+
+    #[test]
+    fn a_503_stops_the_pass_asking_that_host_and_holds_it() {
+        let plan = planned("seed-busy-503", 5);
+
+        let (_, asked) = seed_against(&plan, vec![Err(TileFetchError::Rejected { status: 503 })]);
+
+        assert_eq!(asked.len(), 1);
+        assert_eq!(
+            throttle::holding("seed-busy-503", Instant::now()),
+            Some(503)
+        );
+    }
+
+    #[test]
+    fn a_refusal_mid_pass_leaves_the_tiles_already_taken() {
+        let plan = planned("seed-busy-later", 5);
+
+        let (outcome, asked) = seed_against(
+            &plan,
+            vec![
+                Ok(vec![1]),
+                Ok(vec![1]),
+                Err(TileFetchError::Rejected { status: 429 }),
+            ],
+        );
+
+        assert_eq!(asked.len(), 3);
+        assert_eq!(outcome.fetched, 2);
+        assert_eq!(outcome.failed, 3);
+    }
+
+    #[test]
+    fn a_held_host_is_not_asked_at_all() {
+        throttle::remember("seed-already-held", 429, Instant::now());
+        let plan = planned("seed-already-held", 3);
+
+        let (outcome, asked) = seed_against(&plan, Vec::new());
+
+        assert!(asked.is_empty());
+        assert_eq!(outcome.failed, 3);
+    }
+
+    #[test]
+    fn a_refused_host_leaves_the_other_sources_asked() {
+        let mut plan = planned("seed-refusing", 3);
+        plan.extend(planned("seed-answering", 3));
+
+        let (outcome, asked) =
+            seed_against(&plan, vec![Err(TileFetchError::Rejected { status: 429 })]);
+
+        assert_eq!(asked.len(), 4);
+        assert!(
+            asked
+                .iter()
+                .skip(1)
+                .all(|url| url.contains("seed-answering"))
+        );
+        assert_eq!(outcome.fetched, 3);
+        assert_eq!(outcome.failed, 3);
+    }
+
+    #[test]
+    fn a_host_failing_otherwise_is_asked_for_the_next_tile() {
+        let plan = planned("seed-flaky", 3);
+
+        let (outcome, asked) =
+            seed_against(&plan, vec![Err(TileFetchError::Rejected { status: 500 })]);
+
+        assert_eq!(asked.len(), 3);
+        assert_eq!(throttle::holding("seed-flaky", Instant::now()), None);
+        assert_eq!(outcome.fetched, 2);
+        assert_eq!(outcome.failed, 1);
+    }
+
+    #[test]
+    fn ground_already_refused_is_not_asked_for_and_a_404_is_remembered() {
+        notfound::remember_refused("seed-border", 5, 1, 0);
+        let plan = planned("seed-border", 3);
+
+        let (outcome, asked) =
+            seed_against(&plan, vec![Err(TileFetchError::Rejected { status: 404 })]);
+
+        assert_eq!(asked, vec![plan[0].url.clone(), plan[2].url.clone()]);
+        assert!(notfound::is_refused("seed-border", 5, 0, 0));
+        assert_eq!(outcome.fetched, 1);
+        assert_eq!(outcome.failed, 2);
+    }
 
     fn source(name: &str, zooms: RangeInclusive<u8>) -> PreseedSource {
         PreseedSource {

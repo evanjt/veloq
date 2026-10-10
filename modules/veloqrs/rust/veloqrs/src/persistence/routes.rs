@@ -247,6 +247,52 @@ fn direction_for_percentage(percentage: f64, endpoint_direction: Direction) -> D
     }
 }
 
+/// The routes of `groups` whose match percentages a regroup measures again.
+///
+/// A stored percentage was measured from one member's track against one
+/// representative's track, so it stands while its route keeps the members and
+/// representative it had in `previous` and none of their tracks is in
+/// `moved_tracks`. A route `previous` does not hold is owed, and so is one with a
+/// member `held` has no row for, or only the zero row both backfills write
+/// before anything is measured. A caller whose match rule changed passes no
+/// `previous`, since every percentage was measured under the old thresholds.
+pub(super) fn groups_owing_measurement(
+    previous: &[RouteGroup],
+    groups: &[RouteGroup],
+    held: &HashMap<String, Vec<ActivityMatchInfo>>,
+    moved_tracks: &HashSet<String>,
+) -> HashSet<String> {
+    let previous: HashMap<&str, &RouteGroup> = previous
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let members =
+        |group: &RouteGroup| -> HashSet<String> { group.activity_ids.iter().cloned().collect() };
+    groups
+        .iter()
+        .filter(|group| {
+            let Some(before) = previous.get(group.group_id.as_str()) else {
+                return true;
+            };
+            let measured: HashMap<&str, f64> = held
+                .get(&group.group_id)
+                .into_iter()
+                .flatten()
+                .map(|m| (m.activity_id.as_str(), m.match_percentage))
+                .collect();
+            before.representative_id != group.representative_id
+                || members(before) != members(group)
+                || group.activity_ids.iter().any(|id| {
+                    moved_tracks.contains(id)
+                        || measured
+                            .get(id.as_str())
+                            .is_none_or(|percentage| *percentage == 0.0)
+                })
+        })
+        .map(|group| group.group_id.clone())
+        .collect()
+}
+
 /// Each member's match against its route's representative, measured on the
 /// stored tracks rather than the simplified signatures. `seed` carries any
 /// percentage already held. The direction is measured again against the
@@ -254,14 +300,16 @@ fn direction_for_percentage(percentage: f64, endpoint_direction: Direction) -> D
 /// representative it was measured against. Both regroup writers call this,
 /// so the foreground and the worker cannot measure differently.
 ///
-/// `only_group` narrows the work to one group, and `representative_override`
-/// measures against a representative other than the stored one.
+/// `scope` narrows the work to the groups it names, and no track of any other
+/// group is loaded; their percentages are returned as `seed` holds them.
+/// `representative_override` measures against a representative other than the
+/// stored one.
 pub(super) fn measure_match_percentages(
     groups: &[RouteGroup],
     seed: &HashMap<String, Vec<ActivityMatchInfo>>,
     match_config: &tracematch::MatchConfig,
     load_track: impl Fn(&str) -> Option<Vec<GpsPoint>>,
-    only_group: Option<&str>,
+    scope: Option<&HashSet<String>>,
     representative_override: Option<&str>,
 ) -> HashMap<String, Vec<ActivityMatchInfo>> {
     use crate::matching::{amd_to_percentage, average_min_distance};
@@ -270,10 +318,7 @@ pub(super) fn measure_match_percentages(
 
     let func_start = Instant::now();
 
-    let in_scope = |group: &RouteGroup| match only_group {
-        Some(id) => group.group_id == id,
-        None => true,
-    };
+    let in_scope = |group: &RouteGroup| scope.is_none_or(|ids| ids.contains(&group.group_id));
 
     log::info!(
         "veloqrs: [PERF] recalculate_match_percentages: {} of {} groups, parallel AMD via rayon",
@@ -479,12 +524,51 @@ pub(super) fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 mod match_percentage_regressions;
 
 #[cfg(test)]
+#[path = "tests/route_measurement_scope.rs"]
+mod measurement_scope_tests;
+
+#[cfg(test)]
 #[path = "tests/live_route_overlap.rs"]
 mod live_route_overlap_tests;
 
 #[cfg(test)]
 #[path = "tests/regroup_on_reopen.rs"]
 mod regroup_on_reopen_tests;
+
+/// Insert route groups into an emptied `route_groups`, the one writer of its
+/// rows. Every row carries its member count, which the size tally's triggers
+/// and the route list's paged read key on: a row without one sends every list
+/// read back to decoding each group's members.
+pub(super) fn insert_route_groups<'a>(
+    conn: &Connection,
+    groups: impl IntoIterator<Item = &'a RouteGroup>,
+) -> SqlResult<()> {
+    // Dual-write: JSON for backward compatibility, blob for fast reads.
+    let mut stmt = conn.prepare(
+        "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                   bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                                   activity_count, activity_ids_blob)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )?;
+    for group in groups {
+        let activity_ids_json = serde_json::to_string(&group.activity_ids)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
+        stmt.execute(params![
+            group.group_id,
+            group.representative_id,
+            activity_ids_json,
+            "",
+            group.bounds.map(|b| b.min_lat),
+            group.bounds.map(|b| b.max_lat),
+            group.bounds.map(|b| b.min_lng),
+            group.bounds.map(|b| b.max_lng),
+            group.activity_ids.len() as u32,
+            activity_ids_blob,
+        ])?;
+    }
+    Ok(())
+}
 
 /// Each route whose representative the athlete chose, with that representative.
 /// A writer that deletes and reinserts the groups reads this first and hands it
@@ -1065,6 +1149,9 @@ impl PersistentEngine {
     /// epoch as a store, and re-asserting the flag stores nothing.
     pub(crate) fn adopt_run_groups(&mut self, regroup_owed: bool, epoch_at_spawn: u64) {
         let owed = regroup_owed || self.groups_dirty_epoch != epoch_at_spawn;
+        if !regroup_owed {
+            self.moved_tracks.retain(|_, epoch| *epoch > epoch_at_spawn);
+        }
         let was_owed = self.groups_dirty;
         let current = super::route_identity::read_group_generation(&self.db)
             .is_ok_and(|generation| generation == self.group_generation);
@@ -1176,10 +1263,11 @@ impl PersistentEngine {
         // The 90% gate exists only to skip the partition + HashSet build when
         // nearly everything is new - full is simpler in that fresh-import case.
         // A changed rule re-evaluates pairs the incremental path never looks at.
+        let rule_changed = groups_match_rule_changed(&self.db, &self.match_config);
         let use_incremental = !self.groups.is_empty()
             && new_count > 0
             && (new_count as f64) < (total as f64 * 0.9)
-            && !groups_match_rule_changed(&self.db, &self.match_config);
+            && !rule_changed;
 
         // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
@@ -1240,6 +1328,16 @@ impl PersistentEngine {
         for group in &mut self.groups {
             group.custom_name = names.get(&group.group_id).cloned();
         }
+        // Only the routes whose members, representative or member tracks moved
+        // are measured again; every other route keeps the rows it holds.
+        let measured_against: &[RouteGroup] = if rule_changed { &[] } else { &prior_groups };
+        let moved_tracks: HashSet<String> = self.moved_tracks.keys().cloned().collect();
+        let owed = groups_owing_measurement(
+            measured_against,
+            &self.groups,
+            &prior_matches,
+            &moved_tracks,
+        );
         // Re-key the grouping's match info (which carries each member's
         // direction) by the stable ids the remap assigned, or the direction
         // lookup in route highlights would miss the new id and default every
@@ -1248,7 +1346,9 @@ impl PersistentEngine {
         // drop the ids the grouping no longer emits.
         for (old_id, matches) in result.activity_matches {
             let id = id_map.get(&old_id).cloned().unwrap_or(old_id);
-            self.activity_matches.insert(id, matches);
+            if owed.contains(&id) {
+                self.activity_matches.insert(id, matches);
+            }
         }
         let live: std::collections::HashSet<String> =
             self.groups.iter().map(|g| g.group_id.clone()).collect();
@@ -1257,7 +1357,14 @@ impl PersistentEngine {
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
         // NOTE: This is the BOTTLENECK - see PERF logs inside this function
-        self.activity_matches = self.recalculate_match_percentages_from_tracks(None, None);
+        self.activity_matches = measure_match_percentages(
+            &self.groups,
+            &self.activity_matches,
+            &self.match_config,
+            |id| self.load_gps_track_from_db(id),
+            Some(&owed),
+            None,
+        );
 
         // Log match info computed
         let total_matches: usize = self.activity_matches.values().map(|v| v.len()).sum();
@@ -1285,6 +1392,7 @@ impl PersistentEngine {
         }
         let save_ms = save_start.elapsed().as_millis();
         self.set_groups_dirty(false);
+        self.moved_tracks.clear();
 
         // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
@@ -1320,12 +1428,13 @@ impl PersistentEngine {
         only_group: Option<&str>,
         representative_override: Option<&str>,
     ) -> HashMap<String, Vec<ActivityMatchInfo>> {
+        let scope = only_group.map(|id| HashSet::from([id.to_string()]));
         measure_match_percentages(
             &self.groups,
             &self.activity_matches,
             &self.match_config,
             |id| self.load_gps_track_from_db(id),
-            only_group,
+            scope.as_ref(),
             representative_override,
         )
     }
@@ -1400,34 +1509,9 @@ impl PersistentEngine {
             self.db.execute("DELETE FROM route_groups", [])?;
             self.db.execute("DELETE FROM activity_matches", [])?;
 
-            // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
-            let mut stmt = self.db.prepare(
-                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-                                            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                                            activity_count, activity_ids_blob)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )?;
-
             let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
             sorted_groups.sort_by(|a, b| mint_order(a, b));
-
-            for group in sorted_groups {
-                let activity_ids_json = serde_json::to_string(&group.activity_ids)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-                let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
-                stmt.execute(params![
-                    group.group_id,
-                    group.representative_id,
-                    activity_ids_json,
-                    "",
-                    group.bounds.map(|b| b.min_lat),
-                    group.bounds.map(|b| b.max_lat),
-                    group.bounds.map(|b| b.min_lng),
-                    group.bounds.map(|b| b.max_lng),
-                    group.activity_ids.len() as u32,
-                    activity_ids_blob,
-                ])?;
-            }
+            insert_route_groups(&self.db, sorted_groups)?;
 
             mark_chosen_representatives(&self.db, &chosen)?;
             mint_route_numbers(&self.db, &self.groups)?;
@@ -2569,7 +2653,7 @@ mod tests {
         engine
             .add_activity("a2".to_string(), track, "Ride".to_string())
             .unwrap();
-        engine.db.commit_hook(Some(|| true));
+        engine.db.commit_hook(Some(|| true)).unwrap();
 
         engine.recompute_groups();
 
@@ -2590,7 +2674,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(stored_after, stored_before);
-        engine.db.commit_hook(Some(|| false));
+        engine.db.commit_hook(Some(|| false)).unwrap();
         assert!(
             engine
                 .get_groups()
@@ -2945,7 +3029,7 @@ mod regroup_signature_reads {
     #[test]
     fn a_regroup_past_the_cache_size_reads_no_signature_row_by_itself() {
         let mut engine = engine_with(400);
-        engine.db.trace(Some(record));
+        crate::test_trace::trace_statements!(engine.db, record);
 
         reset();
         let grouped = engine.get_groups().len();
@@ -2969,6 +3053,6 @@ mod regroup_signature_reads {
             "the second regroup read row by row"
         );
         assert_eq!(again, grouped, "the same library grouped differently");
-        engine.db.trace(None);
+        crate::test_trace::untrace(&engine.db);
     }
 }

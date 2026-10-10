@@ -470,6 +470,7 @@ function SectionDetailScreenContent() {
               bestReverseRecord={bestReverseRecord}
               bestForwardIsRecord={bestForwardIsRecord}
               bestReverseIsRecord={bestReverseIsRecord}
+              recordsSettled={recordsSettled}
               calendarSummary={calendarSummary}
               effectiveSportType={effectiveSportType}
               isRunning={isRunning}

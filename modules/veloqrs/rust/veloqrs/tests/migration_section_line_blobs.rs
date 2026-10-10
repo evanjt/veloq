@@ -80,12 +80,14 @@ fn column_is_nullable(conn: &Connection, table: &str, column: &str) -> bool {
 }
 
 #[test]
-fn legacy_json_lines_survive_the_upgrade_from_the_release_before() {
+fn legacy_json_lines_survive_the_upgrade_from_the_version_before_the_blobs() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     {
-        let conn = seed_at_version(&path, latest_version() - 1);
+        // The version before the one that stores lines as blobs, so these
+        // intents cross its rebuild of `section_intents`.
+        let conn = seed_at_version(&path, 59);
         insert_trimmed(&conn, "trimmed");
         insert_section(&conn, "under_name", None, &line());
         conn.execute(

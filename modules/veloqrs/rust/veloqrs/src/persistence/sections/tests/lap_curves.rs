@@ -592,6 +592,87 @@ fn an_out_and_back_attempt_follows_the_line_down_the_return_leg() {
     assert_fades_over_the_second_half(whole_line_curves(out_and_back, 0.0), "out and back");
 }
 
+/// Out 20 km north and back down the same road, the shape that makes a point
+/// weigh two passes of the line.
+fn long_out_and_back(d: f64) -> GpsPoint {
+    at(if d <= 20_000.0 { d } else { 40_000.0 - d })
+}
+
+/// Scenario: a route of 4,001 points, out 20 km and back, with 50 attempts
+/// of 4,001 samples or more, ridden up to 30 m beside the line so the search for
+/// a second pass widens past its first ring.
+///
+/// Expected behaviour: projecting the samples allocates nothing per sample.
+/// The computation allocates a bounded number of times per attempt, and no
+/// more bytes than a small multiple of the tracks and streams it is handed.
+#[test]
+fn projecting_a_long_route_allocates_per_attempt_not_per_sample() {
+    const ATTEMPTS: usize = 50;
+    let line: Vec<GpsPoint> = (0..=4_000)
+        .map(|i| long_out_and_back(i as f64 * 10.0))
+        .collect();
+    let laps_in: Vec<Lap> = (0..ATTEMPTS)
+        .map(|n| {
+            let east = (n % 7) as f64 * 5.0;
+            let speed = 10.0 - n as f64 * 0.01;
+            let (track, times) = ride_along(
+                |d| {
+                    let on = long_out_and_back(d);
+                    at_offset(
+                        (on.latitude - 46.0) * metres_per_degree(),
+                        east * (d / 1000.0).sin(),
+                    )
+                },
+                40_000.0,
+                |_| speed,
+            );
+            let id: &'static str = Box::leak(format!("attempt-{n}").into_boxed_str());
+            Lap::new(id, n as i64, "same", (track, times))
+        })
+        .collect();
+    assert!(laps_in.iter().all(|lap| lap.ride.0.len() >= 4_001));
+    let perf = performances(&laps_in);
+    let handed_in: usize = laps_in
+        .iter()
+        .map(|lap| {
+            lap.ride.0.len() * std::mem::size_of::<GpsPoint>()
+                + lap.ride.1.len() * std::mem::size_of::<u32>()
+        })
+        .sum();
+
+    let (curves, allocations, bytes) = crate::test_alloc::allocated_by(|| {
+        lap_curves(
+            &line,
+            &perf,
+            None,
+            |id| {
+                laps_in
+                    .iter()
+                    .find(|l| l.id == id)
+                    .map(|l| l.ride.0.clone())
+            },
+            |id| {
+                laps_in
+                    .iter()
+                    .find(|l| l.id == id)
+                    .map(|l| l.ride.1.clone())
+            },
+        )
+    });
+
+    let curves = curves.expect("curves");
+    let forward = curves.forward.as_ref().expect("forward deltas");
+    assert_eq!(forward.laps.len(), ATTEMPTS, "{:?}", forward.missing);
+    assert!(
+        allocations < ATTEMPTS * 64,
+        "{allocations} allocations for {ATTEMPTS} attempts"
+    );
+    assert!(
+        bytes < 8 * handed_in,
+        "{bytes} bytes allocated for {handed_in} bytes of tracks and streams"
+    );
+}
+
 mod stored {
     //! The bundle read through SQLite: the ledger names the reference, and
     //! the curves are computed once for every range.
@@ -669,13 +750,36 @@ mod stored {
         engine
     }
 
-    fn bundle(days: u32) -> crate::FfiSectionPerformanceData {
+    /// The section screen's own read, which serves the curves only once held.
+    fn section_screen_read(days: u32, sport: Option<&str>) -> crate::FfiSectionPerformanceData {
         crate::persistence::read_pool::with_read_conn(|conn| {
             crate::persistence::screens::pooled::section_detail_performance(
-                conn, "climb", days, None,
+                conn,
+                "climb",
+                days,
+                sport,
+                pooled::CurveRead::Held,
             )
         })
         .expect("reader")
+    }
+
+    /// The same read with the curves computed, as the off-thread load runs it.
+    fn section_load(days: u32, sport: Option<&str>) -> crate::FfiSectionPerformanceData {
+        crate::persistence::read_pool::with_read_conn(|conn| {
+            crate::persistence::screens::pooled::section_detail_performance(
+                conn,
+                "climb",
+                days,
+                sport,
+                pooled::CurveRead::Computed,
+            )
+        })
+        .expect("reader")
+    }
+
+    fn bundle(days: u32) -> crate::FfiSectionPerformanceData {
+        section_load(days, None)
     }
 
     fn reference_of(data: &crate::FfiSectionPerformanceData) -> (String, FfiReferenceSource) {
@@ -1002,7 +1106,73 @@ mod stored {
             )
             .expect("write");
         assert!(route_read(0, pooled::CurveRead::Held).curves_pending);
-        assert!(!bundle(0).curves_pending, "a section computes its own");
+    }
+
+    /// Scenario: the section screen opens on a cold cache, then a sport chip
+    /// is tapped, then the curves are loaded off the thread, then a write
+    /// lands.
+    ///
+    /// Expected behaviour: the screen's read decodes nothing and says the
+    /// curves are owed, under either sport; the load computes them once; the
+    /// screen's read then serves them with nothing owed and decodes nothing
+    /// more; after the write they are owed again.
+    #[test]
+    fn the_section_screen_read_serves_its_curves_only_once_loaded() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_section_held.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let engine = engine_with(db_path, &reference_and_fading());
+
+        pooled::reset_test_counters();
+        let owed = section_screen_read(0, None);
+        assert!(owed.curves_pending);
+        assert!(owed.curves.is_none());
+        assert!(section_screen_read(0, Some("Ride")).curves_pending);
+        assert_eq!(pooled::decodes(), 0, "the screen's read decodes nothing");
+        assert_eq!(pooled::computations(), 0);
+
+        let loaded = section_load(0, None);
+        assert!(!loaded.curves_pending);
+        assert_eq!(
+            loaded
+                .curves
+                .as_ref()
+                .and_then(|c| c.forward.as_ref())
+                .map(|f| f.laps.len()),
+            Some(2)
+        );
+        assert_eq!(pooled::computations(), 1);
+        assert_eq!(
+            pooled::decodes(),
+            4,
+            "one track and one stream per activity"
+        );
+
+        let held = section_screen_read(0, None);
+        assert!(!held.curves_pending);
+        assert_eq!(
+            format!("{:?}", held.curves),
+            format!("{:?}", loaded.curves),
+            "the screen's read serves what the load computed"
+        );
+        assert!(
+            section_screen_read(30, None).curves.is_none(),
+            "a range filters the held set"
+        );
+        assert!(!section_screen_read(30, None).curves_pending);
+        assert_eq!(pooled::computations(), 1, "loaded once, then served");
+        assert_eq!(pooled::decodes(), 4);
+
+        engine
+            .db
+            .execute(
+                "UPDATE activity_metrics SET name = 'renamed' WHERE activity_id = 'fading'",
+                [],
+            )
+            .expect("write");
+        assert!(section_screen_read(0, None).curves_pending);
     }
 
     /// Scenario: the route screen opens on a route one of whose attempts has

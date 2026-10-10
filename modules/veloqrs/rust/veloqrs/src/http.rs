@@ -363,8 +363,8 @@ pub struct ActivityMapResult {
     /// activity inside the retention window.
     pub streams: Vec<StreamDto>,
     /// Cumulative seconds at each stored point, in that same index space.
-    /// Empty unless the fetch was widened: `TRACK_STREAM_TYPES` does not ask
-    /// for `time`, so a narrow fetch still owes the second pass.
+    /// Empty when upstream has no `time` for the activity or sent one out of
+    /// step with the coordinates, which then still owes the second pass.
     pub times: Vec<u32>,
     pub success: bool,
     pub error: Option<String>,
@@ -841,14 +841,10 @@ fn decode_track_body(
     );
 
     // Taken from the same parse as the coordinates, so it needs no second
-    // request and is already in the track's index space. `max(0) as u32`
-    // matches what `fetch_time_stream` returns, which is what the second
-    // pass would have stored.
-    let times: Vec<u32> = if wide && parsed.time.len() == point_count {
-        parsed.time.iter().map(|v| (*v).max(0) as u32).collect()
-    } else {
-        Vec::new()
-    };
+    // request and is already in the track's index space. Both asks carry
+    // `time`, so a narrow fetch no longer leaves the section maths owing a
+    // `time,latlng` request either.
+    let times = crate::net::types::track_times(&parsed);
 
     ActivityMapResult {
         activity_id: activity_id.to_string(),
@@ -1412,7 +1408,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/activity/a1/streams.json")
-                .query_param("types", "latlng,fixed_altitude,altitude");
+                .query_param("types", "latlng,fixed_altitude,altitude,time");
             then.status(200).json_body(streams_body(
                 json!([46.941, null, 46.942]),
                 json!([7.441, null, 7.442]),
@@ -1773,6 +1769,53 @@ mod tests {
             r.streams.is_empty(),
             "a narrow fetch stored series it never asked for"
         );
+    }
+
+    /// Scenario: a narrow track fetch for an activity that sits on a section.
+    ///
+    /// Expected behaviour: it asks for `time` with the coordinates and keeps it
+    /// in the track's index space, so the section maths owe no second
+    /// `time,latlng` request for it. A clock out of step with the coordinates
+    /// is not kept, since it cannot address the stored points.
+    #[test]
+    fn a_narrow_fetch_keeps_the_time_it_asked_for_in_the_track_index() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+            then.status(200).json_body(streams_body(
+                json!([46.10, null, 46.12]),
+                json!([7.10, null, 7.12]),
+                vec![json!({"type": "time", "data": [0.0, 5.0, 10.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        mock.assert();
+        assert_eq!(
+            r.times,
+            vec![0, 10],
+            "the dropped coordinate takes its sample"
+        );
+        assert!(r.streams.is_empty());
+    }
+
+    #[test]
+    fn a_clock_out_of_step_with_the_coordinates_is_not_kept() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11, 46.12]),
+                json!([7.10, 7.11, 7.12]),
+                vec![json!({"type": "time", "data": [0.0, 5.0]})],
+            ));
+        });
+
+        assert!(fetch_one(&server, "a1").times.is_empty());
+        assert!(fetch_one_wide(&server, "a1").times.is_empty());
     }
 
     /// The track, its elevation and its time are answered from `gps_tracks`

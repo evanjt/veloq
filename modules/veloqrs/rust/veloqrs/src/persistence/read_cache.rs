@@ -50,7 +50,9 @@ struct ReadCache {
     /// Section lap delta curves, keyed as `performances` is and built from
     /// them. Each lap costs a track and a stream decode, and the section
     /// screen asks again on every time chip, which only filters this set.
-    lap_curves: Mutex<LruCache<String, Arc<Option<crate::FfiSectionLapCurves>>>>,
+    /// Weighed by curve bytes, since one long route's curves outweigh a
+    /// screenful of performance results.
+    lap_curves: Mutex<LapCurveSlot>,
     sections: Mutex<LruCache<String, Arc<tracematch::FrequentSection>>>,
     /// The corridors an athlete named, resolved onto the catalogue: the name
     /// per section and the corridor listing. One value for the whole library,
@@ -61,6 +63,10 @@ struct ReadCache {
     /// library holding an unnamed split child composes from it, and building
     /// it walks the whole ledger, so it is a slot like the overlay.
     split_lineage: Mutex<Option<Arc<crate::persistence::sections::numbers::SplitLineage>>>,
+    /// The map's section overlay, every line encoded. Building it decodes and
+    /// re-encodes the whole catalogue, and the map asks again each time the
+    /// layer is shown, so a slot holds it until something commits.
+    map_sections: Mutex<Option<Arc<Vec<crate::FfiMapSection>>>>,
 }
 
 /// How many signatures to keep. The feed draws a screenful and the athlete
@@ -72,6 +78,84 @@ const SIGNATURE_CAPACITY: usize = 200;
 /// a screenful of sections at once, and each result carries every traversal,
 /// so this is a screenful and not a library.
 const PERFORMANCE_CAPACITY: usize = 32;
+
+/// How many bytes of lap curves to keep. One long route ridden fifty times
+/// carries about 0.9 MB of curves, so this holds the open screen and the few
+/// before it rather than a session's browsing.
+const LAP_CURVE_BUDGET: usize = 4 * 1024 * 1024;
+
+/// The curve data an entry holds: four bytes for each point of every lap's
+/// delta and split delta, which is all that grows with the route.
+fn lap_curve_bytes(curves: &Option<crate::FfiSectionLapCurves>) -> usize {
+    let Some(curves) = curves else { return 0 };
+    [&curves.forward, &curves.reverse]
+        .into_iter()
+        .flatten()
+        .flat_map(|direction| &direction.laps)
+        .map(|lap| (lap.delta_secs.len() + lap.split_delta_secs.len()) * size_of::<f32>())
+        .sum()
+}
+
+type LapCurves = Arc<Option<crate::FfiSectionLapCurves>>;
+
+/// Lap curves by key, least recent evicted first until what is held fits
+/// [`LAP_CURVE_BUDGET`]. The entry just put is never evicted, so a screen
+/// whose curves alone outweigh the budget is still served, held by itself.
+struct LapCurveSlot {
+    entries: LruCache<String, (LapCurves, usize)>,
+    bytes: usize,
+}
+
+impl LapCurveSlot {
+    fn new() -> Self {
+        Self {
+            entries: LruCache::unbounded(),
+            bytes: 0,
+        }
+    }
+}
+
+/// A keyed slot [`cached_by_key`] can serve from.
+trait KeyedSlot<V> {
+    fn get(&mut self, key: &str) -> Option<&Arc<V>>;
+    fn put(&mut self, key: String, value: Arc<V>);
+    fn clear(&mut self);
+}
+
+impl<V> KeyedSlot<V> for LruCache<String, Arc<V>> {
+    fn get(&mut self, key: &str) -> Option<&Arc<V>> {
+        LruCache::get(self, key)
+    }
+    fn put(&mut self, key: String, value: Arc<V>) {
+        LruCache::put(self, key, value);
+    }
+    fn clear(&mut self) {
+        LruCache::clear(self);
+    }
+}
+
+impl KeyedSlot<Option<crate::FfiSectionLapCurves>> for LapCurveSlot {
+    fn get(&mut self, key: &str) -> Option<&LapCurves> {
+        self.entries.get(key).map(|(value, _)| value)
+    }
+    fn put(&mut self, key: String, value: LapCurves) {
+        let weight = lap_curve_bytes(&value);
+        if let Some((_, old)) = self.entries.put(key, (value, weight)) {
+            self.bytes -= old;
+        }
+        self.bytes += weight;
+        while self.bytes > LAP_CURVE_BUDGET && self.entries.len() > 1 {
+            let Some((_, (_, evicted))) = self.entries.pop_lru() else {
+                break;
+            };
+            self.bytes -= evicted;
+        }
+    }
+    fn clear(&mut self) {
+        self.entries.clear();
+        self.bytes = 0;
+    }
+}
 
 #[derive(Default)]
 struct Stamp {
@@ -90,14 +174,13 @@ static READ_CACHE: LazyLock<ReadCache> = LazyLock::new(|| ReadCache {
     performances: Mutex::new(LruCache::new(
         NonZeroUsize::new(PERFORMANCE_CAPACITY).expect("a cache with no room is a bug"),
     )),
-    lap_curves: Mutex::new(LruCache::new(
-        NonZeroUsize::new(PERFORMANCE_CAPACITY).expect("a cache with no room is a bug"),
-    )),
+    lap_curves: Mutex::new(LapCurveSlot::new()),
     sections: Mutex::new(LruCache::new(
         NonZeroUsize::new(32).expect("a cache with no room is a bug"),
     )),
     named_overlay: Mutex::new(None),
     split_lineage: Mutex::new(None),
+    map_sections: Mutex::new(None),
 });
 
 /// The same poison recovery the pool and the engine take: the panic was in a
@@ -130,6 +213,7 @@ pub(crate) fn clear() {
     lock(&READ_CACHE.sections).clear();
     *lock(&READ_CACHE.named_overlay) = None;
     *lock(&READ_CACHE.split_lineage) = None;
+    *lock(&READ_CACHE.map_sections) = None;
 }
 
 /// A clear on one thread, held before it empties anything, so a test can read
@@ -183,10 +267,47 @@ fn generation_current(generation: u64) -> bool {
         && READ_CACHE.generation.load(Ordering::Acquire) == generation
 }
 
+/// Give memory back when the OS asks for it: the stamp connection's page
+/// cache always, and every cached value at the hard level, where a recompute on
+/// the next read is worth the memory.
+pub(crate) fn release_memory(hard: bool) {
+    if let Some(conn) = lock(&READ_CACHE.stamp).conn.as_ref() {
+        super::release_connection_memory(conn, "ReadCache");
+    }
+    if hard {
+        clear();
+    }
+}
+
 /// Forget the database and everything held for it when the engine closes.
 pub(crate) fn close() {
     clear();
     *lock(&READ_CACHE.stamp) = Stamp::default();
+}
+
+/// The database state a read on `conn` is answered in, as a number that moves
+/// whenever anything commits and never repeats while the process lives.
+///
+/// A caller that read a layer under one stamp and is handed the same stamp
+/// again holds that layer still: no commit has landed in between, and a bind
+/// to another database moves it too. `None` when the cache cannot vouch for
+/// `conn`, so no read on it can be skipped.
+///
+/// Take it before the rows it stamps. A commit after it then moves the next
+/// stamp, so the rows are never older than the stamp they are held under.
+pub fn stamp(conn: &Connection) -> Option<u64> {
+    if !serves(conn) {
+        return None;
+    }
+    cache_generation()
+}
+
+/// The map's section overlay, cached until the database moves.
+pub fn map_sections(
+    conn: &Connection,
+    fill: impl FnOnce() -> Vec<crate::FfiMapSection>,
+) -> Arc<Vec<crate::FfiMapSection>> {
+    cached(conn, &READ_CACHE.map_sections, || Arc::new(fill()))
 }
 
 /// The sports the map filter offers, cached until the database moves.
@@ -236,11 +357,17 @@ pub fn held_lap_curves(
     cache.get(key).map(Arc::clone)
 }
 
+/// The bytes of curve data the lap-curve slot holds.
+#[cfg(test)]
+fn held_bytes() -> usize {
+    lock(&READ_CACHE.lap_curves).bytes
+}
+
 /// Serve one keyed entry, filling it on a miss, under the same rules as
 /// [`cached`].
 fn cached_by_key<V>(
     conn: &Connection,
-    slot: &Mutex<LruCache<String, Arc<V>>>,
+    slot: &Mutex<impl KeyedSlot<V>>,
     key: &str,
     fill: impl FnOnce() -> V,
 ) -> Arc<V> {
@@ -830,6 +957,112 @@ mod tests {
             })
         });
         assert_eq!(current.unwrap(), vec!["new"], "old reader filled new cache");
+        read_pool::close();
+    }
+
+    fn long_route_curves(laps: usize, points: usize) -> crate::FfiSectionLapCurves {
+        crate::FfiSectionLapCurves {
+            grid_step_m: 10.0,
+            split_step_m: 1000.0,
+            section_length_m: points as f64 * 10.0,
+            forward: Some(crate::FfiDirectionDeltas {
+                reference_activity_id: "lap-0".to_string(),
+                reference_source: crate::FfiReferenceSource::Record,
+                laps: (0..laps)
+                    .map(|i| crate::FfiLapDelta {
+                        activity_id: format!("lap-{i}"),
+                        start_index: 0,
+                        activity_date: i as f64,
+                        delta_secs: vec![0.0; points],
+                        split_delta_secs: vec![0.0; points / 100],
+                        end_delta_secs: Some(0.0),
+                    })
+                    .collect(),
+                missing: Vec::new(),
+            }),
+            reverse: None,
+        }
+    }
+
+    /// Scenario: one session opens 33 long, often-ridden routes in turn, each
+    /// carrying about 0.8 MB of lap curves, with nothing written between.
+    ///
+    /// Expected behaviour: the slot holds no more curve data than its budget,
+    /// and the route opened last is still served without recomputing.
+    #[test]
+    fn lap_curves_are_held_within_a_byte_budget() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE t (x INTEGER)")
+            .unwrap();
+        read_pool::bind(path.to_str().unwrap());
+
+        let one = lap_curve_bytes(&Some(long_route_curves(50, 4_000)));
+        assert!(one > 780_000, "each entry is about 0.8 MB, got {one}");
+        for i in 0..33 {
+            read_pool::with_read_conn(|conn| {
+                lap_curves(conn, &format!("route:trail-{i}"), || {
+                    Some(long_route_curves(50, 4_000))
+                })
+            })
+            .unwrap();
+            assert!(
+                held_bytes() <= LAP_CURVE_BUDGET,
+                "after {} routes the slot holds {} bytes",
+                i + 1,
+                held_bytes()
+            );
+        }
+        let newest =
+            read_pool::with_read_conn(|conn| held_lap_curves(conn, "route:trail-32")).unwrap();
+        assert!(newest.is_some(), "the route just opened must stay held");
+        let oldest =
+            read_pool::with_read_conn(|conn| held_lap_curves(conn, "route:trail-0")).unwrap();
+        assert!(oldest.is_none(), "the first route must have been evicted");
+        read_pool::close();
+    }
+
+    /// Scenario: a single route's curves outweigh the whole budget.
+    ///
+    /// Expected behaviour: they are still held, alone, so the screen that
+    /// asked keeps being served; anything held before them is evicted.
+    #[test]
+    fn an_entry_over_the_budget_is_held_alone() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE t (x INTEGER)")
+            .unwrap();
+        read_pool::bind(path.to_str().unwrap());
+
+        let read = |key: &str, laps: usize| {
+            read_pool::with_read_conn(|conn| {
+                lap_curves(conn, key, || Some(long_route_curves(laps, 4_000)))
+            })
+            .unwrap()
+        };
+        read("route:short", 2);
+        read("route:none", 0);
+        read("route:huge", 400);
+        let held = |key: &str| {
+            read_pool::with_read_conn(|conn| held_lap_curves(conn, key))
+                .unwrap()
+                .is_some()
+        };
+        assert!(held("route:huge"));
+        assert!(!held("route:short"));
+        assert!(!held("route:none"));
+        read("route:short", 2);
+        assert!(held("route:short"));
+        assert!(
+            !held("route:huge"),
+            "the oversize entry gives way to the next"
+        );
         read_pool::close();
     }
 }

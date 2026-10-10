@@ -6,6 +6,7 @@ import {
 } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { resolveStyleForWebView } from './styleResolution';
+import { setStyleStatement } from './shared';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { colors, colorWithOpacity, mapLayerColors } from '@/theme';
 
@@ -568,7 +569,7 @@ export function buildRenderSnapshotScript(
                 + Object.keys(styleObj.sources).length + ' sources'
                 + (styleObj.glyphs ? ', glyphs OK' : ', NO glyphs')
                 + (styleObj.sprite ? ', sprite OK' : ', NO sprite'));
-              window.map.setStyle(styleObj);
+              ${setStyleStatement('window.map', 'styleObj')}
               window.map.jumpTo({
                 center: camera.center,
                 zoom: camera.zoom,

@@ -202,3 +202,56 @@ pub extern "system" fn Java_com_veloq_TileBridge_nativeGetGlyph<'local>(
         }
     })
 }
+
+/// `com.veloq.TileBridge.nativeGeo`. Answers one `veloq-geo` request, `path`
+/// being everything after the marker, from a pooled read with no network in
+/// it, so it is answered on the interceptor's thread. Returns null when there
+/// are no bytes and writes the status into `status[0]`: 200 with the bytes,
+/// and without them 400 for a malformed path, 404 for nothing stored there and
+/// 503 before the engine is open.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_veloq_TileBridge_nativeGeo<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    path: JString<'local>,
+    status: JIntArray<'local>,
+) -> jbyteArray {
+    crate::ffi_refuse_on_panic("geo answer", std::ptr::null_mut(), || {
+        let null = std::ptr::null_mut();
+        let report = |env: &mut JNIEnv<'local>, code: u16| {
+            if status.is_null() {
+                return;
+            }
+            if let Err(e) = env.set_int_array_region(&status, 0, &[jint::from(code)]) {
+                log::warn!("[basemap] could not hand the geo status to Java: {}", e);
+            }
+        };
+        let Ok(path) = env.get_string(&path) else {
+            report(&mut env, super::geo::BAD_PATH);
+            return null;
+        };
+        let path: String = path.into();
+
+        match super::geo_answer(&path) {
+            Ok(bytes) => match env.byte_array_from_slice(&bytes) {
+                Ok(array) => {
+                    report(&mut env, 200);
+                    array.into_raw()
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[basemap] could not hand {} geo bytes to Java: {}",
+                        bytes.len(),
+                        e
+                    );
+                    report(&mut env, super::UPSTREAM_FAILED);
+                    null
+                }
+            },
+            Err(code) => {
+                report(&mut env, code);
+                null
+            }
+        }
+    })
+}

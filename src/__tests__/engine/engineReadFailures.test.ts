@@ -79,7 +79,7 @@ function openClient(): EngineClient {
 const READS: [string, (client: EngineClient) => unknown][] = [
   ['takeQuarantineReport', (c) => c.takeQuarantineReport()],
   ['getStats', (c) => c.getStats()],
-  ['pushRuns', (c) => c.pushRuns()],
+  ['dashboardData', (c) => c.dashboardData()],
   ['getActivitiesNeedingTimeStreams', (c) => c.getActivitiesNeedingTimeStreams()],
   ['getBackupMetadata', (c) => c.getBackupMetadata()],
   ['getCutoverDiff', (c) => c.getCutoverDiff()],

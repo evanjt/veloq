@@ -12,6 +12,7 @@
 
 export type BackupFailureKind =
   | 'auth'
+  | 'signin'
   | 'quota'
   | 'path'
   | 'server'
@@ -21,6 +22,7 @@ export type BackupFailureKind =
 
 const PERMANENT_KINDS: readonly BackupFailureKind[] = [
   'auth',
+  'signin',
   'quota',
   'path',
   'folder_unavailable',
@@ -42,6 +44,16 @@ export class BackupTransferError extends Error {
   /** True when retrying without the user changing something will fail the same way. */
   get permanent(): boolean {
     return PERMANENT_KINDS.includes(this.kind);
+  }
+
+  /**
+   * True when the carrier is still owed this run's copy. A failure that passes
+   * on its own is retried by the next trigger. A lapsed sign-in waits for the
+   * athlete, and the copy goes as soon as they sign in again rather than at
+   * the next scheduled run.
+   */
+  get keepsCopyOwed(): boolean {
+    return !this.permanent || this.kind === 'signin';
   }
 }
 
@@ -81,6 +93,7 @@ export function transferFailure(
 
 export type BackupFailureMessageKey =
   | 'backup.backupFailedAuth'
+  | 'backup.backupFailedSignIn'
   | 'backup.backupFailedQuota'
   | 'backup.backupFailedPath'
   | 'backup.backupFailedServer'
@@ -90,6 +103,7 @@ export type BackupFailureMessageKey =
 
 const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   auth: 'backup.backupFailedAuth',
+  signin: 'backup.backupFailedSignIn',
   quota: 'backup.backupFailedQuota',
   path: 'backup.backupFailedPath',
   server: 'backup.backupFailedServer',

@@ -6,7 +6,7 @@
  * reference sit at -1, +1 and 0 of the attempt's largest absolute stretch. A
  * stretch the attempt did not cover (NaN) takes the no-data grey.
  *
- * Requires the `ShapeSource` to set `lineMetrics: true` so that
+ * Requires the GeoJSON source spec to set `lineMetrics: true` so that
  * `line-progress` expressions are available.
  */
 import { mapLayerColors } from '@/theme';

@@ -57,10 +57,10 @@ export async function setAsideCopies(dbPath: string): Promise<string[]> {
 /**
  * Delete every copy of the library set aside beside `dbPath`, and its pair.
  *
- * Launch keeps a quarantined one so the salvage can read what it missed, and
- * only the next quarantine removes it. Nothing removes a displaced one. Either
- * is a whole copy of a library that would otherwise outlive the athlete it
- * belongs to.
+ * Launch keeps the oldest quarantined one so the salvage can read what it
+ * missed, and a later quarantine removes only the newer ones. Nothing removes
+ * a displaced one. Either is a whole copy of a library that would otherwise
+ * outlive the athlete it belongs to.
  */
 export async function deleteSetAsideCopies(dbPath: string): Promise<void> {
   const copies = await setAsideCopies(dbPath);

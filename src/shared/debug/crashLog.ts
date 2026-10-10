@@ -5,11 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CRASH_LOG_KEY = 'veloq-crash-log';
 const MAX_ENTRIES = 20;
-// Rust panics arrive in bulk from a file, so they hold a bounded share of the
+// Rust panics arrive in bulk from a file, and one map renderer death is an
+// entry for every map surface it carried, so each holds a bounded share of the
 // log; JavaScript crashes keep the rest and are never displaced by them.
 const MAX_RUST_ENTRIES = 10;
+const MAX_RENDERER_ENTRIES = 5;
 
-export type CrashSource = 'js-global' | 'react-boundary' | 'rust-panic';
+export type CrashSource = 'js-global' | 'react-boundary' | 'rust-panic' | 'webview-renderer';
 
 export interface CrashEntry {
   ts: number;
@@ -59,13 +61,19 @@ function removeOldest(entries: CrashEntry[], match: (e: CrashEntry) => boolean) 
 }
 
 /**
- * Rust panics are capped at their share, so an entry over the total cap is
- * always a JavaScript crash, and the oldest of those goes.
+ * Rust panics and renderer deaths are capped at their shares, so an entry over
+ * the total cap is always a JavaScript crash, and the oldest of those goes.
  */
 function trimToRetention(entries: CrashEntry[]) {
   const isRust = (e: CrashEntry) => e.source === 'rust-panic';
+  const isRenderer = (e: CrashEntry) => e.source === 'webview-renderer';
   while (entries.filter(isRust).length > MAX_RUST_ENTRIES) removeOldest(entries, isRust);
-  while (entries.length > MAX_ENTRIES) removeOldest(entries, (e) => !isRust(e));
+  while (entries.filter(isRenderer).length > MAX_RENDERER_ENTRIES) {
+    removeOldest(entries, isRenderer);
+  }
+  while (entries.length > MAX_ENTRIES) {
+    removeOldest(entries, (e) => !isRust(e) && !isRenderer(e));
+  }
 }
 
 type NewCrash = Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string | undefined };

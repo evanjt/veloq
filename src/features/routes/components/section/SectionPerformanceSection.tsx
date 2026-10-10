@@ -72,6 +72,11 @@ export interface SectionPerformanceSectionProps {
   bestReverseRecord: DirectionBestRecord | null;
   bestForwardIsRecord: boolean;
   bestReverseIsRecord: boolean;
+  /**
+   * Every activity's time stream is read, so the bests on screen are the
+   * record. Until then no record mark is drawn. Absent means settled.
+   */
+  recordsSettled?: boolean | undefined;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onExcludeActivity?: ((activityId: string) => void) | undefined;
   onIncludeActivity?: ((activityId: string) => void) | undefined;
@@ -102,6 +107,7 @@ export function SectionPerformanceSection({
   bestReverseRecord,
   bestForwardIsRecord,
   bestReverseIsRecord,
+  recordsSettled,
   onActivitySelect,
   onExcludeActivity,
   onIncludeActivity,
@@ -167,6 +173,7 @@ export function SectionPerformanceSection({
           bestReverseRecord={bestReverseRecord}
           bestForwardIsRecord={bestForwardIsRecord}
           bestReverseIsRecord={bestReverseIsRecord}
+          recordsSettled={recordsSettled}
           forwardStats={forwardStats}
           reverseStats={reverseStats}
           onActivitySelect={onActivitySelect}

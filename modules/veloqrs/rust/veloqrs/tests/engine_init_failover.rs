@@ -38,10 +38,10 @@ fn quarantine_files(dir: &Path) -> Vec<String> {
 /// readable.
 fn corrupt_activities_pages(db_path: &Path, db_str: &str) {
     let conn = rusqlite::Connection::open(db_path).unwrap();
-    let page_size: u64 = conn
+    let page_size: i64 = conn
         .query_row("PRAGMA page_size", [], |r| r.get(0))
         .unwrap();
-    let roots: Vec<u64> = conn
+    let roots: Vec<i64> = conn
         .prepare(
             "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'activities' AND rootpage > 0",
         )
@@ -443,16 +443,85 @@ fn init_survives_corrupt_database() {
     assert_eq!(
         db_generations.len(),
         1,
-        "only the newest quarantine generation may remain, got {:?}",
+        "only one quarantine generation may remain, got {:?}",
         generation_two
     );
-    assert_ne!(
+    assert_eq!(
         db_generations[0],
         generation_one
             .iter()
             .find(|n| !n.ends_with("-wal") && !n.ends_with("-shm"))
             .unwrap(),
-        "second event must produce a new generation"
+        "the first generation holds the original library and is the one kept"
+    );
+}
+
+/// Scenario: an earlier launch quarantined the athlete's library, and the
+/// fresh file that replaced it fails to open too. This time the rename aside
+/// fails, so nothing new is quarantined.
+/// Expected behaviour: init reports the engine unavailable and the earlier
+/// generation, the only copy of the original library, is still on disk.
+#[test]
+fn a_failed_quarantine_deletes_no_earlier_generation() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    let earlier = tmp.path().join("routes.db.corrupt-1");
+    fs::write(&earlier, b"the original library").unwrap();
+    fs::write(&db_path, b"not a database either").unwrap();
+    // A directory at every name the quarantine could pick for this second
+    // makes the rename of the main file fail, the way an unmovable file would.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    for ts in now.saturating_sub(5)..now + 1_000 {
+        fs::create_dir(tmp.path().join(format!("routes.db.corrupt-{ts}"))).unwrap();
+    }
+
+    assert!(!persistent_engine_init(db_str.clone()));
+    assert_eq!(
+        fs::read(&earlier).ok().as_deref(),
+        Some(&b"the original library"[..]),
+        "a quarantine that did not happen deleted the earlier generation"
+    );
+    assert_eq!(fs::read(&db_path).unwrap(), b"not a database either");
+}
+
+/// Scenario: an earlier launch quarantined the athlete's library, and the
+/// nearly empty file that replaced it is quarantined in turn.
+/// Expected behaviour: the earlier generation, which holds the original
+/// library, is the one kept, and the new generation goes with its sidecars.
+#[test]
+fn a_second_quarantine_keeps_the_oldest_generation() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    let earlier = tmp.path().join("routes.db.corrupt-1");
+    let earlier_wal = tmp.path().join("routes.db.corrupt-1-wal");
+    fs::write(&earlier, b"the original library").unwrap();
+    fs::write(&earlier_wal, b"the original log").unwrap();
+    fs::write(&db_path, b"not a database either").unwrap();
+    fs::write(format!("{db_str}-wal"), b"garbage wal").unwrap();
+
+    assert!(persistent_engine_init(db_str.clone()));
+    assert_eq!(fs::read(&earlier).unwrap(), b"the original library");
+    assert_eq!(fs::read(&earlier_wal).unwrap(), b"the original log");
+    let mut remaining = quarantine_files(tmp.path());
+    remaining.sort();
+    assert_eq!(
+        remaining,
+        vec![
+            "routes.db.corrupt-1".to_string(),
+            "routes.db.corrupt-1-wal".to_string()
+        ],
+        "only the oldest generation may remain"
     );
 }
 

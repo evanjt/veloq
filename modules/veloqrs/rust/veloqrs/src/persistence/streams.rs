@@ -99,6 +99,35 @@ pub(crate) mod pooled {
         Ok(count.max(0) as usize)
     }
 
+    /// Which of `ids` the stream backfill owes an ask, through the same rows as
+    /// its queue, so a track another pass asks for whole is one this pass
+    /// would have asked for anyway.
+    pub(crate) fn owed_among(
+        conn: &Connection,
+        ids: &[String],
+        attempt_limit: u32,
+    ) -> SqlResult<std::collections::HashSet<String>> {
+        let window = retention_days(conn);
+        let mut owed = std::collections::HashSet::new();
+        for chunk in ids.chunks(500) {
+            let placeholders = vec!["?"; chunk.len()].join(",");
+            let sql = format!("SELECT a.id {STREAM_GAP_FROM_WHERE} AND a.id IN ({placeholders})");
+            let mut values: Vec<rusqlite::types::Value> = vec![
+                i64::from(attempt_limit).into(),
+                window.map_or(rusqlite::types::Value::Null, Into::into),
+            ];
+            values.extend(chunk.iter().map(|id| id.clone().into()));
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(values), |row| {
+                row.get::<_, String>(0)
+            })?;
+            for row in rows {
+                owed.insert(row?);
+            }
+        }
+        Ok(owed)
+    }
+
     /// The queue's length and the moving seconds it covers, read through the
     /// same rows as the count so the two cannot describe different queues.
     pub(crate) fn backfill_estimate(
@@ -454,6 +483,113 @@ impl PersistentEngine {
             params![activity_id],
         )?;
         Ok(())
+    }
+
+    /// Record that an answer to the full series ask carried nothing this store
+    /// keeps, as if the stream backfill had asked `attempt_limit` times. The
+    /// pass would ask the same question and get the same answer, so it leaves
+    /// the queue rather than costing another request.
+    pub fn settle_stream_backfill(&self, activity_id: &str, attempt_limit: u32) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT INTO activity_stream_backfill (activity_id, attempts, updated_at)
+             VALUES (?1, ?2, strftime('%s', 'now'))
+             ON CONFLICT(activity_id) DO UPDATE SET
+                attempts = MAX(attempts, excluded.attempts),
+                updated_at = excluded.updated_at",
+            params![activity_id, attempt_limit],
+        )?;
+        Ok(())
+    }
+
+    /// Drop every stored series of one activity. A track about to be replaced
+    /// by one of another length takes its series with it, since they address
+    /// the points it is losing.
+    pub fn drop_activity_streams(&self, activity_id: &str) -> SqlResult<()> {
+        self.db.execute(
+            "DELETE FROM activity_streams WHERE activity_id = ?1",
+            params![activity_id],
+        )?;
+        Ok(())
+    }
+
+    /// Store what one streams answer carried for an activity with a stored
+    /// track: its series and its clock, both in the track's index space, in
+    /// one transaction. Returns whether the clock was stored.
+    ///
+    /// `clock` is stored only when it covers exactly the stored points, since
+    /// a section times a traversal by indexing it with the track's own
+    /// indices. An empty clock records that upstream has none, the zero-length
+    /// row the clock pass writes, and only where no clock is stored yet.
+    /// `None` leaves the clock alone. An activity with no stored track has
+    /// nothing to address the series against, so nothing is written.
+    pub fn store_track_series(
+        &mut self,
+        activity_id: &str,
+        streams: &[StreamDto],
+        clock: Option<&[u32]>,
+    ) -> SqlResult<bool> {
+        let points = self
+            .track_point_counts(&[activity_id.to_string()])
+            .get(activity_id)
+            .copied();
+        let Some(points) = points else {
+            return Ok(false);
+        };
+        self.write_track_series(activity_id, streams, clock, points, |_| Ok(false))
+    }
+
+    /// The write behind [`Self::store_track_series`], with a write of the
+    /// caller's own made inside the same transaction first. `alongside`
+    /// answers whether it moved what the climb bests are measured from.
+    /// `points` is the length the track has once `alongside` has run.
+    pub(super) fn write_track_series(
+        &mut self,
+        activity_id: &str,
+        streams: &[StreamDto],
+        clock: Option<&[u32]>,
+        points: usize,
+        alongside: impl FnOnce(&Connection) -> SqlResult<bool>,
+    ) -> SqlResult<bool> {
+        let times = clock.unwrap_or_default();
+        let clock_fits = !times.is_empty() && times.len() == points;
+        let none_upstream =
+            clock.is_some_and(|t| t.is_empty()) && self.load_time_stream(activity_id).is_none();
+        if !times.is_empty() && !clock_fits {
+            log::warn!(
+                "veloqrs: [Streams] {activity_id} clock covers {} samples, the track {points}, not storing it",
+                times.len()
+            );
+        }
+        let clock_moved =
+            clock_fits && self.load_time_stream(activity_id).as_deref() != Some(times);
+        super::climb_bests::in_write_txn(&self.db, |conn| {
+            let climbs_moved = alongside(conn)?;
+            if !streams.is_empty() {
+                self.write_activity_streams(activity_id, streams, SeriesIndex::Track)?;
+            }
+            if clock_fits || none_upstream {
+                self.store_time_stream(activity_id, times)?;
+            }
+            if clock_moved {
+                // The lap times the old clock produced must not survive it.
+                self.clear_lap_times_for(&[activity_id.to_string()]);
+            }
+            if climbs_moved || clock_moved {
+                super::climb_bests::refresh(conn, activity_id)?;
+            }
+            Ok(())
+        })?;
+        if clock_fits {
+            self.time_streams
+                .put(activity_id.to_string(), times.to_vec());
+            if clock_moved {
+                // The lift veto reads the clock, so a cut made without it
+                // has to be made again.
+                self.evict_processed_activity_ids(&[activity_id.to_string()]);
+            }
+            self.invalidate_perf_cache();
+        }
+        Ok(clock_fits)
     }
 
     /// Bytes the stream store holds, for the settings readout.

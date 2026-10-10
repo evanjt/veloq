@@ -1,17 +1,17 @@
 /** Map activities and filter counts from one Rust screen read. */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import type { LatLngShort } from '@/shared/geo/distance';
 import type { ActivityBoundsItem } from '@/types';
-import { decodeCoords, type MapDistanceBand } from 'veloqrs';
+import type { FfiRouteLineLayer, MapDistanceBand } from 'veloqrs';
 import type { RouteLineLayerInput } from '@/features/maps/lib/routeLineCollection';
+import { createLayerHold } from '@/features/maps/lib/mapLayerHold';
+import { createSectionLineCache, type MapSection } from '@/features/maps/lib/sectionLineCollection';
 
-export interface MapSection {
-  id: string;
-  name: string;
-  visitCount: number;
-  distanceMeters: number;
-  polyline: LatLngShort[];
+export type { MapSection } from '@/features/maps/lib/sectionLineCollection';
+
+/** A route-line layer that carries its lines rather than leaving them with the caller. */
+function carriesRoutes(layer: FfiRouteLineLayer): layer is FfiRouteLineLayer & RouteLineLayerInput {
+  return layer.routes !== undefined;
 }
 
 interface UseEngineMapActivitiesOptions {
@@ -51,6 +51,8 @@ interface UseEngineMapActivitiesReturn {
   routeLines: RouteLineLayerInput | undefined;
   sectionCount: number;
   sections: MapSection[];
+  /** The overlay's lines, the same object while the engine's stamp is unchanged */
+  sectionsGeoJSON: GeoJSON.FeatureCollection;
 }
 
 /** Get the map's filtered activities and unfiltered chip counts. */
@@ -69,6 +71,14 @@ export function useEngineMapActivities({
   // The reader carries the subscription: its identity changes when the channel
   // fires and at no other time, so the memo below reads it and re-runs then.
   const readEngine = useEngineRead(['activities', 'groups', 'sections']);
+  // What the last read decoded of each layer. Its stamp goes back with the next read, so
+  // a filter change is answered without the layers and hands back the same objects.
+  const [routeHold] = useState(() =>
+    createLayerHold<FfiRouteLineLayer, RouteLineLayerInput | undefined>(undefined, (layer) =>
+      carriesRoutes(layer) ? layer : undefined
+    )
+  );
+  const [sectionCache] = useState(createSectionLineCache);
 
   // One call: engine total, sport types and the filtered activities.
   const {
@@ -79,19 +89,20 @@ export function useEngineMapActivities({
     routeCount,
     routeLines,
     sectionCount,
-    sections,
+    sectionOverlay,
   } = useMemo(() => {
-    const empty = {
+    // Built only when there is nothing to show, since it lets go of the held layers.
+    const empty = () => ({
       activities: [],
       availableTypes: [],
       activityCount: 0,
       categoryCounts: [],
       routeCount: 0,
-      routeLines: undefined,
+      routeLines: routeHold.take(undefined),
       sectionCount: 0,
-      sections: [],
-    };
-    if (!enabled) return empty;
+      sectionOverlay: sectionCache.overlay(undefined),
+    });
+    if (!enabled) return empty();
 
     const sportTypesArray = Array.from(selectedTypes);
     const data = readEngine((engine) =>
@@ -103,10 +114,12 @@ export function useEngineMapActivities({
         isMetric,
         showRoutes,
         showSections && sectionsEnabled,
-        nameNeedle
+        nameNeedle,
+        routeHold.stamp(),
+        sectionCache.stamp()
       )
     );
-    if (!data) return empty;
+    if (!data) return empty();
 
     // Convert to ActivityBoundsItem format
     const items: ActivityBoundsItem[] = data.activities.map((a) => ({
@@ -137,21 +150,14 @@ export function useEngineMapActivities({
       activityCount: data.activityCount,
       categoryCounts: data.categoryCounts,
       routeCount: data.routeCount,
-      routeLines: data.routeLines,
+      routeLines: routeHold.take(data.routeLines),
       sectionCount: sectionsEnabled ? data.sectionCount : 0,
-      sections: (sectionsEnabled ? (data.sections ?? []) : []).map((section) => ({
-        id: section.id,
-        name: section.name ?? '',
-        visitCount: section.visitCount,
-        distanceMeters: section.distanceMeters,
-        polyline: decodeCoords(section.encodedPolyline).map((point) => ({
-          lat: point.latitude,
-          lng: point.longitude,
-        })),
-      })),
+      sectionOverlay: sectionCache.overlay(sectionsEnabled ? data.sections : undefined),
     };
   }, [
     enabled,
+    routeHold,
+    sectionCache,
     readEngine,
     startDate,
     endDate,
@@ -172,6 +178,7 @@ export function useEngineMapActivities({
     routeCount,
     routeLines,
     sectionCount,
-    sections,
+    sections: sectionOverlay.sections,
+    sectionsGeoJSON: sectionOverlay.collection,
   };
 }

@@ -1,8 +1,8 @@
 //! A panic under the engine write lock leaves the memory tiers ahead of SQLite.
 //!
-//! Scenario: a mutation panics between a memory write and its row write. SQLite
-//! rolls the transaction back; `activity_metadata`, `groups`, `sections` and the
-//! rest do not go with it, and `with_persistent_engine` recovers the poisoned
+//! Scenario: a mutation panics between a memory write and its row write. The
+//! recovery rolls back any transaction the panic left open; `activity_metadata`,
+//! `groups`, `sections` and the rest do not go with it, and `with_persistent_engine` recovers the poisoned
 //! lock and hands the next caller the engine exactly as the panic left it.
 //!
 //! Expected behaviour: the first caller after each panic reloads the tiers

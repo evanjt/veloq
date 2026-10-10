@@ -575,8 +575,11 @@ fn after_landing(install: u64, ride: &FfiRecordingEntry, intervals_id: &str, upl
     // intervals.icu keeps the sets in the file it was handed, so nothing comes
     // back down the sync for them.
     if ride.activity_type == "WeightTraining" {
-        let imported = std::fs::read(crate::net::transport::strip_file_scheme(&ride.fit_path))
-            .map_err(|e| e.to_string())
+        // The row read again stores the path as the app wrote it, so it
+        // resolves against the live documents directory like every other read.
+        let imported = recording_file(&ride.fit_path)
+            .ok_or_else(|| "the documents directory is not known yet".to_string())
+            .and_then(|path| std::fs::read(path).map_err(|e| e.to_string()))
             .and_then(|bytes| {
                 crate::objects::strength::import_fit_sets_under(install, intervals_id, &bytes)
                     .map_err(|e| e.to_string())

@@ -20,7 +20,7 @@ fn seed_groups() {
                         id,
                         members[0],
                         serde_json::to_string(members).unwrap(),
-                        members.len()
+                        members.len() as i64
                     ],
                 )
                 .unwrap();

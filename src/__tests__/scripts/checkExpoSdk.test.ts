@@ -116,7 +116,7 @@ describe('Expo SDK dependency guard', () => {
     expect(result.output).toContain('@react-native/jest-preset');
   });
 
-  it('requires the specified screens repair in both package files', () => {
+  it('requires the screens repair in both package files', () => {
     const base = {
       bundled: { 'react-native-screens': '4.25.2' },
       declared: { 'react-native-screens': '4.28.0' },
@@ -126,5 +126,126 @@ describe('Expo SDK dependency guard', () => {
     expect(runGuard({ ...base, declared: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
     expect(runGuard({ ...base, locked: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
     expect(runGuard({ ...base, locked: { 'react-native-screens': '4.29.0' } }).status).toBe(1);
+  });
+
+  it('requires the null EGL surface repair to Skia in both package files', () => {
+    const base = {
+      bundled: { '@shopify/react-native-skia': '2.6.2' },
+      declared: { '@shopify/react-native-skia': '2.9.1' },
+      locked: { '@shopify/react-native-skia': '2.9.1' },
+    };
+    expect(runGuard(base).status).toBe(0);
+    for (const version of ['2.6.2', '2.6.3', '2.9.0', '2.10.0', '^2.9.1', '~2.9.1']) {
+      const declared = runGuard({ ...base, declared: { '@shopify/react-native-skia': version } });
+      expect(declared.status).toBe(1);
+      expect(declared.output).toContain('@shopify/react-native-skia');
+    }
+    for (const version of ['2.6.2', '2.6.3', '2.10.0']) {
+      expect(runGuard({ ...base, locked: { '@shopify/react-native-skia': version } }).status).toBe(
+        1
+      );
+    }
+  });
+
+  it('requires the reanimated repair in both package files', () => {
+    const base = {
+      bundled: { 'react-native-reanimated': '4.3.1' },
+      declared: { 'react-native-reanimated': '4.3.4' },
+      locked: { 'react-native-reanimated': '4.3.4' },
+    };
+    expect(runGuard(base).status).toBe(0);
+    expect(runGuard({ ...base, declared: { 'react-native-reanimated': '4.3.0' } }).status).toBe(1);
+    expect(runGuard({ ...base, declared: { 'react-native-reanimated': '4.4.0' } }).status).toBe(1);
+    expect(runGuard({ ...base, locked: { 'react-native-reanimated': '4.3.1' } }).status).toBe(1);
+    expect(runGuard({ ...base, locked: { 'react-native-reanimated': '4.4.0' } }).status).toBe(1);
+  });
+
+  it('holds screens to its floor whatever the SDK bundles', () => {
+    const bundled = { 'react-native-screens': '~4.26.0' };
+    const below = runGuard({
+      bundled,
+      declared: { 'react-native-screens': '~4.26.0' },
+      locked: { 'react-native-screens': '4.26.0' },
+    });
+    expect(below.status).toBe(1);
+    expect(below.output).toContain('react-native-screens');
+    expect(below.output).toContain('4.28.0');
+
+    const repaired = {
+      bundled,
+      declared: { 'react-native-screens': '4.28.0' },
+      locked: { 'react-native-screens': '4.28.0' },
+    };
+    expect(runGuard(repaired).status).toBe(0);
+    expect(runGuard({ ...repaired, declared: { 'react-native-screens': '^4.28.0' } }).status).toBe(
+      1
+    );
+    expect(runGuard({ ...repaired, locked: { 'react-native-screens': '4.29.0' } }).status).toBe(1);
+    expect(
+      runGuard({
+        bundled,
+        declared: { 'react-native-screens': '5.0.0' },
+        locked: { 'react-native-screens': '5.0.0' },
+      }).status
+    ).toBe(1);
+  });
+
+  it('follows the SDK again once its screens reach the floor', () => {
+    const base = {
+      bundled: { 'react-native-screens': '~4.29.0' },
+      declared: { 'react-native-screens': '~4.29.0' },
+      locked: { 'react-native-screens': '4.29.1' },
+    };
+    expect(runGuard(base).status).toBe(0);
+    expect(
+      runGuard({
+        ...base,
+        declared: { 'react-native-screens': '4.28.0' },
+        locked: { 'react-native-screens': '4.28.0' },
+      }).status
+    ).toBe(1);
+  });
+
+  it('refuses a background task manager that keeps every task callback', () => {
+    const result = runGuard({
+      bundled: { 'expo-task-manager': '~56.0.10' },
+      declared: { 'expo-task-manager': '~56.0.16' },
+      locked: { 'expo-task-manager': '56.0.16' },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('expo-task-manager');
+    expect(result.output).toContain('56.0.24');
+
+    const current = {
+      bundled: { 'expo-task-manager': '~56.0.27' },
+      declared: { 'expo-task-manager': '~56.0.27' },
+      locked: { 'expo-task-manager': '56.0.27' },
+    };
+    expect(runGuard(current).status).toBe(0);
+
+    const pinned = {
+      bundled: { 'expo-task-manager': '~56.0.10' },
+      declared: { 'expo-task-manager': '56.0.24' },
+      locked: { 'expo-task-manager': '56.0.24' },
+    };
+    expect(runGuard(pinned).status).toBe(0);
+    expect(runGuard({ ...pinned, locked: { 'expo-task-manager': '56.0.16' } }).status).toBe(1);
+  });
+
+  it('refuses a location module that leaks its watches', () => {
+    const base = {
+      bundled: { 'expo-location': '~56.0.26' },
+      declared: { 'expo-location': '~56.0.26' },
+      locked: { 'expo-location': '56.0.26' },
+    };
+    expect(runGuard(base).status).toBe(0);
+    const result = runGuard({
+      bundled: { 'expo-location': '~56.0.10' },
+      declared: { 'expo-location': '~56.0.15' },
+      locked: { 'expo-location': '56.0.15' },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('expo-location');
+    expect(result.output).toContain('56.0.24');
   });
 });

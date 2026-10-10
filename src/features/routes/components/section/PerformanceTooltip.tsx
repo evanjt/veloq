@@ -42,6 +42,8 @@ export interface PerformanceTooltipProps {
   onSetAsReference?: ((activityId: string) => void) | undefined;
   onExcludeActivity?: ((activityId: string) => void) | undefined;
   onIncludeActivity?: ((activityId: string) => void) | undefined;
+  /** Every time stream is read, so the best point is the record. Absent means settled. */
+  recordsSettled?: boolean | undefined;
   /** Called when the exclude/include buttons are tapped (to clear local selection). */
   onClearSelection: () => void;
 }
@@ -55,6 +57,7 @@ export function PerformanceTooltip({
   onSetAsReference,
   onExcludeActivity,
   onIncludeActivity,
+  recordsSettled = true,
   onClearSelection,
 }: PerformanceTooltipProps) {
   const { t } = useTranslation();
@@ -98,7 +101,7 @@ export function PerformanceTooltip({
       >
         <View style={styles.tooltipLeft}>
           <View style={styles.tooltipNameRow}>
-            {selectedPoint.isBest && (
+            {recordsSettled && selectedPoint.isBest && (
               <>
                 <MaterialCommunityIcons
                   name="trophy"

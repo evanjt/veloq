@@ -50,7 +50,7 @@ describe('the streams hook reads the body once', () => {
     const { result, rerender } = renderHook(() => useActivityStreams('a1'), {
       wrapper,
     });
-    await waitFor(() => expect(result.current.data?.time).toEqual([0, 1, 2]));
+    await waitFor(() => expect(result.current.data?.time).toEqual(new Float64Array([0, 1, 2])));
 
     const afterFirstPaint = engine.getActivityStreams.mock.calls.length;
     for (let frame = 0; frame < 20; frame++) rerender(undefined);
@@ -60,7 +60,7 @@ describe('the streams hook reads the body once', () => {
 
   it('reads the body once for the first paint, not twice', async () => {
     const { result } = renderHook(() => useActivityStreams('a1'), { wrapper });
-    await waitFor(() => expect(result.current.data?.time).toEqual([0, 1, 2]));
+    await waitFor(() => expect(result.current.data?.time).toEqual(new Float64Array([0, 1, 2])));
 
     expect(engine.getActivityStreams).toHaveBeenCalledTimes(1);
   });
@@ -108,7 +108,7 @@ describe('stream download state', () => {
     });
     await waitFor(() => expect(result.current.bodyStatus).toBe('idle'));
     expect(result.current.isDownloaded).toBe(true);
-    expect(result.current.data.time).toEqual([0, 1]);
+    expect(result.current.data.time).toEqual(new Float64Array([0, 1]));
     jest.useRealTimers();
   });
 

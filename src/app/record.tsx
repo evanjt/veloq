@@ -49,7 +49,7 @@ import {
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { requestNotificationPermission } from '@/features/settings';
 import { getEngine } from '@/shared/native/engine';
-import { readCalendarEvents } from '@/features/home';
+import { readPlannedWorkouts } from '@/features/home';
 import { navigateTo, replaceTo, tapTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
@@ -96,7 +96,7 @@ function RecordScreenContent() {
   // yet answers empty either way, and the subscriptions below recover it.
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>(() => {
     const today = formatLocalDate(new Date());
-    return readCalendarEvents(today, today);
+    return readPlannedWorkouts(today, today);
   });
 
   const gps = useEntryLocation(mode === 'gps' && sessionStatus === 'idle');
@@ -143,7 +143,7 @@ function RecordScreenContent() {
     const today = formatLocalDate(new Date());
     const engine = getEngine();
     if (!engine) return undefined;
-    const reread = () => setTodayEvents(readCalendarEvents(today, today));
+    const reread = () => setTodayEvents(readPlannedWorkouts(today, today));
     const offCalendar = engine.subscribe('bodyStored', (payload) => {
       if ((payload as { kind?: string } | undefined)?.kind !== 'calendar') return;
       reread();

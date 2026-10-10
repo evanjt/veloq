@@ -476,11 +476,12 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     };
     assert_eq!(outcome.unavailable, 1);
     assert_eq!(outcome.elevated, 1);
-    // Two asks, once ever: the elevation-only ask comes back with nothing,
-    // which cannot say whether upstream has no altitude or answered with
-    // nothing at all, so the whole track settles it. The row is state 2
-    // afterwards and no later pass asks again.
-    bare.assert_hits(2);
+    // One ask, once ever: the track is owed its series too, so it is asked
+    // for the whole series set, and the coordinates in that answer say
+    // upstream has no altitude for it. The row is state 2 afterwards and no
+    // later pass asks again. The elevation-only ask's two steps are pinned by
+    // `an_answer_with_no_altitude_series_is_settled_by_the_whole_track`.
+    bare.assert_hits(1);
     assert_eq!(state_of("bare"), UNAVAILABLE);
     assert!(
         queue_ids().is_empty(),
@@ -494,10 +495,10 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     drain_detection();
 
     // The same library again: the pass has no work at all, so nothing is
-    // re-requested. The count is the two asks the first pass made, unchanged.
+    // re-requested. The count is the one ask the first pass made, unchanged.
     let again = run_backfill(&fast_transport(server.base_url()));
     assert_eq!(again, BackfillRun::Finished(Default::default()));
-    bare.assert_hits(2);
+    bare.assert_hits(1);
 }
 
 /// One failed request costs its own activity and nothing else, and leaves that
@@ -1536,6 +1537,15 @@ fn moved_streams(count: usize) -> serde_json::Value {
     ])
 }
 
+/// Keep the pass to the elevation ask. A track the stream pass owes its
+/// series is asked for the whole series set instead, and the seeded
+/// activities, dated in 2023, are outside a thirty-day window.
+fn asked_for_elevation_alone() {
+    with_persistent_engine(|engine| engine.set_stream_retention_days(30))
+        .expect("engine")
+        .expect("window set");
+}
+
 fn stored_track(id: &str) -> Vec<GpsPoint> {
     with_persistent_engine(|engine| engine.get_gps_track(id))
         .expect("engine")
@@ -1549,6 +1559,7 @@ fn stored_track(id: &str) -> Vec<GpsPoint> {
 fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
+    asked_for_elevation_alone();
     let before = stored_track("a1");
 
     let server = MockServer::start();
@@ -1559,7 +1570,7 @@ fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() 
     });
     let whole_track = server.mock(|when, then| {
         when.path("/activity/a1/streams.json")
-            .query_param("types", "latlng,fixed_altitude,altitude");
+            .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(moved_streams(before.len()));
     });
 
@@ -1602,6 +1613,7 @@ fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() 
 fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
+    asked_for_elevation_alone();
     let before = stored_track("a1");
     let moved = before.len() + 2;
 
@@ -1613,7 +1625,7 @@ fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
     });
     let whole_track = server.mock(|when, then| {
         when.path("/activity/a1/streams.json")
-            .query_param("types", "latlng,fixed_altitude,altitude");
+            .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(moved_streams(moved));
     });
 
@@ -1642,6 +1654,7 @@ fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
 fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
+    asked_for_elevation_alone();
     let before = stored_track("a1");
 
     let server = MockServer::start();
@@ -1654,7 +1667,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
     });
     let whole_track = server.mock(|when, then| {
         when.path("/activity/a1/streams.json")
-            .query_param("types", "latlng,fixed_altitude,altitude");
+            .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(moved_streams(before.len()));
     });
 
@@ -1686,6 +1699,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
 fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["bare", "gone"]);
+    asked_for_elevation_alone();
 
     let server = MockServer::start();
     for id in ["bare", "gone"] {
@@ -1698,13 +1712,13 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     // Coordinates and no altitude: upstream has answered, permanently.
     let bare = server.mock(|when, then| {
         when.path("/activity/bare/streams.json")
-            .query_param("types", "latlng,fixed_altitude,altitude");
+            .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(flat_streams(0.0));
     });
     // Nothing at all: a transient answer, so the row waits for the next pass.
     let gone = server.mock(|when, then| {
         when.path("/activity/gone/streams.json")
-            .query_param("types", "latlng,fixed_altitude,altitude");
+            .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(json!([]));
     });
 

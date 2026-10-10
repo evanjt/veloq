@@ -23,7 +23,7 @@ import { paceMinutesFromSpeed, speedFromPaceMinutes } from '@/shared/math/kinema
 export interface DataSeries {
   id: ChartTypeId;
   config: ChartConfig;
-  rawData: number[];
+  rawData: ArrayLike<number>;
 }
 
 /**
@@ -68,11 +68,16 @@ function isStoppedSample(config: ChartConfig, raw: number): boolean {
 }
 
 /** The finite samples of a series, less its stops when it is a speed or pace. */
-function movingSamples(config: ChartConfig, rawData: readonly number[]): number[] {
-  const finite = rawData.filter((v) => Number.isFinite(v));
+function movingSamples(config: ChartConfig, rawData: ArrayLike<number>): number[] {
   const motion = config.motion;
-  if (!motion) return finite;
-  return finite.filter((v) => sampleSpeed(motion, v) >= motion.stoppedBelowMs);
+  const kept: number[] = [];
+  for (let i = 0; i < rawData.length; i++) {
+    const v = rawData[i];
+    if (v === undefined || !Number.isFinite(v)) continue;
+    if (motion && sampleSpeed(motion, v) < motion.stoppedBelowMs) continue;
+    kept.push(v);
+  }
+  return kept;
 }
 
 function mean(values: readonly number[]): number {
@@ -84,7 +89,7 @@ function mean(values: readonly number[]): number {
  * speed averages over moving samples, and a pace is the pace of that mean
  * speed rather than the mean of the paces, which a stop would pull towards 0.
  */
-export function seriesAverage(config: ChartConfig, rawData: readonly number[]): number | null {
+export function seriesAverage(config: ChartConfig, rawData: ArrayLike<number>): number | null {
   const samples = movingSamples(config, rawData);
   if (samples.length === 0) return null;
   const motion = config.motion;
@@ -96,7 +101,7 @@ export function seriesAverage(config: ChartConfig, rawData: readonly number[]): 
  * A series' y extent. A pace leaves its stops out, which read as pace 0 and a
  * crawl as hours per kilometre, either of which would flatten the moving pace.
  */
-export function seriesExtent(config: ChartConfig, rawData: readonly number[]): Extent | null {
+export function seriesExtent(config: ChartConfig, rawData: ArrayLike<number>): Extent | null {
   return finiteExtent(config.motion?.kind === 'pace' ? movingSamples(config, rawData) : rawData);
 }
 
@@ -310,7 +315,7 @@ export function computeAllAverages(
 }
 
 /** The first sample at or after `second`, or the last sample when it is past the end. */
-function firstAtOrAfter(seconds: number[], second: number): number {
+function firstAtOrAfter(seconds: ArrayLike<number>, second: number): number {
   let lo = 0;
   let hi = seconds.length - 1;
   while (lo < hi) {
@@ -322,7 +327,7 @@ function firstAtOrAfter(seconds: number[], second: number): number {
 }
 
 /** The last sample at or before `second`, or the first sample when it is before the start. */
-function lastAtOrBefore(seconds: number[], second: number): number {
+function lastAtOrBefore(seconds: ArrayLike<number>, second: number): number {
   const at = firstAtOrAfter(seconds, second);
   if (seconds[at] <= second) return at;
   return Math.max(0, at - 1);
@@ -340,7 +345,7 @@ function lastAtOrBefore(seconds: number[], second: number): number {
  */
 function intervalIndices(
   interval: ActivityInterval,
-  seconds: number[],
+  seconds: ArrayLike<number>,
   length: number
 ): { startIdx: number; endIdx: number } {
   const last = length - 1;

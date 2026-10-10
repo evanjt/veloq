@@ -4,7 +4,7 @@
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::{compute_section_portions, forced_portions};
+use super::{compute_section_portions, forced_portions, forced_reach_m, may_reach, strict_reach_m};
 use crate::persistence::PersistentEngine;
 use crate::sections::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use crate::sections::{LapCarry, assign_carried_exclusions};
@@ -1120,6 +1120,14 @@ impl PersistentEngine {
         let pooled = self.section_config.pool_sports;
         let forced = self.forced_section_ids(activity_id);
 
+        // A cut builds the section's matcher and index before it tests
+        // bounds, so a section out of the track's reach is passed over here,
+        // on one box for the track, rather than built and then refused.
+        let Some(track_bounds) = tracematch::Bounds::from_points(&track) else {
+            return Ok((0, 0));
+        };
+        let config = &self.section_config;
+
         // Every section's passes up front: get_sections() borrows the
         // in-memory Vec, and the insert loop below needs &mut self. The
         // matcher is detection's own, so the rows attach writes are the
@@ -1132,18 +1140,29 @@ impl PersistentEngine {
                 // catalogue a re-detect disagrees with.
                 pooled || sport_type.as_ref().is_none_or(|s| &section.sport_type == s)
             })
-            .map(|section| {
+            .filter_map(|section| {
                 // A section the athlete attached this ride to by hand keeps
                 // the rows the relaxed cut gives it.
-                let cut = if forced.contains(&section.id) {
+                let relaxed = forced.contains(&section.id);
+                let reach_m = if relaxed {
+                    forced_reach_m(config)
+                } else {
+                    strict_reach_m(config)
+                };
+                if !may_reach(&track_bounds, &section.polyline, reach_m) {
+                    return None;
+                }
+                let cut = if relaxed {
                     forced_portions
                 } else {
                     compute_section_portions
                 };
-                (
+                #[cfg(test)]
+                ATTACH_CUTS.with(|count| count.set(count.get() + 1));
+                Some((
                     section.id.clone(),
-                    cut(activity_id, &track, &section.polyline, &self.section_config),
-                )
+                    cut(activity_id, &track, &section.polyline, config),
+                ))
             })
             .filter(|(_, portions)| !portions.is_empty())
             .collect();
@@ -1505,6 +1524,21 @@ impl PersistentEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+thread_local! {
+    static ATTACH_CUTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Sections the attach has cut a track against on this thread.
+#[cfg(test)]
+fn attach_cuts() -> usize {
+    ATTACH_CUTS.with(std::cell::Cell::get)
+}
+
+#[cfg(test)]
+#[path = "tests/attach_reach.rs"]
+mod attach_reach;
 
 #[cfg(test)]
 #[path = "tests/forced_matches.rs"]
@@ -2097,9 +2131,9 @@ mod tests {
 
         HR_STREAM_READS.store(0, Ordering::Relaxed);
         POWER_STREAM_READS.store(0, Ordering::Relaxed);
-        engine.db.trace(Some(count_stream_reads));
+        crate::test_trace::trace_statements!(engine.db, count_stream_reads);
         let (_, portions) = engine.attach_activity_junctions("a1").unwrap();
-        engine.db.trace(None);
+        crate::test_trace::untrace(&engine.db);
 
         assert!(
             portions >= 2,

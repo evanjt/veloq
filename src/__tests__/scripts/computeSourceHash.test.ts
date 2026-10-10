@@ -3,13 +3,14 @@ import os from 'os';
 import path from 'path';
 import { runGit } from '../__shared__/gitFixture';
 
-const { computeSourceHash } = require('../../../scripts/compute-source-hash');
+const { computeSourceHash, isBuildInput } = require('../../../scripts/compute-source-hash');
 
 let root: string;
 const inputs = [
   'src/app.ts',
   'widget/ios/shared/RecordDeepLink.swift',
   'widget/android/view.xml',
+  'push/ios/Extension/NotificationService.swift',
   'app.config.js',
   'package-lock.json',
   'assets/icon.png',
@@ -36,7 +37,8 @@ it.each(['android', 'ios'])(
   (profile) => {
     const initial = computeSourceHash(root, profile);
     for (const file of inputs.filter(
-      (file) => !file.startsWith('widget/') && !file.includes('__tests__')
+      (file) =>
+        !file.startsWith('widget/') && !file.startsWith('push/') && !file.includes('__tests__')
     )) {
       fs.writeFileSync(path.join(root, file), 'changed');
       expect(computeSourceHash(root, profile)).not.toBe(initial);
@@ -58,6 +60,29 @@ it.each(['android', 'ios'])(
     expect(computeSourceHash(root, other)).toBe(otherInitial);
   }
 );
+
+it('invalidates iOS apps, and not Android ones, when the push extension changes', () => {
+  expect(isBuildInput('push/ios/Extension/NotificationService.swift', 'ios')).toBe(true);
+  expect(isBuildInput('push/ios/Extension/NotificationService.swift', 'all')).toBe(true);
+  expect(isBuildInput('push/ios/Extension/NotificationService.swift', 'android')).toBe(false);
+  const ios = computeSourceHash(root, 'ios');
+  const android = computeSourceHash(root, 'android');
+  fs.writeFileSync(path.join(root, 'push/ios/Extension/NotificationService.swift'), 'changed');
+  expect(computeSourceHash(root, 'ios')).not.toBe(ios);
+  expect(computeSourceHash(root, 'android')).toBe(android);
+});
+
+it('invalidates through a tracked link when the file it names changes', () => {
+  fs.mkdirSync(path.join(root, 'modules/shared/ios'), { recursive: true });
+  fs.symlinkSync(
+    '../../../push/ios/Extension/NotificationService.swift',
+    path.join(root, 'modules/shared/ios/NotificationService.swift')
+  );
+  runGit(['add', '.'], root);
+  const initial = computeSourceHash(root, 'ios');
+  fs.writeFileSync(path.join(root, 'push/ios/Extension/NotificationService.swift'), 'changed');
+  expect(computeSourceHash(root, 'ios')).not.toBe(initial);
+});
 
 it('ignores generated files and unit tests, but detects tracked additions and removals', () => {
   const initial = computeSourceHash(root);

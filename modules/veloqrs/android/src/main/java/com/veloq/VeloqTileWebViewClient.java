@@ -17,7 +17,7 @@ import java.util.Map;
  * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
  * fetch and keep the tile when the store does not have it, answering the page
  * at once with a body that follows. Serves the sprite and glyphs out of the
- * app's assets.
+ * app's assets, and GeoJSON Rust writes from what it stores.
  *
  * <p>Android calls this on a background thread with no JavaScript context, so
  * the only route into Rust is {@link TileBridge}, which this module owns.
@@ -26,10 +26,9 @@ import java.util.Map;
 public class VeloqTileWebViewClient extends RNCWebViewClient {
 
   private static final String TAG = "VeloqTile";
-  private static final String TILE_PATH = "/veloq-tile/";
-  private static final String ASSET_PATH = "/veloq-asset/";
 
   private static final TileIntercept TILES = new TileIntercept(TileBridge::answer);
+  private static final GeoIntercept GEO = new GeoIntercept(TileBridge::geo);
 
   private static WebResourceResponse empty(int status, String reason, Map<String, String> headers) {
     return new WebResourceResponse("image/jpeg", null, status, reason, headers,
@@ -40,12 +39,12 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
    * A file the app carries. A glyph range outside the bundle is Rust's to
    * fetch and keep, and any other path the app does not carry is a 404.
    */
-  private static WebResourceResponse asset(WebView view, String url, int at) {
+  private static WebResourceResponse asset(WebView view, String url, String rest) {
     Map<String, String> headers = new HashMap<>();
     headers.put("Access-Control-Allow-Origin", "*");
     headers.put("Cache-Control", "no-store");
 
-    String path = BasemapAssetPath.resolve(url.substring(at + ASSET_PATH.length()));
+    String path = BasemapAssetPath.resolve(rest);
     if (path == null) return empty(404, "No Asset", headers);
     try {
       InputStream stream = view.getContext().getAssets().open(path);
@@ -75,13 +74,12 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
   @Override
   public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
     String url = request.getUrl().toString();
-    int assetAt = url.indexOf(ASSET_PATH);
-    if (assetAt >= 0) {
-      return asset(view, url, assetAt);
-    }
-    int at = url.indexOf(TILE_PATH);
-    if (at < 0) {
+    MapRequestPath route = MapRequestPath.of(url);
+    if (route == null) {
       return super.shouldInterceptRequest(view, request);
+    }
+    if (route.kind == MapRequestPath.Kind.ASSET) {
+      return asset(view, url, route.rest);
     }
 
     // The page shares the WebView's own origin, so this never leaves the
@@ -91,11 +89,13 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
     headers.put("Cache-Control", "no-store");
 
     try {
-      TileIntercept.Answer answer = TILES.answer(url.substring(at + TILE_PATH.length()));
+      TileIntercept.Answer answer = route.kind == MapRequestPath.Kind.GEO
+          ? GEO.answer(route.rest)
+          : TILES.answer(route.rest);
       return new WebResourceResponse(answer.mime, null, answer.status, answer.reason, headers,
           answer.body);
     } catch (Throwable t) {
-      Log.w(TAG, "tile intercept failed for " + url, t);
+      Log.w(TAG, "map request intercept failed for " + url, t);
       return empty(500, "Tile Error", headers);
     }
   }

@@ -1092,6 +1092,50 @@ fn moved_container(dir: &TempDir) -> std::path::PathBuf {
     recordings
 }
 
+/// Scenario: a strength session stored by its name under the documents
+/// directory, and one stored by an absolute path into a container an update
+/// has since moved, both landing.
+/// Expected behaviour: the sets are read out of each session's FIT where it
+/// sits now, so both activities are settled.
+#[test]
+fn a_strength_session_is_read_for_its_sets_from_the_live_documents_directory() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_strength_files_root.db");
+    let recordings = moved_container(&dir);
+    let mut named = ride(&dir, "named", 1_000);
+    named.fit_path = "recordings/named.fit".into();
+    let mut moved = ride(&dir, "moved", 2_000);
+    moved.fit_path = "file:///old-container/Documents/recordings/moved.fit".into();
+    for session in [&mut named, &mut moved] {
+        session.activity_type = "WeightTraining".into();
+        std::fs::write(
+            recordings.join(format!("{}.fit", session.id)),
+            crate::fit::recorded_ride_fit(),
+        )
+        .unwrap();
+        insert(session);
+    }
+    let fake = Fake::answering(vec![landed("i1"), landed("i2")]);
+
+    let named_outcome = upload_ride("named", false, &fake, &now).outcome;
+    let moved_outcome = upload_ride("moved", false, &fake, &now).outcome;
+    set_files_root("");
+
+    assert_eq!(named_outcome, FfiUploadOutcome::Uploaded);
+    assert_eq!(moved_outcome, FfiUploadOutcome::Uploaded);
+    with_persistent_engine(|e| {
+        assert!(
+            e.is_fit_processed("i1").unwrap(),
+            "the named session is settled"
+        );
+        assert!(
+            e.is_fit_processed("i2").unwrap(),
+            "the moved session is settled"
+        );
+    })
+    .unwrap();
+}
+
 /// Scenario: a ride stored by its name under the documents directory, and one
 /// stored by an absolute path into a container an update has since moved.
 /// Expected behaviour: both files are found under the live documents directory

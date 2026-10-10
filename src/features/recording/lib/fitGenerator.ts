@@ -373,11 +373,18 @@ export async function generateFitFile(params: {
     totalDistance = dist;
 
     // Speed (scale 1000 = mm/s)
+    // A negative or non-finite speed is no reading and uses the invalid
+    // sentinels; the upper clamps stop short of them.
     const spd = streams.speed?.[i] ?? 0;
-    const fitSpd = Math.min(65535, Math.round(spd * 1000));
-    writer.writeUint16(fitSpd); // legacy speed (16-bit)
-    writer.writeUint32(Math.round(spd * 1000)); // enhanced_speed (32-bit)
-    if (spd > maxSpeed) maxSpeed = spd;
+    if (Number.isFinite(spd) && spd >= 0) {
+      const fitSpd = Math.round(spd * 1000);
+      writer.writeUint16(Math.min(65534, fitSpd)); // legacy speed (16-bit)
+      writer.writeUint32(Math.min(0xfffffffe, fitSpd)); // enhanced_speed (32-bit)
+      if (spd > maxSpeed) maxSpeed = spd;
+    } else {
+      writer.writeUint16(0xffff);
+      writer.writeUint32(0xffffffff);
+    }
 
     // Power
     const pwr = streams.power?.[i] ?? 0;

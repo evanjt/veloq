@@ -32,6 +32,7 @@ import { darkColors, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
+import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
 import type {
   WebViewBridgeHandlers,
   WebViewBridgeMessage,
@@ -304,7 +305,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     // until the page says it is ready and send the whole spec then.
     if (!readyRef.current) return;
 
-    const { patch } = patcherRef.current.next({
+    const { patch, sourceJson } = patcherRef.current.next({
       sources,
       layers,
       markers,
@@ -313,7 +314,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     });
     if (!patch) return;
 
-    inject(buildApplyScript(patch));
+    inject(buildApplyScript(patch, sourceJson));
   }, [sources, layers, markers, images, interactiveLayers, inject]);
 
   // The bridge handlers are built once, so they reach the current patch sender
@@ -338,9 +339,13 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 
   // The empty answer each caller passes is what it is handed if the page goes
   // away before it replies, so nothing waits on a promise that cannot settle.
+  // With no ready page there is nothing to ask: a released or loading page has
+  // no map for the script to read, and the throw would post nothing.
   const request = useCallback(
     <T,>(empty: T, build: (requestId: string) => string): Promise<T> =>
-      pendingRef.current.open<T>(empty, (requestId) => inject(build(requestId))),
+      readyRef.current
+        ? pendingRef.current.open<T>(empty, (requestId) => inject(build(requestId)))
+        : Promise.resolve(empty),
     [inject]
   );
 
@@ -476,11 +481,24 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     pendingRef.current.abandon();
   }, []);
 
-  // A crashed render process comes back empty, so everything has to resend.
-  const handleCrash = useCallback(() => {
-    forgetPage();
-    webViewRef.current?.reload();
-  }, [forgetPage]);
+  // A page whose renderer died comes back empty, so everything has to resend.
+  // A new view opens at the camera the athlete left, the way a released map
+  // comes back.
+  const { viewKey, lost, onRendererGone } = useRendererRecovery('2D map', {
+    forget: forgetPage,
+    restart: (how) => {
+      if (how === 'reload') {
+        webViewRef.current?.reload();
+        return;
+      }
+      const settled = settledCameraRef.current;
+      if (settled && !pageOpensAt(pageCameraRef.current, settled)) {
+        pageCameraRef.current = settled;
+        setPageEpoch((epoch) => epoch + 1);
+      }
+    },
+    exhausted: () => reportFailure('renderer kept dying'),
+  });
 
   // A released map comes back in the same WebView. The page opens at the
   // camera it was built with, so one the athlete has moved since gets a new
@@ -525,46 +543,53 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 
   useEffect(() => {
     const pending = pendingRef.current;
-    // Both captured on mount. React detaches the ref before this cleanup runs,
-    // so reading `webViewRef.current` here finds null and the page goes on
-    // loading after the surface is gone.
-    const webView = webViewRef.current;
     const tileGate = tileGateRef.current;
     return () => {
       readyRef.current = false;
       tileGate.cancel();
       pending.abandon();
-      webView?.stopLoading();
     };
   }, []);
+
+  // Captured each time a view mounts. React detaches the ref before this
+  // cleanup runs, so reading `webViewRef.current` here finds null and the page
+  // goes on loading after the surface is gone.
+  useEffect(() => {
+    const webView = webViewRef.current;
+    return () => webView?.stopLoading();
+  }, [viewKey, lost]);
 
   return (
     <ComponentErrorBoundary componentName="Map" showRetry={false}>
       <View style={styles.container}>
-        <WebView
-          ref={webViewRef}
-          testID={testID}
-          source={{ html, baseUrl: mapPageBaseUrl() }}
-          style={styles.webview}
-          scrollEnabled={false}
-          bounces={false}
-          overScrollMode="never"
-          nestedScrollEnabled
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState={false}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          originWhitelist={['*']}
-          mixedContentMode="always"
-          androidLayerType="hardware"
-          nativeConfig={veloqWebViewNativeConfig}
-          onMessage={handleMessage}
-          onContentProcessDidTerminate={handleCrash}
-          onRenderProcessGone={handleCrash}
-          onError={(event) => reportFailure(event.nativeEvent?.description ?? 'webview load error')}
-          onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
-        />
+        {!lost && (
+          <WebView
+            key={viewKey}
+            ref={webViewRef}
+            testID={testID}
+            source={{ html, baseUrl: mapPageBaseUrl() }}
+            style={styles.webview}
+            scrollEnabled={false}
+            bounces={false}
+            overScrollMode="never"
+            nestedScrollEnabled
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState={false}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            originWhitelist={['*']}
+            mixedContentMode="always"
+            nativeConfig={veloqWebViewNativeConfig}
+            onMessage={handleMessage}
+            onContentProcessDidTerminate={onRendererGone}
+            onRenderProcessGone={onRendererGone}
+            onError={(event) =>
+              reportFailure(event.nativeEvent?.description ?? 'webview load error')
+            }
+            onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
+          />
+        )}
         {tilesLoading && !unavailable && (
           <View
             style={styles.tilesLoading}

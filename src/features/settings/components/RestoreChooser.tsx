@@ -1,8 +1,9 @@
 /**
  * The ways a library comes back, offered wherever a restore is: a file, a
- * WebDAV server entered inline, and a line on the phone's own backup, which the
- * app can neither list nor fetch because the platform returns it only while a
- * new phone is set up. Signed out, a chosen backup is held for the sign-in.
+ * WebDAV server entered inline, Veloq's own Google Drive folder on Android, and
+ * a line on the phone's own backup, which the app can neither list nor fetch
+ * because the platform returns it only while a new phone is set up. Signed out,
+ * a chosen backup is held for the sign-in.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
@@ -16,7 +17,13 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { getIntlLocale } from '@/shared/format/format';
 
 import { confirmLegacyImport, useImportDatabaseBackup } from '../hooks/useBackup';
-import { webdavBackend, type BackupEntry } from '../lib/autobackup/backends';
+import { webdavBackend, type BackupBackend, type BackupEntry } from '../lib/autobackup/backends';
+import {
+  googleDriveBackend,
+  isGoogleDriveSupported,
+  signInToGoogleDrive,
+} from '../lib/autobackup/backends/googleDriveBackend';
+import { describeBackupFailure } from '../lib/backupFailure';
 import { restoreBackendEntry } from '../lib/restoreBackendEntry';
 import { WebdavConfigForm } from './WebdavConfigForm';
 
@@ -34,6 +41,9 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
   const [showWebdav, setShowWebdav] = useState(false);
   const [entries, setEntries] = useState<BackupEntry[] | null>(null);
   const [listing, setListing] = useState(false);
+  const [driveAccount, setDriveAccount] = useState<string | null>(null);
+  const [driveEntries, setDriveEntries] = useState<BackupEntry[] | null>(null);
+  const [driveListing, setDriveListing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const running = useRef(false);
 
@@ -61,8 +71,34 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
     }
   }, [t]);
 
+  // Signing in here is what sets Google Drive up as a destination, so the
+  // backups after sign-in to intervals.icu go there too.
+  const handleGoogleDrive = useCallback(async () => {
+    setDriveListing(true);
+    try {
+      let account: string | null;
+      try {
+        account = await signInToGoogleDrive();
+      } catch {
+        Alert.alert(t('common.error'), t('backup.carrierGoogleDriveSignInFailed'));
+        return;
+      }
+      if (account === null) return;
+      setDriveAccount(account);
+      setDriveEntries(await googleDriveBackend.listBackups());
+    } catch (error) {
+      const described = describeBackupFailure(error);
+      Alert.alert(
+        t('common.error'),
+        described.kind === 'key' ? t(described.key) : described.message
+      );
+    } finally {
+      setDriveListing(false);
+    }
+  }, [t]);
+
   const handleRestore = useCallback(
-    async (entry: BackupEntry) => {
+    async (backend: BackupBackend, entry: BackupEntry) => {
       if (running.current) return;
       running.current = true;
       const confirmed = await confirmLegacyImport({
@@ -76,7 +112,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       }
       setRestoring(entry.id);
       try {
-        const notice = await restoreBackendEntry(webdavBackend, entry, t);
+        const notice = await restoreBackendEntry(backend, entry, t);
         Alert.alert(notice.title, notice.message);
         onRestored?.();
       } catch (error) {
@@ -137,7 +173,42 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
                 date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
               })}
               variant="ghost"
-              onPress={() => handleRestore(entry)}
+              onPress={() => handleRestore(webdavBackend, entry)}
+              loading={restoring === entry.id}
+              disabled={busy}
+            />
+          ))}
+        </>
+      )}
+      {isGoogleDriveSupported() && (
+        <>
+          <Button
+            testID="restore-chooser-google-drive"
+            label={t('backup.restoreFromGoogleDrive')}
+            variant="secondary"
+            onPress={handleGoogleDrive}
+            loading={driveListing}
+            disabled={busy}
+          />
+          {driveAccount !== null && (
+            <Text testID="restore-chooser-google-drive-account" style={[styles.detail, secondary]}>
+              {driveAccount}
+            </Text>
+          )}
+          {driveEntries?.length === 0 && (
+            <Text testID="restore-chooser-google-drive-none" style={[styles.detail, secondary]}>
+              {t('backup.noBackupsAtDestination')}
+            </Text>
+          )}
+          {driveEntries?.map((entry) => (
+            <Button
+              key={entry.id}
+              testID={`restore-chooser-entry-${googleDriveBackend.id}-${entry.id}`}
+              label={t('backup.restoreDatedBackup', {
+                date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
+              })}
+              variant="ghost"
+              onPress={() => handleRestore(googleDriveBackend, entry)}
               loading={restoring === entry.id}
               disabled={busy}
             />

@@ -60,6 +60,11 @@ export interface SectionContentAreaProps {
   bestReverseRecord: SectionPerformanceRecord | null;
   bestForwardIsRecord: boolean;
   bestReverseIsRecord: boolean;
+  /**
+   * Every activity's time stream is read, so the bests on screen are the
+   * record. Until then no record mark is drawn. Absent means settled.
+   */
+  recordsSettled?: boolean | undefined;
   calendarSummary: CalendarSummary | null;
   /** The sport whose efforts are on screen, the one the engine answered for.
    *  Units follow it: a section has no sport of its own. */
@@ -107,6 +112,7 @@ export function SectionContentArea({
   bestReverseRecord,
   bestForwardIsRecord,
   bestReverseIsRecord,
+  recordsSettled,
   calendarSummary,
   effectiveSportType,
   isRunning,
@@ -197,6 +203,7 @@ export function SectionContentArea({
         bestReverseRecord={bestReverseRecord}
         bestForwardIsRecord={bestForwardIsRecord}
         bestReverseIsRecord={bestReverseIsRecord}
+        recordsSettled={recordsSettled}
         onActivitySelect={onActivitySelect}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
@@ -243,6 +250,7 @@ export function SectionContentArea({
           activityColor={activityColor}
           onSetAsReference={onSetAsReference}
           referenceActivityId={effectiveReferenceId}
+          recordsSettled={recordsSettled}
         />
       )}
 

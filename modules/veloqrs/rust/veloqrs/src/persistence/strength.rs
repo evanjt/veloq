@@ -5,7 +5,7 @@ use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentEngine;
 
-/// A settled verdict on an activity's FIT file. Only these three reach
+/// A settled verdict on an activity's FIT file. Only these four reach
 /// `fit_file_status`; a retryable download failure records nothing at all, which
 /// is what leaves the activity in `get_unprocessed_strength_ids`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,6 +16,9 @@ pub enum FitOutcome {
     Empty,
     /// Upstream has no FIT file for this activity, and never will.
     Absent,
+    /// Downloaded, and the decoder refused it. Kept apart from `Empty` so a
+    /// release whose decoder reads the file can queue these activities again.
+    Undecodable,
 }
 
 impl FitOutcome {
@@ -28,6 +31,7 @@ impl FitOutcome {
             FitOutcome::Parsed => "parsed",
             FitOutcome::Empty => "empty",
             FitOutcome::Absent => "absent",
+            FitOutcome::Undecodable => "undecodable",
         }
     }
 }
@@ -101,8 +105,9 @@ impl PersistentEngine {
 
     /// Record a SETTLED verdict for an activity's FIT file. A row here excludes
     /// the activity from every retry path, so only a verdict that will not change
-    /// on a later attempt may be written: parsed, empty, or absent upstream. A
-    /// download that failed for any other reason writes nothing and is retried.
+    /// on a later attempt may be written: parsed, empty, absent upstream, or
+    /// refused by this build's decoder. A download that failed for any other
+    /// reason writes nothing and is retried.
     pub fn mark_fit_outcome(&self, activity_id: &str, outcome: FitOutcome) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets, outcome)

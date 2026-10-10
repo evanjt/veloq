@@ -712,7 +712,7 @@ impl PersistentEngine {
     ///
     /// Exclusions are user decisions and are not touched: an excluded traversal
     /// is not timed either way.
-    fn clear_lap_times_for(&self, activity_ids: &[String]) {
+    pub(crate) fn clear_lap_times_for(&self, activity_ids: &[String]) {
         if activity_ids.is_empty() {
             return;
         }
@@ -1943,7 +1943,7 @@ mod tests {
     }
 
     /// Statements SQLite ran, for counting the whole-table scan the backfill
-    /// makes. `Connection::trace` takes a plain function pointer, so the sink
+    /// makes. The trace hook takes a plain function pointer, so the sink
     /// is a static rather than a captured counter.
     mod traced {
         use std::sync::Mutex;
@@ -1982,7 +1982,7 @@ mod tests {
     #[test]
     fn storing_a_stream_leaves_the_lap_scan_to_the_batch_tail() {
         let mut engine = engine_with_null_laps(1);
-        engine.db.trace(Some(traced::record));
+        crate::test_trace::trace_statements!(engine.db, traced::record);
 
         traced::reset();
         engine.store_time_streams_flat(&["a1".to_string()], &[0, 10, 20, 30, 40, 50, 60, 70], &[0]);
@@ -1992,7 +1992,7 @@ mod tests {
         engine.attach_finalize(0, false);
         assert_eq!(traced::lap_scans(), 1, "the batch tail scans once");
 
-        engine.db.trace(None);
+        crate::test_trace::untrace(&engine.db);
     }
 
     /// The lazy populate the section screen triggers had the same one-commit-

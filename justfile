@@ -48,6 +48,12 @@ e2e-smoke:
 e2e:
     npm run maestro:test
 
+# --- Release ---
+
+# Once per release, on a test handset with the dev debug build: back up, drop the record zip, restore, compare
+release-backup-roundtrip serial:
+    ANDROID_SERIAL={{serial}} ./scripts/android-backup-roundtrip.sh
+
 # --- Occasional / manual tools ---
 
 # Compare perf-test results to baseline (run `npm run test:perf:ci` first)

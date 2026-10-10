@@ -59,12 +59,14 @@ centre_of() { # $1 an attribute match
     awk '{ printf "%d %d\n", ($1 + $3) / 2, ($2 + $4) / 2 }'
 }
 
-# The first feed card on its stats row, from a dump on stdin: the map preview
-# takes the touch itself.
+# The first feed card on its stats band, from a dump on stdin: the map preview
+# takes the touch itself. A band clipped at the edge of the list is shorter
+# than a whole one and its card may not take a tap, so only the tallest count.
 card_of() {
-  tr '>' '\n' | grep -E 'resource-id="activity-card-' | grep -v 'activity-card-bottom' | head -1 |
+  tr '>' '\n' | grep -E 'resource-id="activity-card-bottom' |
     sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p' |
-    awk '{ printf "%d %d\n", $1 + ($3 - $1) * 0.3, $4 - ($4 - $2) * 0.15 }'
+    awk '{ h = $4 - $2; x[NR] = $1 + ($3 - $1) * 0.3; y[NR] = ($2 + $4) / 2; hs[NR] = h; if (h > top) top = h }
+      END { for (i = 1; i <= NR; i++) if (hs[i] == top) { printf "%d %d\n", x[i], y[i]; exit } }'
 }
 
 # The card point once two dumps a second apart agree on it, with the feed

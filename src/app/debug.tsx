@@ -16,9 +16,13 @@ import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
-import type { FfiPushRun, PersistentEngineStats } from 'veloqrs';
+import type { FfiDashboardData, FfiRequestBudget, PersistentEngineStats } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { attemptEngineRead, engineErrorTag } from '@/shared/native/engineError';
+import {
+  attemptEngineRead,
+  engineErrorTag,
+  type EngineReadResult,
+} from '@/shared/native/engineError';
 
 function getEngine() {
   try {
@@ -203,12 +207,17 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
   );
 }
 
+/** The dashboard's own engine read, taken once per refresh by the screen. */
+type DashboardRead = EngineReadResult<FfiDashboardData | undefined>;
+
 function BackgroundNotificationsDebug({
   isDark,
   refreshKey,
+  dashboard,
 }: {
   isDark: boolean;
   refreshKey: number;
+  dashboard: DashboardRead;
 }) {
   const [runs, setRuns] = useState<TaskRunEntry[]>([]);
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -216,12 +225,7 @@ function BackgroundNotificationsDebug({
 
   // The native worker's own runs. It has no JavaScript in its process, so it
   // writes them to the engine and nothing of it reaches the ring above.
-  const pushRunsRead = useMemo(
-    () => attemptEngineRead((): FfiPushRun[] => getEngine()?.pushRuns() ?? []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Refresh reads the worker runs on demand.
-    [refreshKey]
-  );
-  const pushRuns = pushRunsRead.value ?? [];
+  const pushRuns = (dashboard.ok ? dashboard.value?.pushRuns : undefined) ?? [];
 
   useEffect(() => {
     let cancelled = false;
@@ -248,9 +252,9 @@ function BackgroundNotificationsDebug({
       <View style={styles.tableHeader}>
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>Native push worker</Text>
       </View>
-      {!pushRunsRead.ok ? (
+      {!dashboard.ok ? (
         <Text style={[styles.emptyText, { color: mutedColor }]}>
-          {`Could not read native push runs: ${engineErrorTag(pushRunsRead.error) ?? String(pushRunsRead.error)}`}
+          {`Could not read native push runs: ${engineErrorTag(dashboard.error) ?? String(dashboard.error)}`}
         </Text>
       ) : pushRuns.length > 0 ? (
         pushRuns.map((run) => (
@@ -310,6 +314,66 @@ function BackgroundNotificationsDebug({
   );
 }
 
+function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard: DashboardRead }) {
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const budget: FfiRequestBudget | undefined = dashboard.ok
+    ? dashboard.value?.requestBudget
+    : undefined;
+  const instant = (seconds: number) => new Date(seconds * 1000).toLocaleString();
+  const share = (used: number, allowance: number | undefined) =>
+    allowance == null ? String(used) : `${used} / ${allowance}`;
+
+  return (
+    <CollapsibleSection
+      title="Request budget"
+      icon="gauge"
+      isDark={isDark}
+      defaultOpen={false}
+      testID="debug-section-request-budget"
+    >
+      {!dashboard.ok ? (
+        <Text style={[styles.emptyText, { color: mutedColor }]}>
+          {`Could not read the request budget: ${engineErrorTag(dashboard.error) ?? String(dashboard.error)}`}
+        </Text>
+      ) : budget ? (
+        <>
+          <StatRow
+            label="Cooldown until"
+            value={budget.cooldownUntil == null ? 'none' : instant(budget.cooldownUntil)}
+            isDark={isDark}
+          />
+          <StatRow label="Daily reset" value={instant(budget.nextReset)} isDark={isDark} />
+          <StatRow
+            label="Backfill, 15 min"
+            value={share(budget.backfillLastFifteenMinutes, budget.backfillPerFifteenMinutes)}
+            isDark={isDark}
+          />
+          <StatRow
+            label="Backfill, today"
+            value={share(budget.backfillToday, budget.backfillPerDay)}
+            isDark={isDark}
+          />
+          <StatRow
+            label="Sync, 15 min"
+            value={share(budget.syncLastFifteenMinutes, budget.syncPerFifteenMinutes)}
+            isDark={isDark}
+          />
+          <StatRow label="Sync, today" value={String(budget.syncToday)} isDark={isDark} />
+          <StatRow label="User, today" value={String(budget.userToday)} isDark={isDark} />
+          <Text style={[styles.emptyText, { color: mutedColor }]}>
+            Sign-in calls through the OAuth proxy spend the same shared limits and are not counted
+            here.
+          </Text>
+        </>
+      ) : (
+        <Text style={[styles.emptyText, { color: mutedColor }]}>
+          No request budget is kept in this build.
+        </Text>
+      )}
+    </CollapsibleSection>
+  );
+}
+
 function DebugScreenContent() {
   const { isDark } = useTheme();
   const tabBarClearance = useTabBarClearance();
@@ -329,6 +393,13 @@ function DebugScreenContent() {
     [refreshKey]
   );
   const stats = statsRead.value;
+
+  // The worker's push runs and the request budget, read with the engine stats.
+  const dashboard = useMemo(
+    () => attemptEngineRead((): FfiDashboardData | undefined => getEngine()?.dashboardData()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Refresh reads the dashboard on demand.
+    [refreshKey]
+  );
 
   // The Rust to JavaScript event seam, re-read with the engine stats.
   const events = useMemo(
@@ -410,6 +481,16 @@ function DebugScreenContent() {
               <StatRow
                 label="Signature Cache"
                 value={`${stats.signatureCacheSize}/200`}
+                isDark={isDark}
+              />
+              <StatRow
+                label="SQLite Heap"
+                value={`${(stats.sqliteHeapBytes / 1024 / 1024).toFixed(1)} MB`}
+                isDark={isDark}
+              />
+              <StatRow
+                label="Satellite Cache"
+                value={`${(stats.satelliteCacheBytes / 1024 / 1024).toFixed(1)}/32 MB`}
                 isDark={isDark}
               />
               <StatRow
@@ -538,6 +619,8 @@ function DebugScreenContent() {
           )}
         </CollapsibleSection>
 
+        <RequestBudgetDebug isDark={isDark} dashboard={dashboard} />
+
         {/* Preview queue trace: the last events the render pool recorded */}
         <CollapsibleSection
           title="Preview queue"
@@ -654,7 +737,11 @@ function DebugScreenContent() {
         </CollapsibleSection>
 
         {/* Background Notifications */}
-        <BackgroundNotificationsDebug isDark={isDark} refreshKey={refreshKey} />
+        <BackgroundNotificationsDebug
+          isDark={isDark}
+          refreshKey={refreshKey}
+          dashboard={dashboard}
+        />
 
         {/* Support Card Testing */}
         <SupportCardDebug isDark={isDark} />

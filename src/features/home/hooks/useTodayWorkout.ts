@@ -4,7 +4,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
+import { readPlannedWorkouts } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { CalendarEvent } from '@/types';
 
@@ -36,7 +36,7 @@ export function useTodayWorkout() {
   const query = useQuery<CalendarEvent[]>({
     ...LOCAL_READ_QUERY,
     queryKey,
-    queryFn: () => readCalendarEvents(today, horizon).filter((e) => e.category === 'WORKOUT'),
+    queryFn: () => readPlannedWorkouts(today, horizon),
     enabled: isAuthenticated,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,

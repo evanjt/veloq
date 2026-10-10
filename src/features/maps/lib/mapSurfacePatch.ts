@@ -14,6 +14,8 @@
  * object, since re-sending one would replace the page's data for no reason.
  * `serialised` is what the saving is read from: on a memoised render it is
  * zero, and every spec counted there is one the gesture budget paid for.
+ * A source serialised here is handed on as `sourceJson`, so the script that
+ * sends it reuses the string rather than stringifying the track again.
  */
 import type {
   MapImageSpec,
@@ -118,6 +120,8 @@ export type SurfacePatch = {
 export type PatchResult = {
   patch: SurfacePatch | null;
   serialised: number;
+  /** The JSON of each source in `patch.sources` that was serialised to diff it. */
+  sourceJson: Record<string, string>;
 };
 
 /** What the page holds for one source. */
@@ -171,6 +175,7 @@ export function createSurfacePatcher() {
     next(specs: SurfaceSpecs): PatchResult {
       const changed: Record<string, MapSourceSpec | null> = {};
       const appends: Record<string, GeoJSON.Position[]> = {};
+      const sourceJson: Record<string, string> = {};
       const nextSources: Record<string, SentSource> = {};
       let hasSourceChange = false;
       let hasAppend = false;
@@ -204,6 +209,7 @@ export function createSurfacePatcher() {
         nextSources[id] = { spec, json, line: null, lineLength: 0 };
         if (prior && prior.json === json) continue;
         changed[id] = spec;
+        sourceJson[id] = json;
         hasSourceChange = true;
       }
 
@@ -232,7 +238,7 @@ export function createSurfacePatcher() {
         !markers.changed &&
         !images.changed
       ) {
-        return { patch: null, serialised };
+        return { patch: null, serialised, sourceJson };
       }
 
       return {
@@ -247,6 +253,7 @@ export function createSurfacePatcher() {
           ...(specs.interactiveLayers ? { interactiveLayers: specs.interactiveLayers } : {}),
         },
         serialised,
+        sourceJson,
       };
     },
   };

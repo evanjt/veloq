@@ -20,6 +20,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/tracks.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/climb_bests.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/cutover.rs": 10,
+  "modules/veloqrs/rust/veloqrs/src/persistence/memory.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/new_ground.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/record_backup.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/regroup.rs": 1,

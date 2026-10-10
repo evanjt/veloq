@@ -13,6 +13,7 @@ import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { hasStarted } from 'veloqrs';
 import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
+import { timeAppWork } from '@/shared/debug/renderTimer';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
@@ -37,16 +38,21 @@ function readActivities(oldest: string, newest: string): Activity[] {
   );
 }
 
-function parseBodies(bodies: readonly string[]): Activity[] {
-  const out: Activity[] = [];
-  for (const body of bodies) {
-    try {
-      out.push(JSON.parse(body) as Activity);
-    } catch {
-      // A body we cannot parse is a corrupt row, not an activity with no data.
+/** The metrics row for parsing a window of stored activity bodies. */
+export const DECODE_ACTIVITY_BODIES = 'decode.activityBodies';
+
+export function parseBodies(bodies: readonly string[]): Activity[] {
+  return timeAppWork(DECODE_ACTIVITY_BODIES, () => {
+    const out: Activity[] = [];
+    for (const body of bodies) {
+      try {
+        out.push(JSON.parse(body) as Activity);
+      } catch {
+        // A body we cannot parse is a corrupt row, not an activity with no data.
+      }
     }
-  }
-  return out;
+    return out;
+  });
 }
 
 /**

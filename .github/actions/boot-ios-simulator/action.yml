@@ -1,0 +1,66 @@
+name: Boot iOS simulator with the Dev app
+description: Download the Dev simulator app, boot an iPhone simulator and install the app on it
+
+inputs:
+  artifact:
+    description: "Name of the simulator app artifact build-ios.yml uploaded"
+    required: true
+
+outputs:
+  udid:
+    description: "The booted simulator"
+    value: ${{ steps.simulator.outputs.udid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download iOS app
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact }}
+        path: /tmp/ios-artifact
+
+    - name: Extract iOS app
+      shell: bash
+      run: |
+        mkdir -p ios/build/Build/Products/Release-iphonesimulator
+        ZIP=$(find /tmp/ios-artifact -name "*.zip" | head -1)
+        unzip "$ZIP" -d ios/build/Build/Products/Release-iphonesimulator/
+
+    - name: Find and boot simulator
+      id: simulator
+      shell: bash
+      run: |
+        DEVICE="iPhone 17 Pro Max"
+        UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+        if [ -z "$UDID" ]; then
+          UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+        fi
+        echo "Using simulator: $UDID"
+        xcrun simctl boot "$UDID" || true
+        echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+        # run-suite.sh checks and restarts its device through adb unless told
+        # otherwise, and a simulator has none. Every later step reads these.
+        {
+          echo "MAESTRO_DEVICE=$UDID"
+          echo 'MAESTRO_HEALTH_CMD=xcrun simctl list devices booted | grep -q "$MAESTRO_DEVICE"'
+          echo 'MAESTRO_RESTART_CMD=xcrun simctl shutdown "$MAESTRO_DEVICE" || true; xcrun simctl boot "$MAESTRO_DEVICE"; xcrun simctl bootstatus "$MAESTRO_DEVICE"'
+        } >> "$GITHUB_ENV"
+
+    - name: Wait for simulator readiness
+      shell: bash
+      run: |
+        for i in $(seq 1 30); do
+          if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
+            echo "SpringBoard is running"
+            break
+          fi
+          echo "Waiting for SpringBoard... ($i/30)"
+          sleep 2
+        done
+        sleep 5
+
+    - name: Install app
+      shell: bash
+      run: |
+        xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app

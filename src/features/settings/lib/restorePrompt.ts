@@ -12,7 +12,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { platformRecordUri } from '@/shared/storage/platformRecord';
 import { isPlatformRecordAnswered, markPlatformRecordAnswered } from './autobackup/autoBackup';
-import { webdavBackend } from './autobackup/backends';
+import { googleDriveBackend, webdavBackend } from './autobackup/backends';
 import { getWebdavConfig, initWebdavConfig } from './autobackup/webdavConfig';
 
 /**
@@ -27,7 +27,8 @@ export function restorePromptDue(activityCount: number, backupFound: boolean): b
 /**
  * Whether a backup can be seen without asking the athlete for anything: a
  * record zip left in the documents directory that was not applied, or a
- * configured WebDAV server that lists at least one backup.
+ * configured WebDAV server or signed-in Google Drive that lists at least one
+ * backup.
  */
 export async function backupIsFound(): Promise<boolean> {
   try {
@@ -41,8 +42,15 @@ export async function backupIsFound(): Promise<boolean> {
   }
   try {
     await initWebdavConfig();
-    if (!getWebdavConfig()) return false;
-    return (await webdavBackend.listBackups()).length > 0;
+    if (getWebdavConfig() && (await webdavBackend.listBackups()).length > 0) return true;
+  } catch {
+    // A server that cannot be listed is no backup found there.
+  }
+  try {
+    return (
+      (await googleDriveBackend.isAvailable()) &&
+      (await googleDriveBackend.listBackups()).length > 0
+    );
   } catch {
     return false;
   }

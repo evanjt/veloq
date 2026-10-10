@@ -35,9 +35,9 @@ fn steps_in<T>(
     read: impl FnOnce(&mut PersistentEngine) -> T,
 ) -> usize {
     STEPS.store(0, Ordering::SeqCst);
-    engine.db.progress_handler(1, Some(count_step));
+    engine.db.progress_handler(1, Some(count_step)).unwrap();
     let result = read(engine);
-    engine.db.progress_handler(1, None::<fn() -> bool>);
+    engine.db.progress_handler(1, None::<fn() -> bool>).unwrap();
     std::hint::black_box(result);
     STEPS.load(Ordering::SeqCst)
 }

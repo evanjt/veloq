@@ -19,6 +19,9 @@ pub static ASYNC_RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(NET_WORKER_THREADS)
         .thread_name("veloq-net")
+        // Workers and the blocking pool alike are the engine's own, and wait
+        // out a suspension rather than being refused.
+        .on_thread_start(crate::persistence::suspension::mark_engine_thread)
         .enable_all()
         .build()
         .expect("failed to build shared tokio runtime")

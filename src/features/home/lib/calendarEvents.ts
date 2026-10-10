@@ -30,3 +30,11 @@ export function readCalendarEvents(oldest: string, newest: string): CalendarEven
   }
   return out;
 }
+
+/**
+ * The planned workouts over a date window. The calendar also holds notes,
+ * targets, races and seasons, and none of those is a workout to follow.
+ */
+export function readPlannedWorkouts(oldest: string, newest: string): CalendarEvent[] {
+  return readCalendarEvents(oldest, newest).filter((e) => e.category === 'WORKOUT');
+}

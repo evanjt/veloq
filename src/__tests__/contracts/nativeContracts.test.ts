@@ -35,6 +35,7 @@ import {
   ELEVATION_GAIN_HYSTERESIS_M,
   ELEVATION_SMOOTHING_POINTS,
 } from '@/features/recording/lib/elevationChange';
+import { pushDataFor } from '../../../oauth-proxy/src/pushMessages';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
 import * as stub from '../__shared__/veloqrsStub';
@@ -121,6 +122,16 @@ const TILE_IOS = 'modules/veloqrs/ios';
 const TILE_ANDROID = 'modules/veloqrs/android/src/main/java/com/veloq';
 const APP_GROUP = KEYCHAIN_ACCESS_GROUP;
 
+// Each native push parser, and how it reads one key of the worker's data.
+const PUSH_PARSERS = [
+  { file: `${PUSH}/VeloqPushPayload.swift`, read: (key: string) => `data["${key}"]` },
+  { file: `${TILE_ANDROID}/ActivityPushEvent.kt`, read: (key: string) => `fields["${key}"]` },
+];
+// The keys come from running the worker's own builder, not from a copy of them.
+const PUSH_KEYS = Object.keys(
+  pushDataFor({ type: 'ACTIVITY_UPLOADED', athlete_id: 'i1', activity: { id: 'a1' } })
+);
+
 const CONTRACTS: Contract[] = [
   // The push extension and the engine it calls.
   ...[
@@ -171,16 +182,20 @@ const CONTRACTS: Contract[] = [
       has: 'userInfo["body"]',
     },
   },
-  ...['ACTIVITY_UPLOADED', 'ACTIVITY_ANALYZED'].map((event) => ({
-    agree: `the extension enriches ${event}, which the worker sends`,
-    a: { file: `${PUSH}/VeloqPushPayload.swift`, has: `"${event}"` },
-    b: { file: 'oauth-proxy/src/worker.ts', has: `"${event}"` },
-  })),
-  {
-    agree: 'the extension reads the activity id under the key the worker writes',
-    a: { file: `${PUSH}/VeloqPushPayload.swift`, has: 'data["activity_id"]' },
-    b: { file: 'oauth-proxy/src/pushMessages.ts', has: 'data.activity_id' },
-  },
+  ...PUSH_PARSERS.flatMap((parser) =>
+    PUSH_KEYS.map((key) => ({
+      agree: `${path.basename(parser.file)} reads ${key}, a key pushDataFor writes`,
+      a: { file: parser.file, has: parser.read(key) },
+      b: { file: 'oauth-proxy/src/pushMessages.ts', has: 'export function pushDataFor(' },
+    }))
+  ),
+  ...PUSH_PARSERS.flatMap((parser) =>
+    ['ACTIVITY_UPLOADED', 'ACTIVITY_ANALYZED'].map((event) => ({
+      agree: `${path.basename(parser.file)} enriches ${event}, which the worker sends`,
+      a: { file: parser.file, has: `"${event}"` },
+      b: { file: 'oauth-proxy/src/worker.ts', has: `"${event}"` },
+    }))
+  ),
   {
     agree: 'the extension opens the database under the name the app moved it to',
     a: { file: `${PUSH}/VeloqPushPayload.swift`, has: `"${ROUTE_DB_FILES[0]}"` },
@@ -327,7 +342,7 @@ const CONTRACTS: Contract[] = [
   },
 
   // The tile transport, on both platforms.
-  ...['veloq_tile_get_or_fetch', 'veloq_tile_free'].map((name) => ({
+  ...['veloq_tile_get_or_fetch', 'veloq_tile_free', 'veloq_geo_get'].map((name) => ({
     agree: `the iOS scheme handler's ${name} is a symbol Rust exports`,
     a: { file: `${TILE_IOS}/VeloqTileSchemeHandler.m`, has: `${name}(` },
     b: {
@@ -398,6 +413,38 @@ const CONTRACTS: Contract[] = [
       file: `${TILE_ANDROID}/TileBridge.java`,
       has: /public static byte\[\] answer\(\s*String source, int z, int x, int y, int\[\] status, PendingTile pending\)/,
     },
+  },
+  {
+    agree: 'the Android geo bridge hands Rust the path and status array its JNI symbol takes',
+    a: {
+      file: `${TILE_ANDROID}/TileBridge.java`,
+      has: 'private static native byte[] nativeGeo(String path, int[] status);',
+    },
+    b: {
+      file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs',
+      has: /fn Java_com_veloq_TileBridge_nativeGeo<'local>\(\s*mut env: JNIEnv<'local>,\s*_class: JClass<'local>,\s*path: JString<'local>,\s*status: JIntArray<'local>,\s*\)/,
+    },
+  },
+  {
+    agree: 'the Android interceptor answers geo requests through the bridge',
+    a: {
+      file: `${TILE_ANDROID}/VeloqTileWebViewClient.java`,
+      has: 'new GeoIntercept(TileBridge::geo)',
+    },
+    b: {
+      file: `${TILE_ANDROID}/TileBridge.java`,
+      has: 'public static byte[] geo(String path, int[] status)',
+    },
+  },
+  {
+    agree: 'the Android interceptor routes the geo marker the page asks under',
+    a: { file: `${TILE_ANDROID}/MapRequestPath.java`, has: 'GEO_PATH = "/veloq-geo/";' },
+    b: { file: 'src/features/maps/lib/tileTransport.ts', has: '}veloq-geo/${kind}/' },
+  },
+  {
+    agree: 'the iOS handler routes the geo marker the page asks under',
+    a: { file: `${TILE_IOS}/VeloqTileSchemeHandler.m`, has: 'GeoPath = @"/veloq-geo/";' },
+    b: { file: 'src/features/maps/lib/tileTransport.ts', has: '}veloq-geo/${kind}/' },
   },
   {
     agree: 'the iOS handler registers the scheme the page loads on',
@@ -509,19 +556,26 @@ const CONTRACTS: Contract[] = [
       has: `VeloqRecordingNotification.${name}()`,
     },
   })),
-  ...[
-    'bookmarkFolder',
-    'writeToBookmarkedFolder',
-    'listBookmarkedFolder',
-    'readFromBookmarkedFolder',
-  ].map((name) => ({
-    agree: `the iOS backup module defines ${name}, which the backup folder bridge calls`,
+  {
+    agree: 'the iOS backup module defines bookmarkFolder, which the backup folder bridge calls',
     a: {
       file: 'modules/veloq-backup-exclusion/ios/VeloqBackupExclusionModule.swift',
-      has: `Function("${name}")`,
+      has: 'Function("bookmarkFolder")',
     },
-    b: { file: 'src/shared/native/backupFolder.ts', has: `nativeModule().${name}(` },
-  })),
+    b: { file: 'src/shared/native/backupFolder.ts', has: 'nativeModule().bookmarkFolder(' },
+  },
+  // A coordinated copy or listing in a cloud folder waits for the download, so
+  // it runs off the JavaScript thread and the bridge awaits it.
+  ...['writeToBookmarkedFolder', 'listBookmarkedFolder', 'readFromBookmarkedFolder'].map(
+    (name) => ({
+      agree: `the iOS backup module runs ${name} off the JavaScript thread, and the bridge awaits it`,
+      a: {
+        file: 'modules/veloq-backup-exclusion/ios/VeloqBackupExclusionModule.swift',
+        has: `AsyncFunction("${name}")`,
+      },
+      b: { file: 'src/shared/native/backupFolder.ts', has: `await nativeModule().${name}(` },
+    })
+  ),
   {
     agree: 'the Android backup module defines releaseFolderGrant, which the bridge calls',
     a: {
@@ -538,6 +592,30 @@ const CONTRACTS: Contract[] = [
     },
     b: { file: 'src/shared/native/appStorageStats.ts', has: 'mod.getAppStorageStats' },
   },
+  {
+    agree: 'the Android backup module defines authorizeGoogleDrive, which the Drive bridge calls',
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: 'AsyncFunction("authorizeGoogleDrive")',
+    },
+    b: { file: 'src/shared/native/googleDrive.ts', has: 'mod.authorizeGoogleDrive(' },
+  },
+  {
+    agree: 'the Android backup module defines clearGoogleDriveToken, which the Drive bridge calls',
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: 'AsyncFunction("clearGoogleDriveToken")',
+    },
+    b: { file: 'src/shared/native/googleDrive.ts', has: '?.clearGoogleDriveToken(' },
+  },
+  ...['ERR_GOOGLE_SIGN_IN_NEEDED', 'ERR_GOOGLE_SIGN_IN_CANCELLED'].map((code) => ({
+    agree: `a Google Drive refusal crosses as ${code}, the code the bridge reads`,
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/GoogleDriveAuthorization.kt',
+      has: `"${code}"`,
+    },
+    b: { file: 'src/shared/native/googleDrive.ts', has: `'${code}'` },
+  })),
   {
     agree: 'the Android backup module defines getAutoBackupStatus, which the device row reads',
     a: {
@@ -885,6 +963,50 @@ const CONTRACTS: Contract[] = [
       has: new RegExp(`pub (unsafe )?extern "C" fn ${name.slice(0, -1)}\\(`),
     },
   })),
+  ...[
+    'modules/veloq-widget/ios/VeloqWidgetRefreshEngine.h',
+    'modules/veloq-app-group/ios/VeloqEngineSuspension.h',
+  ].flatMap((header) =>
+    [
+      'veloq_engine_entered_background(',
+      'veloq_engine_prepare_for_suspension(',
+      'veloq_engine_resume_after_suspension(',
+    ].map((name) => ({
+      agree: `${path.basename(header)} declares ${name.slice(0, -1)}, a symbol Rust exports`,
+      a: { file: header, has: name },
+      b: {
+        file: `${RUST}/persistence/suspension.rs`,
+        has: new RegExp(`pub extern "C" fn ${name.slice(0, -1)}\\(`),
+      },
+    }))
+  ),
+  {
+    agree: 'the pod registers the subscriber that reports the background to the engine',
+    a: {
+      file: 'modules/veloq-app-group/expo-module.config.json',
+      has: '"appDelegateSubscribers": ["VeloqEngineSuspensionSubscriber"]',
+    },
+    b: {
+      file: 'modules/veloq-app-group/ios/VeloqEngineSuspensionSubscriber.swift',
+      has: 'public final class VeloqEngineSuspensionSubscriber: ExpoAppDelegateSubscriber',
+    },
+  },
+  ...['beginBackgroundTask', 'endBackgroundTask'].map((name) => ({
+    agree: `the App Group module defines the ${name} the app calls`,
+    a: { file: 'src/shared/native/appGroup.ts', has: `mod?.${name}` },
+    b: {
+      file: 'modules/veloq-app-group/ios/VeloqAppGroupModule.swift',
+      has: `Function("${name}")`,
+    },
+  })),
+  {
+    agree: 'the App Group module defines the prepareEngineForSuspension the app calls',
+    a: { file: 'src/shared/native/appGroup.ts', has: 'mod?.prepareEngineForSuspension' },
+    b: {
+      file: 'modules/veloq-app-group/ios/VeloqAppGroupModule.swift',
+      has: 'AsyncFunction("prepareEngineForSuspension")',
+    },
+  },
   {
     agree: 'the task identifier the refresh submits is one the Info.plist permits',
     a: { file: 'app.json', has: '"$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh"' },

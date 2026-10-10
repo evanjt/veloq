@@ -1,9 +1,9 @@
 /**
  * The location dot, shared by every map that draws one.
  *
- * The source stays mounted whether or not a fix is held: a conditionally
- * mounted ShapeSource crashes iOS under Fabric. With no fix the collection is
- * empty and the circles are drawn at zero opacity.
+ * The source stays in the spec list whether or not a fix is held. With no fix
+ * it carries the one shared empty collection, which the surface patcher skips
+ * unsent, and the circles are drawn at zero opacity.
  */
 import { colors } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';

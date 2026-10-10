@@ -190,10 +190,14 @@ fn reader_latency(pool: usize, readers_take_the_engine: bool) {
                     }
                     Some(conn) => {
                         let sections: usize = conn
-                            .query_row("SELECT count(*) FROM sections", [], |r| r.get(0))
+                            .query_row("SELECT count(*) FROM sections", [], |r| {
+                                r.get::<_, i64>(0).map(|n| n as usize)
+                            })
                             .expect("count sections");
                         let activities: usize = conn
-                            .query_row("SELECT count(*) FROM activities", [], |r| r.get(0))
+                            .query_row("SELECT count(*) FROM activities", [], |r| {
+                                r.get::<_, i64>(0).map(|n| n as usize)
+                            })
                             .expect("count activities");
                         sections + activities
                     }

@@ -439,6 +439,66 @@ describe('on iOS, a Files folder held by bookmark', () => {
     ]);
   });
 
+  it('waits for a copy out of the folder that is still downloading before restore goes on', async () => {
+    let finish!: () => void;
+    mockNative.readFromBookmarkedFolder = jest.fn(
+      (_bookmark: string, name: string, to: string) =>
+        new Promise<{ bookmark: string }>((resolve) => {
+          finish = () => {
+            mockFiles.set(`file://${to}`, mockFolder.files.get(name)!);
+            resolve({ bookmark: 'Ym9va21hcmstMw==' });
+          };
+        })
+    );
+    mockFolder.files.set('veloq-2026-01-02T08-00-00-000Z.zip', MOCK_ZIP_BYTES);
+    let settled = false;
+
+    const download = folderBackend
+      .download('veloq-2026-01-02T08-00-00-000Z.zip', 'file:///cache/restore.zip')
+      .then(() => {
+        settled = true;
+      });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+    expect(mockFiles.has('file:///cache/restore.zip')).toBe(false);
+    finish();
+    await download;
+    expect(mockFiles.get('file:///cache/restore.zip')).toEqual(MOCK_ZIP_BYTES);
+    expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMw==');
+  });
+
+  it('reports a folder the native side rejects as out of reach as the folder-unavailable failure', async () => {
+    const unavailable = Object.assign(new Error('The folder could not be resolved'), {
+      code: 'ERR_FOLDER_UNAVAILABLE',
+    });
+    mockNative.readFromBookmarkedFolder = jest.fn(async () => {
+      throw unavailable;
+    });
+    mockNative.listBookmarkedFolder = jest.fn(async () => {
+      throw unavailable;
+    });
+    mockNative.writeToBookmarkedFolder = jest.fn(async () => {
+      throw unavailable;
+    });
+
+    await expect(
+      folderBackend.download('veloq-2026-01-02T08-00-00-000Z.zip', 'file:///cache/restore.zip')
+    ).rejects.toMatchObject({ kind: 'folder_unavailable' });
+    await expect(folderBackend.listBackups()).rejects.toMatchObject({
+      kind: 'folder_unavailable',
+    });
+    await expect(
+      folderBackend.upload('file:///docs/veloq-decisions.zip', {
+        timestamp: '2026-03-14T06:30:00.000Z',
+        sizeBytes: 7,
+        appVersion: '',
+      })
+    ).rejects.toMatchObject({ kind: 'folder_unavailable' });
+    expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMQ==');
+  });
+
   it('forgets the bookmark with the carriers and releases no Android grant', async () => {
     forgetBackupFolder();
 

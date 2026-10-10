@@ -57,7 +57,9 @@
 use crate::governor::Lane;
 use crate::net::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::{StreamDto, storable_series, trackless_series};
+use crate::net::types::{
+    StreamDto, TrackClock, parse_streams, storable_series, track_clock, trackless_series,
+};
 use crate::objects::FfiStartOutcome;
 use crate::persistence::attempts::now_ms;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
@@ -271,23 +273,73 @@ enum AutostartVerdict {
     Held,
 }
 
+/// What the athlete's answers say about downloading the series still owed,
+/// whichever pass would do it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SeriesPermission {
+    /// The athlete stopped the stream pass and the window has not changed
+    /// since.
+    Held,
+    /// The owed queue is past the large-download threshold and nothing says
+    /// yes.
+    AwaitingConsent,
+    Granted,
+}
+
+/// The one decision on whether the owed series may be downloaded. The stream
+/// pass's automatic start reads it, and so does the elevation pass, which
+/// asks a track for its series too only when this grants it.
+pub(crate) fn series_permission(
+    owed: u64,
+    stopped_by_athlete: bool,
+    consented: bool,
+) -> SeriesPermission {
+    if stopped_by_athlete {
+        SeriesPermission::Held
+    } else if owed > STREAM_CONSENT_THRESHOLD as u64 && !consented {
+        SeriesPermission::AwaitingConsent
+    } else {
+        SeriesPermission::Granted
+    }
+}
+
+/// The ask comes before the deferral, so a library past the threshold is
+/// asked while the elevation pass still runs, and a yes reaches the tracks
+/// that pass has not reached yet.
 fn autostart_verdict(i: AutostartInputs) -> AutostartVerdict {
     if i.owed == 0 {
-        AutostartVerdict::NotOwed
-    } else if i.stopped_by_athlete {
-        AutostartVerdict::Held
-    } else if i.cutover_running
-        || (i.detection_enabled && (i.elevation_owed > 0 || i.cutover_pending))
-    {
+        return AutostartVerdict::NotOwed;
+    }
+    match series_permission(i.owed, i.stopped_by_athlete, i.consented) {
+        SeriesPermission::Held => AutostartVerdict::Held,
+        SeriesPermission::AwaitingConsent => AutostartVerdict::AwaitingConsent,
         // With Route Matching off neither the elevation backfill nor the
         // cutover runs, so waiting on what they owe is waiting for ever. A
         // cutover already running ends on its own and is still waited out.
-        AutostartVerdict::Deferred
-    } else if i.owed > STREAM_CONSENT_THRESHOLD as u64 && !i.consented {
-        AutostartVerdict::AwaitingConsent
-    } else {
-        AutostartVerdict::Start
+        SeriesPermission::Granted
+            if i.cutover_running
+                || (i.detection_enabled && (i.elevation_owed > 0 || i.cutover_pending)) =>
+        {
+            AutostartVerdict::Deferred
+        }
+        SeriesPermission::Granted => AutostartVerdict::Start,
     }
+}
+
+/// The permission as it stands now, read from the owed queue, the recorded
+/// answer and the athlete's stop.
+pub(crate) fn current_series_permission(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<SeriesPermission> {
+    let owed = crate::persistence::streams::pooled::backfill_remaining(conn, STREAM_ATTEMPT_LIMIT)?;
+    let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
+        .is_some_and(|v| v == "yes");
+    Ok(series_permission(owed as u64, autostart_held(), consented))
+}
+
+#[cfg(test)]
+pub(crate) fn hold_autostart_for_test() {
+    AUTOSTART_HELD.store(true, Ordering::SeqCst);
 }
 
 /// Start the pass when the library owes series and nothing else has a claim on
@@ -348,12 +400,29 @@ pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
 
 /// Record the athlete's yes to a large download and start the pass. Later
 /// automatic starts skip the ask.
+///
+/// The ask is shown while the elevation pass still runs. A yes given then is
+/// recorded and answered `Held`: that pass asks each track it has not reached
+/// for its series too, and the automatic start after it takes what is left,
+/// so starting here would ask for the same tracks twice.
 pub fn consent_stream_backfill() -> FfiStartOutcome {
     let recorded = crate::objects::error::with_engine(|e| e.set_setting(STREAM_CONSENT_KEY, "yes"));
     if !matches!(recorded, Ok(Ok(()))) {
         return FfiStartOutcome::NotReady;
     }
     release_autostart_hold();
+    let elevation_owed = crate::objects::error::with_reader(
+        crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
+    );
+    let busy = matches!(elevation_owed, Ok(Ok(n)) if n > 0)
+        || crate::persistence::cutover::cutover_pending()
+        || crate::persistence::cutover::cutover_running();
+    if busy && !BACKFILL.running.load(Ordering::SeqCst) {
+        if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT {
+            set_phase(STREAM_PHASE_IDLE);
+        }
+        return FfiStartOutcome::Held;
+    }
     start_stream_backfill()
 }
 
@@ -426,8 +495,10 @@ enum Stopped {
 
 /// What one activity's ask came back as.
 enum Fetched {
-    /// Series reduced to the track's index space, ready to store.
-    Series(Vec<StreamDto>),
+    /// Series reduced to the track's index space, ready to store, and what
+    /// the answer says about the clock in that space. The series are empty
+    /// only when there is a clock that fits the track to store.
+    Series(Vec<StreamDto>, TrackClock),
     /// Series of an activity with no track, in the server's own sample index
     /// with the `time` series that addresses it, ready to store.
     Samples(Vec<StreamDto>),
@@ -447,7 +518,7 @@ enum Fetched {
 /// pass in the same place.
 fn is_connectivity(e: &NetError) -> bool {
     match e {
-        NetError::Transport(_) | NetError::RateLimited => true,
+        NetError::Transport(_) | NetError::RateLimited | NetError::Deferred { .. } => true,
         NetError::Http { status, .. } => *status >= 500,
         _ => false,
     }
@@ -500,23 +571,27 @@ fn reduce(body: &[u8], points: Option<usize>, named: &str) -> Fetched {
         };
     };
     let series = storable_series(&raw);
-    if series.is_empty() {
+    // The clock arrived with the series, so storing it spares the section
+    // maths a `time,latlng` request of their own.
+    let parsed = parse_streams(raw);
+    let clock = track_clock(&parsed);
+    if series.is_empty() && !matches!(clock, TrackClock::Fits(_)) {
         return Fetched::Nothing;
     }
-    // Every series `storable_series` returns is already in the one index space,
-    // so the first is as good as any to measure it by. A length that no longer
+    // The series and the clock are reduced by the same mask as the
+    // coordinates, so the coordinates measure them. A length that no longer
     // matches the stored track is upstream having re-processed the activity,
     // and the stored section indices address the track this device holds.
-    if series[0].data.len() != points {
+    if parsed.latlng.len() != points {
         log::info!(
             "[Streams] {} came back covering {} samples, the stored track holds {}, not storing",
             named,
-            series[0].data.len(),
+            parsed.latlng.len(),
             points
         );
         return Fetched::Nothing;
     }
-    Fetched::Series(series)
+    Fetched::Series(series, clock)
 }
 
 /// One batch of asks, at [`FETCH_CONCURRENCY`] in flight.
@@ -543,24 +618,52 @@ async fn fetch_batch(
         .await
 }
 
+/// What one batch's store step did.
+#[derive(Debug, Default)]
+struct Applied {
+    /// Activities whose series landed.
+    stored: u32,
+    /// Activities upstream answered with no series to store.
+    empty: u32,
+    /// Activities whose clock landed, to announce once the lock is let go.
+    clocks: Vec<String>,
+}
+
 impl PersistentEngine {
     /// Store one batch's series and count the asks that settled nothing, in one
     /// pass over the engine lock rather than one per activity.
-    fn apply_stream_batch(&self, results: &[(String, Fetched)]) -> (u32, u32) {
-        let mut stored = 0;
-        let mut empty = 0;
+    fn apply_stream_batch(&mut self, results: &[(String, Fetched)]) -> Applied {
+        let mut applied = Applied::default();
         for (id, result) in results {
             match result {
-                Fetched::Series(series) => match self.store_activity_streams(id, series) {
-                    Ok(()) => stored += 1,
-                    Err(e) => log::warn!("[Streams] storing {} failed: {}", id, e),
-                },
+                Fetched::Series(series, clock) => {
+                    match self.store_track_series(id, series, clock.to_store()) {
+                        Ok(clock) => {
+                            if clock {
+                                applied.clocks.push(id.clone());
+                            }
+                            if series.is_empty() {
+                                applied.empty += 1;
+                                if let Err(e) = self.record_stream_backfill_attempt(id) {
+                                    log::warn!(
+                                        "[Streams] counting the ask for {} failed: {}",
+                                        id,
+                                        e
+                                    );
+                                }
+                            } else {
+                                applied.stored += 1;
+                            }
+                        }
+                        Err(e) => log::warn!("[Streams] storing {} failed: {}", id, e),
+                    }
+                }
                 Fetched::Samples(series) => match self.store_trackless_streams(id, series) {
-                    Ok(()) => stored += 1,
+                    Ok(()) => applied.stored += 1,
                     Err(e) => log::warn!("[Streams] storing {} failed: {}", id, e),
                 },
                 Fetched::Nothing => {
-                    empty += 1;
+                    applied.empty += 1;
                     if let Err(e) = self.record_stream_backfill_attempt(id) {
                         log::warn!("[Streams] counting the ask for {} failed: {}", id, e);
                     }
@@ -574,7 +677,12 @@ impl PersistentEngine {
                 }
             }
         }
-        (stored, empty)
+        // Once for the batch: the scan is whole-table, and the portions a new
+        // clock can time are the ones it finds.
+        if !applied.clocks.is_empty() {
+            self.backfill_section_performance_cache();
+        }
+        applied
     }
 }
 
@@ -811,8 +919,16 @@ fn drain_queue(
         queue,
         |batch| crate::runtime::block_on(fetch_batch(transport, batch, &upstream)),
         |results| {
-            with_persistent_engine_for(install, |engine| engine.apply_stream_batch(results))
-                .unwrap_or((0, 0))
+            let applied =
+                with_persistent_engine_for(install, |engine| engine.apply_stream_batch(results))
+                    .unwrap_or_default();
+            // With the engine lock let go, so a reader woken by it can take it.
+            if !applied.clocks.is_empty() {
+                crate::objects::observer::notify(
+                    crate::objects::observer::Announcement::TimeStreamsStored(applied.clocks),
+                );
+            }
+            (applied.stored, applied.empty)
         },
         stream_backfill_cancelled,
         crate::net::connectivity::is_offline,
@@ -867,6 +983,17 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Expected behaviour: a request the budget held back says nothing about
+    /// the activity, so it is never counted as an ask for it.
+    #[test]
+    fn a_deferral_is_never_held_against_the_activity() {
+        let deferred = NetError::Deferred {
+            until: chrono::Utc::now(),
+        };
+        assert!(is_connectivity(&deferred));
+        assert!(!says_something_about_the_activity(&deferred));
+    }
 
     fn gaps(n: usize) -> Vec<StreamGap> {
         (0..n)
@@ -1024,7 +1151,10 @@ mod tests {
     ///
     /// Expected behaviour: at the threshold the pass starts; one past it the
     /// start holds for the athlete's answer. A recorded yes starts at any
-    /// size, and a stop or other work in flight still outranks the ask.
+    /// size, and a stop still outranks the ask. Other work in flight does
+    /// not: the ask comes first, so a yes reaches the elevation pass while it
+    /// still has tracks to ask for their series, and a yes still waits for
+    /// that work before the pass itself starts.
     #[test]
     fn a_queue_past_the_large_download_threshold_asks_before_it_starts() {
         let at = AutostartInputs {
@@ -1061,7 +1191,39 @@ mod tests {
                 elevation_owed: 1,
                 ..past
             }),
+            AutostartVerdict::AwaitingConsent
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                elevation_owed: 1,
+                consented: true,
+                ..past
+            }),
             AutostartVerdict::Deferred
+        );
+    }
+
+    /// Scenario: the stream pass and the elevation pass both read whether the
+    /// owed series may be downloaded.
+    ///
+    /// Expected behaviour: one answer for both. A stop holds it at any size,
+    /// past the threshold it waits for a yes, and at or under it, or with a
+    /// yes, it is granted.
+    #[test]
+    fn the_series_permission_is_the_athletes_answers_alone() {
+        let threshold = STREAM_CONSENT_THRESHOLD as u64;
+        assert_eq!(series_permission(1, true, true), SeriesPermission::Held);
+        assert_eq!(
+            series_permission(threshold + 1, false, false),
+            SeriesPermission::AwaitingConsent
+        );
+        assert_eq!(
+            series_permission(threshold, false, false),
+            SeriesPermission::Granted
+        );
+        assert_eq!(
+            series_permission(threshold + 1, false, true),
+            SeriesPermission::Granted
         );
     }
 
@@ -1312,7 +1474,7 @@ mod tests {
     #[test]
     fn an_answer_about_one_activity_retires_it_after_the_attempt_limit() {
         for status in [403, 404, 410] {
-            let (_dir, engine) = engine_holding("a1");
+            let (_dir, mut engine) = engine_holding("a1");
             for _ in 0..STREAM_ATTEMPT_LIMIT {
                 assert_eq!(still_owed(&engine), 1, "status {status}");
                 engine.apply_stream_batch(&[(
@@ -1345,7 +1507,7 @@ mod tests {
                 },
             ]
         };
-        let (_dir, engine) = engine_holding("a1");
+        let (_dir, mut engine) = engine_holding("a1");
         for _ in 0..=STREAM_ATTEMPT_LIMIT {
             for e in failures() {
                 engine.apply_stream_batch(&[("a1".to_string(), Fetched::Failed(e))]);
@@ -1380,7 +1542,7 @@ mod tests {
     fn a_track_that_moved_upstream_stores_nothing() {
         let body = body(&[("latlng", &latlng(4)), ("watts", "[100,110,120,130]")]);
 
-        assert!(matches!(reduce(&body, Some(4), "a1"), Fetched::Series(_)));
+        assert!(matches!(reduce(&body, Some(4), "a1"), Fetched::Series(..)));
         assert!(
             matches!(reduce(&body, Some(3), "a1"), Fetched::Nothing),
             "the stored track holds three samples, the answer covers four"
@@ -1940,3 +2102,7 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/stream_auth.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "tests/stream_time.rs"]
+mod time_tests;

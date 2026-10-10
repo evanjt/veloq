@@ -11,7 +11,7 @@
 import { renderHook } from '@testing-library/react-native';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
 import { gradientToColor } from '@/features/maps/lib/gradientLineColor';
-import type { ActivityStreams } from '@/types';
+import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -22,7 +22,8 @@ const track = Array.from({ length: 5 }, (_, i) => ({
 
 const GRADE = [8, 6, 4, -5, -9];
 
-const stopsOf = (streams: ActivityStreams) => {
+const stopsOf = (arrays: StreamArrays) => {
+  const streams = streamsFromArrays(arrays);
   const { result } = renderHook(() =>
     useMapLayers({ validCoordinates: track, coordinates: track, streams })
   );

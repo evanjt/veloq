@@ -6,15 +6,21 @@
  * over the bridge. Unmounting, releasing the surface or a renderer crash all
  * leave the page unable to answer, and dropping the resolver leaves the
  * awaiting closure alive for the life of the process. So each caller names the
- * answer it wants in that case and `abandon` hands it over.
+ * answer it wants in that case and `abandon` hands it over. A page that is
+ * alive but never answers, a script that threw or an API that never called
+ * back, gets the same empty answer once the deadline passes.
  */
+
+/** How long a request waits for the page before it settles empty, in ms. */
+export const PENDING_REQUEST_DEADLINE_MS = 2000;
 
 type Waiting = {
   resolve: (value: unknown) => void;
   empty: unknown;
+  timer: ReturnType<typeof setTimeout>;
 };
 
-export function createPendingRequests() {
+export function createPendingRequests(deadlineMs: number = PENDING_REQUEST_DEADLINE_MS) {
   const waiting = new Map<string, Waiting>();
   let seq = 0;
 
@@ -26,7 +32,11 @@ export function createPendingRequests() {
       seq += 1;
       const requestId = `req_${seq}`;
       return new Promise<T>((resolve) => {
-        waiting.set(requestId, { resolve: resolve as (value: unknown) => void, empty });
+        const timer = setTimeout(() => {
+          waiting.delete(requestId);
+          resolve(empty);
+        }, deadlineMs);
+        waiting.set(requestId, { resolve: resolve as (value: unknown) => void, empty, timer });
         send(requestId);
       });
     },
@@ -36,6 +46,7 @@ export function createPendingRequests() {
       const entry = waiting.get(requestId);
       if (!entry) return;
       waiting.delete(requestId);
+      clearTimeout(entry.timer);
       entry.resolve(value);
     },
 
@@ -43,7 +54,10 @@ export function createPendingRequests() {
     abandon() {
       const entries = [...waiting.values()];
       waiting.clear();
-      for (const entry of entries) entry.resolve(entry.empty);
+      for (const entry of entries) {
+        clearTimeout(entry.timer);
+        entry.resolve(entry.empty);
+      }
     },
   };
 }

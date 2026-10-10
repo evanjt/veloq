@@ -108,6 +108,21 @@ export function recordAppMetric(name: string, durationMs: number): void {
 }
 
 /**
+ * Run `work` and record how long it took under `name`, for the decoding a
+ * screen does after an engine call returns, which the engine row does not
+ * include. Runs `work` alone while Debug Mode is off. A throw is timed too.
+ */
+export function timeAppWork<T>(name: string, work: () => T): T {
+  if (!appMetricsEnabled) return work();
+  const startedAt = performance.now();
+  try {
+    return work();
+  } finally {
+    recordFFIMetric(name, performance.now() - startedAt);
+  }
+}
+
+/**
  * Get raw FFI metrics (last 500 calls, oldest first).
  */
 export function getFFIMetrics(): FFIMetricEntry[] {

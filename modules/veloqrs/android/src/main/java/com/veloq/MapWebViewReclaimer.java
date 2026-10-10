@@ -7,11 +7,18 @@ import java.util.WeakHashMap;
 import java.util.function.Consumer;
 
 final class MapWebViewReclaimer<T> {
+  private final int releaseLevel;
   private final Consumer<Runnable> post;
   private final Consumer<T> release;
   private final Set<T> mounted = Collections.newSetFromMap(new WeakHashMap<>());
 
-  MapWebViewReclaimer(Consumer<Runnable> post, Consumer<T> release) {
+  /**
+   * From API 34 the system sends no trim level above TRIM_MEMORY_BACKGROUND (40), so that is
+   * the last warning before the low-memory killer; below 34 it is TRIM_MEMORY_MODERATE (60).
+   * TRIM_MEMORY_UI_HIDDEN (20) never releases, so switching apps does not reload the map.
+   */
+  MapWebViewReclaimer(int sdkInt, Consumer<Runnable> post, Consumer<T> release) {
+    this.releaseLevel = sdkInt >= 34 ? 40 : 60;
     this.post = post;
     this.release = release;
   }
@@ -29,7 +36,7 @@ final class MapWebViewReclaimer<T> {
   }
 
   void onTrimMemory(int level) {
-    if (level < 60) return;
+    if (level < releaseLevel) return;
     post.accept(() -> {
       for (T view : new ArrayList<>(mounted)) release.accept(view);
     });

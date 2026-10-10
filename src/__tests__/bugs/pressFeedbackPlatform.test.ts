@@ -7,6 +7,10 @@
  * adds no opacity, so the ripple is the feedback; on iOS there is no ripple and
  * a press fades.
  */
+import type { PressableStateCallbackType } from 'react-native';
+
+// Only `pressed` bears on the style, whatever else the state type carries.
+const state = (pressed: boolean) => ({ pressed }) as PressableStateCallbackType;
 
 function load(os: 'android' | 'ios') {
   jest.resetModules();
@@ -29,13 +33,13 @@ it('gives Android a ripple and no opacity change', () => {
   const { pressRipple, pressable } = load('android');
 
   expect(pressRipple).toEqual({ borderless: false });
-  expect(pressable()({ pressed: true })).toEqual([undefined, null]);
+  expect(pressable()(state(true))).toEqual([undefined, null]);
 });
 
 it('gives iOS a fade and no ripple', () => {
   const { pressRipple, pressable, PRESS_OPACITY } = load('ios');
 
   expect(pressRipple).toBeUndefined();
-  expect(pressable()({ pressed: true })).toEqual([undefined, { opacity: PRESS_OPACITY }]);
-  expect(pressable()({ pressed: false })).toEqual([undefined, null]);
+  expect(pressable()(state(true))).toEqual([undefined, { opacity: PRESS_OPACITY }]);
+  expect(pressable()(state(false))).toEqual([undefined, null]);
 });

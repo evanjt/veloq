@@ -66,6 +66,9 @@ const EXEMPT = [
   // A phase token that crosses the FFI as data and is keyed on in
   // TypeScript at features/routes/lib/detectionProgress.ts.
   '"analyzing"',
+  // intervals.icu's key for when it last analysed an activity, carried in the
+  // interval body the bulk activities answer is split into.
+  '"analyzed"',
   // A key of the local heart rate zones setting, which an older build wrote
   // and the activity max HR resolver in persistence/screens.rs reads back.
   '"color"',
@@ -74,6 +77,9 @@ const EXEMPT = [
   '"colorkey"',
   // rusqlite's transaction mode enum.
   'transactionbehavior',
+  // The png crate's encoder method and its colour type enum.
+  'set_color',
+  'png::colortype',
 ];
 
 // Not ours to spell, in TypeScript only. `color` is not banned there at all:

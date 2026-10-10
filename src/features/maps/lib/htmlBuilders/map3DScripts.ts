@@ -4,6 +4,16 @@ import { TROPHY_ICON_BASE64 as TROPHY_BASE64 } from '@/features/maps/lib/mapIcon
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
+import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
+import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
+import {
+  HILLSHADE_INSERT_INDEX_SCRIPT,
+  TERRAIN_3D_CONFIG,
+  terrain3DSource,
+} from '@/features/maps/components/mapStyles';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { setStyleStatement } from './shared';
+import { resolveStyleExpression } from './styleResolution';
 import {
   colors,
   colorWithOpacity,
@@ -605,5 +615,117 @@ export function buildStyleOverlayScript(): string {
         ]).concat(above),
       };
     }
+  `;
+}
+
+export interface Map3DStyleSwap {
+  mapStyle: MapStyleType;
+  routeColor: string;
+  terrainExaggeration: number;
+  /** Finished heatmap tile passes, which versions the heatmap tile URL. */
+  heatmapGeneration: number;
+  showHeatmap: boolean;
+}
+
+// Swaps the 3D page to another base style without reloading it. Builds a
+// complete style object with terrain, sky, hillshade, and route layers, then
+// applies it at once, the same pattern as the snapshot worker.
+export function buildMap3DSetStyleScript({
+  mapStyle,
+  routeColor,
+  terrainExaggeration,
+  heatmapGeneration,
+  showHeatmap,
+}: Map3DStyleSwap): string {
+  const isSatellite = mapStyle === 'satellite';
+  const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
+
+  const { styleJSON: styleConfig } = resolveStyleExpression(mapStyle);
+
+  // Serialize shared terrain config for injection
+  const terrainSourceJSON = JSON.stringify(terrain3DSource());
+  const skyConfigJSON = JSON.stringify(
+    isSatellite
+      ? TERRAIN_3D_CONFIG.sky.satellite
+      : isDark
+        ? TERRAIN_3D_CONFIG.sky.dark
+        : TERRAIN_3D_CONFIG.sky.light
+  );
+  const hillshadePaintJSON = JSON.stringify(
+    isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
+  );
+
+  return `
+    (function() {
+      if (!window.map) return;
+
+      ${buildStyleOverlayScript()}
+
+      var isSatellite = ${isSatellite};
+      var isDark = ${isDark};
+      var coords = window._routeCoords || [];
+      var routeColor = ${jsLiteral(routeColor)};
+      var terrainSource = ${terrainSourceJSON};
+      var skyConfig = ${skyConfigJSON};
+      var hillshadePaint = ${hillshadePaintJSON};
+      ${HILLSHADE_INSERT_INDEX_SCRIPT}
+      var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
+
+      // Build style: either JSON object or fetch URL-based style
+      function applyNewStyle(styleObj) {
+        styleObj.sources['terrain'] = terrainSource;
+        styleObj.terrain = { source: 'terrain', exaggeration: ${terrainExaggeration} };
+        styleObj.sky = skyConfig;
+
+        // Insert hillshade before the first transportation/building layer found
+        if (!isSatellite) {
+          var hillshadeIdx = hillshadeInsertIndex(styleObj.layers, hillshadeInsertCandidates);
+          styleObj.layers.splice(hillshadeIdx, 0, {
+            id: 'hillshading',
+            type: 'hillshade',
+            source: 'terrain',
+            layout: { visibility: 'visible' },
+            paint: hillshadePaint,
+          });
+        }
+
+        // The route, its markers and the scrub marker are always part of
+        // the style, empty and hidden when there is nothing to draw, so a
+        // later setRoute or scrub finds its source.
+        var overlays = veloqOverlays(coords, routeColor);
+        for (var sid in overlays.sources) styleObj.sources[sid] = overlays.sources[sid];
+        for (var oi = 0; oi < overlays.layers.length; oi++) styleObj.layers.push(overlays.layers[oi]);
+
+        ${setStyleStatement('window.map', 'styleObj')}
+        console.log('[3D] Style changed via setStyle()');
+
+        // Re-add heatmap raster overlay (setStyle clears all sources/layers).
+        // Probe for 'route-outline' before inserting under it - it's only
+        // present in activity-detail mode (when route coordinates exist).
+        window.map.once('style.load', function() {
+          if (!window.map.getSource('heatmap-tiles')) {
+            window.map.addSource('heatmap-tiles', {
+              type: 'raster',
+              tiles: [${jsLiteral(heatmapTileTemplate(heatmapGeneration))}],
+              tileSize: 256,
+              minzoom: ${HEATMAP_SOURCE_MINZOOM},
+              maxzoom: 17
+            });
+            var heatmapBeforeId = window.map.getLayer('route-outline') ? 'route-outline' : undefined;
+            window.map.addLayer({
+              id: 'heatmap-layer',
+              type: 'raster',
+              source: 'heatmap-tiles',
+              layout: { visibility: ${showHeatmap} ? 'visible' : 'none' },
+              paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
+            }, heatmapBeforeId);
+          }
+        });
+      }
+
+      var styleJSON = ${styleConfig};
+      applyNewStyle(styleJSON);
+    })();
+    true;
   `;
 }

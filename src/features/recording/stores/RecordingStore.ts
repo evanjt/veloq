@@ -97,6 +97,15 @@ export function streamTotals(streams: RecordingStreams): RecordingTotals {
   };
 }
 
+/**
+ * The speed a location fix reports, or null when it reports none. iOS gives -1
+ * when Core Location has not determined a speed, typically on a cold first fix,
+ * so a negative or non-finite value is absent rather than a measurement.
+ */
+function reportedSpeed(speed: number | null | undefined): number | null {
+  return speed != null && Number.isFinite(speed) && speed >= 0 ? speed : null;
+}
+
 function lastPositioned(latlng: [number, number][]): [number, number] | undefined {
   for (let i = latlng.length - 1; i >= 0; i--) {
     if (latlng[i][0] !== 0 || latlng[i][1] !== 0) return latlng[i];
@@ -411,14 +420,17 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   // guard that used to sit here never protected one: it only refused the sport
   // change the athlete most needs, the one that fixes a wrong tap.
   //
-  // Once started, the recording mode follows the sport so the session's location
-  // watch or indoor sampler matches it. Samples already recorded are kept.
+  // Once started, the recording mode follows the sport across gps and indoor so
+  // the session's location watch or indoor sampler matches it. Samples already
+  // recorded are kept. A sport entered by hand changes the sport only: manual is
+  // a form, not a live capture, and switching to it would end the capture.
   changeActivityType: (type) => {
-    if (get().status === 'idle') {
+    const mode = getRecordingMode(type);
+    if (get().status === 'idle' || mode === 'manual') {
       set({ activityType: type });
       return;
     }
-    set({ activityType: type, mode: getRecordingMode(type) });
+    set({ activityType: type, mode });
   },
 
   addGpsPoint: (point) => {
@@ -449,14 +461,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       );
       const prevTime = streams.time[streams.time.length - 1] ?? 0;
       const dt = elapsedSec - prevTime;
-      speed = dt > 0 ? delta / dt : (point.speed ?? 0);
+      speed = dt > 0 ? delta / dt : (reportedSpeed(point.speed) ?? 0);
       // Teleport guard: a jump implying an implausible speed for this sport is
       // GPS noise (multipath, cold-fix snap), not movement. Drop the point so
       // distance and pace are not poisoned.
       if (activityType && dt > 0 && speed > getMaxPlausibleSpeed(activityType)) return;
       dist = prevDist + delta;
     } else {
-      speed = point.speed ?? 0;
+      speed = reportedSpeed(point.speed) ?? 0;
     }
 
     // Mutate the stream arrays in place to keep per-point cost O(1). A fresh
@@ -489,7 +501,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   setRawLocationFix: (fix) => {
     const { _lastRawFix } = get();
-    let speed = fix.speed ?? null;
+    let speed = reportedSpeed(fix.speed);
     if (_lastRawFix) {
       const dt = (fix.timestamp - _lastRawFix.timestamp) / 1000;
       if (dt <= 0) return;

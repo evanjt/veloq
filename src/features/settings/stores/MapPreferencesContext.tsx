@@ -12,7 +12,6 @@ import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import type { MapStyleType, TerrainCamera } from '@/features/maps';
 import {
   deleteCameraOverride,
-  getCameraOverride,
   getCameraOverridesSnapshot,
   setCameraOverride,
   subscribeCameraOverrides,
@@ -439,7 +438,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         });
         return next;
       });
-      if (getCameraOverride(activityId)) await deleteCameraOverride(activityId);
+      await deleteCameraOverride(activityId);
     },
     [saveActivityOverrides]
   );

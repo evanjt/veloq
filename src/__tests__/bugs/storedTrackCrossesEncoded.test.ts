@@ -12,7 +12,7 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, decodeCoordsFlat } from 'veloqrs';
 import type { ActivityStreamBuffers } from 'veloqrs';
 import { useDetailCoordinates } from '@/features/activity/hooks/useDetailCoordinates';
 import { useActivityDetailStreams } from '@/features/activity/hooks/useActivities';
@@ -49,6 +49,7 @@ beforeEach(() => {
   engine.getGpsTrack.mockReturnValue(BLOB);
   engine.getActivityStreams.mockReturnValue(null);
   (decodeCoords as jest.Mock).mockReturnValue(POINTS);
+  (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array(0));
 });
 
 function renderDetailStreams() {
@@ -61,7 +62,7 @@ function renderDetailStreams() {
 describe('the detail stream read and stored-track fallback', () => {
   it('waits for a stream body containing latlng without reading the stored track', async () => {
     engine.getActivityStreams.mockReturnValue(streamBuffers({ latlng: BLOB }));
-    (decodeCoords as jest.Mock).mockReturnValue([{ latitude: 46.2, longitude: 7.35 }]);
+    (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array([46.2, 7.35]));
     const { result, rerender, unmount, client } = renderDetailStreams();
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
@@ -118,12 +119,8 @@ describe('the stored track crosses the FFI encoded', () => {
   });
 
   it('does not read the engine at all when the stream body is already there', () => {
-    const { result } = renderHook(() =>
-      useDetailCoordinates('a1', [
-        [46.2, 7.35],
-        [46.21, 7.36],
-      ])
-    );
+    const streamLatLng = new Float64Array([46.2, 7.35, 46.21, 7.36]);
+    const { result } = renderHook(() => useDetailCoordinates('a1', streamLatLng));
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
     expect(decodeCoords).not.toHaveBeenCalled();

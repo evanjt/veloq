@@ -4,10 +4,8 @@
 //! Uses an intensity buffer with additive accumulation and a colour gradient
 //! LUT to produce heatmap tiles with additive intensity.
 
-use image::{ImageBuffer, Rgba, RgbaImage};
 use rayon::prelude::*;
 use std::f64::consts::PI;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use tracematch::GpsPoint;
 
@@ -335,7 +333,8 @@ impl ProjectedTrack {
 
 /// The work this thread has done, so a test can count it rather than time it:
 /// latitudes projected onto the map, which is the costly half of placing a
-/// point, and pixels a stroke measured its distance to.
+/// point, pixels a stroke measured its distance to, and the most GPS points a
+/// load held decoded at once.
 #[cfg(test)]
 pub(crate) mod work {
     use std::cell::Cell;
@@ -344,6 +343,17 @@ pub(crate) mod work {
         static PROJECTIONS: Cell<usize> = const { Cell::new(0) };
         static PIXELS: Cell<usize> = const { Cell::new(0) };
         static WALKS: Cell<usize> = const { Cell::new(0) };
+        static PEAK_DECODED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// The load holds `points` decoded GPS points at once.
+    pub(crate) fn held_decoded(points: usize) {
+        PEAK_DECODED.with(|c| c.set(c.get().max(points)));
+    }
+
+    /// The most decoded points held at once since the last call.
+    pub(crate) fn take_peak_decoded() -> usize {
+        PEAK_DECODED.with(|c| c.replace(0))
     }
 
     pub(crate) fn walked() {
@@ -1137,33 +1147,48 @@ pub fn draw_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> O
     // Apply Gaussian blur only at lower zoom levels where density matters more than street detail.
     let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
 
-    // Map intensity buffer to RGBA via two pre-computed LUTs:
-    //   u16 intensity → u8 colour idx (depends on zoom's exposure curve)
-    //   u8 colour idx  → RGBA (shared gradient)
-    // Replaces the per-pixel exp()/round/clamp from the original code;
-    // pixel output is bit-identical because the f32 math is pre-computed
-    // once at the same precision.
-    let colour_lut = &*COLOUR_LUT;
+    // Each pixel becomes its index into the colour table, through the
+    // zoom's u16 intensity -> u8 index table. Index 0 is the transparent
+    // entry, which is also where an unpainted pixel's zero intensity lands.
     let idx_lut = intensity_idx_lut_for_zoom(z);
-    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
-    for y_px in 0..TILE_SIZE {
-        for x_px in 0..TILE_SIZE {
-            let val = buf.get(x_px, y_px);
-            if val > 0 {
-                let lut_idx = idx_lut[val as usize] as usize;
-                let c = colour_lut[lut_idx];
-                img.put_pixel(x_px, y_px, Rgba(c));
-            }
-        }
-    }
+    let indices: Vec<u8> = buf.data.iter().map(|&v| idx_lut[v as usize]).collect();
 
-    // Encode to PNG
+    Some(encode_indexed_png(&indices))
+}
+
+/// The colour table as PNG chunk payloads: PLTE's RGB triples and tRNS's
+/// alphas, one entry per index.
+static PNG_PALETTE: std::sync::LazyLock<(Vec<u8>, Vec<u8>)> = std::sync::LazyLock::new(|| {
+    let lut = &*COLOUR_LUT;
+    let rgb = lut.iter().flat_map(|c| [c[0], c[1], c[2]]).collect();
+    let alpha = lut.iter().map(|c| c[3]).collect();
+    (rgb, alpha)
+});
+
+/// Encode a tile of colour-table indices as an 8-bit indexed PNG. Every
+/// heatmap pixel is one of the table's 256 colours, so one byte a pixel
+/// carries it exactly, and a decoder expands it to the same RGBA.
+fn encode_indexed_png(indices: &[u8]) -> Vec<u8> {
+    let (rgb, alpha) = &*PNG_PALETTE;
     let mut png_data = Vec::new();
-    let mut cursor = Cursor::new(&mut png_data);
-    img.write_to(&mut cursor, image::ImageFormat::Png)
+    let mut encoder = png::Encoder::new(&mut png_data, TILE_SIZE, TILE_SIZE);
+    encoder.set_color(png::ColorType::Indexed);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_palette(rgb.as_slice());
+    encoder.set_trns(alpha.as_slice());
+    // Row filters predict a pixel from its neighbours' values, which for
+    // palette indices are labels rather than quantities. Measured on dense
+    // fixture tiles from z6 to z17, no filter came out 22% smaller than
+    // adaptive filtering at a third of its encode time, and the next deflate
+    // level saved a further 1% at nine times the time.
+    encoder.set_compression(png::Compression::Balanced);
+    encoder.set_filter(png::Filter::NoFilter);
+    let mut writer = encoder.write_header().expect("PNG header encoding failed");
+    writer
+        .write_image_data(indices)
         .expect("PNG encoding failed");
-
-    Some(png_data)
+    writer.finish().expect("PNG encoding failed");
+    png_data
 }
 
 fn tile_path(base_path: &Path, z: u8, x: u32, y: u32, extension: &str) -> PathBuf {
@@ -1360,6 +1385,8 @@ pub fn clear_all_tiles(base_path: &Path) -> Result<u32, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::{ImageBuffer, Rgba, RgbaImage};
+    use std::io::Cursor;
 
     /// Scenario: a pass redraws a tile the map is reading. Written in place,
     /// the file is truncated before the new bytes land, so a reader, or a
@@ -1710,6 +1737,78 @@ mod tests {
         assert!(tracks.len() > 2 * TRACKS_PER_SHARE);
         assert!(whole.data.contains(&u16::MAX), "no pixel saturated");
         assert!(shared.data == whole.data);
+    }
+
+    /// Forty rides crossing one point at every angle, each reaching
+    /// `half_span` degrees out, so the tile holds faint edges, a saturated
+    /// centre and every shade between.
+    fn crossing_rides(lat: f64, lon: f64, half_span: f64) -> Vec<Vec<GpsPoint>> {
+        (0..40)
+            .map(|k| {
+                let a = f64::from(k) * PI / 40.0;
+                let (dy, dx) = (half_span * a.sin(), half_span * a.cos());
+                line_track(lat - dy, lon - dx, lat + dy, lon + dx, 2_000)
+            })
+            .collect()
+    }
+
+    /// The tile as it was encoded when every pixel was written out as RGBA:
+    /// the colour of each pixel, and the PNG of that image.
+    fn rgba_reference(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> (Vec<u8>, usize) {
+        let buf = stroke_tile(z, x, y, tracks);
+        let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
+        let idx_lut = intensity_idx_lut_for_zoom(z);
+        let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+        for y_px in 0..TILE_SIZE {
+            for x_px in 0..TILE_SIZE {
+                let val = buf.get(x_px, y_px);
+                if val > 0 {
+                    img.put_pixel(x_px, y_px, Rgba(COLOUR_LUT[idx_lut[val as usize] as usize]));
+                }
+            }
+        }
+        let mut png = Vec::new();
+        img.write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        (img.into_raw(), png.len())
+    }
+
+    /// Scenario: every heatmap pixel is one of the colour table's 256
+    /// entries, yet each was written out as four bytes of RGBA.
+    ///
+    /// Expected behaviour: the tile is an indexed PNG over the colour table,
+    /// decodes to exactly the colours the RGBA tile held, and takes at most a
+    /// third of its bytes, at a blurred low zoom and a sharp street zoom.
+    #[test]
+    fn a_tile_is_an_indexed_png_with_the_pixels_of_its_rgba_encoding() {
+        let (lat, lon) = (-41.29, 174.78);
+        for (zoom, half_span) in [(8u8, 0.6), (16, 0.004)] {
+            let rides = crossing_rides(lat, lon, half_span);
+            let projected: Vec<ProjectedTrack> =
+                rides.iter().map(|r| ProjectedTrack::new(r)).collect();
+            let tracks: Vec<&ProjectedTrack> = projected.iter().collect();
+            let tx = lon_to_tile_x(lon, zoom).floor() as u32;
+            let ty = lat_to_tile_y(lat, zoom).floor() as u32;
+
+            let png = draw_heatmap_tile(zoom, tx, ty, &tracks).expect("tile drawn");
+            let (rgba, rgba_png_len) = rgba_reference(zoom, tx, ty, &tracks);
+
+            // IHDR's colour type sits at byte 25: signature 8, chunk length 4,
+            // chunk type 4, width 4, height 4, bit depth 1.
+            assert_eq!(png[25], 3, "z{zoom}: colour type is not indexed");
+            let decoded = image::load_from_memory_with_format(&png, image::ImageFormat::Png)
+                .unwrap()
+                .into_rgba8();
+            assert_eq!(decoded.dimensions(), (TILE_SIZE, TILE_SIZE));
+            assert!(decoded.into_raw() == rgba, "z{zoom}: decoded pixels differ");
+            let painted = rgba.chunks_exact(4).filter(|p| p[3] > 0).count();
+            assert!(painted > 5_000, "z{zoom}: only {painted} pixels painted");
+            assert!(
+                png.len() * 3 <= rgba_png_len,
+                "z{zoom}: {} bytes indexed against {rgba_png_len} as RGBA",
+                png.len()
+            );
+        }
     }
 
     #[test]

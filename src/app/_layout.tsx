@@ -28,6 +28,7 @@ import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { startMemoryPressureListener } from '@/shared/app/memoryPressure';
 import {
+  registerEngineReclaimer,
   registerImageCacheReclaimer,
   registerQueryCacheReclaimer,
 } from '@/shared/app/memoryReclaimers';
@@ -164,6 +165,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const reclaimers = [
       registerQueryCacheReclaimer(),
       registerImageCacheReclaimer(),
+      registerEngineReclaimer(),
       registerMapSurfaceReclaimer(),
     ];
     const stop = startMemoryPressureListener();

@@ -75,4 +75,5 @@ fi
 if [ "$ON_DEVICE" -eq 1 ]; then
   exec xcrun devicectl device install app --device "$DEVICE" "$APP"
 fi
-exec xcrun simctl install "$DEVICE" "$APP"
+# Every session on the Mac shares the booted simulator, so an install waits its turn.
+exec scripts/with-simulator-lock.sh "$DEVICE" xcrun simctl install "$DEVICE" "$APP"

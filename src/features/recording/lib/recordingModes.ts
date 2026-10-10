@@ -72,10 +72,11 @@ export function getRecordingMode(type: ActivityType): RecordingMode {
 }
 
 /**
- * The mode the recording screen lays out for. A started ride keeps the mode it
- * started in, since the session's GPS watch or indoor sampler runs on it. Before
- * the start the sport the athlete holds decides, and the route param is only
- * what they tapped.
+ * The mode the recording screen lays out for. A started ride lays out for the
+ * store's mode, which follows the sport across gps and indoor and never becomes
+ * manual, since the session's GPS watch or indoor sampler runs on it. Before the
+ * start the sport the athlete holds decides, and the route param is only what
+ * they tapped.
  */
 export function screenRecordingMode(
   store: { status: RecordingStatus; mode: RecordingMode | null; activityType: ActivityType | null },

@@ -12,7 +12,6 @@ function buildArgs(): Parameters<typeof useMapGeoJSON>[0] {
   return {
     allActivities: [],
     activityCenters: {},
-    sections: [],
     userLocation: null,
     selected: null,
   };

@@ -14,6 +14,7 @@ import {
   TRIM_UI_HIDDEN,
 } from '@/shared/app/memoryPressure';
 import {
+  registerEngineReclaimer,
   registerImageCacheReclaimer,
   registerQueryCacheReclaimer,
 } from '@/shared/app/memoryReclaimers';
@@ -29,6 +30,11 @@ jest.mock('@/shared/app/memoryPressure', () => ({
   clearNativeImageCache: jest.fn(),
 }));
 
+jest.mock('@/shared/native/engineMemory', () => ({
+  releaseEngineMemory: jest.fn(),
+}));
+
+const { releaseEngineMemory } = jest.requireMock('@/shared/native/engineMemory');
 const { releaseMountedSurfaces, rebuildReleasedSurfaces } = jest.requireMock(
   '@/features/maps/lib/mapSurfaceRegistry'
 );
@@ -95,6 +101,33 @@ describe('image cache reclaimer', () => {
   it('clears them from TRIM_MEMORY_MODERATE', () => {
     dispatchMemoryPressure(TRIM_MODERATE);
     expect(clearNativeImageCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('engine reclaimer', () => {
+  let off: () => void;
+
+  beforeEach(() => {
+    off = registerEngineReclaimer();
+    releaseEngineMemory.mockClear();
+  });
+
+  afterEach(() => off());
+
+  it('holds the engine while the UI is only hidden', () => {
+    dispatchMemoryPressure(TRIM_UI_HIDDEN);
+    expect(releaseEngineMemory).not.toHaveBeenCalled();
+  });
+
+  it('gives back the connections and keeps the caches in the background', () => {
+    dispatchMemoryPressure(TRIM_BACKGROUND);
+    dispatchMemoryPressure(TRIM_MODERATE);
+    expect(releaseEngineMemory.mock.calls).toEqual([[false], [false]]);
+  });
+
+  it('empties the caches once, at the last warning', () => {
+    dispatchMemoryPressure(TRIM_COMPLETE);
+    expect(releaseEngineMemory.mock.calls).toEqual([[true]]);
   });
 });
 

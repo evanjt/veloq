@@ -14,6 +14,10 @@ import {
   planGrowth,
 } from '@/features/maps/lib/mapSurfacePatch';
 import { buildApplyScript } from '@/features/maps/lib/htmlBuilders';
+import {
+  buildActivityLayers,
+  buildActivitySources,
+} from '@/features/maps/components/activityMapLayerSpecs';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 
 const points = (n: number, from = 0): GeoJSON.Position[] =>
@@ -307,5 +311,146 @@ describe('buildApplyScript', () => {
     const script = buildApplyScript({ appends: { route: [[7.3, 46.2]] } });
 
     expect(script).toContain('"appends":{"route":[[7.3,46.2]]}');
+  });
+});
+
+/** Every character JSON.stringify produces while `run` runs. */
+function stringifiedChars(run: () => void): number {
+  const stringify = JSON.stringify;
+  let chars = 0;
+  const spy = jest.spyOn(JSON, 'stringify').mockImplementation(((...args: unknown[]) => {
+    const out = (stringify as (...a: unknown[]) => string)(...args);
+    if (typeof out === 'string') chars += out.length;
+    return out;
+  }) as typeof JSON.stringify);
+  try {
+    run();
+  } finally {
+    spy.mockRestore();
+  }
+  return chars;
+}
+
+describe('the first send of a large source', () => {
+  // A six-hour ride recorded at one point a second.
+  const track = (): GeoJSON.Feature => ({
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: points(21_600) },
+  });
+  const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+  const activitySources = (routeGeoJSON: GeoJSON.Feature) =>
+    buildActivitySources({
+      routeGeoJSON,
+      overlayGeoJSON: empty,
+      consolidatedPortionsGeoJSON: empty,
+      sectionBoundariesGeoJSON: empty,
+      sectionMarkersGeoJSON: empty,
+      highlightGeoJSON: {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Point', coordinates: [0, 0] },
+      },
+      endpointsGeoJSON: empty,
+      sectionCreationLine: empty,
+      sectionCreationMarkers: empty,
+      userLocationGeoJSON: empty,
+    });
+
+  it('carries the activity track in one source, which both route layers draw from', () => {
+    const routeGeoJSON = track();
+    const sources = activitySources(routeGeoJSON);
+
+    const carrying = Object.keys(sources).filter((id) => {
+      const spec = sources[id];
+      return spec.kind === 'geojson' && spec.data === routeGeoJSON;
+    });
+    expect(carrying).toEqual(['route']);
+    // The gradient reads line-progress, which only a lineMetrics source has.
+    expect(sources.route).toMatchObject({ lineMetrics: true });
+
+    for (const gradientActive of [false, true]) {
+      const layers = buildActivityLayers({
+        overlayHasData: false,
+        activityColor: '#00ff00',
+        gradientActive,
+        gradientLineExpression: [
+          'interpolate',
+          ['linear'],
+          ['line-progress'],
+          0,
+          '#000',
+          1,
+          '#fff',
+        ],
+        hasSectionOverlays: false,
+        hasHighlightPoint: false,
+        creationMode: false,
+        hasUserLocation: false,
+      });
+      const routeLayers = layers.filter((l) => l.id.startsWith('route-'));
+      expect(routeLayers.map((l) => l.id)).toEqual([
+        'route-casing',
+        'route-line',
+        'route-gradient-line',
+      ]);
+      expect(routeLayers.every((l) => l.source === 'route')).toBe(true);
+      for (const l of layers) expect(Object.keys(sources)).toContain(l.source);
+    }
+  });
+
+  it('stringifies each source once between the patcher and the script', () => {
+    const route = { kind: 'geojson', data: track() } as MapSourceSpec;
+    const trackChars = JSON.stringify(route).length;
+    const p = createSurfacePatcher();
+
+    let script = '';
+    const chars = stringifiedChars(() => {
+      const { patch, sourceJson } = p.next({ sources: { route }, layers: layer('#fff') });
+      script = buildApplyScript(patch!, sourceJson);
+    });
+
+    expect(chars).toBeLessThan(trackChars * 1.1);
+    // The script still carries the whole source, as the page reads it.
+    const applied = JSON.parse(script.slice(script.indexOf('(') + 1, script.lastIndexOf(')')));
+    expect(applied.sources.route).toEqual(JSON.parse(JSON.stringify(route)));
+    expect(applied.layers).toEqual(layer('#fff'));
+  });
+
+  it('stringifies a changed source once on a later send too', () => {
+    const p = createSurfacePatcher();
+    p.next({
+      sources: { route: { kind: 'geojson', data: track() } as MapSourceSpec },
+      layers: layer('#fff'),
+    });
+
+    const moved = track();
+    (moved.geometry as GeoJSON.LineString).coordinates[0] = [0, 0];
+    const route = { kind: 'geojson', data: moved } as MapSourceSpec;
+    const trackChars = JSON.stringify(route).length;
+
+    let script = '';
+    const chars = stringifiedChars(() => {
+      const { patch, sourceJson } = p.next({ sources: { route }, layers: layer('#fff') });
+      script = buildApplyScript(patch!, sourceJson);
+    });
+
+    expect(chars).toBeLessThan(trackChars * 1.1);
+    expect(script).toContain('"coordinates":[[0,0],');
+  });
+
+  it('builds the same script with or without the strings the patcher kept', () => {
+    const p = createSurfacePatcher();
+    const sources = { traces: collection(3), gone: collection(1) };
+    p.next({ sources, layers: layer('#fff') });
+
+    const { patch, sourceJson } = p.next({
+      sources: { traces: collection(4) },
+      layers: layer('#f00'),
+      interactiveLayers: ['traces'],
+    });
+
+    expect(patch?.sources).toEqual({ traces: collection(4), gone: null });
+    expect(buildApplyScript(patch!, sourceJson)).toBe(buildApplyScript(patch!));
   });
 });

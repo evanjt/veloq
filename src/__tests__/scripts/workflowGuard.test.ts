@@ -49,6 +49,9 @@ function runGuard(root?: string): { status: number; output: string } {
   }
 }
 
+/** A full commit sha, the only ref a third-party action may be pinned to. */
+const PIN = '0123456789abcdef0123456789abcdef01234567';
+
 const TEST_YML = `name: Test
 on:
   push:
@@ -60,7 +63,7 @@ concurrency:
   cancel-in-progress: \${{ github.ref != 'refs/heads/main' }}
 jobs:
   jest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/npm-ci
@@ -77,11 +80,11 @@ jobs:
           path: .jest-cache
           key: jest-\${{ github.sha }}
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@${PIN} # v2
         with:
           save-if: \${{ github.ref == 'refs/heads/main' }}
       - name: Check Rust benches
@@ -89,7 +92,7 @@ jobs:
   ci-required:
     needs: [jest, rust]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - env:
           JEST: \${{ needs.jest.result }}
@@ -109,27 +112,27 @@ concurrency:
   cancel-in-progress: \${{ github.ref != 'refs/heads/main' && github.ref_type != 'tag' }}
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@${PIN} # v6
         with:
           cache-read-only: \${{ github.ref != 'refs/heads/main' }}
           cache-cleanup: on-success
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@${PIN} # v1.2
         with:
           key: ndk
           save: \${{ github.ref == 'refs/heads/main' }}
   e2e-smoke:
     needs: build-android
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: maestro test smoke.yaml
   build-required:
     needs: [build-android, e2e-smoke]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - env:
           ANDROID: \${{ needs.build-android.result }}
@@ -144,7 +147,7 @@ on:
   workflow_dispatch:
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Look for a run on this sha
         id: measured
@@ -189,7 +192,7 @@ permissions:
   actions: read
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Look for a run on this sha
         id: earlier
@@ -313,7 +316,7 @@ runs:
   using: composite
   steps:
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@v2
+      uses: Swatinem/rust-cache@${PIN} # v2
       with:
         workspaces: modules/veloqrs/rust
 `,
@@ -429,7 +432,7 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -459,10 +462,10 @@ on:
     tags: ["*"]
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@${PIN} # v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
@@ -484,7 +487,7 @@ on:
   workflow_dispatch:
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: npm run test:coverage
 `,
@@ -620,11 +623,59 @@ on:
     - cron: '0 3 * * 0'
 jobs:
   e2e-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: maestro test .maestro
 `,
       })
+    );
+    expect(status).toBe(0);
+  });
+});
+
+describe('runner images', () => {
+  const JEST_RUNNER = '  jest:\n    runs-on: ubuntu-24.04\n';
+
+  it('refuses a job on a floating -latest label', () => {
+    const output = refused(
+      withEdit('.github/workflows/test.yml', JEST_RUNNER, '  jest:\n    runs-on: ubuntu-latest\n')
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest runs-on)');
+    expect(output).toContain('ubuntu-latest');
+  });
+
+  it('refuses a floating label in a list of labels', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/test.yml',
+        JEST_RUNNER,
+        '  jest:\n    runs-on: [self-hosted, macos-latest]\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest runs-on)');
+  });
+
+  it('refuses a floating label reached through the matrix', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/test.yml',
+        JEST_RUNNER,
+        '  jest:\n    strategy:\n      matrix:\n        os: [ubuntu-24.04, windows-latest]\n    runs-on: ${{ matrix.os }}\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest runs-on)');
+    expect(output).toContain('windows-latest');
+  });
+
+  it('accepts pinned labels, in a list and through the matrix', () => {
+    const { status } = runGuard(
+      fixture(
+        withEdit(
+          '.github/workflows/test.yml',
+          JEST_RUNNER,
+          '  jest:\n    strategy:\n      matrix:\n        os: [ubuntu-24.04, macos-26]\n    runs-on: ${{ matrix.os }}\n'
+        )
+      )
     );
     expect(status).toBe(0);
   });
@@ -675,7 +726,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo ok
 `,
@@ -870,7 +921,7 @@ on:
   workflow_call:
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_VARIANT: \${{ inputs.variant }}
 ${steps}`,
@@ -928,7 +979,7 @@ on:
   workflow_call:
 jobs:
   sim:
-    runs-on: macos-latest
+    runs-on: macos-26
     env:
       APP_VARIANT: \${{ inputs.variant }}
 ${steps}`,
@@ -983,7 +1034,7 @@ on:
         default: arm64-v8a
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
@@ -1038,7 +1089,7 @@ jobs:
       files(
         DEFINITION,
         `${CALLER}  inline:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Inline build
         run: ${JSON.stringify(run)}
@@ -1084,7 +1135,9 @@ jobs:
       files(
         DEFINITION.replace(
           'key: rust-${{ steps.native.outputs.hash }}',
-          "key: rust-${{ steps.native.outputs.hash }}\n      - name: Setup ccache\n        uses: hendrikmuhs/ccache-action@v1.2\n        with:\n          key: ndk-${{ hashFiles('modules/**/android/**') }}\n          save: ${{ github.ref == 'refs/heads/main' }}"
+          'key: rust-${{ steps.native.outputs.hash }}\n      - name: Setup ccache\n        uses: hendrikmuhs/ccache-action@' +
+            PIN +
+            "\n        with:\n          key: ndk-${{ hashFiles('modules/**/android/**') }}\n          save: ${{ github.ref == 'refs/heads/main' }}"
         )
       )
     );
@@ -1117,7 +1170,7 @@ on:
         type: string
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
@@ -1214,7 +1267,7 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       aab_path: \${{ steps.prepare.outputs.aab_path }}
     steps:
@@ -1229,7 +1282,7 @@ jobs:
           echo "aab_path=$AAB" >> $GITHUB_OUTPUT
   deploy-play-store:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check for Play Store credentials
         id: check_creds
@@ -1312,7 +1365,7 @@ on:
         type: string
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
@@ -1412,7 +1465,7 @@ on:
         type: string
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 ${JOB_ENV}    steps:
       - uses: actions/checkout@v4
       - name: Prebuild
@@ -1488,5 +1541,224 @@ ${JOB_ENV}    steps:
     );
     expect(output).toContain('(job build step Build APK)');
     expect(output).toContain('holds for this step alone');
+  });
+});
+
+describe('third-party actions are pinned to a commit', () => {
+  const pinned = (uses: string) => ({
+    ...CLEAN,
+    '.github/workflows/deploy.yml': `name: Deploy
+on:
+  workflow_dispatch:
+jobs:
+  sign:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/npm-ci
+      - name: Load signing key
+        uses: ${uses}
+`,
+  });
+
+  it('refuses a third-party action pinned to a tag', () => {
+    const output = refused(pinned('webfactory/ssh-agent@v0.10.0'));
+    expect(output).toContain('.github/workflows/deploy.yml (job sign step Load signing key)');
+    expect(output).toContain('webfactory/ssh-agent@v0.10.0 is not pinned to a commit');
+  });
+
+  it('refuses a branch name and a short sha', () => {
+    expect(refused(pinned('taiki-e/install-action@nextest'))).toContain(
+      'taiki-e/install-action@nextest is not pinned to a commit'
+    );
+    expect(refused(pinned('webfactory/ssh-agent@0123456'))).toContain('is not pinned to a commit');
+  });
+
+  it('refuses a sub-path action and an action with no ref', () => {
+    expect(refused(pinned('gradle/actions/setup-gradle@v6'))).toContain(
+      'gradle/actions/setup-gradle@v6 is not pinned to a commit'
+    );
+    expect(refused(pinned('webfactory/ssh-agent'))).toContain(
+      'webfactory/ssh-agent is not pinned to a commit'
+    );
+  });
+
+  it('refuses a tag in a composite action', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/actions/setup-tool/action.yml': `name: Setup tool
+runs:
+  using: composite
+  steps:
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+`,
+    });
+    expect(output).toContain('.github/actions/setup-tool/action.yml (step Setup Ruby)');
+  });
+
+  it('refuses a reusable workflow from another repository called at a tag', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/deploy.yml': `name: Deploy
+on:
+  workflow_dispatch:
+jobs:
+  sign:
+    uses: some-org/shared-workflows/.github/workflows/sign.yml@main
+`,
+    });
+    expect(output).toContain('.github/workflows/deploy.yml (job sign)');
+    expect(output).toContain('is not pinned to a commit');
+  });
+
+  it('passes a full commit sha with the tag in a comment', () => {
+    const { status } = runGuard(fixture(pinned(`webfactory/ssh-agent@${PIN} # v0.10.0`)));
+    expect(status).toBe(0);
+  });
+
+  it('refuses an uppercase sha, which is not how git names a commit', () => {
+    expect(refused(pinned(`webfactory/ssh-agent@${PIN.toUpperCase()}`))).toContain(
+      'is not pinned to a commit'
+    );
+  });
+
+  it('leaves actions/* and local actions on their tags', () => {
+    const { status } = runGuard(fixture(pinned('actions/upload-artifact@v4')));
+    expect(status).toBe(0);
+  });
+});
+
+describe('pod tool pinned through the bundle', () => {
+  const POD_STEPS = `    steps:
+      - name: Setup fastlane
+        uses: ./.github/actions/setup-fastlane
+      - name: Install Pods
+        working-directory: ios
+        env:
+          BUNDLE_GEMFILE: \${{ github.workspace }}/config/fastlane/Gemfile
+        run: bundle exec pod install
+`;
+  const GEMFILE = `source "https://rubygems.org"
+
+gem "fastlane", "~> 2.240"
+gem "cocoapods", "1.16.2"
+`;
+  const LOCKFILE = `GEM
+  remote: https://rubygems.org/
+  specs:
+    cocoapods (1.16.2)
+      xcodeproj (>= 1.27.0, < 2.0)
+    fastlane (2.240.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  cocoapods (= 1.16.2)
+  fastlane (~> 2.240)
+`;
+  const files = (
+    steps = POD_STEPS,
+    gemfile = GEMFILE,
+    lockfile = LOCKFILE
+  ): Record<string, string> => ({
+    ...CLEAN,
+    '.github/workflows/build-ios.yml': `name: Build iOS
+on:
+  workflow_call:
+jobs:
+  pods:
+    runs-on: macos-26
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+${steps}`,
+    'config/fastlane/Gemfile': gemfile,
+    'config/fastlane/Gemfile.lock': lockfile,
+  });
+
+  it('passes pod install run through the bundle that pins the version', () => {
+    const { status, output } = runGuard(fixture(files()));
+    expect(output).toContain('Workflow guard:');
+    expect(status).toBe(0);
+  });
+
+  it('refuses an unpinned gem install with its error swallowed', () => {
+    const output = refused(
+      files(
+        POD_STEPS.replace(
+          'run: bundle exec pod install',
+          'run: |\n          gem install cocoapods 2>/dev/null || true\n          pod install'
+        )
+      )
+    );
+    expect(output).toContain('.github/workflows/build-ios.yml (job pods step Install Pods)');
+    expect(output).toContain('gem install cocoapods');
+  });
+
+  it('refuses a gem install of cocoapods even with a version', () => {
+    const output = refused(
+      files(
+        POD_STEPS.replace(
+          'run: bundle exec pod install',
+          'run: |\n          gem install cocoapods -v 1.16.2\n          bundle exec pod install'
+        )
+      )
+    );
+    expect(output).toContain('gem install cocoapods');
+  });
+
+  it('refuses pod run outside the bundle', () => {
+    const output = refused(files(POD_STEPS.replace('bundle exec pod install', 'pod install')));
+    expect(output).toContain('(job pods step Install Pods)');
+    expect(output).toContain('bundle exec');
+  });
+
+  it('refuses a pod failure that is swallowed', () => {
+    const output = refused(
+      files(POD_STEPS.replace('bundle exec pod install', 'bundle exec pod install || true'))
+    );
+    expect(output).toContain('(job pods step Install Pods)');
+    expect(output).toContain('swallow');
+  });
+
+  it('refuses pod run against a bundle other than the fastlane one', () => {
+    const output = refused(
+      files(
+        POD_STEPS.replace(
+          '        env:\n          BUNDLE_GEMFILE: ${{ github.workspace }}/config/fastlane/Gemfile\n',
+          ''
+        )
+      )
+    );
+    expect(output).toContain('(job pods step Install Pods)');
+    expect(output).toContain('BUNDLE_GEMFILE');
+  });
+
+  it('refuses a Gemfile that leaves cocoapods out or unpinned', () => {
+    for (const gemfile of [
+      GEMFILE.replace('gem "cocoapods", "1.16.2"\n', ''),
+      GEMFILE.replace('"1.16.2"', '"~> 1.16"'),
+      GEMFILE.replace(', "1.16.2"', ''),
+    ]) {
+      const output = refused(files(POD_STEPS, gemfile));
+      expect(output).toContain('config/fastlane/Gemfile');
+      expect(output).toContain('cocoapods');
+    }
+  });
+
+  it('accepts the pin written with an equals sign', () => {
+    const { status } = runGuard(
+      fixture(files(POD_STEPS, GEMFILE.replace('"1.16.2"', '"= 1.16.2"')))
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a lockfile that resolves another cocoapods version', () => {
+    const output = refused(
+      files(POD_STEPS, GEMFILE, LOCKFILE.replace('cocoapods (1.16.2)', 'cocoapods (1.17.0)'))
+    );
+    expect(output).toContain('config/fastlane/Gemfile.lock');
+    expect(output).toContain('1.17.0');
   });
 });

@@ -14,7 +14,7 @@
 
 use std::path::PathBuf;
 
-use veloqrs::fit::parse_fit_sets;
+use veloqrs::fit::parse_fit_strength_sets;
 
 const FIXTURE: &str = "tests/fixtures/private/garmin_strength_i183105434.fit";
 const UNKNOWN: u16 = 0xFFFE;
@@ -35,7 +35,7 @@ fn fixture() -> Option<Vec<u8>> {
 #[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn the_top_candidate_names_each_set_and_unknown_stays_unknown() {
     let Some(data) = fixture() else { return };
-    let sets = parse_fit_sets(&data);
+    let sets = parse_fit_strength_sets(&data).expect("the fixture decodes");
     assert_eq!(sets.len(), 22);
 
     let active: Vec<u16> = sets
@@ -52,7 +52,7 @@ fn the_top_candidate_names_each_set_and_unknown_stays_unknown() {
 #[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn a_rest_set_carries_no_category() {
     let Some(data) = fixture() else { return };
-    let sets = parse_fit_sets(&data);
+    let sets = parse_fit_strength_sets(&data).expect("the fixture decodes");
 
     let rests: Vec<&_> = sets.iter().filter(|s| s.set_type == 1).collect();
     assert_eq!(rests.len(), 11);
@@ -68,7 +68,7 @@ fn a_rest_set_carries_no_category() {
 #[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn the_unnamed_set_keeps_its_work() {
     let Some(data) = fixture() else { return };
-    let sets = parse_fit_sets(&data);
+    let sets = parse_fit_strength_sets(&data).expect("the fixture decodes");
 
     let unnamed = sets
         .iter()

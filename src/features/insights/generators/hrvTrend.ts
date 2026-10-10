@@ -22,7 +22,7 @@ interface TrendShape {
  * Kiviniemi et al., 2007 - HRV-guided training RCT
  *
  * The verdict is the engine's, over the window the insights bundle carried it
- * on. There is no TS copy of the maths: one deadband, one place. It used to be
+ * on. There is no TS copy of the maths: one rule, one place. It used to be
  * read here with an engine call of its own, on top of the heaviest read in the
  * tree.
  */

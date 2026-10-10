@@ -103,6 +103,7 @@ fn run_worker(incremental: bool) {
         &MatchConfig::default(),
         &existing,
         generation,
+        &HashSet::new(),
         ApplyOn::Caller,
     );
     assert_eq!(save, GroupSave::Committed);

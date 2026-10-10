@@ -4,78 +4,10 @@
 
 import type { ActivityType } from '@/features/activity';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { ACTIVITY_TYPES } from '@/shared/native/sportTaxonomy.generated';
 
-/**
- * Valid activity types for type checking.
- * Keep in sync with ActivityType union in src/types/activity.ts
- */
-const VALID_ACTIVITY_TYPES = new Set<string>([
-  // Cycling
-  'Ride',
-  'VirtualRide',
-  'EBikeRide',
-  'MountainBikeRide',
-  'GravelRide',
-  'TrackRide',
-  'Cyclocross',
-  'Velomobile',
-  'Handcycle',
-  // Running
-  'Run',
-  'VirtualRun',
-  'TrailRun',
-  'Treadmill',
-  // Walking/Hiking
-  'Walk',
-  'Hike',
-  // Swimming
-  'Swim',
-  'OpenWaterSwim',
-  // Snow sports
-  'AlpineSki',
-  'NordicSki',
-  'BackcountrySki',
-  'Snowboard',
-  'Snowshoe',
-  'RollerSki',
-  // Water sports
-  'Rowing',
-  'VirtualRow',
-  'Kayaking',
-  'Canoeing',
-  'Surfing',
-  'Kitesurf',
-  'Windsurf',
-  'StandUpPaddling',
-  'Sail',
-  // Skating
-  'IceSkate',
-  'InlineSkate',
-  'Skateboard',
-  // Gym/Fitness
-  'Workout',
-  'WeightTraining',
-  'Yoga',
-  'Pilates',
-  'Crossfit',
-  'Elliptical',
-  'StairStepper',
-  'HighIntensityIntervalTraining',
-  // Racket sports
-  'Tennis',
-  'Badminton',
-  'Pickleball',
-  'Racquetball',
-  'Squash',
-  'TableTennis',
-  // Other sports
-  'Soccer',
-  'Golf',
-  'RockClimbing',
-  'Wheelchair',
-  // Catch-all
-  'Other',
-]);
+/** The activity types the engine's sport taxonomy names. */
+const VALID_ACTIVITY_TYPES = new Set<string>(ACTIVITY_TYPES);
 
 /**
  * Type guard to check if a string is a valid ActivityType.

@@ -22,7 +22,7 @@ use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version - increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-pub(crate) const TILE_FORMAT_VERSION: &str = "8";
+pub(crate) const TILE_FORMAT_VERSION: &str = "9";
 
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
@@ -240,7 +240,10 @@ impl Drop for TilePassGuard {
         // lease in that engine's database, and left there the key reads as in
         // flight for good. An install that moved means the library was wiped
         // or replaced, and the lease went with it.
-        if !in_installed && super::engine_install() == self.install {
+        if !in_installed
+            && super::engine_install() == self.install
+            && let Some(_write) = super::suspension::begin_write()
+        {
             let released = Connection::open(&self.db_path).and_then(|db| {
                 db.busy_timeout(Duration::from_secs(5))?;
                 super::attempts::release_job_in(&db, &tile_pass_key(), release, at)
@@ -1500,17 +1503,26 @@ fn background_generate_tiles(
 
 /// Bulk-load every activity's GPS track in chunked `IN (...)` queries.
 /// Returns a map from activity_id to its track placed on the map, and the ids whose
-/// stored track did not decode. An unreadable track is omitted rather than
+/// stored track did not decode. Each chunk is placed before the next is read, so
+/// the decoded points held at once are one chunk's rather than the library's. An unreadable track is omitted rather than
 /// mapped to an empty one: the map must not claim to hold a track it could
 /// not read.
 fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> LoadedTracks {
     // SQLite's default parameter limit is 999; chunk well under that so the
     // query never fails for large corpora.
     const CHUNK: usize = 500;
-    let mut decoded: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(activities.len());
+    load_tracks_in_chunks(conn, activities, CHUNK)
+}
+
+fn load_tracks_in_chunks(
+    conn: &Connection,
+    activities: &[(String, Bounds)],
+    chunk_len: usize,
+) -> LoadedTracks {
+    let mut tracks = LoadedTracksById::with_capacity(activities.len());
     let mut corrupt: Vec<(String, String)> = Vec::new();
 
-    for chunk in activities.chunks(CHUNK) {
+    for chunk in activities.chunks(chunk_len) {
         let placeholders: String = std::iter::repeat_n("?", chunk.len())
             .collect::<Vec<_>>()
             .join(",");
@@ -1542,6 +1554,7 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
             }
         };
 
+        let mut decoded: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(chunk.len());
         for row in rows {
             let Ok((id, blob)) = row else { continue };
             match TrackRead::from_blob(&blob) {
@@ -1550,14 +1563,19 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
                 TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
             }
         }
+
+        #[cfg(test)]
+        tiles::work::held_decoded(decoded.iter().map(|(_, track)| track.len()).sum());
+        // Placed on the map once here, so neither the plan nor the draw
+        // projects a point again. The decoded points are dropped as each track
+        // is placed.
+        tracks.par_extend(
+            decoded
+                .into_par_iter()
+                .map(|(id, track)| (id, Arc::new(tiles::ProjectedTrack::new(&track)))),
+        );
     }
 
-    // Placed on the map once here, so neither the plan nor the draw projects
-    // a point again. The decoded points are dropped as each track is placed.
-    let tracks = decoded
-        .into_par_iter()
-        .map(|(id, track)| (id, Arc::new(tiles::ProjectedTrack::new(&track))))
-        .collect();
     LoadedTracks { tracks, corrupt }
 }
 
@@ -1599,6 +1617,79 @@ mod tests {
             &tiles::track_spans(track, config.min_zoom, config.max_zoom),
         );
         SweptGround::read(dir.path()).expect("the sweep left a record")
+    }
+
+    /// Scenario: a library is read in three chunks, one row of it unreadable.
+    ///
+    /// Expected behaviour: the load never holds more decoded points than the
+    /// largest chunk carries, since each chunk is placed on the map and its
+    /// points dropped before the next is read, and every track is placed as
+    /// its stored points place it.
+    #[test]
+    fn the_load_holds_one_chunk_of_decoded_points_at_a_time() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE gps_tracks (activity_id TEXT PRIMARY KEY, track_data BLOB NOT NULL)",
+            [],
+        )
+        .unwrap();
+        let mut activities = Vec::new();
+        let mut stored = HashMap::new();
+        for i in 0..7u32 {
+            let track: Vec<GpsPoint> = (0..20 + 15 * i)
+                .map(|k| GpsPoint::new(46.2 + f64::from(i) * 0.01, 7.3 + f64::from(k) * 0.0005))
+                .collect();
+            let blob = super::super::codec::serialize_track_points(&track);
+            let id = format!("ride-{i}");
+            conn.execute(
+                "INSERT INTO gps_tracks (activity_id, track_data) VALUES (?1, ?2)",
+                rusqlite::params![id, blob],
+            )
+            .unwrap();
+            activities.push((id.clone(), Bounds::from_points(&track).unwrap()));
+            stored.insert(id, TrackRead::from_blob(&blob).points().to_vec());
+        }
+        conn.execute(
+            "INSERT INTO gps_tracks (activity_id, track_data) VALUES ('broken', ?1)",
+            [vec![0xffu8; 9]],
+        )
+        .unwrap();
+        activities.insert(4, ("broken".into(), activities[3].1));
+
+        tiles::work::take_peak_decoded();
+        let loaded = load_tracks_in_chunks(&conn, &activities, 3);
+        let peak = tiles::work::take_peak_decoded();
+
+        let largest_chunk = activities
+            .chunks(3)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .filter_map(|(id, _)| stored.get(id))
+                    .map(Vec::len)
+                    .sum::<usize>()
+            })
+            .max()
+            .unwrap();
+        let total: usize = stored.values().map(Vec::len).sum();
+        assert!(peak > 0, "the load reported nothing held");
+        assert!(
+            peak <= largest_chunk,
+            "{peak} points held decoded at once, the largest chunk holds {largest_chunk} of {total}"
+        );
+        assert_eq!(loaded.corrupt.len(), 1);
+        assert_eq!(loaded.corrupt[0].0, "broken");
+        assert_eq!(loaded.tracks.len(), stored.len());
+        for (id, points) in &stored {
+            let want = tiles::ProjectedTrack::new(points);
+            for z in [1, 9, 17] {
+                assert_eq!(
+                    loaded.tracks[id].tiles_along(z),
+                    want.tiles_along(z),
+                    "{id} z{z}"
+                );
+            }
+        }
     }
 
     /// Scenario: one ride is stored in town A and the pass is asked to redraw

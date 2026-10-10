@@ -11,6 +11,7 @@ const buildDirectories = new Set([
   'modules',
   'plugins',
   'widget',
+  'push',
   'assets',
   'patches',
   'expo-modules',
@@ -20,6 +21,14 @@ const buildDirectories = new Set([
   'scripts',
   '.github',
 ]);
+
+// Tracked directories no build reads: hooks, end-to-end flows, prose and the
+// OAuth proxy, which deploys on its own. `check-build-inputs.mjs` refuses a
+// tracked top-level directory in neither list.
+const excludedDirectories = new Set(['.husky', '.maestro', 'docs', 'oauth-proxy']);
+
+// Directories split by platform, whose other platform's half a profile skips.
+const platformDirectories = ['widget', 'push'];
 
 /**
  * `process.env` without the pointers git exports to everything a hook runs.
@@ -49,8 +58,9 @@ function isBuildInput(file, profile) {
   if (file.includes('/') && !buildDirectories.has(file.split('/')[0])) return false;
   if (/\.md$/i.test(file) || file.startsWith('src/__tests__/')) return false;
   if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
-  if (profile !== 'all' && file.startsWith(`widget/${profile === 'ios' ? 'android' : 'ios'}/`)) {
-    return false;
+  if (profile !== 'all') {
+    const other = profile === 'ios' ? 'android' : 'ios';
+    if (platformDirectories.some((dir) => file.startsWith(`${dir}/${other}/`))) return false;
   }
   return true;
 }
@@ -144,5 +154,5 @@ function computeSourceHash(cwd = process.cwd(), profile = 'android', { local = f
   return hash.digest('hex').slice(0, 12);
 }
 
-module.exports = { computeSourceHash, isBuildInput };
+module.exports = { buildDirectories, computeSourceHash, excludedDirectories, isBuildInput };
 if (require.main === module) console.log(computeSourceHash(process.cwd(), process.argv[2]));

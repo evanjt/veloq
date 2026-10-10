@@ -269,7 +269,11 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/chronotope/chrono',
       },
-      { name: 'image', license: 'MIT', repository: 'https://github.com/image-rs/image' },
+      {
+        name: 'png',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/image-rs/image-png',
+      },
       {
         name: 'tempfile',
         license: 'MIT OR Apache-2.0',

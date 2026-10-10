@@ -9,7 +9,13 @@ fn test_section_detail_performance_repeat_uses_cache() {
 
     for _ in 0..2 {
         crate::persistence::read_pool::with_read_conn(|conn| {
-            let detail = pooled::section_detail_performance(conn, "missing", 14, None);
+            let detail = pooled::section_detail_performance(
+                conn,
+                "missing",
+                14,
+                None,
+                crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+            );
             assert!(detail.performances.records.is_empty());
         })
         .expect("reader");

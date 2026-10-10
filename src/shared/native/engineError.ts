@@ -24,6 +24,7 @@ export const ENGINE_ERROR_TAGS = [
   'TileStore',
   'Busy',
   'NameTaken',
+  'Suspended',
 ] as const;
 
 export type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
@@ -64,6 +65,9 @@ const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
   // A refusal, not a failure. A caller that can say the name is taken reads the tag, and
   // this line is for the ones that cannot.
   NameTaken: 'engine.failure.database',
+  // The engine stopped writing while the app is in the background, and the
+  // same call succeeds once it is back. Busy is the line that says try again.
+  Suspended: 'engine.failure.busy',
 };
 
 /**

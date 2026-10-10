@@ -15,7 +15,9 @@
  * `request` is the slider's way in. It waits for the values to stand still,
  * and a run already going is cancelled and its end awaited before the new one
  * starts: the engine's cancel is cooperative, so the old run holds the slot
- * until it notices, and a start before then is refused as busy.
+ * until it notices, and a start before then is refused as busy. `cancel` and
+ * `reset` leave a run the same way: it is still followed to its end, its
+ * outcome is not shown, and a start made meanwhile waits for that end.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -99,8 +101,11 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   const runningRef = useRef(false);
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The values a superseded run is being cancelled for. Set only while the old
-  // run winds down, and started from its end.
+  // True while the run followed is one the engine has been asked to cancel:
+  // it still holds the slot, and however it ends it is not shown.
+  const discardRef = useRef(false);
+  // The values to start once a discarded run ends. Set only while it winds
+  // down.
   const pendingRef = useRef<PreviewRequest | null>(null);
   const startRef = useRef<(lat: number, lng: number, params: PreviewParams) => StartVerdict>(
     () => StartOutcome.NotReady
@@ -112,6 +117,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     if (tickerRef.current) clearInterval(tickerRef.current);
     tickerRef.current = null;
     runningRef.current = false;
+    discardRef.current = false;
   }, []);
 
   const dropRequest = useCallback(() => {
@@ -120,19 +126,28 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     pendingRef.current = null;
   }, []);
 
+  // Asks the engine to cancel the run followed, once, and keeps following it
+  // so its end frees the slot before anything else starts.
+  const discard = useCallback(() => {
+    if (!runningRef.current || discardRef.current) return;
+    discardRef.current = true;
+    client?.cancelPreviewDetect();
+  }, [client]);
+
   const settle = useCallback(() => {
     if (!client || !runningRef.current) return false;
     const polled = client.pollPreviewDetect();
     // The engine announces only once the outcome is readable, so a status
     // still reading running is a stray event and the run stays live.
     if (polled === 'running') return false;
+    const discarded = discardRef.current;
     stopRun();
-    const pending = pendingRef.current;
-    if (pending) {
-      // The run was cut for values the athlete has moved off, so however it
-      // ended it is not shown. An untaken payload is reaped by the next start.
+    if (discarded) {
+      // The run was cut, so however it ended it is not shown. An untaken
+      // payload is reaped by the next start.
+      const pending = pendingRef.current;
       pendingRef.current = null;
-      startRef.current(pending.lat, pending.lng, pending.params);
+      if (pending) startRef.current(pending.lat, pending.lng, pending.params);
       return true;
     }
     if (polled === 'complete') {
@@ -158,8 +173,8 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   }, [client, stopRun]);
 
   const readProgress = useCallback(() => {
-    // A superseded run's phases describe work nobody is waiting for.
-    if (!client || !runningRef.current || pendingRef.current) return;
+    // A discarded run's phases describe work nobody is waiting for.
+    if (!client || !runningRef.current || discardRef.current) return;
     // Progress is advisory: a failed read leaves the last figures and the run
     // settles on its own announcement.
     const p = attemptEngineRead(() => client.getPreviewProgress()).value;
@@ -175,7 +190,18 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   const start = useCallback(
     (lat: number, lng: number, params: PreviewParams): StartVerdict => {
       if (!client) return StartOutcome.NotReady;
-      if (runningRef.current) return StartOutcome.Busy;
+      if (runningRef.current) {
+        if (!discardRef.current) return StartOutcome.Busy;
+        // A cancelled run still holds the engine's slot until it notices, so
+        // the tap is kept and started from that run's end. A refusal then
+        // lands in `refusal` as it does for `request`.
+        pendingRef.current = { lat, lng, params };
+        setRefusal(null);
+        setProgress(null);
+        setLapsed(false);
+        setStatus('running');
+        return StartOutcome.Started;
+      }
       const config = client.getSectionConfig();
       if (!config) {
         setStatus('error');
@@ -219,7 +245,8 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         if (!lapsedAt) {
           if (awake() - startedAt < PREVIEW_LAPSE_AFTER_MS) return;
           lapsedAt = true;
-          setLapsed(true);
+          // A discarded run is not what the screen is waiting on.
+          if (!discardRef.current) setLapsed(true);
           return;
         }
         settle();
@@ -245,40 +272,40 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         }
         // One cancel is enough however many values land while it winds down:
         // the last of them is what starts.
-        if (!pendingRef.current) client.cancelPreviewDetect();
+        discard();
         pendingRef.current = { lat, lng, params };
         setProgress(null);
       }, PREVIEW_DEBOUNCE_MS);
     },
-    [client, start]
+    [client, start, discard]
   );
 
   const cancel = useCallback(() => {
     dropRequest();
     if (!client || !runningRef.current) return;
-    client.cancelPreviewDetect();
-    stopRun();
+    discard();
     setStatus('cancelled');
     setProgress(null);
-  }, [client, stopRun, dropRequest]);
+    setLapsed(false);
+  }, [client, discard, dropRequest]);
 
   const reset = useCallback(() => {
     dropRequest();
-    stopRun();
+    discard();
     setStatus('idle');
     setProgress(null);
     setResult(null);
     setRefusal(null);
     setLapsed(false);
-  }, [stopRun, dropRequest]);
+  }, [discard, dropRequest]);
 
   useEffect(() => {
     return () => {
       dropRequest();
-      if (runningRef.current) client?.cancelPreviewDetect();
+      discard();
       stopRun();
     };
-  }, [client, stopRun, dropRequest]);
+  }, [stopRun, dropRequest, discard]);
 
   return { status, progress, result, refusal, lapsed, start, request, cancel, reset };
 }

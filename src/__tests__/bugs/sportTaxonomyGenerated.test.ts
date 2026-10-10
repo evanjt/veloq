@@ -10,8 +10,17 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { SPORT_DISPLAY_GROUPS, SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
-import { readRustSportFamilies } from '../../../scripts/lib/sportTaxonomy';
+import { isActivityType } from '@/features/routes/types';
+import {
+  ACTIVITY_TYPES,
+  SPORT_DISPLAY_GROUPS,
+  SPORT_FAMILIES,
+} from '@/shared/native/sportTaxonomy.generated';
+import {
+  readRustSportDisplayGroups,
+  readRustSportFamilies,
+  renderSportTaxonomy,
+} from '../../../scripts/lib/sportTaxonomy';
 
 const RUST = resolve('modules/veloqrs/rust/veloqrs/src/sport.rs');
 
@@ -72,5 +81,30 @@ const NOT_PUB: &[&str] = &["Ignored"];
       /running/
     );
     expect(() => readRustSportFamilies('pub const CYCLING: &[&str] = &[];')).toThrow(/CYCLING/);
+  });
+
+  it('derives the activity type list from the display groups, every family sport included', () => {
+    const groups = readRustSportDisplayGroups(readFileSync(RUST, 'utf-8'));
+    expect(ACTIVITY_TYPES).toEqual([...new Set(Object.values(groups).flat())]);
+    for (const sports of Object.values(SPORT_FAMILIES)) {
+      for (const sport of sports) expect(ACTIVITY_TYPES).toContain(sport);
+    }
+  });
+
+  it('renders a sport added to a display group into the activity type list once', () => {
+    const groups = readRustSportDisplayGroups(readFileSync(RUST, 'utf-8'));
+    const rendered = renderSportTaxonomy(readRustSportFamilies(readFileSync(RUST, 'utf-8')), {
+      ...groups,
+      Other: [...groups.Other, 'Floorball'],
+    });
+    const list = rendered.slice(rendered.indexOf('export const ACTIVITY_TYPES'));
+    expect(list.match(/'Floorball'/g)).toHaveLength(1);
+    expect(rendered).toContain('export type ActivityType = (typeof ACTIVITY_TYPES)[number];');
+  });
+
+  it('accepts every generated activity type at runtime and nothing outside the list', () => {
+    for (const sport of ACTIVITY_TYPES) expect(isActivityType(sport)).toBe(true);
+    expect(isActivityType('Floorball')).toBe(false);
+    expect(isActivityType('')).toBe(false);
   });
 });

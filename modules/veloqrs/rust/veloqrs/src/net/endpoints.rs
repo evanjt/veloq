@@ -2,7 +2,7 @@
 //! serde parse → convert.
 //! Credentials live on the `Transport`; callers pass only ids and params.
 
-use crate::governor::Lane;
+use crate::governor::Dispatch;
 use crate::net::transport::{FilePart, NetError, Transport};
 use crate::net::types::*;
 use std::time::Duration;
@@ -10,9 +10,11 @@ use std::time::Duration;
 /// Streams requested for the detail charts (GPS + the per-metric series).
 pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
 
-/// Series the bulk track ingest asks for: the coordinates, plus both altitude
-/// forms so `parse_streams` can prefer the corrected one.
-pub const TRACK_STREAM_TYPES: &str = "latlng,fixed_altitude,altitude";
+/// Series the bulk track ingest asks for: the coordinates, both altitude
+/// forms so `parse_streams` can prefer the corrected one, and the clock the
+/// section lap times are read off, which would otherwise cost a second
+/// `time,latlng` request per activity.
+pub const TRACK_STREAM_TYPES: &str = "latlng,fixed_altitude,altitude,time";
 
 /// Series the elevation backfill asks for. The coordinates of every row in
 /// its queue are already on the device, so asking for them again costs about
@@ -25,10 +27,10 @@ pub const ELEVATION_STREAM_TYPES: &str = "fixed_altitude,altitude";
 pub async fn fetch_athlete_body(
     t: &Transport,
     athlete_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
-        .get_bytes(&format!("/athlete/{}", athlete_id), &[], lane)
+        .get_bytes(&format!("/athlete/{}", athlete_id), &[], dispatch)
         .await?;
     decode_body(bytes)
 }
@@ -38,13 +40,13 @@ pub async fn fetch_athlete_body(
 pub async fn fetch_sport_settings_body(
     t: &Transport,
     athlete_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
         .get_bytes(
             &format!("/athlete/{}/sport-settings", athlete_id),
             &[],
-            lane,
+            dispatch,
         )
         .await?;
     decode_body(bytes)
@@ -58,13 +60,13 @@ pub async fn fetch_wellness_with_bodies(
     athlete_id: &str,
     oldest: &str,
     newest: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Vec<(WellnessRecord, String)>, NetError> {
     let bytes = t
         .get_bytes(
             &format!("/athlete/{}/wellness", athlete_id),
             &[("oldest", oldest), ("newest", newest)],
-            lane,
+            dispatch,
         )
         .await?;
     let days: Vec<serde_json::Value> =
@@ -87,8 +89,11 @@ fn decode_body(bytes: Vec<u8>) -> Result<String, NetError> {
 }
 
 /// `GET /athlete/me` - discover the current athlete from the credential alone.
-pub async fn fetch_current_athlete(t: &Transport, lane: Lane) -> Result<AthleteRecord, NetError> {
-    t.get_json("/athlete/me", &[], lane).await
+pub async fn fetch_current_athlete(
+    t: &Transport,
+    dispatch: impl Into<Dispatch>,
+) -> Result<AthleteRecord, NetError> {
+    t.get_json("/athlete/me", &[], dispatch).await
 }
 
 /// `GET /athlete/{id}/activities` returning each activity both typed and as
@@ -104,7 +109,7 @@ pub async fn fetch_activities_with_bodies(
     newest: &str,
     include_stats: bool,
     limit: Option<u32>,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Vec<(ActivityRecord, String)>, NetError> {
     let fields = activity_list_fields(include_stats);
     let mut params: Vec<(&str, &str)> =
@@ -117,7 +122,7 @@ pub async fn fetch_activities_with_bodies(
         .get_bytes(
             &format!("/athlete/{}/activities", athlete_id),
             &params,
-            lane,
+            dispatch,
         )
         .await?;
     let items: Vec<serde_json::Value> =
@@ -138,7 +143,7 @@ pub async fn fetch_activity_history_summary(
     t: &Transport,
     athlete_id: &str,
     today: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<ActivityHistorySummary, NetError> {
     let acts: Vec<ActivityRecord> = t
         .get_json(
@@ -151,7 +156,7 @@ pub async fn fetch_activity_history_summary(
                     "id,start_date_local,created,icu_sync_date,stream_types",
                 ),
             ],
-            lane,
+            dispatch,
         )
         .await?;
     Ok(ActivityHistorySummary {
@@ -170,13 +175,13 @@ pub async fn fetch_streams(
     t: &Transport,
     activity_id: &str,
     types: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<ParsedStreams, NetError> {
     let raw: Vec<StreamDto> = t
         .get_json(
             &format!("/activity/{}/streams.json", activity_id),
             &[("types", types)],
-            lane,
+            dispatch,
         )
         .await?;
     let parsed = parse_streams(raw);
@@ -211,13 +216,13 @@ pub async fn fetch_streams(
 pub async fn fetch_altitude(
     t: &Transport,
     activity_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Option<ParsedStreams>, NetError> {
     let raw: Vec<StreamDto> = t
         .get_json(
             &format!("/activity/{}/streams.json", activity_id),
             &[("types", ELEVATION_STREAM_TYPES)],
-            lane,
+            dispatch,
         )
         .await?;
     if !raw
@@ -238,13 +243,13 @@ pub async fn fetch_streams_body(
     t: &Transport,
     activity_id: &str,
     types: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
         .get_bytes(
             &format!("/activity/{}/streams.json", activity_id),
             &[("types", types)],
-            lane,
+            dispatch,
         )
         .await?;
     decode_body(bytes)
@@ -255,10 +260,10 @@ pub async fn fetch_streams_body(
 pub async fn fetch_activity_body(
     t: &Transport,
     activity_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
-        .get_bytes(&format!("/activity/{}", activity_id), &[], lane)
+        .get_bytes(&format!("/activity/{}", activity_id), &[], dispatch)
         .await?;
     decode_body(bytes)
 }
@@ -268,13 +273,29 @@ pub async fn fetch_activity_body(
 /// stored track, so `latlng` is requested alongside `time` to put both in the
 /// one index space. Without it a single dropped coordinate shifts every lap
 /// time on the activity. A negative sample is clamped rather than dropped.
+///
+/// Empty when upstream has no `time`. With no coordinates there is no mask,
+/// so the series comes back as upstream sent it and the store's length check
+/// judges it. A `time` out of step with coordinates that did come back is an
+/// error rather than a series padded or cut to fit, so the activity stays
+/// owed rather than timed off the wrong samples.
 pub async fn fetch_time_stream(
     t: &Transport,
     activity_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Vec<u32>, NetError> {
-    let parsed = fetch_streams(t, activity_id, "time,latlng", lane).await?;
-    Ok(parsed.time.into_iter().map(|v| v.max(0) as u32).collect())
+    use crate::net::types::{TrackClock, track_clock};
+    let parsed = fetch_streams(t, activity_id, "time,latlng", dispatch).await?;
+    match track_clock(&parsed) {
+        TrackClock::Fits(times) => Ok(times),
+        TrackClock::Absent => Ok(Vec::new()),
+        TrackClock::OutOfStep if parsed.latlng.is_empty() => {
+            Ok(parsed.time.iter().map(|v| (*v).max(0) as u32).collect())
+        }
+        TrackClock::OutOfStep => Err(NetError::Decode(format!(
+            "activity {activity_id} time is out of step with its coordinates"
+        ))),
+    }
 }
 
 /// `GET /athlete/{id}/events` - calendar events (planned workouts, notes,
@@ -285,13 +306,13 @@ pub async fn fetch_calendar_events_bodies(
     athlete_id: &str,
     oldest: &str,
     newest: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Vec<(String, String, String)>, NetError> {
     let bytes = t
         .get_bytes(
             &format!("/athlete/{}/events", athlete_id),
             &[("oldest", oldest), ("newest", newest), ("resolve", "true")],
-            lane,
+            dispatch,
         )
         .await?;
     let items: Vec<serde_json::Value> =
@@ -329,13 +350,13 @@ pub async fn fetch_power_curve_body(
     athlete_id: &str,
     sport: &str,
     curves: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
         .get_bytes(
             &format!("/athlete/{}/power-curves.json", athlete_id),
             &[("type", sport), ("curves", curves)],
-            lane,
+            dispatch,
         )
         .await?;
     decode_body(bytes)
@@ -349,7 +370,7 @@ pub async fn fetch_pace_curve_body(
     sport: &str,
     curves: &str,
     gap: bool,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let mut query: Vec<(&str, &str)> = vec![("type", sport), ("curves", curves)];
     if gap && sport == "Run" {
@@ -359,7 +380,7 @@ pub async fn fetch_pace_curve_body(
         .get_bytes(
             &format!("/athlete/{}/pace-curves.json", athlete_id),
             &query,
-            lane,
+            dispatch,
         )
         .await?;
     decode_body(bytes)
@@ -369,12 +390,158 @@ pub async fn fetch_pace_curve_body(
 pub async fn fetch_intervals_body(
     t: &Transport,
     activity_id: &str,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
     let bytes = t
-        .get_bytes(&format!("/activity/{}/intervals", activity_id), &[], lane)
+        .get_bytes(
+            &format!("/activity/{}/intervals", activity_id),
+            &[],
+            dispatch,
+        )
         .await?;
     decode_body(bytes)
+}
+
+/// The most activities one bulk request names. Measured against the live
+/// server, which answers 200 in one request at about 670 KB gzipped.
+pub const BULK_ACTIVITIES_MAX: usize = 200;
+
+/// One activity from the bulk answer, split into the bodies the single
+/// endpoints answer for it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BulkActivityBodies {
+    /// The activity's id upstream.
+    pub id: String,
+    /// What `GET /activity/{id}` answers: the item with its interval fields
+    /// left out, every other field as sent and in the order sent.
+    pub detail: String,
+    /// What `GET /activity/{id}/intervals` answers, or `None` when the item
+    /// carried no `icu_intervals` or a null one.
+    pub intervals: Option<String>,
+}
+
+/// The fields of the interval body, in the order the single endpoint sends them.
+const INTERVAL_BODY_FIELDS: [&str; 4] = ["id", "analyzed", "icu_intervals", "icu_groups"];
+
+/// The fields the bulk answer adds to the detail body.
+const INTERVAL_ONLY_FIELDS: [&str; 2] = ["icu_intervals", "icu_groups"];
+
+/// `GET /athlete/{id}/activities/{ids}?intervals=true`: the detail and
+/// interval bodies of up to [`BULK_ACTIVITIES_MAX`] activities in one request.
+///
+/// The answer is sorted by id whatever order the ids were asked in, and an id
+/// the server does not know is left out rather than refused, so a caller
+/// matches on id and decides for itself what a missing one means.
+pub async fn fetch_activity_bodies_in_bulk(
+    t: &Transport,
+    athlete_id: &str,
+    ids: &[String],
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<BulkActivityBodies>, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/activities/{}", athlete_id, ids.join(",")),
+            &[("intervals", "true")],
+            dispatch,
+        )
+        .await?;
+    split_bulk_activities(&bytes)
+}
+
+/// Split a bulk answer into each activity's detail and interval bodies.
+///
+/// Each field is copied as the text the server sent, never re-serialised, so
+/// key order, number formatting and string escapes match the single
+/// endpoints byte for byte.
+fn split_bulk_activities(bytes: &[u8]) -> Result<Vec<BulkActivityBodies>, NetError> {
+    let items: Vec<OrderedFields<'_>> =
+        serde_json::from_slice(bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+    items.iter().map(OrderedFields::split).collect()
+}
+
+/// A JSON object's fields in the order they were sent, each value as its text.
+struct OrderedFields<'a>(Vec<(String, &'a serde_json::value::RawValue)>);
+
+impl<'de> serde::Deserialize<'de> for OrderedFields<'de> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Fields;
+        impl<'de> serde::de::Visitor<'de> for Fields {
+            type Value = OrderedFields<'de>;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("an activity object")
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut fields = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some(field) =
+                    map.next_entry::<String, &'de serde_json::value::RawValue>()?
+                {
+                    fields.push(field);
+                }
+                Ok(OrderedFields(fields))
+            }
+        }
+        deserializer.deserialize_map(Fields)
+    }
+}
+
+impl OrderedFields<'_> {
+    fn field(&self, name: &str) -> Option<&serde_json::value::RawValue> {
+        self.0
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| *value)
+    }
+
+    fn split(&self) -> Result<BulkActivityBodies, NetError> {
+        let id = self
+            .field("id")
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw.get()).ok())
+            .and_then(|id| match id {
+                serde_json::Value::String(id) => Some(id),
+                serde_json::Value::Number(id) => Some(id.to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| NetError::Decode("bulk activity without an id".into()))?;
+        let detail = object_text(
+            self.0
+                .iter()
+                .filter(|(key, _)| !INTERVAL_ONLY_FIELDS.contains(&key.as_str())),
+        );
+        let intervals = match self.field("icu_intervals") {
+            Some(raw) if raw.get().trim() != "null" => {
+                Some(object_text(INTERVAL_BODY_FIELDS.iter().filter_map(
+                    |name| self.0.iter().find(|(key, _)| key == name),
+                )))
+            }
+            _ => None,
+        };
+        Ok(BulkActivityBodies {
+            id,
+            detail,
+            intervals,
+        })
+    }
+}
+
+/// An object written back from its fields, each value as its sent text.
+fn object_text<'a, 'b: 'a>(
+    fields: impl Iterator<Item = &'a (String, &'b serde_json::value::RawValue)>,
+) -> String {
+    let mut text = String::from("{");
+    for (index, (key, value)) in fields.enumerate() {
+        if index > 0 {
+            text.push(',');
+        }
+        // A key is a plain string, so serialising it cannot fail.
+        text.push_str(&serde_json::to_string(key).unwrap_or_default());
+        text.push(':');
+        text.push_str(value.get());
+    }
+    text.push('}');
+    text
 }
 
 /// The multipart field holding the activity file. Taken from the upload path
@@ -411,7 +578,7 @@ pub async fn upload_activity(
     file_path: &str,
     filename: &str,
     details: UploadDetails<'_>,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Option<String>, NetError> {
     let mut fields: Vec<(&str, String)> = Vec::new();
     if let Some(name) = details.name.filter(|n| !n.is_empty()) {
@@ -440,7 +607,7 @@ pub async fn upload_activity(
             &part,
             &fields,
             &query,
-            lane,
+            dispatch,
             UPLOAD_TIMEOUT,
         )
         .await?;
@@ -454,12 +621,12 @@ pub async fn update_activity_rpe(
     t: &Transport,
     activity_id: &str,
     rpe: u32,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<(), NetError> {
     t.put_json(
         &format!("/activity/{}", activity_id),
         &serde_json::json!({ "icu_rpe": rpe }),
-        lane,
+        dispatch,
     )
     .await?;
     Ok(())
@@ -470,14 +637,14 @@ pub async fn create_activity(
     t: &Transport,
     athlete_id: &str,
     activity: &ManualActivityBody,
-    lane: Lane,
+    dispatch: impl Into<Dispatch>,
 ) -> Result<Option<String>, NetError> {
     let body = serde_json::to_value(activity).map_err(|e| NetError::Decode(e.to_string()))?;
     let response = t
         .post_json(
             &format!("/athlete/{}/activities/manual", athlete_id),
             &body,
-            lane,
+            dispatch,
         )
         .await?;
     Ok(created_activity_id(&response))
@@ -500,7 +667,7 @@ fn created_activity_id(body: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::governor::{AuthMethod, Governor, NoopPolicy};
+    use crate::governor::{AuthMethod, Governor, Lane, NoopPolicy};
     use httpmock::prelude::*;
     use serde_json::json;
     use std::sync::Arc;
@@ -508,6 +675,78 @@ mod tests {
     fn fast_transport(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap()
+    }
+
+    #[test]
+    fn the_bulk_request_names_every_id_and_asks_for_intervals() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities/i30,i10,i20")
+                .query_param("intervals", "true");
+            then.status(200).body(
+                r#"[{"id":"i10","icu_intervals":[]},{"id":"i20","icu_intervals":[]},{"id":"i30","icu_intervals":[]}]"#,
+            );
+        });
+        let t = fast_transport(server.base_url());
+        let ids = ["i30", "i10", "i20"].map(String::from);
+        let items = crate::runtime::block_on(fetch_activity_bodies_in_bulk(
+            &t,
+            "i1",
+            &ids,
+            Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
+        let answered: Vec<&str> = items.iter().map(|item| item.id.as_str()).collect();
+        assert_eq!(answered, ["i10", "i20", "i30"]);
+    }
+
+    /// A value round-tripped through `serde_json::Value` loses its key order
+    /// and rewrites `1.0E-4` and `\u00e9`, so the split body would not be the
+    /// one the single endpoint answers.
+    #[test]
+    fn a_split_body_keeps_every_field_as_the_server_sent_it() {
+        let answer = r#"[{"id":"i5","name":"Caf\u00e9","icu_intervals":[{"type":"WORK","gradient":-1.5E-4}],"zeta":1.0E-4,"analyzed":"2025-03-01T08:00:00.000+00:00","alpha":[1,2.50],"icu_groups":null,"icu_athlete_id":"i1"}]"#;
+
+        let items = split_bulk_activities(answer.as_bytes()).unwrap();
+
+        assert_eq!(
+            items,
+            vec![BulkActivityBodies {
+                id: "i5".into(),
+                detail: r#"{"id":"i5","name":"Caf\u00e9","zeta":1.0E-4,"analyzed":"2025-03-01T08:00:00.000+00:00","alpha":[1,2.50],"icu_athlete_id":"i1"}"#.into(),
+                intervals: Some(
+                    r#"{"id":"i5","analyzed":"2025-03-01T08:00:00.000+00:00","icu_intervals":[{"type":"WORK","gradient":-1.5E-4}],"icu_groups":null}"#.into()
+                ),
+            }]
+        );
+    }
+
+    #[test]
+    fn an_item_with_no_intervals_or_a_null_carries_no_interval_body() {
+        let answer =
+            r#"[{"id":"i1","type":"Run"},{"id":"i2","icu_intervals":null,"icu_groups":null}]"#;
+
+        let items = split_bulk_activities(answer.as_bytes()).unwrap();
+
+        assert_eq!(items[0].intervals, None);
+        assert_eq!(items[0].detail, r#"{"id":"i1","type":"Run"}"#);
+        assert_eq!(items[1].intervals, None);
+        assert_eq!(items[1].detail, r#"{"id":"i2"}"#);
+    }
+
+    #[test]
+    fn an_answer_that_is_not_a_list_of_activities_is_a_decode_failure() {
+        for answer in [r#"{"id":"i1"}"#, r#"[{"type":"Run"}]"#, "[1]", "[{"] {
+            assert!(
+                matches!(
+                    split_bulk_activities(answer.as_bytes()),
+                    Err(NetError::Decode(_))
+                ),
+                "{answer}"
+            );
+        }
     }
 
     #[test]

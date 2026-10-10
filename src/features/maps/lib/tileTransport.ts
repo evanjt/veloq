@@ -80,6 +80,22 @@ export function nativeHeatmapTileUrl(): string {
   return `${nativeTilePrefix()}/heatmap/{z}/{x}/{y}.png`;
 }
 
+/** What the engine answers GeoJSON for at a `veloq-geo` URL. */
+export type NativeGeoKind = 'track';
+
+/**
+ * Where the page asks for GeoJSON the engine writes from what it stores, such
+ * as one activity's line, so a source can name a URL rather than carry the
+ * text.
+ *
+ * `revision` is a query string the engine ignores: a source whose data is the
+ * same URL is not fetched again, so whatever replaces the stored data has to
+ * move it.
+ */
+export function nativeGeoUrl(kind: NativeGeoKind, key: string, revision: number): string {
+  return `${mapPageBaseUrl()}veloq-geo/${kind}/${encodeURIComponent(key)}?v=${revision}`;
+}
+
 /**
  * Hand Rust the ground and terrain sources before any
  * map page exists.

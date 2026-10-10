@@ -119,6 +119,10 @@ pub fn native_auth_choice<'a>(
 /// is opened when there is no credential: a handler with none has nothing to
 /// fetch with, and opening the database to discover that costs an athlete's
 /// notification the time it takes.
+///
+/// It opens the way the extension's own process must, so a caller in the
+/// app's process reads the keychain through [`native_auth_choice`] and opens
+/// with [`prepare_native_session`] instead.
 pub fn prepare_native_session_from_keychain(
     db_path: &str,
     access_token: Option<&str>,

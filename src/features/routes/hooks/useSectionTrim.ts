@@ -292,36 +292,22 @@ export function useSectionTrim(
     let edit: SectionBoundsEdit;
 
     if (isExpanded && expandContext) {
-      // Check if the user expanded beyond the section or shrunk within it
-      const expandedBeyond =
-        trimStart < expandContext.sectionStartInWindow ||
-        trimEnd > expandContext.sectionEndInWindow;
-
-      if (expandedBeyond) {
-        // The window is a slice of the representative track, so window indices offset into it
-        const activityId = section.representativeActivityId;
-        if (!activityId) {
-          Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
-          return;
-        }
-        edit = {
-          kind: 'expand',
-          sectionId: section.id,
-          activityId,
-          startIndex: expandContext.windowStartIdx + trimStart,
-          endIndex: expandContext.windowStartIdx + trimEnd,
-        };
-      } else {
-        // User shrunk within section - map window indices back to section polyline indices
-        const sectionStart = trimStart - expandContext.sectionStartInWindow;
-        const sectionEnd = trimEnd - expandContext.sectionStartInWindow;
-        edit = {
-          kind: 'trim',
-          sectionId: section.id,
-          startIndex: sectionStart,
-          endIndex: sectionEnd,
-        };
+      // The window is a slice of the representative track, so a shrink and a
+      // grow alike address that track. The stored line can be a consensus line
+      // matched to the track over a different span, so track offsets are never
+      // indices into it.
+      const activityId = section.representativeActivityId;
+      if (!activityId) {
+        Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+        return;
       }
+      edit = {
+        kind: 'expand',
+        sectionId: section.id,
+        activityId,
+        startIndex: expandContext.windowStartIdx + trimStart,
+        endIndex: expandContext.windowStartIdx + trimEnd,
+      };
     } else {
       // Trim mode - pure trim on section polyline
       edit = { kind: 'trim', sectionId: section.id, startIndex: trimStart, endIndex: trimEnd };

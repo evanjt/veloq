@@ -24,6 +24,7 @@ import {
   readFromBookmarkedFolder,
   writeToBookmarkedFolder,
 } from '@/shared/native/backupFolder';
+import { backupFileName, backupNameTimestamp } from './backupName';
 import { BackupTransferError } from './errors';
 import type { BackupBackend, BackupEntry } from './types';
 
@@ -31,22 +32,6 @@ export { forgetBackupFolder };
 
 /** The codes each platform's picker rejects with when the athlete dismisses it. */
 const PICKER_DISMISSED = new Set(['ERR_PICKER_CANCELLED', 'ERR_FILE_PICKING_CANCELLED']);
-
-/** `veloq-2026-03-14T06-30-00-000Z.zip`: the run's instant with no character a file system refuses. */
-const BACKUP_NAME = /^veloq-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.zip$/;
-
-/** The name a run's zip takes in the folder, from the run's ISO timestamp. */
-export function folderBackupName(timestamp: string): string {
-  const at = new Date(timestamp);
-  const iso = (Number.isNaN(at.getTime()) ? new Date() : at).toISOString();
-  return `veloq-${iso.replace(/[:.]/g, '-')}.zip`;
-}
-
-/** The ISO instant a run's zip name carries, or null for any other file. */
-function timestampOf(name: string): string | null {
-  const m = BACKUP_NAME.exec(name);
-  return m ? `${m[1]}T${m[2]}:${m[3]}:${m[4]}.${m[5]}Z` : null;
-}
 
 function folderUnavailable(operation: string, cause: unknown): BackupTransferError {
   const detail = cause instanceof Error ? cause.message : String(cause);
@@ -58,9 +43,9 @@ function folderUnavailable(operation: string, cause: unknown): BackupTransferErr
 }
 
 /** Run an iOS bookmark call, reporting a folder out of reach as one. */
-function onIos<T>(operation: string, call: () => T): T {
+async function onIos<T>(operation: string, call: () => Promise<T>): Promise<T> {
   try {
-    return call();
+    return await call();
   } catch (e) {
     throw isFolderUnavailableError(e) ? folderUnavailable(operation, e) : e;
   }
@@ -135,11 +120,11 @@ export const folderBackend: BackupBackend = {
     const operation = 'List backups';
     const files =
       Platform.OS === 'ios'
-        ? onIos(operation, listBookmarkedFolder)
+        ? await onIos(operation, listBookmarkedFolder)
         : treeFiles(operation).map((file) => ({ name: file.name, size: file.size ?? 0 }));
     const entries: BackupEntry[] = [];
     for (const { name, size } of files) {
-      const timestamp = timestampOf(name);
+      const timestamp = backupNameTimestamp(name);
       if (timestamp) entries.push({ id: name, timestamp, sizeBytes: size, appVersion: '' });
     }
     entries.sort((a, b) => safeGetTime(new Date(b.timestamp)) - safeGetTime(new Date(a.timestamp)));
@@ -148,9 +133,9 @@ export const folderBackend: BackupBackend = {
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string> {
     const operation = 'Copy backup';
-    const name = folderBackupName(metadata.timestamp);
+    const name = backupFileName(metadata.timestamp);
     if (Platform.OS === 'ios') {
-      onIos(operation, () => writeToBookmarkedFolder(localPath, name));
+      await onIos(operation, () => writeToBookmarkedFolder(localPath, name));
       return name;
     }
     const dir = reachableTree(operation);
@@ -174,7 +159,7 @@ export const folderBackend: BackupBackend = {
   async download(backupId: string, destPath: string): Promise<void> {
     const operation = 'Restore backup';
     if (Platform.OS === 'ios') {
-      onIos(operation, () => readFromBookmarkedFolder(backupId, destPath));
+      await onIos(operation, () => readFromBookmarkedFolder(backupId, destPath));
       return;
     }
     const source = treeFiles(operation).find((file) => file.name === backupId);

@@ -8,7 +8,8 @@
  *
  * Expected behaviour: the toolchain file pins an exact release with rustfmt and
  * clippy, and every `dtolnay/rust-toolchain` step in this repository's workflows
- * and actions installs that same release.
+ * and actions installs that same release. Each step is pinned to the commit of
+ * the action's branch for one release, and the trailing comment names it.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -42,8 +43,8 @@ describe('the Rust toolchain pin', () => {
   it('is the release every workflow and action installs', () => {
     const pinned = channel();
     const uses = yamlFiles(join(ROOT, '.github')).flatMap((file) =>
-      [...readFileSync(file, 'utf8').matchAll(/uses:\s*dtolnay\/rust-toolchain@(\S+)/g)].map(
-        (m) => `${relative(ROOT, file)} @${m[1]}`
+      [...readFileSync(file, 'utf8').matchAll(/uses:\s*dtolnay\/rust-toolchain@([^\n]*)/g)].map(
+        (m) => `${relative(ROOT, file)} @${m[1].replace(/^[0-9a-f]{40}\s+#\s*/, '').trim()}`
       )
     );
     expect(uses.length).toBeGreaterThan(0);

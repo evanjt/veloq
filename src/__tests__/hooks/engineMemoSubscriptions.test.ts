@@ -31,6 +31,7 @@ import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
 import { useEngineMapActivities } from '@/features/maps/hooks/useEngineMapActivities';
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
+import { encodeTrack } from '../__shared__/trackBytes';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // `useEngine` decodes the section polyline, so it imports a value from the
@@ -400,7 +401,8 @@ describe('useDetailCoordinates', () => {
   });
 
   it('leaves the stored track unread while the stream body is to hand', () => {
-    renderHook(() => useDetailCoordinates('act-1', [[1, 2]]));
+    const streamLatLng = new Float64Array([1, 2]);
+    renderHook(() => useDetailCoordinates('act-1', streamLatLng));
 
     emit('activities');
     expect(getGpsTrack).not.toHaveBeenCalled();
@@ -554,7 +556,9 @@ describe('useEngineMapActivities', () => {
       false,
       false,
       true,
-      'ventoux'
+      'ventoux',
+      undefined,
+      undefined
     );
     expect(result.current.totalCount).toBe(292);
     expect(result.current.activities).toEqual([]);
@@ -601,9 +605,18 @@ describe('useEngineMapActivities', () => {
       routeCount: 0,
       routeLines: undefined,
       sectionCount: 4,
-      sections: [
-        { id: 's1', name: 'Church Hill', visitCount: 2, distanceMeters: 100, encodedPolyline: '' },
-      ],
+      sections: {
+        stamp: 1,
+        sections: [
+          {
+            id: 's1',
+            name: 'Church Hill',
+            visitCount: 2,
+            distanceMeters: 100,
+            encodedPolyline: new ArrayBuffer(0),
+          },
+        ],
+      },
     } as never);
     const { result } = renderHook(() =>
       useEngineMapActivities({ ...range, showSections: true, sectionsEnabled: false })
@@ -629,7 +642,7 @@ describe('useEngineMapActivities', () => {
       routeCount: 0,
       routeLines: undefined,
       sectionCount: 4,
-      sections: [],
+      sections: { stamp: 1, sections: [] },
     } as never);
     const { result, rerender } = renderHook(
       (props: { showSections: boolean }) => useEngineMapActivities({ ...range, ...props }),
@@ -643,6 +656,65 @@ describe('useEngineMapActivities', () => {
     const afterToggle = getMapScreenData.mock.calls.length;
     emit('sections');
     expect(getMapScreenData.mock.calls.length).toBe(afterToggle + 1);
+  });
+
+  it('passes each layer stamp back and keeps both layers through a filter change', () => {
+    const encoded = encodeTrack([
+      { latitude: 46.5, longitude: 6.6 },
+      { latitude: 46.6, longitude: 6.7 },
+    ]);
+    const read = (shipped: boolean) =>
+      ({
+        activityCount: 1,
+        availableSportTypes: ['Ride'],
+        categoryCounts: [],
+        activities: [],
+        routeCount: 1,
+        routeLines: {
+          generation: 3,
+          stamp: 7,
+          routes: shipped
+            ? [{ routeId: 'r1', name: 'Loop', activityCount: 2, polyline: encoded }]
+            : undefined,
+        },
+        sectionCount: 1,
+        sections: {
+          stamp: 7,
+          sections: shipped
+            ? [
+                {
+                  id: 's1',
+                  name: 'Weir lane',
+                  sportTypes: ['Ride'],
+                  visitCount: 2,
+                  distanceMeters: 100,
+                  encodedPolyline: encoded,
+                },
+              ]
+            : undefined,
+        },
+      }) as never;
+    getMapScreenData.mockReturnValueOnce(read(true)).mockReturnValueOnce(read(false));
+    const { result, rerender } = renderHook(
+      (props: { nameNeedle: string }) =>
+        useEngineMapActivities({ ...range, ...props, showRoutes: true, showSections: true }),
+      { initialProps: { nameNeedle: '' } }
+    );
+    const first = result.current;
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(first.routeLines?.routes).toHaveLength(1);
+    expect(first.sections).toEqual([
+      { id: 's1', name: 'Weir lane', visitCount: 2, distanceMeters: 100 },
+    ]);
+
+    rerender({ nameNeedle: 'w' });
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([7, 7]);
+    expect(result.current.routeLines).toBe(first.routeLines);
+    expect(result.current.sections).toBe(first.sections);
+    expect(result.current.sectionsGeoJSON).toBe(first.sectionsGeoJSON);
   });
 
   it('is empty when the engine is not open', () => {

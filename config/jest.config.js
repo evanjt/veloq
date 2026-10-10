@@ -28,6 +28,11 @@ const worktreeIgnores = inWorktree ? [] : ['/.claude/worktrees/'];
 // the only run that collects them.
 const perfIgnores = process.env.VELOQ_PERF === '1' ? [] : ['\\.perf\\.test\\.'];
 
+// A browser suite drives the built map pages in a headless Chromium, which the
+// build container does not carry. `npm run test:map-pages` sets VELOQ_BROWSER
+// and is the only run that collects them, in CI and by hand.
+const browserIgnores = process.env.VELOQ_BROWSER === '1' ? [] : ['\\.browser\\.test\\.'];
+
 // Jest's default cache directory is the system temp directory, which on this
 // machine is a tmpfs, so every transform cache and haste map was resident
 // memory. The path is keyed on the project root, so each worktree gets its own
@@ -94,7 +99,13 @@ const collectCoverageFrom = [
 
 const { toolingDirectories, toolingSuites } = require('./jest.tooling.js');
 
-const ignored = ['/node_modules/', '/__tests__/e2e/', ...perfIgnores, ...worktreeIgnores];
+const ignored = [
+  '/node_modules/',
+  '/__tests__/e2e/',
+  ...perfIgnores,
+  ...browserIgnores,
+  ...worktreeIgnores,
+];
 const escape = (path) => path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Jest reads these per project, so both projects carry them. The options on
@@ -120,7 +131,7 @@ const project = {
     // `uuid` resolves its `.` export through the `node` condition to an ESM
     // build, and `xcode` requires it, so a test that touches the iOS config
     // plugins fails to parse rather than to assert.
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia|d3-shape|d3-path|uuid)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|standard-navigation|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia|d3-shape|d3-path|uuid)',
   ],
   transform: {
     '\\.[jt]sx?$': babelTransform,

@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, StyleSheet, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from 'expo-router';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import {
@@ -113,6 +114,9 @@ function RecordingMapInner({
     bumpStyle((n) => n + 1);
   }, [mapStyle]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  // Released only when another screen covers this one, never while it is in
+  // front, however long the recording runs.
+  const screenFocused = useIsFocused();
   // Camera follows the current position until the user pans; the recenter
   // button restores following.
   const [isFollowing, setIsFollowing] = useState(true);
@@ -316,6 +320,7 @@ function RecordingMapInner({
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
+        released={!screenFocused}
         onRegionDidChange={fitBounds ? undefined : handleRegionDidChange}
       />
 

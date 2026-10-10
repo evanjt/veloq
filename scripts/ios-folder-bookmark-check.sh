@@ -21,4 +21,4 @@ xcrun swiftc \
   -o "$BUILD/folder-bookmark-check" \
   "$MODULE/ios/FolderBookmark.swift" "$MODULE/ios-folder-check/main.swift"
 
-xcrun simctl spawn booted "$BUILD/folder-bookmark-check"
+"$ROOT/scripts/with-simulator-lock.sh" booted xcrun simctl spawn booted "$BUILD/folder-bookmark-check"

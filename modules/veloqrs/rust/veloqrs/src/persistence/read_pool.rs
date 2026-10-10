@@ -98,6 +98,13 @@ pub(crate) fn close() {
     super::settings_conn::forget();
 }
 
+/// Drop every parked connection, and the page cache each holds, when the OS
+/// asks the process for memory. A reader in flight keeps its connection and
+/// parks it as usual when it ends, and the next read opens one.
+pub(crate) fn release_idle() {
+    lock(&READ_POOL.idle).clear();
+}
+
 /// The database the pool is bound to and the binding's generation, which
 /// moves on every bind and close. `None` while no engine is installed.
 pub(crate) fn binding() -> Option<(u64, String)> {
@@ -314,6 +321,72 @@ mod tests {
         })
         .expect("bound");
         assert_eq!(idle_len(), 1, "the connection must come back to the pool");
+
+        close();
+    }
+
+    /// Scenario: memory is short while readers are parked and one is part-way
+    /// through a read. Expected behaviour: every parked connection and its page
+    /// cache goes, the reader in flight finishes on its own connection, and
+    /// the next read opens a fresh one that is served the last commit.
+    #[test]
+    fn releasing_idle_readers_drops_the_parked_ones_and_keeps_serving() {
+        let _serial = crate::test_globals::serial_global_state();
+        let (_dir, writer) = bound_pool("release.db");
+        let (entered, held) = std::sync::mpsc::channel();
+        let (resume_tx, resume) = std::sync::mpsc::channel::<()>();
+        std::thread::scope(|scope| {
+            let mut parked = Vec::new();
+            for _ in 0..2 {
+                let entered = entered.clone();
+                parked.push(scope.spawn(move || {
+                    with_read_conn(|conn| {
+                        conn.query_row("SELECT COUNT(*) FROM names", [], |row| {
+                            row.get::<_, i64>(0)
+                        })
+                        .expect("count");
+                        entered.send(()).unwrap();
+                    })
+                }));
+            }
+            for reader in parked {
+                reader.join().unwrap();
+            }
+        });
+        held.recv().unwrap();
+        held.recv().unwrap();
+        assert!(idle_len() >= 1, "a finished read parks its connection");
+
+        let in_flight = std::thread::spawn(move || {
+            with_read_conn(|conn| {
+                entered.send(()).unwrap();
+                resume.recv().unwrap();
+                conn.query_row("SELECT COUNT(*) FROM names", [], |row| row.get::<_, i64>(0))
+                    .expect("count")
+            })
+        });
+        held.recv().unwrap();
+
+        release_idle();
+        assert_eq!(idle_len(), 0, "every parked reader is let go");
+
+        resume_tx.send(()).unwrap();
+        assert_eq!(in_flight.join().unwrap(), Some(0));
+
+        release_idle();
+        writer
+            .execute("INSERT INTO names (id) VALUES ('after')", [])
+            .expect("commit");
+        let count: i64 = with_read_conn(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM names", [], |row| row.get(0))
+                .expect("count")
+        })
+        .expect("bound");
+        assert_eq!(
+            count, 1,
+            "a reader opened after the release sees the last commit"
+        );
+        assert_eq!(idle_len(), 1, "and goes back to the pool as before");
 
         close();
     }

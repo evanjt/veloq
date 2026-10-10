@@ -8,9 +8,14 @@ use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentEngine;
 
-/// HRV has to move by this fraction between the two halves of the window
-/// before the trend is called, per Kiviniemi 2007.
-const HRV_TREND_DEADBAND: f64 = 0.02;
+/// The smallest HRV move called a trend, as a fraction of the earlier mean.
+/// It is only the floor: the move also has to clear the spread of the
+/// athlete's own readings, see [`hrv_verdict`].
+const HRV_TREND_FLOOR: f64 = 0.02;
+
+/// The smallest HRV move called a trend, in standard deviations of the
+/// athlete's own day-to-day readings across the window.
+const HRV_WORTHWHILE_SPREADS: f64 = 0.5;
 
 /// One wellness record - shape used by upsert and range queries.
 #[derive(Debug, Clone)]
@@ -224,9 +229,10 @@ impl PersistentEngine {
         pooled::latest_ramp_rate_to(&self.db, days, today)
     }
 
-    /// HRV trend over the trailing window. Splits the window in half and
-    /// compares averages; flags consecutive-day decline (Kiviniemi 2007
-    /// guidance). Returns `None` when there are fewer than 5 valid HRV days.
+    /// HRV trend over the trailing window. Compares the window's halves and
+    /// flags a consecutive-day decline, each judged against the spread of the
+    /// readings themselves. Returns `None` when there are fewer than 5 valid
+    /// HRV days.
     pub fn compute_hrv_trend(&self, days: u32) -> SqlResult<Option<crate::FfiHrvTrend>> {
         self.compute_hrv_trend_to(days, &today_iso())
     }
@@ -340,10 +346,17 @@ fn date_epoch(date: &str) -> f64 {
 /// anything.
 ///
 /// The reason is not decoration: `trendingDown` has two causes and they are
-/// different claims. `halves` is the newer half of the window sitting below
-/// the older one by more than the deadband. `lastTwoDays` is a window that did
-/// not move, ending on two consecutive readings that fell below its mean. The
-/// card says which, so it never reports a falling average that did not fall.
+/// different claims. `halves` is the newer half of the window sitting apart
+/// from the older one. `lastTwoDays` is a window that did not move, ending on
+/// two consecutive readings that fell below its mean and sit apart from the
+/// readings before them. The card says which, so it never reports a falling
+/// average that did not fall.
+///
+/// Both rules judge a move by the same test: its 95 per cent interval, from
+/// the spread of the readings themselves, excludes zero, and it is larger
+/// than half a standard deviation of that spread and two per cent of the
+/// earlier mean. Day-to-day rMSSD varies by several times two per cent, so a
+/// fixed percentage alone read an ordinary week as a trend.
 fn hrv_verdict(
     values: &[f64],
     last_two_are_consecutive_days: bool,
@@ -356,28 +369,24 @@ fn hrv_verdict(
         return None;
     }
 
-    let mid = halves_split(values.len());
-    let mean = |xs: &[f64]| {
-        if xs.is_empty() {
-            0.0
-        } else {
-            xs.iter().sum::<f64>() / xs.len() as f64
-        }
+    // Higher HRV is the better direction, so a rise is up.
+    let moved = |older: &[f64], newer: &[f64]| {
+        let older_mean = crate::signal::mean(older)?;
+        let change = crate::trend::mean_shift(older, newer)?;
+        let floor = (HRV_TREND_FLOOR * older_mean).max(HRV_WORTHWHILE_SPREADS * change.spread);
+        Some(crate::trend::classify_estimate(&change, floor))
     };
-    let first_avg = mean(&values[..mid]);
-    let second_avg = mean(&values[mid..]);
 
-    let last_two = &values[values.len().saturating_sub(2)..];
+    let mid = halves_split(values.len());
+    let verdict = moved(&values[..mid], &values[mid..]).unwrap_or(0);
+
+    let split = values.len() - 2;
+    let last_two = &values[split..];
     let consecutive_decline = last_two_are_consecutive_days
-        && last_two.len() == 2
         && last_two[0] > last_two[1]
-        && last_two[1] < avg;
+        && last_two[1] < avg
+        && moved(&values[..split], last_two) == Some(-1);
 
-    // Higher HRV is the better direction, so this reads as a value, not a
-    // time. A consecutive decline overrides a stable verdict: two days down
-    // and below the average is the signal the study leans on.
-    let verdict =
-        crate::trend::classify_value(first_avg, second_avg, HRV_TREND_DEADBAND).unwrap_or(0);
     let (label, reason) = if verdict > 0 {
         ("trendingUp", "halves")
     } else if verdict < 0 {
@@ -440,9 +449,10 @@ pub(crate) mod pooled {
         rows.collect::<SqlResult<Vec<_>>>()
     }
 
-    /// HRV trend over the trailing window ending on `today`. Splits the window
-    /// in half and compares averages; flags consecutive-day decline (Kiviniemi
-    /// 2007 guidance). `None` when there are fewer than 5 valid HRV days.
+    /// HRV trend over the trailing window ending on `today`. Compares the
+    /// window's halves and flags a consecutive-day decline, each judged against
+    /// the spread of the readings themselves (`hrv_verdict`). `None` when there
+    /// are fewer than 5 valid HRV days.
     ///
     /// Read through the pool as well as through the engine, because the
     /// insights bundle carries it and is served from the pool's connection.
@@ -933,6 +943,9 @@ mod tests {
         assert!(sp.fitness_rise_days.is_empty());
     }
 
+    /// A steady window that ends on two consecutive mornings well under it.
+    const LAST_TWO_DOWN: [f64; 10] = [50.0, 51.0, 50.0, 51.0, 50.0, 51.0, 50.0, 51.0, 46.0, 44.0];
+
     #[test]
     fn a_window_under_five_days_has_no_hrv_verdict() {
         assert_eq!(hrv_verdict(&[50.0, 52.0], true), None);
@@ -947,7 +960,7 @@ mod tests {
     #[test]
     fn a_rising_second_half_trends_up() {
         assert_eq!(
-            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0], true).map(|(l, _, _)| l),
+            hrv_verdict(&[40.0, 41.0, 55.0, 56.0, 55.0], true).map(|(l, _, _)| l),
             Some("trendingUp")
         );
     }
@@ -955,7 +968,7 @@ mod tests {
     #[test]
     fn a_falling_second_half_trends_down() {
         assert_eq!(
-            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0], true).map(|(l, _, _)| l),
+            hrv_verdict(&[60.0, 59.0, 45.0, 44.0, 45.0], true).map(|(l, _, _)| l),
             Some("trendingDown")
         );
     }
@@ -968,8 +981,8 @@ mod tests {
     }
 
     #[test]
-    fn a_move_inside_the_deadband_is_stable() {
-        // Second half is 1 % above the first, under the 2 % deadband, and the
+    fn a_move_inside_the_floor_is_stable() {
+        // Second half is 1 % above the first, under the 2 % floor, and the
         // last two days rise so the decline override cannot fire.
         assert_eq!(
             hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.5], true).map(|(l, _, _)| l),
@@ -979,21 +992,22 @@ mod tests {
 
     #[test]
     fn a_drop_across_a_gap_does_not_override_stable() {
-        // The same values, with the last two rows days apart rather than one.
-        // Two days running is the rule, so a pair that is not two days
-        // running cannot fire it.
+        // The same values as the override below, with the last two rows days
+        // apart rather than one. Two days running is the rule, so a pair that
+        // is not two days running cannot fire it.
         assert_eq!(
-            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], false).map(|(l, _, _)| l),
+            hrv_verdict(&LAST_TWO_DOWN, false).map(|(l, _, _)| l),
             Some("stable")
         );
     }
 
     #[test]
     fn two_days_down_and_below_average_overrides_stable() {
-        // Halves are within the deadband, but the window ends on a drop that
-        // sits under the window average.
+        // The halves sit inside the window's scatter, but the window ends on
+        // a drop that sits under its average and well outside the spread of
+        // the readings before it.
         assert_eq!(
-            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], true).map(|(l, _, _)| l),
+            hrv_verdict(&LAST_TWO_DOWN, true).map(|(l, _, _)| l),
             Some("trendingDown")
         );
     }
@@ -1005,14 +1019,14 @@ mod tests {
     #[test]
     fn a_window_whose_halves_moved_says_the_halves_did_it() {
         assert_eq!(
-            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0], true).map(|(_, _, r)| r),
+            hrv_verdict(&[60.0, 59.0, 45.0, 44.0, 45.0], true).map(|(_, _, r)| r),
             Some("halves")
         );
     }
 
     #[test]
     fn a_decline_the_override_found_says_it_was_the_last_two_days() {
-        let verdict = hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], true);
+        let verdict = hrv_verdict(&LAST_TWO_DOWN, true);
         assert_eq!(verdict.map(|(l, _, _)| l), Some("trendingDown"));
         assert_eq!(verdict.map(|(_, _, r)| r), Some("lastTwoDays"));
     }
@@ -1020,12 +1034,44 @@ mod tests {
     #[test]
     fn a_rise_and_a_flat_window_are_both_the_halves() {
         assert_eq!(
-            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0], true).map(|(_, _, r)| r),
+            hrv_verdict(&[40.0, 41.0, 55.0, 56.0, 55.0], true).map(|(_, _, r)| r),
             Some("halves")
         );
         assert_eq!(
             hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.0], false).map(|(_, _, r)| r),
             Some("halves")
+        );
+    }
+
+    /// Scenario: a week of ordinary day-to-day rMSSD scatter, whose later half
+    /// happens to sit four per cent under the earlier one and which ends on
+    /// two consecutive lower mornings.
+    ///
+    /// Expected behaviour: neither rule calls a decline, because neither move
+    /// clears the spread of the athlete's own readings.
+    #[test]
+    fn a_week_of_ordinary_scatter_is_stable() {
+        let verdict = hrv_verdict(&[62.0, 58.0, 64.0, 57.0, 61.0, 59.0, 58.0], true);
+        assert_eq!(verdict.map(|(l, _, _)| l), Some("stable"));
+    }
+
+    #[test]
+    fn a_step_down_well_outside_the_scatter_trends_down_through_the_halves() {
+        let verdict = hrv_verdict(&[70.0, 71.0, 69.0, 60.0, 59.0, 61.0, 60.0], true);
+        assert_eq!(verdict.map(|(l, _, _)| l), Some("trendingDown"));
+        assert_eq!(verdict.map(|(_, _, r)| r), Some("halves"));
+    }
+
+    #[test]
+    fn a_step_inside_the_scatter_is_stable_in_either_direction() {
+        // Halves 61.3 then 64.8, under the spread a week this noisy carries.
+        assert_eq!(
+            hrv_verdict(&[58.0, 64.0, 62.0, 66.0, 61.0, 67.0, 65.0], false).map(|(l, _, _)| l),
+            Some("stable")
+        );
+        assert_eq!(
+            hrv_verdict(&[65.0, 67.0, 61.0, 66.0, 62.0, 64.0, 58.0], false).map(|(l, _, _)| l),
+            Some("stable")
         );
     }
 

@@ -2,6 +2,7 @@
 
 NSString *const VeloqTileScheme = @"veloq-tile";
 
+static NSString *const GeoPath = @"/veloq-geo/";
 static NSString *const TilePath = @"/veloq-tile/";
 static NSString *const AssetPath = @"/veloq-asset/";
 
@@ -18,6 +19,13 @@ extern void veloq_tile_free(uint8_t *bytes, size_t len);
  * bytes go back through `veloq_tile_free`.
  */
 extern uint8_t *veloq_glyph_get_or_fetch(const char *fontstack, const char *range, size_t *len, uint16_t *status);
+
+/**
+ * GeoJSON Rust writes from what it stores, for the path after the geo marker.
+ * A pooled read with no network in it. The bytes go back through
+ * `veloq_tile_free`.
+ */
+extern uint8_t *veloq_geo_get(const char *path, size_t *len, uint16_t *status);
 
 /**
  * What the bytes are, from the extension the page asked for, never from the
@@ -142,10 +150,34 @@ static VeloqTileAnswer *answerAsset(NSString *rest)
   return answerGlyph(segments);
 }
 
-/** Ask the store. Blocks, so never on the main thread. */
+/**
+ * One `veloq-geo` answer, such as an activity's line. `url.path` carries no
+ * query string, which is only the page's revision, so none reaches Rust.
+ */
+static VeloqTileAnswer *answerGeo(NSString *rest)
+{
+  size_t len = 0;
+  uint16_t status = 502;
+  uint8_t *bytes = veloq_geo_get(rest.UTF8String, &len, &status);
+  if (bytes == NULL || len == 0) {
+    return answer(status == 200 ? 502 : status, @"application/geo+json", nil);
+  }
+  NSData *body = [[NSData alloc] initWithBytesNoCopy:bytes length:len deallocator:^(void *p, NSUInteger n) {
+    veloq_tile_free(p, n);
+  }];
+  return answer(200, @"application/geo+json", body);
+}
+
+/**
+ * Ask the store. Blocks, so never on the main thread. The geo marker is
+ * matched first: a geo path is not `source/z/x/y`, so the tile parser would
+ * refuse it as a 400.
+ */
 static VeloqTileAnswer *answerFor(NSURL *url)
 {
   NSString *path = url.path;
+  NSRange geo = [path rangeOfString:GeoPath];
+  if (geo.location != NSNotFound) return answerGeo([path substringFromIndex:geo.location + geo.length]);
   NSRange asset = [path rangeOfString:AssetPath];
   if (asset.location != NSNotFound) return answerAsset([path substringFromIndex:asset.location + asset.length]);
   NSRange at = [path rangeOfString:TilePath];

@@ -23,6 +23,7 @@
 mod bundled;
 mod c;
 mod fetch;
+mod geo;
 mod glyphs;
 #[cfg(target_os = "android")]
 mod jni;
@@ -32,6 +33,7 @@ mod store;
 mod throttle;
 
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
+pub use geo::geo_answer;
 pub use preseed::{
     GROUND_BUDGET_BYTES, GROUND_ZOOMS, PlannedTile, PreseedSource, SeedOutcome, TERRAIN_ZOOMS,
     plan_area_preseed, plan_preseed, seed_ground_background, seed_preseed, seed_ranked_preseed,

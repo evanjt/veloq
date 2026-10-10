@@ -8,7 +8,8 @@
 import { renderHook } from '@testing-library/react-native';
 import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
-import type { RecordingStreams, RecordingLap } from '@/types';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import type { Athlete, RecordingStreams, RecordingLap } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,6 +83,7 @@ describe('useRecordingMetrics', () => {
 
   afterEach(() => {
     resetStore();
+    useAuthStore.setState({ athlete: null });
   });
 
   // -------------------------------------------------------------------------
@@ -304,6 +306,50 @@ describe('useRecordingMetrics', () => {
 
       const { result } = renderHook(() => useRecordingMetrics());
       expect(result.current.calories).toBe(expected);
+    }
+  });
+
+  it('weighs the athlete by the profile weight intervals.icu sends', () => {
+    // The profile body carries the weight as `icu_weight` and leaves `weight`
+    // null. One moving hour of a ride without heart rate is 8 MET times the
+    // weight; with no weight on the profile the estimate keeps 70 kg.
+    const cases: { profile: Record<string, unknown>; expected: number }[] = [
+      { profile: { weight: null, icu_weight: 90 }, expected: 720 },
+      { profile: { icu_weight: 75 }, expected: 600 },
+      { profile: { weight: 82 }, expected: 656 },
+      { profile: { weight: 82, icu_weight: 90 }, expected: 720 },
+      { profile: {}, expected: 560 },
+      { profile: { weight: null, icu_weight: null }, expected: 560 },
+      { profile: { icu_weight: 0 }, expected: 560 },
+    ];
+
+    for (const { profile, expected } of cases) {
+      useAuthStore.setState({
+        athlete: { id: 'a1', name: 'Test Rider', ...profile } as Athlete,
+      });
+      setStoreState({
+        status: 'recording',
+        activityType: 'Ride',
+        startTime: Date.now(),
+        pausedDuration: 0,
+        laps: [],
+        streams: makeStreams({
+          time: [0, 3600],
+          speed: [5, 5],
+          distance: [0, 18000],
+          altitude: [0, 0],
+          latlng: [
+            [0, 0],
+            [0.1, 0],
+          ],
+        }),
+      });
+
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect({ profile, calories: result.current.calories }).toEqual({
+        profile,
+        calories: expected,
+      });
     }
   });
 

@@ -1748,6 +1748,10 @@ impl PersistentEngine {
             self.set_groups_dirty(true);
             self.sections_dirty = true;
         }
+        for id in &mutated_ids {
+            self.moved_tracks
+                .insert(id.clone(), self.groups_dirty_epoch);
+        }
 
         if let Some(tiles_path) = self.heatmap_tiles_path.clone() {
             let ground = ground_needing_tile_sweep(&activities, &known_before, &covered_before);
@@ -1801,6 +1805,7 @@ impl PersistentEngine {
         if self.get_activity_body(id).is_some() && self.activity_metrics.contains_key(id) {
             return Ok(());
         }
+        let track_replaced = !coords.is_empty() && self.activity_metadata.contains_key(id);
         if nonblocking_begin {
             self.db.busy_timeout(std::time::Duration::ZERO)?;
         }
@@ -1862,6 +1867,10 @@ impl PersistentEngine {
         self.activity_metrics.insert(id.to_owned(), metrics);
         self.rebuild_spatial_index();
         self.set_groups_dirty(true);
+        if track_replaced {
+            self.moved_tracks
+                .insert(id.to_owned(), self.groups_dirty_epoch);
+        }
         self.sections_dirty = true;
         self.invalidate_perf_cache();
         if let Some(path) = self.heatmap_tiles_path.clone()
@@ -2546,11 +2555,55 @@ impl PersistentEngine {
         elevations: &[f64],
         series: ElevationSeries,
     ) -> SqlResult<bool> {
-        let Some(points) = self.load_gps_track_from_db(id) else {
+        let Some((spliced, source)) = self.spliced_track(id, elevations, series) else {
             return Ok(false);
         };
+        super::climb_bests::in_write_txn(&self.db, |conn| {
+            write_spliced_track(conn, id, &spliced, source)?;
+            super::climb_bests::refresh(conn, id)
+        })?;
+        Ok(true)
+    }
+
+    /// [`Self::splice_track_elevation`] with the series and the clock the same
+    /// answer carried, all in one transaction, so the elevation never lands
+    /// without them. The elevation is what takes the track out of the
+    /// backfill queue, so an interrupted write leaves it owed.
+    ///
+    /// Returns false, having written nothing, on the same terms. Since the
+    /// series share the track's index space, a track of another length cannot
+    /// take them either.
+    pub fn splice_track_elevation_with_series(
+        &mut self,
+        id: &str,
+        elevations: &[f64],
+        series: ElevationSeries,
+        streams: &[crate::net::types::StreamDto],
+        clock: Option<&[u32]>,
+    ) -> SqlResult<Option<bool>> {
+        let Some((spliced, source)) = self.spliced_track(id, elevations, series) else {
+            return Ok(None);
+        };
+        let points = spliced.len();
+        let clock = self.write_track_series(id, streams, clock, points, |conn| {
+            write_spliced_track(conn, id, &spliced, source)?;
+            Ok(true)
+        })?;
+        Ok(Some(clock))
+    }
+
+    /// The stored track with `elevations` put on it, and which series that
+    /// makes it, or `None` when there is no track or the series is another
+    /// length.
+    fn spliced_track(
+        &self,
+        id: &str,
+        elevations: &[f64],
+        series: ElevationSeries,
+    ) -> Option<(Vec<GpsPoint>, u8)> {
+        let points = self.load_gps_track_from_db(id)?;
         if points.len() != elevations.len() {
-            return Ok(false);
+            return None;
         }
 
         let spliced: Vec<GpsPoint> = points
@@ -2566,20 +2619,7 @@ impl PersistentEngine {
             .collect();
 
         let source = elevation_source_of(&spliced, series);
-        super::climb_bests::in_write_txn(&self.db, |conn| {
-            conn.execute(
-                "UPDATE gps_tracks SET track_data = ?, elevation_state = ?, elevation_source = ?, \
-                 elevation_attempts = 0 WHERE activity_id = ?",
-                params![
-                    codec::serialize_track_points(&spliced),
-                    i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
-                    i64::from(source),
-                    id
-                ],
-            )?;
-            super::climb_bests::refresh(conn, id)
-        })?;
-        Ok(true)
+        Some((spliced, source))
     }
 
     /// Record elevation provenance for tracks that are already stored, where
@@ -4025,7 +4065,16 @@ impl PersistentEngine {
         date: i64,
         raw: &str,
     ) -> SqlResult<()> {
-        self.store_bodies_with_metrics(&[(activity_id.to_owned(), date, raw.to_owned())], true)
+        self.store_activity_detail_bodies(&[(activity_id.to_owned(), date, raw.to_owned())])
+    }
+
+    /// [`Self::store_activity_detail_body`] for several activities, in one
+    /// transaction.
+    pub fn store_activity_detail_bodies(
+        &mut self,
+        rows: &[(String, i64, String)],
+    ) -> SqlResult<()> {
+        self.store_bodies_with_metrics(rows, true)
     }
 
     /// Store bodies and their derived metrics in one transaction.
@@ -4341,6 +4390,27 @@ impl PersistentEngine {
         }
         false
     }
+}
+
+/// The splice's one statement: the points with their elevation, the
+/// provenance, and the attempt count cleared, so the track leaves the queue.
+fn write_spliced_track(
+    conn: &rusqlite::Connection,
+    id: &str,
+    spliced: &[GpsPoint],
+    source: u8,
+) -> SqlResult<()> {
+    conn.execute(
+        "UPDATE gps_tracks SET track_data = ?, elevation_state = ?, elevation_source = ?, \
+         elevation_attempts = 0 WHERE activity_id = ?",
+        params![
+            codec::serialize_track_points(spliced),
+            i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
+            i64::from(source),
+            id
+        ],
+    )?;
+    Ok(())
 }
 
 /// [`PersistentEngine::for_each_track`] over any connection, so a caller that
@@ -4923,7 +4993,7 @@ mod tests {
             .unwrap();
         engine.processed_activity_ids.insert("a1".to_string());
         let identity = engine.section_identity_blob();
-        engine.db.commit_hook(Some(|| true));
+        engine.db.commit_hook(Some(|| true)).unwrap();
 
         assert!(engine.remove_activity("a1").is_err());
 
@@ -4950,7 +5020,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rows, 1);
-        engine.db.commit_hook(Some(|| false));
+        engine.db.commit_hook(Some(|| false)).unwrap();
         engine.remove_activity("a1").unwrap();
         assert!(!engine.has_activity("a1"));
     }
@@ -4999,7 +5069,7 @@ mod tests {
         assert!(crate::persistence::routes::pooled::group_by_id(&engine.db, "r1").is_some());
 
         engine.db.execute_batch("DROP TRIGGER fail_clear").unwrap();
-        engine.db.commit_hook(Some(|| true));
+        engine.db.commit_hook(Some(|| true)).unwrap();
         assert!(engine.clear().is_err());
         let groups: i64 = engine
             .db
@@ -5012,7 +5082,7 @@ mod tests {
         assert_eq!(groups, 1);
         assert!(engine.has_activity("a1"));
 
-        engine.db.commit_hook(Some(|| false));
+        engine.db.commit_hook(Some(|| false)).unwrap();
         engine.clear().unwrap();
         assert!(!engine.has_activity("a1"));
     }
@@ -6024,25 +6094,29 @@ mod statement_cache_tests {
     /// reads and the count wanted here is of statements.
     fn count_prepares(engine: &PersistentEngine, table: &'static str, column: &'static str) {
         PREPARES.store(0, Ordering::Relaxed);
-        engine.db.authorizer(Some(move |ctx: AuthContext<'_>| {
-            if let rusqlite::hooks::AuthAction::Read {
-                table_name,
-                column_name,
-                ..
-            } = ctx.action
-                && table_name == table
-                && column_name == column
-            {
-                PREPARES.fetch_add(1, Ordering::Relaxed);
-            }
-            Authorization::Allow
-        }));
+        engine
+            .db
+            .authorizer(Some(move |ctx: AuthContext<'_>| {
+                if let rusqlite::hooks::AuthAction::Read {
+                    table_name,
+                    column_name,
+                    ..
+                } = ctx.action
+                    && table_name == table
+                    && column_name == column
+                {
+                    PREPARES.fetch_add(1, Ordering::Relaxed);
+                }
+                Authorization::Allow
+            }))
+            .unwrap();
     }
 
     fn stop_counting(engine: &PersistentEngine) {
         engine
             .db
-            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+            .unwrap();
     }
 
     fn engine_with(ids: &[&str]) -> PersistentEngine {

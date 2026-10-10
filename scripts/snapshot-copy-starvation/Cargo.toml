@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 # The engine's own pin, so the probe runs the SQLite the app bundles.
-rusqlite = { version = "=0.31.0", features = ["bundled", "backup"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }

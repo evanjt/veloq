@@ -185,6 +185,15 @@ fn serve<'a>(server: &'a MockServer, shape: &Shape, sync_date: &str) -> Vec<http
             None => then.status(404),
         };
     }));
+    // The bulk request carries nothing here, so every body is asked singly,
+    // which is the path the push takes.
+    mocks.push(server.mock(|when, then| {
+        when.method(GET)
+            .path(format!("/athlete/{ATHLETE}/activities/{}", shape.id));
+        then.status(200)
+            .header("content-type", "application/json")
+            .body("[]");
+    }));
     mocks
 }
 
@@ -230,6 +239,7 @@ fn ready_pass(server: &MockServer) {
     crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
         &transport_to(server),
+        ATHLETE,
         &|| false,
     ))
     .expect("the ready pass");

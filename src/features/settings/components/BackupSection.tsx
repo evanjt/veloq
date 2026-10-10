@@ -43,6 +43,15 @@ import {
   discardUnplacedRecords,
   resumeRecordImport,
 } from '@/features/settings/lib/backup';
+import {
+  forgetGoogleDrive,
+  getGoogleDriveAccount,
+  googleDriveBackend,
+  isGoogleDriveSupported,
+  loadGoogleDriveAccount,
+  signInToGoogleDrive,
+} from '@/features/settings/lib/autobackup/backends/googleDriveBackend';
+import { onBackupCarrierSignedIn } from '@/features/settings/lib/autobackup/autoBackup';
 import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
 import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
@@ -68,6 +77,8 @@ function carrierName(t: TFunction, id: string): string {
       return t('backup.backendWebdav');
     case 'folder':
       return t('backup.carrierFolder');
+    case 'googleDrive':
+      return t('backup.carrierGoogleDrive');
     case 'local':
       return t('backup.carrierOlderOnDevice');
     default:
@@ -179,13 +190,22 @@ export function BackupSection() {
   const [listedSetUpDestination, setListedSetUpDestination] = useState(false);
   const [webdavSet, setWebdavSet] = useState(() => getWebdavConfig() !== null);
   const [folderName, setFolderName] = useState(() => getBackupFolderName());
+  const driveSupported = isGoogleDriveSupported();
+  const [driveAccount, setDriveAccount] = useState(() =>
+    driveSupported ? getGoogleDriveAccount() : null
+  );
+  const [signingInToDrive, setSigningInToDrive] = useState(false);
+  // Moves when a sign-in clears a carrier's failure or pays a copy it was owed,
+  // which no backup on this screen did.
+  const [carrierGeneration, setCarrierGeneration] = useState(0);
   const [runResult, setRunResult] = useState<BackupRunResult | null>(null);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [restoringEntry, setRestoringEntry] = useState<string | null>(null);
   const restoreRunning = useRef(false);
-  // A backup on this screen is the only thing that moves either value, so the
-  // flag it flips is the key both reads are taken on.
-  const readBackupState = useEngineRead([], [backingUp]);
+  // A backup on this screen, or a sign-in that clears a failure or pays an owed
+  // copy, is the only thing that moves either value, so those are the keys
+  // both reads are taken on.
+  const readBackupState = useEngineRead([], [backingUp, carrierGeneration]);
   const unplacedGeneration = useEngineSubscription(['sections', 'detectionApplied']);
   const [restoreGeneration, setRestoreGeneration] = useState(0);
   const [unplacedRecords, setUnplacedRecords] = useState<FfiUnplacedRecord[]>([]);
@@ -220,9 +240,10 @@ export function BackupSection() {
         device: getDestinationLastBackup('device'),
         webdav: webdavSet ? getDestinationLastBackup('webdav') : null,
         folder: folderName ? getDestinationLastBackup('folder') : null,
-      })) ?? { device: null, webdav: null, folder: null },
+        googleDrive: driveAccount ? getDestinationLastBackup('googleDrive') : null,
+      })) ?? { device: null, webdav: null, folder: null, googleDrive: null },
     // A carrier set up or removed changes which stamp applies.
-    [readBackupState, webdavSet, folderName]
+    [readBackupState, webdavSet, folderName, driveAccount]
   );
   // A failure the user has to act on survives leaving the screen, so an
   // unattended backup that was rejected is not invisible.
@@ -230,6 +251,17 @@ export function BackupSection() {
     () => readBackupState(() => getBackupFailures()) ?? {},
     [readBackupState]
   );
+  useEffect(() => {
+    let active = true;
+    if (driveSupported) {
+      loadGoogleDriveAccount().then((account) => {
+        if (active) setDriveAccount(account);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [driveSupported]);
   useEffect(() => {
     let active = true;
     getUnplacedBackupRecords()
@@ -295,6 +327,7 @@ export function BackupSection() {
       const candidates: BackupBackend[] = [
         ...(webdavSet ? [webdavBackend] : []),
         ...(folderName ? [folderBackend] : []),
+        ...(driveAccount ? [googleDriveBackend] : []),
         localBackend,
       ];
       const groups: CarrierEntries[] = [];
@@ -318,7 +351,7 @@ export function BackupSection() {
     } finally {
       setLoadingBackups(false);
     }
-  }, [webdavSet, folderName, describeBackupError, t]);
+  }, [webdavSet, folderName, driveAccount, describeBackupError, t]);
 
   const handleRestoreEntry = useCallback(
     async (backend: BackupBackend, entry: BackupEntry) => {
@@ -434,6 +467,36 @@ export function BackupSection() {
     }
   }, [describeBackupError, t]);
 
+  const handleGoogleDriveSignIn = useCallback(async () => {
+    setSigningInToDrive(true);
+    try {
+      let account: string | null;
+      try {
+        account = await signInToGoogleDrive();
+      } catch {
+        Alert.alert(t('common.error'), t('backup.carrierGoogleDriveSignInFailed'));
+        return;
+      }
+      if (account === null) return;
+      setDriveAccount(account);
+      setBackendBackups(null);
+      const paid = onBackupCarrierSignedIn('googleDrive');
+      setCarrierGeneration((generation) => generation + 1);
+      await paid;
+      setCarrierGeneration((generation) => generation + 1);
+    } catch (error) {
+      Alert.alert(t('common.error'), describeBackupError(error));
+    } finally {
+      setSigningInToDrive(false);
+    }
+  }, [describeBackupError, t]);
+
+  const handleGoogleDriveSignOut = useCallback(() => {
+    forgetGoogleDrive().catch(() => {});
+    setDriveAccount(null);
+    setBackendBackups(null);
+  }, []);
+
   const handleRemoveFolder = useCallback(() => {
     forgetBackupFolder();
     setFolderName(null);
@@ -522,6 +585,9 @@ export function BackupSection() {
                     : []),
                   ...(runResult?.carriers.folder?.status === 'written'
                     ? [t('backup.recordSavedFolder', { destination: folderName ?? '' })]
+                    : []),
+                  ...(runResult?.carriers.googleDrive?.status === 'written'
+                    ? [t('backup.recordSavedGoogleDrive', { destination: driveAccount ?? '' })]
                     : []),
                 ].join('\n')}
               </Text>
@@ -800,6 +866,59 @@ export function BackupSection() {
             </View>
           )}
         </View>
+        {driveSupported && (
+          <>
+            {divider}
+            <View testID="backup-carrier-google-drive">
+              <Row>
+                <MaterialCommunityIcons name="google-drive" size={22} color={iconColor} />
+                <View style={styles.fill}>
+                  <Text style={labelStyle}>{t('backup.carrierGoogleDrive')}</Text>
+                  <Text testID="backup-google-drive-account" style={detailStyle}>
+                    {driveAccount ?? t('backup.carrierGoogleDriveNone')}
+                  </Text>
+                  {driveAccount && (
+                    <DestinationLastBackup
+                      at={destinationStamps.googleDrive}
+                      testID="backup-carrier-last-google-drive"
+                    />
+                  )}
+                </View>
+                {driveAccount && (
+                  <Button
+                    testID="backup-google-drive-sign-out"
+                    label={t('backup.carrierGoogleDriveSignOut')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={handleGoogleDriveSignOut}
+                    disabled={signingInToDrive}
+                  />
+                )}
+                {(!driveAccount || carrierFailures.googleDrive?.kind === 'signin') && (
+                  <Button
+                    testID="backup-google-drive-sign-in"
+                    label={t('backup.carrierGoogleDriveSignIn')}
+                    variant="secondary"
+                    size="sm"
+                    onPress={handleGoogleDriveSignIn}
+                    loading={signingInToDrive}
+                  />
+                )}
+              </Row>
+              {driveAccount && carrierFailures.googleDrive && (
+                <View style={styles.failure}>
+                  <CarrierFailure
+                    failure={carrierFailures.googleDrive}
+                    testID="backup-carrier-failure-google-drive"
+                  />
+                </View>
+              )}
+              <View style={styles.failure}>
+                <Text style={detailStyle}>{t('backup.carrierGoogleDriveDescription')}</Text>
+              </View>
+            </View>
+          </>
+        )}
         {divider}
         <View testID="backup-carrier-webdav">
           <Row>

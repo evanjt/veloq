@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::engine::InFlight;
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::history::pooled as history;
+use crate::persistence::sections::lap_curves::pooled::CurveRead;
 use crate::persistence::sections::{SectionNameError, named, pooled, queries};
 use crate::sections::SectionType;
 
@@ -796,9 +797,9 @@ impl SectionManager {
     /// Read through the pool, so opening the screen while a sync page commits
     /// does not wait out the write. Every part of the bundle is arithmetic over
     /// one set of performances and that set is a query, so nothing here needs
-    /// the memory tier. The engine method is still the write path's, and
-    /// `screens::tests::the_pooled_section_performance_matches_the_one_a_lock_holder_gets`
-    /// holds the two to one answer.
+    /// the memory tier. The delta curves come only once held, since computing
+    /// them can take longer than a tap may block, and `curves_pending` says
+    /// they are owed.
     fn get_detail_performance(
         &self,
         section_id: String,
@@ -811,8 +812,50 @@ impl SectionManager {
                 &section_id,
                 time_range_days,
                 sport_filter.as_deref(),
+                CurveRead::Held,
             )
         })
+    }
+
+    /// A section's or a route's performance read with the delta curves
+    /// computed, off the JS thread. Each lap's track and time stream is
+    /// decoded and projected onto the line, which on a long or well-ridden
+    /// one runs past a tap's budget. The curves are held afterwards, so the
+    /// screen's own read serves them until the database moves.
+    async fn load_detail_performance(
+        &self,
+        subject: crate::FfiPerformanceSubject,
+        id: String,
+        time_range_days: u32,
+        sport_filter: Option<String>,
+    ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
+        use crate::persistence::screens::pooled as screens;
+        crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                with_reader(|conn| {
+                    let sport = sport_filter.as_deref();
+                    match subject {
+                        crate::FfiPerformanceSubject::Section => {
+                            screens::section_detail_performance(
+                                conn,
+                                &id,
+                                time_range_days,
+                                sport,
+                                CurveRead::Computed,
+                            )
+                        }
+                        crate::FfiPerformanceSubject::Route => screens::route_detail_performance(
+                            conn,
+                            &id,
+                            time_range_days,
+                            sport,
+                            CurveRead::Computed,
+                        ),
+                    }
+                })
+            })
+            .await
+            .map_err(|e| VeloqError::Database { msg: e.to_string() })?
     }
 }
 

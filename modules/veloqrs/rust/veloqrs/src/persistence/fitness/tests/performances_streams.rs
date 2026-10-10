@@ -17,7 +17,7 @@ fn seed_activity(engine: &PersistentEngine, id: &str, track_len: Option<usize>) 
             .execute(
                 "INSERT INTO gps_tracks (activity_id, track_data, point_count)
                  VALUES (?, X'00', ?)",
-                params![id, track_len],
+                params![id, track_len as i64],
             )
             .unwrap();
     }

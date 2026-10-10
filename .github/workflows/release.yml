@@ -15,7 +15,7 @@ jobs:
   # ============================================
   find-and-wait:
     name: Find Tag Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}
     steps:
@@ -79,7 +79,7 @@ jobs:
   release:
     name: Create Release
     needs: find-and-wait
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     outputs:
@@ -174,7 +174,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           name: Veloq v${{ steps.version.outputs.version }}
           body: |
@@ -218,7 +218,7 @@ jobs:
   deploy-play-store:
     name: Deploy to Play Store
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Fails when GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is missing, so a green run means Play has the build
     steps:
       - name: Check for Play Store credentials

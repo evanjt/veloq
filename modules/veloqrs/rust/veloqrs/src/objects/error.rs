@@ -20,6 +20,11 @@ pub enum VeloqError {
     /// different name, so a caller shows it as a refusal and not a failure.
     #[error("Another section is already named {name}")]
     NameTaken { name: String },
+    /// The app is going into the background and the engine has stopped
+    /// writing so that no lock on the library outlives the process. Asking
+    /// again once the app is back in the foreground succeeds.
+    #[error("Engine suspended while the app is in the background")]
+    Suspended,
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.
@@ -38,8 +43,15 @@ pub fn with_engine<F, R>(f: F) -> Result<R, VeloqError>
 where
     F: FnOnce(&mut crate::persistence::PersistentEngine) -> R,
 {
-    crate::persistence::with_persistent_engine_at(std::panic::Location::caller(), f)
-        .ok_or(VeloqError::NotInitialized)
+    crate::persistence::with_persistent_engine_at(std::panic::Location::caller(), f).ok_or_else(
+        || {
+            if crate::persistence::suspension::is_suspended() {
+                VeloqError::Suspended
+            } else {
+                VeloqError::NotInitialized
+            }
+        },
+    )
 }
 
 /// Execute a closure against a read-only connection, with **no engine lock**.

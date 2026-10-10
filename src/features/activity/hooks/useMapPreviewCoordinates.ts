@@ -13,7 +13,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { CACHE } from '@/shared/app/constants';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { decodeCoords } from 'veloqrs';
-import { convertLatLngTuples } from '@/shared/geo/polyline';
+import { latLngsFromFlat } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { ActivityStreams } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -81,7 +81,7 @@ export function useMapPreviewCoordinates(
   startupTrack?: PreviewTrack | undefined
 ): {
   coordinates: LatLng[];
-  altitude: number[] | undefined;
+  altitude: ArrayLike<number> | undefined;
   isLoading: boolean;
 } {
   // 1. Use startup pre-fetched data if available (zero cost)
@@ -151,7 +151,7 @@ export function useMapPreviewCoordinates(
       return engineResult.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
     }
     if (streams?.latlng && streams.latlng.length > 0) {
-      return convertLatLngTuples(streams.latlng).filter(
+      return latLngsFromFlat(streams.latlng).filter(
         (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
       );
     }
@@ -159,7 +159,7 @@ export function useMapPreviewCoordinates(
   }, [startupTrack, engineResult, streams]);
 
   // 5. Altitude data for terrain camera calculations
-  const altitude = useMemo((): number[] | undefined => {
+  const altitude = useMemo((): ArrayLike<number> | undefined => {
     if (startupTrack) return startupTrack.altitude;
     if (engineResult) {
       const elevations = engineResult
@@ -168,7 +168,7 @@ export function useMapPreviewCoordinates(
       return elevations.length > 0 ? elevations : undefined;
     }
     if (streams?.altitude && streams.altitude.length > 0) {
-      return streams.altitude as number[];
+      return streams.altitude;
     }
     return undefined;
   }, [startupTrack, engineResult, streams]);

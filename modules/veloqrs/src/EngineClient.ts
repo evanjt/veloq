@@ -64,7 +64,7 @@ import type {
   SettingPair,
   BulkExportFormat,
   FfiQuarantineReport,
-  FfiPushRun,
+  FfiDashboardData,
   LibraryCoverage,
   FfiDepartedRide,
   FfiMergeOutcome,
@@ -788,7 +788,9 @@ class EngineClient implements DelegateHost {
     isMetric: boolean,
     routeLines: boolean,
     sections: boolean,
-    nameNeedle: string
+    nameNeedle: string,
+    heldRouteLines?: number,
+    heldSections?: number
   ): FfiMapScreenData | undefined =>
     mapsDelegates.getMapScreenData(
       this,
@@ -799,7 +801,9 @@ class EngineClient implements DelegateHost {
       isMetric,
       routeLines,
       sections,
-      nameNeedle
+      nameNeedle,
+      heldRouteLines,
+      heldSections
     );
 
   getAllMapSignatures = (): {
@@ -932,6 +936,13 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
+  loadSectionDetailPerformance = (
+    sectionId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): Promise<FfiSectionPerformanceData | undefined> =>
+    sectionDelegates.loadSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
+
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
 
@@ -954,16 +965,27 @@ class EngineClient implements DelegateHost {
   }
 
   /**
-   * What each recent native push run did, newest first, for the Developer
-   * Dashboard.
+   * Give back the memory the engine can rebuild, when the OS asks the process
+   * for it. `hard` is the last warning before the process is killed, and also
+   * empties the engine's caches and the satellite rasters.
+   */
+  async releaseMemory(hard: boolean): Promise<void> {
+    if (!this.ready) return;
+    await this.timedAsync('releaseMemory', () => this.engine.releaseMemory(hard));
+  }
+
+  /**
+   * The Developer Dashboard's own read: what each recent native push run did,
+   * newest first, and the shared request budget's counts, cooldown and next
+   * daily reset.
    *
    * The Android worker runs in a process with no JavaScript in it, so nothing
    * it does reaches the task-run ring in `AsyncStorage`. The engine is the one
-   * thing both it and this screen can see.
+   * thing both it and this screen can see. `undefined` before the engine opens.
    */
-  pushRuns(): FfiPushRun[] {
-    if (!this.ready) return [];
-    return this.timed('pushRuns', () => this.engine.pushRuns());
+  dashboardData(): FfiDashboardData | undefined {
+    if (!this.ready) return undefined;
+    return this.timed('dashboardData', () => this.engine.dashboardData());
   }
 
   /** Get activity IDs needing time stream fetch (NULL lap_time, no time_stream). */

@@ -44,6 +44,13 @@ describe('the bundled renderer', () => {
   it('carries no tag-closing sequence, which would end the script it inlines into', () => {
     expect(MAPLIBRE_GL_JS).not.toMatch(/<\/script/i);
   });
+
+  // Hermes stores a string holding any character above U+007F as UTF-16, which
+  // doubles the renderer and every page string concatenated from it.
+  it('is ASCII, so the engine stores it one byte per character', () => {
+    expect(MAPLIBRE_GL_JS).toMatch(/^[\x00-\x7f]*$/);
+    expect(MAPLIBRE_GL_CSS).toMatch(/^[\x00-\x7f]*$/);
+  });
 });
 
 describe.each(pages)('%s', (_name, html) => {

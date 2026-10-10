@@ -43,6 +43,15 @@ public final class TileBridge {
     return nativeGetGlyph(fontstack, range, status);
   }
 
+  /**
+   * GeoJSON for one {@code /veloq-geo/} path, or null when there is none.
+   * {@code status[0]} is set as {@link GeoIntercept.Geo#answer} describes.
+   */
+  public static byte[] geo(String path, int[] status) {
+    load();
+    return nativeGeo(path, status);
+  }
+
   private static void load() {
     if (!loaded) {
       synchronized (TileBridge.class) {
@@ -60,4 +69,6 @@ public final class TileBridge {
       String source, int z, int x, int y, int[] status, PendingTile pending);
 
   private static native byte[] nativeGetGlyph(String fontstack, String range, int[] status);
+
+  private static native byte[] nativeGeo(String path, int[] status);
 }

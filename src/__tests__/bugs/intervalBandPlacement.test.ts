@@ -13,6 +13,7 @@
 
 import { computeIntervalBands, type SeriesInfo } from '@/features/stats/lib/combinedPlotData';
 import type { ActivityInterval, ActivityStreams } from '@/types';
+import { streamsFromArrays } from '@/features/activity/lib/streams';
 
 const seriesInfo: SeriesInfo[] = [];
 
@@ -21,10 +22,10 @@ const seriesInfo: SeriesInfo[] = [];
  * with coordinates, so raw index 8 is reduced index 4.
  */
 function reducedStreams(): ActivityStreams {
-  return {
+  return streamsFromArrays({
     time: [0, 1, 2, 3, 8, 9],
     distance: [0, 10, 20, 30, 80, 90],
-  } as ActivityStreams;
+  });
 }
 
 /** Any field may be missing, as a body from the API sometimes leaves one out. */
@@ -78,7 +79,7 @@ describe('where an interval band lands when samples were dropped', () => {
   });
 
   it('places a clean activity exactly where it does today', () => {
-    const clean = { time: [0, 1, 2, 3, 4], distance: [0, 10, 20, 30, 40] } as ActivityStreams;
+    const clean = streamsFromArrays({ time: [0, 1, 2, 3, 4], distance: [0, 10, 20, 30, 40] });
 
     const bands = computeIntervalBands(
       [interval({ start_index: 1, end_index: 3, start_time: 1, end_time: 3 })],
@@ -125,7 +126,7 @@ describe('where an interval band lands when samples were dropped', () => {
   });
 
   it('still renders on the distance axis when the body carries no time series', () => {
-    const noTime = { distance: [0, 10, 20, 30, 80, 90] } as ActivityStreams;
+    const noTime = streamsFromArrays({ distance: [0, 10, 20, 30, 80, 90] });
 
     const bands = computeIntervalBands(
       [interval({})],

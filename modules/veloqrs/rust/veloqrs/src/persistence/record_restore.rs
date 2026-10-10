@@ -261,7 +261,7 @@ impl PersistentEngine {
     /// Every record, the athlete id and the removal of the paused import commit
     /// together or not at all, so a retry finds the import whole.
     fn place_import(&mut self, payload: RecordPayload) -> Result<RestoreRecordResult, String> {
-        self.in_write_txn(|engine| {
+        self.place_in_txn(|engine| {
             let mut entries = engine.pending_record_rows()?;
             entries.extend(payload.entries);
             let entries = distinct_rows(readable_rows(entries))?;
@@ -331,7 +331,7 @@ impl PersistentEngine {
             return Ok(RestoreRecordResult::default());
         }
         let entries = readable_rows(entries);
-        self.in_write_txn(|engine| engine.place_record_rows(entries, false))
+        self.place_in_txn(|engine| engine.place_record_rows(entries, false))
     }
 
     /// Reconsider every unresolved record once detection has cut the
@@ -344,7 +344,37 @@ impl PersistentEngine {
             return Ok(RestoreRecordResult::default());
         }
         let entries = readable_rows(entries);
-        self.in_write_txn(|engine| engine.place_record_rows(entries, true))
+        self.place_in_txn(|engine| engine.place_record_rows(entries, true))
+    }
+
+    /// Place records in one transaction, and on a rollback put memory back to
+    /// what SQLite holds.
+    ///
+    /// Placement creates sections, rematches rides and renames routes, and
+    /// each of those refreshes memory from rows the transaction has not yet
+    /// committed. A rollback takes the rows away and leaves memory alone, so
+    /// the section tiers, the hidden set and the route names are reloaded,
+    /// and every cache built from them is emptied. Whether detection is owed
+    /// is not a fact the database holds, so it is kept as it was.
+    fn place_in_txn(
+        &mut self,
+        work: impl FnOnce(&mut Self) -> Result<RestoreRecordResult, String>,
+    ) -> Result<RestoreRecordResult, String> {
+        let placed = self.in_write_txn(work);
+        if placed.is_err() {
+            let sections_dirty = self.sections_dirty;
+            if let Err(e) = self.load_sections() {
+                log::error!("[record] Reloading sections after a rolled-back import failed: {e}");
+            }
+            self.sections_dirty = sections_dirty;
+            if let Err(e) = self.apply_route_names() {
+                log::error!(
+                    "[record] Reloading route names after a rolled-back import failed: {e}"
+                );
+            }
+            self.clear_memory_caches();
+        }
+        placed
     }
 
     /// History rows a restore reported as not restored.
@@ -965,15 +995,21 @@ impl PersistentEngine {
     }
 }
 
-/// A named intent's line, or `None` when the row lacks what placing it needs.
+/// An intent's line, or `None` when the row lacks what placing it needs.
+///
+/// A kind the table does not allow is refused here, since placing it would
+/// fail on the table's constraint rather than on storage.
 fn intent_line(row: &RecordRow) -> Result<Option<Vec<GpsPoint>>, String> {
-    let (Some(_), Some(_), Some(polyline)) = (
+    let (Some(_), Some(kind), Some(polyline)) = (
         string(&row.values, "id"),
         string(&row.values, "kind"),
         string(&row.values, "polyline_json"),
     ) else {
         return Ok(None);
     };
+    if !sections::SECTION_INTENT_KINDS.contains(&kind) {
+        return Err(format!("Unknown section intent kind {kind}"));
+    }
     serde_json::from_str(polyline)
         .map(Some)
         .map_err(|e| format!("Unreadable section line: {e}"))
@@ -3325,6 +3361,128 @@ mod tests {
         assert!(!paused(&engine));
     }
 
+    fn hand_cut_payload() -> serde_json::Value {
+        let line = ride()[10..41].to_vec();
+        json!({"version": 1, "entries": [{
+            "table": "sections",
+            "values": {"id": "foreign-cut", "section_type": "custom", "sport_type": "Ride",
+                "name": "My climb", "distance_meters": 1000},
+            "ground": {"rep_activity_id": "ride-1", "rep_start_index": 10,
+                "rep_end_index": 41, "point_count": 80,
+                "polyline_json": serde_json::to_string(&line).unwrap()}
+        }]})
+    }
+
+    fn stored_ids(engine: &PersistentEngine, sql: &str) -> std::collections::BTreeSet<String> {
+        let mut stmt = engine.db.prepare(sql).unwrap();
+        stmt.query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    /// The sections memory holds and the ones it hides, beside what SQLite holds.
+    fn assert_memory_matches_storage(engine: &PersistentEngine) {
+        let in_memory: std::collections::BTreeSet<String> =
+            engine.get_sections().iter().map(|s| s.id.clone()).collect();
+        assert_eq!(
+            in_memory,
+            stored_ids(engine, "SELECT id FROM sections"),
+            "memory holds a section the database does not"
+        );
+        let hidden: std::collections::BTreeSet<String> =
+            engine.superseded_ids.iter().cloned().collect();
+        assert_eq!(
+            hidden,
+            stored_ids(
+                engine,
+                "SELECT id FROM sections WHERE superseded_by IS NOT NULL"
+            ),
+            "memory hides a section the database does not"
+        );
+    }
+
+    fn custom_sections_in_memory(engine: &PersistentEngine) -> usize {
+        engine
+            .get_sections()
+            .iter()
+            .filter(|s| s.id.starts_with("custom_"))
+            .count()
+    }
+
+    /// Scenario: an import cuts a section on a stored ride, then storage
+    /// refuses the import's progress write, so the transaction rolls back.
+    ///
+    /// Expected behaviour: the cut and the auto section it would have hidden
+    /// are back as SQLite holds them, and resuming the import leaves one cut.
+    #[test]
+    fn test_failed_import_leaves_no_section_in_memory_the_database_rolled_back() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("rolled-back.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("ride-1".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let track = engine.get_gps_track("ride-1").unwrap();
+        engine
+            .create_section(crate::sections::CreateSectionParams {
+                sport_type: "Ride".to_string(),
+                polyline: track[10..41].to_vec(),
+                distance_meters: 1000.0,
+                name: None,
+                source_activity_id: None,
+                start_index: None,
+                end_index: None,
+            })
+            .unwrap();
+        fail_progress_writes(&engine);
+
+        let failed = engine.restore_record_json(&hand_cut_payload().to_string());
+
+        assert!(failed.is_err(), "the progress write was refused");
+        assert!(paused(&engine));
+        assert_eq!(custom_sections_in_memory(&engine), 0);
+        assert_memory_matches_storage(&engine);
+
+        engine
+            .db
+            .execute_batch("DROP TRIGGER refuse_progress")
+            .unwrap();
+        resume(&mut engine).expect("the paused import to resume");
+        assert_eq!(custom_sections_in_memory(&engine), 1);
+        assert_eq!(
+            engine.superseded_ids.len(),
+            1,
+            "the cut hides the auto section"
+        );
+        assert_memory_matches_storage(&engine);
+    }
+
+    /// Scenario: a cut waiting for its ride is retried once the ride lands,
+    /// and storage refuses the retry's progress write.
+    ///
+    /// Expected behaviour: the retry rolls back and memory holds no cut.
+    #[test]
+    fn test_failed_retry_leaves_no_section_in_memory_the_database_rolled_back() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("retry-rolled-back.db").to_str().unwrap())
+                .unwrap();
+        let waiting = engine
+            .restore_record_json(&hand_cut_payload().to_string())
+            .unwrap();
+        assert_eq!(waiting.unplaced, 1, "the cut waits for its ride");
+        engine
+            .add_activity("ride-1".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        fail_progress_writes(&engine);
+
+        assert!(engine.retry_record_restore().is_err());
+
+        assert_eq!(custom_sections_in_memory(&engine), 0);
+        assert_memory_matches_storage(&engine);
+    }
+
     #[test]
     fn test_restore_places_the_automatic_backup_switch() {
         let dir = TempDir::new().unwrap();
@@ -3430,12 +3588,37 @@ mod tests {
                "values": {"id": "x", "kind": "named", "polyline_json": "not json"}})
     }
 
+    /// A readable intent whose kind the schema does not allow, as a later
+    /// build adding a kind under the same record version would write.
+    fn unknown_kind_intent() -> serde_json::Value {
+        json!({"table": "section_intents",
+               "values": {"id": "x", "kind": "hidden",
+                          "polyline_json": serde_json::to_string(&ride()[..2]).unwrap()}})
+    }
+
     /// An auto section the athlete edited, whose saved undo line is unreadable.
     fn unreadable_original() -> serde_json::Value {
         json!({"table": "sections",
                "values": {"id": "s", "section_type": "auto", "sport_type": "Ride",
                           "original_polyline_json": "not json"},
                "ground": {"polyline_json": serde_json::to_string(&ride()[..30]).unwrap()}})
+    }
+
+    /// Expected behaviour: every kind the content check lets through is one
+    /// the table accepts, so the check and the schema cannot drift apart.
+    #[test]
+    fn test_every_allowed_intent_kind_is_stored() {
+        let dir = TempDir::new().unwrap();
+        let engine = PersistentEngine::new(dir.path().join("kinds.db").to_str().unwrap()).unwrap();
+        for kind in super::sections::SECTION_INTENT_KINDS {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_intents (id, kind) VALUES ('k', ?1)",
+                    [kind],
+                )
+                .unwrap_or_else(|e| panic!("the table refused kind {kind}: {e}"));
+        }
     }
 
     /// Store a paused import or waiting rows the way an earlier build could,
@@ -3454,7 +3637,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let mut engine =
             PersistentEngine::new(dir.path().join("content.db").to_str().unwrap()).unwrap();
-        for bad in [unreadable_intent(), unreadable_original()] {
+        for bad in [
+            unreadable_intent(),
+            unreadable_original(),
+            unknown_kind_intent(),
+        ] {
             let payload = json!({"version": 1, "entries": [
                 {"table": "settings", "values": {"key": "veloq-theme-preference", "value": "dark"}},
                 bad
@@ -3530,6 +3717,26 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("imperial")
+        );
+
+        store_raw(
+            &engine,
+            super::PAUSED_IMPORT_KEY,
+            &json!({"version": 1, "entries": [unknown_kind_intent()]}),
+        );
+        let after = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "veloq-theme-preference", "value": "light"}}
+        ]});
+        engine
+            .restore_record_json(&after.to_string())
+            .expect("a new file imports past a paused intent of an unknown kind");
+        assert!(!paused(&engine));
+        assert_eq!(
+            engine
+                .get_setting("veloq-theme-preference")
+                .unwrap()
+                .as_deref(),
+            Some("light")
         );
     }
 

@@ -245,6 +245,18 @@ impl TileStore {
         self.satellite.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// Give back the satellite rasters held in memory, when the OS asks the
+    /// process for memory. The tree on disk is left alone: only memory was
+    /// asked for, and a dropped raster is fetched again on its next read.
+    pub fn release_memory(&self) {
+        self.satellite_cache().clear();
+    }
+
+    /// Bytes the in-memory satellite cache holds.
+    pub fn satellite_cache_bytes(&self) -> u64 {
+        self.satellite_cache().bytes
+    }
+
     fn count(&self, source: &str, bump: impl FnOnce(&mut TileCounts)) {
         let mut counts = self.counts.lock().unwrap_or_else(|e| e.into_inner());
         bump(counts.entry(source.to_string()).or_default());

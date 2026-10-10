@@ -101,6 +101,7 @@ pub(crate) fn recompute_and_save_groups(
     match_config: &MatchConfig,
     existing_groups: &[RouteGroup],
     generation: u64,
+    moved_tracks: &HashSet<String>,
 ) -> (Vec<RouteGroup>, GroupSave) {
     let start = Instant::now();
 
@@ -132,10 +133,11 @@ pub(crate) fn recompute_and_save_groups(
 
     let total = signatures.len();
     let chosen = super::routes::routes_keeping_representative(conn, existing_groups);
+    let rule_changed = super::routes::groups_match_rule_changed(conn, match_config);
     let use_incremental = !existing_groups.is_empty()
         && !new_sigs.is_empty()
         && (new_sigs.len() as f64) < (total as f64 * 0.9)
-        && !super::routes::groups_match_rule_changed(conn, match_config);
+        && !rule_changed;
 
     let group_start = Instant::now();
     let result = if use_incremental {
@@ -167,14 +169,18 @@ pub(crate) fn recompute_and_save_groups(
         group.sport_type.clear();
     }
 
-    // Measured here, before the write lock is taken: the percentages read every
-    // member's stored track, and the lock is held only for the rows.
+    // Measured here, before the write lock is taken: the percentages read the
+    // stored tracks of the routes owed a measurement, and the lock is held only
+    // for the rows.
+    let measured_against: &[RouteGroup] = if rule_changed { &[] } else { existing_groups };
     let matches = measure_group_matches(
         conn,
+        measured_against,
         &groups,
         result.activity_matches,
         &id_map,
         match_config,
+        moved_tracks,
     );
 
     let save = match save_groups_to_db(
@@ -211,17 +217,19 @@ pub(crate) fn recompute_and_save_groups(
     (groups, save)
 }
 
-/// The match rows the worker's grouping owes: each member's direction from the
-/// grouping, re-keyed through the id map onto the stable route ids, over the
-/// rows already stored, then every percentage measured from the stored tracks.
-/// The incremental arm reports only the routes that took a new member, so the
-/// stored rows carry the rest.
+/// The match rows the worker's grouping owes. A route that kept its members,
+/// its representative and their tracks since `previous` keeps the rows already
+/// stored. Every other route takes each member's direction from the grouping,
+/// re-keyed through the id map onto the stable route ids, over the rows already
+/// stored, then has its percentages measured from the stored tracks.
 fn measure_group_matches(
     conn: &Connection,
+    previous: &[RouteGroup],
     groups: &[RouteGroup],
     reported: HashMap<String, Vec<ActivityMatchInfo>>,
     id_map: &HashMap<String, String>,
     match_config: &MatchConfig,
+    moved_tracks: &HashSet<String>,
 ) -> HashMap<String, Vec<ActivityMatchInfo>> {
     let mut held: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
     if let Ok(mut stmt) = conn
@@ -247,10 +255,13 @@ fn measure_group_matches(
             }
         }
     }
+    let owed = super::routes::groups_owing_measurement(previous, groups, &held, moved_tracks);
     for (old_id, matches) in reported {
-        let entry = held
-            .entry(id_map.get(&old_id).cloned().unwrap_or(old_id))
-            .or_default();
+        let id = id_map.get(&old_id).cloned().unwrap_or(old_id);
+        if !owed.contains(&id) {
+            continue;
+        }
+        let entry = held.entry(id).or_default();
         for info in matches {
             entry.retain(|m| m.activity_id != info.activity_id);
             entry.push(info);
@@ -279,7 +290,7 @@ fn measure_group_matches(
             Ok(TrackRead::Present(points)) => Some(points),
             _ => None,
         },
-        None,
+        Some(&owed),
         None,
     )
 }
@@ -383,37 +394,7 @@ fn save_groups_txn(
 ) -> SqlResult<()> {
     let chosen = super::routes::chosen_representatives(conn)?;
     conn.execute("DELETE FROM route_groups", [])?;
-    let mut stmt = conn.prepare(
-        "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-            activity_ids_blob)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    )?;
-    for group in groups {
-        let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
-        let activity_ids_blob = super::codec::serialize(&group.activity_ids).ok();
-        let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
-            Some(b) => (
-                Some(b.min_lat),
-                Some(b.max_lat),
-                Some(b.min_lng),
-                Some(b.max_lng),
-            ),
-            None => (None, None, None, None),
-        };
-        stmt.execute(params![
-            group.group_id,
-            group.representative_id,
-            activity_ids_json,
-            "",
-            min_lat,
-            max_lat,
-            min_lng,
-            max_lng,
-            activity_ids_blob,
-        ])?;
-    }
-    drop(stmt);
+    super::routes::insert_route_groups(conn, groups)?;
     super::routes::mark_chosen_representatives(conn, &chosen)?;
 
     // A name outlives its route only while the id survives. The remap keeps that
@@ -528,6 +509,8 @@ pub struct RegroupSnapshot {
     groups: Vec<RouteGroup>,
     generation: u64,
     epoch: u64,
+    /// The members whose stored track was replaced before this snapshot.
+    moved_tracks: HashSet<String>,
 }
 
 /// What became of a pass's compute and save, for the swap to adopt.
@@ -564,6 +547,7 @@ impl RegroupSnapshot {
                     &self.match_config,
                     &self.groups,
                     self.generation,
+                    &self.moved_tracks,
                 )
                 .1
             }
@@ -636,6 +620,7 @@ impl PersistentEngine {
             groups: self.groups.clone(),
             generation: self.group_generation,
             epoch: self.groups_dirty_epoch,
+            moved_tracks: self.moved_tracks.keys().cloned().collect(),
         }
     }
 

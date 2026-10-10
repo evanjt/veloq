@@ -1,8 +1,10 @@
+import { releaseEngineMemory } from '@/shared/native/engineMemory';
 import { queryClient } from '@/shared/query/QueryProvider';
 
 import {
   clearNativeImageCache,
   registerReclaimer,
+  TRIM_BACKGROUND,
   TRIM_COMPLETE,
   TRIM_MODERATE,
   TRIM_UI_HIDDEN,
@@ -36,5 +38,19 @@ export function registerImageCacheReclaimer(): () => void {
     name: 'image-cache',
     minLevel: TRIM_MODERATE,
     release: () => clearNativeImageCache(),
+  });
+}
+
+/**
+ * The engine's parked SQLite readers and page caches reopen and refill on the
+ * next read, so they go once the process is in the background. Its LRUs and the
+ * satellite rasters cost a recompute or a refetch, so they go only at the last
+ * warning.
+ */
+export function registerEngineReclaimer(): () => void {
+  return registerReclaimer({
+    name: 'engine',
+    minLevel: TRIM_BACKGROUND,
+    release: (level) => void releaseEngineMemory(level >= TRIM_COMPLETE),
   });
 }
