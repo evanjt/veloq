@@ -11,3 +11,16 @@ export const BEST_EFFORTS_DEFAULT_PERIOD: Period = DEFAULT_PERIOD;
 export function bestEffortsDays(period: Period): number {
   return periodRangeDays(period);
 }
+
+/** The link to Best Efforts that opens it on a period, so a drill-down keeps its window. */
+export function bestEffortsHref(period: Period): string {
+  return `/best-efforts?period=${period}`;
+}
+
+/** The period a link names, or the default when it names none the screen offers. */
+export function bestEffortsPeriodFromParam(value: string | string[] | undefined): Period {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return (
+    BEST_EFFORTS_PERIODS.find((option) => option.id === raw)?.id ?? BEST_EFFORTS_DEFAULT_PERIOD
+  );
+}

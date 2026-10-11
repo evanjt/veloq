@@ -21,7 +21,11 @@ let mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({

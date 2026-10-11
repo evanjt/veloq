@@ -114,6 +114,20 @@ export interface RecordingLibraryEntry {
   rpeSent?: boolean;
 }
 
+/**
+ * What the athlete has changed on the review screen of a stopped ride and not
+ * saved yet. Each field is absent until the athlete touches it, so review
+ * derives the rest from the ride. The trim is a pair of indices into the
+ * ride's GPS stream.
+ */
+export interface ReviewDraft {
+  name?: string;
+  notes?: string;
+  reviewedType?: ActivityType;
+  trimStart?: number;
+  trimEnd?: number;
+}
+
 /** Crash recovery backup */
 export interface RecordingBackup {
   athleteId?: string;
@@ -134,6 +148,8 @@ export interface RecordingBackup {
   pairedEventId: number | null;
   /** The plan the ride follows and the progress through it. Older backups carry none. */
   workout?: WorkoutFollow;
+  /** The review edits of a stopped ride. Older backups and live rides carry none. */
+  review?: ReviewDraft;
   savedAt: number; // Date.now()
 }
 

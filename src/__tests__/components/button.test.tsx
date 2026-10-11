@@ -73,6 +73,41 @@ describe('label contrast', () => {
       const ink = styleOf(getByTestId('t-label')).color as string;
       expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(4.5);
     });
+
+    // The chip draws on whatever surface holds it, and an unselected chip's
+    // ground is a wash laid over that surface, so each surface is a ground.
+    const surfaces = isDark
+      ? [
+          darkColors.background,
+          darkColors.surface,
+          darkColors.surfaceElevated,
+          darkColors.surfaceCard,
+        ]
+      : [colors.surface, colors.background, colors.backgroundAlt];
+
+    for (const selected of [false, true]) {
+      const state = selected ? 'selected' : 'unselected';
+      it(`keeps a ToggleButton's label and count at 4.5:1 when ${state}, in the ${theme} theme`, () => {
+        mockIsDark = isDark;
+        const { getByTestId } = render(
+          <ToggleButton label="x" count={12} selected={selected} onPress={() => {}} testID="t" />
+        );
+        const fill = styleOf(getByTestId('t')).backgroundColor as string;
+
+        const failing = surfaces.flatMap((surface) => {
+          const ground = over(fill, surface);
+          return (['t-label', 't-count'] as const).flatMap((id) => {
+            const ratio = contrastRatio(
+              over(styleOf(getByTestId(id)).color as string, ground),
+              ground
+            );
+            return ratio >= 4.5 ? [] : [`${id} on ${surface} ${ratio.toFixed(2)}`];
+          });
+        });
+
+        expect(failing).toStrictEqual([]);
+      });
+    }
   }
 });
 

@@ -1,0 +1,17 @@
+# Discard the ride on the review screen. Discard is a button that raises a
+# confirmation, and the ride goes only on the alert's destructive accept.
+
+appId: com.veloq.app.dev
+---
+- tapOn:
+    id: "review-discard-button"
+
+- extendedWaitUntil:
+    visible: "Discard this recording\\?"
+    timeout: 5000
+
+# The screen's own button carries the same label, so take the one nearest
+# under the alert's title.
+- tapOn:
+    text: "Discard"
+    below: "Discard this recording\\?"

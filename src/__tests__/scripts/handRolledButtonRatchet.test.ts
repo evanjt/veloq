@@ -117,9 +117,18 @@ describe('the hand-rolled button ratchet', () => {
       expect(runGuard(root, {}).status).toBe(1);
     });
 
-    it('allows the other Paper components, including IconButton', () => {
+    it('refuses IconButton imported from react-native-paper, which needs no label', () => {
+      const file = 'src/features/a/A.tsx';
+      const root = treeWith({ [file]: paperImport('Text, IconButton') });
+      const run = runGuard(root, {});
+
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(`${file}  imports IconButton`);
+    });
+
+    it('allows the other Paper components', () => {
       const root = treeWith({
-        'src/features/a/A.tsx': paperImport('Text, IconButton, Switch, TextInput'),
+        'src/features/a/A.tsx': paperImport('Text, Switch, TextInput'),
       });
 
       expect(runGuard(root, {}).status).toBe(0);

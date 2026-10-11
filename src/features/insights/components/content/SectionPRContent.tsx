@@ -10,6 +10,7 @@ import { cardSportType } from '@/features/insights/lib/cardSport';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
+import { EngineReadFailureRetry } from '@/shared/ui/EngineReadFailureRetry';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
@@ -33,7 +34,13 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const sectionId = prData?.sectionId ?? null;
   const { section, error: sectionError } = useSectionDetail(sectionId);
   // The timeline and effort list show the sport the record was set in.
-  const { records, bests, isLoading } = useSectionPerformances(section, prData?.sportType);
+  const {
+    records,
+    bests,
+    isLoading,
+    error: streamsError,
+    refetch: refetchStreams,
+  } = useSectionPerformances(section, prData?.sportType);
 
   // The record's sport, not the section's: shared ground holds a record in
   // each sport that travels it.
@@ -130,7 +137,13 @@ export const SectionPRContent = React.memo(function SectionPRContent({
       ) : null}
 
       {/* Performance timeline chart */}
-      {isLoading ? (
+      {streamsError ? (
+        <EngineReadFailureRetry
+          error={streamsError}
+          onRetry={refetchStreams}
+          testID="section-stream-failure"
+        />
+      ) : isLoading ? (
         <View style={[styles.shimmerCard, isDark && styles.shimmerCardDark]}>
           <Shimmer width="100%" height={160} borderRadius={8} />
         </View>
@@ -139,7 +152,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
       ) : null}
 
       {/* Recent efforts list */}
-      {!isLoading && records.length > 0 ? (
+      {!streamsError && !isLoading && records.length > 0 ? (
         <RecentEffortsList records={records} bests={bests} />
       ) : null}
     </View>

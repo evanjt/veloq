@@ -119,6 +119,7 @@ import { initialiseApp } from '@/shared/app/launch';
 import { releaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
+import { sheetScreenLayout } from '@/shared/ui/SheetFrame';
 
 const log = debug.create('RootLayout');
 enableFreeze(true);
@@ -661,6 +662,7 @@ export default function RootLayout() {
                     <RecordingReturnPill />
                     <ShaderWarmup />
                     <Stack
+                      screenLayout={sheetScreenLayout}
                       screenOptions={{
                         // Enable swipe-back gesture on both platforms
                         gestureEnabled: true,
@@ -687,7 +689,7 @@ export default function RootLayout() {
                             // before one starts the close control is the way off.
                             gestureEnabled: name !== 'recording/[type]',
                             ...largeTitleScreenOptions(name, Platform.OS),
-                            ...sheetScreenOptions(name),
+                            ...sheetScreenOptions(name, Platform.OS),
                             ...(header?.overMap && {
                               headerTransparent: true,
                               headerTitle: '',

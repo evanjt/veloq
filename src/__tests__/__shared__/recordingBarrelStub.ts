@@ -7,6 +7,7 @@ const COMPONENTS = new Set([
   'GrantAccessButton',
   'IndoorDisplay',
   'ManualEntry',
+  'OutsideAppNotice',
   'PendingUploadsCard',
   'PermissionUpgradeBanner',
   'RecordFAB',
@@ -43,6 +44,7 @@ const SOURCES: Record<string, string> = {
   ALL_DATA_FIELDS: 'lib/dataFields',
   recordingActions: 'lib/recordingActions',
   installRecordingSession: 'lib/recordingSession',
+  discardReviewedRecording: 'lib/discardReview',
   resumeStoppedRecording: 'lib/resumeStoppedRecording',
   sessionReturnRoute: 'lib/sessionReturnRoute',
   shareRecordingFit: 'lib/shareRecordingFit',
@@ -59,6 +61,7 @@ const SOURCES: Record<string, string> = {
   readRecordingTrack: 'lib/storage/recordingTrack',
   resumeHeldRecordingForAthlete: 'lib/holdRecordingOnSignOut',
   holdRecordingOnSignOut: 'lib/holdRecordingOnSignOut',
+  heldRideStart: 'lib/holdRecordingOnSignOut',
 };
 
 export function withRecordingOverrides(

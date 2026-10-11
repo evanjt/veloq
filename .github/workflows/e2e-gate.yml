@@ -36,9 +36,9 @@ jobs:
       maps: ${{ steps.filter.outputs.maps }}
       ios-maps: ${{ steps.filter.outputs.ios-maps }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: |
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable KVM
         run: |
@@ -104,7 +104,7 @@ jobs:
           name: ${{ needs.build-android-dev.outputs.apk-artifact }}
           path: /tmp/apk
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-gate-debug
           path: /tmp/maestro-artifacts
@@ -163,7 +163,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-gate-report
           path: |
@@ -209,7 +209,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable KVM
         run: |
@@ -223,7 +223,7 @@ jobs:
           name: ${{ needs.build-android-dev.outputs.apk-artifact }}
           path: /tmp/apk
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -263,7 +263,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-map-debug
           path: /tmp/maestro-map-artifacts
@@ -275,7 +275,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-map-report
           path: |
@@ -310,7 +310,7 @@ jobs:
     # Fourteen flows at the measured two minutes each, setup and a retry pass.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
@@ -337,7 +337,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-ios-map-debug
           path: /tmp/maestro-ios-map-artifacts
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-ios-map-report
           path: |

@@ -18,7 +18,7 @@ const mockChartWindows: unknown[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: jest.fn() },
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/native/syncRefresh', () => ({
@@ -44,6 +44,7 @@ jest.mock('@/features/wellness', () => ({
     mockChartWindows.push(smoothingWindow);
     return null;
   },
+  useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
   useWellness: () => ({
     data: [],
     isLoading: false,

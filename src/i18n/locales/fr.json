@@ -48,7 +48,7 @@
       "trainingLoad": "Training Stress Score (TSS) quantifie la charge d'entraînement basée sur la durée et l'intensité relative à votre seuil.",
       "yourForm": "Votre Forme (TSB) ce jour-là. C'est une valeur quotidienne basée sur votre entraînement global, pas spécifique à cette activité. TSB = Forme (CTL) moins Fatigue (ATL)."
     },
-    "ftp": "FTP: {{value}}W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Fréquence cardiaque",
     "mapStyle": "Style de carte",
     "maxHR": "Max : {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "Votre forme"
     },
     "hrZoneTotal": "Temps avec fréquence cardiaque : {{duration}}",
+    "powerZoneTotal": "Temps avec puissance : {{duration}}",
     "movingTime": "Temps en mouvement : {{duration}}",
     "timeInHRZones": "Temps dans les zones FC",
     "timeInPowerZones": "Temps en zones de puissance",
@@ -223,8 +224,26 @@
     "accountChangeUnknownDemoMessage": "Cet appareil contient une bibliothèque d'un autre compte. Passer en mode démo la supprimera définitivement. Pour la conserver, revenez en arrière et connectez-vous d'abord à ce compte.",
     "accountChangeContinue": "Continuer et supprimer",
     "disconnectAndClearTitle": "Se déconnecter et supprimer les données ?",
-    "disconnectAndClearMessage": "Cela vous déconnecte ET supprime toutes les activités, traces GPS, sections et données de parcours en cache sur cet appareil. Les données seront resynchronisées depuis intervals.icu lors de votre prochaine connexion. Cette action est irréversible.",
-    "disconnectAndClearConfirm": "Supprimer et se déconnecter"
+    "disconnectAndClearMessage": "Cela vous déconnecte et supprime votre bibliothèque sur ce téléphone. Cette action est irréversible.",
+    "disconnectAndClearConfirm": "Supprimer et se déconnecter",
+    "disconnectAndClearBackUpFirst": "Sauvegarder d'abord",
+    "wipeList": {
+      "returns": "Revient à votre prochaine connexion :",
+      "deleted": "Supprimé définitivement :",
+      "kept": "Reste sur ce téléphone :",
+      "activities": "Activités et leurs traces GPS",
+      "wellness": "Bien-être et forme",
+      "detectedSections": "Sections et parcours trouvés dans vos activités",
+      "localBackups": "Sauvegardes stockées sur ce téléphone",
+      "backupSetup": "Réglages de sauvegarde : identifiants WebDAV, compte Google Drive et dossier de sauvegarde",
+      "names": "Noms donnés aux sections et parcours",
+      "sectionEdits": "Sections que vous avez créées, raccourcies ou épinglées",
+      "sensors": "Capteurs appairés",
+      "exportPrivacy": "Domicile défini pour la confidentialité des exports",
+      "notificationChoices": "Choix de notifications",
+      "mapChoices": "Réglages de carte enregistrés pour des activités précises",
+      "recordings": "Activités enregistrées sur ce téléphone"
+    }
   },
   "attribution": {
     "demoData": "Le mode démo utilise de vraies traces d'activités. Utilisées avec l'autorisation de l'auteur.",
@@ -420,12 +439,14 @@
     "pullToRefresh": "Tirer pour actualiser",
     "reset": "Réinitialiser",
     "retry": "Réessayer",
+    "freeUpSpace": "Libérer de l'espace",
     "save": "Enregistrer",
     "showDetails": "Afficher les détails pour le développeur",
     "undo": "Annuler",
     "on": "Activé",
     "off": "Désactivé",
-    "openSettings": "Ouvrir les réglages"
+    "openSettings": "Ouvrir les réglages",
+    "allow": "Autoriser"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -449,10 +470,11 @@
         "rateLimited": "intervals.icu demande une pause, la synchronisation attend",
         "server": "intervals.icu a renvoye quelque chose que l'app n'a pas pu utiliser",
         "network": "Impossible de joindre intervals.icu",
-        "storage": "Un fichier de cet appareil n'a pas pu etre lu",
+        "storage": "Un fichier de cet appareil n'a pas pu être lu ni écrit",
         "notConfigured": "Aucune connexion intervals.icu n'est enregistree sur cet appareil",
         "internal": "La synchronisation s'est arretee pour une raison que l'app ne sait pas nommer",
-        "engineClosed": "La synchronisation s'est arretee car la bibliotheque a ete fermee en cours de route"
+        "engineClosed": "La synchronisation s'est arretee car la bibliotheque a ete fermee en cours de route",
+        "storageFull": "Cet appareil n'a plus d'espace libre, la synchronisation n'a donc pas pu enregistrer les données récupérées"
       }
     },
     "tracksMissing": {
@@ -734,8 +756,8 @@
       "sectionTrendName": "Tendance de performance sur les sections",
       "stalePrCrossRefName": "Recoupement PR / {{metric}}",
       "efficiencyName": "Régression de l’efficacité aérobie",
-      "efficiencyDescription": "Suit la fréquence cardiaque moyenne multipliée par l’allure sur les efforts appariés de la section, avec une régression par moindres carrés ordinaires dans le temps. Une direction n’est affichée que lorsque l’intervalle à 95 % de la pente exclut zéro et que le changement modélisé sur les efforts dépasse 2 % de la moyenne. Une valeur en baisse signifie moins de battements à la même allure.",
-      "efficiencyFormula": "efficacité = fréquence cardiaque moyenne × allure (secondes par km)",
+      "efficiencyDescription": "Suit la fréquence cardiaque moyenne multipliée par l’allure sur les efforts appariés de la section, avec une régression par moindres carrés ordinaires dans le temps. Une direction n’est affichée que lorsque l’intervalle à 95 % de la pente exclut zéro et que le changement modélisé sur les efforts dépasse 2 % de la moyenne. Une valeur en baisse signifie moins de battements par km : une fréquence cardiaque plus basse, une allure plus rapide, ou les deux.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = fréquence cardiaque moyenne × allure (secondes par km)",
       "routeName": "Records et tendances d'itinéraire",
       "route": "Compte les tentatives sur un itinéraire dans un sport et une direction qui sont chronométrées, non exclues, non partielles et dans la plage de distance de l'itinéraire. Un record est la plus rapide d'entre elles, réalisée récemment. Une tendance compare la médiane des trois dernières aux trois précédentes, à partir de six tentatives."
     },
@@ -848,7 +870,8 @@
     },
     "aboutRanking": "Les cartes sont classees selon ce qu'elles ont a dire : leur fraicheur, leur ecart avec vos habitudes, l'ampleur du changement et la frequence a laquelle vous le faites.",
     "efficiencyTrend": {
-      "seriesLabel": "Fréquence cardiaque par unité d'allure, du passage le plus ancien au plus récent",
+      "seriesLabel": "{{quantity}}, du passage le plus ancien au plus récent",
+      "quantity": "Fréquence cardiaque × allure",
       "title": "Efficacité en progrès sur {{name}}",
       "changeTitle": "Efficacité sur {{name}} : +{{hrChange}} bpm",
       "changeSubtitle": "+{{hrChange}} bpm modélisés à allure moyenne sur {{efforts}} passages",
@@ -1010,6 +1033,7 @@
     "sessionKeyRejected": "Votre clé API a été refusée.",
     "sessionRestore": "Reconnectez-vous pour les retrouver.",
     "sessionRestoreAthlete": "Reconnectez-vous en tant que {{athleteId}} pour les retrouver.",
+    "sessionHeldRide": "Votre activité de {{when}} est conservée et s’ouvrira à votre prochaine connexion.",
     "subtitle": "Connexion à intervals.icu",
     "termsOfService": "Conditions d'Utilisation",
     "title": "Veloq",
@@ -1153,6 +1177,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "Les Activités en direct sont désactivées : les commandes n'apparaîtront pas sur l'écran verrouillé",
+    "notificationsOffNotice": "Les notifications sont désactivées : les commandes et alertes de l'enregistrement n'apparaîtront pas hors de l'app",
     "strengthRest": "Repos",
     "strengthLine": "Ligne {{n}} sur {{total}}",
     "strengthDone": "Fait",
@@ -1189,6 +1215,8 @@
       "stop": "STOP"
     },
     "discard": "Abandonner",
+    "discardConfirmMessage": "Il n'a pas été sauvegardé et ne pourra pas être récupéré une fois abandonné.",
+    "discardConfirmTitle": "Abandonner cet enregistrement ?",
     "distance": "Distance (km)",
     "distanceInvalid": "Veuillez saisir une distance valide (0-999).",
     "duration": "Durée (minutes)",
@@ -1214,13 +1242,18 @@
     },
     "gpsAcquiring": "En attente du GPS...",
     "gpsAlertContinue": "Continuer sans GPS",
-    "gpsAlertMessage": "Impossible d'obtenir un signal GPS. Vérifiez que les services de localisation sont activés et que vous avez une vue dégagée du ciel.",
+    "gpsAlertMessage": "Impossible d'obtenir un signal GPS. Placez-vous à un endroit avec une vue dégagée du ciel.",
     "gpsAlertSettings": "Ouvrir les réglages",
     "gpsAlertStop": "Arrêter l'enregistrement",
     "gpsAlertTitle": "Signal GPS introuvable",
     "gpsNone": "Localisation refusée",
     "gpsPermissionDenied": "Permission de localisation refusée. Autorisez l'accès dans les Réglages pour enregistrer le GPS.",
     "gpsReady": "GPS prêt",
+    "gpsServicesOff": "Localisation désactivée",
+    "gpsServicesOffAndroid": "La localisation est désactivée sur ce téléphone, aucun tracé ne peut donc être enregistré.",
+    "gpsServicesOffIos": "Le service de localisation est désactivé, aucun tracé ne peut donc être enregistré. Activez-le dans Réglages > Confidentialité et sécurité > Service de localisation.",
+    "gpsServicesOffTitle": "La localisation est désactivée",
+    "gpsServicesTurnOn": "Activer",
     "gpsTrackingError": "Impossible de démarrer le suivi GPS. Essayez de mettre en pause puis de reprendre.",
     "gpsWaiting": "En attente du signal GPS. Sortez à l'extérieur pour un meilleur signal.",
     "gpsWeakWarning": "Signal GPS faible, l'enregistrement peut être imprécis",
@@ -1246,6 +1279,7 @@
       "max": "Maximum"
     },
     "saveError": "Échec de l'enregistrement",
+    "saveErrorNoSpace": "Cet appareil est presque plein, l'activité n'a donc pas pu être enregistrée. Libérez de l'espace, puis réessayez.",
     "savedQueued": "Activité enregistrée. Elle sera téléchargée automatiquement lorsque vous serez de nouveau en ligne.",
     "savedQueuedAuth": "Activité enregistrée. Elle sera envoyée lorsque vous vous reconnecterez.",
     "settings": "Paramètres d'enregistrement",
@@ -1273,6 +1307,8 @@
       "night": "Nuit"
     },
     "trimActivity": "Rogner l'activité",
+    "trimEndHandle": "Fin du rognage",
+    "trimStartHandle": "Début du rognage",
     "trimmed": "Découpé",
     "uploadRejected": "intervals.icu a refusé ce fichier. La sortie est conservée dans Mes enregistrements.",
     "uploadMissing": "Le fichier de cette sortie n'est plus sur l'appareil, il ne peut donc pas être envoyé.",
@@ -1408,7 +1444,6 @@
     "renameFailedMessage": "Le nom de l’itinéraire n’a pas été enregistré. Réessayez.",
     "routeNamePlaceholder": "Nom du parcours",
     "routeWord": "Itinéraire",
-    "routesWillAppear": "Les parcours apparaîtront après l'analyse de vos activités",
     "routesWithTwoPlus": "Les parcours avec 2+ activités sur des chemins similaires apparaîtront ici",
     "sectionCreationFailed": "Échec de la création de la section. Veuillez réessayer.",
     "sectionWord": "Section",
@@ -1441,7 +1476,19 @@
     "resetReferenceConfirm": "Revenir à la sélection automatique de la référence ? Les pourcentages de correspondance de ce parcours seront recalculés.",
     "prTime": "RP {{time}}",
     "errorDetailId": "ID : {{id}}",
-    "errorDetailRange": "Plage : {{start}} → {{end}}"
+    "errorDetailRange": "Plage : {{start}} → {{end}}",
+    "emptyNoGpsTitle": "Aucune activité avec GPS",
+    "emptyNoGps": "Les parcours et les sections se trouvent dans les traces GPS, et la plage synchronisée ne contient que des séances sans GPS, comme home trainer, piscine ou musculation.",
+    "emptyNotYetRunTitle": "En attente d'analyse",
+    "emptyNotYetRun_one": "{{count}} activité avec GPS attend l'analyse. Les parcours et sections apparaîtront une fois celle-ci effectuée.",
+    "emptyNotYetRun_other": "{{count}} activités avec GPS attendent l'analyse. Les parcours et sections apparaîtront une fois celle-ci effectuée.",
+    "emptyRunningTitle": "Analyse en cours",
+    "emptyRunning": "{{phase}} : {{percent}} % effectué. Les parcours et sections apparaîtront à la fin de l'analyse.",
+    "emptyHeldTitle": "Analyse en attente",
+    "emptyNoRoutes_one": "Un parcours demande au moins {{count}} activité sur un tracé similaire. Aucune de vos activités avec GPS n'en forme encore.",
+    "emptyNoRoutes_other": "Un parcours demande au moins {{count}} activités sur un tracé similaire. Aucune de vos activités avec GPS n'en partage encore.",
+    "emptyNoSections_one": "Une section demande au moins {{count}} activité sur le même tronçon de route. Aucune n'a été trouvée dans vos activités avec GPS.",
+    "emptyNoSections_other": "Une section demande au moins {{count}} activités sur le même tronçon de route, même sur des parcours différents. Aucune n'a été trouvée dans vos activités avec GPS."
   },
   "routesScreen": {
     "computingRoutes": "Calcul des parcours...",
@@ -1511,7 +1558,7 @@
     "sectionNotFound": "Section introuvable",
     "aerobicEfficiency": "Efficacité aérobie",
     "aerobicEfficiencyDetail": "{{efforts}} passages comparables, variation modélisée de {{hrChange}} bpm à allure moyenne",
-    "aerobicEfficiencyCaption": "Fréquence cardiaque par unité d'allure, du passage le plus ancien au plus récent",
+    "aerobicEfficiencyCaption": "{{quantity}}, du passage le plus ancien au plus récent",
     "correlationTitle": "Bien-être et vitesse",
     "correlationMethod": "r de Pearson de la vitesse par tour face à la valeur de bien-être du jour, intervalle à 95 %, au moins 10 passages avec une valeur",
     "correlationFamily_one": "Ajusté selon Holm sur {{count}} variable",
@@ -2001,7 +2048,6 @@
     "atWeight": "à {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Efficacité aérobie",
     "eFTPTrend": "Tendance eFTP",
     "ftpLabel": "FTP {{value}}w",
     "heartRate": "Fréquence cardiaque",
@@ -2051,6 +2097,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2149,6 +2196,15 @@
       "routesBody": "Les activités sur le même tracé sont regroupées en un parcours, chaque passage étant comparé aux autres.",
       "sectionPageTip": "Faites défiler la page de la section pour voir la tendance, la répartition de vos temps et le tracé coloré selon où vous avez gagné ou perdu du temps.",
       "routesTip": "Faites défiler la page de l'itinéraire pour voir chaque tentative sur le parcours comparée aux autres."
+    },
+    "tutorial": {
+      "firstLoadTitle": "Votre entraînement, sur ce téléphone",
+      "firstLoadBody": "Veloq lit vos activités et votre bien-être depuis intervals.icu et les garde sur ce téléphone. Le premier chargement se fait en arrière-plan, et votre fil se remplit à mesure que les activités arrivent.",
+      "feedTitle": "Votre fil",
+      "feedBody": "Chaque activité arrive ici avec la carte de son parcours, la plus récente en premier.",
+      "feedTip": "Tirez vers le bas pour chercher de nouvelles activités sur intervals.icu, ou touchez une activité pour l’ouvrir.",
+      "activityTitle": "Dans une activité",
+      "activityBody": "Ouvrez une activité pour voir sa carte et ses graphiques, ses intervalles, et les parcours et sections dont elle fait partie."
     }
   },
   "strength": {
@@ -2185,6 +2241,7 @@
     "sets": "séries",
     "setsCount_one": "{{count}} série",
     "setsCount_other": "{{count}} séries",
+    "clearMuscle": "Désélectionner {{muscle}}",
     "muscleGroupVolume": "Volume par groupe musculaire",
     "relativeWeightedSets": "Séries lestées relatives sur la période sélectionnée",
     "reps": "répétitions",
@@ -2425,7 +2482,16 @@
     "window_one": "{{change}} en {{count}} jour",
     "window_other": "{{change}} en {{count}} jours",
     "window_many": "{{change}} en {{count}} jours",
-    "rule": "La variation est la dernière valeur de forme de la période moins la première. Un point marque chaque jour où la forme a augmenté de plus de 1 point par rapport à la veille."
+    "rule": "La variation est la dernière valeur de forme de la période moins la première. Un point marque chaque jour où la forme a augmenté de plus de 1 point par rapport à la veille.",
+    "trend": {
+      "improved": "en amélioration",
+      "declined": "en recul",
+      "rising": "en hausse",
+      "falling": "en baisse",
+      "steady": "stable",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Comparé à {{previous}} le {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Comparé à {{previous}} au même moment la semaine dernière."
+    }
   },
   "period": {
     "short": {

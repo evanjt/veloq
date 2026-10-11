@@ -166,16 +166,26 @@ struct WidgetPalette {
 
 // MARK: - formatting helpers
 
-func trendSymbol(_ dir: String) -> String {
+/// The arrow by the direction the number went, and its variant by the judgement the app made:
+/// filled for a change judged better, outlined for one judged worse, bare when flat or unjudged.
+/// A Home Screen that draws the widget in one colour keeps the variant and loses the colour.
+func trendSymbol(_ dir: String, _ verdict: String?) -> String {
+  let arrow: String
   switch dir {
-  case "up": return "arrow.up"
-  case "down": return "arrow.down"
-  default: return "minus"
+  case "up": arrow = "arrow.up"
+  case "down": arrow = "arrow.down"
+  default: arrow = "minus"
+  }
+  switch verdict {
+  case "improved": return arrow + ".circle.fill"
+  case "declined": return arrow + ".circle"
+  default: return arrow
   }
 }
 
-/// Coloured by the judgement the app made, never by the direction the number went. A
-/// snapshot written before verdicts existed carries none and draws flat.
+/// Coloured by the judgement the app made, never by the direction the number went, as a second
+/// carrier beside the symbol's variant. A snapshot written before verdicts existed carries none
+/// and draws flat.
 func trendColor(_ verdict: String?, _ p: WidgetPalette) -> Color {
   switch verdict {
   case "improved": return p.trendUp
@@ -267,20 +277,25 @@ private func monotonePath(xs: [CGFloat], ys: [CGFloat]) -> Path {
   return path
 }
 
-// One cased line: dark under-stroke for edge contrast, colour stroke on top.
+// One cased line: dark under-stroke for edge contrast, colour stroke on top, dashed when the
+// line must read apart from a solid one without its colour.
 private struct CasedLine: View {
   let values: [Double]
   let plot: ChartPlot
   let color: Color
   let casing: Color
   let lineWidth: CGFloat
+  var dash: [CGFloat] = []
 
   var body: some View {
     let xs = plot.xPositions(values.count)
     let ys = values.map { plot.yOf($0) }
     let path = monotonePath(xs: xs, ys: ys)
-    path.stroke(casing, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-    path.stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+    path.stroke(
+      casing, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: dash))
+    path.stroke(
+      color,
+      style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: dash))
   }
 }
 
@@ -308,8 +323,9 @@ private struct ChartAxis: View {
   }
 }
 
-// Feed-style chart: monotone fitness + fatigue lines over a shared domain, a
-// the axis rail. Display-only (no link).
+// Feed-style chart: monotone fitness + fatigue lines over a shared domain, and
+// the axis rail. Fatigue is dashed, so the two lines read apart without their
+// colours, and fitness is the accented one. Display-only (no link).
 struct FitnessChartView: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
@@ -325,11 +341,12 @@ struct FitnessChartView: View {
         if fatigue.count >= 2 {
           CasedLine(
             values: fatigue, plot: plot, color: palette.chartFatigue,
-            casing: palette.chartCasing, lineWidth: 1)
+            casing: palette.chartCasing, lineWidth: 1, dash: WidgetTheme.Chart.fatigueDash)
         }
         CasedLine(
           values: fitness, plot: plot, color: palette.chartFitness,
           casing: palette.chartCasing, lineWidth: 1.5)
+        .widgetAccentable()
       }
     }
   }
@@ -611,7 +628,8 @@ private struct SummaryHero: View {
           .foregroundColor(color)
           .lineLimit(1)
           .minimumScaleFactor(0.6)
-        Image(systemName: trendSymbol(hero.trendDir))
+          .widgetAccentable()
+        Image(systemName: trendSymbol(hero.trendDir, hero.verdict))
           .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
           .foregroundColor(trendColor(hero.verdict, palette))
       }
@@ -645,15 +663,19 @@ private struct SummaryChartView: View {
   }
 }
 
-/// Up to four metrics side by side, split by dividers.
+/// Up to four metrics side by side, split by dividers. The Form entry names its zone under its
+/// value, which its colour alone would carry.
 private struct SummarySupportingRow: View {
-  let entries: [WidgetSummaryEntry]
+  let entries: [SummarySupporting]
   let palette: WidgetPalette
   let formZone: String?
 
   var body: some View {
+    let captioned = entries.contains { $0.caption?.isEmpty == false }
     HStack(spacing: 0) {
-      ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+      ForEach(Array(entries.enumerated()), id: \.offset) { index, supporting in
+        let entry = supporting.entry
+        let color = palette.summaryColor(entry.colorKey, formZone: formZone)
         if index > 0 {
           Divider().background(palette.border)
         }
@@ -668,19 +690,29 @@ private struct SummarySupportingRow: View {
             Text(entry.value)
               .measuredText("metric value")
               .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-              .foregroundColor(palette.summaryColor(entry.colorKey, formZone: formZone))
+              .foregroundColor(color)
               .lineLimit(1)
               .minimumScaleFactor(0.6)
-            Image(systemName: trendSymbol(entry.trendDir))
+            Image(systemName: trendSymbol(entry.trendDir, entry.verdict))
               .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
               .foregroundColor(trendColor(entry.verdict, palette))
+          }
+          if let caption = supporting.caption, !caption.isEmpty {
+            Text(caption)
+              .measuredText("metric caption")
+              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
+              .foregroundColor(color)
+              .lineLimit(1)
+              .minimumScaleFactor(0.7)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 6)
       }
     }
-    .frame(height: 40)
+    .frame(
+      height: captioned
+        ? WidgetTheme.Layout.supportingRowCaptioned : WidgetTheme.Layout.supportingRow)
   }
 }
 
@@ -691,16 +723,26 @@ private extension FormZoneChart {
 }
 
 /// Form over six weeks against its five zone bands. A day with no value breaks the line.
+///
+/// A line marks each boundary between two bands in every mode. Drawn in one colour the bands
+/// would all take one tint at one alpha, so there they alternate between two alphas instead.
 private struct FormZoneChartView: View {
+  @Environment(\.widgetRenderingMode) private var renderingMode
   let chart: FormZoneChart
   let palette: WidgetPalette
+
+  private func bandOpacity(_ index: Int) -> Double {
+    guard renderingMode == .accented else { return WidgetTheme.Chart.bandOpacity }
+    let alphas = WidgetTheme.Chart.bandAccentedOpacities
+    return alphas[index % alphas.count]
+  }
 
   var body: some View {
     GeometryReader { geo in
       ZStack(alignment: .topLeading) {
-        ForEach(chart.bands, id: \.zone) { band in
+        ForEach(Array(chart.bands.enumerated()), id: \.element.zone) { index, band in
           Rectangle()
-            .fill(palette.formFill(band.zone).opacity(0.3))
+            .fill(palette.formFill(band.zone).opacity(bandOpacity(index)))
             .frame(
               width: geo.size.width,
               height: chart.y(band.from, height: geo.size.height)
@@ -708,12 +750,25 @@ private struct FormZoneChartView: View {
             )
             .offset(y: chart.y(band.to, height: geo.size.height))
         }
+        boundaries(in: geo.size)
+          .stroke(palette.textSecondary, lineWidth: WidgetTheme.Chart.bandBoundary)
         line(in: geo.size)
           .stroke(
             palette.textPrimary,
             style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
       }
     }
+  }
+
+  /// Every edge two bands share, which leaves out the chart's floor and ceiling.
+  private func boundaries(in size: CGSize) -> Path {
+    var path = Path()
+    for band in chart.bands.dropFirst() {
+      let y = chart.y(band.from, height: size.height)
+      path.move(to: CGPoint(x: 0, y: y))
+      path.addLine(to: CGPoint(x: size.width, y: y))
+    }
+    return path
   }
 
   private func line(in size: CGSize) -> Path {

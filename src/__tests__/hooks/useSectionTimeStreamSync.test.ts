@@ -412,3 +412,82 @@ describe('a wait the caller has moved on from', () => {
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
   });
 });
+
+/// Scenario: the engine's reader pool refuses while a section card mounts, so
+/// the read of the missing streams or the request for them throws.
+///
+/// Expected behaviour: the throw settles the hook into a failed state, with the
+/// error set, every requested activity counted outstanding and `ready` true, so
+/// the card shows a retry rather than a spinner that never ends.
+describe('an engine read that throws', () => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => rejections.push(reason);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListeners.clear();
+    missing.mockReturnValue([]);
+    startsWith(StartOutcome.Started);
+    mockIsOnline = true;
+    rejections.length = 0;
+    process.on('unhandledRejection', onRejection);
+  });
+
+  afterEach(() => {
+    process.off('unhandledRejection', onRejection);
+  });
+
+  /** Unhandled rejections are reported on a later macrotask. */
+  async function settleRejections() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  it('settles failed when reading the missing streams throws', async () => {
+    missing.mockImplementation(() => {
+      throw { tag: 'Database', message: 'reader pool refused' };
+    });
+
+    const { result } = renderSync(['a1', 'a2']);
+    await settleRejections();
+
+    expect(rejections).toEqual([]);
+    expect(result.current.ready).toBe(true);
+    expect(result.current.error).not.toBeNull();
+    expect(result.current.outstanding).toBe(2);
+    expect(result.current.isFetching).toBe(false);
+    expect(syncTimeStreams).not.toHaveBeenCalled();
+  });
+
+  it('settles failed when the request for the streams throws', async () => {
+    missing.mockReturnValue(['a1']);
+    syncTimeStreams.mockImplementation(() => {
+      throw { tag: 'Database', message: 'writer refused' };
+    });
+
+    const { result } = renderSync(['a1', 'a2']);
+    await settleRejections();
+
+    expect(rejections).toEqual([]);
+    expect(result.current.ready).toBe(true);
+    expect(result.current.error).not.toBeNull();
+    expect(result.current.outstanding).toBe(1);
+    expect(result.current.isFetching).toBe(false);
+  });
+
+  it('clears the failure when a retry succeeds', async () => {
+    missing.mockImplementationOnce(() => {
+      throw { tag: 'Database', message: 'reader pool refused' };
+    });
+
+    const { result } = renderSync(['a1']);
+    await settleRejections();
+    expect(result.current.error).not.toBeNull();
+
+    act(() => result.current.refetch());
+    await act(async () => {});
+
+    expect(result.current).toMatchObject({ ready: true, error: null, outstanding: 0 });
+  });
+});

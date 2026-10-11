@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { WellnessData } from '@/types';
-import type { WellnessDay } from 'veloqrs';
+import { RangeCoverage, type WellnessDay } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
 import { TIME } from '@/shared/app/time';
 
@@ -80,10 +80,37 @@ export function toWellnessData(day: WellnessDay): WellnessData {
   };
 }
 
-function readWellness(oldest: string, newest: string): WellnessData[] {
+/** A window's stored days and whether the window was pulled at all. */
+interface WellnessWindow {
+  days: WellnessData[];
+  coverage: RangeCoverage;
+}
+
+const NOTHING_KNOWN: WellnessWindow = { days: [], coverage: RangeCoverage.NotFetched };
+
+function readWellness(oldest: string, newest: string): WellnessWindow {
   const engine = getEngine();
-  if (!engine?.getWellnessDays) return [];
-  return engine.getWellnessDays(oldest, newest).map(toWellnessData);
+  if (!engine?.getWellnessDays) return NOTHING_KNOWN;
+  const window = engine.getWellnessDays(oldest, newest);
+  return { days: window.days.map(toWellnessData), coverage: window.coverage };
+}
+
+const selectDays = (window: WellnessWindow): WellnessData[] => window.days;
+const selectCoverage = (window: WellnessWindow): RangeCoverage => window.coverage;
+
+/** The one query over a range's window, whichever part of it the caller reads. */
+function wellnessWindowQuery(range: TimeRange, isAuthenticated: boolean) {
+  const { oldest, newest } = getDateRange(range);
+  return {
+    ...LOCAL_READ_QUERY,
+    queryKey: queryKeys.wellness.byRange(range, oldest, newest),
+    queryFn: () => readWellness(oldest, newest),
+    enabled: isAuthenticated,
+    // SQLite is the source, so staleness is decided by the sync, not a clock.
+    staleTime: Infinity,
+    gcTime: TIME.DAY,
+    placeholderData: keepPreviousData,
+  };
 }
 
 /**
@@ -112,21 +139,33 @@ export function useWellnessGeneration(): number {
 }
 
 export function useWellness(range: TimeRange = '3m') {
-  const { oldest, newest } = getDateRange(range);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useWellnessInvalidation();
 
-  return useQuery<WellnessData[]>({
-    ...LOCAL_READ_QUERY,
-    queryKey: queryKeys.wellness.byRange(range, oldest, newest),
-    queryFn: () => readWellness(oldest, newest),
-    enabled: isAuthenticated,
-    // SQLite is the source, so staleness is decided by the sync, not a clock.
-    staleTime: Infinity,
-    gcTime: TIME.DAY,
-    placeholderData: keepPreviousData,
+  return useQuery({ ...wellnessWindowQuery(range, isAuthenticated), select: selectDays });
+}
+
+/**
+ * Whether the window `useWellness` reads for `range` holds stored wellness,
+ * holds none, or was never pulled, as the engine answers it beside the days.
+ *
+ * A wellness chart with nothing to draw cannot say which on its own, and told
+ * the athlete to log wellness on a device that had simply not downloaded it.
+ * It is the same query as the days, so it costs no second read. Before the
+ * first answer, signed out, or with the read failed, nothing is known about
+ * the window, so it answers `NotFetched`: `Empty` would be a claim.
+ */
+export function useWellnessCoverage(range: TimeRange = '3m'): RangeCoverage {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useWellnessInvalidation();
+
+  const { data } = useQuery({
+    ...wellnessWindowQuery(range, isAuthenticated),
+    select: selectCoverage,
   });
+  return data ?? RangeCoverage.NotFetched;
 }
 
 // Used for showing Form (CTL/ATL/TSB) on activity detail pages.
@@ -140,7 +179,7 @@ export function useWellnessForDate(date: string | undefined) {
     queryKey: queryKeys.wellness.byDate(date),
     queryFn: () => {
       if (!date) return null;
-      return readWellness(date, date)[0] ?? null;
+      return readWellness(date, date).days[0] ?? null;
     },
     enabled: isAuthenticated && !!date,
     staleTime: Infinity,

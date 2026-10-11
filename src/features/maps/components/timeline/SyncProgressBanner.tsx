@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   countText: {
-    color: colorWithOpacity(ink.white, 0.7),
+    color: colors.textOnPrimary,
     fontSize: typography.caption.fontSize,
   },
   libraryLines: {

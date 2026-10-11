@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 
+import { goBack } from './navigation';
+
 export type SheetResult<R> = { kind: 'selected'; value: R } | { kind: 'cancelled' };
 
 interface Pending {
@@ -69,7 +71,7 @@ export function useSheetRequest<I, R>(): SheetRequest<I, R> {
   const missing = !held;
 
   useEffect(() => {
-    if (missing) router.back();
+    if (missing) goBack();
   }, [missing]);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export function useSheetRequest<I, R>(): SheetRequest<I, R> {
 
   const resolve = useCallback(
     (value: R) => {
-      if (request && settle(request, { kind: 'selected', value })) router.back();
+      if (request && settle(request, { kind: 'selected', value })) goBack();
     },
     [request]
   );

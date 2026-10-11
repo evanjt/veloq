@@ -285,6 +285,11 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/jamesmunns/postcard',
       },
+      {
+        name: 'flate2',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-lang/flate2-rs',
+      },
       { name: 'tokio-util', license: 'MIT', repository: 'https://github.com/tokio-rs/tokio' },
       {
         name: 'futures',
@@ -308,6 +313,11 @@ const LICENSE_DATA: LicenseSection[] = [
       },
       { name: 'lru', license: 'MIT', repository: 'https://github.com/jeromefroe/lru-rs' },
       { name: 'zip', license: 'MIT', repository: 'https://github.com/zip-rs/zip2' },
+      {
+        name: 'flate2',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-lang/flate2-rs',
+      },
       { name: 'log', license: 'MIT OR Apache-2.0', repository: 'https://github.com/rust-lang/log' },
       {
         name: 'libc',

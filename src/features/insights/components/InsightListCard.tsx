@@ -11,7 +11,7 @@ import {
   spacing,
   colorWithOpacity,
   brand,
-  insightCategoryColors,
+  insightCategoryColor,
   layout,
   typography,
   insightToneColor,
@@ -36,7 +36,7 @@ export const InsightListCard = React.memo(function InsightListCard({
 }: InsightListCardProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const categoryColor = insightCategoryColors[insight.category] ?? colors.primary;
+  const categoryColor = insightCategoryColor(insight.category, isDark);
   const history = insight.supportingData?.history;
   const target = historyTarget(insight);
   const linkLabel = useMemo(
@@ -81,7 +81,11 @@ export const InsightListCard = React.memo(function InsightListCard({
             />
           </View>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={1}>
+            <Text
+              testID="insight-title"
+              style={[styles.title, isDark && styles.titleDark]}
+              numberOfLines={1}
+            >
               {insight.title}
             </Text>
             {insight.isNew ? <View style={styles.newDot} /> : null}

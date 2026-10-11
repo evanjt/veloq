@@ -85,7 +85,8 @@ export function useTimer(): {
   const pauseStart = useRecordingStore((s) => s._pauseStart);
 
   // The clock only schedules the re-render; the reading itself is taken at render.
-  useClock(status === 'recording');
+  // Elapsed time keeps counting through a pause, so a paused ride keeps the clock.
+  useClock(status === 'recording' || status === 'paused');
 
   if (status === 'idle' || !startTime) {
     return {

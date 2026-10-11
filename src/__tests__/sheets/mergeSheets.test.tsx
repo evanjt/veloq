@@ -15,6 +15,7 @@ import type { MergeCandidate } from 'veloqrs';
 import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
 import MergeConfirmSheet from '@/app/sheets/merge-confirm';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
 import type { MergeCandidatesSheetInput, MergeConfirmSheetInput } from '@/features/routes';
 
@@ -27,7 +28,11 @@ let mockIsMetric = true;
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({
@@ -129,6 +134,11 @@ describe('merge candidates sheet', () => {
     expect(screen.getByText(expected)).toBeTruthy();
   });
 
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    openCandidates([candidate()]);
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
+  });
+
   it('draws every sport of a candidate', () => {
     openCandidates([candidate({ sportTypes: ['Ride', 'Run'] })]);
     const names = iconNames();
@@ -164,6 +174,11 @@ describe('merge confirm sheet', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
     screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
+  });
+
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    openConfirm();
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('shows nothing extra when no ride would leave', () => {

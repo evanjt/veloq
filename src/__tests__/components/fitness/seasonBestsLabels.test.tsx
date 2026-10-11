@@ -22,6 +22,7 @@ it('reads only the ids named by the best efforts', () => {
     <SeasonBestsSection
       efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
       sport="Cycling"
+      period="6m"
       isLoading={false}
     />
   );
@@ -36,6 +37,7 @@ it('leaves an uncached effort without an activity link', () => {
     <SeasonBestsSection
       efforts={[{ label: '10 km', activityId: 'a2', value: 2400, time: 2400 }] as never}
       sport="Cycling"
+      period="6m"
       isLoading={false}
     />
   );
@@ -57,14 +59,19 @@ describe('the Best Efforts link', () => {
     ['loading', [], true],
     ['empty', [], false],
     ['all values null', [{ label: '5 km', activityId: null, value: null, time: null }], false],
-  ])('stays reachable while %s', (_name, efforts, isLoading) => {
+  ])('stays reachable while %s, on the range Fitness shows', (_name, efforts, isLoading) => {
     render(
-      <SeasonBestsSection efforts={efforts as never} sport="Swimming" isLoading={isLoading} />
+      <SeasonBestsSection
+        efforts={efforts as never}
+        sport="Swimming"
+        period="1y"
+        isLoading={isLoading}
+      />
     );
 
     fireEvent.press(screen.getByTestId('season-bests-view-all'));
 
-    expect(mockPush).toHaveBeenCalledWith('/best-efforts');
+    expect(mockPush).toHaveBeenCalledWith('/best-efforts?period=1y');
   });
 });
 
@@ -73,6 +80,7 @@ it('sets the link and effort text in the sport text tone, not the fill', () => {
     <SeasonBestsSection
       efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
       sport="Running"
+      period="6m"
       isLoading={false}
     />
   );

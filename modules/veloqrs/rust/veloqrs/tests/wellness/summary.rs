@@ -502,3 +502,87 @@ fn a_metric_with_no_reading_carries_no_basis() {
     assert_eq!(s.weight_basis, None);
     assert_eq!(summary(vec![]).fitness_basis, None);
 }
+
+/// Scenario: the summary card drew an arrow beside each number and never said
+/// what it compared against, while the widget beside it printed the earlier
+/// value from the same read.
+///
+/// Expected behaviour: the card's own read carries, for every arrow, the value
+/// it was judged against, the day that value was read and the evidence behind
+/// it, so the card can state the method.
+#[test]
+fn the_card_read_states_what_each_arrow_was_judged_against() {
+    let (_tmp, mut engine) = engine();
+    engine
+        .upsert_wellness(&[
+            day(
+                "2026-09-05",
+                Some(60.0),
+                Some(40.0),
+                Some(70.0),
+                Some(48.0),
+                Some(71.0),
+            ),
+            day(
+                "2026-09-04",
+                Some(50.0),
+                Some(30.0),
+                Some(60.0),
+                Some(52.0),
+                None,
+            ),
+            earlier_day("2026-09-01"),
+            earlier_day("2026-08-30"),
+            day("2026-08-29", None, None, None, None, Some(73.0)),
+            earlier_weigh_in("2026-08-23"),
+        ])
+        .expect("store");
+
+    let s = engine.wellness_summary();
+
+    let day_before = Some(1_788_480_000.0); // 2026-09-04
+    let week_before = Some(1_787_961_600.0); // 2026-08-29
+    let daily = Some(earlier_readings(3));
+
+    assert_eq!(s.fitness_previous, Some(50.0));
+    assert_eq!(s.fitness_previous_date, day_before);
+    assert_eq!(s.fitness_basis, daily);
+    assert_eq!(s.form_previous, Some(20.0));
+    assert_eq!(s.form_previous_date, day_before);
+    assert_eq!(s.form_basis, daily);
+    assert_eq!(s.hrv_previous, Some(60.0));
+    assert_eq!(s.hrv_previous_date, day_before);
+    assert_eq!(s.hrv_basis, daily);
+    assert_eq!(s.rhr_previous, Some(52.0));
+    assert_eq!(s.rhr_previous_date, day_before);
+    assert_eq!(s.rhr_basis, daily);
+    assert_eq!(s.weight_previous, Some(73.0));
+    assert_eq!(s.weight_previous_date, week_before);
+    assert_eq!(s.weight_basis, Some(earlier_readings(2)));
+}
+
+/// A metric with no baseline row names no earlier value and no day.
+#[test]
+fn the_card_read_names_no_baseline_it_did_not_find() {
+    let (_tmp, mut engine) = engine();
+    engine
+        .upsert_wellness(&[day(
+            "2026-09-05",
+            Some(60.0),
+            Some(40.0),
+            Some(70.0),
+            Some(48.0),
+            Some(71.0),
+        )])
+        .expect("store");
+
+    let s = engine.wellness_summary();
+
+    assert_eq!(s.hrv_previous, None);
+    assert_eq!(s.hrv_previous_date, None);
+    assert_eq!(s.weight_previous, None);
+    assert_eq!(s.weight_previous_date, None);
+    assert_eq!(s.fitness_previous_date, None);
+    assert_eq!(s.form_previous_date, None);
+    assert_eq!(s.rhr_previous_date, None);
+}

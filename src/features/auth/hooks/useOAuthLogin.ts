@@ -58,7 +58,7 @@ export function useOAuthLogin({
     try {
       const result = await startOAuthFlow();
 
-      if (result.type === 'success' && result.url) {
+      if (result.outcome === 'success') {
         const expectedPrefix = getAppRedirectUri();
         if (!result.url.startsWith(expectedPrefix)) {
           setError(t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback URL' }));
@@ -96,10 +96,7 @@ export function useOAuthLogin({
         recordGrantedScope(tokenResponse.scope);
 
         replaceTo('/');
-      } else if (result.type === 'cancel') {
-        setIsLoading(false);
-        return;
-      } else {
+      } else if (result.outcome === 'failed') {
         setError(t('login.oauthFailed'));
       }
     } catch (err: unknown) {

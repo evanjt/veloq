@@ -30,6 +30,12 @@ jest.mock('@/features/recording/lib/recordingSession', () => ({
   ensureLocationWatch: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/shared/app/permissions/locationServices', () => ({
+  ...jest.requireActual('@/shared/app/permissions/locationServices'),
+  readLocationServices: jest.fn().mockResolvedValue(true),
+  useLocationServices: () => ({ enabled: true, turnOn: jest.fn() }),
+}));
+
 jest.mock('@/shared/app/navigation', () => ({
   navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
 }));
@@ -87,8 +93,9 @@ afterEach(() => {
 async function openNoFixAlert() {
   renderHook(() => useRecordingScreenGps());
   await act(async () => {
-    await Promise.resolve();
+    for (let i = 0; i < 4; i++) await Promise.resolve();
     jest.advanceTimersByTime(GPS_ALERT_MS);
+    for (let i = 0; i < 4; i++) await Promise.resolve();
   });
 }
 

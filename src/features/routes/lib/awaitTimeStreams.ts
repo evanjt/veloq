@@ -7,12 +7,21 @@
  * which is what the timeout is for.
  */
 
-import { engine } from 'veloqrs';
+import { engine, hasStarted, startOutcome, StartOutcome, type StartResult } from 'veloqrs';
 
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 
 /** The channel `EngineObserver.time_streams_stored` lands on. */
 const STORED_CHANNEL = 'timeStreamsStored';
+
+/**
+ * Whether a start will announce the streams it was asked for. A busy key is the
+ * same batch already in flight, which announces them; any other refusal fetches
+ * nothing, so waiting on it only holds the caller until its deadline.
+ */
+export function willAnnounce(start: StartResult): boolean {
+  return hasStarted(start) || startOutcome(start) === StartOutcome.Busy;
+}
 
 export interface AwaitTimeStreamsOptions {
   /** Give up after this long, whatever is still outstanding. */

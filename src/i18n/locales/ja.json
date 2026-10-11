@@ -48,7 +48,7 @@
       "trainingLoad": "トレーニングストレススコア（TSS）は、閾値に対する持続時間と強度に基づいてトレーニング負荷を数値化します。",
       "yourForm": "この日のあなたのフォーム（TSB）。これは特定のアクティビティではなく、全体的なトレーニングに基づく日次値です。TSB = フィットネス（CTL）- 疲労（ATL）。"
     },
-    "ftp": "FTP: {{value}}W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "心拍数",
     "mapStyle": "マップスタイル",
     "maxHR": "最大: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "あなたのフォーム"
     },
     "hrZoneTotal": "心拍数の記録がある時間: {{duration}}",
+    "powerZoneTotal": "パワーの記録がある時間: {{duration}}",
     "movingTime": "移動時間: {{duration}}",
     "timeInHRZones": "心拍ゾーン別時間",
     "timeInPowerZones": "パワーゾーン別時間",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "このデバイスには別のアカウントのライブラリがあります。デモモードに進むと、完全に削除されます。保持するには、戻って先にそのアカウントでサインインしてください。",
     "accountChangeContinue": "続行して削除",
     "disconnectAndClearTitle": "サインアウトしてデータを削除しますか？",
-    "disconnectAndClearMessage": "サインアウトし、このデバイス上のすべてのキャッシュされたアクティビティ、GPSトラック、セクション、ルートデータを削除します。次回サインイン時にintervals.icuから再同期されます。この操作は元に戻せません。",
-    "disconnectAndClearConfirm": "削除してサインアウト"
+    "disconnectAndClearMessage": "サインアウトし、このスマートフォン上のライブラリを削除します。この操作は元に戻せません。",
+    "disconnectAndClearConfirm": "削除してサインアウト",
+    "disconnectAndClearBackUpFirst": "先にバックアップ",
+    "wipeList": {
+      "returns": "次回サインイン時に戻るもの：",
+      "deleted": "完全に削除されるもの：",
+      "kept": "このスマートフォンに残るもの：",
+      "activities": "アクティビティとそのGPSトラック",
+      "wellness": "ウェルネスとフィットネス",
+      "detectedSections": "アクティビティから見つかったセクションとルート",
+      "localBackups": "このスマートフォンに保存されたバックアップ",
+      "backupSetup": "バックアップ設定：WebDAVログイン、Google ドライブのアカウント、バックアップフォルダ",
+      "names": "セクションとルートに付けた名前",
+      "sectionEdits": "作成、トリム、ピン留めしたセクション",
+      "sensors": "ペアリングしたセンサー",
+      "exportPrivacy": "エクスポートのプライバシー用に設定した自宅の位置",
+      "notificationChoices": "通知の設定",
+      "mapChoices": "個別のアクティビティに保存した地図設定",
+      "recordings": "このスマートフォンで記録したアクティビティ"
+    }
   },
   "attribution": {
     "demoData": "デモモードは実際のアクティビティトレースを使用しています。作者の許可を得て使用しています。",
@@ -415,12 +434,14 @@
     "pullToRefresh": "下に引いて更新",
     "reset": "リセット",
     "retry": "再試行",
+    "freeUpSpace": "空き容量を確保",
     "save": "保存",
     "showDetails": "開発者向け詳細を表示",
     "undo": "元に戻す",
     "on": "オン",
     "off": "オフ",
-    "openSettings": "設定を開く"
+    "openSettings": "設定を開く",
+    "allow": "許可"
   },
   "demo": {
     "banner": "デモモード",
@@ -444,10 +465,11 @@
         "rateLimited": "intervals.icu から待機を求められ、同期を止めています",
         "server": "intervals.icu から扱えない応答が返りました",
         "network": "intervals.icu に接続できませんでした",
-        "storage": "この端末のファイルを読み取れませんでした",
+        "storage": "この端末のファイルを読み書きできませんでした",
         "notConfigured": "この端末に intervals.icu のログイン情報がありません",
         "internal": "原因を特定できないまま同期が止まりました",
-        "engineClosed": "途中でライブラリが閉じられたため、同期が停止しました"
+        "engineClosed": "途中でライブラリが閉じられたため、同期が停止しました",
+        "storageFull": "この端末の空き容量がないため、同期で取得したデータを保存できませんでした"
       }
     },
     "tracksMissing": {
@@ -718,8 +740,8 @@
       "sectionTrendName": "区間パフォーマンスの傾向",
       "stalePrCrossRefName": "{{metric}}とPRの照合",
       "efficiencyName": "有酸素効率の回帰分析",
-      "efficiencyDescription": "セクション上の一致した記録について、平均心拍数とペースの積を最小二乗回帰で時系列に追跡します。傾きの 95% 区間が 0 を含まず、記録全体でのモデル上の変化が平均の 2% を超える場合にのみ方向を表示します。値が下がるほど、同じペースでの心拍数が少ないことを示します。",
-      "efficiencyFormula": "効率 = 平均心拍数 × ペース(1 kmあたりの秒数)",
+      "efficiencyDescription": "セクション上の一致した記録について、平均心拍数とペースの積を最小二乗回帰で時系列に追跡します。傾きの 95% 区間が 0 を含まず、記録全体でのモデル上の変化が平均の 2% を超える場合にのみ方向を表示します。値が下がるほど、1 kmあたりの心拍が少ないことを示します。心拍数が低い、ペースが速い、またはその両方です。",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = 平均心拍数 × ペース(1 kmあたりの秒数)",
       "routeName": "ルートの自己ベストと傾向",
       "route": "1つの競技と方向で、タイムがあり、除外されておらず、部分的でなく、ルートの距離範囲内にある試行を数えます。自己ベストはその中で最速のもので、最近のものです。傾向は、直近3回の中央値をその前の3回と比較し、6回以上の試行から算出します。"
     },
@@ -831,7 +853,8 @@
     },
     "aboutRanking": "カードは伝えるべき内容の大きさで並びます。どれだけ新しいか、いつもとどれだけ違うか、どれだけ動いたか、どれだけ頻繁に取り組んでいるか。",
     "efficiencyTrend": {
-      "seriesLabel": "ペース当たりの心拍数、古い走行から新しい走行へ",
+      "seriesLabel": "{{quantity}}、古い走行から新しい走行へ",
+      "quantity": "心拍数 × ペース",
       "title": "{{name}}で効率が向上",
       "changeTitle": "{{name}}の効率: +{{hrChange}} bpm",
       "changeSubtitle": "{{efforts}}回の走行における平均ペースでの推定変化 +{{hrChange}} bpm",
@@ -993,6 +1016,7 @@
     "sessionKeyRejected": "APIキーが拒否されました。",
     "sessionRestore": "もう一度ログインすると元に戻ります。",
     "sessionRestoreAthlete": "{{athleteId}} としてもう一度ログインすると元に戻ります。",
+    "sessionHeldRide": "{{when}} の記録は保持されています。もう一度ログインすると開きます。",
     "subtitle": "intervals.icuに接続",
     "termsOfService": "利用規約",
     "title": "Veloq",
@@ -1071,13 +1095,13 @@
   "navigation": {
     "activities": "アクティビティ",
     "feed": "フィード",
-    "fitness": "フィットネス",
+    "fitness": "体力",
     "health": "健康",
     "map": "マップ",
     "settings": "設定",
     "training": "トレーニング",
     "wellness": "ウェルネス",
-    "insights": "インサイト"
+    "insights": "分析"
   },
   "notifications": {
     "activityRecorded": {
@@ -1135,6 +1159,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "ライブアクティビティがオフのため、記録の操作はロック画面に表示されません",
+    "notificationsOffNotice": "通知がオフのため、記録の操作とお知らせはアプリの外に表示されません",
     "strengthRest": "休憩",
     "strengthLine": "{{n}} / {{total}} 行目",
     "strengthDone": "完了",
@@ -1171,6 +1197,8 @@
       "stop": "停止"
     },
     "discard": "破棄",
+    "discardConfirmMessage": "この記録は保存されておらず、破棄すると元に戻せません。",
+    "discardConfirmTitle": "この記録を破棄しますか？",
     "distance": "距離 (km)",
     "distanceInvalid": "有効な距離を入力してください（0〜999）。",
     "duration": "時間（分）",
@@ -1196,13 +1224,18 @@
     },
     "gpsAcquiring": "GPSを取得中...",
     "gpsAlertContinue": "GPSなしで続行",
-    "gpsAlertMessage": "GPS信号を取得できません。位置情報サービスが有効になっていること、空が見える場所にいることを確認してください。",
+    "gpsAlertMessage": "GPS信号を取得できません。空が見える場所に移動してください。",
     "gpsAlertSettings": "設定を開く",
     "gpsAlertStop": "記録を停止",
     "gpsAlertTitle": "GPS信号が見つかりません",
     "gpsNone": "位置情報が拒否されました",
     "gpsPermissionDenied": "位置情報の許可が拒否されました。GPSを記録するには設定でアクセスを許可してください。",
     "gpsReady": "GPS準備完了",
+    "gpsServicesOff": "位置情報オフ",
+    "gpsServicesOffAndroid": "この端末の位置情報がオフのため、ルートを記録できません。",
+    "gpsServicesOffIos": "位置情報サービスがオフのため、ルートを記録できません。設定 > プライバシーとセキュリティ > 位置情報サービス でオンにしてください。",
+    "gpsServicesOffTitle": "位置情報がオフです",
+    "gpsServicesTurnOn": "オンにする",
     "gpsTrackingError": "GPSトラッキングを開始できませんでした。一時停止して再開してみてください。",
     "gpsWaiting": "GPS信号を待っています。屋外に出るとより良い受信が得られます。",
     "gpsWeakWarning": "GPS信号が弱い。記録が不正確になる可能性があります",
@@ -1228,6 +1261,7 @@
       "max": "最大"
     },
     "saveError": "保存に失敗しました",
+    "saveErrorNoSpace": "この端末の空き容量がほとんどないため、アクティビティを保存できませんでした。空き容量を確保してから再試行してください。",
     "savedQueued": "アクティビティを保存しました。オンラインに戻ると自動的にアップロードされます。",
     "savedQueuedAuth": "アクティビティを保存しました。再度ログインするとアップロードされます。",
     "settings": "記録設定",
@@ -1255,6 +1289,8 @@
       "night": "夜"
     },
     "trimActivity": "アクティビティをトリミング",
+    "trimEndHandle": "トリミングの終了点",
+    "trimStartHandle": "トリミングの開始点",
     "trimmed": "トリミング済み",
     "uploadRejected": "intervals.icu がこのファイルを拒否しました。ライドはマイ記録に保存されています。",
     "uploadMissing": "このライドのファイルが端末にないため、アップロードできません。",
@@ -1386,7 +1422,6 @@
     "renameFailedMessage": "ルート名を保存できませんでした。もう一度お試しください。",
     "routeNamePlaceholder": "ルート名",
     "routeWord": "ルート",
-    "routesWillAppear": "アクティビティ分析後にルートが表示されます",
     "routesWithTwoPlus": "類似パスで2件以上のアクティビティがあるルートがここに表示されます",
     "sectionCreationFailed": "区間の作成に失敗しました。もう一度お試しください。",
     "sectionWord": "セクション",
@@ -1419,7 +1454,19 @@
     "resetReferenceConfirm": "基準の自動選択に戻しますか？このルートの一致率が再計算されます。",
     "prTime": "自己記録 {{time}}",
     "errorDetailId": "ID: {{id}}",
-    "errorDetailRange": "範囲: {{start}} → {{end}}"
+    "errorDetailRange": "範囲: {{start}} → {{end}}",
+    "emptyNoGpsTitle": "GPS 付きのアクティビティがありません",
+    "emptyNoGps": "ルートと区間は GPS トラックから見つけます。同期した範囲には、ローラー、プール、筋トレなど GPS のないセッションしかありません。",
+    "emptyNotYetRunTitle": "分析待ち",
+    "emptyNotYetRun_one": "GPS 付きのアクティビティ {{count}} 件が分析を待っています。分析が終わるとルートと区間が表示されます。",
+    "emptyNotYetRun_other": "GPS 付きのアクティビティ {{count}} 件が分析を待っています。分析が終わるとルートと区間が表示されます。",
+    "emptyRunningTitle": "分析中",
+    "emptyRunning": "{{phase}}：{{percent}}% 完了。分析が終わるとルートと区間が表示されます。",
+    "emptyHeldTitle": "分析は保留中",
+    "emptyNoRoutes_one": "ルートは似た経路を通る {{count}} 件以上のアクティビティで成り立ちます。GPS 付きのアクティビティにはまだ該当するものがありません。",
+    "emptyNoRoutes_other": "ルートは似た経路を通る {{count}} 件以上のアクティビティで成り立ちます。GPS 付きのアクティビティにはまだ該当するものがありません。",
+    "emptyNoSections_one": "区間は同じ道の一部を通る {{count}} 件以上のアクティビティで成り立ちます（ルートが違っても構いません）。GPS 付きのアクティビティからは見つかりませんでした。",
+    "emptyNoSections_other": "区間は同じ道の一部を通る {{count}} 件以上のアクティビティで成り立ちます（ルートが違っても構いません）。GPS 付きのアクティビティからは見つかりませんでした。"
   },
   "routesScreen": {
     "computingRoutes": "ルート計算中...",
@@ -1486,7 +1533,7 @@
     "sectionNotFound": "区間が見つかりません",
     "aerobicEfficiency": "有酸素効率",
     "aerobicEfficiencyDetail": "比較可能な走行 {{efforts}} 回、平均ペースでのモデル変化 {{hrChange}} bpm",
-    "aerobicEfficiencyCaption": "ペース当たりの心拍数、古い走行から新しい走行へ",
+    "aerobicEfficiencyCaption": "{{quantity}}、古い走行から新しい走行へ",
     "correlationTitle": "体調と速度",
     "correlationMethod": "区間速度と、その日の体調の値とのピアソンのr、95%区間、値のある走行が10回以上",
     "correlationFamily_one": "{{count}}個の変数でホルム補正",
@@ -1948,7 +1995,6 @@
     "atWeight": "{{weight}} 時"
   },
   "statsScreen": {
-    "decoupling": "有酸素効率",
     "eFTPTrend": "eFTPトレンド",
     "ftpLabel": "FTP {{value}}w",
     "heartRate": "心拍数",
@@ -1997,6 +2043,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2094,6 +2141,15 @@
       "routesBody": "同じコースのアクティビティはルートにまとめられ、各挑戦をほかの挑戦と比べて表示します。",
       "sectionPageTip": "区間ページを下にスクロールすると、傾向、タイムの分布、時間を稼いだ所と失った所で色分けされたラインが表示されます。",
       "routesTip": "ルートページを下にスクロールすると、コースでの各試行を他の試行と比べて見られます。"
+    },
+    "tutorial": {
+      "firstLoadTitle": "トレーニングをこの端末に",
+      "firstLoadBody": "Veloq は intervals.icu からアクティビティとウェルネスを読み込み、この端末に保存します。最初の読み込みはバックグラウンドで進み、アクティビティが届くにつれてフィードが埋まっていきます。",
+      "feedTitle": "フィード",
+      "feedBody": "アクティビティはそれぞれ地図付きのカードとして、新しい順にここに並びます。",
+      "feedTip": "下に引くと intervals.icu に新しいアクティビティがないか確認します。カードをタップすると開きます。",
+      "activityTitle": "アクティビティの中身",
+      "activityBody": "アクティビティを開くと、地図とチャート、インターバル、そして属するルートと区間を見られます。"
     }
   },
   "strength": {
@@ -2130,6 +2186,7 @@
     "sets": "セット",
     "setsCount_one": "{{count}}セット",
     "setsCount_other": "{{count}}セット",
+    "clearMuscle": "{{muscle}}の選択を解除",
     "muscleGroupVolume": "筋肉群ボリューム",
     "relativeWeightedSets": "選択期間の相対的な重み付きセット",
     "reps": "レップ",
@@ -2359,7 +2416,16 @@
   "summaryCardChange": {
     "window_one": "{{count}}日間で{{change}}",
     "window_other": "{{count}}日間で{{change}}",
-    "rule": "変化は期間内の最後のフィットネス値から最初の値を引いたものです。前日より1ポイント超上昇した日には点が付きます。"
+    "rule": "変化は期間内の最後のフィットネス値から最初の値を引いたものです。前日より1ポイント超上昇した日には点が付きます。",
+    "trend": {
+      "improved": "改善",
+      "declined": "悪化",
+      "rising": "上昇",
+      "falling": "低下",
+      "steady": "横ばい",
+      "comparedOn": "{{metric}} {{value}}、{{move}}。{{date}}の{{previous}}と比較。",
+      "comparedLastWeek": "{{metric}} {{value}}、{{move}}。先週の同じ時点の{{previous}}と比較。"
+    }
   },
   "period": {
     "short": {

@@ -9,7 +9,9 @@
  * An activity link that names another athlete opens the app where it is. A link
  * naming no athlete is one the app or a widget made itself and passes. A link
  * to the retired summary route opens the same check against the activity.
- * Every other link passes through untouched.
+ * A link to a route the app publishes as an entry passes through untouched;
+ * a link to a sheet, the recording review, the login screen or anything else
+ * opens nothing, and the developer screens open only for a developer.
  */
 
 import * as SecureStore from 'expo-secure-store';
@@ -17,6 +19,7 @@ import * as SecureStore from 'expo-secure-store';
 import { isForSignedInAthlete, openableSystemPath } from '@/features/insights/lib/pushPayload';
 import { redirectSystemPath } from '@/app/+native-intent';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useDebugStore } from '@/features/settings';
 
 const ATHLETE = 'i12345';
 
@@ -78,13 +81,82 @@ describe('openableSystemPath', () => {
     );
   });
 
-  it.each(['veloq://summary-card-settings', 'veloq:///settings', 'veloq://map', '/section/s1'])(
-    'passes %s through untouched, signed in or not',
+  /** Every link a widget, a notification, the app or a test flow opens from outside. */
+  const PUBLISHED = [
+    'veloq://',
+    'veloq:///',
+    'veloq://fitness',
+    'veloq://insights',
+    'veloq://insights?tab=strength&period=1m',
+    'veloq://insights?tab=sections',
+    'veloq://map',
+    'veloq://map?activity=demo-test-0',
+    'veloq://map?section=s_47075_-6085',
+    'veloq://training',
+    'veloq://activity/demo-test-0',
+    'veloq://activity/demo-test-0?tab=sections',
+    'veloq://record',
+    'veloq://recording/Ride?from=quickstart',
+    'veloq://recordings',
+    'veloq://recordings/r1',
+    'veloq://route/r1',
+    'veloq://routes',
+    'veloq://section/s1',
+    'veloq://section/history/s1',
+    'veloq://section/laps/s1',
+    'veloq://oauth/callback?code=c1&state=s1',
+    'veloq://settings',
+    'veloq:///settings',
+    'veloq://about',
+    'veloq://display-settings',
+    'veloq://cache-settings',
+    'veloq://summary-card-settings',
+    'veloq://notification-settings',
+    'veloq://backup-settings',
+    '/section/s1',
+    'exp://192.0.2.1:8081/--/activity/demo-test-0',
+  ];
+
+  it.each(PUBLISHED)('passes %s through untouched, signed in or not', (link) => {
+    expect(openableSystemPath(link, ATHLETE)).toBe(link);
+    expect(openableSystemPath(link, null)).toBe(link);
+  });
+
+  it.each([
+    'veloq://sheets/param-editor',
+    'veloq://sheets/restore-prompt?x=1',
+    'veloq:///sheets/insight',
+    '/sheets/stat-detail',
+    'veloq://recording/review',
+    'veloq://recording/review?from=quickstart',
+    'veloq://login',
+    'veloq://debug',
+    'veloq://debug/expire-session',
+    'veloq://detection-preview',
+    'veloq://route-grouping-preview',
+    'veloq://no-such-screen',
+    'veloq://settings/extra',
+    'veloq://activity',
+    'veloq://activity/a1/extra',
+    'exp://192.0.2.1:8081/--/sheets/param-editor',
+  ])('opens nothing from %s', (link) => {
+    expect(openableSystemPath(link, ATHLETE)).toBeNull();
+    expect(openableSystemPath(link, null)).toBeNull();
+  });
+
+  it.each(['veloq://debug', 'veloq://detection-preview', 'veloq://route-grouping-preview'])(
+    'opens the developer screen %s only for a developer',
     (link) => {
-      expect(openableSystemPath(link, ATHLETE)).toBe(link);
-      expect(openableSystemPath(link, null)).toBe(link);
+      expect(openableSystemPath(link, ATHLETE, false)).toBeNull();
+      expect(openableSystemPath(link, ATHLETE, true)).toBe(link);
+      expect(openableSystemPath(link, null, true)).toBe(link);
     }
   );
+
+  it('refuses a sheet and the recording review to a developer too', () => {
+    expect(openableSystemPath('veloq://sheets/param-editor', ATHLETE, true)).toBeNull();
+    expect(openableSystemPath('veloq://recording/review', ATHLETE, true)).toBeNull();
+  });
 });
 
 describe('redirectSystemPath', () => {
@@ -131,10 +203,28 @@ describe('redirectSystemPath', () => {
     await expect(redirectSystemPath({ path: link, initial: false })).resolves.toBeNull();
   });
 
-  it('leaves every other deep link alone', async () => {
+  it('leaves every other published deep link alone', async () => {
     signIn(null);
     await expect(
       redirectSystemPath({ path: 'veloq://activity/demo-test-0', initial: true })
     ).resolves.toBe('veloq://activity/demo-test-0');
+  });
+
+  it('opens nothing from a link to a sheet, cold or warm', async () => {
+    signIn(ATHLETE);
+    const link = 'veloq://sheets/param-editor';
+    await expect(redirectSystemPath({ path: link, initial: true })).resolves.toBeNull();
+    await expect(redirectSystemPath({ path: link, initial: false })).resolves.toBeNull();
+  });
+
+  it('opens the developer screen once the athlete unlocked it', async () => {
+    signIn(ATHLETE);
+    useDebugStore.setState({ unlocked: false });
+    await expect(redirectSystemPath({ path: 'veloq://debug', initial: false })).resolves.toBeNull();
+    useDebugStore.setState({ unlocked: true });
+    await expect(redirectSystemPath({ path: 'veloq://debug', initial: false })).resolves.toBe(
+      'veloq://debug'
+    );
+    useDebugStore.setState({ unlocked: false });
   });
 });

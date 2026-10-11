@@ -5,6 +5,9 @@
  * Expected behaviour: a per-file ceiling that counts opening `TouchableOpacity`, `Pressable` and
  * `AnimatedPressable` tags with no role and no props spread. A file above its baseline or unlisted
  * fails and names itself, a file the tree has beaten fails with the flag to paste back.
+ *
+ * A press target with a role and no name is refused outright, with no baseline: one with neither
+ * an `accessibilityLabel` nor a text child is announced as "button" and nothing else.
  */
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -84,7 +87,7 @@ describe('the role-less pressable ratchet', () => {
   it('does not count a tag with a role, or one that spreads props', () => {
     const root = treeWith({
       [FILE]: `
-        <Pressable accessibilityRole="button" onPress={f} />
+        <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={f} />
         <TouchableOpacity {...props} />
       `,
     });
@@ -113,5 +116,77 @@ describe('the role-less pressable ratchet', () => {
     });
 
     expect(runGuard(root, {}).status).toBe(0);
+  });
+
+  describe('a named role', () => {
+    const ICON_ONLY = `
+export const A = () => (
+  <Pressable accessibilityRole="button" onPress={f}>
+    <MaterialCommunityIcons name="layers" size={20} />
+  </Pressable>
+);
+`;
+
+    it.each([
+      ['src/features/a/A.tsx', { 'src/features/a/A.tsx': 5 }],
+      ['src/shared/ui/A.tsx', {}],
+    ])(
+      'refuses an icon-only pressable with a role and no label in %s, whatever the baseline',
+      (file, baseline) => {
+        const root = treeWith({ [file]: ICON_ONLY });
+        const run = runGuard(root, baseline);
+
+        expect(run.status).toBe(1);
+        expect(run.output).toContain(`${file}:3`);
+      }
+    );
+
+    it('refuses a self-closing pressable with a role and no label', () => {
+      const root = treeWith({
+        [FILE]: '<TouchableOpacity accessibilityRole="button" onPress={f} />',
+      });
+
+      expect(runGuard(root, {}).status).toBe(1);
+    });
+
+    it('passes a pressable named by its label, by a text child or by a spread', () => {
+      const root = treeWith({
+        [FILE]: `
+          <Pressable accessibilityRole="button" accessibilityLabel={t('a.b')} onPress={f}>
+            <Icon />
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={f}>
+            <Icon />
+            <Animated.Text>{label}</Animated.Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" {...props}>
+            <Icon />
+          </Pressable>
+        `,
+      });
+
+      expect(runGuard(root, {}).status).toBe(0);
+    });
+
+    it('reads a nested pressable as its own control', () => {
+      const root = treeWith({
+        [FILE]: `
+          <Pressable accessibilityRole="button" onPress={f}>
+            <Pressable accessibilityRole="button" onPress={g}>
+              <Icon />
+            </Pressable>
+            <Text>outer</Text>
+          </Pressable>
+        `,
+      });
+
+      expect(runGuard(root, {}).status).toBe(1);
+    });
+
+    it('does not check a test file', () => {
+      const root = treeWith({ 'src/__tests__/a.test.tsx': ICON_ONLY });
+
+      expect(runGuard(root, {}).status).toBe(0);
+    });
   });
 });

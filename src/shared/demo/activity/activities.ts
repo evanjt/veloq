@@ -442,17 +442,7 @@ function generateActivities(): ApiActivity[] {
       icu_atl: Math.round(atl * 10) / 10,
       icu_ctl: Math.round(ctl * 10) / 10,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
-      icu_power_zones:
-        Math.round(ctx.ftpWatts * 0.55) > 0
-          ? [
-              Math.round(ctx.ftpWatts * 0.55),
-              Math.round(ctx.ftpWatts * 0.75),
-              Math.round(ctx.ftpWatts * 0.9),
-              ctx.ftpWatts,
-              Math.round(ctx.ftpWatts * 1.18),
-              Math.round(ctx.ftpWatts * 1.5),
-            ]
-          : [125, 170, 210, 250, 290, 350],
+      icu_power_zones: [55, 75, 90, 105, 120, 150, 999],
       icu_zone_times: zoneTimes,
       stream_types: getStreamTypes(template.type, template.route),
       _routeId: template.route,
@@ -611,7 +601,7 @@ function generateActivities(): ApiActivity[] {
       icu_atl: Math.round(atl * 10) / 10,
       icu_ctl: Math.round(ctl * 10) / 10,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
-      icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_power_zones: [55, 75, 90, 105, 120, 150, 999],
       icu_zone_times: null,
       stream_types: [
         'time',

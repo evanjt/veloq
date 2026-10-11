@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { goBack } from '@/shared/app/navigation';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /**
@@ -12,11 +12,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
  */
 function OAuthCallbackScreenContent() {
   useEffect(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
+    goBack();
   }, []);
 
   return <View />;

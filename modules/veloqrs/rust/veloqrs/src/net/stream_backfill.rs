@@ -1793,11 +1793,11 @@ mod tests {
                     failed: 1,
                 })
             );
-            sensors.assert_hits(1);
-            bare.assert_hits(1);
-            refused.assert_hits(1);
-            uploaded.assert_hits(1);
-            by_local_key.assert_hits(0);
+            sensors.assert_calls(1);
+            bare.assert_calls(1);
+            refused.assert_calls(1);
+            uploaded.assert_calls(1);
+            by_local_key.assert_calls(0);
             assert_eq!(
                 queue(),
                 vec!["i2".to_string(), "i3".to_string()],
@@ -1866,8 +1866,8 @@ mod tests {
                     failed: 0,
                 })
             );
-            ride.assert_hits(1);
-            gym.assert_hits(1);
+            ride.assert_calls(1);
+            gym.assert_calls(1);
             assert!(queue().is_empty());
 
             let detail = "altitude,cadence,distance,fixed_altitude,ga_velocity,grade_smooth,\
@@ -1990,7 +1990,7 @@ mod tests {
                 run_stream_backfill(&t, "1"),
                 StreamBackfillRun::Finished(StreamBackfillOutcome::default())
             );
-            bare.assert_hits(STREAM_ATTEMPT_LIMIT as usize);
+            bare.assert_calls(STREAM_ATTEMPT_LIMIT as usize);
             assert_eq!(start_stream_backfill(), FfiStartOutcome::NotOwed);
         }
 
@@ -2018,8 +2018,8 @@ mod tests {
             let run = run_stream_backfill(&transport(&server), "1");
 
             assert_eq!(run, StreamBackfillRun::Failed("unauthorized".to_string()));
-            rejected.assert_hits(1);
-            profile.assert_hits(1);
+            rejected.assert_calls(1);
+            profile.assert_calls(1);
             assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_FAILED);
             assert_eq!(queue(), vec!["i1".to_string()]);
         }
@@ -2048,7 +2048,7 @@ mod tests {
                     ..StreamBackfillOutcome::default()
                 })
             );
-            any.assert_hits(0);
+            any.assert_calls(0);
             assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_PARTIAL);
             assert_eq!(queue().len(), 2);
         }
@@ -2077,7 +2077,7 @@ mod tests {
             assert_eq!(start_stream_backfill(), FfiStartOutcome::Busy);
             drop(held);
 
-            any.assert_hits(0);
+            any.assert_calls(0);
             assert!(
                 RunGuard::claim().is_some(),
                 "dropping the holder frees the slot"

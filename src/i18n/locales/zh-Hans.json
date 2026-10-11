@@ -48,7 +48,7 @@
       "trainingLoad": "训练压力分数 (TSS) 根据相对于您阈值的持续时间和强度来量化训练负荷。",
       "yourForm": "您这天的状态 (TSB)。这是基于您整体训练的每日值，而非特定于此活动。TSB = 体能 (CTL) 减去疲劳 (ATL)。"
     },
-    "ftp": "FTP：{{value}}W",
+    "ftp": "FTP：{{value}}",
     "heartRate": "心率",
     "mapStyle": "地图样式",
     "maxHR": "最大: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "您的状态"
     },
     "hrZoneTotal": "有心率记录的时间：{{duration}}",
+    "powerZoneTotal": "有功率记录的时间：{{duration}}",
     "movingTime": "运动时间：{{duration}}",
     "timeInHRZones": "心率区间时间",
     "timeInPowerZones": "功率区间时间",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "此设备有另一个账户的资料库。继续进入演示模式将永久删除这些数据。如需保留，请先返回并登录该账户。",
     "accountChangeContinue": "继续并删除",
     "disconnectAndClearTitle": "退出登录并删除数据？",
-    "disconnectAndClearMessage": "这将退出登录并删除此设备上所有缓存的活动、GPS 轨迹、路段和路线数据。下次登录时将从 intervals.icu 重新同步数据。此操作无法撤销。",
-    "disconnectAndClearConfirm": "删除并退出登录"
+    "disconnectAndClearMessage": "这将退出登录并删除此手机上的资料库。此操作无法撤销。",
+    "disconnectAndClearConfirm": "删除并退出登录",
+    "disconnectAndClearBackUpFirst": "先备份",
+    "wipeList": {
+      "returns": "重新登录后恢复：",
+      "deleted": "永久删除：",
+      "kept": "保留在此手机上：",
+      "activities": "活动及其 GPS 轨迹",
+      "wellness": "健康与体能",
+      "detectedSections": "从你的活动中找到的路段和路线",
+      "localBackups": "存储在此手机上的备份",
+      "backupSetup": "备份设置：WebDAV 登录、Google 云端硬盘账号和备份文件夹",
+      "names": "你为路段和路线取的名称",
+      "sectionEdits": "你创建、裁剪或置顶的路段",
+      "sensors": "已配对的传感器",
+      "exportPrivacy": "为导出隐私设置的家庭位置",
+      "notificationChoices": "通知选项",
+      "mapChoices": "为单个活动保存的地图设置",
+      "recordings": "在此手机上录制的活动"
+    }
   },
   "attribution": {
     "demoData": "演示模式使用真实活动轨迹。已获得作者许可使用。",
@@ -415,12 +434,14 @@
     "pullToRefresh": "下拉刷新",
     "reset": "重置",
     "retry": "重试",
+    "freeUpSpace": "释放空间",
     "save": "保存",
     "showDetails": "显示开发者详情",
     "undo": "撤销",
     "on": "开",
     "off": "关",
-    "openSettings": "打开设置"
+    "openSettings": "打开设置",
+    "allow": "允许"
   },
   "demo": {
     "banner": "演示模式",
@@ -444,10 +465,11 @@
         "rateLimited": "intervals.icu 要求放慢速度，同步正在等待",
         "server": "intervals.icu 返回了应用无法使用的内容",
         "network": "无法连接 intervals.icu",
-        "storage": "无法读取此设备上的文件",
+        "storage": "无法读取或写入此设备上的文件",
         "notConfigured": "此设备未保存 intervals.icu 登录信息",
         "internal": "同步中断，应用无法说明原因",
-        "engineClosed": "同步已停止，因为资料库在中途被关闭"
+        "engineClosed": "同步已停止，因为资料库在中途被关闭",
+        "storageFull": "此设备存储空间已满，同步无法保存已获取的数据"
       }
     },
     "tracksMissing": {
@@ -718,8 +740,8 @@
       "sectionTrendName": "路段表现趋势",
       "stalePrCrossRefName": "{{metric}}与PR交叉对照",
       "efficiencyName": "有氧效率回归",
-      "efficiencyDescription": "用普通最小二乘回归，随时间追踪该路段匹配成绩的平均心率与配速之积。只有当斜率的 95% 区间不包含零，且各次成绩间的模型变化超过平均值的 2% 时，才显示方向。数值下降表示同样配速下心跳更少。",
-      "efficiencyFormula": "效率 = 平均心率 × 配速(每公里秒数)",
+      "efficiencyDescription": "用普通最小二乘回归，随时间追踪该路段匹配成绩的平均心率与配速之积。只有当斜率的 95% 区间不包含零，且各次成绩间的模型变化超过平均值的 2% 时，才显示方向。数值下降表示每公里心跳更少：心率更低、配速更快，或两者兼有。",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = 平均心率 × 配速(每公里秒数)",
       "routeName": "路线纪录与趋势",
       "route": "统计某条路线在同一运动和方向上有计时、未被排除、非部分且在路线距离范围内的尝试。纪录是其中最快的一次，且为近期所创。趋势将最近三次的中位数与之前三次比较，至少需要六次尝试。"
     },
@@ -831,7 +853,8 @@
     },
     "aboutRanking": "卡片按各自能说明的分量排序：是否新近、与你的常态差多少、变化有多大、你做得有多频繁。",
     "efficiencyTrend": {
-      "seriesLabel": "单位配速的心率，从最早一次到最新一次",
+      "seriesLabel": "{{quantity}}，从最早一次到最新一次",
+      "quantity": "心率 × 配速",
       "title": "{{name}}上效率正在提升",
       "changeTitle": "{{name}} 的效率：+{{hrChange}} bpm",
       "changeSubtitle": "{{efforts}} 次活动中平均配速下的估算变化 +{{hrChange}} bpm",
@@ -993,6 +1016,7 @@
     "sessionKeyRejected": "您的 API 密钥被拒绝。",
     "sessionRestore": "重新登录即可恢复。",
     "sessionRestoreAthlete": "以 {{athleteId}} 身份重新登录即可恢复。",
+    "sessionHeldRide": "您在 {{when}} 的记录已保留，重新登录后即可打开。",
     "subtitle": "连接到 intervals.icu",
     "termsOfService": "服务条款",
     "title": "Veloq",
@@ -1135,6 +1159,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "实时活动已关闭，记录的控制按钮不会在锁定屏幕上显示",
+    "notificationsOffNotice": "通知已关闭，记录的控制按钮和提醒不会在应用外显示",
     "strengthRest": "休息",
     "strengthLine": "第 {{n}} 行，共 {{total}} 行",
     "strengthDone": "完成",
@@ -1171,6 +1197,8 @@
       "stop": "停止"
     },
     "discard": "放弃",
+    "discardConfirmMessage": "此录制尚未保存，放弃后将无法恢复。",
+    "discardConfirmTitle": "放弃此录制？",
     "distance": "距离 (km)",
     "distanceInvalid": "请输入有效的距离 (0-999)。",
     "duration": "时长（分钟）",
@@ -1196,13 +1224,18 @@
     },
     "gpsAcquiring": "正在获取GPS...",
     "gpsAlertContinue": "不使用GPS继续",
-    "gpsAlertMessage": "无法获取GPS信号。请检查定位服务是否已开启，以及是否有开阔的天空视野。",
+    "gpsAlertMessage": "无法获取GPS信号。请前往能看到开阔天空的地方。",
     "gpsAlertSettings": "打开设置",
     "gpsAlertStop": "停止录制",
     "gpsAlertTitle": "未找到GPS信号",
     "gpsNone": "位置权限被拒绝",
     "gpsPermissionDenied": "定位权限被拒绝。请在设置中授予权限以记录GPS。",
     "gpsReady": "GPS就绪",
+    "gpsServicesOff": "定位已关闭",
+    "gpsServicesOffAndroid": "此手机的定位已关闭，因此无法记录轨迹。",
+    "gpsServicesOffIos": "定位服务已关闭，因此无法记录轨迹。请在 设置 > 隐私与安全性 > 定位服务 中开启。",
+    "gpsServicesOffTitle": "定位已关闭",
+    "gpsServicesTurnOn": "开启",
     "gpsTrackingError": "无法启动GPS追踪。请尝试暂停并恢复。",
     "gpsWaiting": "正在等待GPS信号。请移至室外以获得更好的信号。",
     "gpsWeakWarning": "GPS信号弱，录制可能不准确",
@@ -1228,6 +1261,7 @@
       "max": "极限"
     },
     "saveError": "保存失败",
+    "saveErrorNoSpace": "此设备存储空间即将用尽，无法保存活动。请释放空间后重试。",
     "savedQueued": "活动已保存。当您恢复在线时将自动上传。",
     "savedQueuedAuth": "活动已保存。重新登录后将上传。",
     "settings": "录制设置",
@@ -1255,6 +1289,8 @@
       "night": "夜间"
     },
     "trimActivity": "裁剪活动",
+    "trimEndHandle": "裁剪终点",
+    "trimStartHandle": "裁剪起点",
     "trimmed": "已裁剪",
     "uploadRejected": "intervals.icu 拒绝了此文件。骑行已保留在我的录制中。",
     "uploadMissing": "此骑行的文件已不在设备上，因此无法上传。",
@@ -1386,7 +1422,6 @@
     "renameFailedMessage": "未能保存路线名称，请重试。",
     "routeNamePlaceholder": "路线名称",
     "routeWord": "路线",
-    "routesWillAppear": "分析完您的活动后，路线将显示在这里",
     "routesWithTwoPlus": "包含 2 个以上相似路径活动的路线将显示在这里",
     "sectionCreationFailed": "创建路段失败，请重试。",
     "sectionWord": "路段",
@@ -1419,7 +1454,19 @@
     "resetReferenceConfirm": "恢复自动选择参考路线？将重新计算此路线的匹配百分比。",
     "prTime": "个人最佳 {{time}}",
     "errorDetailId": "ID：{{id}}",
-    "errorDetailRange": "范围：{{start}} → {{end}}"
+    "errorDetailRange": "范围：{{start}} → {{end}}",
+    "emptyNoGpsTitle": "没有带 GPS 的活动",
+    "emptyNoGps": "路线和路段来自 GPS 轨迹，而已同步的范围内只有不带 GPS 的训练，例如骑行台、泳池或力量训练。",
+    "emptyNotYetRunTitle": "等待分析",
+    "emptyNotYetRun_one": "{{count}} 个带 GPS 的活动正在等待分析。分析完成后将显示路线和路段。",
+    "emptyNotYetRun_other": "{{count}} 个带 GPS 的活动正在等待分析。分析完成后将显示路线和路段。",
+    "emptyRunningTitle": "正在分析",
+    "emptyRunning": "{{phase}}：已完成 {{percent}}%。分析完成后将显示路线和路段。",
+    "emptyHeldTitle": "分析已暂停",
+    "emptyNoRoutes_one": "一条路线至少需要 {{count}} 个经过相似路径的活动。你带 GPS 的活动中还没有构成路线的。",
+    "emptyNoRoutes_other": "一条路线至少需要 {{count}} 个经过相似路径的活动。你带 GPS 的活动中还没有构成路线的。",
+    "emptyNoSections_one": "一个路段至少需要 {{count}} 个经过同一段道路的活动，即使路线不同。你带 GPS 的活动中没有找到。",
+    "emptyNoSections_other": "一个路段至少需要 {{count}} 个经过同一段道路的活动，即使路线不同。你带 GPS 的活动中没有找到。"
   },
   "routesScreen": {
     "computingRoutes": "正在计算路线...",
@@ -1486,7 +1533,7 @@
     "sectionNotFound": "未找到路段",
     "aerobicEfficiency": "有氧效率",
     "aerobicEfficiencyDetail": "{{efforts}} 次可比较的通过，平均配速下模型变化 {{hrChange}} bpm",
-    "aerobicEfficiencyCaption": "单位配速的心率，从最早一次到最新一次",
+    "aerobicEfficiencyCaption": "{{quantity}}，从最早一次到最新一次",
     "correlationTitle": "身体状态与速度",
     "correlationMethod": "该路段速度与当日身体状态数值的皮尔逊r，95%区间，至少10次带有数值的骑行",
     "correlationFamily_one": "按{{count}}个变量进行霍尔姆校正",
@@ -1948,7 +1995,6 @@
     "atWeight": "按 {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "有氧效率",
     "eFTPTrend": "eFTP趋势",
     "ftpLabel": "FTP {{value}}w",
     "heartRate": "心率",
@@ -1997,6 +2043,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "千卡",
     "ms": "ms",
     "watts": "瓦",
@@ -2094,6 +2141,15 @@
       "routesBody": "同一路线上的活动会归为一条路线，每次尝试都与其他尝试对比显示。",
       "sectionPageTip": "向下滚动路段页面，查看趋势、用时分布，以及按赢得或失去时间着色的线路。",
       "routesTip": "向下滚动路线页面，查看该路线上每次尝试与其他尝试的对比。"
+    },
+    "tutorial": {
+      "firstLoadTitle": "你的训练，保存在这台手机上",
+      "firstLoadBody": "Veloq 从 intervals.icu 读取你的活动和健康数据，并保存在这台手机上。首次加载在后台进行，活动陆续到达时动态会逐渐填满。",
+      "feedTitle": "你的动态",
+      "feedBody": "每项活动都会以带地图的卡片出现在这里，最新的在最前。",
+      "feedTip": "下拉可在 intervals.icu 检查新活动，点按卡片即可打开。",
+      "activityTitle": "活动详情",
+      "activityBody": "打开活动即可查看其地图和图表、间歇，以及它所属的路线和路段。"
     }
   },
   "strength": {
@@ -2130,6 +2186,7 @@
     "sets": "组",
     "setsCount_one": "{{count}}组",
     "setsCount_other": "{{count}}组",
+    "clearMuscle": "取消选择{{muscle}}",
     "muscleGroupVolume": "肌肉群训练量",
     "relativeWeightedSets": "所选周期内的相对加权组数",
     "reps": "次",
@@ -2359,7 +2416,16 @@
   "summaryCardChange": {
     "window_one": "{{count}}天内{{change}}",
     "window_other": "{{count}}天内{{change}}",
-    "rule": "变化为期间内最后一个体能值减去第一个。体能较前一天上升超过1点的日子以圆点标记。"
+    "rule": "变化为期间内最后一个体能值减去第一个。体能较前一天上升超过1点的日子以圆点标记。",
+    "trend": {
+      "improved": "改善",
+      "declined": "变差",
+      "rising": "上升",
+      "falling": "下降",
+      "steady": "持平",
+      "comparedOn": "{{metric}} {{value}}，{{move}}。对比 {{date}} 的 {{previous}}。",
+      "comparedLastWeek": "{{metric}} {{value}}，{{move}}。对比上周同期的 {{previous}}。"
+    }
   },
   "period": {
     "short": {

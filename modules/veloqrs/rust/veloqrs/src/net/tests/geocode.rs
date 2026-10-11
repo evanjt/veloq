@@ -563,7 +563,7 @@ fn every_request_names_the_app_and_the_language() {
     ));
 
     assert_eq!(name.as_deref(), Some("Plainpalais"));
-    named.assert_hits(1);
+    named.assert_calls(1);
     assert!(USER_AGENT.starts_with("veloq/"));
     assert!(USER_AGENT.contains("https://veloq.fit"));
 }

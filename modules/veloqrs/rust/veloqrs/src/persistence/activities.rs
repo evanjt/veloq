@@ -269,10 +269,9 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
     )?;
     // An excluded match row is the athlete taking one attempt out of a route,
     // and the `activity_matches` entry in `persistence/tables.rs` declares it
-    // the record part of an otherwise derived table. The detector already holds
-    // this policy in `save_groups_txn`, "a carried id keeps them; only a
-    // dissolved route loses them", and `recompute_groups` in
-    // `persistence/routes.rs` snapshots and restores across its own delete.
+    // the record part of an otherwise derived table. Both group writers hold
+    // this policy through `write_group_catalogue` in `persistence/routes.rs`,
+    // which snapshots the exclusions and restores them across its own delete.
     // This wipe was the one that did not,
     // so a clear took every exclusion the athlete had made.
     //

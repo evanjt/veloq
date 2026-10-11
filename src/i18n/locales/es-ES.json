@@ -88,7 +88,7 @@
   "recording": {
     "distanceInvalid": "Por favor, introduce una distancia válida (0-999).",
     "durationRequired": "Por favor, introduce una duración válida.",
-    "gpsAlertMessage": "No se puede obtener la señal GPS. Comprueba que los servicios de ubicación estén activados y que tengas visibilidad despejada del cielo.",
+    "gpsAlertMessage": "No se puede obtener la señal GPS. Busca un sitio con visibilidad despejada del cielo.",
     "hrInvalid": "Por favor, introduce una frecuencia cardíaca válida (30-250).",
     "notesPlaceholder": "¿Cómo te has sentido?",
     "settingsAutoPauseWalkingAndOther": "Caminar y otros deportes"

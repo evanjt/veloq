@@ -38,9 +38,9 @@ it('renders the engine bands and times as given, with no sport settings read', (
   expect(getByText('Z1')).toBeTruthy();
   expect(getByText('75%')).toBeTruthy();
   expect(getByText('25%')).toBeTruthy();
-  expect(getByText('0-140')).toBeTruthy();
-  expect(getByText('140-155')).toBeTruthy();
-  expect(getByText('185-200')).toBeTruthy();
+  expect(getByText('0-140 bpm')).toBeTruthy();
+  expect(getByText('140-155 bpm')).toBeTruthy();
+  expect(getByText('185-200 bpm')).toBeTruthy();
   expect(queryByText('Z6')).toBeNull();
   expect(mockUseSportSettings).not.toHaveBeenCalled();
 });

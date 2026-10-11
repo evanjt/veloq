@@ -21,6 +21,7 @@ import {
   sectionCreationLinePaint,
   sectionCreationMarkerPaint,
 } from '@/features/maps/lib/sectionCreationPaint';
+import { buildEndpointLayers } from '@/features/maps/lib/endpointLayers';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import {
@@ -219,26 +220,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: { 'line-cap': 'round' },
       paint: { 'line-color': mapLayerColors.casing, 'line-width': 3.5 },
     },
-    {
-      id: 'endpoint-border',
-      type: 'circle',
-      source: 'endpoints',
-      paint: { 'circle-radius': 7.5, 'circle-color': mapLayerColors.casing },
-    },
-    {
-      id: 'endpoint-fill',
-      type: 'circle',
-      source: 'endpoints',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'position'], 'start'],
-          mapLayerColors.start,
-          mapLayerColors.end,
-        ],
-      },
-    },
+    ...buildEndpointLayers(),
     {
       id: 'section-creation-line',
       type: 'line',

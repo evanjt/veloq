@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import {
 import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import * as haptics from '@/shared/ui/haptics';
+import { goBack } from '@/shared/app/navigation';
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -93,7 +94,7 @@ function RecordingDetailScreenContent() {
           onPress: async () => {
             haptics.medium();
             await remove(entry.id);
-            router.back();
+            goBack();
           },
         },
       ]

@@ -48,6 +48,11 @@ function guard<T>(what: string, call: () => T): T | null {
   }
 }
 
+/** Whether this build carries the card at all, switched on or not. */
+export function isLiveActivityAvailable(): boolean {
+  return native() !== null;
+}
+
 export function isLiveActivitySupported(): boolean {
   const mod = native();
   if (!mod) return false;

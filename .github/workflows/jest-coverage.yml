@@ -12,9 +12,6 @@ on:
     - cron: "0 4 * * 1"
   workflow_dispatch:
 
-env:
-  NODE_VERSION: "22"
-
 permissions:
   contents: read
   actions: read
@@ -30,7 +27,7 @@ jobs:
       # measurement below checks out again in full.
       - name: Checkout the lookup script
         if: github.event_name == 'schedule'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: scripts
           persist-credentials: false
@@ -59,15 +56,13 @@ jobs:
 
       - name: Checkout repository
         if: steps.earlier.outputs.outcome == ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Install dependencies
         if: steps.earlier.outputs.outcome == ''
         uses: ./.github/actions/npm-ci
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
 
       - name: Run tests with coverage
         id: measure

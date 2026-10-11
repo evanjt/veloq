@@ -6,6 +6,8 @@
 //! budget on imagery, which is not what that budget is for.
 
 use super::TileStore;
+use super::encoding;
+use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -26,6 +28,8 @@ pub enum TileFetchError {
     Rejected { status: u16 },
     #[error("tile host answered with an empty body")]
     Empty,
+    #[error("tile host sent a body that does not decode: {0}")]
+    Garbled(String),
     #[error("could not store the tile: {0}")]
     Store(String),
 }
@@ -43,9 +47,15 @@ pub struct TileFetcher {
 
 impl TileFetcher {
     pub fn new(pace: Duration) -> Result<Self, String> {
+        // gzip is asked for on every request and decompressed here rather than
+        // by `reqwest`, so a tile can be kept as the host sent it. `reqwest`
+        // would otherwise decompress before anything could see the body, and
+        // a client that stopped asking would put half as many bytes again on
+        // the wire with nothing counting them.
         let client = reqwest::Client::builder()
             .user_agent(TILE_USER_AGENT)
             .timeout(Duration::from_secs(20))
+            .no_gzip()
             .build()
             .map_err(|e| format!("tile client: {}", e))?;
         Ok(Self {
@@ -60,15 +70,34 @@ impl TileFetcher {
         Self::new(FILL_PACE)
     }
 
-    /// One tile's bytes. A non-success status, an unreachable host and an
-    /// empty body are all failures: none of them is a tile, and storing any of
-    /// them would serve a hole to the map for as long as it survived eviction.
+    /// One tile's bytes, decompressed. A non-success status, an unreachable
+    /// host and an empty body are all failures: none of them is a tile, and
+    /// storing any of them would serve a hole to the map for as long as it
+    /// survived eviction.
     pub async fn fetch(&self, url: &str) -> Result<Vec<u8>, TileFetchError> {
+        let (sent, gzipped) = self.body(url).await?;
+        if !gzipped {
+            return Ok(sent);
+        }
+        encoding::gunzip(&sent).map_err(|e| TileFetchError::Garbled(e.to_string()))
+    }
+
+    /// One tile's body as the host sent it: gzipped when the host gzipped it,
+    /// which is how the store keeps it. Fails as [`fetch`](Self::fetch) does,
+    /// and also on a body in an encoding never asked for, or labelled gzip and
+    /// not a gzip stream, since nothing could decode either once kept.
+    pub async fn fetch_as_sent(&self, url: &str) -> Result<Vec<u8>, TileFetchError> {
+        self.body(url).await.map(|(sent, _)| sent)
+    }
+
+    /// The body as sent, and whether the host gzipped it.
+    async fn body(&self, url: &str) -> Result<(Vec<u8>, bool), TileFetchError> {
         self.wait_for_slot().await;
 
         let response = self
             .client
             .get(url)
+            .header(ACCEPT_ENCODING, "gzip")
             .send()
             .await
             .map_err(|e| TileFetchError::Unreachable(e.to_string()))?;
@@ -80,6 +109,20 @@ impl TileFetcher {
             });
         }
 
+        let gzipped = match response.headers().get(CONTENT_ENCODING) {
+            None => false,
+            Some(value) => match value.to_str().map(str::trim) {
+                Ok(v) if v.eq_ignore_ascii_case("gzip") => true,
+                Ok(v) if v.eq_ignore_ascii_case("identity") || v.is_empty() => false,
+                _ => {
+                    return Err(TileFetchError::Garbled(format!(
+                        "content-encoding {:?} was never asked for",
+                        value
+                    )));
+                }
+            },
+        };
+
         let bytes = response
             .bytes()
             .await
@@ -87,10 +130,16 @@ impl TileFetcher {
         if bytes.is_empty() {
             return Err(TileFetchError::Empty);
         }
-        Ok(bytes.to_vec())
+        if gzipped && !encoding::is_gzip(&bytes) {
+            return Err(TileFetchError::Garbled(
+                "labelled gzip but not a gzip stream".to_string(),
+            ));
+        }
+        Ok((bytes.to_vec(), gzipped))
     }
 
-    /// Fetch one tile and store it. Returns the bytes stored.
+    /// Fetch one tile and store it as the host sent it. Returns the bytes
+    /// stored.
     #[allow(clippy::too_many_arguments)]
     pub async fn fetch_into(
         &self,
@@ -103,7 +152,7 @@ impl TileFetcher {
         url: &str,
         pinned: bool,
     ) -> Result<u64, TileFetchError> {
-        let bytes = self.fetch(url).await?;
+        let bytes = self.fetch_as_sent(url).await?;
         store
             .put(source, z, x, y, ext, &bytes, pinned)
             .map_err(|e| TileFetchError::Store(e.to_string()))?;

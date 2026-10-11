@@ -11,6 +11,10 @@ import * as haptics from '@/shared/ui/haptics';
  * `navigateTo`, `replaceTo` and `navigateTab` are silent: they serve navigation with no tap behind
  * it (a notification, the end of a recording, a redirect). A press handler that opens a screen or
  * goes back calls `tapTo` or `tapBack`, which fire one light impact first.
+ *
+ * Every back goes through `goBack`. A screen a cold link or a replace left as the stack root has
+ * nothing to pop, and `router.back()` there dispatches an action nothing handles, so the control
+ * does nothing. A back always leaves the screen, so with no history it goes to the Feed.
  */
 export function navigateTo(
   path: string | { pathname: string; params?: Record<string, string | undefined> }
@@ -38,8 +42,14 @@ export function tapTo(
   navigateTo(path);
 }
 
+/** Leaves the screen: pops when there is history, otherwise replaces to the Feed. */
+export function goBack(): void {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
+
 /** A tap that goes back: one light impact, then the pop. */
 export function tapBack(): void {
   haptics.light();
-  router.back();
+  goBack();
 }

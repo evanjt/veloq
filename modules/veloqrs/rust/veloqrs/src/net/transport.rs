@@ -116,6 +116,10 @@ pub enum NetError {
     /// never worth a connectivity retry: what the step needed is in the
     /// database, and the page it fetched is not written without it.
     Storage(String),
+    /// A local write the step depended on failed because the device has no
+    /// space left. Not a network failure, and a retry fails the same way until
+    /// space is freed, so the athlete is told to free it.
+    StorageFull(String),
     /// The engine was gone when the step went to write what it had fetched.
     /// A restore or a clear-and-sync destroys it mid-run, and the bytes are
     /// then dropped. Not a network failure and never worth a retry: the
@@ -137,6 +141,7 @@ impl std::fmt::Display for NetError {
             NetError::Decode(e) => write!(f, "decode error: {}", e),
             NetError::Io(e) => write!(f, "file error: {}", e),
             NetError::Storage(e) => write!(f, "local read failed: {}", e),
+            NetError::StorageFull(e) => write!(f, "device storage is full: {}", e),
         }
     }
 }
@@ -148,6 +153,18 @@ pub const DEFERRED_ERROR_PREFIX: &str = "deferred by the request budget";
 impl std::error::Error for NetError {}
 
 impl NetError {
+    /// A database failure behind a step, named by `context`. A full disk is
+    /// told apart here, where the SQLite code is still in hand, because the
+    /// message it becomes carries no code a later reader could trust.
+    pub fn storage(context: impl std::fmt::Display, e: &rusqlite::Error) -> Self {
+        let message = format!("{context}: {e}");
+        if crate::persistence::is_disk_full(e) {
+            NetError::StorageFull(message)
+        } else {
+            NetError::Storage(message)
+        }
+    }
+
     /// The request never reached the server or timed out, so the network is
     /// absent and the same request is as likely to work once it returns. A
     /// rate limit or a 5xx is the server answering, and is not this.
@@ -768,7 +785,7 @@ mod tests {
             crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Unauthorized)));
         // 401 is terminal: credentials won't improve on retry, so dispatch once.
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]
@@ -784,7 +801,7 @@ mod tests {
             crate::runtime::block_on(t.get_json("/x", &[], Lane::Backfill));
         assert!(matches!(res, Err(NetError::RateLimited)));
         // 1 initial dispatch + MAX_RETRIES retries.
-        assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
+        assert_eq!(mock.calls(), (MAX_RETRIES + 1) as usize);
     }
 
     fn budgeted(base: String) -> (Transport, Arc<Governor>) {
@@ -821,7 +838,7 @@ mod tests {
         };
         assert!(until >= before + chrono::TimeDelta::seconds(600), "{until}");
         assert!(until <= chrono::Utc::now() + chrono::TimeDelta::seconds(600));
-        assert_eq!(quota.hits(), 1, "a long Retry-After was retried inline");
+        assert_eq!(quota.calls(), 1, "a long Retry-After was retried inline");
 
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
@@ -832,7 +849,7 @@ mod tests {
             governor::Dispatch::new(Lane::Interactive, governor::Intent::Sync),
         ));
         assert!(matches!(res, Err(NetError::Deferred { .. })));
-        assert_eq!(quota.hits(), 1, "a deferred request was sent");
+        assert_eq!(quota.calls(), 1, "a deferred request was sent");
         assert_eq!(
             gov.budget_snapshot(chrono::Utc::now())
                 .unwrap()
@@ -855,7 +872,7 @@ mod tests {
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/edge", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
-        assert_eq!(read.hits(), 2);
+        assert_eq!(read.calls(), 2);
 
         let write = server.mock(|when, then| {
             when.method(POST).path("/edge");
@@ -864,7 +881,7 @@ mod tests {
         let (t, _gov) = budgeted(server.base_url());
         let res = crate::runtime::block_on(t.post_json("/edge", &json!({}), Lane::Interactive));
         assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
-        assert_eq!(write.hits(), 2);
+        assert_eq!(write.calls(), 2);
     }
 
     /// Expected behaviour: inside a cooldown a user request goes as the one
@@ -893,7 +910,7 @@ mod tests {
         let Err(NetError::Deferred { until }) = res else {
             panic!("expected a deferral, got {res:?}");
         };
-        assert_eq!(probe.hits(), 1, "the probe was retried inline");
+        assert_eq!(probe.calls(), 1, "the probe was retried inline");
         let now = chrono::Utc::now();
         assert!(until > now + chrono::TimeDelta::minutes(5), "{until}");
         assert_eq!(until.time(), chrono::NaiveTime::MIN, "{until}");
@@ -902,7 +919,7 @@ mod tests {
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Deferred { .. })));
-        assert_eq!(probe.hits(), 1);
+        assert_eq!(probe.calls(), 1);
 
         gov.note_success(&RateBudget::default(), now);
         let ok = server.mock(|when, then| {
@@ -912,7 +929,7 @@ mod tests {
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
         assert!(res.is_ok(), "{res:?}");
-        assert_eq!(ok.hits(), 1);
+        assert_eq!(ok.calls(), 1);
     }
 
     /// Expected behaviour: a success whose budget pair is low holds the
@@ -939,11 +956,11 @@ mod tests {
             panic!("expected a deferral, got {res:?}");
         };
         assert!(until > now && until <= chrono::Utc::now() + chrono::TimeDelta::minutes(15));
-        assert_eq!(low.hits(), 1);
+        assert_eq!(low.calls(), 1);
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/low", &[], Lane::Interactive));
         assert!(res.is_ok());
-        assert_eq!(low.hits(), 2);
+        assert_eq!(low.calls(), 2);
     }
 
     #[test]
@@ -982,7 +999,7 @@ mod tests {
         // the retry budget is exhausted (httpmock 0.7 can't sequence a transient
         // 503-then-200, so the give-up path is what we can assert deterministically).
         assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
-        assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
+        assert_eq!(mock.calls(), (MAX_RETRIES + 1) as usize);
     }
 
     #[test]
@@ -1021,7 +1038,7 @@ mod tests {
             "second dispatch was not paced by the governor: {:?}",
             start.elapsed()
         );
-        assert_eq!(mock.hits(), 2);
+        assert_eq!(mock.calls(), 2);
     }
 
     #[test]
@@ -1064,16 +1081,16 @@ mod tests {
                 )
                 // The field names intervals.icu expects. A rename here silently
                 // loses the activity, so each part is asserted by name.
-                .body_contains("name=\"file\"")
-                .body_contains("filename=\"Morning Ride.fit\"")
-                .body_contains("name=\"name\"")
-                .body_contains("Bern loop")
-                .body_contains("name=\"paired_event_id\"")
-                .body_contains("4321")
-                .body_contains("name=\"device_name\"")
-                .body_contains("Veloq")
+                .body_includes("name=\"file\"")
+                .body_includes("filename=\"Morning Ride.fit\"")
+                .body_includes("name=\"name\"")
+                .body_includes("Bern loop")
+                .body_includes("name=\"paired_event_id\"")
+                .body_includes("4321")
+                .body_includes("name=\"device_name\"")
+                .body_includes("Veloq")
                 // The streamed bytes arrive intact.
-                .body_contains(".FIT");
+                .body_includes(".FIT");
             then.status(200).json_body(json!({"id": "i999"}));
         });
 
@@ -1157,7 +1174,7 @@ mod tests {
             other => panic!("expected a 403, got {:?}", other),
         }
         // A rejected upload is dispatched once: the queue owns the retry.
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]
@@ -1185,7 +1202,7 @@ mod tests {
         ));
         assert!(matches!(res, Err(NetError::RateLimited)));
         // A 429 was refused outright, so re-sending cannot duplicate anything.
-        assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
+        assert_eq!(mock.calls(), (MAX_RETRIES + 1) as usize);
     }
 
     #[test]
@@ -1214,7 +1231,7 @@ mod tests {
         assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
         // The server may have applied the write before failing, so a blind
         // resend could double-post. One dispatch, then surface.
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]
@@ -1293,7 +1310,7 @@ mod tests {
             Lane::Interactive,
         ));
         assert!(matches!(res, Err(NetError::Unauthorized)));
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     /// Scenario: the server answers a create with 200 and a length it never
@@ -1430,7 +1447,7 @@ mod tests {
             crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::RateLimited)));
         assert_eq!(
-            mock.hits(),
+            mock.calls(),
             1,
             "a 1s Retry-After does not fit a 400ms budget"
         );
@@ -1461,7 +1478,7 @@ mod tests {
             "{:?}",
             res
         );
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     /// A budget of 800 ms on a governor that paces one dispatch a second, so
@@ -1499,7 +1516,7 @@ mod tests {
             }
             other => panic!("expected the 503, got {:?}", other),
         }
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]
@@ -1513,7 +1530,7 @@ mod tests {
         let (t, _gov) = slow_governor_transport(server.base_url());
         let res = crate::runtime::block_on(t.get_bytes("/x", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]
@@ -1534,7 +1551,7 @@ mod tests {
             Err(NetError::Transport(msg)) => assert!(msg.contains("budget"), "{}", msg),
             other => panic!("expected a spent budget, got {:?}", other),
         }
-        assert_eq!(mock.hits(), 0);
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]
@@ -1552,7 +1569,7 @@ mod tests {
             Lane::Interactive,
         ));
         assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     /// A budget of 1010 ms on a governor that paces one dispatch a second, so
@@ -1589,7 +1606,7 @@ mod tests {
             }
             other => panic!("expected the 503, got {:?}", other),
         }
-        assert_eq!(mock.hits(), 2);
+        assert_eq!(mock.calls(), 2);
     }
 
     #[test]
@@ -1609,7 +1626,7 @@ mod tests {
             Lane::Interactive,
         ));
         assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
-        assert_eq!(mock.hits(), 2);
+        assert_eq!(mock.calls(), 2);
     }
 
     #[test]
@@ -1672,7 +1689,7 @@ mod tests {
         );
         assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
         assert_eq!(
-            mock.hits(),
+            mock.calls(),
             1,
             "a 120 s Retry-After does not fit a 400 ms budget"
         );
@@ -1702,7 +1719,7 @@ mod tests {
             Duration::from_secs(60),
         ));
         assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
     }
 
     #[test]

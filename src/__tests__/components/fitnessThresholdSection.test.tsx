@@ -23,13 +23,14 @@ function renderRunning(props: { thresholdPace?: number; runLthr?: number }) {
       timeRange="1m"
       powerZones={undefined}
       hrZones={undefined}
-      zoneCoverage={RangeCoverage.Loaded}
+      periodCoverage={RangeCoverage.Loaded}
       loadingActivities={false}
       hasActivities={false}
       dominantZone={null}
       zonesExpanded={false}
       onZonesToggle={jest.fn()}
       eftpTrend={undefined}
+      eftpCoverage={RangeCoverage.Loaded}
       ftpTrend={null}
       trendsExpanded
       onTrendsToggle={jest.fn()}

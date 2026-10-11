@@ -14,6 +14,7 @@ export {
   zoneColors,
   colorWithOpacity,
   insightCategoryColors,
+  insightCategoryColor,
   rpeRamp,
   strengthRamp,
   workoutStepColors,

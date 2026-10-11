@@ -92,6 +92,13 @@ describe('EngineInitBanner', () => {
     expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(44);
   });
 
+  /** The retry is the only way out of a failed open, so a screen reader has to name it. */
+  it('names its retry control for a screen reader', () => {
+    failedWith(InitOutcome.Busy);
+    const { getByRole } = render(<EngineInitBanner />);
+    expect(getByRole('button', { name: 'common.retry' })).toBeTruthy();
+  });
+
   it('keeps its own padding when there is no inset', () => {
     failedWith(InitOutcome.Busy);
     const { getByTestId } = render(<EngineInitBanner />);

@@ -54,4 +54,6 @@ export {
   BEST_EFFORTS_DEFAULT_PERIOD,
   BEST_EFFORTS_PERIODS,
   bestEffortsDays,
+  bestEffortsHref,
+  bestEffortsPeriodFromParam,
 } from './lib/bestEffortsPeriod';

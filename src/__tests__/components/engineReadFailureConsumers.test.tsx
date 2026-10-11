@@ -56,11 +56,24 @@ jest.mock('@/features/routes/hooks/useEngine', () => ({
   useEngineGroups: jest.fn(),
 }));
 jest.mock('@/features/routes/hooks/useSectionPerformances', () => ({
-  useSectionPerformances: () => ({
+  useSectionPerformances: jest.fn(),
+}));
+
+const mockRefetchStreams = jest.fn();
+const { useSectionPerformances: mockPerformances } = jest.requireMock(
+  '@/features/routes/hooks/useSectionPerformances'
+) as { useSectionPerformances: jest.Mock };
+
+function performances(overrides: { isLoading?: boolean; error?: string | null } = {}) {
+  return {
     records: [],
     bests: { forward: null, reverse: null, forwardIsPr: false, reverseIsPr: false },
-  }),
-}));
+    isLoading: false,
+    error: null,
+    refetch: mockRefetchStreams,
+    ...overrides,
+  };
+}
 
 const engineHooks = {
   ...(jest.requireMock('@/shared/native/useSectionDetail') as { useSectionDetail: jest.Mock }),
@@ -71,7 +84,7 @@ const engineHooks = {
 };
 
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({ isDark: false, colors: jest.requireActual('@/theme').colors }),
   useMetricSystem: () => true,
   useAthlete: () => ({ data: null }),
 }));
@@ -94,6 +107,7 @@ function insight(category: 'section_pr' | 'section_trend' | 'stale_pr'): Insight
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPerformances.mockReturnValue(performances());
   engineHooks.useSectionDetail.mockReturnValue({ section: null, error: lockFailed });
   engineHooks.useGroupSummaries.mockReturnValue({
     totalCount: 0,
@@ -127,6 +141,43 @@ describe('insight sheets', () => {
     engineHooks.useSectionDetail.mockReturnValue({ section: null });
     const { queryByTestId } = render(<SectionPRContent insight={insight('section_pr')} />);
     expect(queryByTestId('section-read-failure')).toBeNull();
+  });
+});
+
+/// Scenario: the section reads, but reading or requesting its time streams
+/// throws. The sync settles failed and the cards drew a spinner for good.
+///
+/// Expected behaviour: each card shows the failure with a Retry that asks again.
+describe('insight sheets whose time streams failed', () => {
+  beforeEach(() => {
+    engineHooks.useSectionDetail.mockReturnValue({ section: null });
+    mockPerformances.mockReturnValue(
+      performances({ error: 'Failed to load activity streams', isLoading: false })
+    );
+  });
+
+  it('SectionPRContent shows a retry in place of the timeline', () => {
+    const { getByTestId, getByText } = render(<SectionPRContent insight={insight('section_pr')} />);
+    expect(getByTestId('section-stream-failure')).toBeTruthy();
+    fireEvent.press(getByText('common.retry'));
+    expect(mockRefetchStreams).toHaveBeenCalledTimes(1);
+  });
+
+  it('an opened trend row shows a retry instead of the no-efforts line', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <SectionTrendContent insight={insight('section_trend')} />
+    );
+    fireEvent.press(getByTestId('section-trend-toggle-s1'));
+    expect(getByTestId('section-stream-failure')).toBeTruthy();
+    expect(queryByText('insights.sectionTrendSheet.noEfforts')).toBeNull();
+    fireEvent.press(getByText('common.retry'));
+    expect(mockRefetchStreams).toHaveBeenCalledTimes(1);
+  });
+
+  it('draws no retry while the streams are still loading', () => {
+    mockPerformances.mockReturnValue(performances({ isLoading: true }));
+    const { queryByTestId } = render(<SectionPRContent insight={insight('section_pr')} />);
+    expect(queryByTestId('section-stream-failure')).toBeNull();
   });
 });
 

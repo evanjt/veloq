@@ -18,6 +18,7 @@ import * as WebBrowser from 'expo-web-browser';
 import {
   buildAuthorizationUrl,
   startOAuthFlow,
+  classifyAuthResult,
   parseCallbackUrl,
   validateState,
   handleOAuthCallback,
@@ -164,11 +165,44 @@ describe('OAuth service', () => {
       expect(mockedOpenAuth).not.toHaveBeenCalled();
     });
 
-    it('returns the result from WebBrowser.openAuthSessionAsync', async () => {
+    it('returns the classified browser result', async () => {
       const result = { type: 'success', url: 'veloq://oauth/callback?x=1' } as const;
       mockedOpenAuth.mockResolvedValue(result as WebBrowser.WebBrowserAuthSessionResult);
       const actual = await startOAuthFlow();
-      expect(actual).toEqual(result);
+      expect(actual).toEqual({ outcome: 'success', url: 'veloq://oauth/callback?x=1' });
+    });
+
+    it('reports a closed browser tab as cancelled', async () => {
+      mockedOpenAuth.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.DISMISS });
+      expect(await startOAuthFlow()).toEqual({ outcome: 'cancelled' });
+    });
+  });
+
+  describe('classifyAuthResult()', () => {
+    it('passes a success on with its URL', () => {
+      expect(classifyAuthResult({ type: 'success', url: 'veloq://oauth/callback?code=c' })).toEqual(
+        { outcome: 'success', url: 'veloq://oauth/callback?code=c' }
+      );
+    });
+
+    it.each([WebBrowser.WebBrowserResultType.CANCEL, WebBrowser.WebBrowserResultType.DISMISS])(
+      'reads %s as the athlete cancelling',
+      (type) => {
+        expect(classifyAuthResult({ type })).toEqual({ outcome: 'cancelled' });
+      }
+    );
+
+    it.each([WebBrowser.WebBrowserResultType.LOCKED, WebBrowser.WebBrowserResultType.OPENED])(
+      'reads %s as a failure',
+      (type) => {
+        expect(classifyAuthResult({ type })).toEqual({ outcome: 'failed' });
+      }
+    );
+
+    it('reads a success with no URL as a failure', () => {
+      expect(
+        classifyAuthResult({ type: 'success', url: '' } as WebBrowser.WebBrowserAuthSessionResult)
+      ).toEqual({ outcome: 'failed' });
     });
   });
 

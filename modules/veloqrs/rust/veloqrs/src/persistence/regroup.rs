@@ -5,7 +5,7 @@
 //! A detection run regroups through the same compute and save, and one slot
 //! keeps a single regroup in flight between that run and the worker here.
 
-use rusqlite::{Connection, Result as SqlResult, params};
+use rusqlite::{Connection, Result as SqlResult};
 use std::collections::{HashMap, HashSet};
 #[cfg(test)]
 use std::sync::mpsc;
@@ -17,7 +17,7 @@ use super::PersistentEngine;
 use super::codec::TrackRead;
 use super::route_identity::{
     RouteIdentity, advance_group_generation, load_identity, note_group_commit_off_engine,
-    read_group_generation, write_identity,
+    read_group_generation,
 };
 use super::routes::load_groups_from_db;
 use super::sections::detection::{log_corrupt_tracks, pool_is_usable, worker_write};
@@ -331,8 +331,7 @@ pub(crate) fn save_groups_to_db(
             superseded = true;
             return Err(rusqlite::Error::InvalidQuery);
         }
-        save_groups_txn(conn, groups, identity, matches)?;
-        super::routes::stamp_groups_match_rule(conn, match_config)?;
+        super::routes::write_group_catalogue(conn, groups, identity, matches, match_config)?;
         advance_group_generation(conn)?;
         super::route_lines::rebuild(conn).map(|_| ())
     });
@@ -384,75 +383,6 @@ fn hold_group_write(conn: &Connection, install: u64, group_count: usize) {
         let _ = entered.send(group_count);
         let _ = resume.recv();
     }
-}
-
-fn save_groups_txn(
-    conn: &Connection,
-    groups: &[RouteGroup],
-    identity: &RouteIdentity,
-    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
-) -> SqlResult<()> {
-    let chosen = super::routes::chosen_representatives(conn)?;
-    conn.execute("DELETE FROM route_groups", [])?;
-    super::routes::insert_route_groups(conn, groups)?;
-    super::routes::mark_chosen_representatives(conn, &chosen)?;
-
-    // A name outlives its route only while the id survives. The remap keeps that
-    // id, so this drops only the names of routes the regroup actually dissolved.
-    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
-    let named: Vec<String> = {
-        let mut stmt = conn.prepare("SELECT route_id FROM route_names")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        rows.filter_map(|r| r.ok()).collect()
-    };
-    let mut delete_name = conn.prepare("DELETE FROM route_names WHERE route_id = ?")?;
-    for id in named.iter().filter(|id| !live.contains(id.as_str())) {
-        delete_name.execute(params![id])?;
-    }
-    drop(delete_name);
-    super::routes::mint_route_numbers(conn, groups)?;
-
-    // The match rows are rewritten whole, as the foreground writer does, so a
-    // member that left a route leaves no row naming it. The athlete's exclusions
-    // are the one record in them and ride across for every pair that survives.
-    let excluded: Vec<(String, String)> = {
-        let mut stmt =
-            conn.prepare("SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1")?;
-        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        rows.filter_map(|r| r.ok()).collect()
-    };
-    conn.execute("DELETE FROM activity_matches", [])?;
-    let mut insert = conn.prepare(
-        "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
-         VALUES (?, ?, ?, ?)",
-    )?;
-    for group in groups {
-        let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
-        for m in matches.get(&group.group_id).into_iter().flatten() {
-            if members.contains(m.activity_id.as_str()) {
-                insert.execute(params![
-                    group.group_id,
-                    m.activity_id,
-                    m.match_percentage,
-                    m.direction.to_string(),
-                ])?;
-            }
-        }
-        // A member the grouping reported no pair for, or whose track is unreadable.
-        for id in &group.activity_ids {
-            insert.execute(params![group.group_id, id, 0.0f64, "same"])?;
-        }
-    }
-    drop(insert);
-    let mut exclude = conn.prepare(
-        "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
-    )?;
-    for (route_id, activity_id) in &excluded {
-        exclude.execute(params![route_id, activity_id])?;
-    }
-    drop(exclude);
-
-    write_identity(conn, identity)
 }
 
 /// Whether a regroup is in flight, on the worker below or inside a detection

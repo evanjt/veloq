@@ -7,6 +7,7 @@ export {
   GrantAccessButton,
   IndoorDisplay,
   ManualEntry,
+  OutsideAppNotice,
   PendingUploadsCard,
   PermissionUpgradeBanner,
   RecordFAB,
@@ -29,7 +30,6 @@ export { getTimeOfDayKey, useActivityNameGeneration } from './hooks/useActivityN
 export { useActivitySummary } from './hooks/useActivitySummary';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
-export { useDiscardRecording } from './hooks/useDiscardRecording';
 export { useEntryLocation } from './hooks/useEntryLocation';
 export { useGpsSessionEffect } from './hooks/useGpsSessionEffect';
 export { useGpsWarningClearEffect } from './hooks/useGpsWarningClearEffect';
@@ -45,20 +45,24 @@ export { useRecordingLock } from './hooks/useRecordingLock';
 export { useRecordingMetrics } from './hooks/useRecordingMetrics';
 export { useRecordingScreenColors } from './hooks/useRecordingScreenColors';
 export { useRecordingScreenState } from './hooks/useRecordingScreenState';
+export { useReviewDraft } from './hooks/useReviewDraft';
 export { useReviewSave } from './hooks/useReviewSave';
 export { useStatusPulseAnimation } from './hooks/useStatusPulseAnimation';
 export { useTimer } from './hooks/useTimer';
 export { armSystemRecordingPath, canStartAfterScopeWarning } from './lib/armCountdown';
 export {
+  heldRideStart,
   holdRecordingOnSignOut,
   resumeHeldRecordingForAthlete,
 } from './lib/holdRecordingOnSignOut';
 export { promptInterruptedRecording } from './lib/interruptedRecording';
 export { defaultEntrySport, entrySportChips, recordingEntryHref } from './lib/recordEntry';
+export { locationServicesOffMessage } from './lib/locationServicesCopy';
 export { ALL_DATA_FIELDS } from './lib/dataFields';
 export { recordingActions } from './lib/recordingActions';
 export { ACTIVITY_CATEGORIES, getRecordingMode, screenRecordingMode } from './lib/recordingModes';
 export { installRecordingSession } from './lib/recordingSession';
+export { discardReviewedRecording } from './lib/discardReview';
 export { resumeStoppedRecording } from './lib/resumeStoppedRecording';
 export { sessionReturnRoute } from './lib/sessionReturnRoute';
 export { shareRecordingFit } from './lib/shareRecordingFit';
@@ -76,6 +80,9 @@ export { readRecordingTrack } from './lib/storage/recordingTrack';
 export { startUploadQueue } from './lib/upload/startUploadQueue';
 export { useRecordingLiveStore } from './stores/RecordingLiveStore';
 export {
+  ACCURACY_REJECT_BOUNDS_M,
+  AUTO_PAUSE_DURATION_BOUNDS_MS,
+  AUTO_PAUSE_THRESHOLD_BOUNDS_KMH,
   initialiseRecordingPreferences,
   useRecordingPreferences,
 } from './stores/RecordingPreferencesStore';
@@ -97,5 +104,6 @@ export type {
   RecordingKind,
   RecordingLibraryEntry,
   RecordingBackup,
+  ReviewDraft,
   DataFieldType,
 } from './types';

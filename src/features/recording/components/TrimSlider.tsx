@@ -6,10 +6,11 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, LayoutChangeEvent, AccessibilityActionEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -24,10 +25,15 @@ import {
   typography,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
+import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
+import { IconButton } from '@/shared/ui';
+import * as haptics from '@/shared/ui/haptics';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
-const MIN_HANDLE_GAP = 0.05;
+const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
+/** A screen reader or keyboard step moves a bound by this share of the recording. */
+const ACTION_STEP_FRACTION = 0.01;
 
 interface TrimSliderProps {
   totalDuration: number;
@@ -54,10 +60,17 @@ export function TrimSlider({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
+  // The handle drawn on top, and so the one that takes a touch both hit areas reach.
+  const [lastMoved, setLastMoved] = useState<TrimBound>('end');
 
   const maxIndex = totalPoints - 1;
   const startFraction = maxIndex > 0 ? startIdx / maxIndex : 0;
   const endFraction = maxIndex > 0 ? endIdx / maxIndex : 1;
+  const minGap = useMemo(
+    () => trimMinGap(maxIndex, trackWidth, HANDLE_SIZE),
+    [maxIndex, trackWidth]
+  );
+  const actionStep = Math.max(1, Math.round(maxIndex * ACTION_STEP_FRACTION));
 
   const startTime = totalDuration * startFraction;
   const endTime = totalDuration * endFraction;
@@ -76,6 +89,47 @@ export function TrimSlider({
     [onTrimCommit]
   );
 
+  const canStep = (bound: TrimBound, delta: number) =>
+    stepTrimBound(startIdx, endIdx, maxIndex, bound, delta, minGap) !==
+    (bound === 'start' ? startIdx : endIdx);
+
+  const step = useCallback(
+    (bound: TrimBound, delta: number) => {
+      setLastMoved(bound);
+      const next = stepTrimBound(startIdx, endIdx, maxIndex, bound, delta, minGap);
+      if (next === (bound === 'start' ? startIdx : endIdx)) return;
+      const start = bound === 'start' ? next : startIdx;
+      const end = bound === 'end' ? next : endIdx;
+      onTrimChange(start, end);
+      onTrimCommit?.(start, end);
+    },
+    [startIdx, endIdx, maxIndex, minGap, onTrimChange, onTrimCommit]
+  );
+
+  const nudge = useCallback(
+    (bound: TrimBound, delta: number) => {
+      step(bound, delta);
+      haptics.light();
+    },
+    [step]
+  );
+
+  const onStartAction = useCallback(
+    (e: AccessibilityActionEvent) => {
+      if (e.nativeEvent.actionName === 'increment') step('start', actionStep);
+      else if (e.nativeEvent.actionName === 'decrement') step('start', -actionStep);
+    },
+    [step, actionStep]
+  );
+
+  const onEndAction = useCallback(
+    (e: AccessibilityActionEvent) => {
+      if (e.nativeEvent.actionName === 'increment') step('end', actionStep);
+      else if (e.nativeEvent.actionName === 'decrement') step('end', -actionStep);
+    },
+    [step, actionStep]
+  );
+
   const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
     setTrackWidth(e.nativeEvent.layout.width);
   }, []);
@@ -83,17 +137,26 @@ export function TrimSlider({
   const startGesture = useMemo(
     () =>
       Gesture.Pan()
+        .withTestId('review-trim-start-gesture')
         .onStart(() => {
           startX.value = startFraction * trackWidth;
           liveIndex.value = startIdx;
+          runOnJS(setLastMoved)('start');
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(startX.value + e.translationX, trackWidth));
-          const newFraction = newX / trackWidth;
-          if (newFraction < endFraction - MIN_HANDLE_GAP) {
-            const newIndex = Math.round(newFraction * maxIndex);
-            liveIndex.value = newIndex;
-            runOnJS(onTrimChange)(newIndex, endIdx);
+          const newIndex = Math.round((newX / trackWidth) * maxIndex);
+          const next = stepTrimBound(
+            startIdx,
+            endIdx,
+            maxIndex,
+            'start',
+            newIndex - startIdx,
+            minGap
+          );
+          if (next !== liveIndex.value) {
+            liveIndex.value = next;
+            runOnJS(onTrimChange)(next, endIdx);
           }
         })
         .onEnd(() => {
@@ -102,9 +165,9 @@ export function TrimSlider({
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
       startFraction,
-      endFraction,
       trackWidth,
       maxIndex,
+      minGap,
       onTrimChange,
       commit,
       startIdx,
@@ -117,17 +180,19 @@ export function TrimSlider({
   const endGesture = useMemo(
     () =>
       Gesture.Pan()
+        .withTestId('review-trim-end-gesture')
         .onStart(() => {
           endX.value = endFraction * trackWidth;
           liveIndex.value = endIdx;
+          runOnJS(setLastMoved)('end');
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(endX.value + e.translationX, trackWidth));
-          const newFraction = newX / trackWidth;
-          if (newFraction > startFraction + MIN_HANDLE_GAP) {
-            const newIndex = Math.round(newFraction * maxIndex);
-            liveIndex.value = newIndex;
-            runOnJS(onTrimChange)(startIdx, newIndex);
+          const newIndex = Math.round((newX / trackWidth) * maxIndex);
+          const next = stepTrimBound(startIdx, endIdx, maxIndex, 'end', newIndex - endIdx, minGap);
+          if (next !== liveIndex.value) {
+            liveIndex.value = next;
+            runOnJS(onTrimChange)(startIdx, next);
           }
         })
         .onEnd(() => {
@@ -135,10 +200,10 @@ export function TrimSlider({
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
-      startFraction,
       endFraction,
       trackWidth,
       maxIndex,
+      minGap,
       onTrimChange,
       commit,
       startIdx,
@@ -160,7 +225,34 @@ export function TrimSlider({
     ? colorWithOpacity(darkColors.surfaceElevated, 0.92)
     : colorWithOpacity(colors.surface, 0.95);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+
+  const stepButton = (bound: TrimBound, delta: 1 | -1) => {
+    const later = delta > 0;
+    const disabled = !canStep(bound, delta);
+    return (
+      <IconButton
+        testID={`review-trim-${bound}-${later ? 'later' : 'earlier'}`}
+        variant="secondary"
+        accessibilityLabel={
+          bound === 'start'
+            ? later
+              ? t('sections.trimStartLater')
+              : t('sections.trimStartEarlier')
+            : later
+              ? t('sections.trimEndLater')
+              : t('sections.trimEndEarlier')
+        }
+        onPress={() => nudge(bound, delta)}
+        disabled={disabled}
+      >
+        <MaterialCommunityIcons
+          name={later ? 'chevron-right' : 'chevron-left'}
+          size={20}
+          color={textPrimary}
+        />
+      </IconButton>
+    );
+  };
 
   return (
     <View style={[styles.pill, { backgroundColor: pillBg }]} testID="review-trim-slider">
@@ -169,13 +261,27 @@ export function TrimSlider({
         <Text style={[styles.title, { color: textPrimary }]}>
           {t('recording.trimActivity', 'Trim Activity')}
         </Text>
-        <Text style={[styles.timeRange, { color: isTrimmed ? brand.teal : textSecondary }]}>
-          {formatDuration(startTime)} - {formatDuration(endTime)}
-        </Text>
+        <View style={styles.rangeRow}>
+          {isTrimmed && (
+            <MaterialCommunityIcons
+              name="content-cut"
+              size={14}
+              color={textPrimary}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            />
+          )}
+          <Text
+            testID="review-trim-range"
+            style={[styles.timeRange, { color: textPrimary }, isTrimmed && styles.timeRangeTrimmed]}
+          >
+            {formatDuration(startTime)} - {formatDuration(endTime)}
+          </Text>
+        </View>
       </View>
 
       {/* Slider track */}
-      <View style={styles.sliderContainer} onLayout={onTrackLayout}>
+      <View style={styles.sliderContainer} onLayout={onTrackLayout} testID="review-trim-track">
         {/* Background track */}
         <View
           style={[
@@ -201,7 +307,20 @@ export function TrimSlider({
         {/* Start handle */}
         {trackWidth > 0 && (
           <GestureDetector gesture={startGesture}>
-            <Animated.View style={[styles.handle, startHandleStyle]}>
+            <Animated.View
+              testID="review-trim-start-handle"
+              style={[
+                styles.handle,
+                startHandleStyle,
+                lastMoved === 'start' ? styles.handleOnTop : null,
+              ]}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={t('recording.trimStartHandle')}
+              accessibilityValue={{ text: formatDuration(startTime) }}
+              accessibilityActions={STEP_ACTIONS}
+              onAccessibilityAction={onStartAction}
+            >
               <View style={[styles.handleInner, { borderColor: brand.teal }]}>
                 <View style={[styles.handleBar, { backgroundColor: brand.teal }]} />
               </View>
@@ -212,13 +331,38 @@ export function TrimSlider({
         {/* End handle */}
         {trackWidth > 0 && (
           <GestureDetector gesture={endGesture}>
-            <Animated.View style={[styles.handle, endHandleStyle]}>
+            <Animated.View
+              testID="review-trim-end-handle"
+              style={[
+                styles.handle,
+                endHandleStyle,
+                lastMoved === 'end' ? styles.handleOnTop : null,
+              ]}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={t('recording.trimEndHandle')}
+              accessibilityValue={{ text: formatDuration(endTime) }}
+              accessibilityActions={STEP_ACTIONS}
+              onAccessibilityAction={onEndAction}
+            >
               <View style={[styles.handleInner, { borderColor: brand.teal }]}>
                 <View style={[styles.handleBar, { backgroundColor: brand.teal }]} />
               </View>
             </Animated.View>
           </GestureDetector>
         )}
+      </View>
+
+      {/* Step buttons: one point per press */}
+      <View style={styles.stepRow}>
+        <View style={styles.stepGroup}>
+          {stepButton('start', -1)}
+          {stepButton('start', 1)}
+        </View>
+        <View style={styles.stepGroup}>
+          {stepButton('end', -1)}
+          {stepButton('end', 1)}
+        </View>
       </View>
     </View>
   );
@@ -242,10 +386,18 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
+  rangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   timeRange: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
+  },
+  timeRangeTrimmed: {
+    fontWeight: '700',
   },
   sliderContainer: {
     height: HANDLE_SIZE + 8,
@@ -269,6 +421,10 @@ const styles = StyleSheet.create({
     height: HANDLE_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+  },
+  handleOnTop: {
+    zIndex: 2,
   },
   handleInner: {
     width: 22,
@@ -284,5 +440,16 @@ const styles = StyleSheet.create({
     width: 8,
     height: 2,
     borderRadius: layout.borderRadiusFull,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  stepGroup: {
+    flexDirection: 'row',
+    // Wider than two hit slops, so neighbouring targets do not overlap.
+    gap: spacing.sm,
   },
 });

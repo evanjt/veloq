@@ -14,4 +14,4 @@
   android:configure="__PKG__.widget.InsightsWidgetConfigureActivity"
   android:widgetFeatures="reconfigurable|configuration_optional"
   android:initialLayout="@layout/widget_insights"
-  android:previewLayout="@layout/widget_insights" />
+  android:previewLayout="@layout/widget_preview_insights" />

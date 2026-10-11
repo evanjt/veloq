@@ -3,9 +3,12 @@ const fs = require("fs");
 const path = require("path");
 
 const {
+  addCatalogueRegions,
   addMissingSourceFiles,
+  addMissingStringCatalogues,
   targetUuidByName,
 } = require("./with-ios-widget");
+const { LOCALIZABLE_FILE, writePushExtensionCatalogue } = require("./nativeStrings");
 const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
 const {
   applyEngineLinkSettings,
@@ -29,6 +32,10 @@ const {
  * background refresh writes with, linked into the tracked tree. That is the
  * path rather than the silent data push the JavaScript task runs on, which iOS
  * throttles and never delivers after a force-quit.
+ *
+ * When the engine cannot answer, the extension still rewrites the server's
+ * English line, from a string catalogue generated here out of the app's own
+ * locale bundles, so the fallback reads in the athlete's language.
  *
  * The capability is already on the app: `with-app-groups.js` declares the App
  * Group, which is also the shared keychain group. The extension declares the
@@ -63,14 +70,18 @@ function copyDir(src, dest) {
   }
 }
 
+/** Everything the prebuild writes under `ios/` for the extension. */
+function writePushExtensionFiles(projectRoot, platformProjectRoot) {
+  const dest = path.join(platformProjectRoot, TARGET);
+  copyDir(path.join(projectRoot, SOURCE_DIR), dest);
+  writePushExtensionCatalogue(dest);
+}
+
 function withPushExtensionFiles(config) {
   return withDangerousMod(config, [
     "ios",
     (cfg) => {
-      copyDir(
-        path.join(cfg.modRequest.projectRoot, SOURCE_DIR),
-        path.join(cfg.modRequest.platformProjectRoot, TARGET)
-      );
+      writePushExtensionFiles(cfg.modRequest.projectRoot, cfg.modRequest.platformProjectRoot);
       return cfg;
     },
   ]);
@@ -129,6 +140,8 @@ function createPushExtensionTarget(proj, bundleId) {
 function configurePushExtensionProject(proj, { swiftFiles, bundleId, version, buildNumber }) {
   const targetUuid = targetUuidByName(proj, TARGET) ?? createPushExtensionTarget(proj, bundleId);
   addMissingSourceFiles(proj, targetUuid, swiftFiles, TARGET);
+  addMissingStringCatalogues(proj, targetUuid, [LOCALIZABLE_FILE], TARGET);
+  addCatalogueRegions(proj);
   ensureRustPhase(proj, targetUuid);
   for (const settings of targetBuildSettings(proj, TARGET)) {
     applyPushExtensionBuildSettings(settings, { version, buildNumber });
@@ -159,3 +172,4 @@ module.exports.applyPushExtensionBuildSettings = applyPushExtensionBuildSettings
 module.exports.copyDir = copyDir;
 module.exports.configurePushExtensionProject = configurePushExtensionProject;
 module.exports.pushSwiftFiles = pushSwiftFiles;
+module.exports.writePushExtensionFiles = writePushExtensionFiles;

@@ -12,6 +12,7 @@ import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
+import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -243,6 +244,10 @@ export function useSectionTrim(
     setIsExpanded(false);
     setExpandContext(null);
   }, []);
+  // Back is Cancel, and like Cancel it does nothing while a save is in flight.
+  useBackDismiss(isTrimming, () => {
+    if (!editInFlight.current) cancelTrim();
+  });
 
   const runBoundsEdit = useCallback(
     async (edit: SectionBoundsEdit) => {

@@ -1061,27 +1061,23 @@ fn summary_entry(
             "default",
         ),
         "weekHours" => {
-            let hours =
-                js_round(finite(summary.current_week.total_duration) / 3600.0 * 10.0) / 10.0;
-            let previous =
-                js_round(finite(summary.prev_week.total_duration) / 3600.0 * 10.0) / 10.0;
+            let hours = crate::persistence::screens::week_hours(&summary.current_week);
+            let (trend, _) =
+                crate::persistence::screens::week_trends(&summary.current_week, &summary.prev_week);
             entry(
                 translate(ctx, "metrics.week"),
                 format!("{hours}h"),
-                judge("weekHours", Some(hours), Some(previous)),
+                from_glyph(trend.as_deref(), true),
                 "default",
             )
         }
         "weekCount" => {
-            let count = f64::from(summary.current_week.count);
+            let (_, trend) =
+                crate::persistence::screens::week_trends(&summary.current_week, &summary.prev_week);
             entry(
                 "#",
                 summary.current_week.count.to_string(),
-                judge(
-                    "weekCount",
-                    Some(count),
-                    Some(f64::from(summary.prev_week.count)),
-                ),
+                from_glyph(trend.as_deref(), true),
                 "default",
             )
         }
@@ -1102,7 +1098,7 @@ fn summary_entry(
             entry(
                 translate(ctx, "metrics.ftp"),
                 latest.map_or(TEXT_NONE.to_string(), int_text),
-                judge("ftp", latest, summary.ftp_trend.previous_ftp.map(f64::from)),
+                from_glyph(summary.ftp_trend.glyph.as_deref(), true),
                 "default",
             )
         }

@@ -570,6 +570,89 @@ pub(super) fn insert_route_groups<'a>(
     Ok(())
 }
 
+/// Replace the stored route catalogue with `groups`, inside the caller's
+/// transaction: the groups, the athlete's representative choices, the names of
+/// dissolved routes, the route numbers, the match rows, the registry and the
+/// rule the groups were made under. Both group writers save through this, so a
+/// regroup stores the same rows whichever of them ran it.
+pub(super) fn write_group_catalogue(
+    conn: &Connection,
+    groups: &[RouteGroup],
+    identity: &super::route_identity::RouteIdentity,
+    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
+    match_config: &tracematch::MatchConfig,
+) -> SqlResult<()> {
+    let chosen = chosen_representatives(conn)?;
+    // An excluded match row is the athlete taking one attempt out of a route,
+    // the one record among the match rows, so it rides across for every pair
+    // that survives.
+    let excluded: Vec<(String, String)> = {
+        let mut stmt =
+            conn.prepare("SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1")?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<SqlResult<_>>()?
+    };
+    conn.execute("DELETE FROM route_groups", [])?;
+    conn.execute("DELETE FROM activity_matches", [])?;
+
+    let mut sorted: Vec<&RouteGroup> = groups.iter().collect();
+    sorted.sort_by(|a, b| mint_order(a, b));
+    insert_route_groups(conn, sorted)?;
+    mark_chosen_representatives(conn, &chosen)?;
+
+    // A name outlives its route only while the id survives. The remap keeps that
+    // id, so this drops only the names of routes the regroup actually dissolved,
+    // and a later mint that reissues the id does not inherit it.
+    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
+    let named: Vec<String> = {
+        let mut stmt = conn.prepare("SELECT route_id FROM route_names")?;
+        stmt.query_map([], |row| row.get(0))?
+            .collect::<SqlResult<_>>()?
+    };
+    let mut delete_name = conn.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+    for id in named.iter().filter(|id| !live.contains(id.as_str())) {
+        delete_name.execute(params![id])?;
+    }
+    drop(delete_name);
+    mint_route_numbers(conn, groups)?;
+
+    // A match row is written only for a member of its route: a held map can
+    // still carry an activity that left a route whose id survived, and every
+    // reader of the rows takes them as membership.
+    let mut insert = conn.prepare(
+        "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
+         VALUES (?, ?, ?, ?)",
+    )?;
+    for group in groups {
+        let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
+        for m in matches.get(&group.group_id).into_iter().flatten() {
+            if members.contains(m.activity_id.as_str()) {
+                insert.execute(params![
+                    group.group_id,
+                    m.activity_id,
+                    m.match_percentage,
+                    m.direction.to_string(),
+                ])?;
+            }
+        }
+        // A member the grouping reported no pair for, or whose track is unreadable.
+        for id in &group.activity_ids {
+            insert.execute(params![group.group_id, id, 0.0f64, "same"])?;
+        }
+    }
+    drop(insert);
+    let mut exclude = conn.prepare(
+        "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+    )?;
+    for (route_id, activity_id) in &excluded {
+        exclude.execute(params![route_id, activity_id])?;
+    }
+    drop(exclude);
+
+    super::route_identity::write_identity(conn, identity)?;
+    stamp_groups_match_rule(conn, match_config)
+}
+
 /// Each route whose representative the athlete chose, with that representative.
 /// A writer that deletes and reinserts the groups reads this first and hands it
 /// to [`mark_chosen_representatives`] after.
@@ -1495,88 +1578,13 @@ impl PersistentEngine {
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
         let result = (|| -> SqlResult<u64> {
-            // Snapshot excluded flags before wiping - user exclusions must survive recompute
-            let excluded_pairs: Vec<(String, String)> = {
-                let mut stmt = self.db.prepare(
-                    "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
-                )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-                    .filter_map(|r| r.ok())
-                    .collect()
-            };
-
-            let chosen = chosen_representatives(&self.db)?;
-            self.db.execute("DELETE FROM route_groups", [])?;
-            self.db.execute("DELETE FROM activity_matches", [])?;
-
-            let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
-            sorted_groups.sort_by(|a, b| mint_order(a, b));
-            insert_route_groups(&self.db, sorted_groups)?;
-
-            mark_chosen_representatives(&self.db, &chosen)?;
-            mint_route_numbers(&self.db, &self.groups)?;
-
-            // Insert activity matches
-            let mut match_stmt = self.db.prepare(
-                "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
-                 VALUES (?, ?, ?, ?)",
+            write_group_catalogue(
+                &self.db,
+                &self.groups,
+                &self.route_identity,
+                &self.activity_matches,
+                &self.match_config,
             )?;
-
-            for (route_id, matches) in &self.activity_matches {
-                for m in matches {
-                    match_stmt.execute(params![
-                        route_id,
-                        m.activity_id,
-                        m.match_percentage,
-                        m.direction.to_string(),
-                    ])?;
-                }
-            }
-
-            // Ensure every group member has an activity_matches entry.
-            // The grouping algorithm sometimes produces groups with activity IDs
-            // that don't have corresponding match info (e.g., when activities are
-            // added incrementally). Fill in missing entries with a default.
-            for group in &self.groups {
-                for activity_id in &group.activity_ids {
-                    match_stmt.execute(params![
-                        group.group_id,
-                        activity_id,
-                        0.0f64, // default for members not in activity_matches (representatives, tracks not loaded)
-                        "same",
-                    ])?;
-                }
-            }
-
-            // Restore excluded flags that were snapshotted before the DELETE
-            if !excluded_pairs.is_empty() {
-                let mut excl_stmt = self.db.prepare(
-                    "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
-                )?;
-                let mut restored = 0u32;
-                for (route_id, activity_id) in &excluded_pairs {
-                    restored += excl_stmt.execute(params![route_id, activity_id])? as u32;
-                }
-                if restored > 0 {
-                    log::info!(
-                        "veloqrs: Restored {} excluded flags after save_groups",
-                        restored
-                    );
-                }
-            }
-
-            // Write the route registry blob in THIS transaction so it commits
-            // atomically with the groups.
-            if let Some(blob) = self.route_identity_blob() {
-                self.db.execute(
-                    "INSERT INTO identity_state (key, blob, updated_at)
-                     VALUES (?, ?, datetime('now'))
-                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
-                    params![super::route_identity::ROUTE_IDENTITY_KEY, blob],
-                )?;
-            }
-
-            stamp_groups_match_rule(&self.db, &self.match_config)?;
 
             // Advanced without a compare: this write replaces the whole
             // catalogue from memory, so a background commit landing since the
@@ -1592,6 +1600,26 @@ impl PersistentEngine {
         match committed {
             Ok(generation) => {
                 self.group_generation = generation;
+                // The held map is the seed the next measurement starts from, so
+                // it keeps only the rows the save wrote.
+                let members: HashMap<&str, HashSet<&str>> = self
+                    .groups
+                    .iter()
+                    .map(|g| {
+                        let ids = g.activity_ids.iter().map(String::as_str).collect();
+                        (g.group_id.as_str(), ids)
+                    })
+                    .collect();
+                let held: HashMap<String, Vec<ActivityMatchInfo>> =
+                    std::mem::take(&mut self.activity_matches)
+                        .into_iter()
+                        .filter_map(|(route_id, mut rows)| {
+                            let ids = members.get(route_id.as_str())?;
+                            rows.retain(|m| ids.contains(m.activity_id.as_str()));
+                            Some((route_id, rows))
+                        })
+                        .collect();
+                self.activity_matches = held;
                 // A group this save numbered is shown under that number at once,
                 // not only after the next load. The save has committed either way.
                 if let Err(error) = self.apply_route_names() {

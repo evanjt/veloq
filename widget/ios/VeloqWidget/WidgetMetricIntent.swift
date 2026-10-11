@@ -114,13 +114,20 @@ struct SelectMetricIntent: WidgetConfigurationIntent {
 
 @available(iOS 17.0, *)
 struct VeloqConfigProvider: AppIntentTimelineProvider {
+  static func placeholderEntry() -> VeloqEntry {
+    VeloqEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> VeloqEntry {
-    VeloqEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func snapshot(for configuration: SelectMetricIntent, in context: Context) async -> VeloqEntry {
     VeloqEntry(
-      date: Date(), snapshot: WidgetSnapshotStore.load(), placement: configuration.placement)
+      date: Date(),
+      snapshot: WidgetSample.snapshot(
+        stored: WidgetSnapshotStore.load(), isPreview: context.isPreview),
+      placement: configuration.placement)
   }
 
   func timeline(for configuration: SelectMetricIntent, in context: Context) async

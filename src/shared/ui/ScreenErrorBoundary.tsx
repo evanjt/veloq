@@ -2,13 +2,14 @@ import React, { Component, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useSegments } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { Button } from './Button';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { tapBack } from '@/shared/app/navigation';
+import { isTabBarRoute } from './tabBarClearance';
 
 interface Props {
   children: ReactNode;
@@ -69,6 +70,9 @@ interface FallbackProps {
 function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
   const { isDark, colors: themeColors } = useTheme();
   const { t } = useTranslation();
+  // Back always leaves a stack screen, to the Feed when nothing is behind it. On a tab the Feed
+  // may be the screen that threw, so Back there needs history to go back to.
+  const offersBack = !isTabBarRoute(useSegments()) || router.canGoBack();
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -84,7 +88,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
         </Text>
       )}
       <View style={styles.buttons}>
-        {router.canGoBack() && (
+        {offersBack && (
           <Button
             label={t('common.back')}
             variant="secondary"

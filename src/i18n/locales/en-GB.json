@@ -48,7 +48,7 @@
       "trainingLoad": "Training Stress Score (TSS) quantifies training load based on duration and intensity relative to your threshold.",
       "yourForm": "Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL)."
     },
-    "ftp": "FTP: {{value}}W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Heart Rate",
     "mapStyle": "Map Style",
     "maxHR": "Max: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "Your Form"
     },
     "hrZoneTotal": "Time with heart rate: {{duration}}",
+    "powerZoneTotal": "Time with power: {{duration}}",
     "movingTime": "Moving time: {{duration}}",
     "timeInHRZones": "Time in HR Zones",
     "timeInPowerZones": "Time in Power Zones",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.",
     "accountChangeContinue": "Continue and delete",
     "disconnectAndClearTitle": "Sign out and delete data?",
-    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
-    "disconnectAndClearConfirm": "Delete and sign out"
+    "disconnectAndClearMessage": "This signs you out and deletes your library on this phone. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out",
+    "disconnectAndClearBackUpFirst": "Back up first",
+    "wipeList": {
+      "returns": "Comes back when you sign in again:",
+      "deleted": "Deleted for good:",
+      "kept": "Kept on this phone:",
+      "activities": "Activities and their GPS tracks",
+      "wellness": "Wellness and fitness",
+      "detectedSections": "Sections and routes found in your activities",
+      "localBackups": "Backups stored on this phone",
+      "backupSetup": "Backup set-up: WebDAV login, Google Drive account and backup folder",
+      "names": "Names you gave sections and routes",
+      "sectionEdits": "Sections you created, trimmed or pinned",
+      "sensors": "Paired sensors",
+      "exportPrivacy": "Home location set for export privacy",
+      "notificationChoices": "Notification choices",
+      "mapChoices": "Map settings saved for single activities",
+      "recordings": "Activities recorded on this phone"
+    }
   },
   "attribution": {
     "demoData": "Demo mode uses real activity traces. Used with permission from the author.",
@@ -415,12 +434,14 @@
     "pullToRefresh": "Pull to refresh",
     "reset": "Reset",
     "retry": "Retry",
+    "freeUpSpace": "Free up space",
     "save": "Save",
     "showDetails": "Show details for developer",
     "undo": "Undo",
     "on": "On",
     "off": "Off",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "allow": "Allow"
   },
   "demo": {
     "banner": "Demo Mode",
@@ -444,10 +465,11 @@
         "rateLimited": "intervals.icu asked us to slow down, so sync is waiting",
         "server": "intervals.icu sent back something the app could not use",
         "network": "Could not reach intervals.icu",
-        "storage": "A file on this device could not be read",
+        "storage": "A file on this device could not be read or written",
         "notConfigured": "No intervals.icu login is stored on this device",
         "internal": "Sync stopped for a reason the app cannot name",
-        "engineClosed": "Sync stopped because the library was closed partway through"
+        "engineClosed": "Sync stopped because the library was closed partway through",
+        "storageFull": "This device is out of space, so sync could not store what it fetched"
       }
     },
     "tracksMissing": {
@@ -758,8 +780,8 @@
       "sectionTrendName": "Section performance trend",
       "stalePrCrossRefName": "{{metric}} PR cross-reference",
       "efficiencyName": "Aerobic efficiency regression",
-      "efficiencyDescription": "Tracks average heart rate multiplied by pace across matched efforts on the section, with an ordinary least squares regression over time. A direction is shown only when the slope's 95% interval excludes zero and the fitted change across the efforts is more than 2% of the mean. A falling value means fewer beats for the same pace.",
-      "efficiencyFormula": "efficiency = average heart rate × pace (seconds per km)",
+      "efficiencyDescription": "Tracks average heart rate multiplied by pace across matched efforts on the section, with an ordinary least squares regression over time. A direction is shown only when the slope's 95% interval excludes zero and the fitted change across the efforts is more than 2% of the mean. A falling value means fewer heartbeats per km: a lower heart rate, a faster pace or both.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = average heart rate × pace (seconds per km)",
       "routeName": "Route records and trends",
       "route": "Counts attempts on a route in one sport and direction that are timed, not excluded, not partial and inside the route's distance band. A record is the fastest of them, set recently. A trend compares the median of the last three against the three before, from six attempts."
     },
@@ -830,7 +852,8 @@
     },
     "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it.",
     "efficiencyTrend": {
-      "seriesLabel": "Heart rate per unit of pace, oldest effort to newest",
+      "seriesLabel": "{{quantity}}, oldest effort to newest",
+      "quantity": "Heart rate × pace",
       "title": "Efficiency improving on {{name}}",
       "changeTitle": "Efficiency on {{name}}: +{{hrChange}} bpm",
       "changeSubtitle": "Modelled +{{hrChange}} bpm at average pace over {{efforts}} efforts",
@@ -993,6 +1016,7 @@
     "sessionKeyRejected": "Your API key was rejected.",
     "sessionRestore": "Sign in again to get them back.",
     "sessionRestoreAthlete": "Sign in again as {{athleteId}} to get them back.",
+    "sessionHeldRide": "Your ride from {{when}} is kept, and opens when you sign in again.",
     "subtitle": "Connect to intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
@@ -1135,6 +1159,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "Live Activities are off, so ride controls won't show on the lock screen",
+    "notificationsOffNotice": "Notifications are off, so ride controls and alerts won't show outside the app",
     "strengthRest": "Rest",
     "strengthLine": "Line {{n}} of {{total}}",
     "strengthDone": "Done",
@@ -1171,6 +1197,8 @@
       "stop": "STOP"
     },
     "discard": "Discard",
+    "discardConfirmMessage": "It has not been saved, and it cannot be recovered once discarded.",
+    "discardConfirmTitle": "Discard this recording?",
     "distance": "Distance (km)",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "duration": "Duration (minutes)",
@@ -1196,13 +1224,18 @@
     },
     "gpsAcquiring": "Waiting for GPS...",
     "gpsAlertContinue": "Continue Without GPS",
-    "gpsAlertMessage": "Unable to get a GPS fix. Check that location services are enabled and you have a clear view of the sky.",
+    "gpsAlertMessage": "Unable to get a GPS fix. Move somewhere with a clear view of the sky.",
     "gpsAlertSettings": "Open Settings",
     "gpsAlertStop": "Stop Recording",
     "gpsAlertTitle": "GPS Signal Not Found",
     "gpsNone": "Location denied",
     "gpsPermissionDenied": "Location permission denied. Grant access in Settings to record GPS.",
     "gpsReady": "GPS Ready",
+    "gpsServicesOff": "Location off",
+    "gpsServicesOffAndroid": "Location is off on this phone, so no track can be recorded.",
+    "gpsServicesOffIos": "Location Services are off, so no track can be recorded. Turn them on in Settings > Privacy & Security > Location Services.",
+    "gpsServicesOffTitle": "Location is off",
+    "gpsServicesTurnOn": "Turn on",
     "gpsTrackingError": "Could not start GPS tracking. Try pausing and resuming.",
     "gpsWaiting": "Waiting for GPS signal. Move outdoors for a better fix.",
     "gpsWeakWarning": "GPS signal weak, recording may be inaccurate",
@@ -1228,6 +1261,7 @@
       "max": "Max"
     },
     "saveError": "Save Failed",
+    "saveErrorNoSpace": "This device is nearly out of space, so the activity could not be saved. Free up space, then try again.",
     "savedQueued": "Activity saved. It will upload automatically when you are back online.",
     "savedQueuedAuth": "Activity saved. It will upload when you sign in again.",
     "settings": "Recording Settings",
@@ -1255,6 +1289,8 @@
       "night": "Night"
     },
     "trimActivity": "Trim Activity",
+    "trimEndHandle": "Trim end",
+    "trimStartHandle": "Trim start",
     "trimmed": "Trimmed",
     "uploadRejected": "intervals.icu refused this file. The ride is kept in My Recordings.",
     "uploadMissing": "This ride's file is no longer on the device, so it cannot be uploaded.",
@@ -1388,7 +1424,6 @@
     "routeWord": "Route",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Reset to automatic reference selection? Match percentages will be recalculated for this route.",
-    "routesWillAppear": "Routes will appear after your activities are analysed",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will appear here",
     "sectionCreationFailed": "Failed to create section. Please try again.",
     "sectionWord": "Section",
@@ -1419,7 +1454,19 @@
     "largeSectionPerformanceWarning": "Large sections may take longer to process.",
     "prTime": "PR {{time}}",
     "errorDetailId": "ID: {{id}}",
-    "errorDetailRange": "Range: {{start}} → {{end}}"
+    "errorDetailRange": "Range: {{start}} → {{end}}",
+    "emptyNoGpsTitle": "No activities with GPS",
+    "emptyNoGps": "Routes and sections are found in GPS tracks, and the synced range holds only sessions without one, such as trainer, pool or strength.",
+    "emptyNotYetRunTitle": "Waiting for analysis",
+    "emptyNotYetRun_one": "{{count}} activity with GPS is waiting for analysis. Routes and sections appear once it has run.",
+    "emptyNotYetRun_other": "{{count}} activities with GPS are waiting for analysis. Routes and sections appear once it has run.",
+    "emptyRunningTitle": "Analysis running",
+    "emptyRunning": "{{phase}}: {{percent}}% done. Routes and sections appear when it finishes.",
+    "emptyHeldTitle": "Analysis on hold",
+    "emptyNoRoutes_one": "A route needs at least {{count}} activity on a similar path. None of your activities with GPS make one yet.",
+    "emptyNoRoutes_other": "A route needs at least {{count}} activities on a similar path. None of your activities with GPS share one yet.",
+    "emptyNoSections_one": "A section needs at least {{count}} activity over the same stretch of road. None was found in your activities with GPS.",
+    "emptyNoSections_other": "A section needs at least {{count}} activities over the same stretch of road, even on different routes. None was found in your activities with GPS."
   },
   "routesScreen": {
     "computingRoutes": "Computing routes...",
@@ -1495,7 +1542,7 @@
     "sectionNotFound": "Section not found",
     "aerobicEfficiency": "Aerobic efficiency",
     "aerobicEfficiencyDetail": "{{efforts}} matched efforts, modelled change of {{hrChange}} bpm at average pace",
-    "aerobicEfficiencyCaption": "Heart rate per unit of pace, oldest effort to newest",
+    "aerobicEfficiencyCaption": "{{quantity}}, oldest effort to newest",
     "correlationTitle": "Wellness and speed",
     "correlationMethod": "Pearson's r of lap speed against that day's wellness value, 95% interval, at least 10 attempts with a value",
     "correlationFamily_one": "Holm-adjusted across {{count}} variable",
@@ -1948,7 +1995,6 @@
     "atWeight": "at {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Aerobic Efficiency",
     "eFTPTrend": "eFTP Trend",
     "ftpLabel": "FTP {{value}}w",
     "heartRate": "Heart Rate",
@@ -1997,6 +2043,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2094,6 +2141,15 @@
       "routesBody": "Activities over the same course are grouped into a route, with every attempt charted against the others.",
       "sectionPageTip": "Scroll down the section page for the trend, the spread of your times and the line coloured by where time was won or lost.",
       "routesTip": "Scroll down the route page to see every attempt over the course charted against the others."
+    },
+    "tutorial": {
+      "firstLoadTitle": "Your training, on this phone",
+      "firstLoadBody": "Veloq reads your activities and wellness from intervals.icu and keeps them on this phone. The first load runs in the background, and your feed fills in as activities arrive.",
+      "feedTitle": "Your feed",
+      "feedBody": "Every activity lands here as a card with its map, newest first.",
+      "feedTip": "Pull down to check intervals.icu for new activities, or tap a card to open it.",
+      "activityTitle": "Inside an activity",
+      "activityBody": "Open an activity for its map and charts, its intervals, and the routes and sections it belongs to."
     }
   },
   "strength": {
@@ -2130,6 +2186,7 @@
     "sets": "sets",
     "setsCount_one": "{{count}} set",
     "setsCount_other": "{{count}} sets",
+    "clearMuscle": "Clear {{muscle}}",
     "muscleGroupVolume": "Muscle Group Volume",
     "relativeWeightedSets": "Relative weighted sets across the selected period",
     "reps": "reps",
@@ -2359,7 +2416,16 @@
   "summaryCardChange": {
     "window_one": "{{change}} in {{count}} day",
     "window_other": "{{change}} in {{count}} days",
-    "rule": "Change is the last fitness value in the window minus the first. A dot marks each day fitness rose by more than 1 point over the day before."
+    "rule": "Change is the last fitness value in the window minus the first. A dot marks each day fitness rose by more than 1 point over the day before.",
+    "trend": {
+      "improved": "improved",
+      "declined": "declined",
+      "rising": "rising",
+      "falling": "falling",
+      "steady": "steady",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Compared with {{previous}} on {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Compared with {{previous}} at this point last week."
+    }
   },
   "period": {
     "short": {

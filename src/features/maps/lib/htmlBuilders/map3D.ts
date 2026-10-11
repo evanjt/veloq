@@ -27,7 +27,7 @@ import {
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
-import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { jsLiteral, jsNumber } from '@/features/maps/lib/webViewLiterals';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
@@ -217,9 +217,9 @@ ${consoleBridgeScript()}
     }
     const bounds = ${boundsJSON};
     const center = ${centerJSON};
-    const savedZoom = ${zoom};
-    const savedBearing = ${bearing};
-    const savedPitch = ${pitch};
+    const savedZoom = ${jsNumber(zoom, 12)};
+    const savedBearing = ${jsNumber(bearing, 0)};
+    const savedPitch = ${jsNumber(pitch, 0)};
     const isSatellite = ${isSatellite};
     const _terrainSource = ${initTerrainSourceJSON};
     const _skyConfig = ${initSkyConfigJSON};

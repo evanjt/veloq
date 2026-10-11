@@ -20,6 +20,13 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import FeedScreen from '@/app/(tabs)/index';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 
+// The default text size, where the cards are pinned and the search section
+// opens the list header.
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => ({ width: 430, height: 932, scale: 3, fontScale: 1 }),
+}));
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
   cancelSyncRefresh: jest.fn(),
@@ -274,7 +281,11 @@ describe('feed search does not re-read the highlight bundle', () => {
       renderFeed();
       const list = screen.getByTestId('home-activity-list');
       const searchSection = list.props.ListHeaderComponent().props.children[0];
-      act(() => searchSection.props.onLayout({ nativeEvent: { layout: { height: 78 } } }));
+      act(() =>
+        searchSection.props.onLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
+        })
+      );
       expect(scrollToOffset).toHaveBeenCalledWith({ offset: 78, animated: false });
     } finally {
       scrollToOffset.mockRestore();
@@ -288,7 +299,11 @@ describe('feed search does not re-read the highlight bundle', () => {
       const feed = renderFeed();
       const list = screen.getByTestId('home-activity-list');
       const searchSection = list.props.ListHeaderComponent().props.children[0];
-      act(() => searchSection.props.onLayout({ nativeEvent: { layout: { height: 94 } } }));
+      act(() =>
+        searchSection.props.onLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 94 } },
+        })
+      );
       scrollToOffset.mockClear();
 
       mockFeedFocused = false;

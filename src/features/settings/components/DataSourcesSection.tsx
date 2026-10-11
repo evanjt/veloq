@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
   trademarkText: {
     ...typography.micro,
     color: colors.textSecondary,
-    opacity: 0.7,
   },
   toggleRow: {
     flexDirection: 'row',

@@ -226,7 +226,7 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBeGreaterThanOrEqual(2);
   });
 
-  it('stops interval when status changes to paused', () => {
+  it('keeps elapsed time counting when status changes to paused', () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -250,15 +250,11 @@ describe('useTimer', () => {
 
     rerender({});
 
-    // Advance time - interval should be cleared, but Date.now() still advances
     act(() => {
       jest.advanceTimersByTime(5000);
     });
 
-    // The hook still computes from Date.now() when status is paused (not idle/stopped),
-    // but there's no interval ticking, so it only updates on re-render
-    // The key thing is the interval is cleared (no memory leak)
-    expect(result.current.elapsedTime).toBeGreaterThanOrEqual(beforePause);
+    expect(result.current.elapsedTime).toBe(beforePause + 5);
   });
 
   it('cleans up interval on unmount', () => {

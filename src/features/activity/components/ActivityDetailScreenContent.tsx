@@ -569,6 +569,7 @@ export function ActivityDetailScreenContent({
           fitnessImpact={detail?.fitnessImpact}
           newGround={newGround}
           hrZones={detail?.hrZones}
+          powerZones={detail?.powerZones}
           transitionSettled={transitionSettled}
           onPointSelect={handlePointSelect}
           onInteractionChange={handleInteractionChange}

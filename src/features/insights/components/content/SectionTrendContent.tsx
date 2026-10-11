@@ -25,7 +25,13 @@ import {
   typography,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
-import { pressable, pressRipple, Button, EngineReadFailure } from '@/shared/ui';
+import {
+  pressable,
+  pressRipple,
+  Button,
+  EngineReadFailure,
+  EngineReadFailureRetry,
+} from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 
@@ -103,10 +109,13 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   );
   // The trend's sport, which is what the row was ranked under. Read
   // unfiltered, the accordion opened on every sport's efforts.
-  const { records, bests, isLoading } = useSectionPerformances(
-    expanded ? fullSection : null,
-    section.sportType
-  );
+  const {
+    records,
+    bests,
+    isLoading,
+    error: streamsError,
+    refetch: refetchStreams,
+  } = useSectionPerformances(expanded ? fullSection : null, section.sportType);
 
   const handleToggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -188,6 +197,12 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
         <View style={styles.expandedContent}>
           {sectionError !== undefined ? (
             <EngineReadFailure error={sectionError} testID="section-read-failure" />
+          ) : streamsError ? (
+            <EngineReadFailureRetry
+              error={streamsError}
+              onRetry={refetchStreams}
+              testID="section-stream-failure"
+            />
           ) : isLoading ? (
             <View style={[styles.shimmerRow, isDark && styles.shimmerRowDark]}>
               <Shimmer width="100%" height={40} borderRadius={8} />

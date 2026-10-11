@@ -52,6 +52,7 @@ jest.mock('@/features/wellness', () => {
   const { View } = require('react-native');
   return {
     WellnessTrendsChart: () => <View testID="wellness-chart-canvas" />,
+    useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
     useWellness: () => ({
       data: [],
       isLoading: false,

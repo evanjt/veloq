@@ -9,6 +9,9 @@ import { getActivityTypeConfig } from '../../lib/activityCategories';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 import { Button, IconButton } from '@/shared/ui';
+import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
+
+const FADE_IN_MS = 100;
 
 export interface SelectedActivity {
   activity: ActivityBoundsItem;
@@ -80,6 +83,8 @@ export const ActivityPopup = memo(function ActivityPopup({
   // Animate opacity for smooth show/hide
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
+  const titleRef = useRef<Text>(null);
+  useFocusOnAppear(titleRef, selected?.activity.id, FADE_IN_MS);
 
   useEffect(() => {
     if (isVisible) {
@@ -87,7 +92,7 @@ export const ActivityPopup = memo(function ActivityPopup({
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 100,
+          duration: FADE_IN_MS,
           useNativeDriver: true,
         }),
         Animated.spring(translateY, {
@@ -121,7 +126,12 @@ export const ActivityPopup = memo(function ActivityPopup({
     >
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
-          <Text style={[styles.popupTitle, isDark && styles.popupTitleDark]} numberOfLines={1}>
+          <Text
+            ref={titleRef}
+            testID="activity-popup-title"
+            style={[styles.popupTitle, isDark && styles.popupTitleDark]}
+            numberOfLines={1}
+          >
             {selected?.activity.name ?? ''}
           </Text>
           <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>{formattedDate}</Text>

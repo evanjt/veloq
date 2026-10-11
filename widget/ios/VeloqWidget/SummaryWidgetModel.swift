@@ -63,13 +63,21 @@ struct FormZoneChart: Equatable {
   let max: Double
 }
 
+/// One entry of the supporting row, with the words drawn under its value.
+struct SummarySupporting {
+  let entry: WidgetSummaryEntry
+  /// The form zone under the Form entry's value, which its colour alone would carry; nil on
+  /// every other entry.
+  let caption: String?
+}
+
 struct SummaryContent {
   let hero: WidgetSummaryEntry
   /// The line under the hero's value: the form zone where the hero is form, nil otherwise.
   let heroLine: String?
   let chart: SummaryChartKind
   /// Empty on Small, up to four otherwise.
-  let supporting: [WidgetSummaryEntry]
+  let supporting: [SummarySupporting]
   /// Large only, and only with two measured days and the four zone bounds.
   let formZones: FormZoneChart?
 }
@@ -113,7 +121,9 @@ enum SummaryWidgetModel {
       hero: hero,
       heroLine: hero.id == "form" ? snapshot.display.formZone : nil,
       chart: shows ? chartKind(snapshot, hero) : .none,
-      supporting: supporting,
+      supporting: supporting.map {
+        SummarySupporting(entry: $0, caption: $0.id == "form" ? snapshot.display.formZone : nil)
+      },
       formZones: size == .large ? formZones(snapshot) : nil)
   }
 

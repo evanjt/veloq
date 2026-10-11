@@ -189,7 +189,7 @@ async function registerStateWithProxy(state: string, codeChallenge: string): Pro
  */
 export async function startOAuthFlow(
   scopes: readonly string[] = OAUTH.SCOPES
-): Promise<WebBrowser.WebBrowserAuthSessionResult> {
+): Promise<OAuthFlowResult> {
   if (!isOAuthConfigured()) {
     throw new Error(
       'OAuth is not configured. Set CLIENT_ID and PROXY_URL in src/lib/utils/constants.ts'
@@ -215,7 +215,34 @@ export async function startOAuthFlow(
   // The proxy will redirect back to our app scheme
   const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUrl);
 
-  return result;
+  return classifyAuthResult(result);
+}
+
+/** How the browser half of a sign-in ended, read the same way by every caller. */
+export type OAuthFlowResult =
+  | { outcome: 'success'; url: string }
+  | { outcome: 'cancelled' }
+  | { outcome: 'failed' };
+
+/**
+ * Closing the sign-in tab is a cancel the athlete chose, not an error. iOS
+ * reports it as `cancel`; Android has no native auth session, and its fallback
+ * reports `dismiss` when the app returns to the foreground without a redirect.
+ * Anything else, such as `locked` while another session is open, is a failure.
+ */
+export function classifyAuthResult(
+  result: WebBrowser.WebBrowserAuthSessionResult
+): OAuthFlowResult {
+  if (result.type === 'success') {
+    return result.url ? { outcome: 'success', url: result.url } : { outcome: 'failed' };
+  }
+  if (
+    result.type === WebBrowser.WebBrowserResultType.CANCEL ||
+    result.type === WebBrowser.WebBrowserResultType.DISMISS
+  ) {
+    return { outcome: 'cancelled' };
+  }
+  return { outcome: 'failed' };
 }
 
 /**

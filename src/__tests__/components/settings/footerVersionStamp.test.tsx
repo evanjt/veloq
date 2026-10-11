@@ -17,7 +17,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
-jest.mock('@/features/settings/components/whatsNew/slides', () => ({ getAllSlides: () => [] }));
 
 const expoConfig: { version: string; extra: Record<string, unknown> } = {
   version: '0.4.0',

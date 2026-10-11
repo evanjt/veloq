@@ -57,6 +57,12 @@ interface ChartPoint {
   activityId?: string | undefined; // Activity that achieved this best effort
 }
 
+/** A scrubbed point, with the plotted curve it was taken from. */
+interface HeldPoint {
+  point: ChartPoint;
+  of: readonly ChartPoint[];
+}
+
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -92,10 +98,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     oldest: formatLocalDate(daysAgo),
   });
 
-  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
-  const [persistedTooltip, setPersistedTooltip] = useState<ChartPoint | null>(null);
+  const [tooltipData, setTooltipData] = useState<HeldPoint | null>(null);
+  const [persistedTooltip, setPersistedTooltip] = useState<HeldPoint | null>(null);
 
-  const lastPointRef = useRef<ChartPoint | null>(null);
+  const lastPointRef = useRef<HeldPoint | null>(null);
 
   // Build activity lookup map
   const activityMap = useMemo(() => {
@@ -152,10 +158,14 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     };
   }, [curve]);
 
-  const handleSelect = useCallback((point: ChartPoint) => {
-    lastPointRef.current = point;
-    setTooltipData(point);
-  }, []);
+  const handleSelect = useCallback(
+    (point: ChartPoint) => {
+      const held = { point, of: chartData };
+      lastPointRef.current = held;
+      setTooltipData(held);
+    },
+    [chartData]
+  );
 
   // The last scrubbed point stays on screen after release, so the reader can
   // let go and still see what they landed on.
@@ -173,8 +183,14 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     [criticalSpeedPace]
   );
 
-  // Display data - either selected point, persisted point, or latest (longest distance)
-  const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
+  // A point scrubbed on another curve, before GAP or the range changed, names
+  // a figure no longer drawn, so the header falls back to this curve's longest
+  // effort instead.
+  const heldOnThisCurve = (held: HeldPoint | null) => (held?.of === chartData ? held.point : null);
+  const displayData =
+    heldOnThisCurve(tooltipData) ??
+    heldOnThisCurve(persistedTooltip) ??
+    chartData[chartData.length - 1];
 
   // Get activity info for the selected point
   const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;

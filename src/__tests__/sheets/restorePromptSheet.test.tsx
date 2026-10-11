@@ -11,6 +11,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import RestorePromptSheet from '@/app/sheets/restore-prompt';
 import { offerRestorePrompt } from '@/features/settings/lib/restorePrompt';
 import { initialiseI18n } from '@/i18n';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 
 const mockSettings = new Map<string, string>();
 const mockBack = jest.fn();
@@ -24,7 +25,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: jest.fn(), back: () => mockBack() },
+  router: { push: jest.fn(), canGoBack: () => true, back: () => mockBack() },
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/storage/platformRecord', () => ({ platformRecordUri: () => null }));
@@ -105,6 +106,11 @@ describe('offering the restore sheet', () => {
     const show = jest.fn();
     await offerRestorePrompt(0, () => true, show);
     expect(show).not.toHaveBeenCalled();
+  });
+
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    render(<RestorePromptSheet />);
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('stays unanswered while the sheet is open', async () => {

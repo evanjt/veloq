@@ -31,7 +31,7 @@
     "unnamedLibraryMessage": "This device holds a library with no account's name on it. If it's yours, keep it and it'll sync as this account. Otherwise delete it.",
     "unnamedLibraryMine": "Yep, that's mine",
     "accountChangeUnknownDemoMessage": "This device holds a library from another account. Carrying on to demo mode will permanently delete it. To hang on to it, go back and sign in to that account first.",
-    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections and route data on this device. It all comes back down from intervals.icu next time you sign in. This cannot be undone."
+    "disconnectAndClearMessage": "This signs you out and clears your library off this phone. This cannot be undone."
   },
   "backup": {
     "exportError": "Couldn't export the backup.",
@@ -106,10 +106,11 @@
         "rateLimited": "intervals.icu asked us to ease up, so sync is waiting a tick",
         "server": "intervals.icu sent back something the app couldn't use",
         "network": "Couldn't get through to intervals.icu",
-        "storage": "Couldn't read a file on this device",
+        "storage": "Couldn't read or write a file on this device",
         "notConfigured": "There's no intervals.icu login on this device",
         "internal": "Sync stopped for a reason the app can't put a name to",
-        "engineClosed": "Sync stopped because the library got closed partway through"
+        "engineClosed": "Sync stopped because the library got closed partway through",
+        "storageFull": "This device is out of space, so sync couldn't store what it fetched"
       }
     },
     "tracksMissing": {
@@ -210,7 +211,7 @@
     "distanceInvalid": "Pop in a valid distance (0-999).",
     "durationRequired": "Pop in a valid duration.",
     "gpsAcquiring": "Hunting for GPS...",
-    "gpsAlertMessage": "Can't get a GPS fix. Check location services are on and you've got a clear view of the sky.",
+    "gpsAlertMessage": "Can't get a GPS fix. Head somewhere with a clear view of the sky.",
     "gpsTrackingError": "Couldn't start GPS tracking. Try pausing and resuming.",
     "gpsWaiting": "Waiting on a GPS signal. Head outdoors for a better fix.",
     "gpsWeakWarning": "GPS signal's weak, so the recording might be a bit off",
@@ -250,7 +251,6 @@
     "placeNameFailedMessage": "Couldn't look up the place name, so the name stays as it was. Have another go later.",
     "placeNameNoPlaceMessage": "Couldn't find a place where this starts, so the name stays as it was.",
     "renameFailedMessage": "The route name didn't save. Have another go.",
-    "routesWillAppear": "Routes will turn up once your activities are analysed",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will rock up here",
     "sectionCreationFailed": "Couldn't create the section. Have another go.",
     "sectionsDescription": "Sections get picked up when you travel the same roads a few times, even on different routes",

@@ -56,6 +56,10 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const isMetric = useMetricSystem();
   // The legend's zero names the colour an untrained muscle is drawn in.
   const untrainedFill = isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT;
+  const selectedName = selectedVolume ? muscleName(selectedVolume.slug, t) : '';
+  const selectedSummary = selectedVolume
+    ? `${t('strength.setsCount', { count: Number(formatSetCount(selectedVolume.weightedSets)) })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`
+    : '';
 
   return (
     <View testID="strength-body-diagram" style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
@@ -71,6 +75,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         <Pressable
           android_ripple={pressRipple}
           accessibilityRole="button"
+          accessibilityLabel={`${t('strength.clearMuscle', { muscle: selectedName })}, ${selectedSummary}`}
           style={pressable(styles.subtitleRow)}
           onPress={onClearSelection}
         >
@@ -83,14 +88,14 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             ]}
           />
           <Text style={[styles.subtitleText, isDark && styles.subtitleTextDark]} numberOfLines={1}>
-            {muscleName(selectedVolume.slug, t)}
+            {selectedName}
           </Text>
           <Text
             testID="strength-selected-summary"
             style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
             numberOfLines={1}
           >
-            {`· ${t('strength.setsCount', { count: Number(formatSetCount(selectedVolume.weightedSets)) })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`}
+            {`· ${selectedSummary}`}
           </Text>
           <MaterialCommunityIcons
             name="close"

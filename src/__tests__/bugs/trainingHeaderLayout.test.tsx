@@ -33,6 +33,7 @@ jest.mock('@/features/stats', () => ({
 }));
 jest.mock('@/features/wellness', () => ({
   WellnessTrendsChart: () => null,
+  useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
   useWellness: () => ({
     data: undefined,
     isLoading: false,

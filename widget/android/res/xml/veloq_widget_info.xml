@@ -14,4 +14,4 @@
   android:configure="__PKG__.widget.SummaryWidgetConfigureActivity"
   android:widgetFeatures="reconfigurable|configuration_optional"
   android:initialLayout="@layout/widget_medium"
-  android:previewLayout="@layout/widget_medium" />
+  android:previewLayout="@layout/widget_preview_summary" />

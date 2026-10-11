@@ -101,8 +101,8 @@ fn altitude_only(n: usize) -> serde_json::Value {
     ])
 }
 
-fn any_streams() -> httpmock::Regex {
-    httpmock::Regex::new(r"^/activity/[^/]+/streams\.json$").expect("pattern")
+fn any_streams() -> &'static str {
+    r"^/activity/[^/]+/streams\.json$"
 }
 
 fn stored_track(id: &str) -> Vec<GpsPoint> {
@@ -228,9 +228,9 @@ fn one_wide_answer_per_track_stocks_elevation_series_and_time() {
 
     assert_eq!(outcome.elevated, 3);
     for mock in &wide {
-        mock.assert_hits(1);
+        mock.assert_calls(1);
     }
-    anything_else.assert_hits(0);
+    anything_else.assert_calls(0);
     for (id, flat) in ids.iter().zip(&before) {
         let track = stored_track(id);
         assert_eq!(track.len(), POINTS);
@@ -270,8 +270,8 @@ fn a_track_upstream_moved_is_replaced_from_the_same_answer() {
 
     run_elevation_backfill(&transport(&server), "1");
 
-    wide.assert_hits(1);
-    anything_else.assert_hits(0);
+    wide.assert_calls(1);
+    anything_else.assert_calls(0);
     let track = stored_track("i1");
     assert_eq!(track.len(), POINTS + 2, "the track upstream holds now");
     assert_eq!(track[0].latitude, 12.0);
@@ -351,8 +351,8 @@ fn an_activity_outside_the_retention_window_is_asked_for_elevation_alone() {
 
     run_elevation_backfill(&transport(&server), "1");
 
-    narrow.assert_hits(1);
-    wide.assert_hits(0);
+    narrow.assert_calls(1);
+    wide.assert_calls(0);
     drain_detection();
 }
 
@@ -379,8 +379,8 @@ fn a_stopped_stream_pass_keeps_the_elevation_ask_narrow() {
     run_elevation_backfill(&transport(&server), "1");
     crate::net::stream_backfill::release_autostart_hold();
 
-    narrow.assert_hits(1);
-    wide.assert_hits(0);
+    narrow.assert_calls(1);
+    wide.assert_calls(0);
     drain_detection();
 }
 
@@ -568,7 +568,7 @@ mod equivalence {
     fn hits(asks: &[(&'static str, httpmock::Mock<'_>)], types: &str) -> usize {
         asks.iter()
             .filter(|(t, _)| *t == types)
-            .map(|(_, m)| m.hits())
+            .map(|(_, m)| m.calls())
             .sum()
     }
 
@@ -688,8 +688,8 @@ mod equivalence {
             drain_detection();
             ids.iter().map(|id| snapshot(id)).collect()
         };
-        let narrow_requests: usize = narrow_asks.iter().map(|(_, m)| m.hits()).sum();
-        let wide_requests: usize = wide_asks.iter().map(|(_, m)| m.hits()).sum();
+        let narrow_requests: usize = narrow_asks.iter().map(|(_, m)| m.calls()).sum();
+        let wide_requests: usize = wide_asks.iter().map(|(_, m)| m.calls()).sum();
         assert_eq!(hits(&wide_asks, DEFAULT_STREAM_TYPES), recorded.len());
         assert_eq!(
             wide_requests,

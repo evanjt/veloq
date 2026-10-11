@@ -414,3 +414,65 @@ fn test_failed_removal_keeps_warm_evidence_cache() {
     assert_eq!(engine.evidence_cache_folded_count(), folded);
     assert_eq!(cache_row(&dir), row);
 }
+
+/// Rewrite the stored evidence row as a build from before compression wrote
+/// it: the same version byte over the plain named encoding. Returns the
+/// length of the row it left.
+fn rewrite_plain(dir: &TempDir) -> usize {
+    let conn = Connection::open(dir.path().join("evidence.db")).expect("open");
+    let blob: Vec<u8> = conn
+        .query_row("SELECT cache FROM evidence_cache WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .expect("the detect wrote an evidence row");
+    let (&version, body) = blob.split_first().expect("a tagged row");
+    let cache: tracematch::SectionEvidenceCache =
+        veloqrs::persistence::codec::deserialize_gps_composite(body).expect("decode");
+    let mut plain = vec![version];
+    plain.extend(rmp_serde::to_vec_named(&cache).expect("encode"));
+    conn.execute(
+        "UPDATE evidence_cache SET cache = ?1 WHERE id = 1",
+        [&plain],
+    )
+    .expect("rewrite the row");
+    plain.len()
+}
+
+/// Scenario: every installed device holds an evidence row written plain, and
+/// the build that compresses the cache opens it.
+///
+/// Expected behaviour: the plain row restores warm, so the upgrade costs no
+/// cold rebatch, and the next persist writes the row compressed.
+#[test]
+fn a_cache_written_plain_by_an_earlier_build_restores_warm_and_is_rewritten_smaller() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let (held, seed) = pool.split_last().expect("a corpus");
+    let mut first = open(&dir);
+    ingest(&mut first, seed);
+    detect(&mut first);
+    let folded = first.evidence_cache_folded_count();
+    assert!(folded > 0, "the detect folded nothing");
+    let before = catalogue_with_ids(&mut first);
+    drop(first);
+
+    let plain = rewrite_plain(&dir);
+
+    let mut second = open(&dir);
+    assert_eq!(
+        second.evidence_cache_folded_count(),
+        folded,
+        "the plain row was not adopted, so the upgrade rebatches cold"
+    );
+    assert_eq!(second.evidence_cache_decode_count(), 1);
+    assert_eq!(catalogue_with_ids(&mut second), before);
+
+    ingest(&mut second, std::slice::from_ref(held));
+    detect(&mut second);
+    assert_eq!(second.evidence_cache_folded_count(), folded + 1);
+    let (_digest, rewritten) = cache_row(&dir).expect("the apply wrote an evidence row");
+    assert!(
+        rewritten * 2 < plain,
+        "the next persist wrote {rewritten} B over a {plain} B plain row"
+    );
+}

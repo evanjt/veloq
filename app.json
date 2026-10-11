@@ -95,6 +95,7 @@
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
+      "./src/plugins/with-android-bluetooth",
       "./src/plugins/with-plain-lan-transport",
       "./src/plugins/with-android-new-intent",
       "./src/plugins/with-android-restricted-resizability",
@@ -153,7 +154,8 @@
       [
         "react-native-ble-plx",
         {
-          "isBackgroundEnabled": true,
+          "isBackgroundEnabled": false,
+          "neverForLocation": true,
           "modes": [
             "central"
           ]

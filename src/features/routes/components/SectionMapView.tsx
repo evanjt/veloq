@@ -25,6 +25,7 @@ import {
   BaseMapView,
   type BaseMap3DLayer,
   boundsOfLngLat,
+  ENDPOINT_IMAGES,
   featureCollection,
   getNextStyle,
   getStyleIcon,
@@ -502,6 +503,7 @@ export const SectionMapView = memo(function SectionMapView({
       }
       sources={inlineSources}
       layers={inlineLayers}
+      images={ENDPOINT_IMAGES}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
@@ -732,6 +734,7 @@ export const SectionMapView = memo(function SectionMapView({
           onClose={closeFullscreen}
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
+          overlayImages={ENDPOINT_IMAGES}
           layer3D={fullscreenLayer3D}
         />
         {hasLegendLayers(fullscreenLegendLayers) && (

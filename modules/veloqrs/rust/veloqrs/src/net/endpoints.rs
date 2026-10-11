@@ -842,12 +842,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/athlete/i1/activities")
-                .matches(|req| {
-                    req.query_params
-                        .as_ref()
-                        .map(|q| !q.iter().any(|(k, _)| k == "limit"))
-                        .unwrap_or(true)
-                });
+                .is_true(|req| !req.query_params().iter().any(|(k, _)| k == "limit"));
             then.status(200).json_body(json!([]));
         });
         let t = fast_transport(server.base_url());
@@ -872,14 +867,10 @@ mod tests {
             when.method(GET)
                 .path("/athlete/i1/activities")
                 .query_param_exists("fields")
-                .matches(|req| {
-                    req.query_params
-                        .as_ref()
-                        .map(|q| {
-                            q.iter()
-                                .any(|(k, v)| k == "fields" && v.contains("icu_power_zones"))
-                        })
-                        .unwrap_or(false)
+                .is_true(|req| {
+                    req.query_params()
+                        .iter()
+                        .any(|(k, v)| k == "fields" && v.contains("icu_power_zones"))
                 });
             then.status(200).json_body(json!([]));
         });
@@ -1171,12 +1162,7 @@ mod tests {
             when.method(GET)
                 .path("/athlete/i1/pace-curves.json")
                 .query_param("type", "Swim")
-                .matches(|req| {
-                    req.query_params
-                        .as_ref()
-                        .map(|q| !q.iter().any(|(k, _)| k == "gap"))
-                        .unwrap_or(true)
-                });
+                .is_true(|req| !req.query_params().iter().any(|(k, _)| k == "gap"));
             then.status(200).json_body(json!({"list": []}));
         });
         let t = fast_transport(server.base_url());
@@ -1317,14 +1303,14 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/athlete/i1/activities")
-                .body_contains("name=\"file\"")
-                .body_contains("filename=\"Bern loop.fit\"")
-                .body_contains("name=\"name\"")
-                .body_contains("Bern loop")
-                .body_contains("name=\"paired_event_id\"")
-                .body_contains("4321")
-                .body_contains("name=\"device_name\"")
-                .body_contains("Veloq");
+                .body_includes("name=\"file\"")
+                .body_includes("filename=\"Bern loop.fit\"")
+                .body_includes("name=\"name\"")
+                .body_includes("Bern loop")
+                .body_includes("name=\"paired_event_id\"")
+                .body_includes("4321")
+                .body_includes("name=\"device_name\"")
+                .body_includes("Veloq");
             then.status(200).json_body(json!({"id": "i999"}));
         });
         let (_file, path) = staged_fit();
@@ -1356,8 +1342,8 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/athlete/i1/activities")
-                .body_contains("name=\"description\"")
-                .body_contains("legs heavy");
+                .body_includes("name=\"description\"")
+                .body_includes("legs heavy");
             then.status(200).json_body(json!({"id": "i999"}));
         });
         let (_file, path) = staged_fit();
@@ -1413,8 +1399,8 @@ mod tests {
     /// True when the multipart body carries neither optional text part. The
     /// file part declares `name="file"`, so `name="name"` only appears when the
     /// title part was actually added.
-    fn without_optional_parts(body: Option<&Vec<u8>>) -> bool {
-        let text = String::from_utf8_lossy(body.map_or(&[][..], |b| b.as_slice())).into_owned();
+    fn without_optional_parts(body: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(body).into_owned();
         !text.contains("name=\"name\"")
             && !text.contains("name=\"description\"")
             && !text.contains("name=\"paired_event_id\"")
@@ -1427,7 +1413,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/athlete/i1/activities")
-                .matches(|req| without_optional_parts(req.body.as_ref()));
+                .is_true(|req| without_optional_parts(req.body_ref()));
             then.status(200).json_body(json!({"id": "i999"}));
         });
         let (_file, path) = staged_fit();
@@ -1455,7 +1441,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/athlete/i1/activities")
-                .matches(|req| without_optional_parts(req.body.as_ref()));
+                .is_true(|req| without_optional_parts(req.body_ref()));
             then.status(200).json_body(json!({"id": "i999"}));
         });
         let (_file, path) = staged_fit();

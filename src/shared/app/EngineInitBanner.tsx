@@ -15,7 +15,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
-import { Text, IconButton } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ import { InitOutcome } from 'veloqrs';
 
 import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { IconButton } from '@/shared/ui';
 import { colors, typography, spacing } from '@/theme';
 
 /**
@@ -85,13 +86,12 @@ export function EngineInitBanner() {
         />
         <Text style={styles.text}>{t(reasonKey)}</Text>
         <IconButton
-          icon="refresh"
-          size={16}
-          iconColor={colors.warning}
+          accessibilityLabel={t('common.retry')}
           onPress={handleRetry}
-          style={styles.retryButton}
           testID="engine-retry-button"
-        />
+        >
+          <MaterialCommunityIcons name="refresh" size={16} color={colors.warningBannerText} />
+        </IconButton>
       </View>
     </Animated.View>
   );
@@ -111,8 +111,5 @@ const styles = StyleSheet.create({
     color: colors.warningBannerText,
     fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
-  },
-  retryButton: {
-    margin: 0,
   },
 });

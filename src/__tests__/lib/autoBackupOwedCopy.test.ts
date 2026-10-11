@@ -225,3 +225,112 @@ describe('a remote copy Back Up Now could not send', () => {
     expect(mockRunRecordBackup).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Back Up Now during a run that pays only an owed copy', () => {
+  /** Hold the next remote upload until the returned release is called. */
+  function holdRemoteUpload(): () => void {
+    let release: () => void = () => {};
+    remoteUpload.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          release = () => resolve('veloq-backup.zip');
+        })
+    );
+    return () => release();
+  }
+
+  async function until(condition: () => boolean, what: string) {
+    for (let i = 0; i < 300 && !condition(); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    if (!condition()) throw new Error(`${what} never happened`);
+  }
+
+  it('reaches every carrier and reports each one, not the narrower run', async () => {
+    await backUpNowOffline();
+    const release = holdRemoteUpload();
+
+    onBackupReconnect();
+    await until(() => remoteUpload.mock.calls.length === 1, 'the owed upload');
+    const forced = performBackup(true);
+    release();
+    const result = await forced;
+
+    expect(remoteUpload).toHaveBeenCalledTimes(2);
+    expect(folderUpload).toHaveBeenCalledTimes(2);
+    expect(result.wroteZip).toBe(true);
+    expect(result.carriers).toEqual({
+      webdav: { status: 'written' },
+      folder: { status: 'written' },
+    });
+  });
+
+  it('never asks for a second archive while the first is still being written', async () => {
+    await backUpNowOffline();
+    const release = holdRemoteUpload();
+
+    onBackupReconnect();
+    await until(() => remoteUpload.mock.calls.length === 1, 'the owed upload');
+    const forced = performBackup(true);
+    await settle();
+
+    expect(mockRunRecordBackup).toHaveBeenCalledTimes(2);
+    release();
+    await forced;
+    expect(mockRunRecordBackup).toHaveBeenCalledTimes(3);
+  });
+
+  it('shares one forced run between two taps', async () => {
+    await backUpNowOffline();
+    const release = holdRemoteUpload();
+
+    onBackupReconnect();
+    await until(() => remoteUpload.mock.calls.length === 1, 'the owed upload');
+    const first = performBackup(true);
+    const second = performBackup(true);
+    release();
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(b).toBe(a);
+    expect(mockRunRecordBackup).toHaveBeenCalledTimes(3);
+    expect(folderUpload).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs its own backup when the run it met turns out not to be due', async () => {
+    await backUpNowOffline();
+    let answerRadio: (up: boolean) => void = () => {};
+    networkState.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerRadio = (up) => resolve({ isConnected: up, isInternetReachable: up });
+        })
+    );
+    radio(false);
+    const checksBefore = networkState.mock.calls.length;
+
+    onAppForeground();
+    await until(() => networkState.mock.calls.length > checksBefore, 'the radio check');
+    const forced = performBackup(true);
+    answerRadio(false);
+    const result = await forced;
+
+    expect(result.wroteZip).toBe(true);
+    expect(folderUpload).toHaveBeenCalledTimes(2);
+    expect(result.carriers.folder).toEqual({ status: 'written' });
+    expect(result.carriers.webdav).toEqual({ status: 'skipped', reason: 'no-radio' });
+  });
+
+  it('is joined by a later automatic trigger rather than run beside', async () => {
+    await backUpNowOffline();
+    const release = holdRemoteUpload();
+
+    onBackupReconnect();
+    await until(() => remoteUpload.mock.calls.length === 1, 'the owed upload');
+    const forced = performBackup(true);
+    const automatic = performBackup();
+    release();
+
+    await expect(automatic).resolves.toBe(await forced);
+    expect(mockRunRecordBackup).toHaveBeenCalledTimes(3);
+  });
+});

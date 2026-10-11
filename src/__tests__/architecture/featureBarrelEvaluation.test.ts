@@ -84,10 +84,7 @@ describe('the activity barrel evaluates whole, whichever end the app enters from
 
   it('leaves the shared activity helpers out, which is what splits the cycle', () => {
     const activity = require('@/features/activity');
-    const shared = {
-      ...require('@/shared/activity/activityUtils'),
-      ...require('@/shared/activity/activityMetrics'),
-    };
+    const shared = require('@/shared/activity/activityUtils');
 
     expect(SHARED_HELPERS.filter((name) => activity[name] !== undefined)).toStrictEqual([]);
     expect(SHARED_HELPERS.filter((name) => shared[name] === undefined)).toStrictEqual([]);

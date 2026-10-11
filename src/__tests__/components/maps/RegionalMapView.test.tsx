@@ -7,12 +7,13 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { act, render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import { decodeCoords } from 'veloqrs';
 import type { ActivityBoundsItem } from '@/types';
+import { stubHardwareBack } from '../../__shared__/hardwareBack';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -190,6 +191,32 @@ describe('RegionalMapView', () => {
 
     fireEvent.press(screen.getByTestId('activity-popup-close'));
     expect(screen.queryByTestId('activity-popup')).toBeNull();
+  });
+
+  /**
+   * Scenario: a popup is open over the Map tab and the athlete presses back.
+   *
+   * Expected behaviour: back closes the popup and stays on the map, and the
+   * next back is left to the navigator.
+   */
+  it.each([
+    ['activity', { selectActivityId: 'a2' }],
+    ['section', { selectSectionId: 'sec-1' }],
+  ])('closes the %s popup on back', (kind, props) => {
+    const back = stubHardwareBack();
+    try {
+      renderRegional(props);
+      expect(screen.getByTestId(`${kind}-popup`)).toBeTruthy();
+
+      act(() => {
+        expect(back.press()).toBe(true);
+      });
+
+      expect(screen.queryByTestId(`${kind}-popup`)).toBeNull();
+      expect(back.press()).toBe(false);
+    } finally {
+      back.restore();
+    }
   });
 
   it('opens no popup for an activity that is not on the map', () => {

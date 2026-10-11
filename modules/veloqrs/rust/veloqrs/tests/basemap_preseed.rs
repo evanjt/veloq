@@ -372,7 +372,7 @@ fn a_tile_the_store_already_holds_is_pinned_rather_than_fetched_again() {
     assert_eq!(outcome.kept, 1, "the held tile was not counted as kept");
     assert_eq!(outcome.fetched as usize, planned.len() - 1);
     assert_eq!(
-        host.hits(),
+        host.calls(),
         planned.len() - 1,
         "the held tile was refetched"
     );
@@ -451,11 +451,48 @@ fn the_seed_stops_at_its_budget_and_never_stores_past_it() {
     assert!(outcome.fetched >= 3, "the seed stopped before the budget");
 }
 
+/// The offline base is priced at what it costs on disk. A host that
+/// compresses its tiles fits more of the athlete's ground into the same
+/// budget, and the seed and the store agree on what was spent.
+#[test]
+fn a_gzipped_seed_is_priced_at_the_bytes_kept() {
+    use std::io::Write;
+    let tile = bytes(1000, 9);
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(&tile).expect("gzip");
+    let sent = encoder.finish().expect("gzip");
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(200)
+            .header("content-encoding", "gzip")
+            .body(sent.clone());
+    });
+    let (store, _tmp) = store();
+    let planned = plan_preseed(&[home(), away()], &sources(&server.base_url()));
+    assert!(planned.len() > 4, "the fixture has nothing to cut");
+
+    let outcome = veloqrs::runtime::block_on(seed_preseed(&store, &fetcher(), &planned, 3_500));
+
+    assert!(
+        outcome.fetched > 3,
+        "{} tiles fitted, as many as uncompressed ones would",
+        outcome.fetched
+    );
+    assert_eq!(outcome.bytes, outcome.fetched as u64 * sent.len() as u64);
+    assert_eq!(store.size(), outcome.bytes);
+    let first = &planned[0];
+    assert_eq!(
+        store.get(&first.source, first.z, first.x, first.y),
+        Some(tile)
+    );
+}
+
 #[test]
 fn a_tile_the_host_refuses_costs_the_rest_of_the_plan_nothing() {
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.method(GET).path_contains("/planet/2/");
+        when.method(GET).path_includes("/planet/2/");
         then.status(500).body("no tile");
     });
     server.mock(|when, then| {
@@ -523,7 +560,7 @@ fn a_superseded_pinned_tile_is_served_but_the_next_seed_fetches_a_fresh_one() {
 
     assert_eq!(outcome.kept, 0, "the old tile was re-pinned");
     assert_eq!(outcome.fetched as usize, planned.len());
-    assert_eq!(host.hits(), planned.len());
+    assert_eq!(host.calls(), planned.len());
     assert_eq!(
         store.get(&held.source, held.z, held.x, held.y),
         Some(bytes(128, 9)),

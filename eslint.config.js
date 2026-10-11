@@ -464,7 +464,6 @@ module.exports = [
       'src/features/recording/components/RpeSlider.tsx',
       'src/features/recording/components/UnlockTrack.tsx',
       'src/features/recording/hooks/useStatusPulseAnimation.ts',
-      'src/shared/ui/HoldButton.tsx',
     ],
     rules: { 'react-hooks/refs': 'off' },
   },

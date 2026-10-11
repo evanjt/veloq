@@ -12,14 +12,14 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useWellness, toWellnessData } from '@/features/wellness/hooks/useWellness';
-import type { WellnessDay } from 'veloqrs';
+import { RangeCoverage, type WellnessDay, type WellnessDays } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
     selector({ isAuthenticated: true }),
 }));
 
-const mockGetWellnessDays = jest.fn<WellnessDay[], [string, string]>();
+const mockGetWellnessDays = jest.fn<WellnessDays, [string, string]>();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({ getWellnessDays: mockGetWellnessDays }),
@@ -28,6 +28,10 @@ jest.mock('@/shared/native/engine', () => ({
 /** A stored day with nothing on it but its date, for the window tests. */
 function day(date: string): WellnessDay {
   return { date, sportLoad: [] };
+}
+
+function stored(...days: WellnessDay[]): WellnessDays {
+  return { days, coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty };
 }
 
 jest.mock('@/shared/native/useEngineChannel', () => ({
@@ -87,19 +91,20 @@ describe('queryKeys.wellness.byRange', () => {
 describe('useWellness', () => {
   it('keys the cache on the window it fetched', async () => {
     jest.useFakeTimers({ ...DATE_ONLY, now: new Date('2026-08-28T09:00:00') });
-    mockGetWellnessDays.mockReturnValue([]);
+    mockGetWellnessDays.mockReturnValue(stored());
     const client = newClient();
 
     const { result } = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const key = queryKeys.wellness.byRange('7d', '2026-08-21', '2026-08-28');
-    expect(client.getQueryData(key)).toEqual([]);
+    expect(client.getQueryData(key)).toEqual({ days: [], coverage: RangeCoverage.Empty });
+    expect(result.current.data).toEqual([]);
   });
 
   it('refetches on the next day instead of serving the stale window', async () => {
     jest.useFakeTimers({ ...DATE_ONLY, now: new Date('2026-08-28T09:00:00') });
-    mockGetWellnessDays.mockReturnValue([day('2026-08-28')]);
+    mockGetWellnessDays.mockReturnValue(stored(day('2026-08-28')));
     const client = newClient();
 
     const first = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
@@ -107,7 +112,7 @@ describe('useWellness', () => {
     first.unmount();
 
     jest.setSystemTime(new Date('2026-08-29T09:00:00'));
-    mockGetWellnessDays.mockReturnValue([day('2026-08-29')]);
+    mockGetWellnessDays.mockReturnValue(stored(day('2026-08-29')));
 
     const second = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     // Yesterday's rows must not paint the chart while today's window loads.

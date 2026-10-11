@@ -17,6 +17,7 @@ import React from 'react';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import { useWellness } from '@/features/wellness/hooks/useWellness';
+import { RangeCoverage } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -29,7 +30,10 @@ const engine = {
   reads: 0,
   getWellnessDays: jest.fn(() => {
     engine.reads += 1;
-    return [{ date: '2026-03-01', ctl: 50, sportLoad: [] }];
+    return {
+      days: [{ date: '2026-03-01', ctl: 50, sportLoad: [] }],
+      coverage: RangeCoverage.Loaded,
+    };
   }),
   subscribe: jest.fn((event: string, callback: Listener) => {
     const set = listeners.get(event) ?? new Set<Listener>();

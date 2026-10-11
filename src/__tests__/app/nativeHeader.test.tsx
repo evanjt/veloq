@@ -18,9 +18,12 @@ import {
   SCREEN_SHEETS,
   headerLargeTitle,
   largeTitleScreenOptions,
+  sheetFrame,
+  sheetHasDetents,
   sheetScreenOptions,
 } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
+import { layout } from '@/theme/spacing';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
@@ -96,18 +99,69 @@ describe('sheet routes', () => {
   it('presents each listed sheet as a formSheet with a grabber and no header', () => {
     expect(Object.keys(SCREEN_SHEETS)).toContain('sheets/activity-type');
     expect(SCREEN_SHEETS['sheets/insight']).toEqual([0.5, 1]);
-    for (const name of Object.keys(SCREEN_SHEETS)) {
-      expect(sheetScreenOptions(name)).toMatchObject({
-        presentation: 'formSheet',
-        sheetGrabberVisible: true,
-        headerShown: false,
-      });
-      expect(sheetScreenOptions(name)?.sheetAllowedDetents).toBe(SCREEN_SHEETS[name]);
+    for (const os of ['ios', 'android']) {
+      for (const name of Object.keys(SCREEN_SHEETS)) {
+        expect(sheetScreenOptions(name, os)).toMatchObject({
+          presentation: 'formSheet',
+          sheetGrabberVisible: true,
+          headerShown: false,
+        });
+        expect(sheetScreenOptions(name, os)?.sheetAllowedDetents).toBe(SCREEN_SHEETS[name]);
+      }
     }
   });
 
   it('leaves an ordinary route without sheet options', () => {
-    expect(sheetScreenOptions('settings')).toBeUndefined();
+    expect(sheetScreenOptions('settings', 'android')).toBeUndefined();
+  });
+
+  it('rounds the Android sheet top corners to the extra-large radius', () => {
+    expect(layout.borderRadiusXxl).toBe(28);
+    for (const name of Object.keys(SCREEN_SHEETS)) {
+      expect(sheetScreenOptions(name, 'android')?.sheetCornerRadius).toBe(layout.borderRadiusXxl);
+    }
+  });
+
+  it('leaves the iOS sheet corners to the system', () => {
+    for (const name of Object.keys(SCREEN_SHEETS)) {
+      expect(sheetScreenOptions(name, 'ios')).not.toHaveProperty('sheetCornerRadius');
+    }
+  });
+
+  it('counts a sheet as resizable only when it rests at more than one detent', () => {
+    expect(sheetHasDetents('sheets/insight')).toBe(true);
+    expect(sheetHasDetents('sheets/field-picker')).toBe(true);
+    expect(sheetHasDetents('sheets/smoothing')).toBe(false);
+    expect(sheetHasDetents('settings')).toBe(false);
+  });
+});
+
+describe('sheet frame', () => {
+  it('draws the Android drag handle on a resizable sheet only', () => {
+    expect(sheetFrame('sheets/insight', 'android', 48).handle).toBe(true);
+    expect(sheetFrame('sheets/field-picker', 'android', 48).handle).toBe(true);
+    expect(sheetFrame('sheets/smoothing', 'android', 48).handle).toBe(false);
+    expect(sheetFrame('sheets/stat-detail', 'android', 48).handle).toBe(false);
+  });
+
+  it('draws no handle of its own on iOS, where the system grabber shows', () => {
+    for (const name of Object.keys(SCREEN_SHEETS)) {
+      expect(sheetFrame(name, 'ios', 34).handle).toBe(false);
+    }
+  });
+
+  it('keeps every Android sheet clear of the navigation bar', () => {
+    for (const name of Object.keys(SCREEN_SHEETS)) {
+      expect(sheetFrame(name, 'android', 48).paddingBottom).toBe(48);
+    }
+    expect(sheetFrame('sheets/smoothing', 'android', 0).paddingBottom).toBe(0);
+  });
+
+  it('pads a resizable iOS sheet above the home indicator and leaves a fitted one to the system', () => {
+    expect(sheetFrame('sheets/insight', 'ios', 34).paddingBottom).toBe(34);
+    expect(sheetFrame('sheets/merge-confirm', 'ios', 34).paddingBottom).toBe(34);
+    expect(sheetFrame('sheets/smoothing', 'ios', 34).paddingBottom).toBe(0);
+    expect(sheetFrame('sheets/tile-cache-budget', 'ios', 34).paddingBottom).toBe(0);
   });
 
   it('registers every sheet in the header table without a header', () => {

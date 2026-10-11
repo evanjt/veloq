@@ -1,3 +1,7 @@
+use std::io::Write;
+
+use flate2::write::DeflateEncoder;
+use flate2::{Compression, Decompress, FlushDecompress, Status};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 /// Format tag prefixed to every postcard blob on write. 0xC1 is the one byte
@@ -16,6 +20,16 @@ const POSTCARD_TAG: u8 = 0xC1;
 /// track to rmp. The 4-byte length after the tag pins the payload the same way
 /// the postcard frame does.
 const POLYLINE_TAG: u8 = 0xC0;
+
+/// Format tag prefixed to a deflated named-rmp blob. 0xC7 is msgpack's `ext 8`,
+/// which rmp-serde writes for none of the types stored here, so a plain blob
+/// from before compression never leads with it. The 4-byte length after the
+/// tag is the inflated length, and a body that does not inflate to exactly
+/// that many bytes is not this container, so a plain blob is still tried.
+const DEFLATE_TAG: u8 = 0xC7;
+
+/// The deflate level [`serialize_named`] writes at, chosen on its comment.
+const DEFLATE_LEVEL: u32 = 2;
 
 fn frame(tag: u8, payload: Vec<u8>) -> Vec<u8> {
     let Ok(len) = u32::try_from(payload.len()) else {
@@ -354,12 +368,81 @@ pub fn serialize_gps_composite<T: Serialize>(value: &T) -> Result<Vec<u8>, Strin
 /// wrong type. Naming the fields costs bytes and buys a decode that survives
 /// an absent `Option` anywhere in the graph. Read back with
 /// [`deserialize_gps_composite`], which accepts both shapes.
+///
+/// The names repeat on every point and are about half of the plain bytes,
+/// and the blobs written this way are rewritten whole, so the body is
+/// deflated behind [`DEFLATE_TAG`]. The `zip` dependency puts flate2 on its
+/// zlib-rs backend, where level 1 took 1.99 MB for a 5.7 MB named body and
+/// level 2 took 1.79 MB for twice the encode time, about 21 ms in release on
+/// a busy desktop. Higher levels saved under 6 % more and inflating took 4 ms
+/// at every level.
 pub fn serialize_named<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    rmp_serde::to_vec_named(value).map_err(|e| e.to_string())
+    let body = rmp_serde::to_vec_named(value).map_err(|e| e.to_string())?;
+    Ok(deflate_framed(&body).unwrap_or(body))
 }
 
+/// Read an rmp blob in either shape, deflated behind [`DEFLATE_TAG`] or plain.
 pub fn deserialize_gps_composite<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
-    rmp_serde::from_slice(bytes).map_err(|e| e.to_string())
+    let inflated = match inflate_framed(bytes) {
+        Some(body) => match rmp_serde::from_slice(&body) {
+            Ok(value) => return Ok(value),
+            Err(e) => Some(e.to_string()),
+        },
+        None => None,
+    };
+    rmp_serde::from_slice(bytes).map_err(|e| match inflated {
+        Some(framed) => format!("deflated body: {framed}; plain: {e}"),
+        None => e.to_string(),
+    })
+}
+
+/// A body deflated behind its tag and inflated length, or None when it is too
+/// long to frame, which the caller writes plain.
+fn deflate_framed(body: &[u8]) -> Option<Vec<u8>> {
+    let len = u32::try_from(body.len()).ok()?;
+    let mut out = Vec::with_capacity(body.len() / 3 + 5);
+    out.push(DEFLATE_TAG);
+    out.extend_from_slice(&len.to_le_bytes());
+    let mut encoder = DeflateEncoder::new(out, Compression::new(DEFLATE_LEVEL));
+    encoder.write_all(body).ok()?;
+    encoder.finish().ok()
+}
+
+/// The inflated body of a [`deflate_framed`] blob, or None when the bytes are
+/// not one: another tag, a stream that stops before its end marker, bytes
+/// after it, or a length the body does not match. A torn tail can still
+/// inflate to every byte of the body, so the end marker is what proves the
+/// write finished.
+fn inflate_framed(bytes: &[u8]) -> Option<Vec<u8>> {
+    if bytes.len() < 5 || bytes[0] != DEFLATE_TAG {
+        return None;
+    }
+    let len = u32::from_le_bytes(bytes[1..5].try_into().ok()?) as usize;
+    let payload = &bytes[5..];
+    // The buffer grows with what actually inflates, so a torn header that
+    // claims gigabytes reserves no more than the body produces.
+    let mut out = Vec::with_capacity(len.min(payload.len().saturating_mul(4)) + 1);
+    let mut inflater = Decompress::new(false);
+    loop {
+        if out.len() == out.capacity() {
+            out.reserve(out.len().min(len + 1 - out.len()).max(1));
+        }
+        let before = (inflater.total_in(), out.len());
+        let consumed = usize::try_from(inflater.total_in()).ok()?;
+        let status = inflater
+            .decompress_vec(&payload[consumed..], &mut out, FlushDecompress::Finish)
+            .ok()?;
+        if out.len() > len {
+            return None;
+        }
+        match status {
+            Status::StreamEnd => break,
+            _ if (inflater.total_in(), out.len()) == before => return None,
+            _ => {}
+        }
+    }
+    let whole = usize::try_from(inflater.total_in()).ok()? == payload.len();
+    (whole && out.len() == len).then_some(out)
 }
 
 /// What every write puts in `sections.polyline_json`. The blob is the
@@ -1340,5 +1423,117 @@ mod tests {
             encode_polyline(&none_known),
             encode_polyline(&[pt(46.5, 6.6, None)])
         );
+    }
+
+    /// A value with the shape of the persisted evidence cache: clusters keyed
+    /// by sport, each with a consensus line, member ids and support counts.
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ShapedCache {
+        version: u32,
+        sports: std::collections::BTreeMap<String, Vec<ShapedCluster>>,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ShapedCluster {
+        id: String,
+        consensus: Vec<GpsPoint>,
+        members: Vec<String>,
+        support: Vec<u32>,
+    }
+
+    /// 1,000 points over ten clusters, at the six decimals and decimetre a
+    /// recorded track carries, every seventh point with no elevation.
+    fn shaped_cache() -> ShapedCache {
+        let clusters = (0..10)
+            .map(|c| ShapedCluster {
+                id: format!("cluster_{c}"),
+                consensus: (0..100)
+                    .map(|i| {
+                        let n = f64::from(c * 100 + i);
+                        let lat = ((46.512_345 + n * 0.000_037 + (n * 0.3).sin() * 0.000_211)
+                            * 1e6)
+                            .round()
+                            / 1e6;
+                        let lng = ((6.631_234 + n * 0.000_052 + (n * 0.2).cos() * 0.000_173) * 1e6)
+                            .round()
+                            / 1e6;
+                        let ele = (i % 7 != 0)
+                            .then(|| ((372.0 + (n * 0.05).sin() * 41.3) * 10.0).round() / 10.0);
+                        pt(lat, lng, ele)
+                    })
+                    .collect(),
+                members: (0..12)
+                    .map(|m| format!("i{}", 90_000_000 + c * 12 + m))
+                    .collect(),
+                support: (0..100).map(|i| (i * 7 + c) % 13).collect(),
+            })
+            .collect();
+        ShapedCache {
+            version: 9,
+            sports: [("Ride".to_string(), clusters)].into_iter().collect(),
+        }
+    }
+
+    /// Scenario: the evidence cache and the section registry are named rmp,
+    /// where the field names repeated on every point are about half the bytes,
+    /// and the whole row is rewritten on every apply.
+    ///
+    /// Expected behaviour: the named encoding is written compressed, decodes
+    /// to the same bits, and takes at most a third of the plain bytes.
+    #[test]
+    fn a_named_composite_round_trips_compressed_at_a_third_of_the_plain_bytes() {
+        let value = shaped_cache();
+        let plain = rmp_serde::to_vec_named(&value).expect("encode");
+        let stored = serialize_named(&value).expect("encode");
+
+        let back: ShapedCache = deserialize_gps_composite(&stored).expect("decode");
+        assert_eq!(back, value);
+        assert_eq!(rmp_serde::to_vec_named(&back).expect("encode"), plain);
+        assert!(
+            stored.len() * 3 <= plain.len(),
+            "{} B stored against {} B plain",
+            stored.len(),
+            plain.len()
+        );
+    }
+
+    /// Every evidence cache and registry on an installed device was written
+    /// plain. Reading one must not fall to a cold rebatch or a reseed.
+    #[test]
+    fn a_plain_named_blob_from_before_compression_still_decodes() {
+        let value = shaped_cache();
+        let plain = rmp_serde::to_vec_named(&value).expect("encode");
+
+        let back: ShapedCache = deserialize_gps_composite(&plain).expect("decode");
+        assert_eq!(back, value);
+    }
+
+    /// A torn write leaves a prefix of the compressed body. It has to read as
+    /// unreadable, which the callers turn into a rebatch or a reseed, never as
+    /// a shorter value. Every cut through the header and the tail, and a
+    /// stride through the body between.
+    #[test]
+    fn a_torn_compressed_blob_is_refused_at_every_cut() {
+        let stored = serialize_named(&shaped_cache()).expect("encode");
+        let tail = stored.len().saturating_sub(64);
+        let cuts = (0..64.min(tail))
+            .chain((64..tail).step_by(37))
+            .chain(tail..stored.len());
+        for cut in cuts {
+            assert!(
+                deserialize_gps_composite::<ShapedCache>(&stored[..cut]).is_err(),
+                "a blob cut at {cut} of {} B decoded",
+                stored.len()
+            );
+        }
+    }
+
+    /// A header claiming more bytes than the body holds is refused without
+    /// reserving what it claims.
+    #[test]
+    fn a_compressed_header_that_overstates_its_length_is_refused() {
+        let mut stored = serialize_named(&shaped_cache()).expect("encode");
+        stored[1..5].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(deserialize_gps_composite::<ShapedCache>(&stored).is_err());
     }
 }

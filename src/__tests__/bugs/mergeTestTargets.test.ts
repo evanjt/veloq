@@ -31,6 +31,10 @@ import {
 const ROOT = join(__dirname, '../../..');
 const CRATE = 'modules/veloqrs/rust/veloqrs';
 const NO_CORPORA: Corpora = {};
+// This file names the crate sources it feeds the planner, so it is planned as
+// one of their Jest readers.
+const SELF_AS_READER =
+  "npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests 'src/__tests__/bugs/mergeTestTargets.test.ts'";
 
 describe('which suites a merge runs', () => {
   it('names the grouped Rust suite whose source file the merge touched', () => {
@@ -254,6 +258,45 @@ describe('which suites a merge runs', () => {
     const commands = mergeTestCommands(targets, NO_CORPORA);
 
     expect(commands).toEqual(['npx jest --config config/jest.config.js --selectProjects app']);
+  });
+
+  // The contract suite reads native sources through `fs`, so nothing imports
+  // them and only their name places the suite.
+  it.each([
+    'widget/android/java/WidgetSnapshot.kt',
+    'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
+    'modules/veloqrs/android/src/main/java/com/veloq/TileBridge.java',
+    `${CRATE}/src/widget_snapshot.rs`,
+  ])('plans the Jest suites that read the native source %s', (path) => {
+    const targets = mergeTestTargets([path]);
+    const base = path.slice(path.lastIndexOf('/') + 1);
+
+    expect(targets.related).toContain('src/__tests__/contracts/nativeContracts.test.ts');
+    for (const test of targets.related) {
+      expect(readFileSync(join(ROOT, test), 'utf8')).toContain(base);
+    }
+    expect(targets.jestApp).toBe(false);
+  });
+
+  it('keeps the per-language commands a native source already gets', () => {
+    const kotlin = mergeTestTargets([
+      'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+    ]);
+    const rust = mergeTestTargets([`${CRATE}/src/widget_snapshot.rs`]);
+
+    expect(kotlin.androidJvm).toBe(true);
+    expect(rust.rustLib).toBe(true);
+    expect(rust.rustLint).toBe(true);
+  });
+
+  it('plans no Jest suite for a native source no test names', () => {
+    // Built from pieces so this file does not name it and become its reader.
+    const targets = mergeTestTargets([
+      ['widget/android/java/', 'Nobody', 'Reads', 'This.kt'].join(''),
+    ]);
+
+    expect(targets.related).toEqual([]);
+    expect(targets.jestApp).toBe(false);
   });
 
   it('hands the changed TypeScript to jest and nothing generated', () => {
@@ -499,6 +542,7 @@ describe('the commands a merge runs', () => {
       'cargo nextest run --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic --profile ci',
       expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
       expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
+      SELF_AS_READER,
     ]);
   });
 
@@ -535,7 +579,7 @@ describe('the commands a merge runs', () => {
         mergeTestTargets([`${CRATE}/tests/corpus_preview_identity.rs`])
       );
 
-      expect(commands).toEqual([RUST_LINT, LAYOUT_ONLY]);
+      expect(commands).toEqual([RUST_LINT, LAYOUT_ONLY, SELF_AS_READER]);
     });
 
     it('does not take the suites beside it down with it', () => {

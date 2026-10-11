@@ -2,10 +2,7 @@ package com.veloq.recording
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.core.app.NotificationCompat
 
 private const val PREFERENCES = "veloq-recording-interrupted"
@@ -17,10 +14,6 @@ private const val KEY_BODY = "body"
 private const val CHANNEL_ID = "veloq-recording-interrupted"
 private const val NOTICE_TAG = "veloq-recording-interrupted"
 private const val NOTICE_ID = 0
-
-// The record entry, which offers the interrupted ride back or opens the one
-// already resumed. The same link the record widget opens.
-private const val RESUME_URL = "veloq://record"
 
 private class PreferencesStore(context: Context) : InterruptedRideStore {
   private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -79,22 +72,10 @@ object InterruptedRideNotifier {
       .setStyle(NotificationCompat.BigTextStyle().bigText(notice.body))
       .setCategory(NotificationCompat.CATEGORY_STATUS)
       .setAutoCancel(true)
-      .setContentIntent(resume(context))
+      // A tap on a notification is one of the starts Android lets bring the
+      // location service back, so the ride resumes from here.
+      .setContentIntent(RideLink.interrupted(context.packageName).pendingIntent(context))
       .build()
-
-  // A tap on a notification is one of the starts Android lets bring the
-  // location service back, so the ride resumes from here.
-  private fun resume(context: Context): PendingIntent {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(RESUME_URL))
-      .setPackage(context.packageName)
-      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-    return PendingIntent.getActivity(
-      context,
-      0,
-      intent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-  }
 
   private fun smallIcon(context: Context): Int {
     val id = context.resources.getIdentifier("notification_icon", "drawable", context.packageName)

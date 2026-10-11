@@ -248,6 +248,7 @@ mod tests {
             previous_ftp: previous,
             previous_date: None,
             delta_watts: None,
+            glyph: None,
             sample_count: 0,
         }
     }

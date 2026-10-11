@@ -96,8 +96,13 @@ export function SectionEfficiencyCard({ trend, isDark, width = 280 }: SectionEff
         ))}
       </Canvas>
 
-      <Text style={[styles.caption, isDark && styles.captionDark]}>
-        {t('sections.aerobicEfficiencyCaption')}
+      <Text
+        testID="section-efficiency-caption"
+        style={[styles.caption, isDark && styles.captionDark]}
+      >
+        {t('sections.aerobicEfficiencyCaption', {
+          quantity: t('insights.efficiencyTrend.quantity'),
+        })}
       </Text>
     </Card>
   );

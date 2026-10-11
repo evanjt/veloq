@@ -54,9 +54,10 @@ enum VeloqPushEngine {
   }
 
   /// One activity push, end to end: the gate, the detail body, the track and
-  /// its index, then the title and body to post as JSON, which `VeloqSentence` reads. Nil when notifications are
-  /// off, the athlete differs or the engine is not open. A ride with nothing
-  /// worth a sentence, or a step that failed, is answered with the plain entry.
+  /// its index, then the title and body to post as JSON, which `VeloqSentence`
+  /// reads. The skip marker when notifications are off or the athlete differs,
+  /// and nil when the engine could not answer at all. A ride with nothing worth
+  /// a sentence, or a step that failed, is answered with the plain entry.
   ///
   /// One call rather than three, and the same entry the Android worker makes:
   /// the gate is read before anything is fetched, the detail body writes the
@@ -100,18 +101,29 @@ struct VeloqSentence {
   let body: String
 
   /// The crate writes the JSON by hand, two keys and nothing nested. An
-  /// answer that will not parse is no answer: the caller posts what the
-  /// server wrote rather than an empty line.
+  /// answer that will not parse, or has no title, is no answer: the caller
+  /// posts its own fallback rather than an empty line. An empty body is an
+  /// answer, the stored title for a run that failed before it learned the
+  /// ride's name, which is what Android posts for the same run.
   init?(json: String) {
     guard
       let data = json.data(using: .utf8),
       let fields = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let title = fields["title"] as? String,
       let body = fields["body"] as? String,
-      !title.isEmpty,
-      !body.isEmpty
+      !title.isEmpty
     else { return nil }
     self.title = title
     self.body = body
+  }
+
+  /// Whether the answer is the engine's own refusal, notifications off or an
+  /// athlete who differs, which leaves the server's line standing.
+  static func skips(_ json: String) -> Bool {
+    guard
+      let data = json.data(using: .utf8),
+      let fields = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return false }
+    return fields["skip"] as? Bool == true
   }
 }

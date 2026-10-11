@@ -306,18 +306,119 @@ fn a_second_pass_over_a_filled_library_does_no_work() {
     assert_eq!(refreshes(), 0);
 }
 
+fn no_elevation() -> Vec<GpsPoint> {
+    (0..POINTS)
+        .map(|t| GpsPoint::new(46.0, 7.0 + f64::from(t) * 0.00003))
+        .collect()
+}
+
+/// The rows that measure a window, leaving out the one that records a
+/// measurement which found none.
+fn window_rows(engine: &PersistentEngine, id: &str) -> Vec<Row> {
+    rows(engine, id)
+        .into_iter()
+        .filter(|row| row.0 != NO_WINDOW_S)
+        .collect()
+}
+
+/// Scenario: an activity whose track carries no elevation is measured and
+/// gives no window, on an upgraded library and again at the next open.
+///
+/// Expected behaviour: it is measured once and then no longer owed, so the
+/// next pass takes nothing, and it holds no window.
 #[test]
-fn an_activity_that_measures_to_nothing_ends_the_pass() {
+fn an_activity_that_measures_to_nothing_is_no_longer_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = upgraded_library();
-    let flat_no_elevation: Vec<GpsPoint> = (0..POINTS)
-        .map(|t| GpsPoint::new(46.0, 7.0 + f64::from(t) * 0.00003))
-        .collect();
-    store_track(&mut engine, "bare", "Run", flat_no_elevation);
+    store_track(&mut engine, "bare", "Run", no_elevation());
     store_stream(&mut engine, "bare", POINTS);
+    engine
+        .db
+        .execute("DELETE FROM activity_climb_bests", [])
+        .unwrap();
+    assert_eq!(engine.climb_bests_owed().unwrap(), 4);
 
     assert_eq!(drain(&engine), 4);
+
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
+    assert!(window_rows(&engine, "bare").is_empty());
+    reset_test_refreshes();
+    assert_eq!(drain(&engine), 0);
+    assert_eq!(refreshes(), 0);
+}
+
+#[test]
+fn an_activity_stored_with_no_elevation_is_never_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_track(&mut engine, "bare", "Run", no_elevation());
+    store_stream(&mut engine, "bare", POINTS);
+
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
+    assert!(window_rows(&engine, "bare").is_empty());
+}
+
+#[test]
+fn an_unreadable_stream_of_the_right_length_is_no_longer_owed_once_measured() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = upgraded_library();
+    store_track(&mut engine, "garbled", "Run", track(hill_rep(10.0)));
+    store_stream(&mut engine, "garbled", POINTS);
+    engine
+        .db
+        .execute(
+            "UPDATE time_streams SET times = x'ff' WHERE activity_id = 'garbled'",
+            [],
+        )
+        .unwrap();
+    engine
+        .db
+        .execute("DELETE FROM activity_climb_bests", [])
+        .unwrap();
+
+    assert_eq!(drain(&engine), 4);
+
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
+    assert!(window_rows(&engine, "garbled").is_empty());
+}
+
+#[test]
+fn elevation_gained_later_replaces_the_no_window_row_with_windows() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_track(&mut engine, "bare", "Run", no_elevation());
+    store_stream(&mut engine, "bare", POINTS);
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
+
+    let corrected: Vec<f64> = (0..POINTS).map(hill_rep(10.0)).collect();
+    assert!(
+        engine
+            .splice_track_elevation(
+                "bare",
+                &corrected,
+                crate::persistence::ElevationSeries::Corrected
+            )
+            .unwrap()
+    );
+
+    assert_eq!(rows(&engine, "bare"), expected(&engine, "bare"));
+    assert_eq!(rows(&engine, "bare").len(), CLIMB_WINDOWS_S.len());
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
+}
+
+#[test]
+fn a_track_that_loses_its_stream_length_drops_the_no_window_row() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_track(&mut engine, "bare", "Run", no_elevation());
+    store_stream(&mut engine, "bare", POINTS);
+
+    let mut longer = no_elevation();
+    longer.push(GpsPoint::new(46.0, 7.1));
+    store_track(&mut engine, "bare", "Run", longer);
+
     assert!(rows(&engine, "bare").is_empty());
+    assert_eq!(engine.climb_bests_owed().unwrap(), 0);
 }
 
 /// Scenario: the engine opens a library that predates the rows, with no
@@ -361,4 +462,51 @@ fn the_owed_work_at_open_fills_the_rows_without_a_credential() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     assert_eq!(start_backfill(), FfiStartOutcome::NotOwed);
+}
+
+/// The last schema whose rows could hold a window ending across a pause on
+/// the track's final step.
+const SCHEMA_BEFORE_THE_REMEASURE: i64 = 69;
+
+/// Scenario: a library written before the final-step fix holds a climb row the
+/// fixed measure would not give, and is opened by this build.
+///
+/// Expected behaviour: the upgrade clears every row, the activity is owed
+/// again, and a pass writes what the fixed measure gives.
+#[test]
+fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().unwrap();
+    let path = dir.path().join("upgraded.db");
+    let path = path.to_str().unwrap();
+    {
+        let mut engine = PersistentEngine::new(path).unwrap();
+        store_track(&mut engine, "a", "Run", track(hill_rep(10.0)));
+        store_stream(&mut engine, "a", POINTS);
+        engine
+            .db
+            .execute(
+                "UPDATE activity_climb_bests SET vam = 5806.0 WHERE activity_id = 'a'",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .pragma_update(None, "user_version", SCHEMA_BEFORE_THE_REMEASURE)
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
+                [SCHEMA_BEFORE_THE_REMEASURE.to_string()],
+            )
+            .unwrap();
+    }
+
+    let engine = PersistentEngine::new(path).unwrap();
+    assert!(rows(&engine, "a").is_empty());
+    assert_eq!(engine.climb_bests_owed().unwrap(), 1);
+
+    assert_eq!(drain(&engine), 1);
+    assert_eq!(rows(&engine, "a"), expected(&engine, "a"));
 }

@@ -7,6 +7,8 @@
 
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import { getEngine } from '@/shared/native/engine';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
+import { isCentreZoom } from './storedCamera';
 
 const STORAGE_KEY = '@map_camera_state';
 
@@ -19,13 +21,18 @@ let state: MapCameraState | null = null;
 let initialised = false;
 let initPromise: Promise<void> | null = null;
 
+/** A value that is not a camera reads as no saved camera. */
+function parseCamera(raw: string): MapCameraState | null {
+  return safeJsonParseWithSchema<MapCameraState | null>(raw, isCentreZoom, null);
+}
+
 export function initMapCameraState(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     if (initialised) return;
     try {
       const raw = await getSetting(STORAGE_KEY);
-      if (raw) state = JSON.parse(raw);
+      if (raw) state = parseCamera(raw);
     } catch {
       // Best effort - start without saved state
     }
@@ -51,7 +58,7 @@ export function getMapCameraState(): MapCameraState | null {
   if (state) return state;
   try {
     const raw = getEngine()?.getSetting(STORAGE_KEY);
-    if (raw) state = JSON.parse(raw);
+    if (raw) state = parseCamera(raw);
   } catch {
     // Best effort - a malformed value reads as no saved camera
   }

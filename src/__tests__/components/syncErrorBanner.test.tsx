@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
@@ -140,6 +141,7 @@ describe('SyncErrorBanner', () => {
     [SyncErrorReason.Storage, 'storage'],
     [SyncErrorReason.NotConfigured, 'notConfigured'],
     [SyncErrorReason.Internal, 'internal'],
+    [SyncErrorReason.StorageFull, 'storageFull'],
   ])('translates reason %s rather than printing the engine string', (reason, key) => {
     mockHealth = {
       lastError: 'HTTP 503: upstream refused',
@@ -151,6 +153,29 @@ describe('SyncErrorBanner', () => {
     expect(getByText(`emptyState.syncError.reason.${key}`)).toBeTruthy();
     expect(queryByText('HTTP 503: upstream refused')).toBeNull();
   });
+
+  it('offers to free space when the device is full, and goes where space is freed', () => {
+    mockHealth = {
+      lastError: 'device storage is full: athlete profile store failed',
+      lastErrorReason: SyncErrorReason.StorageFull,
+      lastSuccessAt: null,
+    };
+    const { getByTestId } = render(<SyncErrorBanner />);
+
+    fireEvent.press(getByTestId('sync-error-free-space'));
+
+    expect(router.push).toHaveBeenCalledWith('/cache-settings');
+  });
+
+  it.each([SyncErrorReason.Storage, SyncErrorReason.Network, null])(
+    'offers no space action for reason %s',
+    (reason) => {
+      mockHealth = { lastError: 'timed out', lastErrorReason: reason, lastSuccessAt: null };
+      const { queryByTestId } = render(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-free-space')).toBeNull();
+    }
+  );
 
   it('falls back to the engine string for a reason it does not know', () => {
     mockHealth = {

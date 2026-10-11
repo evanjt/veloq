@@ -30,7 +30,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { wipeLibrary } from '@/shared/storage';
+import { WIPE_INVENTORY, wipeLibrary, wipeLines, type WipeLine } from '@/shared/storage';
 import { getWebdavConfig, setWebdavConfig } from '@/features/settings/lib/autobackup/webdavConfig';
 import {
   getLastBackupFailure,
@@ -675,6 +675,11 @@ interface Seeds {
 interface DeviceWrite {
   /** Where it is written. */
   where: string;
+  /**
+   * The lines of the Sign out and delete data confirm it falls under, or none
+   * for a copy, cache, log or id the athlete would not know by name.
+   */
+  confirm: WipeLine[];
   /** Every file `scripts/lint-device-writes.mjs` counts a write to it in. */
   writers: string[];
   /** What it holds. */
@@ -701,6 +706,7 @@ const RUST = 'modules/veloqrs/rust/veloqrs/src';
 const DEVICE_WRITES: DeviceWrite[] = [
   // The library and what sits beside it.
   {
+    confirm: ['activities', 'wellness', 'detectedSections', 'names', 'sectionEdits'],
     where: 'routes.db and its -wal and -shm, in the App Group on iOS and filesDir on Android',
     writers: [
       'src/shared/native/engine.ts',
@@ -717,6 +723,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { engine: 'clear_forgets_the_record_restore_state and the persistence clear_ tests' },
   },
   {
+    confirm: [],
     where:
       "settings-table keys Rust's clear deletes: owner, detector, cutover, record restore, curve stamps",
     writers: [
@@ -728,30 +735,35 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { engine: 'clear_forgets_the_record_restore_state' },
   },
   {
+    confirm: [],
     where: 'routes.db.init.lock beside the database',
     writers: [`${RUST}/persistence/mod.rs`, `${RUST}/persistence/file_lock.rs`],
     holds: 'nothing: an empty file the init takes a lock on',
     kept: 'it holds no data, and the next open takes it again',
   },
   {
+    confirm: [],
     where: 'the periodic widget redraw, a WorkManager schedule on Android',
     writers: ['modules/veloqrs/android/src/main/java/com/veloq/WidgetAgeRefreshWorker.kt'],
     holds: 'nothing: a schedule that redraws the widgets from the snapshot file every 15 minutes',
     kept: 'it holds no athlete data, and it cancels itself when the last widget is removed',
   },
   {
+    confirm: [],
     where: 'the periodic widget data refresh, a WorkManager schedule on Android',
     writers: ['modules/veloqrs/android/src/main/java/com/veloq/WidgetDataRefreshWorker.kt'],
     holds: 'nothing: a six-hour schedule that runs the native widget refresh',
     kept: 'it holds no athlete data, and it cancels itself once signed out or no widget is placed',
   },
   {
+    confirm: [],
     where: 'veloq_panic.log beside the database',
     writers: [`${RUST}/persistence/mod.rs`, 'src/features/settings/lib/databaseSidecars.ts'],
     holds: "every engine panic's message, which can name an activity or a section",
     wiped: { files: ['file:///docs/veloq_panic.log'] },
   },
   {
+    confirm: [],
     where: 'routes.db.corrupt-<seconds> and its pair, beside the database and in Documents',
     writers: [`${RUST}/persistence/mod.rs`, `${RUST}/persistence/sections/history.rs`],
     holds: 'a whole copy of a library that would not open',
@@ -763,6 +775,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: 'routes.db.displaced-<stamp> and its pair, a library the App Group move found there',
     writers: ['src/shared/native/engine.ts'],
     holds: 'a whole copy of a library',
@@ -774,6 +787,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: 'routes.db.clear-bak and its pair, the derived-data clear rollback',
     writers: [
       'src/features/settings/lib/clearSnapshot.ts',
@@ -786,6 +800,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Backups and the record zip.
   {
+    confirm: ['localBackups'],
     where: 'Documents/veloq-decisions.zip, the record the device backup carries',
     writers: [
       'src/shared/storage/platformRecord.ts',
@@ -797,6 +812,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { files: ['file:///docs/veloq-decisions.zip'] },
   },
   {
+    confirm: [],
     where:
       'veloq-record-* beside a record destination: the zip before its rename, a conversion copy',
     writers: [`${RUST}/persistence/record_backup.rs`, 'src/shared/storage/platformRecord.ts'],
@@ -812,6 +828,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: ['localBackups'],
     where: 'Documents/backups/, the local backups and old database copies',
     writers: [
       'src/features/settings/lib/autobackup/backends/localBackend.ts',
@@ -826,6 +843,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: 'cache/restores/, every restore copy and a WebDAV download',
     writers: [
       'src/features/settings/lib/backup.ts',
@@ -836,12 +854,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { files: ['file:///cache/restores/restore-temp.zip'] },
   },
   {
+    confirm: [],
     where: 'cache/read-backs/, the copy a backup run fetches back from a carrier to compare',
     writers: ['src/shared/storage/cacheFiles.ts'],
     holds: 'a record zip, which a kill part way through the comparison leaves behind',
     wiped: { files: ['file:///cache/read-backs/webdav-veloq-2026-09-30T08-00-00-000Z.zip'] },
   },
   {
+    confirm: [],
     where:
       'Documents/veloq-held-import.veloq or .zip, a backup picked or downloaded while signed out',
     writers: ['src/features/settings/lib/heldImport.ts'],
@@ -849,6 +869,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'it exists only while nobody is signed in, so the wipe meets it only for the athlete picking it, at their sign-in or a demo entry, and the first signed-in launch restores and deletes it',
   },
   {
+    confirm: [],
     where: 'cache/exports/, every file the share sheet is handed',
     writers: [
       'src/shared/storage/cacheFiles.ts',
@@ -859,18 +880,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { files: ['file:///cache/exports/veloq-activities-2026-10-01.zip'] },
   },
   {
+    confirm: [],
     where: 'cache/notification_routes/, the pictures older builds attached to notifications',
     writers: [],
     holds: "a ride's route line",
     wiped: { files: ['file:///cache/notification_routes/a1.png'] },
   },
   {
+    confirm: [],
     where: "cache/DocumentPicker/, the picker's copy of a file chosen for import",
     writers: [],
     holds: 'a backup the athlete picked',
     wiped: { files: ['file:///cache/DocumentPicker/0f6c2a1e.zip'] },
   },
   {
+    confirm: [],
     where: 'exports and restore copies older builds wrote at the cache root',
     writers: [],
     holds: 'activity exports, GPX, backups, restore copies',
@@ -885,6 +909,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: ['activities', 'names'],
     where: 'Documents/gps_tracks/ and Documents/bounds_cache/, from builds before the engine',
     writers: ['src/shared/storage/gpsStorage.ts'],
     holds: 'GPS tracks, bounds and route names',
@@ -899,6 +924,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Maps.
   {
+    confirm: [],
     where: 'Documents/terrain_previews/ and the terrain-preview-order key',
     writers: [
       'src/features/maps/lib/storage/terrainPreviewCache.ts',
@@ -911,18 +937,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: 'veloq-pending-terrain-snapshots in AsyncStorage, written by an earlier install',
     writers: [],
     holds: 'activity ids waiting for a preview',
     wiped: { storage: ['veloq-pending-terrain-snapshots'] },
   },
   {
+    confirm: [],
     where: 'terrain-preview-cache-version in AsyncStorage',
     writers: ['src/features/maps/lib/storage/terrainPreviewCache.ts'],
     holds: 'the preview format version',
     kept: 'a format stamp, no athlete data',
   },
   {
+    confirm: [],
     where: 'cache/heatmap-tiles/: tiles, version.txt, .dirty, corrupt-activities.json',
     writers: [
       'src/features/maps/lib/heatmapTiles.ts',
@@ -935,12 +964,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { engine: 'the clear-all wipe of the tile sets, wipe_tile_sets' },
   },
   {
+    confirm: [],
     where: 'Documents/heatmap-tiles/, where builds before 0.3.0 drew the heatmap',
     writers: ['src/features/maps/lib/heatmapTiles.ts'],
     holds: "a heatmap of the athlete's rides, on an install upgraded from those builds",
     wiped: { files: ['file:///docs/heatmap-tiles/12/2148/1436.png'] },
   },
   {
+    confirm: [],
     where: 'Documents/basemap-tiles/, the map tile store and its pinned ground',
     writers: [
       'src/shared/app/launch.ts',
@@ -960,6 +991,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Recording.
   {
+    confirm: ['recordings'],
     where:
       'Documents/recordings/, the legacy pending_uploads/, and the AsyncStorage <legacy key>-unadoptable archives of legacy entries no retry can adopt',
     writers: [
@@ -970,6 +1002,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's",
   },
   {
+    confirm: ['recordings'],
     where:
       'Documents/recording_backup.json and recording_backup_<athlete>.json, their .tmp siblings, and the AsyncStorage ownerless_recording_backup_settled marker and ownerless_recording_backup_pending_athlete key',
     writers: [
@@ -981,6 +1014,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'a ride in progress, cleared with its temporary file when saved or discarded; stale temporary files are removed on load; the marker and the pending athlete stay so a later library is never handed a ride it did not record',
   },
   {
+    confirm: [],
     where: 'recording-notification-actions.txt in filesDir',
     writers: [
       'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RecordingActionReceiver.kt',
@@ -989,6 +1023,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'session times and action names, no athlete data, drained at the next launch',
   },
   {
+    confirm: [],
     where:
       'the veloq-recording-interrupted preferences and the notice posted from them when a process dies mid-ride',
     writers: [
@@ -998,6 +1033,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'it belongs to a ride in progress, whose backup the wipe keeps, and ends when the ride ends or the notice is posted',
   },
   {
+    confirm: [],
     where: 'the recording foreground notification and the iOS Live Activity',
     writers: [
       'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
@@ -1007,12 +1043,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'it belongs to a recording in progress and ends with it',
   },
   {
+    confirm: [],
     where: 'the recording preferences',
     writers: ['src/features/recording/stores/RecordingPreferencesStore.ts'],
     holds: 'display and behaviour choices for recording',
     kept: 'a preference of the device, no athlete data',
   },
   {
+    confirm: [],
     where: 'veloq-upload-permission',
     writers: ['src/features/recording/stores/UploadPermissionStore.ts'],
     holds: 'the scopes the previous account granted',
@@ -1021,6 +1059,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // The image loader.
   {
+    confirm: [],
     where: "the image loader's disk cache: Fresco's on Android, the shared URL cache on iOS",
     writers: [],
     holds: "the athlete's profile photo, fetched by the core Image component",
@@ -1028,6 +1067,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   // The widget and the launcher.
   {
+    confirm: [],
     where: 'widget-snapshot.json, in the App Group on iOS and filesDir on Android, and its .tmp',
     writers: [
       'modules/veloq-widget/ios/WidgetSnapshotFile.swift',
@@ -1043,6 +1083,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { widget: true },
   },
   {
+    confirm: [],
     where: 'native-widget-refresh preferences and its one-shot WorkManager job on Android',
     writers: [
       'modules/veloqrs/android/src/main/java/com/veloq/NativeWidgetSnapshot.kt',
@@ -1052,18 +1093,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'it holds no athlete data; the worker checks the secure store again before running',
   },
   {
+    confirm: [],
     where: 'memory-probe.jsonl, in the App Group on iOS, written only by a probe build',
     writers: ['widget/ios/probe/MemoryProbe.swift'],
     holds: 'the device model, boot time and memory readings, and whether the keychain answered',
     kept: 'it holds no athlete data, and only a build with the probe flag on writes it; the probe is removed once its readings are recorded',
   },
   {
+    confirm: [],
     where: "the Android launcher's dynamic record shortcuts",
     writers: ['modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt'],
     holds: 'the sports most recently recorded',
     wiped: { widget: true },
   },
   {
+    confirm: [],
     where:
       'the veloq_summary_widget, veloq_record_widget, veloq_insights_widget and veloq_strength_widget preference files',
     writers: [
@@ -1078,6 +1122,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Notifications.
   {
+    confirm: [],
     where: 'the tray and the schedule',
     writers: [
       'src/features/settings/lib/notificationService.ts',
@@ -1087,6 +1132,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { tray: true },
   },
   {
+    confirm: [],
     where: 'the veloq-insights channel and the background insight task registration',
     writers: [
       'src/features/insights/backgroundInsightTask.ts',
@@ -1097,18 +1143,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'no athlete data',
   },
   {
+    confirm: [],
     where: 'veloq-insight-task-runs in AsyncStorage',
     writers: ['src/features/insights/lib/taskRunLog.ts'],
     holds: 'activity ids and events the background task handled',
     wiped: { storage: ['veloq-insight-task-runs'] },
   },
   {
+    confirm: [],
     where: "WorkManager's database: activity-push-<athlete>-<activity> jobs and finished records",
     writers: ['modules/veloqrs/android/src/main/java/com/veloq/ActivityPushWorker.kt'],
     holds: 'the athlete id and an activity id',
     wiped: { pushJobs: true },
   },
   {
+    confirm: [],
     where: 'veloq-insights-fingerprint',
     writers: [
       'src/features/insights/lib/fingerprintStore.ts',
@@ -1118,18 +1167,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { settings: ['veloq-insights-fingerprint'] },
   },
   {
+    confirm: ['notificationChoices'],
     where: 'veloq-notification-preferences',
     writers: ['src/features/settings/stores/NotificationPreferencesStore.ts'],
     holds: 'consent, categories, and the athlete a failed unregister is owed for',
     wiped: { settings: ['veloq-notification-preferences'] },
   },
   {
+    confirm: [],
     where: 'veloq-push-token-registered and veloq-push-token-refreshed-at',
     writers: ['src/features/settings/lib/pushTokenRegistration.ts'],
     holds: "the device's push token and when it was refreshed",
     kept: "the device's token, not the athlete's, and the wipe releases its registration on the server",
   },
   {
+    confirm: ['notificationChoices'],
     where: 'veloq-notification-prompt-dismissed',
     writers: [
       'src/features/settings/stores/NotificationPromptStore.ts',
@@ -1141,6 +1193,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Credentials and the backup carrier.
   {
+    confirm: [],
     where: 'the sign-in credential in SecureStore: key, token, athlete id, key owner',
     writers: [
       'src/shared/app/AuthStore.ts',
@@ -1151,12 +1204,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'the wipe runs for the athlete signing in, and every sign-out clears it through clearCredentials',
   },
   {
+    confirm: [],
     where: 'intervals_pending_api_key in SecureStore',
     writers: ['src/features/auth/lib/pendingSignIn.ts'],
     holds: 'a key typed offline',
     wiped: { keychain: ['intervals_pending_api_key'] },
   },
   {
+    confirm: ['backupSetup'],
     where: 'the WebDAV server, user, password and plain-LAN flag in SecureStore',
     writers: ['src/features/settings/lib/autobackup/webdavConfig.ts'],
     holds: "the athlete's backup server login",
@@ -1165,12 +1220,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: ['backupSetup'],
     where: 'the Google account the Drive carrier writes to, in SecureStore',
     writers: ['src/features/settings/lib/autobackup/googleDriveAccount.ts'],
     holds: "the address of the athlete's Google account",
     wiped: { keychain: ['veloq-google-drive-account'] },
   },
   {
+    confirm: ['backupSetup'],
     where:
       "the backup backend, toggle, last run, last failure, the carriers still owed and each destination's last backup",
     writers: ['src/features/settings/lib/autobackup/autoBackup.ts'],
@@ -1187,12 +1244,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: ['backupSetup'],
     where: 'the backup folder the athlete picked: its tree grant or bookmark, and its name',
     writers: ['src/shared/native/backupFolder.ts'],
     holds: "where on the athlete's own storage their records are copied",
     wiped: { engineSettings: ['__backup_folder', '__backup_folder_name'] },
   },
   {
+    confirm: [],
     where: 'cached_athlete_id and stored_activity_count in AsyncStorage',
     writers: ['src/shared/storage/cachedAthleteId.ts'],
     holds: 'the athlete id and the size of the library',
@@ -1201,18 +1260,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Settings that survive Rust's clear.
   {
+    confirm: ['exportPrivacy'],
     where: '__export_home_lat, __export_home_lng and __export_privacy_radius_m',
     writers: ['src/features/settings/components/ExportPrivacyRow.tsx'],
     holds: "the athlete's home coordinates",
     wiped: { engine: 'clear_forgets_the_athletes_home_and_sync_history' },
   },
   {
+    confirm: [],
     where: 'oldest_activity_date, activity_year_counts and sync.last_success_at',
     writers: ['src/shared/app/seedDemoEngine.ts'],
     holds: "the span and yearly counts of the athlete's history, and the last sync",
     wiped: { engine: 'clear_forgets_the_athletes_home_and_sync_history' },
   },
   {
+    confirm: ['mapChoices'],
     where: '@terrain_camera_overrides, veloq-map-activity-overrides, veloq-track-fetch-dismissed',
     writers: [
       'src/features/maps/lib/storage/terrainCameraOverrides.ts',
@@ -1230,18 +1292,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: '@map_camera_state',
     writers: ['src/features/maps/lib/storage/mapCameraState.ts'],
     holds: 'where the map was last centred',
     wiped: { settings: ['@map_camera_state'] },
   },
   {
+    confirm: ['sensors'],
     where: 'veloq-known-sensors',
     writers: ['src/features/sensors/store.ts', 'src/shared/storage/migrateSettingsToSqlite.ts'],
     holds: 'paired sensor ids and the names they advertise',
     wiped: { settings: ['veloq-known-sensors'] },
   },
   {
+    confirm: ['sectionEdits'],
     where: 'the legacy section and route id keys an old build left, and their engine copies',
     writers: ['src/shared/storage/migrateSettingsToSqlite.ts'],
     holds: 'disabled, superseded, dismissed and geocoded section and route ids',
@@ -1256,18 +1321,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
+    confirm: [],
     where: 'veloq-insight-push-history in AsyncStorage, written by an earlier install',
     writers: [],
     holds: 'the times of the most recent insight pushes',
     wiped: { storage: ['veloq-insight-push-history'] },
   },
   {
+    confirm: [],
     where: 'veloq-crash-log in AsyncStorage',
     writers: ['src/shared/debug/crashLog.ts'],
     holds: 'error messages and stacks, which can carry a name or an id',
     wiped: { storage: ['veloq-crash-log'] },
   },
   {
+    confirm: [],
     where: 'version stamps: section health check, settings store',
     writers: [
       'src/features/routes/hooks/useSectionHealthCheck.ts',
@@ -1277,6 +1345,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'stamps, no athlete data',
   },
   {
+    confirm: [],
     where:
       'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, support, what is new',
     writers: [
@@ -1300,6 +1369,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'a preference of the device, no athlete data',
   },
   {
+    confirm: [],
     where:
       'the excluded-from-backup attribute on the tile, preview and local backup directories and the set-aside library copies',
     writers: [
@@ -1310,6 +1380,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: 'no data',
   },
   {
+    confirm: [],
     where: "the backup agent's record, the veloq_auto_backup preferences file on Android",
     writers: [
       'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
@@ -1319,6 +1390,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     kept: "what the phone's own backup did, times and byte counts, no athlete data",
   },
   {
+    confirm: [],
     where: 'the wipe and backup sweep, which name the roots they delete from',
     writers: ['src/shared/storage/gpsStorage.ts', 'src/features/settings/lib/backupCache.ts'],
     holds: 'nothing of its own',
@@ -1379,6 +1451,31 @@ describe('every place the app writes on the device', () => {
     expect(undecided.map((entry) => entry.where)).toEqual([]);
   });
 
+  it('puts every line of the confirm on a place the wipe takes or keeps as it says', () => {
+    const takenBy = (line: WipeLine) =>
+      DEVICE_WRITES.filter((entry) => entry.wiped && entry.confirm.includes(line));
+    const keptBy = (line: WipeLine) =>
+      DEVICE_WRITES.filter((entry) => entry.kept && entry.confirm.includes(line));
+
+    for (const line of [...wipeLines('returns'), ...wipeLines('deleted')]) {
+      expect([line, takenBy(line).length > 0]).toEqual([line, true]);
+    }
+    for (const line of wipeLines('kept')) {
+      expect([line, keptBy(line).length > 0, takenBy(line).length]).toEqual([line, true, 0]);
+    }
+  });
+
+  it('says of each place it takes or keeps which line of the confirm names it', () => {
+    const misplaced = DEVICE_WRITES.flatMap((entry) =>
+      entry.confirm
+        .filter((line) =>
+          entry.kept ? WIPE_INVENTORY[line] !== 'kept' : WIPE_INVENTORY[line] === 'kept'
+        )
+        .map((line) => `${entry.where}: ${line}`)
+    );
+    expect(misplaced).toEqual([]);
+  });
+
   it.each(DEVICE_WRITES.filter((entry) => entry.wiped).map((entry) => [entry.where, entry]))(
     'takes %s',
     async (_where, entry) => {
@@ -1394,6 +1491,49 @@ describe('every place the app writes on the device', () => {
       if (entry.wiped?.basemap) expect(mockClearTiles).toHaveBeenCalled();
     }
   );
+});
+
+/**
+ * Scenario: the engine wipe succeeds and then a best-effort cleanup step
+ * fails, such as a keychain delete on a locked device.
+ *
+ * Expected behaviour: the library is already gone, so every later step still
+ * runs and the wipe resolves. Only a failed engine wipe rejects, since only
+ * then is the library still there.
+ */
+describe('a wipe whose cleanup step fails after the engine wipe', () => {
+  afterEach(() => {
+    mockEngine.clear.mockReset();
+    mockEngine.clear.mockImplementation(async () => undefined);
+  });
+
+  it('resolves and still clears the widget, the tray, the pushes, the carrier and the stores', async () => {
+    const { useInsightsStore } = require('@/features/insights/store');
+    await seedAthleteA();
+    mockWidget.snapshot = JSON.stringify({ athleteId: ATHLETE_A });
+    mockPushJobs.add('activity-push-i999');
+    useInsightsStore.setState({ lastSeenFingerprint: 'fp-a', hasNewInsights: true });
+    jest.mocked(SecureStore.deleteItemAsync).mockRejectedValue(new Error('keychain locked'));
+
+    await expect(wipeLibrary()).resolves.toBeUndefined();
+
+    expect(mockEngine.clear).toHaveBeenCalled();
+    expect(mockWidget.snapshot).toBeNull();
+    expect([...mockTray]).toEqual([]);
+    expect([...mockPushJobs]).toEqual([]);
+    expect(isAutoBackupEnabled()).toBe(false);
+    expect(getLastBackupTimestamp()).toBeNull();
+    expect(useNotificationPreferences.getState().enabled).toBe(false);
+    expect(useInsightsStore.getState().hasNewInsights).toBe(false);
+    expect(useInsightsStore.getState().lastSeenFingerprint).toBe('');
+  });
+
+  it('rejects when the engine wipe fails, so no caller reports a library gone that is still there', async () => {
+    await seedAthleteA();
+    mockEngine.clear.mockRejectedValueOnce(new Error('database is locked'));
+
+    await expect(wipeLibrary()).rejects.toThrow('database is locked');
+  });
 });
 
 describe('the basemap tile store at a wipe', () => {

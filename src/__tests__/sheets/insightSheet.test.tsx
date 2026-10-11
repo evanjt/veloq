@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 
 import InsightSheet from '@/app/sheets/insight';
 import { InsightsPanel } from '@/features/insights/components/InsightsPanel';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
 import type { Insight } from '@/types';
 
@@ -16,6 +17,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: {
     push: (...args: unknown[]) => mockPush(...args),
+    canGoBack: () => true,
     back: () => {
       mockOrder.push('dismiss');
       mockBack();
@@ -28,6 +30,7 @@ jest.mock('@/shared/app/navigation', () => ({
     mockOrder.push('navigate');
     mockNavigate(target);
   },
+  goBack: jest.requireActual('@/shared/app/navigation').goBack,
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
@@ -91,6 +94,8 @@ it('opens the tapped insight in a route and dismisses before opening its detail'
   const sheet = within(screen.getByTestId('insight-detail-sheet'));
   expect(sheet.getByText('Second climb')).toBeTruthy();
   expect(sheet.queryByText('First climb')).toBeNull();
+
+  expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
 
   fireEvent.press(sheet.getByText('View in detail'));
   expect(mockOrder).toEqual(['dismiss', 'navigate']);

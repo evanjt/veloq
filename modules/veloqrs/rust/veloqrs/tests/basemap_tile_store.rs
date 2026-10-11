@@ -954,7 +954,7 @@ fn a_fetch_that_cannot_reach_the_host_leaves_the_store_untouched() {
 fn tile_requests_keep_their_own_pace_rather_than_the_intervals_icu_budget() {
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.method(GET).path_contains("/tile");
+        when.method(GET).path_includes("/tile");
         then.status(200).body(bytes(8, 1));
     });
     let pace = Duration::from_millis(120);
@@ -982,14 +982,10 @@ fn tile_requests_keep_their_own_pace_rather_than_the_intervals_icu_budget() {
 fn the_tile_fetcher_never_carries_an_intervals_icu_credential() {
     let server = MockServer::start();
     let unauthenticated = server.mock(|when, then| {
-        when.method(GET).path("/1/0/0.png").matches(|req| {
-            !req.headers
-                .as_ref()
-                .map(|h| {
-                    h.iter()
-                        .any(|(k, _)| k.eq_ignore_ascii_case("authorization"))
-                })
-                .unwrap_or(false)
+        when.method(GET).path("/1/0/0.png").is_true(|req| {
+            !req.headers_vec()
+                .iter()
+                .any(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         });
         then.status(200).body(bytes(8, 1));
     });
@@ -998,6 +994,205 @@ fn the_tile_fetcher_never_carries_an_intervals_icu_credential() {
     veloqrs::runtime::block_on(fetcher.fetch(&server.url("/1/0/0.png"))).expect("fetch");
 
     unauthenticated.assert();
+}
+
+// ============================================================================
+// Encoding on the wire and on disk
+// ============================================================================
+
+/// A vector tile's shape as far as compression goes: a protobuf that opens on
+/// its layers field, with geometry that repeats but not exactly.
+fn pbf(n: usize) -> Vec<u8> {
+    let mut out = vec![0x1a];
+    let mut state: u32 = 0x5eed;
+    while out.len() < n {
+        state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        out.push(if state >> 30 == 0 {
+            (state >> 16) as u8
+        } else {
+            b'r'
+        });
+    }
+    out
+}
+
+fn gzip(bytes: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(bytes).expect("gzip");
+    encoder.finish().expect("gzip")
+}
+
+fn asks_for_gzip(req: &HttpMockRequest) -> bool {
+    req.headers_vec()
+        .iter()
+        .any(|(k, v)| k.eq_ignore_ascii_case("accept-encoding") && v.contains("gzip"))
+}
+
+/// A vector tile compresses by about a third on the wire. A client that stops
+/// asking for gzip still draws every tile, at half as many bytes again on the
+/// athlete's data plan, and no counter says so because the byte counts are
+/// taken after decoding.
+#[test]
+fn the_tile_client_asks_for_gzip_and_hands_back_the_tile_decoded() {
+    let tile = pbf(4096);
+    let server = MockServer::start();
+    let gzipped = server.mock(|when, then| {
+        when.method(GET)
+            .path("/14/8500/5800.pbf")
+            .is_true(asks_for_gzip);
+        then.status(200)
+            .header("content-encoding", "gzip")
+            .body(gzip(&tile));
+    });
+    let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+
+    let fetched =
+        veloqrs::runtime::block_on(fetcher.fetch(&server.url("/14/8500/5800.pbf"))).expect("fetch");
+
+    gzipped.assert();
+    assert_eq!(fetched, tile);
+}
+
+/// The store keeps the body the host compressed, so the budget holds about
+/// half as many tiles again, and hands the map the tile it can draw: a tile
+/// served still compressed renders blank.
+#[test]
+fn a_gzipped_tile_is_kept_as_the_host_sent_it_and_reads_back_decoded() {
+    let tile = pbf(4096);
+    let sent = gzip(&tile);
+    assert!(sent.len() < tile.len());
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET)
+            .path("/14/8500/5800.pbf")
+            .is_true(asks_for_gzip);
+        then.status(200)
+            .header("content-encoding", "gzip")
+            .body(sent.clone());
+    });
+    let (store, _tmp) = store();
+    let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+
+    let stored = veloqrs::runtime::block_on(fetcher.fetch_into(
+        &store,
+        VECTOR,
+        14,
+        8500,
+        5800,
+        "pbf",
+        &server.url("/14/8500/5800.pbf"),
+        false,
+    ))
+    .expect("fetch");
+
+    assert_eq!(stored, sent.len() as u64);
+    assert_eq!(store.size_of(VECTOR), sent.len() as u64);
+    assert_eq!(store.get(VECTOR, 14, 8500, 5800), Some(tile));
+}
+
+/// Tiles kept before the store kept compressed bodies are plain, and they sit
+/// beside compressed ones under the same source until eviction takes them.
+#[test]
+fn plain_and_gzipped_tiles_read_back_side_by_side() {
+    let (store, _tmp) = store();
+    let old = pbf(2048);
+    let new = pbf(3000);
+
+    store
+        .put(VECTOR, 14, 1, 1, "pbf", &old, false)
+        .expect("put");
+    store
+        .put(VECTOR, 14, 1, 2, "pbf", &gzip(&new), false)
+        .expect("put");
+    store
+        .put("satellite", 14, 1, 3, "jpg", &gzip(&new), false)
+        .expect("put");
+
+    assert_eq!(store.get(VECTOR, 14, 1, 1), Some(old));
+    assert_eq!(store.get(VECTOR, 14, 1, 2), Some(new.clone()));
+    assert_eq!(store.get("satellite", 14, 1, 3), Some(new));
+}
+
+/// A compressed body cut short is not a tile. Read as a miss, the next pan
+/// asks the host again and the fetched tile replaces it.
+#[test]
+fn a_kept_body_that_does_not_decompress_reads_as_a_miss() {
+    let (store, _tmp) = store();
+    let mut cut = gzip(&pbf(4096));
+    cut.truncate(cut.len() / 2);
+
+    store
+        .put(VECTOR, 14, 1, 1, "pbf", &cut, false)
+        .expect("put");
+
+    assert_eq!(store.get(VECTOR, 14, 1, 1), None);
+    assert_eq!(store.tile_counts(VECTOR).misses, 1);
+    assert_eq!(store.tile_counts(VECTOR).hits, 0);
+}
+
+/// A host that answers in an encoding the client never asked for would leave
+/// bytes on disk that nothing here can decode.
+#[test]
+fn a_body_in_an_encoding_never_asked_for_is_not_kept() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/14/8500/5800.pbf");
+        then.status(200)
+            .header("content-encoding", "br")
+            .body(pbf(512));
+    });
+    let (store, _tmp) = store();
+    let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+
+    let outcome = veloqrs::runtime::block_on(fetcher.fetch_into(
+        &store,
+        VECTOR,
+        14,
+        8500,
+        5800,
+        "pbf",
+        &server.url("/14/8500/5800.pbf"),
+        false,
+    ));
+
+    assert!(
+        matches!(outcome, Err(TileFetchError::Garbled(_))),
+        "{outcome:?}"
+    );
+    assert_eq!(store.size(), 0);
+}
+
+#[test]
+fn a_body_labelled_gzip_that_is_not_gzip_is_neither_kept_nor_served() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path_includes("/14/8500/");
+        then.status(200)
+            .header("content-encoding", "gzip")
+            .body(pbf(512));
+    });
+    let (store, _tmp) = store();
+    let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+
+    let kept = veloqrs::runtime::block_on(fetcher.fetch_into(
+        &store,
+        VECTOR,
+        14,
+        8500,
+        5800,
+        "pbf",
+        &server.url("/14/8500/5800.pbf"),
+        false,
+    ));
+    let served = veloqrs::runtime::block_on(fetcher.fetch(&server.url("/14/8500/5801.pbf")));
+
+    assert!(matches!(kept, Err(TileFetchError::Garbled(_))), "{kept:?}");
+    assert!(
+        matches!(served, Err(TileFetchError::Garbled(_))),
+        "{served:?}"
+    );
+    assert_eq!(store.size(), 0);
 }
 
 // ============================================================================

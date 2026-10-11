@@ -202,7 +202,7 @@ export interface ToggleButtonProps {
   fill?: string;
   /** The label on `fill`, which has to clear 4.5:1 on it. */
   ink?: string;
-  /** A number after the label, drawn lighter, such as how many items the option holds. */
+  /** A number after the label, drawn smaller in the label's ink, such as how many items the option holds. */
   count?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -234,11 +234,6 @@ export function ToggleButton({
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
   const labelInk = selected ? (ink ?? colors.textOnPrimary) : palette.textSecondary;
-  const countInk = selected
-    ? colorWithOpacity(labelInk, 0.8)
-    : isDark
-      ? colorWithOpacity(inkTone.white, 0.45)
-      : colorWithOpacity(inkTone.black, 0.35);
 
   return (
     <Pressable
@@ -269,7 +264,13 @@ export function ToggleButton({
         >
           {label}
           {count !== undefined && (
-            <Text style={[styles.chipCount, { color: countInk }]}> {count}</Text>
+            <Text
+              testID={testID && `${testID}-count`}
+              style={[styles.chipCount, { color: labelInk }]}
+            >
+              {' '}
+              {count}
+            </Text>
           )}
         </Text>
       </View>
@@ -277,9 +278,13 @@ export function ToggleButton({
   );
 }
 
-/** The ground of a chip that is not chosen. */
+/**
+ * The ground of a chip that is not chosen, under a `textSecondary` label. In
+ * dark, white at 0.15 over `surfaceCard` lifted it until the label read
+ * 3.78:1; at 0.08 the label reads 4.76:1 on the lightest dark surface.
+ */
 function chipWash(isDark: boolean): string {
-  return isDark ? colorWithOpacity(inkTone.white, 0.15) : colorWithOpacity(inkTone.black, 0.08);
+  return colorWithOpacity(isDark ? inkTone.white : inkTone.black, 0.08);
 }
 
 export interface ToggleButtonRowProps<T extends string> {

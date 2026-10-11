@@ -7,7 +7,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
+import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
   brand,
@@ -23,6 +23,7 @@ import {
 } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { Card } from '@/shared/ui/Card';
+import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
@@ -214,40 +215,8 @@ export const SectionRow = memo(function SectionRow({
                 strokeLinejoin="round"
               />
 
-              {/* Start marker (green) */}
               {polylinePoints && (
-                <>
-                  <Circle
-                    cx={polylinePoints.start.x}
-                    cy={polylinePoints.start.y}
-                    r={3}
-                    fill={colors.success}
-                  />
-                  <Circle
-                    cx={polylinePoints.start.x}
-                    cy={polylinePoints.start.y}
-                    r={2}
-                    fill={ink.white}
-                  />
-                </>
-              )}
-
-              {/* End marker (red) */}
-              {polylinePoints && (
-                <>
-                  <Circle
-                    cx={polylinePoints.end.x}
-                    cy={polylinePoints.end.y}
-                    r={3}
-                    fill={colors.error}
-                  />
-                  <Circle
-                    cx={polylinePoints.end.x}
-                    cy={polylinePoints.end.y}
-                    r={2}
-                    fill={ink.white}
-                  />
-                </>
+                <TrackEndpointMarkers start={polylinePoints.start} end={polylinePoints.end} />
               )}
             </Svg>
           ) : (

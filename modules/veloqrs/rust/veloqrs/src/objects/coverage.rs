@@ -7,17 +7,22 @@
 
 /// Whether a date range holds nothing, owes a download, or is fully local.
 ///
+/// Activities are judged against the census, wellness against what is stored:
+/// intervals.icu answers a wellness row for every day of the athlete's history,
+/// so for wellness `NotFetched` is nothing stored at all.
+///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 #[repr(u8)]
 pub enum RangeCoverage {
-    /// The census names nothing inside the range. The account holds nothing
-    /// there, so an empty chart is the truth.
+    /// The census, or the stored wellness, names nothing inside the range.
+    /// The account holds nothing there, so an empty chart is the truth.
     Empty = 1,
     /// The census names activities the device has not stored at the version the
     /// census gives them. An empty chart here is ignorance, not an empty range.
     NotFetched = 2,
-    /// Every activity the census names inside the range is local and current.
+    /// Every activity the census names inside the range is local and current,
+    /// or wellness is stored for a day inside it.
     Loaded = 3,
 }

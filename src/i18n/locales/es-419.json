@@ -6,7 +6,6 @@
     "explanations": {
       "yourForm": "Tu forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Condición física (CTL) menos Fatiga (ATL)."
     },
-    "ftp": "FTP: {{value}} W",
     "maxHR": "Max: {{value}} lpm",
     "stats": {
       "decoupling": "Desacoplamiento",
@@ -136,7 +135,6 @@
     "fitness": "Condición física"
   },
   "navigation": {
-    "fitness": "Condición física",
     "settings": "Configuración"
   },
   "notifications": {

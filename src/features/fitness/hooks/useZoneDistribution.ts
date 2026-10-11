@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 import type { ZoneDistribution } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
+import {
+  POWER_ZONE_COLORS,
+  HR_ZONE_COLORS,
+  DEFAULT_ZONE_NAME_KEYS,
+} from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { trailingDaysWindow } from '@/features/fitness/lib/weekWindow';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -20,27 +24,6 @@ const SPORT_TO_ENGINE_TYPE: Record<PrimarySport, string> = {
   Running: 'Run',
   Swimming: 'Swim',
 };
-
-const DEFAULT_ZONE_NAME_KEYS = {
-  power: [
-    'zoneNames.power1',
-    'zoneNames.power2',
-    'zoneNames.power3',
-    'zoneNames.power4',
-    'zoneNames.power5',
-    'zoneNames.power6',
-    'zoneNames.power7',
-  ],
-  hr: [
-    'zoneNames.hr1',
-    'zoneNames.hr2',
-    'zoneNames.hr3',
-    'zoneNames.hr4',
-    'zoneNames.hr5',
-    'zoneNames.hr6',
-    'zoneNames.hr7',
-  ],
-} as const;
 
 /** Name of default zone `zone` (1-based) in the app language, undefined past the seventh. */
 export type DefaultZoneName = (type: 'power' | 'hr', zone: number) => string | undefined;

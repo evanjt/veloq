@@ -525,6 +525,15 @@ function isReadableData(path: string): boolean {
   );
 }
 
+/**
+ * Native sources a contract test reads through `fs` to hold them to the
+ * TypeScript or Rust side. Nothing imports them, so only a test that names
+ * one can be placed on it.
+ */
+function isNativeSource(path: string): boolean {
+  return /\.(kt|swift|java|rs)$/.test(path) && !touchesTracematch(path);
+}
+
 interface JestPlan {
   related: string[];
   app: boolean;
@@ -533,16 +542,24 @@ interface JestPlan {
 /**
  * The Jest suites a changed non-TypeScript file can break. Importable data goes
  * to `--findRelatedTests`. A test that reads a file through `fs` names it, so
- * those tests are planned by the file's own name or by its directory. A file under the app that no test can be placed on plans
- * the whole app project.
+ * those tests are planned by the file's own name, and data by its directory
+ * too. A data file under the app that no test can be placed on plans the
+ * whole app project.
  */
 function jestPlan(changed: string[]): JestPlan {
   const data = changed.filter(isReadableData);
+  const native = changed.filter(isNativeSource);
   const related = new Set(changed.filter(isImportableData));
-  if (data.length === 0) return { related: [...related], app: false };
+  if (data.length === 0 && native.length === 0) return { related: [...related], app: false };
   const tests = JEST_ROOTS.flatMap((root) =>
     filesUnder(root.slice(0, -1), (name) => /\.test\.tsx?$/.test(name))
   ).map((file) => ({ file, source: readRepoFile(file) }));
+  // A native source sits in a directory such as `java` or `src` that every
+  // test names, so only its own name places a test, and one no test names
+  // leaves the app to its per-language commands.
+  for (const path of native) {
+    for (const { file, source } of tests) if (namesFile(source, path)) related.add(file);
+  }
   let app = false;
   for (const path of data) {
     const named = tests.filter(({ source }) => namesFile(source, path));

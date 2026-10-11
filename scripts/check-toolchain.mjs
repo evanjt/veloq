@@ -10,6 +10,10 @@
 // build carries on. It prints one line per missing prerequisite and nothing
 // when the tree is ready. It does nothing in CI, where the workflows check out
 // submodules and install the toolchains themselves.
+//
+// CI builds under the Node major `.nvmrc` pins, so a local build under another
+// major runs Metro, the config plugins and the postinstall repairs on a Node
+// the release never sees. That is named as a warning and refuses nothing.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -40,6 +44,25 @@ function submoduleUrl(root) {
 
 function isEmpty(dir) {
   return !existsSync(dir) || readdirSync(dir).length === 0;
+}
+
+/** The Node major `.nvmrc` under `root` pins, or null when it pins none. */
+export function pinnedNodeMajor(root) {
+  try {
+    const major = /^\s*v?(\d+)/.exec(readFileSync(join(root, '.nvmrc'), 'utf8'))?.[1];
+    return major === undefined ? null : Number(major);
+  } catch {
+    return null;
+  }
+}
+
+/** A warning when `version` is not the major `root` pins, or null when it is or nothing is pinned. */
+export function nodeMismatch(root, env, version = process.version) {
+  if (env.CI) return null;
+  const pinned = pinnedNodeMajor(root);
+  const running = Number(/^v?(\d+)/.exec(version)?.[1]);
+  if (pinned === null || running === pinned) return null;
+  return `Node ${version} is running, but .nvmrc pins Node ${pinned}, the major CI builds with: switch with nvm use or fnm use`;
 }
 
 /** One line per prerequisite `root` lacks to build `platform`, after trying to init an empty submodule. */
@@ -100,6 +123,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.error('usage: check-toolchain.mjs --platform android|ios [--root DIR]');
     process.exit(2);
   }
+  const mismatch = nodeMismatch(root, process.env);
+  if (mismatch) console.error(`Warning: ${mismatch}`);
   const lines = missing(root, process.env, platform);
   if (lines.length > 0) {
     console.error('This clone cannot build the app yet:');

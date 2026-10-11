@@ -80,7 +80,7 @@ let mockSegments: string[] = ['detection-preview'];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { back: jest.fn(), push: jest.fn() },
+  router: { canGoBack: () => true, back: jest.fn(), push: jest.fn() },
   useSegments: () => mockSegments,
   useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, []),
 }));

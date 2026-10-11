@@ -16,17 +16,25 @@ import {
   type PrimarySport,
 } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
-import { type BestEffort, type ClimbBest, type ClimbStatus } from '@/features/stats';
+import {
+  bestEffortsHref,
+  type BestEffort,
+  type ClimbBest,
+  type ClimbStatus,
+} from '@/features/stats';
 import { BestEffortRow } from './BestEffortRow';
 import { ClimbingBestRows } from './ClimbingBestRows';
 import { ClimbingStatusNote } from './ClimbingStatusNote';
 import { tapTo } from '@/shared/app/navigation';
+import type { Period } from '@/shared/app/period';
 
 interface SeasonBestsSectionProps {
   efforts: BestEffort[];
   climbing?: ClimbBest[];
   climbingStatus?: ClimbStatus;
   sport: PrimarySport;
+  /** The range Fitness shows, which the link to Best Efforts opens on. */
+  period: Period;
   isLoading: boolean;
 }
 
@@ -35,6 +43,7 @@ export function SeasonBestsSection({
   climbing = [],
   climbingStatus,
   sport,
+  period,
   isLoading,
 }: SeasonBestsSectionProps) {
   const { t } = useTranslation();
@@ -62,7 +71,7 @@ export function SeasonBestsSection({
       accessibilityLabel={t('bestEffortsScreen.title')}
       testID="season-bests-view-all"
       style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
-      onPress={() => tapTo('/best-efforts')}
+      onPress={() => tapTo(bestEffortsHref(period))}
     >
       <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />

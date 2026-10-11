@@ -11,4 +11,4 @@
   android:resizeMode="horizontal|vertical"
   android:widgetCategory="home_screen"
   android:initialLayout="@layout/widget_activity_small"
-  android:previewLayout="@layout/widget_activity_medium" />
+  android:previewLayout="@layout/widget_preview_activity" />

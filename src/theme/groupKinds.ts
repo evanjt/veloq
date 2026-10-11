@@ -27,6 +27,8 @@
  * no line here. So a group added tomorrow has to be classified before it lands.
  */
 
+import { insightCategoryColors } from './colors';
+
 /** What kind of thing a group holds, and therefore how it is measured. */
 export type GroupKind = 'pair' | 'mark' | 'series';
 
@@ -281,8 +283,12 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     ],
   },
   insightCategoryColors: {
-    kind: 'series',
-    reason: 'one hue per insight category, drawn behind an icon that names it',
+    kind: 'mark',
+    reason: 'one hue per insight category, drawn as the history graphic and the card edge',
+    marks: (['light', 'dark'] as const).map((theme) => ({
+      paths: Object.keys(insightCategoryColors).map((category) => `${category}.${theme}`),
+      theme,
+    })),
   },
   verdictFill: {
     kind: 'series',

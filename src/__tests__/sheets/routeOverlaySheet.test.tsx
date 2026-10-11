@@ -12,6 +12,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import RouteOverlaySheet, { type RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { useGroupSummaries } from '@/features/routes/hooks/useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -22,7 +23,11 @@ let mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -146,6 +151,11 @@ it('marks the current route as selected', () => {
   expect(screen.getByTestId('route-overlay-none').props.accessibilityState).toMatchObject({
     selected: false,
   });
+});
+
+it('keeps its scroll view where the iOS sheet sizes it', () => {
+  const { screen } = renderPicker();
+  expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
 });
 
 it('resolves cancelled when it unmounts without a tap', async () => {

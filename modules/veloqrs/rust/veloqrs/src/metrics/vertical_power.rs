@@ -55,8 +55,6 @@ pub fn best_climb_windows(
         if i + 1 < n {
             let ok = time[i + 1] > time[i] && time[i + 1] - time[i] <= MAX_STEP_S;
             bad_steps[i + 1] = bad_steps[i] + usize::from(!ok);
-        } else {
-            bad_steps[i] = bad_steps[i.saturating_sub(1)];
         }
     }
     // bad_steps[k] counts bad steps among the steps ending at samples 1..=k.
@@ -230,6 +228,42 @@ mod tests {
         assert!(best.end < 20 || best.start >= 20);
         let backwards: Vec<u32> = (0..40).rev().collect();
         assert_eq!(best_climb_windows(&backwards, &elev, &[15]), vec![None]);
+    }
+
+    #[test]
+    fn a_pause_on_the_last_step_is_not_differenced_across() {
+        // 20 s of flat at 100 m, then a 31 s gap to a final sample at 150 m.
+        let mut time = secs(20);
+        time.push(50);
+        let mut elev = track(|_| 100.0, 20);
+        elev.push(Some(150.0));
+        let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+        assert_eq!(best.vam, 0.0);
+        assert!(best.end < 20);
+    }
+
+    #[test]
+    fn a_last_step_that_stalls_or_goes_backwards_rules_out_windows_ending_on_it() {
+        for last in [19, 10] {
+            let mut time = secs(20);
+            time.push(last);
+            let mut elev = track(|_| 100.0, 20);
+            elev.push(Some(150.0));
+            let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+            assert_eq!(best.vam, 0.0, "last time {last}");
+            assert!(best.end < 20, "last time {last}");
+        }
+    }
+
+    #[test]
+    fn a_valid_last_step_still_counts() {
+        // Flat to t=19, then a 15 m rise on the final one-second step.
+        let time = secs(21);
+        let mut elev = track(|_| 100.0, 20);
+        elev.push(Some(115.0));
+        let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+        assert_eq!((best.start, best.end), (5, 20));
+        assert!((best.vam - 15.0 / 15.0 * 3600.0).abs() < 1e-9);
     }
 
     #[test]

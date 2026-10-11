@@ -44,9 +44,42 @@ export function recordingEntryHref(type: ActivityType, pairedEventId?: number): 
   return `/recording/${type}?from=${ENTRY_SCREEN_ENTRY}${paired}`;
 }
 
-export type EntryGpsState = 'checking' | 'ready' | 'weak' | 'none';
+/**
+ * `servicesOff` is the device's own location switch, apart from the app's
+ * permission: Android grants the permission with the switch off and sends no
+ * fix, and iOS reports the permission denied.
+ */
+export type EntryGpsState = 'checking' | 'ready' | 'weak' | 'none' | 'servicesOff';
 
 /** What a fix says about readiness. A fix with no accuracy is not a ready one. */
 export function entryGpsState(accuracy: number | null | undefined): EntryGpsState {
   return accuracy != null && accuracy <= GPS_READY_ACCURACY_M ? 'ready' : 'weak';
+}
+
+/** What the entry screen knows about location before a ride. */
+export interface EntryGpsInput {
+  /** The device's location switch, null until it has been read. */
+  servicesEnabled: boolean | null;
+  permission: 'unknown' | 'granted' | 'denied';
+  /** The latest fix, null before the first. */
+  fix: { accuracy: number | null } | null;
+  /** The first fix has taken longer than the screen waits for one. */
+  timedOut: boolean;
+}
+
+/**
+ * The GPS state the entry screen shows. The switch comes first: with it off no
+ * fix will come and a permission reads as denied, so naming either would send
+ * the athlete to the wrong place.
+ */
+export function resolveEntryGps({
+  servicesEnabled,
+  permission,
+  fix,
+  timedOut,
+}: EntryGpsInput): EntryGpsState {
+  if (servicesEnabled === false) return 'servicesOff';
+  if (permission === 'denied') return 'none';
+  if (fix) return entryGpsState(fix.accuracy);
+  return timedOut ? 'weak' : 'checking';
 }

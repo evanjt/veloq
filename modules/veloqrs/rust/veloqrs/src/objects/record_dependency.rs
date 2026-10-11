@@ -333,7 +333,7 @@ mod tests {
             &|_, _| {},
         ));
         assert!(second.is_ok());
-        gone.assert_hits(1);
+        gone.assert_calls(1);
         crate::persistence::with_persistent_engine(|engine| {
             assert!(engine.owed_record_activities().unwrap().is_empty());
             assert!(engine.has_activity("flaky-ride"));

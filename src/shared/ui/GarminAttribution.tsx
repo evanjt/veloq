@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    opacity: 0.7,
   },
   attributionTextDark: {
     color: darkColors.textSecondary,

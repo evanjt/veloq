@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 
-import { useWellness, timeRangeToDays, type TimeRange } from '@/features/wellness';
+import {
+  useWellness,
+  useWellnessCoverage,
+  timeRangeToDays,
+  type TimeRange,
+} from '@/features/wellness';
 import { decouplingSource, useActivities, getLatestFTP } from '@/features/activity';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
@@ -29,6 +34,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   const days = timeRangeToDays(timeRange);
 
   const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
+  const wellnessCoverage = useWellnessCoverage(timeRange);
 
   const { data: activities, isLoading: loadingActivities } = useActivities({
     days,
@@ -39,10 +45,12 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   const powerZones = useZoneDistribution({ type: 'power', sport: sportMode, days });
   const hrZones = useZoneDistribution({ type: 'hr', sport: sportMode, days });
-  // The census over the period the zone cards are captioned with.
-  const zoneCoverage = useRangeCoverage(days);
+  // The census over the period the zone cards are captioned with, which is
+  // also the period the decoupling ride is picked from.
+  const periodCoverage = useRangeCoverage(days);
 
-  const { eftpTrend, eftpChanges, storedRunPace, storedSwimPace } = useFitnessScreenRead();
+  const { eftpTrend, eftpCoverage, eftpChanges, storedRunPace, storedSwimPace } =
+    useFitnessScreenRead();
 
   const { data: sportSettings } = useSportSettings();
   const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
@@ -81,12 +89,14 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   return {
     wellness,
+    wellnessCoverage,
     activities,
     dailyLoads,
     powerZones,
     hrZones,
-    zoneCoverage,
+    periodCoverage,
     eftpTrend,
+    eftpCoverage,
     eftpChanges,
     storedRunPace,
     storedSwimPace,

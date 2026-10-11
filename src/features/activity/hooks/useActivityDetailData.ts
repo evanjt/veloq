@@ -10,6 +10,7 @@ import type {
   ExerciseGroup,
   RouteGroup,
   HrZoneBand,
+  PowerZoneBand,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -50,6 +51,8 @@ export interface ActivityDetailBundle {
   maxHR: number;
   /** The zone bands and the time in each, from the engine; empty with no heart rate time */
   hrZones: HrZoneBand[];
+  /** The power zone bands in watts and the time in each, from the engine; empty with no power zone time */
+  powerZones: PowerZoneBand[];
   /** This activity's contribution against a rest day, when it has training load. */
   fitnessImpact?: ActivityFitnessImpact | undefined;
   /** Section changes whose ledger rows name this activity, newest first */
@@ -117,6 +120,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       prSectionIds: new Set(result.prSectionIds),
       maxHR: result.maxHr,
       hrZones: result.hrZones,
+      powerZones: result.powerZones,
       fitnessImpact: result.fitnessImpact,
       ledgerChanges: result.ledgerChanges,
     },

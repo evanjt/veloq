@@ -65,24 +65,24 @@ jobs:
   jest:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/npm-ci
       - name: Restore Jest cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .jest-cache
           key: jest-\${{ github.sha }}
       - run: npm test
       - name: Save Jest cache
         if: \${{ !cancelled() && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .jest-cache
           key: jest-\${{ github.sha }}
   rust:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Cache Rust
         uses: Swatinem/rust-cache@${PIN} # v2
         with:
@@ -120,7 +120,7 @@ jobs:
           cache-read-only: \${{ github.ref != 'refs/heads/main' }}
           cache-cleanup: on-success
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@${PIN} # v1.2
+        uses: hendrikmuhs/ccache-action@${PIN} # v1.2.24
         with:
           key: ndk
           save: \${{ github.ref == 'refs/heads/main' }}
@@ -152,7 +152,7 @@ jobs:
       - name: Look for a run on this sha
         id: measured
         if: github.event_name == 'schedule'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .measured
           key: coverage-outcome-\${{ github.sha }}-\${{ github.run_id }}
@@ -176,7 +176,7 @@ jobs:
           echo "\${{ steps.measure.outcome }}" > .measured/outcome
       - name: Save the record
         if: \${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .measured
           key: coverage-outcome-\${{ github.sha }}-\${{ github.run_id }}
@@ -214,19 +214,19 @@ const NPM_ACTION = `name: npm ci
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
-        node-version: "22"
+        node-version-file: .nvmrc
         package-manager-cache: false
     - id: npm-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: ~/.npm
         key: npm-\${{ hashFiles('package-lock.json') }}
     - shell: bash
       run: npm ci
     - if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: ~/.npm
         key: \${{ steps.npm-cache.outputs.cache-primary-key }}
@@ -237,6 +237,8 @@ const CLEAN: Record<string, string> = {
   '.github/workflows/build.yml': BUILD_YML,
   '.github/workflows/coverage.yml': COVERAGE_YML,
   '.github/actions/npm-ci/action.yml': NPM_ACTION,
+  '.nvmrc': '24\n',
+  'package.json': JSON.stringify({ engines: { node: '^24.3.0' } }),
 };
 
 function withEdit(file: string, from: string, to: string): Record<string, string> {
@@ -397,8 +399,8 @@ runs:
     const output = refused(
       withEdit(
         '.github/workflows/test.yml',
-        'uses: actions/cache/restore@v4',
-        'uses: actions/cache@v4'
+        'uses: actions/cache/restore@v6',
+        'uses: actions/cache@v6'
       )
     );
     expect(output).toContain('(job jest step Restore Jest cache)');
@@ -409,11 +411,11 @@ runs:
     const output = refused(
       withEdit(
         '.github/actions/npm-ci/action.yml',
-        'node-version: "22"',
-        'node-version: "22"\n        cache: npm'
+        'node-version-file: .nvmrc',
+        'node-version-file: .nvmrc\n        cache: npm'
       )
     );
-    expect(output).toContain('.github/actions/npm-ci/action.yml (step actions/setup-node@v6)');
+    expect(output).toContain('.github/actions/npm-ci/action.yml (step actions/setup-node@v7)');
     expect(output).toContain('actions/setup-node with cache:');
   });
 
@@ -421,9 +423,81 @@ runs:
     const output = refused(
       withEdit('.github/actions/npm-ci/action.yml', '        package-manager-cache: false\n', '')
     );
-    expect(output).toContain('.github/actions/npm-ci/action.yml (step actions/setup-node@v6)');
+    expect(output).toContain('.github/actions/npm-ci/action.yml (step actions/setup-node@v7)');
     expect(output).toContain('package-manager-cache: false');
   });
+
+  const nodeWorkflow = (withBlock: string) => ({
+    ...CLEAN,
+    '.github/workflows/node-tool.yml': `name: Node tool
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+${withBlock}`,
+  });
+
+  it('refuses setup-node given a version rather than .nvmrc', () => {
+    const output = refused(
+      nodeWorkflow(
+        '        with:\n          node-version: "22"\n          package-manager-cache: false\n'
+      )
+    );
+    expect(output).toContain('node-tool.yml (job check step Setup Node.js)');
+    expect(output).toContain('node-version-file: .nvmrc');
+  });
+
+  it('refuses setup-node that reads another version file', () => {
+    const output = refused(
+      nodeWorkflow(
+        '        with:\n          node-version-file: .node-version\n          package-manager-cache: false\n'
+      )
+    );
+    expect(output).toContain('node-tool.yml (job check step Setup Node.js)');
+    expect(output).toContain('node-version-file: .nvmrc');
+  });
+
+  it('accepts setup-node reading .nvmrc in a workflow', () => {
+    const { status } = runGuard(
+      fixture(
+        nodeWorkflow(
+          '        with:\n          node-version-file: .nvmrc\n          package-manager-cache: false\n'
+        )
+      )
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a version passed to the npm-ci action', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/test.yml',
+        '      - uses: ./.github/actions/npm-ci\n',
+        '      - uses: ./.github/actions/npm-ci\n        with:\n          node-version: "22"\n'
+      )
+    );
+    expect(output).toContain('test.yml (job jest step ./.github/actions/npm-ci)');
+    expect(output).toContain('node-version');
+  });
+
+  it('refuses a tree with no .nvmrc', () => {
+    const files = { ...CLEAN };
+    delete files['.nvmrc'];
+    expect(refused(files)).toContain('.nvmrc');
+  });
+
+  it.each([[{}], [{ engines: { node: '>=20' } }], [{ engines: { node: '^22.13.0' } }]])(
+    'refuses package.json %j when it does not hold the .nvmrc major',
+    (pkg) => {
+      const output = refused({ ...CLEAN, 'package.json': JSON.stringify(pkg) });
+      expect(output).toContain('package.json');
+      expect(output).toContain('engines.node');
+    }
+  );
 
   const goWorkflow = (withBlock: string) => ({
     ...CLEAN,
@@ -435,7 +509,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
 ${withBlock}`,
   });
 
@@ -473,6 +547,82 @@ jobs:
     });
     expect(output).toContain('.github/workflows/release.yml (job deploy step Setup Ruby)');
     expect(output).toContain('bundler-cache');
+  });
+});
+
+describe('action runtimes', () => {
+  it('refuses a checkout major that runs on Node 20', () => {
+    const output = refused(
+      withEdit('.github/workflows/test.yml', 'actions/checkout@v7', 'actions/checkout@v4')
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest step actions/checkout@v4)');
+    expect(output).toContain('runs on Node 20');
+    expect(output).toContain('actions/checkout@v5');
+  });
+
+  it('refuses a cache restore major that runs on Node 20 inside a composite action', () => {
+    const output = refused(
+      withEdit(
+        '.github/actions/npm-ci/action.yml',
+        'actions/cache/restore@v6',
+        'actions/cache/restore@v4'
+      )
+    );
+    expect(output).toContain('.github/actions/npm-ci/action.yml (step actions/cache/restore@v4)');
+    expect(output).toContain('runs on Node 20');
+  });
+
+  it('refuses a commit pin whose tag comment names a release on Node 20', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        `hendrikmuhs/ccache-action@${PIN} # v1.2.24`,
+        `hendrikmuhs/ccache-action@${PIN} # v1.2`
+      )
+    );
+    expect(output).toContain('(job build-android step Setup ccache)');
+    expect(output).toContain('hendrikmuhs/ccache-action@v1.2.21');
+  });
+
+  it('refuses an upload-artifact major the first bump left on Node 20', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/report.yml': `name: Report
+on:
+  pull_request:
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Upload report
+        uses: actions/upload-artifact@v5
+        with:
+          name: report
+          path: report
+`,
+    });
+    expect(output).toContain('.github/workflows/report.yml (job report step Upload report)');
+    expect(output).toContain('actions/upload-artifact@v6');
+  });
+
+  it('leaves a commit pin with no tag comment, and an action it has no record of, alone', () => {
+    const { status, output } = runGuard(
+      fixture({
+        ...CLEAN,
+        '.github/workflows/report.yml': `name: Report
+on:
+  pull_request:
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b
+      - uses: example-org/lantern-action@${PIN} # v1
+`,
+      })
+    );
+    expect(output).not.toContain('Node 20');
+    expect(status).toBe(0);
   });
 });
 
@@ -1038,12 +1188,12 @@ jobs:
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Hash native inputs
         id: native
         run: echo "hash=\${{ hashFiles('modules/**/android/**') }}" >> "$GITHUB_OUTPUT"
       - name: Restore Rust libraries
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: modules/engine/build
           key: rust-\${{ steps.native.outputs.hash }}
@@ -1152,7 +1302,7 @@ jobs:
       files(
         DEFINITION.replace(
           '      - name: Build APK',
-          "      - uses: ./.github/actions/npm-ci\n      - name: Restore Metro\n        uses: actions/cache/restore@v4\n        with:\n          path: /tmp/metro\n          key: metro-${{ hashFiles('**/package-lock.json') }}\n      - name: Build APK"
+          "      - uses: ./.github/actions/npm-ci\n      - name: Restore Metro\n        uses: actions/cache/restore@v6\n        with:\n          path: /tmp/metro\n          key: metro-${{ hashFiles('**/package-lock.json') }}\n      - name: Build APK"
         )
       )
     );
@@ -1174,10 +1324,10 @@ jobs:
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Restore Rust libraries
         id: rust-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: modules/engine/build/rust/android
           key: rust-android-v1
@@ -1186,7 +1336,7 @@ jobs:
         run: cd android && ./gradlew :engine:buildRustLibrary --no-daemon
       - name: Save Rust libraries
         if: github.ref == 'refs/heads/main' && steps.rust-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: modules/engine/build/rust/android
           key: \${{ steps.rust-cache.outputs.cache-primary-key }}
@@ -1369,10 +1519,10 @@ jobs:
     env:
       APP_VARIANT: \${{ inputs.variant }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Restore built APK
         id: apk-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
           key: android-app-\${{ inputs.variant }}
@@ -1382,13 +1532,13 @@ jobs:
       - name: Check artifact identity
         run: node scripts/build-record.js identity android/app/build/outputs/apk/release/app-release.apk --variant "$APP_VARIANT"
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: apk
           path: android/app/build/outputs/apk/release/app-release.apk
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: log
           path: build.log
@@ -1467,7 +1617,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
 ${JOB_ENV}    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Prebuild
         run: npx expo prebuild --platform android
       - name: Build APK
@@ -1554,7 +1704,7 @@ jobs:
   sign:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/npm-ci
       - name: Load signing key
         uses: ${uses}
@@ -1624,7 +1774,7 @@ jobs:
   });
 
   it('leaves actions/* and local actions on their tags', () => {
-    const { status } = runGuard(fixture(pinned('actions/upload-artifact@v4')));
+    const { status } = runGuard(fixture(pinned('actions/upload-artifact@v6')));
     expect(status).toBe(0);
   });
 });

@@ -1438,6 +1438,15 @@ function generatedEnum(name: string): string[] {
   });
 }
 
+/** The members of a generated string enum, such as an enum's tags, as `A=A`. */
+function generatedStringEnum(name: string): string[] {
+  const block = read(GENERATED).match(new RegExp(`export enum ${name} \\{([\\s\\S]*?)\\n\\}`));
+  if (!block) throw new Error(`the generated binding declares no enum ${name}`);
+  return [...block[1].matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)",?$/gm)].map(
+    (m) => `${m[1]}=${m[2]}`
+  );
+}
+
 /** The members of a TypeScript numeric enum as `A=1`, without the reverse mapping. */
 function enumMembers(value: Record<string, unknown>): string[] {
   return Object.entries(value)
@@ -1619,6 +1628,18 @@ const SETS: SetContract[] = [
     b: () => nativeStrings.APPLE_STRINGS.map((entry: { key: string }) => entry.key),
   },
   {
+    agree: 'every text the push extension Swift localises is a key of its generated catalogue',
+    mode: 'equal',
+    atLeast: 1,
+    a: () =>
+      walk(path.join(ROOT, PUSH), '.swift').flatMap((file) =>
+        [
+          ...fs.readFileSync(file, 'utf8').matchAll(/String\(localized:\s*"((?:[^"\\]|\\.)*)"/g),
+        ].map((m) => m[1])
+      ),
+    b: () => nativeStrings.PUSH_EXTENSION_STRINGS.map((entry: { key: string }) => entry.key),
+  },
+  {
     agree: 'every Siri phrase the Swift declares is a key of the generated phrase catalogue',
     mode: 'equal',
     atLeast: 5,
@@ -1746,6 +1767,20 @@ const SETS: SetContract[] = [
       mode: 'equal',
       a: () => enumMembers(value as unknown as Record<string, unknown>),
       b: () => generatedEnum(name),
+    })
+  ),
+  ...(
+    [
+      ['FfiCatalogueEmptyReason_Tags', stub.FfiCatalogueEmptyReason_Tags],
+      ['FfiDetectionHold_Tags', stub.FfiDetectionHold_Tags],
+    ] as const
+  ).map(
+    ([name, value]): SetContract => ({
+      agree: `the binding stub carries ${name} as the generated binding declares it`,
+      mode: 'equal',
+      atLeast: 4,
+      a: () => Object.entries(value).map(([key, member]) => `${key}=${member}`),
+      b: () => generatedStringEnum(name),
     })
   ),
   {

@@ -25,4 +25,5 @@ export { TrimSlider } from './TrimSlider';
 export { StrengthSession } from './StrengthFollow';
 export { WorkoutGuide } from './WorkoutGuide';
 export { BatteryOptimisationNudge } from './BatteryOptimisationNudge';
+export { OutsideAppNotice } from './OutsideAppNotice';
 export { RecordingReturnPill } from './RecordingReturnPill';

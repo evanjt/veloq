@@ -217,17 +217,7 @@ class VeloqRecordingNotificationModule : Module() {
       builder.setSubText(payload.optString("elapsedText"))
     }
 
-    context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
-      it.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-      builder.setContentIntent(
-        PendingIntent.getActivity(
-          context,
-          0,
-          it,
-          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-      )
-    }
+    builder.setContentIntent(RideLink.recording(context.packageName).pendingIntent(context))
 
     val actions = payload.optJSONArray("actions")
     for (i in 0 until (actions?.length() ?: 0)) {

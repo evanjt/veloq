@@ -27,11 +27,12 @@ import type {
 } from '@/features/insights/types';
 import { tapTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
-import { colors, insightCategoryColors, verdictColor } from '@/theme';
+import { colors, insightCategoryColor, verdictColor } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+let mockIsDark = false;
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
 
 const NOW = Date.UTC(2026, 8, 20);
@@ -149,6 +150,7 @@ function laidOut(tree: ReturnType<typeof render>) {
 
 beforeEach(() => {
   jest.mocked(tapTo).mockClear();
+  mockIsDark = false;
 });
 
 describe('the insight list card', () => {
@@ -190,7 +192,19 @@ describe('the insight list card', () => {
       .filter((circle) => circle.props.style === 'stroke');
 
     expect(rings).toHaveLength(1);
-    expect(rings[0].props.color).toBe(insightCategoryColors.section_pr);
+    expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', false));
+  });
+
+  it('rings the best effort in the dark step on the dark theme', () => {
+    mockIsDark = true;
+    const tree = laidOut(render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />));
+
+    const rings = tree
+      .UNSAFE_getAllByType(Circle)
+      .filter((circle) => circle.props.style === 'stroke');
+
+    expect(rings).toHaveLength(1);
+    expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', true));
   });
 
   it('draws the weekly bars with only the compared week marked', () => {
@@ -199,9 +213,9 @@ describe('the insight list card', () => {
     const bars = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.color);
 
     expect(bars).toHaveLength(6);
-    expect(bars.filter((color) => color === insightCategoryColors.period_comparison)).toHaveLength(
-      1
-    );
+    expect(
+      bars.filter((color) => color === insightCategoryColor('period_comparison', false))
+    ).toHaveLength(1);
     expect(bars.filter((color) => color === colors.chartMutedBar)).toHaveLength(5);
   });
 

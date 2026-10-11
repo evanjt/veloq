@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -20,7 +19,7 @@ import {
   toEditorText,
   type ParamEditorSheetInput,
 } from '@/features/routes';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack, tapBack } from '@/shared/app/navigation';
 
 /** What a refused value is told: how to type one the sheet accepts. */
 function refusalKey(input: ParamEditorSheetInput) {
@@ -62,7 +61,7 @@ function ParamEditorSheetContent() {
       : toEditorText(metres, null);
   const save = () => {
     if (text === input.initial) {
-      router.back();
+      goBack();
       return;
     }
     if (refused || value === null) return;

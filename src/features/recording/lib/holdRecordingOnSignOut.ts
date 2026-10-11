@@ -61,3 +61,19 @@ export async function resumeHeldRecordingForAthlete(athleteId: string): Promise<
   if (!backup || backup.status !== 'stopped' || backup.athleteId !== athleteId) return null;
   return resumeRecordingBackup();
 }
+
+/**
+ * When the ride held for an athlete started, or null when none is: one the
+ * store still holds stopped, one kept in memory after its write failed, or
+ * their stopped backup. A ride the library holds is saved, not held.
+ */
+export async function heldRideStart(athleteId: string): Promise<number | null> {
+  const state = useRecordingStore.getState();
+  const inStore =
+    state.status === 'stopped' && state.athleteId === athleteId && !state.savedToLibrary
+      ? buildRecordingBackup(state)
+      : null;
+  const held = inStore ?? heldInMemory.get(athleteId) ?? (await loadRecordingBackup(athleteId));
+  if (!held || held.status !== 'stopped' || held.athleteId !== athleteId) return null;
+  return libraryHoldsRide(held) ? null : held.startTime;
+}

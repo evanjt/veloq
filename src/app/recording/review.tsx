@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TextInput, Pressable, useWindowDimensions } from 'react-native';
+import { Alert, View, StyleSheet, TextInput, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { replaceTo, tapBack } from '@/shared/app/navigation';
+import { replaceTo, tapBack, tapTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, HoldButton, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { Button, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -18,9 +18,10 @@ import {
   useUploadPermissionStore,
   useReviewSave,
   useActivitySummary,
-  useDiscardRecording,
+  discardReviewedRecording,
   resumeStoppedRecording,
   useActivityNameGeneration,
+  useReviewDraft,
   getTimeOfDayKey,
   ReviewMapHero,
   ActivityStatsCard,
@@ -33,6 +34,12 @@ import type { ActivityType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const MAP_FRACTION = 0.45;
+
+/** The effort a manual entry carries in, or null when it carries none on the 1 to 10 scale. */
+function parseRpe(raw: string | undefined): number | null {
+  const value = Number(raw);
+  return raw && Number.isInteger(value) && value >= 1 && value <= 10 ? value : null;
+}
 
 function ReviewScreenContent() {
   const { t } = useTranslation();
@@ -47,9 +54,11 @@ function ReviewScreenContent() {
     distance?: string;
     avgHr?: string;
     notes?: string;
+    rpe?: string;
   }>();
 
   const isManual = params.manual === 'true';
+  const rpe = parseRpe(params.rpe);
   useEffect(() => {
     if (!isManual) return undefined;
     return () => {
@@ -77,23 +86,41 @@ function ReviewScreenContent() {
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
-  const [notes, setNotes] = useState(params.notes ?? '');
+  const lastPoint = Math.max(0, (streams.latlng?.length ?? 0) - 1);
+  const { initial: draft, edit: editDraft } = useReviewDraft(streams.latlng?.length ?? 0);
+  const [notes, setNotes] = useState(draft.notes ?? params.notes ?? '');
   const [selectedType, setSelectedType] = useState<ActivityType>(
-    activityType ?? ('Ride' as ActivityType)
+    draft.reviewedType ?? activityType ?? ('Ride' as ActivityType)
   );
   const { name, setName } = useActivityNameGeneration({
-    initialName: params.name,
+    initialName: draft.name ?? params.name,
     startTime,
     type: selectedType,
   });
 
-  const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
+  const [trimStart, setTrimStart] = useState(draft.trimStart ?? 0);
+  const [trimEnd, setTrimEnd] = useState(draft.trimEnd ?? lastPoint);
   // What the map draws. It follows the released handle, not the finger.
   const [mapTrim, setMapTrim] = useState<[number, number]>([
-    0,
-    Math.max(0, (streams.latlng?.length ?? 0) - 1),
+    draft.trimStart ?? 0,
+    draft.trimEnd ?? lastPoint,
   ]);
+
+  const handleNameChange = useCallback(
+    (value: string) => {
+      setName(value);
+      editDraft({ name: value });
+    },
+    [setName, editDraft]
+  );
+
+  const handleNotesChange = useCallback(
+    (value: string) => {
+      setNotes(value);
+      editDraft({ notes: value });
+    },
+    [editDraft]
+  );
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
@@ -104,9 +131,13 @@ function ReviewScreenContent() {
     setTrimEnd(endIdx);
   }, []);
 
-  const handleTrimCommit = useCallback((startIdx: number, endIdx: number) => {
-    setMapTrim([startIdx, endIdx]);
-  }, []);
+  const handleTrimCommit = useCallback(
+    (startIdx: number, endIdx: number) => {
+      setMapTrim([startIdx, endIdx]);
+      editDraft({ trimStart: startIdx, trimEnd: endIdx });
+    },
+    [editDraft]
+  );
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
   const { summary, trimDelta, getTrimmedStreams, trimStartIndex, pausedSecondsInWindow } =
@@ -138,12 +169,14 @@ function ReviewScreenContent() {
     canRetry,
     keptRecording,
     shareKeptRecording,
+    lowStorage,
   } = useReviewSave({
     isManual,
     type,
     name,
     summary,
     notes,
+    rpe,
     startTime,
     pausedSecondsInWindow,
     laps,
@@ -157,7 +190,24 @@ function ReviewScreenContent() {
     if (!ownedReview && (foreignSession || (!isUploading && !queuedMessage))) replaceTo('/record');
   }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, queuedMessage]);
 
-  const discardRecording = useDiscardRecording();
+  // The alert is the guard against a stray tap, as the unlock swipe is for Stop.
+  const handleDiscard = useCallback(() => {
+    Alert.alert(
+      t('recording.discardConfirmTitle', 'Discard this recording?'),
+      t(
+        'recording.discardConfirmMessage',
+        'It has not been saved, and it cannot be recovered once discarded.'
+      ),
+      [
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        {
+          text: t('recording.discard', 'Discard'),
+          style: 'destructive',
+          onPress: () => discardReviewedRecording(startTime),
+        },
+      ]
+    );
+  }, [t, startTime]);
 
   const openSheet = useSheetOpener();
   const openTypePicker = useCallback(async () => {
@@ -165,8 +215,10 @@ function ReviewScreenContent() {
       selectedType: type,
       mode: 'review',
     });
-    if (result.kind === 'selected') setSelectedType(result.value);
-  }, [openSheet, type]);
+    if (result.kind !== 'selected') return;
+    setSelectedType(result.value);
+    editDraft({ reviewedType: result.value });
+  }, [openSheet, type, editDraft]);
 
   const handleResume = useCallback(() => {
     resumeStoppedRecording().catch(() => {});
@@ -238,7 +290,7 @@ function ReviewScreenContent() {
             },
           ]}
           value={name}
-          onChangeText={setName}
+          onChangeText={handleNameChange}
           placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey(startTime)}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
           placeholderTextColor={textSecondary}
           editable={!isProcessing}
@@ -286,7 +338,7 @@ function ReviewScreenContent() {
             },
           ]}
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={handleNotesChange}
           placeholder={t('recording.notesPlaceholder', 'How did it feel?')}
           placeholderTextColor={textSecondary}
           multiline
@@ -337,6 +389,7 @@ function ReviewScreenContent() {
             keptRecording ? () => replaceTo(`/recordings/${keptRecording.id}`) : undefined
           }
           onShareFit={keptRecording?.kind === 'fit' ? shareKeptRecording : undefined}
+          onFreeSpace={lowStorage ? () => tapTo('/cache-settings') : undefined}
         />
 
         {/* Action Buttons */}
@@ -359,10 +412,12 @@ function ReviewScreenContent() {
             />
           )}
 
-          <HoldButton
+          <Button
             testID="review-discard-button"
             label={t('recording.discard', 'Discard')}
-            onConfirm={discardRecording}
+            variant="destructive"
+            opensConfirm
+            onPress={handleDiscard}
             disabled={isProcessing}
           />
         </View>

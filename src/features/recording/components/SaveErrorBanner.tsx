@@ -32,6 +32,11 @@ export interface SaveErrorBannerProps {
   onOpenRecording?: (() => void) | undefined;
   /** When provided, offers to share the kept ride's FIT file. */
   onShareFit?: (() => void) | undefined;
+  /**
+   * When provided, shows a "Free up space" button beside Retry, for a save
+   * that failed on a device short of space.
+   */
+  onFreeSpace?: (() => void) | undefined;
 }
 
 /**
@@ -51,6 +56,7 @@ export function SaveErrorBanner({
   isRetrying = false,
   onOpenRecording,
   onShareFit,
+  onFreeSpace,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -69,6 +75,14 @@ export function SaveErrorBanner({
       )}
       {showPermissionFix && (
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
+      )}
+      {!showPermissionFix && onFreeSpace && (
+        <Button
+          style={styles.retryButton}
+          variant="secondary"
+          label={t('common.freeUpSpace')}
+          onPress={onFreeSpace}
+        />
       )}
       {!showPermissionFix && onRetry && (
         <Button

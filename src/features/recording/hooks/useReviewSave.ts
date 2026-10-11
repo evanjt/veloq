@@ -10,6 +10,7 @@ import { epochMsToStartDateLocal } from '@/shared/time/startDate';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { debug } from '@/shared/debug/debug';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { isDeviceLowOnSpace } from '@/shared/storage/freeSpace';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
@@ -94,6 +95,11 @@ export interface UseReviewSave {
   keptRecording: RecordingLibraryEntry | null;
   /** Opens the share sheet on the refused ride's FIT file. */
   shareKeptRecording: () => Promise<void>;
+  /**
+   * True when the last save did not land and the device is short of space, so
+   * the error offers a way to free some beside Retry.
+   */
+  lowStorage: boolean;
 }
 
 /**
@@ -133,6 +139,7 @@ export function useReviewSave({
   const [canRetry, setCanRetry] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [keptRecording, setKeptRecording] = useState<RecordingLibraryEntry | null>(null);
+  const [lowStorage, setLowStorage] = useState(false);
   const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
   const queryClient = useQueryClient();
   // The library entry created on the first save attempt; retries reuse it so a
@@ -225,17 +232,32 @@ export function useReviewSave({
       )
         current.reset();
     };
+    // The library did not take the ride. A short device is named with where
+    // to free space, since a retry fails the same way until space is freed.
+    const failSave = async () => {
+      const short = await isDeviceLowOnSpace();
+      setErrorMessage(
+        short
+          ? t('recording.saveErrorNoSpace')
+          : t('recording.saveError', 'Could not save activity. Please try again.')
+      );
+      setLowStorage(short);
+      setCanRetry(true);
+      setIsUploading(false);
+    };
     setIsUploading(true);
     setErrorMessage(null);
     setErrorDetail(null);
     setKeptRecording(null);
     setQueuedMessage(null);
     setCanRetry(false);
+    setLowStorage(false);
     try {
       const autoUpload = useRecordingPreferences.getState().autoUploadEnabled;
       // The athlete took this ride past the missing-scope warning, so the upload
       // it would be queued for cannot succeed. It stays on the device, whatever
-      // auto-upload says, and the flag belongs to this ride alone.
+      // auto-upload says, and the flag belongs to this ride alone: the store's
+      // reset when the ride is settled clears it.
       const withoutScope = useUploadPermissionStore.getState().recordingWithoutScope;
       const uploadable = autoUpload && !withoutScope;
 
@@ -263,6 +285,7 @@ export function useReviewSave({
           avgHeartrate: summary.avgHeartrate,
           pairedEventId: pairedEventId ?? undefined,
           notes,
+          rpe: rpe ?? undefined,
           uploadStatus: uploadable ? 'pending' : 'localOnly',
           athleteId: owner,
         });
@@ -272,9 +295,7 @@ export function useReviewSave({
           return;
         }
         if (!entry) {
-          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
-          setCanRetry(true);
-          setIsUploading(false);
+          await failSave();
           return;
         }
         savedEntryRef.current = entry;
@@ -363,9 +384,7 @@ export function useReviewSave({
           return;
         }
         if (!entry) {
-          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
-          setCanRetry(true);
-          setIsUploading(false);
+          await failSave();
           return;
         }
         savedEntryRef.current = entry;
@@ -391,7 +410,6 @@ export function useReviewSave({
       }
 
       if (!uploadable) {
-        useUploadPermissionStore.getState().clearWithoutScope();
         log.log(
           withoutScope
             ? 'Recorded without the upload scope - recording saved to library only'
@@ -554,5 +572,6 @@ export function useReviewSave({
     canRetry,
     keptRecording,
     shareKeptRecording,
+    lowStorage,
   };
 }

@@ -117,13 +117,16 @@ fn activity_push(activity_id: &str) -> Option<String> {
 /// athlete who has notifications switched off.
 ///
 /// Expected behaviour: the engine opens at the App Group path it was given,
-/// and the answer is nothing to post, reached without a network round trip
-/// because the composed entry reads the gate before it fetches anything. This
+/// and the answer is the skip marker, reached without a network round trip
+/// because the composed entry reads the gate before it fetches anything. The
+/// marker is not null: null is an engine that could not answer, which the
+/// extension covers with its own fallback, while a skip leaves the server's
+/// line standing, as Android's entry answers the same run. This
 /// is the only test here that opens an engine, because the process only gets
 /// one. The widget snapshot entry is asserted on the same engine for that
 /// reason.
 #[test]
-fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
+fn a_push_for_an_athlete_with_notifications_off_answers_the_skip_marker() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("routes.db");
     seed_a_section_pr(
@@ -139,7 +142,7 @@ fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
     ));
     assert!(db.exists(), "the file the extension named");
 
-    assert_eq!(activity_push("a1"), None);
+    assert_eq!(activity_push("a1").as_deref(), Some(r#"{"skip":true}"#));
 
     // The widget extension composes its snapshot from the same engine and
     // the context the app stored, with no JavaScript.
@@ -149,7 +152,8 @@ fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
 }
 
 /// A null id is a push whose payload the extension could not read, and the
-/// answer is the same nothing rather than a panic across the boundary.
+/// answer is null, no answer, rather than a panic across the boundary or a
+/// skip that would leave the server's line standing.
 #[test]
 fn an_activity_push_with_no_id_is_null() {
     assert_eq!(

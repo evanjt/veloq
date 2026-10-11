@@ -1,12 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { ScreenSafeAreaView, EmptyState, useTabBarClearance, screenListInsets } from '@/shared/ui';
+import { Card } from '@/shared/ui/Card';
 import { IconButton } from '@/shared/ui/IconButton';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { assistiveActions } from '@/shared/ui/assistiveActions';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
@@ -58,8 +59,6 @@ function RecordingsLibraryScreenContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
   const meta = useMemo(() => statusMeta(isDark), [isDark]);
 
   const renderEntry = useCallback(
@@ -69,61 +68,79 @@ function RecordingsLibraryScreenContent() {
       // The same rule the detail screen offers its upload on, so a row and the
       // recording it opens never disagree about whether a send is still owed.
       const { canUpload, isUploading } = recordingActions(item, uploadingId);
+      const offerUpload = canUpload && !isUploading;
+      const dateText = date.toLocaleDateString(getIntlLocale());
+      const distanceText =
+        item.distanceMeters > 0 ? formatDistance(item.distanceMeters, isMetric) : null;
+      const durationText = item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : null;
+      const statusText = t(`recording.library.status.${item.uploadStatus}`);
+      const uploadLabel = t('recording.library.uploadNow', 'Upload now');
+      const upload = () => uploadNow(item.id);
+      const label = [item.name, dateText, distanceText, durationText, statusText]
+        .filter((part): part is string => !!part)
+        .join(', ');
+      // The retry is drawn inside the row's own button, where a screen reader
+      // never stops, so the row offers it as an action too.
       return (
-        <Pressable
-          accessibilityRole="button"
-          testID={`recording-entry-${item.id}`}
-          style={pressable([styles.card, { backgroundColor: surface, borderColor: border }])}
-          android_ripple={pressRipple}
-          onPress={() => tapTo(`/recordings/${item.id}`)}
-        >
-          <MaterialCommunityIcons
-            name={getActivityIcon(item.activityType)}
-            size={26}
-            color={getActivityColor(item.activityType)}
-            style={styles.activityIcon}
-          />
-          <View style={styles.cardBody}>
-            <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <Text style={[styles.cardMeta, { color: textSecondary }]} numberOfLines={1}>
-              {date.toLocaleDateString(getIntlLocale())}
-              {item.distanceMeters > 0 ? ` · ${formatDistance(item.distanceMeters, isMetric)}` : ''}
-              {item.durationSeconds > 0 ? ` · ${formatDuration(item.durationSeconds)}` : ''}
-            </Text>
-          </View>
-          <View
-            testID={`recording-status-${item.uploadStatus}`}
-            style={[styles.statusChip, { backgroundColor: colorWithOpacity(status.color, 0.12) }]}
+        <View style={styles.entry}>
+          <Card
+            variant="flat"
+            padding="sm"
+            style={{ flexDirection: 'row', alignItems: 'center' }}
+            testID={`recording-entry-${item.id}`}
+            onPress={() => tapTo(`/recordings/${item.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            {...assistiveActions(
+              offerUpload ? [{ name: 'uploadNow', label: uploadLabel, run: upload }] : []
+            )}
           >
-            <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>
-              {t(`recording.library.status.${item.uploadStatus}`)}
-            </Text>
-          </View>
-          {isUploading ? (
-            <View testID={`recording-uploading-${item.id}`} style={styles.rowAction}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            <MaterialCommunityIcons
+              name={getActivityIcon(item.activityType)}
+              size={26}
+              color={getActivityColor(item.activityType)}
+              style={styles.activityIcon}
+            />
+            <View style={styles.cardBody}>
+              <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={[styles.cardMeta, { color: textSecondary }]} numberOfLines={1}>
+                {dateText}
+                {distanceText ? ` · ${distanceText}` : ''}
+                {durationText ? ` · ${durationText}` : ''}
+              </Text>
             </View>
-          ) : null}
-          {canUpload && !isUploading ? (
-            <IconButton
-              testID={`recording-retry-${item.id}`}
-              onPress={() => uploadNow(item.id)}
-              accessibilityLabel={t('recording.library.uploadNow', 'Upload now')}
+            <View
+              testID={`recording-status-${item.uploadStatus}`}
+              style={[styles.statusChip, { backgroundColor: colorWithOpacity(status.color, 0.12) }]}
             >
-              <MaterialCommunityIcons
-                name="cloud-upload-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </IconButton>
-          ) : null}
-        </Pressable>
+              <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
+              <Text style={[styles.statusText, { color: status.color }]}>{statusText}</Text>
+            </View>
+            {isUploading ? (
+              <View testID={`recording-uploading-${item.id}`} style={styles.rowAction}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null}
+            {offerUpload ? (
+              <IconButton
+                testID={`recording-retry-${item.id}`}
+                onPress={upload}
+                accessibilityLabel={uploadLabel}
+              >
+                <MaterialCommunityIcons
+                  name="cloud-upload-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </IconButton>
+            ) : null}
+          </Card>
+        </View>
       );
     },
-    [meta, surface, border, textPrimary, textSecondary, isMetric, t, uploadNow, uploadingId]
+    [meta, textPrimary, textSecondary, isMetric, t, uploadNow, uploadingId]
   );
 
   return (
@@ -174,13 +191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+  entry: {
     marginBottom: spacing.sm,
   },
   activityIcon: {

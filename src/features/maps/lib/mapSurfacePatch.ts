@@ -243,9 +243,9 @@ export function createSurfacePatcher() {
 
       return {
         patch: {
-          // The page needs its icons before any layer that names one, so the
-          // images ride along whenever there is a patch at all.
-          ...(images.changed || specs.images ? { images: specs.images ?? [] } : {}),
+          // Sent only when they change: the page keeps the last list it was
+          // given and loads it before any layer in a later patch names one.
+          ...(images.changed ? { images: specs.images ?? [] } : {}),
           ...(hasSourceChange ? { sources: changed } : {}),
           ...(hasAppend ? { appends } : {}),
           ...(layers.changed ? { layers: specs.layers } : {}),

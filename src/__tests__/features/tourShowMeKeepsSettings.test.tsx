@@ -1,5 +1,6 @@
 /**
- * Scenario: the App Tour is open with every slide's own picture mounted, and
+ * Scenario: the App Tour or What's New is open over a library holding
+ * activities, sections and routes, with every slide's own picture mounted, and
  * the athlete reaches a slide and taps Show Me, or taps a choice on the map
  * slide itself.
  *
@@ -12,7 +13,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import { MapPreferencesSlide } from '@/features/settings/components/whatsNew/MapPreferencesSlide';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
-import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
+import {
+  getAllSlides,
+  getTutorialSlides,
+  type WhatsNewSlideDefinition,
+} from '@/features/settings/components/whatsNew/slides';
+import { resolveShowMeRoute } from '@/features/settings/lib/tourShowMe';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import {
   MapPreferencesProvider,
@@ -52,10 +58,22 @@ jest.mock('@shopify/react-native-skia', () => {
   };
 });
 
-// Offer the sections slide's Show Me too, which otherwise waits on a cutover with changes.
+// A library with something behind every Show Me, which otherwise waits for it.
 jest.mock('@/features/settings/lib/cutoverShowMe', () => ({
   cutoverHasChangesToShow: () => true,
 }));
+jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 3 }));
+jest.mock('@/features/routes/hooks/useEngine', () => ({
+  ...jest.requireActual('@/features/routes/hooks/useEngine'),
+  useSectionSummaries: () => ({ summaries: [{ id: 'col-du-test' }] }),
+  useGroupSummaries: () => ({ summaries: [{ groupId: 'harbour-loop' }] }),
+}));
+const LIBRARY = {
+  hasActivities: true,
+  sectionId: 'col-du-test',
+  routeId: 'harbour-loop',
+  cutoverChanged: true,
+};
 
 const mockGetSetting = getSetting as jest.Mock;
 const mockSetSetting = setSetting as jest.Mock;
@@ -92,19 +110,26 @@ beforeEach(() => {
   );
 });
 
-const slides = getAllSlides();
-const withShowMe = slides
-  .map((slide, index) => ({ route: slide.showMeRoute, index }))
-  .filter((entry): entry is { route: string; index: number } => entry.route !== undefined);
+function withShowMe(slides: WhatsNewSlideDefinition[]) {
+  return slides
+    .map((slide, index) => ({ route: resolveShowMeRoute(slide, LIBRARY), index }))
+    .filter((entry): entry is { route: string; index: number } => entry.route !== undefined);
+}
 
-describe('Show Me on each tour slide', () => {
+// No seen version opens the App Tour; a version before every release opens What's New on all of them.
+const TOURS = [
+  { mode: 'tutorial', lastSeenVersion: null, shows: withShowMe(getTutorialSlides()) },
+  { mode: 'whatsNew', lastSeenVersion: '0.0.1', shows: withShowMe(getAllSlides()) },
+] as const;
+
+describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, shows }) => {
   it('offers Show Me on more than the map slide', () => {
-    expect(withShowMe.length).toBeGreaterThan(1);
+    expect(shows.length).toBeGreaterThan(1);
   });
 
-  it.each(withShowMe)('opens $route and writes no setting', async ({ route, index }) => {
+  it.each(shows)('opens $route and writes no setting', async ({ route, index }) => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-    useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
+    useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion, tourState: null });
     render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
@@ -112,7 +137,7 @@ describe('Show Me on each tour slide', () => {
       </MapPreferencesProvider>
     );
     await waitFor(() => expect(current?.isLoaded).toBe(true));
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
+    expect(useWhatsNewStore.getState().tourState?.mode).toBe(mode);
 
     for (let step = 0; step < index; step++) {
       await act(async () => {

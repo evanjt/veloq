@@ -6,6 +6,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import type { PauseInterval } from '@/features/recording/lib/pausedTime';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { summariseLap } from '@/features/recording/lib/savedLaps';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import {
   addAltitude,
   EMPTY_ELEVATION_TRACK,
@@ -30,6 +31,7 @@ import type {
   RecordingGpsPoint,
   RecordingLap,
 } from '@/types';
+import type { ReviewDraft } from '@/features/recording/types';
 
 /** Sensor values older than this are stale and recorded as 0 (FIT no-data). */
 const SENSOR_STALE_MS = 5000;
@@ -150,6 +152,12 @@ interface RecordingState {
    * review screen's toast, and a sign-out or sign-in never holds or reopens it.
    */
   savedToLibrary: boolean;
+  /**
+   * The review screen's unsaved edits of this stopped ride. They live here
+   * rather than in the screen so every backup of the ride carries them, and a
+   * screen that unmounts on a sign-out or a kill reopens with them.
+   */
+  review: ReviewDraft | null;
   /** Sample-and-hold of the latest sensor values, written by the sensors feature. */
   latestSensor: Record<SensorStreamKind, SensorSampleLite | null>;
   /**
@@ -190,6 +198,8 @@ interface RecordingState {
   addLap: () => void;
   /** Mark the session saved, only while the store still holds that athlete's ride. */
   markSavedToLibrary: (athleteId: string, startTime: number) => void;
+  /** Merge an edit into the review draft, only while the ride is stopped and unsaved. */
+  editReview: (edit: ReviewDraft) => void;
   reset: () => void;
 }
 
@@ -292,6 +302,15 @@ function accumulate(totals: RecordingTotals, altitude: number, heartrate: number
   };
 }
 
+function keptOnReopen(review: ReviewDraft | null): ReviewDraft | null {
+  if (!review) return null;
+  const kept: ReviewDraft = {
+    ...(review.name !== undefined ? { name: review.name } : {}),
+    ...(review.notes !== undefined ? { notes: review.notes } : {}),
+  };
+  return Object.keys(kept).length > 0 ? kept : null;
+}
+
 export const useRecordingStore = create<RecordingState>((set, get) => ({
   status: 'idle',
   athleteId: null,
@@ -307,6 +326,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   pairedEventId: null,
   workout: null,
   savedToLibrary: false,
+  review: null,
   latestSensor: { heartrate: null, power: null, cadence: null },
   rawSpeed: null,
   _lastRawFix: null,
@@ -336,6 +356,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       pairedEventId: pairedEventId ?? null,
       workout: null,
       savedToLibrary: false,
+      review: null,
       latestSensor: { heartrate: null, power: null, cadence: null },
       rawSpeed: null,
       _lastRawFix: null,
@@ -403,10 +424,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   },
 
   reopenStoppedRecording: () => {
-    const { status, savedToLibrary, stopTime, startTime, pausedDuration, pauseIntervals } = get();
+    const { status, savedToLibrary, stopTime, startTime, pausedDuration, pauseIntervals, review } =
+      get();
     if (status !== 'stopped' || savedToLibrary || !stopTime) return;
     const now = Date.now();
     set({
+      // The name and notes describe the ride and stay. The trim and the sport
+      // were chosen against the ride as it stopped, which the resumed ride outgrows.
+      review: keptOnReopen(review),
       status: 'paused',
       stopTime: null,
       pausedDuration: pausedDuration + (now - stopTime),
@@ -587,6 +612,12 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({ laps: [...laps, lap] });
   },
 
+  editReview: (edit) => {
+    const { status, savedToLibrary, review } = get();
+    if (status !== 'stopped' || savedToLibrary) return;
+    set({ review: { ...review, ...edit } });
+  },
+
   markSavedToLibrary: (athleteId, startTime) => {
     const { athleteId: owner, startTime: start, status } = get();
     if (status === 'idle' || owner !== athleteId || start !== startTime) return;
@@ -618,10 +649,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       pairedEventId: null,
       workout: null,
       savedToLibrary: false,
+      review: null,
       latestSensor: { heartrate: null, power: null, cadence: null },
       rawSpeed: null,
       _lastRawFix: null,
       _pauseStart: null,
     });
+    // The ride a missing-scope warning was waved through for has ended, saved
+    // or discarded, and the next ride is warned or uploaded on its own terms.
+    useUploadPermissionStore.getState().clearWithoutScope();
   },
 }));

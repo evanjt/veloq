@@ -70,6 +70,19 @@ updates:
       # Android build. Port both together with an NDK check instead.
       - dependency-name: "jni"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # 0.13 drops the `rustls-tls` feature, and every rustls path there pulls
+      # rustls-platform-verifier, which on Android needs a Kotlin component, a
+      # Proguard rule and a JNI init before the first request. Take it together
+      # with the jni 0.22 move and that wiring, never through the grouped PR.
+      # scripts/lint-tls-verifier-hold.mjs holds this ignore in place.
+      - dependency-name: "reqwest"
+        update-types: ["version-update:semver-minor"]
+      # tracematch's geometry crates move detector output, so a bump needs a
+      # bitwise before-and-after report signed off before it lands.
+      - dependency-name: "geo"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "rstar"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "bundler"
     directory: "/config/fastlane"

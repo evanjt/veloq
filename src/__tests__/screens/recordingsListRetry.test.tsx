@@ -136,3 +136,55 @@ describe('the recordings list', () => {
     expect(screen.getByTestId('recording-status-localOnly')).toBeTruthy();
   });
 });
+
+/**
+ * The retry is drawn inside the row's own button, so on iOS a screen reader
+ * never stops on it. The row offers it as an action and names itself.
+ */
+describe('a recordings row for a screen reader', () => {
+  function row(id: string) {
+    return screen.getByTestId(`recording-entry-${id}`);
+  }
+
+  it('offers upload now as an action that requeues through the library', () => {
+    mockLibrary.entries = [entry('r1', 'failed')];
+
+    render(<RecordingsLibraryScreen />);
+    expect(row('r1').props.accessibilityActions).toEqual([
+      { name: 'uploadNow', label: 'Upload now' },
+    ]);
+    fireEvent(row('r1'), 'accessibilityAction', { nativeEvent: { actionName: 'uploadNow' } });
+
+    expect(mockUploadNow).toHaveBeenCalledWith('r1');
+    expect(mockUploadNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no upload while the upload is in flight', () => {
+    mockLibrary.entries = [entry('r1', 'failed')];
+    mockLibrary.uploadingId = 'r1';
+
+    render(<RecordingsLibraryScreen />);
+
+    expect(row('r1').props.accessibilityActions).toBeUndefined();
+  });
+
+  it('offers no upload once the recording is uploaded', () => {
+    mockLibrary.entries = [entry('r1', 'uploaded')];
+
+    render(<RecordingsLibraryScreen />);
+
+    expect(row('r1').props.accessibilityActions).toBeUndefined();
+  });
+
+  it('names itself by recording, distance, duration and upload status', () => {
+    mockLibrary.entries = [entry('r1', 'failed')];
+
+    render(<RecordingsLibraryScreen />);
+    const label: string = row('r1').props.accessibilityLabel;
+
+    expect(label).toContain('Ride r1');
+    expect(label).toContain('30');
+    expect(label).toContain('1:00:00');
+    expect(label).toContain('recording.library.status.failed');
+  });
+});

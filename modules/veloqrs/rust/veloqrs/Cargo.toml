@@ -33,6 +33,7 @@ rusqlite = { version = "0.40", features = ["bundled", "backup"] }
 rusqlite_migration = "2.6"
 tempfile = "3.27"
 rmp-serde = "1.1"
+flate2 = "1"
 postcard = { version = "1", features = ["alloc"] }
 
 # HTTP client
@@ -88,7 +89,7 @@ sha2 = "0.11"
 # Decodes heatmap tiles back to RGBA to check what they draw.
 image = { version = "0.25", default-features = false, features = ["png"] }
 # Local mock HTTP server for request-path / endpoint tests (services mocked).
-httpmock = "0.7"
+httpmock = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
 # Every test stanza says on the line above it why it is a binary of its
@@ -221,6 +222,11 @@ required-features = ["synthetic"]
 name = "page_split_memory"
 path = "tests/page_split_memory.rs"
 
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
+[[test]]
+name = "geojson_feature"
+path = "tests/geojson_feature.rs"
+
 # Area: heatmap tiles and their scheme handler.
 [[test]]
 name = "heatmap"
@@ -262,6 +268,10 @@ path = "tests/wellness/main.rs"
 name = "heatmap_tiles"
 harness = false
 required-features = ["synthetic"]
+
+[[bench]]
+name = "tile_read_cost"
+harness = false
 
 # Measurement harnesses. They print numbers and assert nothing, so they are
 # bench targets rather than tests: `cargo test` does not count them, and

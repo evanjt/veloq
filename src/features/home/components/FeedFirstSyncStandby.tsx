@@ -7,6 +7,11 @@
  * nothing on the screen was a loading state. This says what is happening and
  * carries the engine's own counts, and it is gone the moment the first cards
  * land.
+ *
+ * The step line is the only progress on the Feed while this shows, so it
+ * reaches a screen reader the way the sync strip's line does: a polite live
+ * region on Android, and on iOS, which has none, an announcement of the step's
+ * label, so a new step is spoken and a moving count inside one is not.
  */
 
 import React from 'react';
@@ -15,14 +20,17 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { formatSyncProgress } from '@/shared/format/syncProgress';
+import { formatSyncProgress, formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 export function FeedFirstSyncStandby() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const status = useSyncStatus();
+  const hasStep = status?.step !== undefined;
+  useAnnounceOnAppear(hasStep ? formatSyncProgressParts(status, t).label : null);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -36,8 +44,12 @@ export function FeedFirstSyncStandby() {
       <Text style={[styles.body, { color: textSecondary }]} testID="feed-first-sync-body">
         {t('feed.firstSyncBody')}
       </Text>
-      {status?.step !== undefined && (
-        <Text style={[styles.step, { color: textSecondary }]} testID="feed-first-sync-step">
+      {hasStep && (
+        <Text
+          style={[styles.step, { color: textSecondary }]}
+          testID="feed-first-sync-step"
+          accessibilityLiveRegion="polite"
+        >
           {formatSyncProgress(status, t)}
         </Text>
       )}

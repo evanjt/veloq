@@ -1,15 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  engine,
-  hasStarted,
-  startOutcome,
-  StartOutcome,
-  type StartResult,
-  type SectionPerformanceResult,
-} from 'veloqrs';
+import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
-import { awaitTimeStreams } from '@/features/routes/lib/awaitTimeStreams';
+import { awaitTimeStreams, willAnnounce } from '@/features/routes/lib/awaitTimeStreams';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { DirectionBests } from '@/features/insights';
@@ -17,15 +10,6 @@ import type { DirectionBests } from '@/features/insights';
 /** How long to wait for Rust to finish a time-stream batch before rendering
  *  whatever landed. What is still missing then is reported, not hidden. */
 const TIME_STREAM_TIMEOUT_MS = 30_000;
-
-/**
- * Whether a start will announce the streams it was asked for. A busy key is the
- * same batch already in flight, which announces them; any other refusal fetches
- * nothing, so waiting on it only holds the screen on a placeholder.
- */
-function willAnnounce(start: StartResult): boolean {
-  return hasStarted(start) || startOutcome(start) === StartOutcome.Busy;
-}
 
 /**
  * Individual lap/traversal of a section
@@ -246,25 +230,30 @@ export function useSectionTimeStreamSync(
         return;
       }
 
-      // The caller's list was read when its screen loaded and is not re-read
-      // as streams land, so a retry reads the gap afresh. Rust never announces
-      // a stream that was already stored, so waiting on one would count it
-      // missing at the deadline.
-      const missingIds =
-        (isRetry ? undefined : knownMissingIds) ??
-        engine.getActivitiesMissingTimeStreams(allActivityIds);
-
-      // If all time streams are cached, we're done immediately
-      if (missingIds.length === 0) {
-        setFetchComplete(true);
-        return;
-      }
-
-      // Only show loading for API fetches
-      setIsLoading(true);
-      setError(null);
-
+      // A throw from either engine call settles the hook as failed rather than
+      // leaving it waiting, so a caller shows a retry and not a spinner.
+      let requested = allActivityIds.length;
       try {
+        // The caller's list was read when its screen loaded and is not re-read
+        // as streams land, so a retry reads the gap afresh. Rust never announces
+        // a stream that was already stored, so waiting on one would count it
+        // missing at the deadline.
+        const missingIds =
+          (isRetry ? undefined : knownMissingIds) ??
+          engine.getActivitiesMissingTimeStreams(allActivityIds);
+        requested = missingIds.length;
+
+        // If all time streams are cached, we're done immediately
+        if (missingIds.length === 0) {
+          setError(null);
+          setFetchComplete(true);
+          return;
+        }
+
+        // Only show loading for API fetches
+        setIsLoading(true);
+        setError(null);
+
         // Rust fetches the missing streams behind the shared governor and
         // persists them, announcing each one as it lands.
         const start = engine.syncTimeStreams(missingIds);
@@ -279,6 +268,8 @@ export function useSectionTimeStreamSync(
       } catch {
         if (signal.aborted) return;
         setError('Failed to load activity streams');
+        setOutstanding(requested);
+        setFetchComplete(true);
       } finally {
         if (!signal.aborted) setIsLoading(false);
       }
@@ -298,7 +289,11 @@ export function useSectionTimeStreamSync(
     lastRun.current = { ids: allActivityIds, key: fetchKey };
     const run = new AbortController();
     // An empty list settles inside, so there is one exit and one cleanup.
-    fetchMissingStreams(run.signal, isRetry);
+    fetchMissingStreams(run.signal, isRetry).catch(() => {
+      if (run.signal.aborted) return;
+      setError('Failed to load activity streams');
+      setFetchComplete(true);
+    });
     return () => run.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The fetch key retries the current activity set.
   }, [allActivityIds, fetchKey]);

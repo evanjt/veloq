@@ -8,13 +8,14 @@ import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { clearAccountData, clearAuthOnly } from '@/shared/storage';
+import { clearAccountData, clearAuthOnly, wipeConfirmMessage } from '@/shared/storage';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
 import * as haptics from '@/shared/ui/haptics';
 import { pressable, pressRipple } from '@/shared/ui';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
+import { useExportRecordBackup } from '../hooks/useBackup';
 
 interface Athlete {
   name?: string;
@@ -39,6 +40,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const queryClient = useQueryClient();
   const clearCredentials = useAuthStore((s) => s.clearCredentials);
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
+  const { exportRecordBackup } = useExportRecordBackup();
 
   const finishLogout = async (clearAll: boolean) => {
     try {
@@ -84,22 +86,23 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   };
 
   // Destructive option - wipe everything. For switching to a different
-  // account, freeing storage, or starting clean.
+  // account, freeing storage, or starting clean. The message lists what comes
+  // back at the next sign-in and what is deleted for good, from the wipe's own
+  // inventory, and the athlete can take a backup before accepting.
   const handleLogoutAndClearData = () => {
     Alert.alert(
       t('alerts.disconnectAndClearTitle', {
         defaultValue: 'Sign out and delete data?',
       }),
-      offlineConfirmMessage(
-        t('alerts.disconnectAndClearMessage', {
-          defaultValue:
-            'This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.',
-        }),
-        t('alerts.disconnectOffline'),
-        isOnline
-      ),
+      offlineConfirmMessage(wipeConfirmMessage(t), t('alerts.disconnectOffline'), isOnline),
       [
         { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('alerts.disconnectAndClearBackUpFirst'),
+          onPress: () => {
+            void backUpFirst();
+          },
+        },
         {
           text: t('alerts.disconnectAndClearConfirm', {
             defaultValue: 'Delete and sign out',
@@ -112,6 +115,13 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         },
       ]
     );
+  };
+
+  // The record export, then the same confirm again once its file has been
+  // offered. A failed export reports itself and leaves the choice there; one
+  // still writing offers its file when it ends.
+  const backUpFirst = async () => {
+    if ((await exportRecordBackup()) === 'complete') handleLogoutAndClearData();
   };
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;

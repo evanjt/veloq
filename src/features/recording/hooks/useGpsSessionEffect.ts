@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Alert, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,13 @@ import { ensureLocationWatch } from '@/features/recording/lib/recordingSession';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
+import {
+  canTurnOnLocationServices,
+  readLocationServices,
+  useLocationServices,
+} from '@/shared/app/permissions/locationServices';
 import { GPS_WARNING_MS, GPS_ALERT_MS } from '../lib/constants';
+import { locationServicesOffMessage } from '../lib/locationServicesCopy';
 import type { RecordingMode, RecordingStatus } from '../types';
 
 const log = debug.create('RecordingScreen');
@@ -19,6 +25,10 @@ const log = debug.create('RecordingScreen');
  * leaving the screen does not end the ride. The one thing here that does is the
  * no-fix alert's stop, which is the stop every surface uses, so it reaches
  * review with the ride and its backup intact.
+ *
+ * The device's location switch is read before either and again whenever the
+ * app comes back, so a switch that is off is named at once, and the no-fix
+ * alert offers the switch rather than the app's settings page.
  */
 export function useGpsSessionEffect({
   mode,
@@ -36,6 +46,26 @@ export function useGpsSessionEffect({
   const { t } = useTranslation();
 
   const gpsSessionActive = mode === 'gps' && (status === 'recording' || status === 'paused');
+  const services = useLocationServices(gpsSessionActive);
+
+  /** The line a ride with no fix shows: the switch when it is off, else the wait. */
+  const noFixWarning = async (): Promise<string> =>
+    (await readLocationServices()) ? t('recording.gpsWaiting') : locationServicesOffMessage(t);
+
+  // The switch turned off or back on during the ride, read on each return to
+  // the app. Off is named at once. Back on clears that line and only that
+  // one, so the ride goes back to waiting for its fix.
+  const servicesWereOff = useRef(false);
+  useEffect(() => {
+    if (!gpsSessionActive || services.enabled == null) return;
+    if (!services.enabled) {
+      servicesWereOff.current = true;
+      setGpsWarning(locationServicesOffMessage(t));
+    } else if (servicesWereOff.current) {
+      servicesWereOff.current = false;
+      setGpsWarning(null);
+    }
+  }, [gpsSessionActive, services.enabled]); // eslint-disable-line react-hooks/exhaustive-deps -- Only the switch moving changes the line.
 
   // Mid-session signal-loss watchdog. The one-shot timers below only cover a
   // missing FIRST fix; this covers the signal dropping later (tunnel, canyon,
@@ -45,7 +75,7 @@ export function useGpsSessionEffect({
     const interval = setInterval(() => {
       const last = useRecordingLiveStore.getState().lastFixAt;
       if (last != null && Date.now() - last > GPS_WARNING_MS) {
-        setGpsWarning(t('recording.gpsWaiting'));
+        void noFixWarning().then(setGpsWarning);
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -60,7 +90,16 @@ export function useGpsSessionEffect({
 
     (async () => {
       try {
-        if (!hasPermission) {
+        // With the switch off iOS reports the permission denied and Android
+        // sends no fix, so the switch is the cause to name, and asking for the
+        // permission again would only name the wrong one. The ride carries on:
+        // its watch starts when the switch comes back on.
+        if (!(await readLocationServices())) {
+          if (!cancelled) {
+            log.warn('Location services are off');
+            setGpsWarning(locationServicesOffMessage(t));
+          }
+        } else if (!hasPermission) {
           const granted = await requestPermission();
           if (!granted) {
             if (!cancelled) {
@@ -80,7 +119,9 @@ export function useGpsSessionEffect({
           gpsWarningTimer = setTimeout(() => {
             const loc = useRecordingStore.getState().streams.latlng;
             if (!loc.some(([lat, lng]) => isPositioned(lat, lng))) {
-              setGpsWarning(t('recording.gpsWaiting'));
+              void noFixWarning().then((warning) => {
+                if (!cancelled) setGpsWarning(warning);
+              });
             }
           }, GPS_WARNING_MS);
         }
@@ -91,29 +132,11 @@ export function useGpsSessionEffect({
             const loc = useRecordingStore.getState().streams.latlng;
             if (!loc.some(([lat, lng]) => isPositioned(lat, lng)) && !gpsAlertShown) {
               gpsAlertShown = true;
-              Alert.alert(
-                t('recording.gpsAlertTitle', 'GPS Signal Not Found'),
-                t(
-                  'recording.gpsAlertMessage',
-                  'Unable to get a GPS fix. Check that location services are enabled and you have a clear view of the sky.'
-                ),
-                [
-                  {
-                    text: t('recording.gpsAlertContinue', 'Continue Without GPS'),
-                    style: 'cancel',
-                    onPress: () => setGpsWarning(null),
-                  },
-                  {
-                    text: t('recording.gpsAlertSettings', 'Open Settings'),
-                    onPress: () => Linking.openSettings(),
-                  },
-                  {
-                    text: t('recording.gpsAlertStop', 'Stop Recording'),
-                    style: 'destructive',
-                    onPress: () => void endRecordingSession(),
-                  },
-                ]
-              );
+              void readLocationServices().then((on) => {
+                if (cancelled) return;
+                if (on) showNoFixAlert();
+                else showServicesOffAlert();
+              });
             }
           }, GPS_ALERT_MS);
         }
@@ -124,6 +147,49 @@ export function useGpsSessionEffect({
         }
       }
     })();
+
+    function showNoFixAlert() {
+      Alert.alert(t('recording.gpsAlertTitle'), t('recording.gpsAlertMessage'), [
+        {
+          text: t('recording.gpsAlertContinue'),
+          style: 'cancel',
+          onPress: () => setGpsWarning(null),
+        },
+        {
+          text: t('recording.gpsAlertSettings'),
+          onPress: () => Linking.openSettings(),
+        },
+        {
+          text: t('recording.gpsAlertStop'),
+          style: 'destructive',
+          onPress: () => void endRecordingSession(),
+        },
+      ]);
+    }
+
+    // The app's settings page does not hold the switch, so this alert never
+    // offers it. Android turns the switch on from here; iOS names where it is.
+    function showServicesOffAlert() {
+      Alert.alert(t('recording.gpsServicesOffTitle'), locationServicesOffMessage(t), [
+        {
+          text: t('recording.gpsAlertContinue'),
+          style: 'cancel',
+        },
+        ...(canTurnOnLocationServices()
+          ? [
+              {
+                text: t('recording.gpsServicesTurnOn'),
+                onPress: () => void services.turnOn(),
+              },
+            ]
+          : []),
+        {
+          text: t('recording.gpsAlertStop'),
+          style: 'destructive' as const,
+          onPress: () => void endRecordingSession(),
+        },
+      ]);
+    }
 
     return () => {
       cancelled = true;

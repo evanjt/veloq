@@ -4,6 +4,7 @@ import {
   entryGpsState,
   entrySportChips,
   recordingEntryHref,
+  resolveEntryGps,
 } from '@/features/recording/lib/recordEntry';
 import { planRecordingStart } from '@/features/recording/lib/armCountdown';
 
@@ -64,5 +65,51 @@ describe('GPS readiness from a fix', () => {
     expect(entryGpsState(20.1)).toBe('weak');
     expect(entryGpsState(null)).toBe('weak');
     expect(entryGpsState(undefined)).toBe('weak');
+  });
+});
+
+describe('GPS state before a ride', () => {
+  const granted = {
+    servicesEnabled: true,
+    permission: 'granted',
+    fix: null,
+    timedOut: false,
+  } as const;
+
+  it('names the device switch at once when location is off', () => {
+    expect(resolveEntryGps({ ...granted, servicesEnabled: false })).toBe('servicesOff');
+  });
+
+  it('names the switch rather than a denial, since the switch is what denies', () => {
+    expect(resolveEntryGps({ ...granted, servicesEnabled: false, permission: 'denied' })).toBe(
+      'servicesOff'
+    );
+  });
+
+  it('names the switch over a stale fix and over a timed-out wait', () => {
+    expect(resolveEntryGps({ ...granted, servicesEnabled: false, fix: { accuracy: 5 } })).toBe(
+      'servicesOff'
+    );
+    expect(resolveEntryGps({ ...granted, servicesEnabled: false, timedOut: true })).toBe(
+      'servicesOff'
+    );
+  });
+
+  it('is checking while the switch has not been read yet', () => {
+    expect(resolveEntryGps({ ...granted, servicesEnabled: null })).toBe('checking');
+  });
+
+  it('is denied when the switch is on and the permission is refused', () => {
+    expect(resolveEntryGps({ ...granted, permission: 'denied' })).toBe('none');
+  });
+
+  it('reads a fix by its accuracy', () => {
+    expect(resolveEntryGps({ ...granted, fix: { accuracy: 8 } })).toBe('ready');
+    expect(resolveEntryGps({ ...granted, fix: { accuracy: 60 } })).toBe('weak');
+  });
+
+  it('is checking until the wait for a first fix runs out, then weak', () => {
+    expect(resolveEntryGps(granted)).toBe('checking');
+    expect(resolveEntryGps({ ...granted, timedOut: true })).toBe('weak');
   });
 });

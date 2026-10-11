@@ -289,20 +289,25 @@ impl FitnessManager {
         })?
     }
 
-    /// Stored wellness days over an inclusive date window, oldest first.
+    /// Stored wellness days over an inclusive date window, oldest first, with
+    /// whether the window was pulled at all.
     /// Typed: every field the wellness and fitness screens render, so nothing
-    /// parses a body to draw a chart.
+    /// parses a body to draw a chart, and a chart with no days can say whether
+    /// they were never downloaded.
     fn get_wellness_days(
         &self,
         oldest: String,
         newest: String,
-    ) -> Result<Vec<crate::FfiWellnessDay>, VeloqError> {
+    ) -> Result<crate::FfiWellnessDays, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::wellness::pooled::wellness_days(conn, &oldest, &newest).map_err(
-                |err| VeloqError::Database {
+            let days = crate::persistence::wellness::pooled::wellness_days(conn, &oldest, &newest)
+                .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
-                },
-            )
+                })?;
+            Ok(crate::FfiWellnessDays {
+                days,
+                coverage: crate::persistence::wellness::pooled::coverage(conn, &oldest, &newest),
+            })
         })?
     }
 

@@ -12,6 +12,7 @@ import { haversineDistance } from '@/shared/math/geometry';
 import { debug } from '@/shared/debug/debug';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import * as haptics from '@/shared/ui/haptics';
+import { useBackDismiss } from '@/shared/app/useBackDismiss';
 
 const log = debug.create('SectionCreation');
 
@@ -209,6 +210,7 @@ export function useSectionCreation({
     setEndIndex(null);
     onCreationCancelled?.();
   }, [onCreationCancelled]);
+  useBackDismiss(creationMode, handleCreationCancel);
 
   const handleCreationReset = useCallback(() => {
     setCreationState('selectingStart');

@@ -70,7 +70,7 @@ jest.mock('@/shared/native/engine', () => {
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { back: () => mockBack() },
+  router: { canGoBack: () => true, back: () => mockBack() },
   useNavigation: () => mockNavigation,
 }));
 

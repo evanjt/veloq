@@ -3024,8 +3024,8 @@ mod tests {
                 run_elevation_backfill(&transport(&server), "1");
             }
 
-            by_local_key.assert_hits(0);
-            assert!(synced.hits() > 0, "the synced track is still asked");
+            by_local_key.assert_calls(0);
+            assert!(synced.calls() > 0, "the synced track is still asked");
             assert_eq!(attempts("local-ab12"), 0);
         }
 
@@ -3053,8 +3053,8 @@ mod tests {
             assert_eq!(queued(), vec!["i1".to_string(), "local-ab12".to_string()]);
             run_elevation_backfill(&transport(&server), "1");
 
-            by_local_key.assert_hits(0);
-            assert!(upstream.hits() > 0, "asked under the upstream id");
+            by_local_key.assert_calls(0);
+            assert!(upstream.calls() > 0, "asked under the upstream id");
         }
     }
 
@@ -3237,8 +3237,8 @@ mod tests {
                     .unwrap();
             run_elevation_backfill(&transport, "1");
 
-            demo.assert_hits(0);
-            assert!(synced.hits() > 0, "the synced track is still asked");
+            demo.assert_calls(0);
+            assert!(synced.calls() > 0, "the synced track is still asked");
         }
     }
 

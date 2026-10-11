@@ -1160,6 +1160,7 @@ pub(crate) mod pooled {
             previous_ftp: None,
             previous_date: None,
             delta_watts: None,
+            glyph: None,
             sample_count: 0,
         };
 
@@ -1194,6 +1195,11 @@ pub(crate) mod pooled {
             previous_ftp: previous.map(|(_, ftp)| *ftp),
             previous_date: previous.map(|(date, _)| epoch_seconds(date) as f64),
             delta_watts: previous.map(|(_, ftp)| latest_ftp as i32 - *ftp as i32),
+            glyph: crate::trend_table::glyph(
+                "ftp",
+                Some(f64::from(latest_ftp)),
+                previous.map(|(_, ftp)| f64::from(*ftp)),
+            ),
             sample_count,
             // The chart keeps its history even when the step has a shorter window.
             history: crate::persistence::screens::series_tail(
@@ -3967,6 +3973,37 @@ mod tests {
             .unwrap();
 
         assert_eq!(engine.get_ftp_trend_to("2026-09-05").delta_watts, Some(-13));
+    }
+
+    /// Scenario: the summary card judged the FTP arrow in TypeScript off the
+    /// two estimates the trend handed it.
+    ///
+    /// Expected behaviour: the trend carries the arrow, judged once on the
+    /// shared table: up for a gain, down for a loss, flat inside the deadband,
+    /// and none with nothing to compare against.
+    #[test]
+    fn the_ftp_trend_carries_its_arrow() {
+        let arrow = |earlier: f64, latest: f64| {
+            let mut engine = PersistentEngine::in_memory().unwrap();
+            engine
+                .upsert_wellness(&[
+                    wellness_day("2026-08-06", Some(earlier)),
+                    wellness_day("2026-09-05", Some(latest)),
+                ])
+                .unwrap();
+            engine.get_ftp_trend_to("2026-09-05").glyph
+        };
+
+        assert_eq!(arrow(155.0, 168.0).as_deref(), Some("↑"));
+        assert_eq!(arrow(168.0, 155.0).as_deref(), Some("↓"));
+        assert_eq!(arrow(155.0, 156.0).as_deref(), Some("→"));
+        assert_eq!(arrow(155.0, 157.0).as_deref(), Some("↑"));
+
+        let mut alone = PersistentEngine::in_memory().unwrap();
+        alone
+            .upsert_wellness(&[wellness_day("2026-09-05", Some(150.0))])
+            .unwrap();
+        assert_eq!(alone.get_ftp_trend_to("2026-09-05").glyph, None);
     }
 
     /// Nothing to compare against is no step, not a step of zero.

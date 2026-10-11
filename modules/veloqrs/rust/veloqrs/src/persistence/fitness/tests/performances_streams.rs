@@ -35,9 +35,7 @@ fn seed_portion(engine: &PersistentEngine, activity_id: &str, lap_time: Option<f
         .unwrap();
 }
 
-#[test]
-fn test_get_activities_needing_time_streams_lists_legacy_mismatch() {
-    let engine = PersistentEngine::in_memory().unwrap();
+fn seed_section(engine: &PersistentEngine) {
     engine
         .db
         .execute(
@@ -49,6 +47,12 @@ fn test_get_activities_needing_time_streams_lists_legacy_mismatch() {
             [],
         )
         .unwrap();
+}
+
+#[test]
+fn test_get_activities_needing_time_streams_lists_legacy_mismatch() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    seed_section(&engine);
 
     for id in ["mismatch", "matching", "empty", "missing", "excluded"] {
         seed_activity(&engine, id, Some(40));
@@ -182,5 +186,48 @@ fn test_set_time_streams_flat_reports_nothing_for_a_refused_insert() {
         engine
             .set_time_streams_flat(&["a".to_string()], &[0, 1, 2], &[0])
             .is_empty()
+    );
+}
+
+/// Scenario: a ride the device recorded is saved under a `local-` key with a
+/// track and no time stream, so detection gives it a portion with no lap time.
+///
+/// Expected behaviour: the backfill list leaves it out until an upload records
+/// the server's id, on the activity row or on its body, and keeps every server
+/// id. Upstream has nothing to fetch for a key no server has named.
+#[test]
+fn test_get_activities_needing_time_streams_skips_unsent_local_recording() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    seed_section(&engine);
+    for id in [
+        "local-recording-unsent",
+        "local-recording-sent",
+        "local-recording-body-sent",
+        "i100",
+    ] {
+        seed_activity(&engine, id, Some(40));
+        seed_portion(&engine, id, None);
+    }
+    engine
+        .db
+        .execute(
+            "UPDATE activities SET intervals_id = 'i200' WHERE id = 'local-recording-sent'",
+            [],
+        )
+        .unwrap();
+    engine
+        .db
+        .execute(
+            "INSERT INTO activity_bodies (activity_id, date, raw, updated_at, intervals_id)
+             VALUES ('local-recording-body-sent', 1700300000, '{}', 0, 'i300')",
+            [],
+        )
+        .unwrap();
+
+    let mut actual = engine.get_activities_needing_time_streams();
+    actual.sort();
+    assert_eq!(
+        actual,
+        ["i100", "local-recording-body-sent", "local-recording-sent"]
     );
 }

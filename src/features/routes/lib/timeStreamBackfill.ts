@@ -11,7 +11,7 @@ import { engine } from 'veloqrs';
 
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
-import { awaitTimeStreams } from './awaitTimeStreams';
+import { awaitTimeStreams, willAnnounce } from './awaitTimeStreams';
 
 /** How long to let the backfill run before moving on. It resumes on the next
  *  sync, so a slow drain never blocks the banner. */
@@ -39,7 +39,11 @@ export async function backfillTimeStreams(
   }
 
   const total = needing.length;
-  engine.syncTimeStreams(needing);
+  // A refused start fetches nothing, so there is nothing to wait for: the
+  // next sync asks again.
+  if (!willAnnounce(engine.syncTimeStreams(needing))) {
+    return { total, remaining: total };
+  }
   onProgress(0, total);
 
   const remaining = await awaitTimeStreams(needing, {

@@ -24,7 +24,8 @@ function renderCycling() {
       hrZones={undefined}
       thresholdPace={undefined}
       runLthr={undefined}
-      zoneCoverage={RangeCoverage.Loaded}
+      periodCoverage={RangeCoverage.Loaded}
+      eftpCoverage={RangeCoverage.Loaded}
       loadingActivities={false}
       hasActivities
       dominantZone={null}

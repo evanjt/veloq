@@ -1,0 +1,195 @@
+/**
+ * Scenario: the shared chrome drew its quieter text by dimming a text token,
+ * through a style `opacity` or a colour built at an alpha, and the token test
+ * measures the token rather than what lands. The tab bar's inactive labels were
+ * black at 0.45, 3.27:1 over its scrim; the attribution line was
+ * `textSecondary` at 0.7, 3.62:1; a slower-than-best tab badge was near-black
+ * on grey, 2.29:1; and a tab count kept its light ink in dark, 1.93:1.
+ *
+ * Expected behaviour: every one of these texts clears 4.5:1 on the colour
+ * actually behind it in both themes, measured after compositing.
+ */
+
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { render } from '@testing-library/react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { ReactTestInstance } from 'react-test-renderer';
+
+import { BottomTabBar } from '@/shared/ui/BottomTabBar';
+import { DeviceAttribution } from '@/shared/ui/GarminAttribution';
+import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
+import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
+import { colors, darkColors, ink } from '@/theme';
+
+import { AA_TEXT, composite, contrastRatio, renderedTextColour } from '../__shared__/contrast';
+
+jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  usePathname: () => '/',
+  useSegments: () => ['(tabs)'],
+}));
+
+let mockIsDark = false;
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: mockIsDark }),
+}));
+
+const authState = {
+  isAuthenticated: true,
+  isDemoMode: false,
+  hideDemoBanner: false,
+  setHideDemoBanner: () => {},
+};
+jest.mock('@/shared/app/AuthStore', () => ({
+  useAuthStore: (selector: (s: typeof authState) => unknown) => selector(authState),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 24, left: 0, right: 0 }),
+}));
+
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+
+const THEMES = [
+  { name: 'light', isDark: false, palette: colors },
+  { name: 'dark', isDark: true, palette: darkColors },
+] as const;
+
+const SURFACES = {
+  light: [colors.surface, colors.background, colors.backgroundAlt],
+  dark: [
+    darkColors.background,
+    darkColors.surface,
+    darkColors.surfaceElevated,
+    darkColors.surfaceCard,
+  ],
+};
+
+afterEach(() => {
+  mockIsDark = false;
+});
+
+describe('the bottom tab bar labels', () => {
+  /**
+   * The bar floats over scrolling content behind a scrim of the opposite ink,
+   * so the worst ground is the scrim's densest stop over content of the
+   * opposite extreme: white at that alpha over black in light, and the reverse.
+   */
+  function worstGround(isDark: boolean, stops: readonly string[]): string {
+    const densest = stops[stops.length - 1];
+    return composite(densest, isDark ? ink.white : ink.black);
+  }
+
+  it.each(THEMES)('clear 4.5:1 on the scrim in the $name theme, active and inactive', (theme) => {
+    mockIsDark = theme.isDark;
+    const { UNSAFE_getByType, getByText } = render(<BottomTabBar />);
+    const ground = worstGround(theme.isDark, UNSAFE_getByType(LinearGradient).props.colors);
+
+    // The feed is the active tab at `/`, the fitness tab an inactive one.
+    const failing = ['navigation.feed', 'navigation.fitness'].flatMap((label) => {
+      const colour = renderedTextColour(getByText(label).props.style, ground);
+      const ratio = contrastRatio(colour, ground);
+      return ratio >= AA_TEXT ? [] : [`${label} ${ratio.toFixed(2)}`];
+    });
+
+    expect(failing).toStrictEqual([]);
+  });
+});
+
+describe('the swipeable tab strip badges', () => {
+  const TABS: SwipeableTab[] = [
+    { key: 'active', label: 'Active', icon: 'map-marker-path', count: 11 },
+    { key: 'counted', label: 'Counted', icon: 'chart-line', count: 22 },
+    { key: 'slower', label: 'Slower', icon: 'dumbbell', badgeText: '+12s', badgeTone: 'negative' },
+    { key: 'faster', label: 'Faster', icon: 'run', badgeText: '-5s', badgeTone: 'positive' },
+    { key: 'best', label: 'Best', icon: 'trophy', badgeText: 'PR', badgeTone: 'pr' },
+    { key: 'plain', label: 'Plain', icon: 'bike', badgeText: '3', badgeTone: 'neutral' },
+  ];
+
+  function renderStrip(isDark: boolean) {
+    return render(
+      <SwipeableTabs tabs={TABS} activeTab="active" onTabChange={jest.fn()} isDark={isDark}>
+        {TABS.map((tab) => (
+          <React.Fragment key={tab.key} />
+        ))}
+      </SwipeableTabs>
+    );
+  }
+
+  /** The fill of the closest view behind a text, which is the badge it sits on. */
+  function nearestFill(node: ReactTestInstance): string | undefined {
+    for (let at: ReactTestInstance | null = node; at; at = at.parent) {
+      const fill = StyleSheet.flatten(at.props.style ?? {}).backgroundColor;
+      if (typeof fill === 'string') return fill;
+    }
+    return undefined;
+  }
+
+  it.each(THEMES)('clear 4.5:1 on their own fill in the $name theme', (theme) => {
+    const { getByText } = renderStrip(theme.isDark);
+    const page = theme.palette.background;
+
+    const failing = ['11', '22', '+12s', '-5s', 'PR', '3'].flatMap((text) => {
+      const node = getByText(text);
+      const fill = nearestFill(node);
+      const ground = fill ? composite(fill, page) : page;
+      const ratio = contrastRatio(renderedTextColour(node.props.style, ground), ground);
+      return ratio >= AA_TEXT ? [] : [`${text} ${ratio.toFixed(2)}`];
+    });
+
+    expect(failing).toStrictEqual([]);
+  });
+
+  it.each(THEMES)('draws a slower time in the decline tone in the $name theme', (theme) => {
+    const { getByText } = renderStrip(theme.isDark);
+
+    const colour = StyleSheet.flatten(getByText('+12s').props.style).color;
+
+    expect(colour).not.toBe(theme.palette.textSecondary);
+    expect(colour).not.toBe(colors.textOnPrimary);
+  });
+
+  it.each(THEMES)('draws the active icon and label in one teal in the $name theme', (theme) => {
+    const { getByText, UNSAFE_getAllByProps } = renderStrip(theme.isDark);
+
+    const label = StyleSheet.flatten(getByText('Active').props.style).color;
+    const icon = UNSAFE_getAllByProps({ name: 'map-marker-path' })[0].props.color;
+
+    expect(icon).toBe(label);
+  });
+});
+
+describe('the Garmin trademark line', () => {
+  it.each(THEMES)('clears 4.5:1 on every surface in the $name theme', (theme) => {
+    mockIsDark = theme.isDark;
+    const { getByText } = render(<DeviceAttribution deviceName="Garmin Edge 840" />);
+    const style = getByText('attribution.garminTrademark').props.style;
+
+    const worst = Math.min(
+      ...SURFACES[theme.name].map((ground) =>
+        contrastRatio(renderedTextColour(style, ground), ground)
+      )
+    );
+
+    expect(worst).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it.each(THEMES)('clears 4.5:1 on the data sources card in the $name theme', (theme) => {
+    mockIsDark = theme.isDark;
+    const { getByText } = render(<DataSourcesSection />);
+    const card = theme.isDark ? darkColors.surfaceCard : colors.surface;
+
+    const colour = renderedTextColour(getByText('attribution.garminTrademark').props.style, card);
+
+    expect(contrastRatio(colour, card)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+});

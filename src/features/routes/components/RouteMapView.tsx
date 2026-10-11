@@ -18,6 +18,8 @@ import {
   type BaseMap3DLayer,
   boundsOfLngLat,
   buildDeltaLineStops,
+  buildEndpointLayers,
+  ENDPOINT_IMAGES,
   featureCollection,
   isDarkStyle,
   lineFeature,
@@ -248,6 +250,7 @@ export function RouteMapView({
           initialCamera={{ bounds, padding: FIT_PADDING }}
           sources={sources}
           layers={layers}
+          images={ENDPOINT_IMAGES}
           scrollEnabled={interactive}
           zoomEnabled={interactive}
           rotateEnabled={interactive}
@@ -277,6 +280,7 @@ export function RouteMapView({
           onClose={closeFullscreen}
           overlaySources={overlaySources}
           overlayLayers={fullscreenLayers}
+          overlayImages={ENDPOINT_IMAGES}
           layer3D={fullscreenLayer3D}
         />
       </Modal>
@@ -416,26 +420,7 @@ export function buildRouteLayers({
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': colors.chartCyan, 'line-width': 4 },
     },
-    {
-      id: 'endpoint-border',
-      type: 'circle',
-      source: 'endpoints',
-      paint: { 'circle-radius': 7.5, 'circle-color': mapLayerColors.casing },
-    },
-    {
-      id: 'endpoint-fill',
-      type: 'circle',
-      source: 'endpoints',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'position'], 'start'],
-          mapLayerColors.start,
-          mapLayerColors.end,
-        ],
-      },
-    },
+    ...buildEndpointLayers(),
   ];
 }
 

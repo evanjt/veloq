@@ -19,7 +19,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: jest.fn() },
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
 

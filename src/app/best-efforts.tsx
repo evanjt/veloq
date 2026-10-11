@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   BodyNotDownloaded,
@@ -14,9 +15,9 @@ import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
 import {
   BEST_EFFORTS_SPORT,
-  BEST_EFFORTS_DEFAULT_PERIOD,
   BEST_EFFORTS_PERIODS,
   bestEffortsDays,
+  bestEffortsPeriodFromParam,
   bestEffortsOf,
   climbBestsOf,
   climbStatusOf,
@@ -218,7 +219,10 @@ function BestEffortsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const tabBarClearance = useTabBarClearance();
-  const [period, setPeriod] = useState<Period>(BEST_EFFORTS_DEFAULT_PERIOD);
+  // A link from a screen that showed a window opens on that window, so the
+  // bests here answer the question the athlete tapped through with.
+  const params = useLocalSearchParams<{ period?: string }>();
+  const [period, setPeriod] = useState<Period>(() => bestEffortsPeriodFromParam(params.period));
 
   const days = bestEffortsDays(period);
   const { data, isLoading, error, curves } = useBestEfforts(days, SHOWN);

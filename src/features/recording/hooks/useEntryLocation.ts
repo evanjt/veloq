@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 
-import { entryGpsState, type EntryGpsState } from '../lib/recordEntry';
+import { useLocationServices } from '@/shared/app/permissions/locationServices';
+
+import { resolveEntryGps, type EntryGpsState } from '../lib/recordEntry';
 
 /** How long the first fix may take before the screen says the signal is weak. */
 export const GPS_READINESS_TIMEOUT_MS = 15_000;
@@ -17,6 +19,8 @@ export interface EntryLocation {
    * because Android shows one dialog at a time.
    */
   promptSettled: boolean;
+  /** Turns the device's location switch on where the platform allows it. */
+  turnOnServices: () => Promise<void>;
 }
 
 type Permission = 'unknown' | 'granted' | 'denied';
@@ -40,8 +44,14 @@ async function askForegroundLocation(): Promise<Permission> {
  * the session runs its own watch, and an indoor or manual sport earns no
  * location prompt. The prompt is raised on arrival and never by the Start tap,
  * so the tap only navigates.
+ *
+ * The device's location switch is read before the watch starts and again on
+ * every return to the app, so a switch that is off is named at once rather
+ * than after the wait for a fix, and the watch starts when it comes on.
  */
 export function useEntryLocation(active: boolean): EntryLocation {
+  const services = useLocationServices(active);
+  const servicesOn = services.enabled === true;
   const [permission, setPermission] = useState<Permission>('unknown');
   const [fix, setFix] = useState<{
     location: { latitude: number; longitude: number };
@@ -61,7 +71,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
   }, [active, permission]);
 
   useEffect(() => {
-    if (!active || permission !== 'granted') return undefined;
+    if (!active || permission !== 'granted' || !servicesOn) return undefined;
     let cancelled = false;
     let subscription: Location.LocationSubscription | null = null;
     const timeout = setTimeout(() => {
@@ -88,12 +98,25 @@ export function useEntryLocation(active: boolean): EntryLocation {
       cancelled = true;
       clearTimeout(timeout);
       subscription?.remove();
+      // A watch that starts again, when the switch comes back on, waits for
+      // its own first fix rather than showing the last one.
+      setFix(null);
+      setTimedOut(false);
     };
-  }, [active, permission]);
+  }, [active, permission, servicesOn]);
 
-  const promptSettled = !active || permission !== 'unknown';
-  if (permission === 'denied')
-    return { state: 'none', location: null, accuracy: null, promptSettled };
-  if (fix) return { state: entryGpsState(fix.accuracy), ...fix, promptSettled };
-  return { state: timedOut ? 'weak' : 'checking', location: null, accuracy: null, promptSettled };
+  const state = resolveEntryGps({
+    servicesEnabled: active ? services.enabled : null,
+    permission,
+    fix,
+    timedOut,
+  });
+  const shown = state === 'servicesOff' || state === 'none' ? null : fix;
+  return {
+    state,
+    location: shown?.location ?? null,
+    accuracy: shown?.accuracy ?? null,
+    promptSettled: !active || permission !== 'unknown',
+    turnOnServices: services.turnOn,
+  };
 }

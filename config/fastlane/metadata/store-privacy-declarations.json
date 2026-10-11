@@ -1,0 +1,248 @@
+{
+  "$comment": "The App Store Connect App Privacy answers and the Play Console Data safety answers. The consoles are set from this file: change a console answer and this file in the same change. scripts/store-privacy-declarations.ts checks it against app.json and across the two stores.",
+  "serverHeld": [
+    {
+      "id": "athleteId",
+      "what": "intervals.icu athlete id, the key the push record is filed under",
+      "source": "oauth-proxy/src/worker.ts handleDeviceRegister",
+      "ephemeral": false,
+      "linkedToAthlete": true,
+      "deletion": [
+        "notifications off unregisters the device",
+        "sign-out unregisters the device",
+        "removal on request by email",
+        "expires 30 days after the last app open"
+      ]
+    },
+    {
+      "id": "pushToken",
+      "what": "Expo push token, stored under the athlete id",
+      "source": "oauth-proxy/src/worker.ts handleDeviceRegister",
+      "ephemeral": false,
+      "linkedToAthlete": true,
+      "deletion": [
+        "notifications off unregisters the device",
+        "sign-out unregisters the device",
+        "removal on request by email",
+        "expires 30 days after the last app open"
+      ]
+    },
+    {
+      "id": "ipRateCounter",
+      "what": "IP address as a rate-limit counter for 60 seconds",
+      "source": "oauth-proxy/src/worker.ts checkRateLimit",
+      "ephemeral": true,
+      "linkedToAthlete": false,
+      "deletion": []
+    },
+    {
+      "id": "oauthState",
+      "what": "OAuth state and code verifier for the sign-in in flight, 5 minutes",
+      "source": "oauth-proxy/src/worker.ts handleRegisterState",
+      "ephemeral": true,
+      "linkedToAthlete": false,
+      "deletion": []
+    },
+    {
+      "id": "webhookEvent",
+      "what": "athlete id, event type and activity id of a handled webhook, 5 minutes, so a re-delivered event is not pushed twice",
+      "source": "oauth-proxy/src/worker.ts handleIntervalsWebhook",
+      "ephemeral": true,
+      "linkedToAthlete": true,
+      "deletion": []
+    }
+  ],
+  "noUserData": [
+    {
+      "carriers": [
+        "permission:INTERNET",
+        "permission:ACCESS_NETWORK_STATE",
+        "permission:ACCESS_WIFI_STATE"
+      ],
+      "note": "Network access and the connectivity check that decides when to sync. They carry no user data of their own."
+    },
+    {
+      "carriers": ["permission:FOREGROUND_SERVICE", "permission:VIBRATE", "backgroundMode:fetch"],
+      "note": "Keep a recording running, give haptic feedback and refresh the widgets from data already on the device."
+    },
+    {
+      "carriers": [
+        "plugin:expo-build-properties",
+        "plugin:expo-router",
+        "plugin:expo-screen-orientation",
+        "plugin:expo-splash-screen",
+        "plugin:expo-localization"
+      ],
+      "note": "Build settings, navigation, orientation, the splash screen and the device language. None reads user data."
+    }
+  ],
+  "appStore": {
+    "tracking": false,
+    "dataTypes": [
+      {
+        "category": "Identifiers",
+        "type": "User ID",
+        "purposes": ["App Functionality"],
+        "linked": true,
+        "tracking": false,
+        "holds": ["athleteId"],
+        "carriers": [
+          "backgroundMode:remote-notification",
+          "permission:POST_NOTIFICATIONS",
+          "plugin:expo-notifications"
+        ]
+      },
+      {
+        "category": "Identifiers",
+        "type": "Device ID",
+        "purposes": ["App Functionality"],
+        "linked": true,
+        "tracking": false,
+        "holds": ["pushToken"],
+        "carriers": [
+          "backgroundMode:remote-notification",
+          "permission:POST_NOTIFICATIONS",
+          "plugin:expo-notifications"
+        ]
+      }
+    ],
+    "notCollected": [
+      {
+        "what": "Nextcloud link scan",
+        "carriers": ["plugin:expo-camera"],
+        "reason": "onDevice",
+        "note": "The camera reads a QR code on the device. No image leaves it."
+      },
+      {
+        "what": "Donations",
+        "carriers": ["plugin:react-native-iap"],
+        "reason": "onDevice",
+        "note": "Billing stays with Apple and Google. The app sends no purchase off the device."
+      },
+      {
+        "what": "Sign-in tokens",
+        "carriers": ["plugin:expo-secure-store"],
+        "reason": "onDevice",
+        "note": "The intervals.icu token is kept in the device keychain or keystore."
+      },
+      {
+        "what": "intervals.icu sign-in page",
+        "carriers": ["plugin:expo-web-browser"],
+        "reason": "athletesOwnAccount",
+        "note": "The athlete signs in on intervals.icu's own page. The credentials go to the athlete's account and never reach the app."
+      },
+      {
+        "what": "Location",
+        "carriers": [
+          "backgroundMode:location",
+          "permission:ACCESS_COARSE_LOCATION",
+          "permission:ACCESS_FINE_LOCATION",
+          "permission:FOREGROUND_SERVICE_LOCATION",
+          "plugin:expo-location"
+        ],
+        "reason": "athletesOwnAccount",
+        "note": "A recording's GPS track is uploaded only to the athlete's own intervals.icu account, which neither the developer nor a partner of the developer can read."
+      },
+      {
+        "what": "Health and Fitness",
+        "carriers": ["plugin:react-native-ble-plx"],
+        "reason": "athletesOwnAccount",
+        "note": "Heart rate, power and cadence from paired sensors are uploaded only to the athlete's own intervals.icu account."
+      }
+    ]
+  },
+  "play": {
+    "encryptedInTransit": true,
+    "deletion": {
+      "userCanRequest": true,
+      "paths": [
+        "notifications off unregisters the device",
+        "sign-out unregisters the device",
+        "removal on request by email",
+        "expires 30 days after the last app open"
+      ]
+    },
+    "dataTypes": [
+      {
+        "category": "Personal info",
+        "type": "User IDs",
+        "purposes": ["App functionality"],
+        "optional": true,
+        "shared": false,
+        "ephemeral": false,
+        "holds": ["athleteId"],
+        "carriers": [
+          "backgroundMode:remote-notification",
+          "permission:POST_NOTIFICATIONS",
+          "plugin:expo-notifications"
+        ]
+      },
+      {
+        "category": "Device or other IDs",
+        "type": "Device or other IDs",
+        "purposes": ["App functionality"],
+        "optional": true,
+        "shared": false,
+        "ephemeral": false,
+        "holds": ["pushToken"],
+        "carriers": [
+          "backgroundMode:remote-notification",
+          "permission:POST_NOTIFICATIONS",
+          "plugin:expo-notifications"
+        ]
+      },
+      {
+        "category": "Location",
+        "type": "Precise location",
+        "purposes": ["App functionality"],
+        "optional": true,
+        "shared": false,
+        "ephemeral": false,
+        "holds": [],
+        "carriers": [
+          "backgroundMode:location",
+          "permission:ACCESS_COARSE_LOCATION",
+          "permission:ACCESS_FINE_LOCATION",
+          "permission:FOREGROUND_SERVICE_LOCATION",
+          "plugin:expo-location"
+        ]
+      },
+      {
+        "category": "Health and fitness",
+        "type": "Fitness info",
+        "purposes": ["App functionality"],
+        "optional": true,
+        "shared": false,
+        "ephemeral": false,
+        "holds": [],
+        "carriers": ["plugin:react-native-ble-plx"]
+      }
+    ],
+    "notCollected": [
+      {
+        "what": "Nextcloud link scan",
+        "carriers": ["plugin:expo-camera"],
+        "reason": "onDevice",
+        "note": "The camera reads a QR code on the device. No image leaves it."
+      },
+      {
+        "what": "Donations",
+        "carriers": ["plugin:react-native-iap"],
+        "reason": "onDevice",
+        "note": "Billing stays with Apple and Google. The app sends no purchase off the device."
+      },
+      {
+        "what": "Sign-in tokens",
+        "carriers": ["plugin:expo-secure-store"],
+        "reason": "onDevice",
+        "note": "The intervals.icu token is kept in the device keychain or keystore."
+      },
+      {
+        "what": "intervals.icu sign-in page",
+        "carriers": ["plugin:expo-web-browser"],
+        "reason": "athletesOwnAccount",
+        "note": "The athlete signs in on intervals.icu's own page. The credentials go to the athlete's account and never reach the app."
+      }
+    ]
+  }
+}

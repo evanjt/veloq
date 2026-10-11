@@ -84,17 +84,15 @@ fn mock_all_bodies(server: &MockServer) {
     }
     server.mock(|when, then| {
         when.method(GET)
-            .path_matches(httpmock::Regex::new(r"^/activity/r\d/streams\.json$").expect("pattern"));
+            .path_matches(r"^/activity/r\d/streams\.json$");
         then.status(200).json_body(json!([]));
     });
     server.mock(|when, then| {
-        when.method(GET)
-            .path_matches(httpmock::Regex::new(r"^/activity/r\d/intervals$").expect("pattern"));
+        when.method(GET).path_matches(r"^/activity/r\d/intervals$");
         then.status(200).json_body(json!({"icu_intervals": []}));
     });
     server.mock(|when, then| {
-        when.method(GET)
-            .path_matches(httpmock::Regex::new(r"^/activity/r\d$").expect("pattern"));
+        when.method(GET).path_matches(r"^/activity/r\d$");
         then.status(200).json_body(json!({
             "id": "r",
             "icu_athlete_id": "i1",

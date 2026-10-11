@@ -1,7 +1,8 @@
 /**
  * Scenario: a muscle is selected on the Strength body diagram.
  * Expected behaviour: the name row carries the muscle's weighted sets and
- * total volume in the athlete's unit; with no selection the row is absent.
+ * total volume in the athlete's unit, and a screen reader hears that pressing
+ * it clears the muscle; with no selection the row is absent.
  */
 
 import React from 'react';
@@ -29,8 +30,12 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockIs
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
-    t: (key: string, options?: { count?: number }) =>
-      options?.count == null ? key : `${options.count} ${key}`,
+    t: (key: string, options?: { count?: number; muscle?: string }) =>
+      options?.muscle != null
+        ? `${key}(${options.muscle})`
+        : options?.count == null
+          ? key
+          : `${options.count} ${key}`,
   }),
 }));
 
@@ -87,6 +92,15 @@ describe('selected muscle summary', () => {
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
       '· 12.5 strength.setsCount · 7540 lbs'
     );
+  });
+
+  it('names the row as clearing the selected muscle, with its numbers', () => {
+    draw(volume);
+    expect(
+      screen.getByRole('button', {
+        name: 'strength.clearMuscle(strength.muscles.abs), 12.5 strength.setsCount · 3420 kg',
+      })
+    ).toBeTruthy();
   });
 
   it('shows nothing without a selection', () => {

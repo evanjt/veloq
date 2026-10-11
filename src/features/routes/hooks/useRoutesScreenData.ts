@@ -25,6 +25,8 @@ import {
   routesPageQuery,
   type RoutesPageKind,
 } from '@/features/routes/lib/routesPageQuery';
+import { followRoutesStatus } from '@/shared/native/routesStatusPoll';
+import { reasonJobsKey, reasonMovesOnItsOwn } from '@/features/routes/lib/emptyReasonFollow';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -134,6 +136,8 @@ function readFirstPage(query: {
       hasMoreGroups: result.hasMoreGroups,
       hasMoreSections: result.hasMoreSections,
       groupsDirty: result.groupsDirty ?? false,
+      groupEmptyReason: result.groupEmptyReason,
+      sectionEmptyReason: result.sectionEmptyReason,
     } as PaginatedRoutesData;
     return { data, error: null };
   } catch (e) {
@@ -191,6 +195,7 @@ export function useRoutesScreenData(opts?: {
   );
 
   const [retryTick, setRetryTick] = useState(0);
+  const [jobTick, setJobTick] = useState(0);
 
   // Track pagination offsets
   const [groupOffset, setGroupOffset] = useState(0);
@@ -213,8 +218,8 @@ export function useRoutesScreenData(opts?: {
   // Track last successful result for error recovery
   const lastResultRef = useRef<PaginatedRoutesData | null>(null);
 
-  // Combined trigger - engine events OR tab focus
-  const combinedTrigger = trigger + focusTrigger;
+  // Combined trigger - engine events, tab focus, or a job an empty list names moving
+  const combinedTrigger = trigger + focusTrigger + jobTick;
 
   // Every part of the query that changes what a page holds resets the paging,
   // because an accumulated page taken under a different order or search is
@@ -334,6 +339,8 @@ export function useRoutesScreenData(opts?: {
         hasMoreGroups: hasMore.hasMoreGroups,
         hasMoreSections: hasMore.hasMoreSections,
         groupsDirty: result.groupsDirty ?? false,
+        groupEmptyReason: result.groupEmptyReason,
+        sectionEmptyReason: result.sectionEmptyReason,
       } as PaginatedRoutesData;
 
       lastResultRef.current = data;
@@ -414,6 +421,20 @@ export function useRoutesScreenData(opts?: {
       answered ? undefined : runWhenIdle(() => setRead({ ...computeData(), answers: readKey })),
     [answered, readKey, computeData]
   );
+
+  // A running, held or owed detect moves with no announcement, so while a list
+  // says one of them the page is read again each time the jobs it names move.
+  const followsJobs =
+    reasonMovesOnItsOwn(data?.groupEmptyReason) || reasonMovesOnItsOwn(data?.sectionEmptyReason);
+  useEffect(() => {
+    if (!followsJobs) return undefined;
+    let last: string | null = null;
+    return followRoutesStatus((status) => {
+      const key = reasonJobsKey(status);
+      if (last !== null && key !== last) setJobTick((t) => t + 1);
+      last = key;
+    });
+  }, [followsJobs]);
 
   const retry = useCallback(() => {
     groupsRef.current = [];

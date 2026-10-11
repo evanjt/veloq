@@ -6,8 +6,11 @@ import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors } from '@/theme';
 import { tapTo } from '@/shared/app/navigation';
+import type { Period } from '@/shared/app/period';
+import { bestEffortsHref } from '@/features/stats';
 
-export function BestEffortsHeaderButton() {
+/** Opens Best Efforts on the range Fitness shows. */
+export function BestEffortsHeaderButton({ period }: { period: Period }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
@@ -17,7 +20,7 @@ export function BestEffortsHeaderButton() {
       label={t('bestEffortsScreen.title')}
       variant="ghost"
       size="sm"
-      onPress={() => tapTo('/best-efforts')}
+      onPress={() => tapTo(bestEffortsHref(period))}
       icon={
         <MaterialCommunityIcons
           name="trophy-outline"

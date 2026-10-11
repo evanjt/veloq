@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { FitnessScreenData } from 'veloqrs';
+import { RangeCoverage, type FitnessScreenData } from 'veloqrs';
 
 import { epochDayKeyUtc, formatLocalDate } from '@/shared/format/format';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -10,6 +10,8 @@ import { ftpTrendView, type FtpTrendView } from '../lib/ftpTrendView';
 export interface FitnessScreenRead {
   /** The eFTP over the chart's window, undefined while no day carries an estimate. */
   eftpTrend: FtpTrendView | undefined;
+  /** Whether the wellness the trend is read from was downloaded for its window. */
+  eftpCoverage: RangeCoverage;
   /** The activities that moved the accepted eFTP, oldest first. */
   eftpChanges: EftpChange[];
   /** The last stored critical speeds in m/s, null when none was ever stored. */
@@ -19,6 +21,7 @@ export interface FitnessScreenRead {
 
 const NO_FITNESS_SCREEN: FitnessScreenRead = {
   eftpTrend: undefined,
+  eftpCoverage: RangeCoverage.NotFetched,
   eftpChanges: [],
   storedRunPace: null,
   storedSwimPace: null,
@@ -27,6 +30,7 @@ const NO_FITNESS_SCREEN: FitnessScreenRead = {
 function fitnessScreenView(read: FitnessScreenData): FitnessScreenRead {
   return {
     eftpTrend: read.ftpTrend.history.length > 0 ? ftpTrendView(read.ftpTrend) : undefined,
+    eftpCoverage: read.ftpTrendCoverage,
     eftpChanges: read.ftpTrend.changes.map((change) => ({
       date: epochDayKeyUtc(Number(change.date)),
       eftp: change.eftp,
@@ -58,7 +62,7 @@ export function useFitnessScreenRead(): FitnessScreenRead {
       const read = readActivities((engine) => engine.getFitnessScreenData());
       return read ? fitnessScreenView(read) : NO_FITNESS_SCREEN;
     } catch {
-      // empty-on-error: the chart and badge read empty as "no estimate yet", the markers are an overlay the plot draws without, and the stored speeds are a fallback the screen has no failure row for.
+      // empty-on-error: the chart reads a refused read as not downloaded and the badge as "no estimate yet", the markers are an overlay the plot draws without, and the stored speeds are a fallback the screen has no failure row for.
       return NO_FITNESS_SCREEN;
     }
   }, [readActivities]);

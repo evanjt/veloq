@@ -88,15 +88,22 @@ export function useExportRecordBackup() {
     });
   }, [settle, t]);
 
-  const doExport = useCallback(async () => {
-    if (running.current) return;
+  /**
+   * Answers what became of the export: `busy` when one was already running,
+   * `failed` once the failure has been reported.
+   */
+  const doExport = useCallback(async (): Promise<RecordExportOutcome | 'busy' | 'failed'> => {
+    if (running.current) return 'busy';
     running.current = true;
     setExporting(true);
     try {
-      await settle(await exportRecordBackup());
+      const outcome = await exportRecordBackup();
+      await settle(outcome);
+      return outcome;
     } catch {
       setStillRunning(false);
       Alert.alert(t('common.error'), t('backup.exportError'));
+      return 'failed';
     } finally {
       running.current = false;
       if (live.current) setExporting(false);

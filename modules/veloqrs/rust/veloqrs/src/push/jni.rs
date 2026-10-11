@@ -108,7 +108,7 @@ pub extern "system" fn Java_com_veloq_PushBridge_nativeActivityPush<'local>(
             },
             Ok(None) => {
                 log::warn!("[push] nothing to post for {activity_id}, see the recorded run");
-                env.new_string("{\"skip\":true}")
+                env.new_string(super::SKIP_MARKER)
                     .map_or(null, |s| s.into_raw())
             }
             Err(e) => {

@@ -284,3 +284,18 @@ enum WidgetSnapshotStore {
     return try? JSONDecoder().decode(WidgetSnapshot.self, from: data)
   }
 }
+
+/// The sample library the gallery and a placeholder draw: the snapshot the engine composes from
+/// the demo library, whose JSON is generated at prebuild from the fixture the captures draw. A
+/// placeholder always draws it, so the redacted widget keeps its real shape, and the gallery draws
+/// it while the athlete has nothing of their own to show, rather than the open-the-app prompt.
+enum WidgetSample {
+  static let snapshot: WidgetSnapshot? = try? JSONDecoder().decode(
+    WidgetSnapshot.self, from: Data(json.utf8))
+
+  /// What a gallery or home-screen snapshot draws: the athlete's own, except in the gallery
+  /// while it is absent or an empty library.
+  static func snapshot(stored: WidgetSnapshot?, isPreview: Bool) -> WidgetSnapshot? {
+    isPreview && WidgetSnapshot.isEmpty(stored) ? snapshot : stored
+  }
+}

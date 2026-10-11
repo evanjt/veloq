@@ -1,0 +1,113 @@
+/**
+ * Scenario: the native stack draws an Android sheet with no drag handle and
+ * runs its content under the navigation bar, so the last row of a sheet sits
+ * behind the system buttons.
+ *
+ * Expected behaviour: every sheet route renders inside one frame, which draws
+ * the handle on a resizable Android sheet and pads the content clear of the
+ * bottom inset.
+ */
+import React from 'react';
+import { Platform, StyleSheet, Text } from 'react-native';
+import { render, screen } from '@testing-library/react-native';
+
+import { SheetFrame, sheetScreenLayout } from '@/shared/ui/SheetFrame';
+
+const mockInsets = { top: 0, bottom: 48, left: 0, right: 0 };
+
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => mockInsets,
+}));
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+
+const originalOS = Platform.OS;
+
+afterEach(() => {
+  Platform.OS = originalOS;
+});
+
+function frameStyle() {
+  return StyleSheet.flatten(screen.getByTestId('sheet-frame').props.style);
+}
+
+describe('SheetFrame on Android', () => {
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+
+  it('draws the handle on a resizable sheet and pads past the navigation bar', () => {
+    render(
+      <SheetFrame name="sheets/insight">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(screen.getByTestId('sheet-handle', { includeHiddenElements: true })).toBeTruthy();
+    expect(frameStyle().paddingBottom).toBe(48);
+    expect(screen.getByText('body')).toBeTruthy();
+  });
+
+  it('draws no handle on a sheet sized to its content, and still pads it', () => {
+    render(
+      <SheetFrame name="sheets/smoothing">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(screen.queryByTestId('sheet-handle', { includeHiddenElements: true })).toBeNull();
+    expect(frameStyle().paddingBottom).toBe(48);
+  });
+
+  it('hides the handle from assistive technology, since it carries no action', () => {
+    render(
+      <SheetFrame name="sheets/field-picker">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    const handle = screen.getByTestId('sheet-handle', { includeHiddenElements: true });
+    expect(handle.props.importantForAccessibility).toBe('no-hide-descendants');
+    expect(handle.props.accessibilityElementsHidden).toBe(true);
+  });
+});
+
+describe('SheetFrame on iOS', () => {
+  beforeEach(() => {
+    Platform.OS = 'ios';
+  });
+
+  it('leaves the grabber to the system and pads a resizable sheet', () => {
+    render(
+      <SheetFrame name="sheets/insight">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(screen.queryByTestId('sheet-handle', { includeHiddenElements: true })).toBeNull();
+    expect(frameStyle().paddingBottom).toBe(48);
+  });
+
+  it('adds no padding to a fitted sheet, which the system already ends above the indicator', () => {
+    render(
+      <SheetFrame name="sheets/smoothing">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(frameStyle().paddingBottom).toBe(0);
+  });
+});
+
+describe('sheetScreenLayout', () => {
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+
+  it('frames a sheet route', () => {
+    render(sheetScreenLayout({ route: { name: 'sheets/insight' }, children: <Text>body</Text> }));
+    expect(screen.getByTestId('sheet-frame')).toBeTruthy();
+    expect(screen.getByText('body')).toBeTruthy();
+  });
+
+  it('passes any other route through untouched', () => {
+    render(sheetScreenLayout({ route: { name: 'settings' }, children: <Text>body</Text> }));
+    expect(screen.queryByTestId('sheet-frame')).toBeNull();
+    expect(screen.getByText('body')).toBeTruthy();
+  });
+});

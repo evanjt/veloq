@@ -104,7 +104,8 @@ static TABLES: &[Table] = &[
     t(
         "activity_climb_bests",
         Derived,
-        "each climbing activity's best window per length, measured from its track and stream",
+        "each climbing activity's best window per length, measured from its track and stream, \
+         or one row saying it was measured and gave none",
     ),
     t(
         "activities",

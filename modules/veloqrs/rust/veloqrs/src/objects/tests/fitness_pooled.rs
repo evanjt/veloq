@@ -114,12 +114,51 @@ fn test_get_fitness_screen_data_writer_held() {
 fn test_get_wellness_days_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("wellness_days_under_a_writer.db");
-    let days = read_while_writer_holds(|| {
+    let window = read_while_writer_holds(|| {
         FitnessManager::new()
             .get_wellness_days("2026-01-01".into(), "2026-12-31".into())
             .expect("wellness days")
     });
-    assert!(days.is_empty());
+    assert!(window.days.is_empty());
+    assert_eq!(
+        window.coverage,
+        crate::RangeCoverage::NotFetched,
+        "nothing stored is a pull still owed"
+    );
+}
+
+#[test]
+fn test_get_wellness_days_says_whether_the_window_was_pulled() {
+    let _serial = serial_global_state();
+    let _tmp = init_global_engine("wellness_days_coverage.db");
+    crate::with_persistent_engine(|engine| {
+        engine
+            .db
+            .execute(
+                "INSERT INTO wellness (date, ctl, atl) VALUES ('2026-01-15', 50.0, 40.0)",
+                [],
+            )
+            .expect("wellness day");
+    });
+    let fitness = FitnessManager::new();
+    let (inside, outside) = read_while_writer_holds(|| {
+        (
+            fitness
+                .get_wellness_days("2026-01-01".into(), "2026-01-31".into())
+                .expect("wellness days"),
+            fitness
+                .get_wellness_days("2026-02-01".into(), "2026-02-28".into())
+                .expect("wellness days"),
+        )
+    });
+    assert_eq!(inside.days.len(), 1);
+    assert_eq!(inside.coverage, crate::RangeCoverage::Loaded);
+    assert!(outside.days.is_empty());
+    assert_eq!(
+        outside.coverage,
+        crate::RangeCoverage::Empty,
+        "wellness stored elsewhere says the window itself holds nothing"
+    );
 }
 
 #[test]
@@ -450,7 +489,8 @@ fn test_fitness_reads_pooled_match_locked() {
     let newest = today.to_string();
     let days = fitness
         .get_wellness_days(oldest.clone(), newest.clone())
-        .expect("wellness days");
+        .expect("wellness days")
+        .days;
     assert_eq!(days.len(), 10);
     assert_eq!(days.last().expect("today").sport_load.len(), 1);
     assert_eq!(

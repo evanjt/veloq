@@ -4,7 +4,8 @@
  * The radius scale is what the app already draws rather than what it used to
  * declare: 4, 8, 12, 16, 20, 24 and full. The old scale named 4, 8, 16 and 24,
  * so 12 and 20 were the two most-drawn radii with no token at all, and every
- * one of their call sites was a literal.
+ * one of their call sites was a literal. 28 is Material's extra-large shape,
+ * the top corners of an Android bottom sheet.
  *
  * The two micro steps, 2 and 6, are spacing rather than radius. They existed
  * only inside the chart sub-scale and are promoted out of it, because a 2 pt
@@ -66,6 +67,7 @@ export const layout = {
   borderRadius: spacing.md, // 16 - Aligns to 8px grid (was 12)
   borderRadiusXl: 20, // 20 - Sheets, large pills
   borderRadiusLg: spacing.lg, // 24 - Large pills, rounded containers
+  borderRadiusXxl: 28, // 28 - Android bottom sheet top corners
   borderRadiusFull: 9999, // Circles
   recordFabSize: 56, // Floating record button diameter
 } as const;

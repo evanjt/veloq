@@ -126,7 +126,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
         &|| false,
     ))
     .unwrap();
-    whole.assert_hits(1);
+    whole.assert_calls(1);
     crate::persistence::with_persistent_engine(|engine| {
         assert!(engine.get_activity_body("new").is_some());
     })
@@ -196,8 +196,8 @@ fn test_widened_window_requests_only_owed_day() {
         "2025-01-01",
         "2025-12-31",
     ));
-    one.assert_hits(1);
-    whole.assert_hits(0);
+    one.assert_calls(1);
+    whole.assert_calls(0);
 }
 
 #[test]
@@ -229,7 +229,7 @@ fn test_widened_window_without_census_requests_whole_span() {
         "2025-01-01",
         "2025-12-31",
     ));
-    whole.assert_hits(1);
+    whole.assert_calls(1);
     assert_eq!(svc.snapshot().completed, 1);
 }
 
@@ -434,7 +434,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
         &|_, _| {},
     ))
     .unwrap();
-    intervals.assert_hits(1);
+    intervals.assert_calls(1);
     crate::persistence::with_persistent_engine(|engine| {
         assert!(engine.get_interval_body("a1").unwrap().is_some());
     })
@@ -539,8 +539,8 @@ fn test_launch_plans_old_changed_rows_without_old_never_fetched_rows() {
         &|| false,
     ))
     .unwrap();
-    changed.assert_hits(1);
-    all.assert_hits(0);
+    changed.assert_calls(1);
+    all.assert_calls(0);
     crate::persistence::with_persistent_engine(|engine| {
         assert!(
             engine
@@ -636,7 +636,7 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
     // The bulk body endpoint answers ids it does not know with an empty list.
     server.mock(|when, then| {
         when.method(GET)
-            .path_matches(httpmock::Regex::new(r"^/athlete/i1/activities/.+").unwrap())
+            .path_matches(r"^/athlete/i1/activities/.+")
             .query_param("intervals", "true");
         then.status(200).json_body(serde_json::json!([]));
     });
@@ -654,7 +654,7 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
         &|| false,
     ))
     .unwrap();
-    head.assert_hits(1);
+    head.assert_calls(1);
     crate::persistence::with_persistent_engine(|engine| {
         assert!(
             engine
@@ -782,9 +782,9 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
     ))
     .unwrap();
     for request in wide {
-        request.assert_hits(0);
+        request.assert_calls(0);
     }
-    exact.assert_hits(31);
+    exact.assert_calls(31);
     crate::persistence::with_persistent_engine(|engine| {
         assert_eq!(engine.get_activity_body("unchanged"), Some("held".into()));
         assert!(engine.get_activity_body("never").is_none());
@@ -852,10 +852,9 @@ fn transport_to(base: String) -> Transport {
 /// What intervals.icu does with `fields`: a name it was not asked for is not
 /// in the answer.
 pub(super) fn asks_for_decoupling(req: &HttpMockRequest) -> bool {
-    req.query_params.as_ref().is_some_and(|q| {
-        q.iter()
-            .any(|(k, v)| k == "fields" && v.split(',').any(|field| field == "decoupling"))
-    })
+    req.query_params()
+        .iter()
+        .any(|(k, v)| k == "fields" && v.split(',').any(|field| field == "decoupling"))
 }
 
 /// A new database holds no body at all, so none was fetched with another field
@@ -893,7 +892,7 @@ fn test_a_list_page_stores_the_decoupling_it_asked_for() {
     server.mock(|when, then| {
         when.method(GET)
             .path("/athlete/i1/activities")
-            .matches(asks_for_decoupling);
+            .is_true(asks_for_decoupling);
         then.status(200).json_body(serde_json::json!([{
             "id": "ride", "type": "Ride", "name": "Long ride",
             "start_date_local": format!("{day}T08:00:00"), "decoupling": 3.4

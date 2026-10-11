@@ -8,6 +8,10 @@
 //! activity's sport, and every writer of one of those calls it inside the
 //! transaction that moved it. A removal takes the rows by cascade.
 //!
+//! An activity that was measured and gave no window, a track with no
+//! elevation for one, holds a single row at [`NO_WINDOW_S`], which every read
+//! of the windows leaves out.
+//!
 //! A library stored before the table holds the inputs and no rows. What is owed
 //! is read from the tables rather than flagged: a measurable activity with no
 //! row. [`start_backfill`] works it off on a thread of its own, in pages.
@@ -22,6 +26,10 @@ use super::{PersistentEngine, with_persistent_engine_for};
 use crate::metrics::vertical_power::{CLIMB_WINDOWS_S, ClimbBest, best_climb_windows};
 use crate::objects::start::FfiStartOutcome;
 use crate::sport::{UNPOWERED_ELEVATION_EXCLUDED, climbing_family, sql_list};
+
+/// The `window_s` of the row an activity holds when it was measured and gave
+/// no window, so it is not owed again until its inputs move.
+pub(crate) const NO_WINDOW_S: u32 = 0;
 
 /// Activities measured under one hold of the engine lock.
 const PAGE: usize = 25;
@@ -47,12 +55,22 @@ pub(crate) fn refreshes() -> usize {
 ///
 /// It gets no rows when its sport is outside its own climbing family, when it
 /// has no readable track or no time stream, or when the two differ in length.
-/// A window the track cannot measure gets no row.
+/// A window the track cannot measure gets no row. An activity that would be
+/// owed and measures to no window at all gets the [`NO_WINDOW_S`] row, so it
+/// leaves the owed set until its inputs move.
 pub(crate) fn refresh(conn: &Connection, activity_id: &str) -> SqlResult<()> {
     REFRESHES.with(|count| count.set(count.get() + 1));
     let bests = measure(conn, activity_id)?;
     conn.prepare_cached("DELETE FROM activity_climb_bests WHERE activity_id = ?1")?
         .execute(params![activity_id])?;
+    if bests.is_empty() && is_owed(conn, activity_id)? {
+        conn.prepare_cached(
+            "INSERT INTO activity_climb_bests (activity_id, window_s, start_idx, end_idx, vam)
+             VALUES (?1, ?2, 0, 0, 0.0)",
+        )?
+        .execute(params![activity_id, NO_WINDOW_S])?;
+        return Ok(());
+    }
     let mut insert = conn.prepare_cached(
         "INSERT INTO activity_climb_bests (activity_id, window_s, start_idx, end_idx, vam)
          VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -139,6 +157,14 @@ fn owed_from_sql() -> String {
     )
 }
 
+fn is_owed(conn: &Connection, activity_id: &str) -> SqlResult<bool> {
+    conn.prepare_cached(&format!(
+        "SELECT EXISTS (SELECT 1 {} AND a.id = ?1)",
+        owed_from_sql()
+    ))?
+    .query_row(params![activity_id], |row| row.get(0))
+}
+
 /// How many activities are owed rows. Reads through any connection, so the
 /// climb curve can report it from the read pool.
 pub(crate) fn owed_count(conn: &Connection) -> SqlResult<u64> {
@@ -171,9 +197,9 @@ impl PersistentEngine {
     /// Measure up to `limit` owed activities not yet in `attempted`, newest
     /// first, and return how many it took.
     ///
-    /// An activity that measures to nothing stays owed in the tables, so the
-    /// pass remembers the ones it has taken: without that a track with no
-    /// elevation would be asked about for ever.
+    /// Every activity taken leaves the owed set, with its windows or with the
+    /// no-window row. The pass still remembers the ones it has taken, so an
+    /// activity that somehow stays owed ends the pass rather than holding it.
     pub(crate) fn backfill_climb_bests_page(
         &self,
         attempted: &mut HashSet<String>,

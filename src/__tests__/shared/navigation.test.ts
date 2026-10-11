@@ -3,13 +3,21 @@
  * (a notification, the end of a recording, a redirect) is silent.
  *
  * Expected behaviour: tapTo and tapBack fire one light impact and then navigate, and navigateTo,
- * replaceTo and navigateTab fire none.
+ * replaceTo and navigateTab fire none. A back with nothing behind the screen, as on a screen a cold
+ * link opened as the stack root, replaces to the Feed rather than dispatching a pop nothing handles.
  */
 
 import { router } from 'expo-router';
 
 import * as haptics from '@/shared/ui/haptics';
-import { navigateTab, navigateTo, replaceTo, tapBack, tapTo } from '@/shared/app/navigation';
+import {
+  goBack,
+  navigateTab,
+  navigateTo,
+  replaceTo,
+  tapBack,
+  tapTo,
+} from '@/shared/app/navigation';
 
 jest.mock('@/shared/ui/haptics', () => ({
   selection: jest.fn(),
@@ -21,7 +29,14 @@ jest.mock('@/shared/ui/haptics', () => ({
 const mockedRouter = router as jest.Mocked<typeof router>;
 const mockedHaptics = haptics as jest.Mocked<typeof haptics>;
 
+let canGoBack: jest.SpyInstance;
+
+beforeEach(() => {
+  canGoBack = jest.spyOn(router, 'canGoBack').mockReturnValue(true);
+});
+
 afterEach(() => {
+  canGoBack.mockRestore();
   jest.resetAllMocks();
 });
 
@@ -68,6 +83,49 @@ describe('tapBack', () => {
     expect(mockedHaptics.light).toHaveBeenCalledTimes(1);
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
     expect(order).toEqual(['light', 'back']);
+  });
+
+  it('fires one light impact and replaces to the Feed when nothing is behind the screen', () => {
+    canGoBack.mockReturnValue(false);
+    const order: string[] = [];
+    mockedHaptics.light.mockImplementation(() => void order.push('light'));
+    mockedRouter.replace.mockImplementation(() => void order.push('replace'));
+
+    tapBack();
+
+    expect(mockedRouter.back).not.toHaveBeenCalled();
+    expect(mockedRouter.replace).toHaveBeenCalledWith('/');
+    expect(order).toEqual(['light', 'replace']);
+  });
+});
+
+describe('goBack', () => {
+  it('pops once and never replaces when there is history', () => {
+    goBack();
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.replace).not.toHaveBeenCalled();
+    expect(mockedHaptics.light).not.toHaveBeenCalled();
+  });
+
+  it('replaces to the Feed and never pops when the screen is the stack root', () => {
+    canGoBack.mockReturnValue(false);
+
+    goBack();
+
+    expect(mockedRouter.back).not.toHaveBeenCalled();
+    expect(mockedRouter.replace).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.replace).toHaveBeenCalledWith('/');
+  });
+
+  it('reads the history again on a second call', () => {
+    canGoBack.mockReturnValueOnce(true).mockReturnValueOnce(false);
+
+    goBack();
+    goBack();
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.replace).toHaveBeenCalledTimes(1);
   });
 });
 

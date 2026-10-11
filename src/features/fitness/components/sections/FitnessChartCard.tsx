@@ -8,13 +8,15 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { EngineReadFailureRetry } from '@/shared/ui/EngineReadFailureRetry';
-import type { DayLoad } from 'veloqrs';
+import type { DayLoad, RangeCoverage } from 'veloqrs';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
 import type { EftpChange } from '../../lib/eftpChanges';
 
 interface FitnessChartCardProps {
   wellness: WellnessData[];
+  /** Whether wellness was downloaded for the range drawn. */
+  wellnessCoverage: RangeCoverage;
   activities: Activity[];
   dailyLoads: DayLoad[];
   /** The activities that moved the accepted eFTP, marked on the fitness plot. */
@@ -33,6 +35,7 @@ interface FitnessChartCardProps {
 
 export const FitnessChartCard = React.memo(function FitnessChartCard({
   wellness,
+  wellnessCoverage,
   activities,
   dailyLoads,
   eftpChanges,
@@ -72,6 +75,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
         </Text>
         <FitnessChart
           data={wellness}
+          coverage={wellnessCoverage}
           markers={eftpChanges}
           height={220}
           selectedDate={selectedDate}

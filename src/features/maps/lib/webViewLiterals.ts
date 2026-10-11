@@ -27,3 +27,15 @@ export function jsLiteral(value: string | number | boolean | null | undefined): 
 export function jsLiteralList(values: readonly string[]): string {
   return `[${values.map(jsLiteral).join(', ')}]`;
 }
+
+/**
+ * A number as a JavaScript literal, or the fallback when it is not a finite
+ * number.
+ *
+ * Camera values come back from storage and from restored backups, so a type
+ * that says `number` does not make one. A string written bare into the page
+ * would be parsed as code, and NaN or Infinity breaks map construction.
+ */
+export function jsNumber(value: unknown, fallback: number | null): string {
+  return JSON.stringify(typeof value === 'number' && Number.isFinite(value) ? value : fallback);
+}

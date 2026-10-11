@@ -9,7 +9,7 @@
 import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
+import { getAllSlides, getTutorialSlides } from '@/features/settings/components/whatsNew/slides';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 const ENGLISH = /^en(-|$)/;
@@ -19,7 +19,9 @@ const locales = fs
   .filter((f) => f.endsWith('.json'))
   .map((f) => f.replace('.json', ''));
 
-const showMeSlides = getAllSlides().filter((slide) => slide.showMeRoute !== undefined);
+const showMeSlides = [...new Set([...getTutorialSlides(), ...getAllSlides()])].filter(
+  (slide) => slide.showMeRoute !== undefined
+);
 
 function lookup(bundle: unknown, key: string): unknown {
   return key
