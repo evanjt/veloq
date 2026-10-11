@@ -527,12 +527,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: typography.bodyCompact.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textSecondary,
   },
   statValue: {
     fontSize: typography.bodyCompact.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
     fontWeight: '500',
     flexShrink: 1,
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   },
   idText: {
     fontSize: typography.label.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     lineHeight: 18,
   },
   actionButton: {
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: typography.caption.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs,
   },
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   stepperValue: {
     fontSize: typography.body.fontSize,
     fontWeight: '700',
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
     minWidth: 28,
     textAlign: 'center',

@@ -1,6 +1,5 @@
 package __PKG__.widget
 
-import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
@@ -20,7 +19,7 @@ import __PKG__.R
  * Configuration is optional in the provider info, so an athlete who dismisses
  * this keeps a working widget on the last sport recorded.
  */
-class RecordWidgetConfigureActivity : Activity() {
+class RecordWidgetConfigureActivity : WidgetConfigureActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setResult(RESULT_CANCELED)
@@ -42,7 +41,7 @@ class RecordWidgetConfigureActivity : Activity() {
       return
     }
 
-    setContentView(R.layout.widget_record_configure)
+    showPicker(R.string.widget_record, R.layout.widget_record_configure)
     val list = findViewById<LinearLayout>(R.id.record_configure_list)
     for (shortcut in shortcuts) {
       val row =

@@ -6,7 +6,6 @@ import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
-import { formZoneTextColor } from '@/features/fitness';
 import {
   buildMonotoneSvg,
   buildMonotoneAreaSvg,
@@ -38,8 +37,8 @@ interface SummaryCardHRVSparklineProps {
 /**
  * HRV + Resting HR sparkline chart for the SummaryCard.
  *
- * HRV rendered as a pink sparkline with gradient fill.
- * RHR as a subtle red sparkline (inverted - high RHR = low position).
+ * HRV rendered as a sparkline with gradient fill in the HRV series colour.
+ * RHR as a subtler line in the resting HR colour (inverted - high RHR = low position).
  * Long-press to scrub - updates hero value via onScrub callback.
  */
 export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
@@ -175,8 +174,12 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     return <View style={{ width, height: CHART_HEIGHT }} />;
   }
 
-  const hrvLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.85);
-  const rhrLineColor = isDark ? colors.formHighRisk : colorWithOpacity(colors.formHighRisk, 0.65);
+  // The wellness series colours, the same two the health charts draw HRV and
+  // resting HR in.
+  const hrvLineColor = isDark ? chartColors.hrv : colorWithOpacity(chartColors.hrv, 0.85);
+  const rhrLineColor = isDark ? chartColors.rhr : colorWithOpacity(chartColors.rhr, 0.65);
+  const hrvTextColor = isDark ? darkColors.chartHrvText : colors.chartHrvText;
+  const rhrTextColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
   return (
     <GestureDetector gesture={gesture}>
@@ -184,19 +187,12 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
         <View style={styles.chartRow}>
           {showLabels && (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText
-                style={[
-                  styles.inlineLabel,
-                  { color: isDark ? darkColors.chartPinkText : colors.chartPinkText },
-                ]}
-              >
+              <RNText style={[styles.inlineLabel, { color: hrvTextColor }]}>
                 {t('metrics.hrv')}
               </RNText>
               <View style={{ flex: 1 }} />
               {hasRhr && (
-                <RNText
-                  style={[styles.inlineLabel, { color: formZoneTextColor('highRisk', isDark) }]}
-                >
+                <RNText style={[styles.inlineLabel, { color: rhrTextColor }]}>
                   {t('metrics.rhr')}
                 </RNText>
               )}
@@ -212,9 +208,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                     start={vec(0, 0)}
                     end={vec(0, CHART_HEIGHT)}
                     colors={[
-                      isDark
-                        ? colorWithOpacity(colors.chartPink, 0.38)
-                        : colorWithOpacity(colors.chartPink, 0.25),
+                      colorWithOpacity(chartColors.hrv, isDark ? 0.38 : 0.25),
                       'transparent',
                     ]}
                   />

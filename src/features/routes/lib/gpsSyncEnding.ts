@@ -8,7 +8,9 @@
  *
  * A run the athlete cancelled, or one a newer sync took over, is not a
  * failure, so it goes back to idle rather than raising an error a screen would
- * then have to explain. The message is diagnostic and not translated:
+ * then have to explain. A run that no longer owns the progress, because the
+ * screen is gone or a sync reset aborted it, writes nothing at all: the
+ * progress belongs to the run that replaced it. The message is diagnostic and not translated:
  * `formatGpsSyncProgress` renders nothing for either terminal status, so it
  * reaches the log and the debug panel and no athlete.
  */
@@ -32,8 +34,12 @@ const ENDINGS: Record<GpsSyncEnding, Ending> = {
 export interface GpsSyncEndingContext {
   /** Writes the progress the three surfaces read. */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
-  /** Whether the screen is still there to be written to. */
-  isMounted: boolean;
+  /**
+   * Whether the run still owns the progress: the screen is still mounted and
+   * no newer sync aborted it. A run that lost it writes nothing, so its ending
+   * cannot overwrite the sync that replaced it.
+   */
+  owns: boolean;
   /** How many activities the run was asked for. */
   withGpsCount: number;
 }
@@ -44,11 +50,11 @@ export interface GpsSyncEndingContext {
  */
 export function endGpsSync(
   ending: GpsSyncEnding,
-  { updateProgress, isMounted, withGpsCount }: GpsSyncEndingContext
+  { updateProgress, owns, withGpsCount }: GpsSyncEndingContext
 ): { syncedIds: string[]; withGpsCount: number; message: string } {
   const { status, message } = ENDINGS[ending];
 
-  if (isMounted) {
+  if (owns) {
     updateProgress({ status, completed: 0, total: 0, percent: 0, message });
   }
 

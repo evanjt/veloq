@@ -17,7 +17,7 @@ function end(ending: GpsSyncEnding, over: Partial<Parameters<typeof endGpsSync>[
   const written: SyncProgress[] = [];
   const result = endGpsSync(ending, {
     updateProgress: (next) => written.push(next as SyncProgress),
-    isMounted: true,
+    owns: true,
     withGpsCount: 12,
     ...over,
   });
@@ -60,10 +60,13 @@ describe('a GPS download run that stores nothing', () => {
     expect(end('superseded').result.withGpsCount).toBe(0);
   });
 
-  it('writes nothing once the screen is gone, and still returns', () => {
-    const { written, result } = end('no-result', { isMounted: false });
+  it.each(ENDINGS)(
+    'writes nothing on %s once the run is no longer owned, and still returns',
+    (ending) => {
+      const { written, result } = end(ending, { owns: false });
 
-    expect(written).toHaveLength(0);
-    expect(result.syncedIds).toEqual([]);
-  });
+      expect(written).toHaveLength(0);
+      expect(result.syncedIds).toEqual([]);
+    }
+  );
 });

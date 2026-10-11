@@ -1,11 +1,9 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { View, TextInput, ScrollView, Keyboard } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, ScrollView, Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui/Button';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { TextField } from '@/shared/ui/TextField';
 import { navigateTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -57,7 +55,6 @@ export function ManualEntryForm({
   above?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
 
   const [name, setName] = useState(prefill?.name ?? '');
   const [durationMinutes, setDurationMinutes] = useState(prefill?.durationMinutes ?? '');
@@ -70,15 +67,6 @@ export function ManualEntryForm({
   const [isNavigating, setIsNavigating] = useState(false);
   const stopWaiting = useRef<(() => void) | null>(null);
   useEffect(() => () => stopWaiting.current?.(), []);
-
-  const themeColors = isDark ? darkColors : colors;
-  const textPrimary = themeColors.textPrimary;
-  const textSecondary = themeColors.textSecondary;
-  const surface = themeColors.surface;
-  const border = themeColors.border;
-  // The border takes the fill, the validation line under it is text.
-  const errorColor = themeColors.error;
-  const errorTextColor = isDark ? darkColors.errorDeep : colors.errorDeep;
 
   const handleSave = useCallback(() => {
     Keyboard.dismiss();
@@ -189,142 +177,70 @@ export function ManualEntryForm({
   return (
     <ScrollView contentContainerStyle={[styles.manualForm, { paddingBottom: bottomPadding }]}>
       {above}
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>
-        {t('recording.activityName', 'Activity Name')}
-      </Text>
-      <TextInput
+      <TextField
         testID="manual-entry-name"
-        accessibilityLabel={t('recording.activityName', 'Activity Name')}
-        style={[
-          styles.input,
-          { color: textPrimary, backgroundColor: surface, borderColor: border },
-        ]}
+        label={t('recording.activityName', 'Activity Name')}
+        style={styles.field}
         value={name}
         onChangeText={setName}
         placeholder={t(`activityTypes.${activityType}`, activityType)}
-        placeholderTextColor={textSecondary}
       />
-
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>
-        {t('recording.duration', 'Duration (minutes)')} *
-      </Text>
-      <TextInput
+      <TextField
         testID="manual-entry-duration"
-        accessibilityLabel={t('recording.duration', 'Duration (minutes)')}
-        style={[
-          styles.input,
-          {
-            color: textPrimary,
-            backgroundColor: surface,
-            borderColor: durationError ? errorColor : border,
-          },
-        ]}
+        label={t('recording.duration', 'Duration (minutes)')}
+        required
+        error={
+          durationError ? t('recording.durationRequired', 'Please enter a valid duration.') : null
+        }
+        style={styles.field}
         value={durationMinutes}
         onChangeText={(v) => {
           setDurationMinutes(v);
           if (durationError) setDurationError(false);
         }}
         placeholder="60"
-        placeholderTextColor={textSecondary}
         keyboardType="numeric"
       />
-      {durationError && (
-        <Text
-          style={{
-            color: errorTextColor,
-            fontSize: typography.caption.fontSize,
-            marginTop: spacing.xxs,
-          }}
-        >
-          {t('recording.durationRequired', 'Please enter a valid duration.')}
-        </Text>
-      )}
-
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>
-        {t('recording.distance', 'Distance (km)')}
-      </Text>
-      <TextInput
+      <TextField
         testID="manual-entry-distance"
-        accessibilityLabel={t('recording.distance', 'Distance (km)')}
-        style={[
-          styles.input,
-          {
-            color: textPrimary,
-            backgroundColor: surface,
-            borderColor: distanceError ? errorColor : border,
-          },
-        ]}
+        label={t('recording.distance', 'Distance (km)')}
+        error={
+          distanceError
+            ? t('recording.distanceInvalid', 'Please enter a valid distance (0-999).')
+            : null
+        }
+        style={styles.field}
         value={distance}
         onChangeText={(v) => {
           setDistance(v);
           if (distanceError) setDistanceError(false);
         }}
         placeholder="0"
-        placeholderTextColor={textSecondary}
         keyboardType="numeric"
       />
-      {distanceError && (
-        <Text
-          style={{
-            color: errorTextColor,
-            fontSize: typography.caption.fontSize,
-            marginTop: spacing.xxs,
-          }}
-        >
-          {t('recording.distanceInvalid', 'Please enter a valid distance (0-999).')}
-        </Text>
-      )}
-
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>
-        {t('recording.avgHr', 'Average Heart Rate (bpm)')}
-      </Text>
-      <TextInput
+      <TextField
         testID="manual-entry-hr"
-        accessibilityLabel={t('recording.avgHr', 'Average Heart Rate (bpm)')}
-        style={[
-          styles.input,
-          {
-            color: textPrimary,
-            backgroundColor: surface,
-            borderColor: hrError ? errorColor : border,
-          },
-        ]}
+        label={t('recording.avgHr', 'Average Heart Rate (bpm)')}
+        error={
+          hrError ? t('recording.hrInvalid', 'Please enter a valid heart rate (30-250).') : null
+        }
+        style={styles.field}
         value={avgHr}
         onChangeText={(v) => {
           setAvgHr(v);
           if (hrError) setHrError(false);
         }}
         placeholder="0"
-        placeholderTextColor={textSecondary}
         keyboardType="numeric"
       />
-      {hrError && (
-        <Text
-          style={{
-            color: errorTextColor,
-            fontSize: typography.caption.fontSize,
-            marginTop: spacing.xxs,
-          }}
-        >
-          {t('recording.hrInvalid', 'Please enter a valid heart rate (30-250).')}
-        </Text>
-      )}
-
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>
-        {t('recording.notes', 'Notes')}
-      </Text>
-      <TextInput
+      <TextField
         testID="manual-entry-notes"
-        accessibilityLabel={t('recording.notes', 'Notes')}
-        style={[
-          styles.input,
-          styles.notesInput,
-          { color: textPrimary, backgroundColor: surface, borderColor: border },
-        ]}
+        label={t('recording.notes', 'Notes')}
+        style={styles.field}
+        inputStyle={styles.notesInput}
         value={notes}
         onChangeText={setNotes}
         placeholder={t('recording.notesPlaceholder', 'How did it feel?')}
-        placeholderTextColor={textSecondary}
         multiline
         numberOfLines={4}
         textAlignVertical="top"

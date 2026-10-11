@@ -79,11 +79,7 @@
       "formTSB": "Form-balance (TSB)",
       "hrRecovery": "Pulsgenopretning",
       "hrvToday": "HRV i dag",
-      "intensityEasy": "Let",
       "intensityFactor": "Intensitetsfaktor",
-      "intensityHard": "Hård",
-      "intensityModerate": "Moderat",
-      "intensityVeryHard": "Meget hård",
       "max": "Maks {{value}}",
       "maxLabel": "Maks",
       "newGround": "Nyt terræn",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "Godkendelse mislykkedes",
     "webdavTestMethodNotAllowed": "Tjek formatet på din WebDAV-adresse. Serveren accepterer ikke PROPFIND på denne sti",
     "webdavTestStatus": "Serveren svarede {{code}}",
-    "moreInfo": "Flere oplysninger",
+    "aboutTopic": "Om {{title}}",
     "sectionBackup": "Sikkerhedskopi",
     "sectionRestore": "Gendan",
     "sectionDestinations": "Placeringer",
@@ -561,8 +557,18 @@
       "thisYear": "I år",
       "lastYear": "Sidste år"
     },
-    "noActivities": "Ingen aktiviteter fundet",
     "noMatchingActivities": "Ingen matchende aktiviteter",
+    "emptyLibrary": {
+      "pausedTitle": "Synkroniseringen er sat på pause",
+      "pausedBody": "Dine aktiviteter ligger på intervals.icu og hentes, når synkroniseringen fortsætter.",
+      "authExpiredTitle": "Log ind for at hente dine aktiviteter",
+      "signInAgain": "Log ind igen",
+      "failedTitle": "Dine aktiviteter er ikke blevet hentet",
+      "failedBody": "Den seneste synkronisering stoppede, før nogen nåede frem.",
+      "emptyTitle": "Ingen aktiviteter endnu",
+      "emptyBody": "Aktiviteter kommer fra din intervals.icu-konto eller fra en optagelse her.",
+      "record": "Optag en aktivitet"
+    },
     "searchPlaceholder": "Søg i aktiviteter...",
     "streamConsentTitle": "Hent manglende aktivitetsdata?",
     "streamConsentBody_one": "{{count}} aktivitet mangler serierne for puls, effekt og kadence. Hentningen bruger omkring {{megabytes}} MB data.",
@@ -600,7 +606,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Kunne ikke indlæse fitnessdata",
     "fatigueDescription": "er et 7-dages eksponentielt vægtet glidende gennemsnit af din træningsbelastning.",
     "fitnessAndFatigue": "Fitness og træthed",
     "fitnessDescription": "er et 42-dages eksponentielt vægtet glidende gennemsnit af din træningsbelastning.",
@@ -859,8 +864,9 @@
       "ratioFormula": "forhold = dominerende vægtede sæt / sekundære vægtede sæt"
     },
     "viewInDetail": "Se i detaljer",
+    "routesDisabledDescription": "Dine sektioner er gemt og åbner igen, når matchning er slået til.",
     "routesDisabledLine1": "Ruter og sektioner deaktiveret",
-    "routesDisabledLine2": "Tryk for at aktivere",
+    "routesDisabledLine2": "Slå ruter og sektioner til",
     "strengthProgression": {
       "upTitle": "Volumen for {{muscle}} er tydeligt stigende",
       "downTitle": "Volumen for {{muscle}} er aftaget",
@@ -932,6 +938,12 @@
       "openFitness": "Åbn konditionsgrafen",
       "openStrength": "Åbn styrketræning",
       "openDetail": "Åbn detaljerne"
+    },
+    "verdict": {
+      "good": "Godt",
+      "warning": "Advarsel",
+      "concern": "Bekymrende",
+      "neutral": "Neutral"
     }
   },
   "licenses": {
@@ -1202,6 +1214,7 @@
     "permissionExplanation": "Veloq har brug for din tilladelse til at uploade aktiviteter til intervals.icu",
     "permissionNeeded": "Tilladelse kræves for at uploade aktiviteter",
     "rec": "REC",
+    "resumeLater": "Senere",
     "resumePrevious": "Genoptag tidligere optagelse?",
     "resumePreviousMessage": "En optagelse startet den {{startTime}} blev afbrudt med {{duration}} bevægelsestid. Hvis du kasserer den, slettes den permanent.",
     "reviewActivity": "Gennemgå aktivitet",
@@ -1224,6 +1237,10 @@
     "settingsDataFields": "Datafelter",
     "settingsUnits": "Enheder",
     "slideToUnlock": "Skub for at låse op",
+    "lockControls": "Lås kontroller",
+    "unlockControls": "Lås kontroller op",
+    "controlsLocked": "Kontroller låst",
+    "controlsUnlocked": "Kontroller låst op",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start aktivitet",
     "status": {
@@ -1239,7 +1256,10 @@
     },
     "trimActivity": "Beskær aktivitet",
     "trimmed": "Beskåret",
-    "uploadErrorMessage": "Kunne ikke uploade aktivitet: {{error}}",
+    "uploadRejected": "intervals.icu afviste denne fil. Turen er gemt i Mine optagelser.",
+    "uploadMissing": "Filen til denne tur findes ikke længere på enheden, så den kan ikke uploades.",
+    "uploadFailed": "Aktiviteten kunne ikke uploades. Den er gemt på denne enhed.",
+    "openInRecordings": "Åbn i Mine optagelser",
     "writePermissionNotGranted": "Skrivetilladelse ikke givet",
     "writePermissionRequired": "Skrivetilladelse påkrævet",
     "savedLocally": "Aktivitet gemt på denne enhed. Du kan uploade den når som helst fra Mine optagelser.",
@@ -1589,6 +1609,7 @@
     "nameTaken": "En anden sektion har allerede dette navn. Vælg et andet navn.",
     "undoExcludeLap": "Fortryd Omgang {{n}}",
     "excludeLapNumber": "Udeluk Omgang {{n}}",
+    "mergeFailed": "Sektionerne kunne ikke flettes.",
     "deleteFailed": "Sektionen kunne ikke slettes."
   },
   "settings": {
@@ -1769,7 +1790,11 @@
     "sectionSameTraffic": "Følsomhed for ruteopdeling: {{value}}",
     "sectionParamPastClamp": "Detektoren skelner ikke mellem værdier ud over dette.",
     "sectionParamPastRange": "Disse indstillinger ligger uden for det testede interval.",
+    "sectionParamEditHint": "Indtast en værdi",
     "sectionParamRange": "Testet område {{min}} til {{max}}",
+    "sectionParamInvalid": "Indtast et tal over 0.",
+    "sectionParamInvalidWhole": "Indtast et helt tal, 1 eller mere.",
+    "groupingParamInvalidPercent": "Indtast en procentdel fra 1 til 100.",
     "sectionPresetDefault": "Standard",
     "sectionPresetRelaxed": "Løs",
     "sectionPresetStrict": "Streng",
@@ -1822,16 +1847,15 @@
     "elevationBackfillPaused": "Højdedownload sat på pause. Rutematchning skal være slået til for at fortsætte.",
     "elevationBackfillSwitchedOff": "Højdedownload stoppet, fordi Rutematchning er slået fra.",
     "exportPrivacyTitle": "Udelad hjemmet i eksporter",
-    "exportPrivacyDescription": "Beskærer starten og slutningen af hvert spor inden for {{radius}} m fra hjemmet. Kun den eksporterede kopi forkortes.",
+    "exportPrivacyDescription": "Beskærer starten og slutningen af hvert spor inden for {{radius}} fra hjemmet. Kun den eksporterede kopi forkortes.",
     "exportPrivacySuggested_one": "De fleste af dine ture starter nær ét sted, {{count}} af dem. {{share}} % af alle turenes slutpunkter.",
     "exportPrivacySuggested_other": "De fleste af dine ture starter nær ét sted, {{count}} af dem. {{share}} % af alle turenes slutpunkter.",
     "exportPrivacyConfirm": "Brug det som hjem",
     "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er.",
     "exportPrivacyNeedsHome": "Slået fra, indtil et hjem er sat. Brug det foreslåede sted nedenfor, eller tryk på kortet.",
     "exportPrivacyNeedsHomeNoSuggestion": "Slået fra, indtil et hjem er sat.",
-    "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
+    "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}}. Intet slettes.",
     "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet.",
     "previewRouteGrouping": "Forhåndsvis rutegruppering",
     "groupingMatchShare": "Samme rute hvis {{percent}}% overlapper",
@@ -1921,7 +1945,7 @@
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
     "year": "År",
-    "atWeight": "ved {{kg}} kg"
+    "atWeight": "ved {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Aerob effektivitet",
@@ -2207,6 +2231,33 @@
       "noData": "Forbundet, ingen data",
       "reconnecting": "Genopretter forbindelse…",
       "disconnected": "Ikke forbundet"
+    },
+    "purpose": "Bluetooth bruges til at finde og forbinde puls-, watt- og kadencesensorer.",
+    "noneFound": "Ingen sensorer fundet",
+    "noneFoundHint": "Væk sensoren ved at tage bæltet på eller dreje pedalarmene, og hold den tæt på telefonen.",
+    "scanAgain": "Søg igen",
+    "availability": {
+      "unsupportedTitle": "Denne enhed har ikke Bluetooth LE",
+      "unsupportedHint": "Puls-, watt- og kadencesensorer kræver Bluetooth LE.",
+      "poweredOffTitle": "Bluetooth er slået fra",
+      "poweredOffHint": "Slå Bluetooth til for at finde og forbinde sensorer.",
+      "poweredOffHintIos": "Slå Bluetooth til i Kontrolcenter eller Indstillinger for at finde og forbinde sensorer.",
+      "turnOn": "Slå Bluetooth til",
+      "permissionTitle": "Bluetooth-tilladelse mangler",
+      "permissionHint": "Giv adgang til enheder i nærheden for at finde og forbinde sensorer.",
+      "blockedHint": "Giv adgang til enheder i nærheden i Indstillinger for at finde og forbinde sensorer.",
+      "locationPermissionTitle": "Placeringstilladelse mangler",
+      "locationPermissionHint": "På denne version af Android kræver søgning efter Bluetooth-sensorer placeringstilladelse.",
+      "locationBlockedHint": "På denne version af Android kræver søgning efter Bluetooth-sensorer placeringstilladelse. Giv den i Indstillinger.",
+      "allow": "Tillad",
+      "locationOffTitle": "Placering er slået fra",
+      "locationOffHint": "På denne version af Android kræver søgning efter Bluetooth-sensorer, at placering er slået til.",
+      "openLocationSettings": "Åbn placeringsindstillinger"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth slået fra",
+      "permission": "Bluetooth-tilladelse mangler",
+      "unsupported": "Bluetooth ikke tilgængelig"
     }
   },
   "sectionHistory": {
@@ -2221,6 +2272,7 @@
     "current": "Nuværende",
     "revert": "Gendan",
     "revertConfirm": "Sæt version {{version}} tilbage som strækningens linje? Detektionen holder den der, indtil du frigør den.",
+    "revertFailed": "Versionen kunne ikke gendannes.",
     "unpin": "Frigør",
     "showOnMap": "Vis på kort",
     "hideOnMap": "Skjul",

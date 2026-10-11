@@ -2166,6 +2166,13 @@ pub mod pooled {
             .map(crate::FfiRouteGroup::from)
             .into_iter()
             .collect();
+        let representative_signature = route_groups
+            .first()
+            .and_then(|g| {
+                routes::representative_polylines(conn, &[g.representative_id.as_str()])
+                    .remove(&g.representative_id)
+            })
+            .unwrap_or_default();
 
         let matched = sections::sections_for_activity(conn, activity_id, &names);
         // The same dedup the engine path does: a custom section this activity
@@ -2215,6 +2222,7 @@ pub mod pooled {
             activity_count: activity_count(conn),
             section_count: sections::section_count(conn),
             route_groups,
+            representative_signature,
             matched_sections: matched
                 .into_iter()
                 .map(crate::persistence::PersistentEngine::matched_section)
@@ -6141,6 +6149,56 @@ mod tests {
     /// athlete gave lives on the named overlay.
     ///
     /// Expected behaviour: the encounters carry the athlete's name.
+    /// Scenario: the activity's Routes tab draws its route's representative
+    /// over the map. It read the representative's thirteen detail series for
+    /// that line, and downloaded them when they were not stored.
+    ///
+    /// Expected behaviour: the activity read carries the representative's
+    /// stored signature, and nothing for an activity in no route.
+    #[test]
+    fn the_activity_detail_carries_its_routes_representative_signature() {
+        use tempfile::TempDir;
+
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("activity_representative.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        for id in ["leader", "follower", "loner"] {
+            engine
+                .add_activity(id.into(), track(60), "Ride".into())
+                .expect("activity");
+        }
+        seed_route_group(&engine, "g1", &["leader", "follower"]);
+        engine.load_groups().expect("groups");
+
+        let signature =
+            crate::persistence::routes::pooled::representative_polylines(&engine.db, &["leader"])
+                .remove("leader")
+                .expect("stored signature");
+        assert!(!signature.is_empty());
+
+        let detail = pooled::activity_detail_data(&engine.db, "follower", 1);
+        assert_eq!(detail.route_groups.len(), 1);
+        assert_eq!(detail.representative_signature, signature);
+        assert_eq!(
+            pooled::activity_detail_data(&engine.db, "leader", 1).representative_signature,
+            signature
+        );
+        assert!(
+            pooled::activity_detail_data(&engine.db, "loner", 1)
+                .representative_signature
+                .is_empty()
+        );
+        assert!(
+            pooled::activity_detail_data(&engine.db, "follower", 3)
+                .representative_signature
+                .is_empty()
+        );
+
+        crate::persistence::read_cache::close();
+    }
+
     #[test]
     fn the_activity_encounters_carry_the_corridor_name() {
         use tempfile::TempDir;

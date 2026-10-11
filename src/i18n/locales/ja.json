@@ -79,11 +79,7 @@
       "formTSB": "フォーム（TSB）",
       "hrRecovery": "心拍回復",
       "hrvToday": "今日のHRV",
-      "intensityEasy": "イージー",
       "intensityFactor": "強度係数",
-      "intensityHard": "ハード",
-      "intensityModerate": "モデレート",
-      "intensityVeryHard": "ベリーハード",
       "max": "最大 {{value}}",
       "maxLabel": "最大",
       "newGround": "新しいエリア",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "認証に失敗しました",
     "webdavTestMethodNotAllowed": "WebDAVのURL形式を確認してください。サーバーはこのパスでPROPFINDを受け付けません",
     "webdavTestStatus": "サーバーが{{code}}を返しました",
-    "moreInfo": "詳細",
+    "aboutTopic": "{{title}}について",
     "sectionBackup": "バックアップ",
     "sectionRestore": "復元",
     "sectionDestinations": "保存先",
@@ -561,8 +557,18 @@
       "thisYear": "今年",
       "lastYear": "昨年"
     },
-    "noActivities": "アクティビティが見つかりません",
     "noMatchingActivities": "一致するアクティビティがありません",
+    "emptyLibrary": {
+      "pausedTitle": "同期は一時停止中です",
+      "pausedBody": "アクティビティは intervals.icu にあり、同期が再開されるとダウンロードされます。",
+      "authExpiredTitle": "サインインしてアクティビティをダウンロード",
+      "signInAgain": "もう一度サインイン",
+      "failedTitle": "アクティビティがダウンロードされていません",
+      "failedBody": "前回の同期は、アクティビティが届く前に停止しました。",
+      "emptyTitle": "まだアクティビティがありません",
+      "emptyBody": "アクティビティは intervals.icu アカウントから届くか、ここで記録できます。",
+      "record": "アクティビティを記録"
+    },
     "searchPlaceholder": "アクティビティを検索...",
     "streamConsentTitle": "未取得のアクティビティデータをダウンロードしますか？",
     "streamConsentBody_one": "{{count}}件のアクティビティで、心拍・パワー・ケイデンスのデータ系列が未取得です。ダウンロードには約 {{megabytes}} MB のデータ通信が必要です。",
@@ -600,7 +606,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "フィットネスデータの読み込みに失敗しました",
     "fatigueDescription": "はトレーニング負荷の7日間指数加重移動平均です。",
     "fitnessAndFatigue": "フィットネスと疲労",
     "fitnessDescription": "はトレーニング負荷の42日間指数加重移動平均です。",
@@ -859,8 +864,9 @@
       "ratioFormula": "比率 = 優位側の加重セット ÷ 劣位側の加重セット"
     },
     "viewInDetail": "詳細を見る",
+    "routesDisabledDescription": "セクションは保存されたままで、マッチングを有効にすると再び開けます。",
     "routesDisabledLine1": "ルートとセクションが無効です",
-    "routesDisabledLine2": "タップして有効にする",
+    "routesDisabledLine2": "ルートとセクションを有効にする",
     "strengthProgression": {
       "upTitle": "{{muscle}}のボリュームが伸びています",
       "downTitle": "{{muscle}}のボリュームが落ち着きました",
@@ -932,6 +938,12 @@
       "openFitness": "フィットネスのグラフを開く",
       "openStrength": "筋力トレーニングを開く",
       "openDetail": "詳細を開く"
+    },
+    "verdict": {
+      "good": "良好",
+      "warning": "注意",
+      "concern": "懸念",
+      "neutral": "中立"
     }
   },
   "licenses": {
@@ -1202,6 +1214,7 @@
     "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
     "permissionNeeded": "アクティビティのアップロードには許可が必要です",
     "rec": "REC",
+    "resumeLater": "後で",
     "resumePrevious": "前回の記録を再開しますか？",
     "resumePreviousMessage": "{{startTime}}に開始した記録が、移動時間{{duration}}の時点で中断されました。破棄すると完全に削除されます。",
     "reviewActivity": "アクティビティを確認",
@@ -1224,6 +1237,10 @@
     "settingsDataFields": "データフィールド",
     "settingsUnits": "単位",
     "slideToUnlock": "スライドしてロック解除",
+    "lockControls": "操作をロック",
+    "unlockControls": "操作のロックを解除",
+    "controlsLocked": "操作をロックしました",
+    "controlsUnlocked": "操作のロックを解除しました",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "アクティビティを開始",
     "status": {
@@ -1239,7 +1256,10 @@
     },
     "trimActivity": "アクティビティをトリミング",
     "trimmed": "トリミング済み",
-    "uploadErrorMessage": "アクティビティをアップロードできませんでした: {{error}}",
+    "uploadRejected": "intervals.icu がこのファイルを拒否しました。ライドはマイ記録に保存されています。",
+    "uploadMissing": "このライドのファイルが端末にないため、アップロードできません。",
+    "uploadFailed": "アクティビティをアップロードできませんでした。この端末に保存されています。",
+    "openInRecordings": "マイ記録で開く",
     "writePermissionNotGranted": "書き込み権限が付与されていません",
     "writePermissionRequired": "書き込み権限が必要です",
     "savedLocally": "アクティビティをこの端末に保存しました。マイ記録からいつでもアップロードできます。",
@@ -1589,6 +1609,7 @@
     "nameTaken": "このセクション名はすでに使われています。別の名前を入力してください。",
     "undoExcludeLap": "元に戻す ラップ{{n}}",
     "excludeLapNumber": "除外 ラップ{{n}}",
+    "mergeFailed": "セクションを結合できませんでした。",
     "deleteFailed": "セクションを削除できませんでした。"
   },
   "settings": {
@@ -1769,7 +1790,11 @@
     "sectionSameTraffic": "ルート分割の感度: {{value}}",
     "sectionParamPastClamp": "これを超える値は検出器が区別しません。",
     "sectionParamPastRange": "これらの設定はテスト済みの範囲外です。",
+    "sectionParamEditHint": "値を入力",
     "sectionParamRange": "検証済みの範囲は {{min}} から {{max}}",
+    "sectionParamInvalid": "0より大きい数値を入力してください。",
+    "sectionParamInvalidWhole": "1以上の整数を入力してください。",
+    "groupingParamInvalidPercent": "1〜100のパーセンテージを入力してください。",
     "sectionPresetDefault": "標準",
     "sectionPresetRelaxed": "ゆるめ",
     "sectionPresetStrict": "厳しめ",
@@ -1822,16 +1847,15 @@
     "elevationBackfillPaused": "標高のダウンロードは一時停止中です。続行するにはルートマッチングをオンにしてください。",
     "elevationBackfillSwitchedOff": "ルートマッチングがオフのため、標高のダウンロードは停止しました。",
     "exportPrivacyTitle": "エクスポートから自宅を除く",
-    "exportPrivacyDescription": "自宅から{{radius}}m以内の軌跡の始点と終点を切り取ります。短くなるのはエクスポートしたコピーだけです。",
+    "exportPrivacyDescription": "自宅から{{radius}}以内の軌跡の始点と終点を切り取ります。短くなるのはエクスポートしたコピーだけです。",
     "exportPrivacySuggested_one": "あなたのライドの多くは同じ場所から始まっています（{{count}}件）。全ライド終点の{{share}}%。",
     "exportPrivacySuggested_other": "あなたのライドの多くは同じ場所から始まっています（{{count}}件）。全ライド終点の{{share}}%。",
     "exportPrivacyConfirm": "ここを自宅にする",
     "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。",
     "exportPrivacyNeedsHome": "自宅を設定するまでオフです。下の候補地を使うか、地図をタップしてください。",
     "exportPrivacyNeedsHomeNoSuggestion": "自宅を設定するまでオフです。",
-    "exportPrivacyCount": "{{radius}} m で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
+    "exportPrivacyCount": "{{radius}} で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
     "exportPrivacyNothingTrimmed": "短縮しません。エクスポートには全トラックが含まれます。",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "地図をタップして自宅を移動します。",
     "previewRouteGrouping": "ルートのグループ化をプレビュー",
     "groupingMatchShare": "{{percent}}% 重なれば同じルート",
@@ -1921,7 +1945,7 @@
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
     "year": "年",
-    "atWeight": "{{kg}} kg 時"
+    "atWeight": "{{weight}} 時"
   },
   "statsScreen": {
     "decoupling": "有酸素効率",
@@ -2207,6 +2231,33 @@
       "noData": "接続済み、データなし",
       "reconnecting": "再接続中…",
       "disconnected": "未接続"
+    },
+    "purpose": "Bluetoothは心拍・パワー・ケイデンスセンサーの検索と接続に使用します。",
+    "noneFound": "センサーが見つかりません",
+    "noneFoundHint": "ストラップを装着するかクランクを回してセンサーを起動し、スマートフォンの近くに置いてください。",
+    "scanAgain": "再スキャン",
+    "availability": {
+      "unsupportedTitle": "このデバイスはBluetooth LEに対応していません",
+      "unsupportedHint": "心拍・パワー・ケイデンスセンサーにはBluetooth LEが必要です。",
+      "poweredOffTitle": "Bluetoothがオフです",
+      "poweredOffHint": "センサーを検索して接続するにはBluetoothをオンにしてください。",
+      "poweredOffHintIos": "センサーを検索して接続するには、コントロールセンターまたは設定でBluetoothをオンにしてください。",
+      "turnOn": "Bluetoothをオンにする",
+      "permissionTitle": "Bluetoothの許可が必要です",
+      "permissionHint": "センサーを検索して接続するには、付近のデバイスへのアクセスを許可してください。",
+      "blockedHint": "センサーを検索して接続するには、設定で付近のデバイスへのアクセスを許可してください。",
+      "locationPermissionTitle": "位置情報の許可が必要です",
+      "locationPermissionHint": "このバージョンのAndroidでは、Bluetoothセンサーの検索に位置情報の許可が必要です。",
+      "locationBlockedHint": "このバージョンのAndroidでは、Bluetoothセンサーの検索に位置情報の許可が必要です。設定で許可してください。",
+      "allow": "許可",
+      "locationOffTitle": "位置情報がオフです",
+      "locationOffHint": "このバージョンのAndroidでは、Bluetoothセンサーの検索に位置情報をオンにする必要があります。",
+      "openLocationSettings": "位置情報の設定を開く"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetoothオフ",
+      "permission": "Bluetoothの許可が必要",
+      "unsupported": "Bluetoothを利用できません"
     }
   },
   "sectionHistory": {
@@ -2221,6 +2272,7 @@
     "current": "現在",
     "revert": "戻す",
     "revertConfirm": "バージョン{{version}}をこの区間のラインに戻しますか？固定を解除するまで検出はこのラインを保持します。",
+    "revertFailed": "このバージョンに戻せませんでした。",
     "unpin": "固定を解除",
     "showOnMap": "地図に表示",
     "hideOnMap": "非表示",

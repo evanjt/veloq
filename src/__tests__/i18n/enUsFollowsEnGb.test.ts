@@ -47,6 +47,7 @@ const SPELLING = [
   'routes.routesWillAppear',
   'sections.aerobicEfficiencyDetail',
   'sectionHistory.kind_algorithm_changed',
+  'sensors.availability.poweredOffHintIos',
   'settings.customiseByActivity',
   'settings.previewKeepWarning',
   'settings.previewPoolCost_one',

@@ -31,8 +31,11 @@ export function useSensorSession(): void {
     } else {
       (async () => {
         if (useSensorStore.getState().knownSensors.length === 0) return;
-        const granted = await requestBlePermissions();
-        if (granted) connectKnownSensors();
+        // A refusal is recorded as the sensors' availability, which the
+        // recording screen reports. Location services off below Android 12
+        // stops a scan, not a connect to a known address.
+        const access = await requestBlePermissions();
+        if (access === 'granted' || access === 'needsLocation') connectKnownSensors();
       })();
     }
 

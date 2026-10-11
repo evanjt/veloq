@@ -140,8 +140,9 @@ fn store_activity(engine: &mut PersistentEngine, id: &str, start: i64, track: Ve
 }
 
 fn refresh(engine: &PersistentEngine) {
+    let generation = engine.new_ground.generation();
     let measured = measure_library(&engine.db).unwrap();
-    store(&engine.db, &measured).unwrap();
+    assert!(store(&engine.db, &engine.new_ground, generation, &measured).unwrap());
 }
 
 fn stored(engine: &PersistentEngine, id: &str) -> Option<(u32, u32)> {
@@ -228,6 +229,71 @@ fn removing_an_activity_clears_the_values_measured_against_it() {
     assert_eq!(owed_count(&engine.db).unwrap(), 1);
     refresh(&engine);
     assert_eq!(stored(&engine, "second"), Some((5, 5)));
+}
+
+#[test]
+fn a_measurement_taken_before_a_removal_is_refused_and_taken_again() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_activity(&mut engine, "first", 1_000, row_of_tiles(0, 5));
+    store_activity(&mut engine, "second", 2_000, row_of_tiles(0, 5));
+    let before = engine.new_ground.generation();
+    let stale = measure_library(&engine.db).unwrap();
+
+    engine.remove_activity("first").unwrap();
+
+    let stored_stale = store(&engine.db, &engine.new_ground, before, &stale).unwrap();
+    assert!(
+        !stored_stale,
+        "a measurement older than the removal is refused"
+    );
+    assert_eq!(stored(&engine, "second"), None);
+    assert_eq!(owed_count(&engine.db).unwrap(), 1);
+
+    refresh(&engine);
+    assert_eq!(stored(&engine, "second"), Some((5, 5)));
+}
+
+#[test]
+fn clearing_the_derived_rows_moves_the_generation() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    store_activity(&mut engine, "first", 1_000, row_of_tiles(0, 5));
+    let before = engine.new_ground.generation();
+    let stale = measure_library(&engine.db).unwrap();
+
+    engine.clear_derived().unwrap();
+
+    assert!(!store(&engine.db, &engine.new_ground, before, &stale).unwrap());
+}
+
+#[test]
+fn a_removal_starts_the_pass_that_measures_the_rest_again() {
+    use crate::persistence::with_persistent_engine;
+
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("new_ground_removal.db");
+    with_persistent_engine(|engine| {
+        store_activity(engine, "first", 1_000, row_of_tiles(0, 5));
+        store_activity(engine, "second", 2_000, row_of_tiles(0, 5));
+        refresh(engine);
+        assert_eq!(stored(engine, "second"), Some((5, 0)));
+    })
+    .unwrap();
+
+    with_persistent_engine(|engine| engine.remove_activity("first").unwrap()).unwrap();
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while with_persistent_engine(|engine| stored(engine, "second")).unwrap() != Some((5, 5)) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no pass measured the library after the removal"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    while RUNNING.load(Ordering::SeqCst) {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
 }
 
 #[test]

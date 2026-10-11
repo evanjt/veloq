@@ -14,7 +14,8 @@ import { Switch, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { formatElevation } from '@/shared/format/format';
 import { HomeRadiusMap, type LngLat } from '@/features/maps';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -62,6 +63,7 @@ export function endpointSharePercent(share: number): number {
 
 export function ExportPrivacyRow() {
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const { t } = useTranslation();
 
   // Read through, rather than copied into state on mount: what is stored is
@@ -195,8 +197,8 @@ export function ExportPrivacyRow() {
           message={[
             t('settings.exportPrivacyDescription', {
               defaultValue:
-                'Trims the start and end of each track within {{radius}} m of home. Only the exported copy is shortened.',
-              radius: mapRadius,
+                'Trims the start and end of each track within {{radius}} of home. Only the exported copy is shortened.',
+              radius: formatElevation(mapRadius, isMetric),
             }),
             t('settings.exportPrivacyMoveHint', 'Tap the map to move home.'),
           ].join('\n\n')}
@@ -246,10 +248,10 @@ export function ExportPrivacyRow() {
           {enabled
             ? t('settings.exportPrivacyCount', {
                 defaultValue:
-                  'Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.',
+                  'Shortens {{touched}} of {{total}} rides at {{radius}}. Nothing is deleted.',
                 touched: preview.touched,
                 total: preview.withTrack,
-                radius: activeRadius,
+                radius: formatElevation(activeRadius, isMetric),
               })
             : t(
                 'settings.exportPrivacyNothingTrimmed',
@@ -266,10 +268,7 @@ export function ExportPrivacyRow() {
             options={RADIUS_CHOICES_M.map((metres) => ({
               value: String(metres),
               testID: `export-privacy-radius-${metres}`,
-              label: t('settings.exportPrivacyRadius', {
-                defaultValue: '{{metres}} m',
-                metres,
-              }),
+              label: formatElevation(metres, isMetric),
             }))}
           />
         </View>

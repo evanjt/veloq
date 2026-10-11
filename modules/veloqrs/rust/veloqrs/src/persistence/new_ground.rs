@@ -13,7 +13,10 @@
 //! activity's value depends on every activity before it, so the table is
 //! rewritten whole and never patched. What is owed is read from the tables: a
 //! dated activity with a stored track and no row. A removal clears the table,
-//! since the ground it alone covered is new to the activities after it.
+//! since the ground it alone covered is new to the activities after it, and
+//! moves the engine's [`Validity`] generation, so a pass that measured before
+//! the removal has its store refused and measures again. The removal also
+//! asks for a pass, started once the engine lock is released.
 //!
 //! A track that does not decode, or holds no valid point, has a row of zero
 //! tiles: it is measured and has no fraction, and it adds nothing to the
@@ -34,6 +37,10 @@ use crate::tiles::tiles_touched_by_track;
 pub(crate) const GROUND_ZOOM: u8 = 17;
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
+
+/// A pass asked for while one was running, so the running thread goes round
+/// again rather than the request being lost.
+static AGAIN: AtomicBool = AtomicBool::new(false);
 
 /// Passes started back to back while rows are still owed, so a track that lands
 /// mid-pass is picked up without the pass looping for ever on one that cannot
@@ -123,9 +130,41 @@ pub(crate) fn measure_library(conn: &Connection) -> SqlResult<Vec<(String, Novel
     Ok(measured)
 }
 
-/// Replace the table with `measured`. An activity removed since it was
-/// measured is skipped rather than failing the foreign key.
-pub(crate) fn store(conn: &Connection, measured: &[(String, Novelty)]) -> SqlResult<()> {
+/// How many times the engine's table was cleared, and whether a clear is
+/// waiting for the engine lock to be released before a pass is started.
+/// Both are read and written under the engine lock.
+#[derive(Debug, Default)]
+pub(crate) struct Validity {
+    generation: u64,
+    restart: bool,
+}
+
+impl Validity {
+    /// Read before a measurement and handed back to [`store`] with it.
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Whether a clear asked for a pass, forgetting the request.
+    pub(crate) fn take_restart(&mut self) -> bool {
+        std::mem::take(&mut self.restart)
+    }
+}
+
+/// Replace the table with `measured`, taken when the generation was
+/// `measured_at`. A measurement older than a clear counted the removed
+/// activity's ground as covered, so it is refused and nothing is written:
+/// `false` says to measure again. An activity removed since it was measured
+/// with no clear between is skipped rather than failing the foreign key.
+pub(crate) fn store(
+    conn: &Connection,
+    validity: &Validity,
+    measured_at: u64,
+    measured: &[(String, Novelty)],
+) -> SqlResult<bool> {
+    if validity.generation != measured_at {
+        return Ok(false);
+    }
     super::climb_bests::in_write_txn(conn, |conn| {
         conn.execute("DELETE FROM activity_new_ground", [])?;
         let mut insert = conn.prepare_cached(
@@ -135,14 +174,17 @@ pub(crate) fn store(conn: &Connection, measured: &[(String, Novelty)]) -> SqlRes
         for (id, novelty) in measured {
             insert.execute(params![id, novelty.tiles, novelty.new_tiles])?;
         }
-        Ok(())
+        Ok(true)
     })
 }
 
 /// Forget every value, because an activity left and the ones after it were
-/// measured against its ground.
-pub(crate) fn invalidate(conn: &Connection) -> SqlResult<()> {
+/// measured against its ground. A pass in flight has its store refused, and a
+/// new one is asked for. A clear rolled back afterwards costs one measurement.
+pub(crate) fn invalidate(conn: &Connection, validity: &mut Validity) -> SqlResult<()> {
     conn.execute("DELETE FROM activity_new_ground", [])?;
+    validity.generation += 1;
+    validity.restart = true;
     Ok(())
 }
 
@@ -203,9 +245,15 @@ pub(crate) mod pooled {
 
 /// Measure and store until nothing is owed, a few rounds at most. The library is
 /// read through the pool and only the write takes the engine lock, so a sync or
-/// a read waits for rows being inserted and not for the walk.
+/// a read waits for rows being inserted and not for the walk. A store refused
+/// for a removal mid-walk measures again.
 fn run_pass(install: u64) {
     for _ in 0..MAX_ROUNDS {
+        let Some(measured_at) =
+            with_persistent_engine_for(install, |engine| engine.new_ground.generation())
+        else {
+            return;
+        };
         let measured = match crate::objects::error::with_reader(measure_library) {
             Ok(Ok(measured)) => measured,
             Ok(Err(error)) => {
@@ -214,13 +262,16 @@ fn run_pass(install: u64) {
             }
             Err(_) => return,
         };
-        match with_persistent_engine_for(install, |engine| store(&engine.db, &measured)) {
+        match with_persistent_engine_for(install, |engine| {
+            store(&engine.db, &engine.new_ground, measured_at, &measured)
+        }) {
             // The feed and the detail read the values with the highlights, and
             // the pass lands after they first read, so they are asked to read
             // again.
-            Some(Ok(())) => crate::objects::observer::notify(
+            Some(Ok(true)) => crate::objects::observer::notify(
                 crate::objects::observer::Announcement::ActivitiesStored,
             ),
+            Some(Ok(false)) => continue,
             Some(Err(error)) => {
                 log::warn!("veloqrs: [new-ground] store failed: {error}");
                 return;
@@ -237,24 +288,40 @@ fn run_pass(install: u64) {
 
 /// Start a pass on a thread of its own when rows are owed. The count reads
 /// through the pool, so an empty queue costs one query and no thread, and it is
-/// safe to ask whenever a track lands or the library opens.
+/// safe to ask whenever a track lands, an activity leaves or the library opens.
+/// Asked while a pass runs, that pass goes round again once it ends.
 pub fn start_pass() {
-    match crate::objects::error::with_reader(owed_count) {
-        Ok(Ok(0)) => return,
-        Ok(Ok(_)) => {}
-        _ => return,
-    }
-    if RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
+    if !owed() {
         return;
     }
-    let install = super::engine_install();
-    crate::threads::spawn_named("veloq-ground", move || {
-        run_pass(install);
-        RUNNING.store(false, Ordering::SeqCst);
+    // Before the claim: a running pass reads it after clearing its own claim,
+    // so a request refused the claim is never missed.
+    AGAIN.store(true, Ordering::SeqCst);
+    if !claim() {
+        return;
+    }
+    crate::threads::spawn_named("veloq-ground", || {
+        loop {
+            AGAIN.store(false, Ordering::SeqCst);
+            if owed() {
+                run_pass(super::engine_install());
+            }
+            RUNNING.store(false, Ordering::SeqCst);
+            if !AGAIN.load(Ordering::SeqCst) || !claim() {
+                return;
+            }
+        }
     });
+}
+
+fn owed() -> bool {
+    matches!(crate::objects::error::with_reader(owed_count), Ok(Ok(count)) if count > 0)
+}
+
+fn claim() -> bool {
+    RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
 }
 
 #[cfg(test)]

@@ -332,7 +332,6 @@ function RouteDetailScreenContent() {
               // engine's default.
               setSelectedSportType(selectedSportType === st ? undefined : st);
             }}
-            isDark={isDark}
           />
         )}
 

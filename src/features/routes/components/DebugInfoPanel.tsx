@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.caption.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textSecondary,
   },
   textSecondary: {
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: typography.caption.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
   },
   valueDark: {

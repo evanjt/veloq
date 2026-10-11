@@ -5,15 +5,6 @@ import { colors, darkColors, opacity, spacing, layout, typography } from '@/them
 export const DIVIDER_INSET = spacing.md + 22 + spacing.sm;
 
 export const settingsStyles = StyleSheet.create({
-  // Section label (uppercase group header above cards)
-  sectionLabel: {
-    ...typography.statsLabel,
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-  },
-
   // Card container
   sectionCard: {
     backgroundColor: colors.surface,

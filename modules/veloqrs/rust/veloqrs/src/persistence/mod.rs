@@ -772,10 +772,15 @@ pub fn clear_all_background(heatmap_tiles_dir: Option<String>) -> ClearHandle {
     crate::threads::spawn_named("veloq-clear", move || {
         let result = wipe_with_persistent_engine_for(install, |engine| {
             let in_force = engine.heatmap_tiles_path().map(std::path::PathBuf::from);
-            engine
-                .clear()
-                .map(|()| in_force)
-                .map_err(|e| format!("{}", e))
+            engine.clear().map_err(|e| format!("{}", e))?;
+            read_pool::release_for_wipe();
+            // The rows are gone once `clear` commits. A scrub that fails
+            // leaves the old bytes in free pages, which no read reaches, so
+            // it is logged and the wipe still goes on to the tiles.
+            if let Err(e) = engine.scrub_freed_pages() {
+                log::warn!("veloqrs: [Engine] the wipe left freed pages in the file: {e}");
+            }
+            Ok(in_force)
         })
         .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
         // Out here because the lock is released: a full set is tens of
@@ -1196,11 +1201,16 @@ pub struct PersistentEngine {
     /// Database path (for spawning background threads)
     db_path: String,
 
+    /// Whether the new-ground table was cleared since a pass measured it.
+    pub(crate) new_ground: new_ground::Validity,
+
     /// Tier 1: Always in memory (lightweight ~80 bytes per activity)
     pub(crate) activity_metadata: HashMap<String, ActivityMetadata>,
 
-    /// In-memory R-tree for fast viewport queries
-    spatial_index: RTree<ActivityBoundsEntry>,
+    /// In-memory R-tree for fast viewport queries. Shared, so the heatmap's
+    /// on-request draw can read it with no engine lock: it is replaced whole
+    /// through `set_spatial_index`, never edited in place.
+    spatial_index: Arc<RTree<ActivityBoundsEntry>>,
 
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
     /// `Arc` avoids cloning the full `RouteSignature` (points vec + metadata)
@@ -1571,8 +1581,9 @@ impl PersistentEngine {
         let engine = Self {
             db,
             db_path: db_path.to_string(),
+            new_ground: new_ground::Validity::default(),
             activity_metadata: HashMap::new(),
-            spatial_index: RTree::new(),
+            spatial_index: Arc::new(RTree::new()),
             signature_cache: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             section_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
             groups: Vec::new(),
@@ -2167,15 +2178,7 @@ impl PersistentEngine {
 
         // Rebuild spatial index if we added any clones
         if created > 0 {
-            let entries: Vec<ActivityBoundsEntry> = self
-                .activity_metadata
-                .values()
-                .map(|m| ActivityBoundsEntry {
-                    activity_id: m.id.clone(),
-                    bounds: m.bounds,
-                })
-                .collect();
-            self.spatial_index = rstar::RTree::bulk_load(entries);
+            self.rebuild_spatial_index();
         }
 
         created
@@ -2429,7 +2432,17 @@ fn pooled_group_rows(
         .iter()
         .map(|g| g.representative_id.as_str())
         .collect();
-    let rep_polylines = routes::pooled::representative_polylines(conn, &rep_ids);
+    let mut rep_polylines = routes::pooled::representative_polylines(conn, &rep_ids);
+    // A representative with no signatures row still has its stored track, and
+    // the row draws that strided here rather than fetching the whole track.
+    let unsigned: Vec<&str> = rep_ids
+        .iter()
+        .copied()
+        .filter(|id| !rep_polylines.contains_key(*id))
+        .collect();
+    rep_polylines.extend(routes::pooled::representative_track_previews(
+        conn, &unsigned,
+    ));
 
     let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
         .into_iter()
@@ -3108,11 +3121,20 @@ where
     };
     #[cfg(feature = "lock-trace")]
     timing.acquired();
-    guard.as_mut().map(|engine| {
+    let outcome = guard.as_mut().map(|engine| {
         ENGINE_ACCESS_EPOCH.fetch_add(1, Ordering::AcqRel);
         follow_group_commit_off_engine(engine);
         let result = f(engine);
         publish_for_readers(engine);
+        (result, engine.new_ground.take_restart())
+    });
+    drop(guard);
+    outcome.map(|(result, restart)| {
+        // After the lock is released, so the pass reads the committed removal
+        // and does not wait on the hold that made it.
+        if restart {
+            new_ground::start_pass();
+        }
         result
     })
 }
@@ -4043,8 +4065,16 @@ mod screen_read_statements;
 mod section_summaries_read_work;
 
 #[cfg(test)]
+#[path = "tests/section_route_ids_work.rs"]
+mod section_route_ids_work;
+
+#[cfg(test)]
 #[path = "tests/routes_list_paging.rs"]
 mod routes_list_paging;
+
+#[cfg(test)]
+#[path = "tests/route_row_preview.rs"]
+mod route_row_preview;
 
 #[cfg(test)]
 #[path = "tests/production_index_plans.rs"]

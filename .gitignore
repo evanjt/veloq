@@ -114,8 +114,11 @@ config/fastlane/vendor/bundle
 artifacts/
 screenshots/
 widget-captures/
+.ios-gate/
 *.png
 !docs/badges/google-play.png 
+# The images the Expo config names, which a fresh clone needs to build.
+!src/assets/*.png
 
 # Worktrees
 .worktrees/
@@ -140,4 +143,6 @@ modules/veloq-live-activity/ios/RecordingActivity*.swift
 maestro-*-retest.xml
 !modules/veloqrs/assets/basemap/**/*.png
 !modules/veloqrs/rust/veloqrs/floor/**/*.png
+# The app's own images, which app.json names and a fresh clone builds from.
+!src/assets/*.png
 .tsbuild/

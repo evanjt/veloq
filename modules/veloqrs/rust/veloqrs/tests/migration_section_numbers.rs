@@ -183,3 +183,42 @@ fn the_numbering_trigger_survives_every_upgrade() {
     insert_section(&after, "late", "custom", None);
     assert_eq!(numbers(&after), pairs(&[("late", 1)]));
 }
+
+#[test]
+fn an_upgrade_whose_hooks_fail_releases_the_labels_on_the_next_launch() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    {
+        let conn = seed_at_version(&path, 12);
+        insert_section(&conn, "a_minted", "auto", Some("Section 5"));
+        // A hook that runs before the numbering fails the way a full disk
+        // fails it, after the SQL chain has completed.
+        conn.execute_batch(
+            "CREATE TRIGGER interrupt_the_hooks BEFORE INSERT ON schema_info
+             WHEN NEW.key = 'content_ids_v1'
+             BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END;",
+        )
+        .unwrap();
+    }
+
+    assert!(
+        PersistentEngine::new(path.to_str().unwrap()).is_err(),
+        "the interrupted pass opened"
+    );
+    {
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(
+            app_schema_version(&conn),
+            Some(12),
+            "a pass that did not finish recorded itself as done"
+        );
+        conn.execute_batch("DROP TRIGGER interrupt_the_hooks;")
+            .unwrap();
+    }
+
+    let (after, shown) = upgrade(&path);
+    assert_eq!(names(&after), pairs(&[("a_minted", None)]));
+    assert_eq!(numbers(&after), pairs(&[("a_minted", 5)]));
+    assert_eq!(shown, pairs(&[("a_minted", "Section 5".to_string())]));
+}

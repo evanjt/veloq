@@ -20,6 +20,11 @@ import type {
 } from 'veloqrs';
 import { GroupSort, SectionSort } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
+import {
+  mergeHasMore,
+  routesPageQuery,
+  type RoutesPageKind,
+} from '@/features/routes/lib/routesPageQuery';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -211,27 +216,29 @@ export function useRoutesScreenData(opts?: {
   // Combined trigger - engine events OR tab focus
   const combinedTrigger = trigger + focusTrigger;
 
+  // Every part of the query that changes what a page holds resets the paging,
+  // because an accumulated page taken under a different order or search is
+  // not the head of this one.
+  const queryConfig = [
+    combinedTrigger,
+    groupLimit,
+    sectionLimit,
+    groupSort,
+    groupSearch,
+    sectionSort,
+    sectionSearch,
+    sectionFilters.hideCustom ? 1 : 0,
+    sectionFilters.hideAuto ? 1 : 0,
+    sectionFilters.hideDisabled ? 1 : 0,
+    sectionFilters.hideUnaccepted ? 1 : 0,
+    groupSportType ?? '',
+    sectionSportType ?? '',
+    Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
+    Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
+  ].join(':');
+
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
-    // Every part of the query that changes what a page holds resets the paging,
-    // because an accumulated page taken under a different order or search is
-    // not the head of this one.
-    const queryConfig = [
-      combinedTrigger,
-      groupSort,
-      groupSearch,
-      sectionSort,
-      sectionSearch,
-      sectionFilters.hideCustom ? 1 : 0,
-      sectionFilters.hideAuto ? 1 : 0,
-      sectionFilters.hideDisabled ? 1 : 0,
-      sectionFilters.hideUnaccepted ? 1 : 0,
-      groupSportType ?? '',
-      sectionSportType ?? '',
-      Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
-      Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
-    ].join(':');
-
     if (combinedTrigger !== lastTriggerRef.current || queryConfig !== lastQueryConfigRef.current) {
       lastTriggerRef.current = combinedTrigger;
       lastQueryConfigRef.current = queryConfig;
@@ -242,18 +249,7 @@ export function useRoutesScreenData(opts?: {
       setGroupOffset(0);
       setSectionOffset(0);
     }
-  }, [
-    combinedTrigger,
-    groupSort,
-    groupSearch,
-    sectionSort,
-    sectionSearch,
-    sectionFilters,
-    groupSportType,
-    sectionSportType,
-    userLat,
-    userLng,
-  ]);
+  }, [combinedTrigger, queryConfig]);
 
   // Compute data from engine, accumulating the page onto the ones before it. Runs
   // when the thread is idle for every page after the first, which arrives while
@@ -263,11 +259,16 @@ export function useRoutesScreenData(opts?: {
       const engine = getEngine();
       if (!engine) return { data: lastResultRef.current, error: null };
 
+      // A load-more raises its list's guard, so a read with one guard up pages
+      // that list alone; the head, a reset or both at once reads both.
+      const kind: RoutesPageKind =
+        isLoadingGroupsRef.current === isLoadingSectionsRef.current
+          ? 'both'
+          : isLoadingGroupsRef.current
+            ? 'groups'
+            : 'sections';
       const result = engine.getRoutesScreenData({
-        groupLimit,
-        groupOffset,
-        sectionLimit,
-        sectionOffset,
+        ...routesPageQuery(kind, { groupOffset, groupLimit, sectionOffset, sectionLimit }),
         minGroupActivityCount: 2,
         groupSort,
         groupSearch,
@@ -281,8 +282,10 @@ export function useRoutesScreenData(opts?: {
       });
       if (!result) return { data: lastResultRef.current, error: null };
 
-      // Accumulate groups
-      if (groupOffset === 0) {
+      // Accumulate the list that was read; the other one was asked for no rows.
+      if (kind === 'sections') {
+        // Groups unchanged.
+      } else if (groupOffset === 0) {
         groupsRef.current = result.groups;
       } else {
         const existingGroupIds = new Set(groupsRef.current.map((g) => g.groupId));
@@ -293,8 +296,9 @@ export function useRoutesScreenData(opts?: {
         }
       }
 
-      // Accumulate sections
-      if (sectionOffset === 0) {
+      if (kind === 'groups') {
+        // Sections unchanged.
+      } else if (sectionOffset === 0) {
         sectionsRef.current = result.sections;
       } else {
         const existingSectionIds = new Set(sectionsRef.current.map((s) => s.id));
@@ -305,8 +309,12 @@ export function useRoutesScreenData(opts?: {
         }
       }
 
-      hasMoreGroupsRef.current = result.hasMoreGroups;
-      hasMoreSectionsRef.current = result.hasMoreSections;
+      const hasMore = mergeHasMore(kind, result, {
+        hasMoreGroups: hasMoreGroupsRef.current,
+        hasMoreSections: hasMoreSectionsRef.current,
+      });
+      hasMoreGroupsRef.current = hasMore.hasMoreGroups;
+      hasMoreSectionsRef.current = hasMore.hasMoreSections;
 
       const data = {
         activityCount: result.activityCount,
@@ -323,8 +331,8 @@ export function useRoutesScreenData(opts?: {
         availableSportTypes: result.availableSportTypes,
         groups: [...groupsRef.current],
         sections: [...sectionsRef.current],
-        hasMoreGroups: result.hasMoreGroups,
-        hasMoreSections: result.hasMoreSections,
+        hasMoreGroups: hasMore.hasMoreGroups,
+        hasMoreSections: hasMore.hasMoreSections,
         groupsDirty: result.groupsDirty ?? false,
       } as PaginatedRoutesData;
 
@@ -356,12 +364,19 @@ export function useRoutesScreenData(opts?: {
     userLng,
   ]);
 
+  // What a read was asked: the query, its paging and the retry it answers. The
+  // read effect skips a read whose key the current page already answers, which
+  // is the mount after the first page read while rendering. The key goes on the
+  // page when the read runs rather than when it is scheduled, so a cancelled
+  // read is not taken for a finished one.
+  const readKey = `${queryConfig}|${groupOffset}|${sectionOffset}|${retryTick}`;
+
   // The first page is read while rendering, so frame one already has it rather
   // than a skeleton the list used to fill from a summary read of its own. It
   // takes no accumulator with it: at offset zero the page IS the accumulation,
   // and a render that touches a ref is a render that can be discarded.
-  const [read, setRead] = useState<PageRead>(() =>
-    readFirstPage({
+  const [read, setRead] = useState<PageRead & { answers: string | null }>(() => {
+    const first = readFirstPage({
       groupLimit,
       sectionLimit,
       groupSort,
@@ -373,8 +388,11 @@ export function useRoutesScreenData(opts?: {
       sectionSportType,
       userLat,
       userLng,
-    })
-  );
+    });
+    // A page that landed answers the read the mount would otherwise repeat; a
+    // failed or engine-less one is read again once idle.
+    return { ...first, answers: first.data ? readKey : null };
+  });
 
   // The accumulators catch up to that page once, off the render path, so the
   // next page appends to it rather than replacing it.
@@ -390,9 +408,12 @@ export function useRoutesScreenData(opts?: {
     lastResultRef.current = data;
   }, [data]);
 
-  useEffect(() => {
-    return runWhenIdle(() => setRead(computeData()));
-  }, [combinedTrigger, computeData, retryTick]);
+  const answered = read.answers === readKey;
+  useEffect(
+    () =>
+      answered ? undefined : runWhenIdle(() => setRead({ ...computeData(), answers: readKey })),
+    [answered, readKey, computeData]
+  );
 
   const retry = useCallback(() => {
     groupsRef.current = [];

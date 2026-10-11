@@ -873,7 +873,7 @@ const CONTRACTS: Contract[] = [
     agree: 'the small Android widget binds the snapshot age into a view its layout declares',
     a: {
       file: 'widget/android/java/WidgetRenderer.kt',
-      has: /private fun renderSmall[\s\S]*?bindUpdatedAt\(context, v, R\.id\.small_updated, snap\)/,
+      has: /private fun renderSmall[\s\S]*?bindUpdatedAt\(\w+, v, R\.id\.small_updated, snap\)/,
     },
     b: { file: 'widget/android/res/layout/widget_small.xml', has: '@+id/small_updated' },
   },
@@ -1046,7 +1046,7 @@ const CONTRACTS: Contract[] = [
   },
   {
     agree: 'the Android widget reads the label Rust marks a sample library snapshot with',
-    a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'display.optString("demoLabel"' },
+    a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'optText(display, "demoLabel")' },
     b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub demo_label: Option<String>' },
   },
   {
@@ -1904,4 +1904,26 @@ describe('the widget palette agrees with the committed Android resources', () =>
       `<color name="widget_form_grey_zone">${widgetPalette.light.formGreyZone}</color>`
     );
   });
+});
+
+// A basemap clear walks and deletes every file under the tile root, so on the
+// JS thread it freezes whatever awaits it, a sign-out's wipe spinner among them.
+describe('every basemap clear runs off the JS thread', () => {
+  const declared = () => {
+    const source = read(GENERATED);
+    const start = source.indexOf('export interface BasemapManagerLike {');
+    const body = source.slice(start, source.indexOf('\n}', start));
+    return new Map(
+      [...body.matchAll(/^ {2}(clear\w*Tiles)\(([\s\S]*?)\n?\s*\)[^:\n]*:\s*([^;]+);/gm)].map(
+        (m) => [m[1], m[3].trim()]
+      )
+    );
+  };
+
+  it.each(['clearTiles', 'clearSourceTiles', 'clearUnpinnedTiles'])(
+    '%s returns a Promise',
+    (name) => {
+      expect(declared().get(name)).toMatch(/^Promise</);
+    }
+  );
 });

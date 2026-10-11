@@ -115,11 +115,7 @@ describe('activity stat card marks', () => {
     ['light', false, colors],
     ['dark', true, darkColors],
   ])('uses readable %s theme marks for heart rate and power', (_theme, isDark, palette) => {
-    for (const [average_heartrate, expected] of [
-      [135, palette.chartPinkText],
-      [153, palette.warningAmber],
-      [171, palette.errorDeep],
-    ] as const) {
+    for (const average_heartrate of [135, 153, 171]) {
       const activity = { ...ride, average_heartrate, icu_average_watts: 220 } as Activity;
       const { result } = renderHook(() =>
         useActivityStats({ activity, maxHR: 180, isDark, isMetric: true })
@@ -127,7 +123,7 @@ describe('activity stat card marks', () => {
       const heartRate = result.current.stats.find((item) => item.title === 'activity.heartRate');
       const power = result.current.stats.find((item) => item.title === 'activity.power');
 
-      expect(heartRate?.color).toBe(expected);
+      expect(heartRate?.color).toBe(palette.chartPinkText);
       expect(power?.color).toBe(palette.chartPurpleText);
     }
   });

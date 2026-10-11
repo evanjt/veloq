@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The theme every widget picker runs under, set on each picker's manifest entry by the widget
+     plugin. Material 3 in the widget palette's brand colours, which switch with the night
+     qualifier. No action bar, because the shared shell layout carries its own toolbar, and
+     transparent system bars, because the pickers draw edge to edge and pad by the bar insets. -->
+<resources>
+  <style name="Theme.Veloq.WidgetConfigure" parent="Theme.Material3.DayNight.NoActionBar">
+    <item name="colorPrimary">@color/widget_primary</item>
+    <item name="colorOnPrimary">@color/widget_text_on_primary</item>
+    <item name="android:colorBackground">@color/widget_background</item>
+    <item name="colorSurface">@color/widget_background</item>
+    <item name="colorOnSurface">@color/widget_text_primary</item>
+    <item name="colorOnSurfaceVariant">@color/widget_text_secondary</item>
+    <item name="android:statusBarColor">@android:color/transparent</item>
+    <item name="android:navigationBarColor">@android:color/transparent</item>
+  </style>
+</resources>

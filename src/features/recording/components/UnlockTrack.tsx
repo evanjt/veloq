@@ -2,10 +2,21 @@
  * Slide-to-unlock track shown in place of the ControlBar while the
  * recording screen is locked. The rest of the screen stays exactly as it
  * is; this is the only interactive element in the locked state.
+ *
+ * A screen reader, a switch or a keyboard produces no drag, so the track is
+ * also one accessible button whose activate action unlocks. An assistive
+ * activation is deliberate, which a stray touch is not, so pocket and rain
+ * touches are still filtered by the slide.
  */
 
 import React, { useRef, useCallback } from 'react';
-import { View, StyleSheet, Animated, PanResponder } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Animated,
+  PanResponder,
+  type AccessibilityActionEvent,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
@@ -15,6 +26,7 @@ import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
+const ACCESSIBILITY_ACTIONS = [{ name: 'activate' }];
 
 export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
   const { t } = useTranslation();
@@ -26,13 +38,20 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
   const handleUnlock = useCallback(() => {
     if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
-    haptics.success();
+    haptics.selection();
     onUnlock();
     setTimeout(() => {
       translateX.setValue(0);
       hasTriggeredRef.current = false;
     }, 300);
   }, [onUnlock, translateX]);
+
+  const onAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      if (event.nativeEvent.actionName === 'activate') handleUnlock();
+    },
+    [handleUnlock]
+  );
 
   const panResponder = useRef(
     PanResponder.create({
@@ -68,6 +87,13 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
   return (
     <View
       testID="unlock-track"
+      accessible
+      focusable
+      accessibilityRole="button"
+      accessibilityLabel={t('recording.unlockControls')}
+      accessibilityHint={t('recording.slideToUnlock')}
+      accessibilityActions={ACCESSIBILITY_ACTIONS}
+      onAccessibilityAction={onAccessibilityAction}
       style={[styles.track, isDark && styles.trackDark]}
       onLayout={(e) => {
         trackWidthRef.current = e.nativeEvent.layout.width;

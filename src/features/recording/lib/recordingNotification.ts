@@ -12,7 +12,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { i18n } from '@/i18n';
-import { brand, colors } from '@/theme';
+import { colors, recording } from '@/theme';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
@@ -182,8 +182,8 @@ export function buildRecordingNotificationPayload(
     elapsedText: `${translate('recording.status.paused', 'Paused')} · ${elapsedText}`,
     running: status === 'recording',
     actions,
-    accentColor: brand.teal,
-    traceColor: colors.textOnPrimary,
+    accentColor: recording.light,
+    traceColor: colors.textOnDark,
     trace: decimateTrace(streams.latlng),
     interrupted: {
       channel: translate('recording.interruptedNotice.channel', 'Interrupted recordings'),

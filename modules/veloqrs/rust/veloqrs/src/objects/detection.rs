@@ -1,6 +1,6 @@
 use super::error::{VeloqError, with_engine, with_reader};
 use super::start::{FfiStartOutcome, FfiStartResult};
-use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
+use crate::persistence::attempts::{Claim, ClaimGuard, JobKey, Release, now_ms};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::{info, warn};
@@ -272,6 +272,7 @@ fn outcome_for_claim(claim: Claim) -> Result<(), FfiStartResult> {
 /// An engine that is not open yet is `NotReady` rather than a refusal that
 /// will never lift: the lease lives in the engine, so nothing is known about
 /// the key until it opens. Same reading as `spawn_once`.
+#[cfg(test)]
 pub(crate) fn claim_detect() -> Result<(), FfiStartResult> {
     claim_detect_for(crate::persistence::engine_install())
 }
@@ -289,21 +290,25 @@ pub(crate) fn claim_detect_for(install: u64) -> Result<(), FfiStartResult> {
     }
 }
 
+#[cfg(test)]
+pub(crate) fn settle_detect(release: Release) {
+    settle_detect_for(crate::persistence::engine_install(), release);
+}
+
 /// Give the detect key back, saying how the run ended.
 ///
 /// Called at every terminal transition of a run, which is the same set of
 /// points that records the outcome. A key never released is detection wedged
 /// for the session, so a path that clears the handle clears this too.
-pub(crate) fn settle_detect(release: Release) {
-    settle_detect_for(crate::persistence::engine_install(), release);
+pub(crate) fn settle_detect_for(install: u64, release: Release) {
+    crate::persistence::attempts::release_job_for(install, detect_key(), release);
 }
 
-pub(crate) fn settle_detect_for(install: u64, release: Release) {
-    crate::persistence::with_persistent_engine_for(install, |engine| {
-        if let Err(e) = engine.release_job(&detect_key(), release, now_ms()) {
-            log::warn!("veloqrs: [DetectionManager] could not release section_detect: {e}");
-        }
-    });
+/// Claim the detect key for a start, held until the run that frees it is
+/// installed.
+pub(crate) fn claim_detect_guarded(install: u64) -> Result<ClaimGuard, FfiStartResult> {
+    claim_detect_for(install)?;
+    Ok(ClaimGuard::new(install, detect_key()))
 }
 
 fn settle_claimed_detect(slot: &crate::persistence::CheckpointSlot, release: Release) {
@@ -718,10 +723,12 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
     }
     // Before the preview is cancelled and before the pool is read: a run
     // inside its backoff is not going to happen, so it must not cost a
-    // running preview its answer either.
-    if let Err(refusal) = claim_detect() {
-        return Ok(refusal);
-    }
+    // running preview its answer either. Every return from here on gives the
+    // key back, a refusal and a `?` included, unless the run is installed.
+    let claim = match claim_detect_guarded(crate::persistence::engine_install()) {
+        Ok(claim) => claim,
+        Err(refusal) => return Ok(refusal),
+    };
     after_claim();
 
     // A real detect supersedes any running preview: the preview's answer
@@ -742,7 +749,7 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
         info!("veloqrs: [DetectionManager] Section detection already running");
         // This start did no work. Preserve an earlier failure count when
         // the run holding the slot did not claim the key.
-        settle_detect(Release::Deferred);
+        drop(claim);
         return Ok(FfiStartOutcome::Busy.into());
     }
 
@@ -769,7 +776,7 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
         // Nothing ran, so nothing failed. A backoff for a suspension or an
         // owed cutover would hold detection back after the stage that
         // refused it has finished.
-        settle_detect(Release::Deferred);
+        drop(claim);
         return Ok(refusal_result(refusal));
     }
 
@@ -780,6 +787,7 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
     // moment this one takes the slot.
     record_started_run(&slot);
     *handle_guard = Some(handle);
+    claim.hand_over();
     drop(handle_guard);
     slot.mark_installed(install);
     spawn_checkpoint_driver(install);
@@ -804,9 +812,10 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
     }
 
     let install = crate::persistence::engine_install();
-    if let Err(refusal) = claim_detect_for(install) {
-        return Ok(refusal);
-    }
+    let claim = match claim_detect_guarded(install) {
+        Ok(claim) => claim,
+        Err(refusal) => return Ok(refusal),
+    };
     after_claim();
 
     cancel_running_preview();
@@ -820,7 +829,7 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
         .unwrap_or_else(|e| e.into_inner());
     if handle_guard.is_some() {
         info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-        settle_detect_for(install, Release::Deferred);
+        drop(claim);
         return Ok(FfiStartOutcome::Busy.into());
     }
 
@@ -836,11 +845,11 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
                 "veloqrs: [DetectionManager] Force redetect refused: {}",
                 refusal_reason(refusal)
             );
-            settle_detect_for(install, Release::Deferred);
+            drop(claim);
             return Ok(refusal_result(refusal));
         }
         None => {
-            settle_detect_for(install, Release::Deferred);
+            drop(claim);
             return Ok(FfiStartOutcome::NotReady.into());
         }
     };
@@ -848,6 +857,7 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
     slot.mark_detect_claimed();
     record_started_run(&slot);
     *handle_guard = Some(handle);
+    claim.hand_over();
     drop(handle_guard);
     slot.mark_installed(install);
     spawn_checkpoint_driver(install);
@@ -1485,6 +1495,84 @@ mod tests {
     #[test]
     fn test_force_redetect_busy_unclaimed_recut_keeps_failure() {
         busy_ffi_refusal_keeps_an_aged_failure(true);
+    }
+
+    /// The app goes into the background and the platform suspends the engine,
+    /// both from a thread that is not one of the engine's own.
+    fn suspend_the_engine() {
+        crate::persistence::suspension::entered_background();
+        assert!(
+            crate::persistence::suspension::prepare_for_suspension(Duration::from_secs(10)),
+            "nothing else is writing, so the engine goes quiet"
+        );
+    }
+
+    /// Claim the detect key, giving the resume's own thread time to hand back
+    /// what the suspension kept.
+    fn claim_after_resume() -> Result<(), FfiStartResult> {
+        let give_up = Instant::now() + Duration::from_secs(10);
+        loop {
+            let claim = claim_detect();
+            if claim.is_ok() || Instant::now() >= give_up {
+                return claim;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// Scenario: a start claims the detect key on the JavaScript thread, and
+    /// the app is suspended before the run is installed, so the start is
+    /// refused and so is the release of the key it claimed.
+    ///
+    /// Expected behaviour: once the app is back, the key is free, and the next
+    /// start is not answered busy for the rest of the process.
+    fn a_suspension_after_the_claim_leaves_the_key_free(force: bool) {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine();
+        clear_detection_handle();
+
+        let outcome = if force {
+            force_redetect_with(suspend_the_engine)
+        } else {
+            start_with(suspend_the_engine)
+        };
+        if force {
+            assert_ne!(
+                outcome.expect("an answer"),
+                FfiStartOutcome::Started,
+                "a suspended engine starts nothing"
+            );
+        } else {
+            assert!(
+                matches!(outcome, Err(VeloqError::Suspended)),
+                "a suspended engine refuses the start: {outcome:?}"
+            );
+        }
+        assert!(
+            SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none(),
+            "a refused start installs nothing"
+        );
+
+        crate::persistence::suspension::resume_after_suspension();
+        let claim = claim_after_resume();
+        assert!(
+            claim.is_ok(),
+            "the refused start's claim outlived the suspension: {claim:?}"
+        );
+        settle_detect(Release::Deferred);
+    }
+
+    #[test]
+    fn test_start_suspended_after_claim_frees_key() {
+        a_suspension_after_the_claim_leaves_the_key_free(false);
+    }
+
+    #[test]
+    fn test_force_redetect_suspended_after_claim_frees_key() {
+        a_suspension_after_the_claim_leaves_the_key_free(true);
     }
 
     fn followed_run_keeps_its_verdict_after_a_successor(first_applied: bool) {

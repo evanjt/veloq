@@ -16,6 +16,9 @@ import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips'
 import { SectionsListFiltersBar } from '@/features/routes/components/SectionsListFiltersBar';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
+import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
+import { GroupingParamPanel } from '@/features/routes/components/preview/GroupingParamPanel';
+import { DETECTION_PRESETS } from '@/features/routes/lib/detectionParams';
 import { layout } from '@/theme/layout';
 import { typography } from '@/theme';
 
@@ -136,6 +139,28 @@ describe('tap-target floor', () => {
       expect(
         drawnHeight + slopOn(hitSlop, 'top') + slopOn(hitSlop, 'bottom')
       ).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
+  });
+
+  it('holds every preview parameter caption that opens the editor to the minimum height', () => {
+    const detection = render(
+      <PreviewParamPanel params={{ ...DETECTION_PRESETS.default }} onChange={jest.fn()} />
+    );
+    const detectionEdits = Object.keys(DETECTION_PRESETS.default).map((key) =>
+      detection.getByTestId(`param-edit-${key}`)
+    );
+    const grouping = render(
+      <GroupingParamPanel
+        params={{ minMatchPercentage: 65, endpointThreshold: 200 }}
+        onChange={jest.fn()}
+      />
+    );
+    const groupingEdits = ['minMatchPercentage', 'endpointThreshold'].map((key) =>
+      grouping.getByTestId(`grouping-edit-${key}`)
+    );
+
+    for (const edit of [...detectionEdits, ...groupingEdits]) {
+      expect(reach(edit).height).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
   });
 });

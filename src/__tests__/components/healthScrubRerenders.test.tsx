@@ -17,7 +17,7 @@ import { formatLocalDate } from '@/shared/format/format';
 
 describe('health scrub re-renders', () => {
   it('places every day of the year it draws', () => {
-    const today = new Date('2026-09-12T10:00:00');
+    const today = new Date('2026-09-13T10:00:00');
 
     const positions = cellPositions(today);
 
@@ -30,7 +30,7 @@ describe('health scrub re-renders', () => {
    * The map is built once with the grid, so a tick is one lookup.
    */
   it('answers for a highlighted day without walking the grid', () => {
-    const today = new Date('2026-09-12T10:00:00');
+    const today = new Date('2026-09-13T10:00:00');
     const positions = cellPositions(today);
 
     const yesterday = new Date(today);
@@ -45,7 +45,7 @@ describe('health scrub re-renders', () => {
 
   /** A day outside the year drawn has no cell, and must not read as the first. */
   it('has no cell for a day outside the year it draws', () => {
-    const today = new Date('2026-09-12T10:00:00');
+    const today = new Date('2026-09-13T10:00:00');
 
     expect(cellPositions(today).get('2020-01-01')).toBeUndefined();
   });

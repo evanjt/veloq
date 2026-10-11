@@ -3,7 +3,10 @@ import {
   buildSnapshotWorkerHtml,
 } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
-import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import type {
+  SnapshotRequest,
+  SnapshotStylesHeld,
+} from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 type Handler = (event: Record<string, unknown>) => void;
 
@@ -32,7 +35,10 @@ export interface WorkerPage {
   mapsBuilt: () => number;
   /** Every result the page has posted to the host, parsed, without its log lines. */
   posted: Record<string, unknown>[];
+  /** Runs one request in the page, giving it the style only when it does not hold it, as the pool does. */
   render: (request: SnapshotRequest, gen: number) => void;
+  /** The styles the host believes this page holds, which `render` reads and writes. */
+  held: SnapshotStylesHeld;
   /** Runs the host's recycle command in the page, as `injectJavaScript` does. */
   recycle: () => void;
 }
@@ -160,13 +166,16 @@ export function bootWorkerPage(
   const scripts = Array.from(html.matchAll(/<script>([\s\S]*?)<\/script>/g), (m) => m[1]);
   run(scripts[scripts.length - 1]);
 
+  const held: SnapshotStylesHeld = new Map();
+
   return {
     window: win,
     map,
     mapOptions,
     mapsBuilt: () => built,
     posted,
-    render: (request, gen) => run(buildRenderSnapshotScript(request, 0, gen)),
+    render: (request, gen) => run(buildRenderSnapshotScript(request, 0, gen, held)),
+    held,
     recycle: () => run(buildRecycleSnapshotMapScript()),
   };
 }

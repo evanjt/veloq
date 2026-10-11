@@ -1,4 +1,6 @@
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Linking, NativeModules, Platform, PermissionsAndroid } from 'react-native';
+import * as Location from 'expo-location';
+import { BleErrorCode, State } from 'react-native-ble-plx';
 
 import { debug } from '@/shared/debug/debug';
 import { useSensorStore } from '../store';
@@ -19,7 +21,7 @@ import {
 } from './gatt';
 import { createCrankCadenceCalculator } from './cadence';
 import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from './connectionHealth';
-import type { KnownSensor, SensorKind } from '../types';
+import type { KnownSensor, SensorAvailability, SensorKind } from '../types';
 import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
 
 const log = debug.create('Sensors');
@@ -29,42 +31,246 @@ const RECONNECT_BASE_MS = 2000;
 const RECONNECT_MAX_MS = 30_000;
 /** How often a live connection is re-checked against the no-data watchdog. */
 const HEALTH_TICK_MS = 2000;
+/**
+ * How long one scan runs before it stops by itself. A strap or meter that is
+ * awake advertises several times a second, so a sensor not heard in this
+ * window is not nearby, and an open-ended scan costs battery for nothing.
+ */
+export const SCAN_WINDOW_MS = 30_000;
 
 let bleManager: BleManager | null = null;
 let bleUnavailable = false;
 
-/** Lazily create the BleManager; null when the native module is absent (Expo Go, tests). */
+/** The adapter as the manager last heard it, null until the manager exists. */
+let adapterState: State | null = null;
+/** The last Android permission outcome, null until one is asked for. iOS answers through the adapter. */
+let access: BleAccess | null = null;
+let adapterWaiters: ((state: State) => void)[] = [];
+
+/**
+ * Lazily create the BleManager; null when the native module is absent (Expo
+ * Go, tests). Constructing it is what raises the iOS Bluetooth prompt, so it
+ * happens only once the athlete scans or starts a ride with paired sensors.
+ */
 function getBle(): BleManager | null {
   if (bleManager) return bleManager;
-  if (bleUnavailable) return null;
+  if (!isBleAvailable()) return null;
   try {
     const { BleManager: Manager } = require('react-native-ble-plx');
-    bleManager = new Manager();
-    return bleManager;
+    const ble: BleManager = new Manager();
+    bleManager = ble;
+    ble.onStateChange(onAdapterState, true);
+    return ble;
   } catch (e) {
     log.warn('BLE unavailable:', e);
     bleUnavailable = true;
+    publishAvailability();
     return null;
   }
 }
 
+/** Whether this build carries the Bluetooth module. Never constructs the manager. */
 export function isBleAvailable(): boolean {
-  return getBle() !== null;
+  return !bleUnavailable && NativeModules.BlePlx != null;
 }
 
-/** Android 12+ needs runtime BLUETOOTH_SCAN/CONNECT; older versions are manifest-only. */
-export async function requestBlePermissions(): Promise<boolean> {
-  if (Platform.OS !== 'android') return true;
-  if (Platform.Version < 31) return true;
+/**
+ * `granted`, refused but askable, refused for good, or (Android 7 to 11)
+ * granted with location services off, where a scan finds nothing.
+ */
+export type BleAccess = 'granted' | 'denied' | 'blocked' | 'needsLocation';
+
+interface AvailabilityInput {
+  moduleAvailable: boolean;
+  access: BleAccess | null;
+  adapter: State | null;
+  os: string;
+}
+
+/**
+ * The one answer to whether sensors can be reached. A refusal outranks the
+ * radio, because nothing about the radio can be read or fixed without the
+ * grant, and the radio outranks location services, which only matter to a
+ * scan once it is on. iOS never asks twice, so its refusal is blocked.
+ */
+export function sensorAvailability({
+  moduleAvailable,
+  access: granted,
+  adapter,
+  os,
+}: AvailabilityInput): SensorAvailability {
+  if (!moduleAvailable || adapter === State.Unsupported) return 'unsupported';
+  if (granted === 'denied') return 'unauthorised';
+  if (granted === 'blocked') return 'blocked';
+  if (adapter === State.Unauthorized) return os === 'ios' ? 'blocked' : 'unauthorised';
+  if (adapter === State.PoweredOff) return 'poweredOff';
+  if (granted === 'needsLocation') return 'needsLocation';
+  if (adapter === State.PoweredOn) return 'ready';
+  return 'unknown';
+}
+
+function publishAvailability(): void {
+  const availability = sensorAvailability({
+    moduleAvailable: isBleAvailable(),
+    access,
+    adapter: adapterState,
+    os: Platform.OS,
+  });
+  if (useSensorStore.getState().availability === availability) return;
+  useSensorStore.getState().setAvailability(availability);
+}
+
+function isSettled(state: State): boolean {
+  return state !== State.Unknown && state !== State.Resetting;
+}
+
+function onAdapterState(state: State): void {
+  const wasOn = adapterState === State.PoweredOn;
+  adapterState = state;
+  publishAvailability();
+  if (isSettled(state)) {
+    const waiters = adapterWaiters;
+    adapterWaiters = [];
+    for (const resolve of waiters) resolve(state);
+  }
+  if (state === State.PoweredOn && !wasOn) resumeParkedSensors();
+}
+
+/** The adapter once it has said on, off or refused; on iOS that waits for the prompt. */
+function adapterSettled(): Promise<State> {
+  if (adapterState && isSettled(adapterState)) return Promise.resolve(adapterState);
+  return new Promise((resolve) => adapterWaiters.push(resolve));
+}
+
+/**
+ * ble-plx reports the radio being off, refused or missing as an error on the
+ * scan or the connect, which can arrive before the state listener hears it.
+ * Returns whether the error was one of those.
+ */
+function noteBleError(error: unknown): boolean {
+  const code = (error as { errorCode?: number } | null)?.errorCode;
+  const state =
+    code === BleErrorCode.BluetoothPoweredOff
+      ? State.PoweredOff
+      : code === BleErrorCode.BluetoothUnauthorized
+        ? State.Unauthorized
+        : code === BleErrorCode.BluetoothUnsupported
+          ? State.Unsupported
+          : null;
+  if (!state) return false;
+  onAdapterState(state);
+  return true;
+}
+
+/** A connect cannot succeed until the athlete changes something. */
+function radioBlocksConnect(): boolean {
+  const availability = useSensorStore.getState().availability;
+  return (
+    availability === 'poweredOff' ||
+    availability === 'unauthorised' ||
+    availability === 'blocked' ||
+    availability === 'unsupported'
+  );
+}
+
+/** Pick between granted and refused on Android, where one refusal of either permission is a refusal. */
+export function androidPermissionOutcome(results: string[]): 'granted' | 'denied' | 'blocked' {
+  if (results.every((r) => r === PermissionsAndroid.RESULTS.GRANTED)) return 'granted';
+  if (results.some((r) => r === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN)) return 'blocked';
+  return 'denied';
+}
+
+async function askBleAccess(): Promise<BleAccess> {
+  // iOS asks when the manager is constructed and reports through the adapter.
+  if (Platform.OS !== 'android') return 'granted';
   try {
+    if (Platform.Version < 31) {
+      // Android 7 to 11 return scan results only to an app holding the
+      // location grant, and only while location services are on.
+      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return canAskAgain ? 'denied' : 'blocked';
+      return (await Location.hasServicesEnabledAsync()) ? 'granted' : 'needsLocation';
+    }
     const results = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
     ]);
-    return Object.values(results).every((r) => r === PermissionsAndroid.RESULTS.GRANTED);
+    return androidPermissionOutcome(Object.values(results));
   } catch {
-    return false;
+    return 'denied';
   }
+}
+
+function recordAccess(outcome: BleAccess): void {
+  access = outcome;
+  // A refusal a scan error reported is superseded by a grant, so the adapter
+  // is read again rather than trusted.
+  if (outcome !== 'denied' && outcome !== 'blocked' && adapterState === State.Unauthorized) {
+    adapterState = null;
+    bleManager
+      ?.state()
+      .then(onAdapterState)
+      .catch(() => {
+        // The state listener answers on its own.
+      });
+  }
+  publishAvailability();
+}
+
+/**
+ * Ask for what a scan or a connect needs and record the answer as the
+ * sensors' availability. Android 12+ needs BLUETOOTH_SCAN and
+ * BLUETOOTH_CONNECT, Android 7 to 11 the location grant.
+ */
+export async function requestBlePermissions(): Promise<BleAccess> {
+  const outcome = await askBleAccess();
+  if (Platform.OS === 'android') recordAccess(outcome);
+  return outcome;
+}
+
+/**
+ * Read the grant again without asking, for the athlete coming back from the
+ * system settings. Android does not restart the app for a grant, and turning
+ * location services on restarts nothing. Only a grant can be read without
+ * asking, so a refusal keeps the last answer, askable or blocked.
+ */
+export async function refreshBleAccess(): Promise<void> {
+  if (Platform.OS !== 'android' || access === null) return;
+  try {
+    const held =
+      Platform.Version < 31
+        ? (await Location.getForegroundPermissionsAsync()).status === 'granted'
+        : (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN)) &&
+          (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT));
+    if (!held) {
+      if (access === 'granted' || access === 'needsLocation') recordAccess('denied');
+      return;
+    }
+    const servicesOn = Platform.Version >= 31 || (await Location.hasServicesEnabledAsync());
+    recordAccess(servicesOn ? 'granted' : 'needsLocation');
+  } catch {
+    // The last answer stands.
+  }
+}
+
+/**
+ * Turn the radio on where the system lets an app ask: directly below Android
+ * 12, through the system request from 12, and Bluetooth settings when that
+ * cannot be shown. iOS offers an app nothing, so its screen says where.
+ */
+export async function turnOnBluetooth(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  const openBluetoothSettings = () =>
+    Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS').catch(() => Linking.openSettings());
+  if (Platform.Version < 31) {
+    const ble = getBle();
+    if (!ble) return;
+    ble.enable().catch(openBluetoothSettings);
+    return;
+  }
+  await Linking.sendIntent('android.bluetooth.adapter.action.REQUEST_ENABLE').catch(
+    openBluetoothSettings
+  );
 }
 
 function kindsFromServiceUUIDs(serviceUUIDs: string[] | null): SensorKind[] {
@@ -78,17 +284,46 @@ function kindsFromServiceUUIDs(serviceUUIDs: string[] | null): SensorKind[] {
 
 // ─── Scanning ─────────────────────────────────────────────────────────────────
 
+/** Bumped by every scan start and stop, so a scan still waiting on the prompt can see it was stopped. */
+let scanGeneration = 0;
+let scanWindowTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearScanWindow(): void {
+  if (scanWindowTimer) clearTimeout(scanWindowTimer);
+  scanWindowTimer = null;
+}
+
+/**
+ * Ask for the permission, construct the manager, wait for the adapter, then
+ * scan for `SCAN_WINDOW_MS`. Each step that fails leaves the reason in the
+ * store's availability and the scan stopped.
+ */
 export async function startScan(): Promise<void> {
-  const ble = getBle();
-  if (!ble) return;
+  const generation = ++scanGeneration;
+  clearScanWindow();
   const store = useSensorStore.getState();
   store.clearDiscovered();
-  store.setScanning(true);
+  store.setScanFinished(false);
+
+  const granted = await requestBlePermissions();
+  if (generation !== scanGeneration || granted !== 'granted') return;
+  const ble = getBle();
+  if (!ble) return;
+  useSensorStore.getState().setScanning(true);
+
+  const state = await adapterSettled();
+  if (generation !== scanGeneration) return;
+  if (state !== State.PoweredOn) {
+    useSensorStore.getState().setScanning(false);
+    return;
+  }
 
   ble.startDeviceScan(SCANNED_SERVICES, { allowDuplicates: false }, (error, device) => {
+    if (generation !== scanGeneration) return;
     if (error) {
       log.warn('Scan error:', error.message);
-      useSensorStore.getState().setScanning(false);
+      noteBleError(error);
+      stopScan();
       return;
     }
     if (!device) return;
@@ -101,10 +336,20 @@ export async function startScan(): Promise<void> {
       rssi: device.rssi,
     });
   });
+
+  scanWindowTimer = setTimeout(() => {
+    scanWindowTimer = null;
+    if (generation !== scanGeneration) return;
+    stopScan();
+    useSensorStore.getState().setScanFinished(true);
+  }, SCAN_WINDOW_MS);
 }
 
+/** Never constructs the manager: one that does not exist is not scanning. */
 export function stopScan(): void {
-  getBle()?.stopDeviceScan();
+  scanGeneration++;
+  clearScanWindow();
+  bleManager?.stopDeviceScan();
   useSensorStore.getState().setScanning(false);
 }
 
@@ -276,6 +521,10 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     name: sensor.name,
     kinds: sensor.kinds,
   });
+  if (radioBlocksConnect()) {
+    parkSensor(sensor);
+    return;
+  }
 
   const generation = connectGenerations.get(sensor.id) ?? 0;
   const superseded = () => (connectGenerations.get(sensor.id) ?? 0) !== generation;
@@ -324,6 +573,7 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     log.log(`Sensor link open: ${sensor.name} (${sensor.kinds.join(', ')}), waiting for data`);
   } catch (e) {
     log.warn(`Failed to connect ${sensor.name}:`, e);
+    noteBleError(e);
     scheduleReconnect(sensor, attempt + 1);
   }
 }
@@ -341,22 +591,18 @@ function watchdogTick(sensor: KnownSensor): void {
 
   log.warn(`Sensor sent nothing for ${SENSOR_NO_DATA_MS} ms, reconnecting: ${sensor.name}`);
   cleanupConnection(sensor.id, { keepStoreEntry: true });
-  void getBle()
-    ?.cancelDeviceConnection(sensor.id)
-    .catch(() => {
-      // Already gone, which is the outcome wanted.
-    });
+  void bleManager?.cancelDeviceConnection(sensor.id).catch(() => {
+    // Already gone, which is the outcome wanted.
+  });
   scheduleReconnect(sensor);
 }
 
 /** Drop the device a superseded connect opened, so it does not stay connected. */
 function abandonConnect(id: string): void {
   log.log(`Dropping a sensor connect that was disconnected while it was in flight: ${id}`);
-  void getBle()
-    ?.cancelDeviceConnection(id)
-    .catch(() => {
-      // Already gone, which is the outcome wanted.
-    });
+  void bleManager?.cancelDeviceConnection(id).catch(() => {
+    // Already gone, which is the outcome wanted.
+  });
 }
 
 function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
@@ -366,6 +612,10 @@ function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
   // the athlete can act on, "reconnecting" is only how it is being fixed.
   if (conn.status !== 'noData') {
     useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
+  }
+  if (radioBlocksConnect()) {
+    parkSensor(sensor);
+    return;
   }
   const delay = Math.min(RECONNECT_BASE_MS * 2 ** Math.min(attempt, 6), RECONNECT_MAX_MS);
   const timer = setTimeout(() => {
@@ -379,9 +629,35 @@ function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
   reconnectTimers.set(sensor.id, timer);
 }
 
+/**
+ * Sensors a ride wants while the radio is off or refused. Retrying against
+ * an adapter that is off fails every time, so they wait here for it to come
+ * on rather than backing off for the whole ride.
+ */
+const parkedSensors = new Map<string, KnownSensor>();
+
+function parkSensor(sensor: KnownSensor): void {
+  log.log(`Waiting for Bluetooth before connecting: ${sensor.name}`);
+  const timer = reconnectTimers.get(sensor.id);
+  if (timer) clearTimeout(timer);
+  reconnectTimers.delete(sensor.id);
+  parkedSensors.set(sensor.id, sensor);
+}
+
+function resumeParkedSensors(): void {
+  const parked = [...parkedSensors.values()];
+  parkedSensors.clear();
+  for (const sensor of parked) {
+    // Still wanted? (disconnectSensor removes the store entry)
+    if (!useSensorStore.getState().connections[sensor.id]) continue;
+    void connectAndSubscribe(sensor, 1);
+  }
+}
+
 function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): void {
   // Before anything else: a connect still in flight has to see this.
   connectGenerations.set(id, (connectGenerations.get(id) ?? 0) + 1);
+  parkedSensors.delete(id);
   const timer = reconnectTimers.get(id);
   if (timer) {
     clearTimeout(timer);
@@ -411,7 +687,7 @@ export async function connectKnownSensors(): Promise<void> {
 export async function disconnectSensor(id: string): Promise<void> {
   cleanupConnection(id);
   try {
-    await getBle()?.cancelDeviceConnection(id);
+    await bleManager?.cancelDeviceConnection(id);
   } catch {
     // Already disconnected
   }

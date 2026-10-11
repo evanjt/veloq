@@ -8,6 +8,7 @@ import type {
   DiscoveredSensor,
   KnownSensor,
   SensorConnection,
+  SensorAvailability,
   SensorConnectionStatus,
   SensorKind,
 } from './types';
@@ -16,7 +17,11 @@ const STORAGE_KEY = 'veloq-known-sensors';
 
 interface SensorState {
   // Runtime
+  /** Written by the sensor manager only, from the permission, the adapter and BLE errors. */
+  availability: SensorAvailability;
   scanning: boolean;
+  /** The last scan ran its whole window, rather than being stopped. */
+  scanFinished: boolean;
   discovered: DiscoveredSensor[];
   connections: Record<string, SensorConnection>;
   // Persisted
@@ -24,7 +29,9 @@ interface SensorState {
   isLoaded: boolean;
   // Actions
   initialise: () => Promise<void>;
+  setAvailability: (availability: SensorAvailability) => void;
   setScanning: (scanning: boolean) => void;
+  setScanFinished: (scanFinished: boolean) => void;
   upsertDiscovered: (sensor: DiscoveredSensor) => void;
   clearDiscovered: () => void;
   setConnection: (id: string, connection: SensorConnection | null) => void;
@@ -37,7 +44,9 @@ interface SensorState {
 }
 
 export const useSensorStore = create<SensorState>((set) => ({
+  availability: 'unknown',
   scanning: false,
+  scanFinished: false,
   discovered: [],
   connections: {},
   knownSensors: [],
@@ -60,7 +69,11 @@ export const useSensorStore = create<SensorState>((set) => ({
     }
   },
 
+  setAvailability: (availability) => set({ availability }),
+
   setScanning: (scanning) => set({ scanning }),
+
+  setScanFinished: (scanFinished) => set({ scanFinished }),
 
   upsertDiscovered: (sensor) => {
     set((state) => {

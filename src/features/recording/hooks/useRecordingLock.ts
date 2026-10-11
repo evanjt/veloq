@@ -5,7 +5,8 @@ import type { RecordingStatus } from '../types';
 /**
  * Lock state for the recording screen. The screen locks itself when a
  * recording starts so pocket and rain touches are ignored, and unlocking is
- * only possible via the slide track.
+ * only possible via the slide track, or its activate action for a screen
+ * reader, a switch or a keyboard.
  *
  * Locking is deliberately tied to the start of a recording rather than to the
  * status being `recording`. Resuming sets the same status, so re-locking there

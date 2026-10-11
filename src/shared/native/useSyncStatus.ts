@@ -26,7 +26,7 @@ import { useSyncExternalStore } from 'react';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from './engine';
 import { reconsiderFallback, subscribeToFallbackTick } from './eventFallback';
-import { SyncState, type SyncStatus } from 'veloqrs';
+import { SyncState, type SyncErrorReason, type SyncStatus } from 'veloqrs';
 
 /**
  * What the sync service announces: every step, and the terminal transition.
@@ -124,4 +124,16 @@ function getLastError(): SyncStatus['lastError'] {
 
 export function useSyncLastError(): SyncStatus['lastError'] {
   return useSyncExternalStore(subscribe, getLastError, getLastError);
+}
+
+function getLastErrorReason(): SyncErrorReason | null {
+  return snapshot?.lastErrorReason ?? null;
+}
+
+/**
+ * Why the last sync failed, or null. Its own selector so a screen that only
+ * branches on the reason does not render again for every progress step.
+ */
+export function useSyncLastErrorReason(): SyncErrorReason | null {
+  return useSyncExternalStore(subscribe, getLastErrorReason, getLastErrorReason);
 }

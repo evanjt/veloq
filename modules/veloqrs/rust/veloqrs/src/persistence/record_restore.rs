@@ -520,15 +520,13 @@ impl PersistentEngine {
                 else {
                     return Ok(false);
                 };
-                if [
-                    PENDING_KEY,
-                    OWED_KEY,
-                    UNAVAILABLE_KEY,
-                    PAUSED_IMPORT_KEY,
-                    super::settings::settings_keys::ATHLETE_ID,
-                ]
-                .contains(&key)
+                // A key a backup never carries is dropped as placed, so the
+                // import does not wait on it. The athlete id is set from the
+                // payload's own field rather than from a row.
+                if !super::record_backup::is_record_setting(key)
+                    || key == super::settings::settings_keys::ATHLETE_ID
                 {
+                    log::info!("[RecordRestore] Skipped setting {key}, not carried by a backup");
                     return Ok(true);
                 }
                 self.set_setting(key, value).map_err(|e| e.to_string())?;
@@ -3498,6 +3496,36 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("1")
+        );
+    }
+
+    /// Scenario: a record zip the writer never produced names internal
+    /// settings, among them the geocoding consent.
+    ///
+    /// Expected behaviour: only the settings a backup carries are written, so
+    /// the restore cannot agree to geocoding for the athlete or move
+    /// bookkeeping into a state this library never reached.
+    #[test]
+    fn test_restore_writes_only_the_settings_a_backup_carries() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("crafted.db").to_str().unwrap()).unwrap();
+        let record = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "units", "value": "imperial"}},
+            {"table": "settings", "values": {"key": "__geocoding_enabled", "value": "1"}},
+            {"table": "settings", "values": {"key": "__detector_cutover", "value": "local-only"}},
+            {"table": "settings", "values": {"key": "__activity_window_oldest:i1", "value": "2020-01-01"}}
+        ]});
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+        assert_eq!(result.unplaced, 0);
+        assert!(!paused(&engine));
+        let setting = |key: &str| engine.get_setting(key).unwrap();
+        assert_eq!(setting("units").as_deref(), Some("imperial"));
+        assert_eq!(setting("__geocoding_enabled"), None);
+        assert_eq!(setting("__detector_cutover"), None);
+        assert_eq!(
+            setting("__activity_window_oldest:i1").as_deref(),
+            Some("2020-01-01")
         );
     }
 

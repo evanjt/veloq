@@ -1,13 +1,12 @@
 package __PKG__.widget
 
-import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Button
-import android.widget.CheckBox
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.checkbox.MaterialCheckBox
 import __PKG__.R
 
 /**
@@ -18,7 +17,7 @@ import __PKG__.R
  * Configuration is optional in the provider info, so an athlete who dismisses this keeps a widget
  * that lists what the Insights tab does.
  */
-class InsightsWidgetConfigureActivity : Activity() {
+class InsightsWidgetConfigureActivity : WidgetConfigureActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setResult(RESULT_CANCELED)
@@ -32,20 +31,19 @@ class InsightsWidgetConfigureActivity : Activity() {
       return
     }
 
-    setTitle(R.string.widget_insights_label)
-    setContentView(R.layout.widget_insights_configure)
+    showPicker(R.string.widget_insights_label, R.layout.widget_insights_configure)
     findViewById<TextView>(R.id.insights_configure_prompt).setText(R.string.widget_insights_kinds_choose)
     val current = InsightsWidgetChoice.kinds(this, widgetId)
     val list = findViewById<LinearLayout>(R.id.insights_configure_list)
     val boxes =
       InsightsWidget.KINDS.map { kind ->
-        CheckBox(this).apply {
+        MaterialCheckBox(this).apply {
           setText(kindLabel(kind))
           isChecked = current == null || kind in current
           list.addView(this)
         }
       }
-    findViewById<Button>(R.id.insights_configure_save).setOnClickListener {
+    findViewById<View>(R.id.insights_configure_save).setOnClickListener {
       InsightsWidgetChoice.put(
         this, widgetId, InsightsWidget.KINDS.filterIndexed { i, _ -> boxes[i].isChecked })
       commit(widgetId)

@@ -5,12 +5,13 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
 
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
+import { verdictColor } from '@/theme';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
@@ -124,6 +125,26 @@ describe('SeasonComparison change between years', () => {
     await waitFor(() => expect(screen.getByText('+100%')).toBeTruthy());
   });
 
+  it('prints a year level with last year as 0% on the neutral rung', async () => {
+    setRows([month(YEAR - 1, 1, 4), month(YEAR, 1, 4)]);
+
+    renderCard();
+
+    const change = await waitFor(() => screen.getByText('0%'));
+    expect(StyleSheet.flatten(change.props.style).color).toBe(verdictColor('neutral', false));
+    expect(screen.queryByText('+0%')).toBeNull();
+  });
+
+  it('prints a fall that rounds to nothing as 0% on the neutral rung, not -0%', async () => {
+    setRows([month(YEAR - 1, 1, 100.3), month(YEAR, 1, 100)]);
+
+    renderCard();
+
+    const change = await waitFor(() => screen.getByText('0%'));
+    expect(StyleSheet.flatten(change.props.style).color).toBe(verdictColor('neutral', false));
+    expect(screen.queryByText('-0%')).toBeNull();
+  });
+
   it('states no change when last year is empty', async () => {
     setRows([month(YEAR, 1, 4)]);
 
@@ -143,6 +164,16 @@ describe('SeasonComparison change between years', () => {
 
     expect(screen.getByTestId('season-tooltip')).toBeTruthy();
     expect(screen.queryByText(/%/)).toBeNull();
+  });
+
+  it('names both years beside their values in the tooltip', async () => {
+    renderCard();
+    await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
+    await scrubJanuary();
+
+    expect(screen.getByTestId('season-tooltip')).toBeTruthy();
+    expect(screen.getByText(String(YEAR - 1))).toBeTruthy();
+    expect(screen.getByText(String(YEAR))).toBeTruthy();
   });
 
   it('states the change in the tooltip for a month with a baseline', async () => {

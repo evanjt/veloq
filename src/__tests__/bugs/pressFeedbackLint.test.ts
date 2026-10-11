@@ -182,3 +182,25 @@ it('ignores Touchable tags in tests and mocks', () => {
 
   expect(runGuard(root).status).toBe(0);
 });
+
+it('refuses a press wrapper that skips the platform answer', () => {
+  const root = fixture({
+    'src/features/x/Header.tsx': '<AnimatedPressable onPress={toggle} />\n',
+    'src/features/x/Shrink.tsx': 'const Springy = Animated.createAnimatedComponent(Pressable);\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Header.tsx:1');
+  expect(output).toContain('src/features/x/Shrink.tsx:1');
+});
+
+it('leaves the animated press wrapper to the file that defines the answer', () => {
+  const root = fixture({
+    'src/shared/ui/pressFeedback.ts':
+      'const Springy = Animated.createAnimatedComponent(Pressable);\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});

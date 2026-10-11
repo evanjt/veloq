@@ -240,3 +240,51 @@ fn legacy_disabled_and_superseded_rows_gain_a_disabled_intent_once() {
         vec![("replaced".to_string(), "disabled".to_string())]
     );
 }
+
+/// Scenario: a library upgraded while rides sit at every point in the queue:
+/// one uploading when the app last closed, one pending after a failed attempt,
+/// one never tried, one parked after attempts, and one uploaded.
+/// Expected behaviour: each ride an attempt may already have reached the
+/// server with is in doubt, so its next attempt looks for it first, and the
+/// never-tried and uploaded rides are not.
+#[test]
+fn an_upgrade_puts_every_ride_an_attempt_may_have_reached_in_doubt() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    let scripts = PersistentEngine::migration_scripts();
+    let doubt = scripts
+        .iter()
+        .position(|sql| sql.contains("ADD COLUMN upload_in_doubt"))
+        .expect("the migration adding the mark");
+    Migrations::new(scripts[..doubt].iter().copied().map(M::up).collect())
+        .to_latest(&mut conn)
+        .unwrap();
+    for (id, status, last_attempt) in [
+        ("stranded", "uploading", None),
+        ("retrying", "pending", Some(1_000i64)),
+        ("fresh", "pending", None),
+        ("parked", "failed", Some(2_000)),
+        ("landed", "uploaded", Some(3_000)),
+    ] {
+        conn.execute(
+            "INSERT INTO recordings (id, fit_path, activity_type, name, start_time,
+                 duration_seconds, distance_meters, created_at, upload_status, last_attempt_at)
+             VALUES (?1, '', 'Ride', 'Ride', 0, 60, 0, 0, ?2, ?3)",
+            params![id, status, last_attempt],
+        )
+        .unwrap();
+    }
+
+    Migrations::new(scripts.iter().copied().map(M::up).collect())
+        .to_latest(&mut conn)
+        .unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT id FROM recordings WHERE upload_in_doubt = 1 ORDER BY id")
+        .unwrap();
+    let in_doubt: Vec<String> = stmt
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(in_doubt, ["parked", "retrying", "stranded"]);
+}

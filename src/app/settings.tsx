@@ -6,6 +6,7 @@ import {
   useTabBarClearance,
   pressable,
   pressRipple,
+  ListSectionHeader,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -240,12 +241,9 @@ function SettingsScreenContent() {
 
         {/* Grouped by what the athlete is doing, not by which subsystem owns
               the screen: that is how the heatmap toggle came to sit under sync. */}
-        <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
-          testID="settings-group-shows"
-        >
-          {t('settings.groupShows', 'Appearance').toUpperCase()}
-        </Text>
+        <ListSectionHeader testID="settings-group-shows">
+          {t('settings.groupShows', 'Appearance')}
+        </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="palette-outline"
@@ -272,12 +270,9 @@ function SettingsScreenContent() {
           />
         </View>
 
-        <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
-          testID="settings-group-collects"
-        >
-          {t('settings.groupCollects', 'Data & recording').toUpperCase()}
-        </Text>
+        <ListSectionHeader testID="settings-group-collects">
+          {t('settings.groupCollects', 'Data & recording')}
+        </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="sync"
@@ -306,12 +301,9 @@ function SettingsScreenContent() {
 
         {/* Detection is a computation, but what the athlete manages on that
               screen is the catalogue it keeps, so it sits here. */}
-        <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
-          testID="settings-group-keeps"
-        >
-          {t('settings.groupKeeps', 'Library & backup').toUpperCase()}
-        </Text>
+        <ListSectionHeader testID="settings-group-keeps">
+          {t('settings.groupKeeps', 'Library & backup')}
+        </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="map-marker-path"
@@ -340,12 +332,9 @@ function SettingsScreenContent() {
 
         {/* Background jobs is a status screen rather than a preference, and
               it is here because it is where the app reports on itself. */}
-        <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
-          testID="settings-group-tells"
-        >
-          {t('settings.groupTells', 'Notifications').toUpperCase()}
-        </Text>
+        <ListSectionHeader testID="settings-group-tells">
+          {t('settings.groupTells', 'Notifications')}
+        </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="bell-outline"

@@ -21,12 +21,14 @@ import type {
 import ActivityDetailScreen from '@/app/activity/[id]';
 import type { PreComputedOverlays } from '@/features/activity/hooks/useSectionOverlays';
 import type { SectionEncounter } from 'veloqrs';
+import { encodeTrack } from '../__shared__/trackBytes';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
+let mockSearchParams: { id: string; tab?: string } = { id: 'act-1' };
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  useLocalSearchParams: () => ({ id: 'act-1' }),
+  useLocalSearchParams: () => mockSearchParams,
   router: { back: jest.fn(), push: jest.fn() },
 }));
 let mockTransitionTask: (() => void) | null = null;
@@ -103,15 +105,18 @@ const mockCoordinates = [
 
 jest.mock('@/features/activity/hooks', () => ({
   useActivity: () => ({ data: mockActivity, isLoading: false, error: null, refetch: jest.fn() }),
-  useActivityStreams: () => ({
-    data: {
-      latlng: [
-        [1, 2],
-        [3, 4],
-      ],
-    },
-    isLoading: false,
-  }),
+  useActivityStreams: (id: string) => {
+    mockStreamReads.push(id);
+    return {
+      data: {
+        latlng: [
+          [1, 2],
+          [3, 4],
+        ],
+      },
+      isLoading: false,
+    };
+  },
   useActivityDetailStreams: () => ({
     data: {
       latlng: [
@@ -149,6 +154,7 @@ const mockDetail: { encounters: SectionEncounter[]; [key: string]: unknown } = {
   routeGroups: [],
   activityCount: 1,
 };
+const mockStreamReads: string[] = [];
 const mockRouteHighlights = new Map<string, { isPr: boolean; prImprovementSeconds?: number }>();
 jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
@@ -209,8 +215,9 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useCustomSections: () => ({ createSection: jest.fn(), removeSection: jest.fn(), sections: [] }),
 }));
+let mockRepresentativeId: string | null = null;
 jest.mock('@/features/routes/hooks/useRouteMatch', () => ({
-  useRouteMatch: () => ({ routeGroup: null, representativeActivityId: null }),
+  useRouteMatch: () => ({ routeGroup: null, representativeActivityId: mockRepresentativeId }),
 }));
 jest.mock('@/features/activity/hooks/useActivitySectionHighlights', () => ({
   useActivitySectionHighlights: () => ({ routes: mockRouteHighlights, newGround: new Map() }),
@@ -255,6 +262,7 @@ jest.mock('@/features/activity/components/ActivityChartsSection', () => ({
   },
 }));
 let capturedHeaderProps: {
+  routeOverlayCoordinates?: { latitude: number; longitude: number }[] | null;
   sectionOverlays?: SectionOverlay[] | null;
   onSectionMarkerPress?: (id: string) => void;
 } = {};
@@ -291,7 +299,11 @@ describe('activity detail screen', () => {
     mockUseSectionOverlays.mockReset();
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
     mockDetail.encounters = [];
+    delete mockDetail.representativeSignature;
     mockRouteHighlights.clear();
+    mockStreamReads.length = 0;
+    mockSearchParams = { id: 'act-1' };
+    mockRepresentativeId = null;
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -305,6 +317,25 @@ describe('activity detail screen', () => {
     view.rerender(<ActivityDetailScreen />);
     await act(async () => {});
     expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record');
+  });
+
+  it("draws the Routes tab overlay from the detail read's signature, reading no representative streams", async () => {
+    const signature = [
+      { latitude: 46.5, longitude: 6.6 },
+      { latitude: 46.502, longitude: 6.604 },
+    ];
+    mockSearchParams = { id: 'act-1', tab: 'routes' };
+    mockRepresentativeId = 'rep-1';
+    mockDetail.representativeSignature = encodeTrack(signature);
+
+    render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    expect(mockStreamReads).not.toContain('rep-1');
+    const overlay = capturedHeaderProps.routeOverlayCoordinates;
+    expect(overlay).toHaveLength(2);
+    expect(overlay?.[1].latitude).toBeCloseTo(46.502, 6);
+    expect(overlay?.[1].longitude).toBeCloseTo(6.604, 6);
   });
 
   it('hands the charts the opening transition the route read before its content mounted', async () => {

@@ -1,4 +1,5 @@
 import { runSectionBoundsEdit } from '../../../modules/veloqrs/src/delegates/sections/bounds';
+import { runSectionMerge } from '../../../modules/veloqrs/src/delegates/sections/mutations';
 import type { DelegateHost } from '../../../modules/veloqrs/src/delegates/host';
 import {
   type FfiSectionBoundsEdit,
@@ -81,10 +82,12 @@ it('hands the engine the activity a reference edit names', async () => {
     activityId: 'a7',
   });
   await runSectionBoundsEdit(host, { kind: 'resetReference', sectionId: 'sec-1' });
+  await runSectionBoundsEdit(host, { kind: 'revert', sectionId: 'sec-1', version: 3 });
 
   expect(edit.mock.calls.map(([sent]) => [sent.tag, sent.inner])).toEqual([
     [FfiSectionBoundsEdit_Tags.SetReference, { sectionId: 'sec-1', activityId: 'a7' }],
     [FfiSectionBoundsEdit_Tags.ResetReference, { sectionId: 'sec-1' }],
+    [FfiSectionBoundsEdit_Tags.Revert, { sectionId: 'sec-1', version: 3 }],
   ]);
 });
 
@@ -96,4 +99,39 @@ it('makes no engine call for a reference edit naming no activity', async () => {
     runSectionBoundsEdit(host, { kind: 'setReference', sectionId: 'sec-1', activityId: '' })
   ).rejects.toThrow();
   expect(edit).not.toHaveBeenCalled();
+});
+
+function mergeFixture(merge: jest.Mock) {
+  const notify = jest.fn();
+  const host = {
+    ready: true,
+    engine: { sections: () => ({ runSectionMerge: merge }) },
+    timedAsync: <T>(_name: string, run: () => Promise<T>) => run(),
+    notify,
+  } as unknown as DelegateHost;
+  return { host, notify };
+}
+
+it('notifies sections and groups readers only once a merge has ended', async () => {
+  let finish: (outcome: unknown) => void = () => {};
+  const merge = jest.fn(() => new Promise((resolve) => (finish = resolve)));
+  const { host, notify } = mergeFixture(merge);
+
+  const pending = runSectionMerge(host, 'sec-1', 'sec-2');
+  await Promise.resolve();
+  expect(merge).toHaveBeenCalledWith('sec-1', 'sec-2');
+  expect(notify).not.toHaveBeenCalled();
+
+  const outcome = { sectionId: 'sec-1', departed: [ride] };
+  finish(outcome);
+  await expect(pending).resolves.toEqual(outcome);
+  expect(notify.mock.calls).toEqual([['sections'], ['groups']]);
+});
+
+it('resolves a refused merge as null and notifies nobody', async () => {
+  const { host, notify } = mergeFixture(
+    jest.fn(() => Promise.reject(new Error('A section edit is already running')))
+  );
+  await expect(runSectionMerge(host, 'sec-1', 'sec-2')).resolves.toBeNull();
+  expect(notify).not.toHaveBeenCalled();
 });

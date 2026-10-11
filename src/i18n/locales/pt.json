@@ -79,11 +79,7 @@
       "formTSB": "Forma (TSB)",
       "hrRecovery": "Recuperação FC",
       "hrvToday": "VFC hoje",
-      "intensityEasy": "Leve",
       "intensityFactor": "Fator de intensidade",
-      "intensityHard": "Forte",
-      "intensityModerate": "Moderado",
-      "intensityVeryHard": "Muito forte",
       "max": "Máx {{value}}",
       "maxLabel": "Max",
       "newGround": "Terreno novo",
@@ -347,7 +343,7 @@
     "webdavTestUnauthorised": "Falha na autenticação",
     "webdavTestMethodNotAllowed": "Verifique o formato do endereço WebDAV. O servidor não aceita PROPFIND neste caminho",
     "webdavTestStatus": "O servidor respondeu {{code}}",
-    "moreInfo": "Mais informações",
+    "aboutTopic": "Sobre {{title}}",
     "sectionBackup": "Cópia de segurança",
     "sectionRestore": "Restaurar",
     "sectionDestinations": "Destinos",
@@ -575,8 +571,18 @@
       "thisYear": "Este ano",
       "lastYear": "Ano passado"
     },
-    "noActivities": "Nenhuma atividade encontrada",
     "noMatchingActivities": "Nenhuma atividade correspondente",
+    "emptyLibrary": {
+      "pausedTitle": "A sincronização está em pausa",
+      "pausedBody": "As tuas atividades estão no intervals.icu e serão transferidas quando a sincronização for retomada.",
+      "authExpiredTitle": "Inicia sessão para transferir as tuas atividades",
+      "signInAgain": "Iniciar sessão novamente",
+      "failedTitle": "As tuas atividades não foram transferidas",
+      "failedBody": "A última sincronização parou antes de chegar alguma.",
+      "emptyTitle": "Ainda não há atividades",
+      "emptyBody": "As atividades vêm da tua conta do intervals.icu ou de uma gravação feita aqui.",
+      "record": "Gravar uma atividade"
+    },
     "searchPlaceholder": "Pesquisar atividades...",
     "streamConsentTitle": "Transferir os dados de atividade em falta?",
     "streamConsentBody_one": "A {{count}} atividade faltam as séries de frequência cardíaca, potência e cadência. A transferência usa cerca de {{megabytes}} MB de dados.",
@@ -616,7 +622,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Falha ao carregar dados de forma",
     "fatigueDescription": "É uma média móvel ponderada exponencialmente de 7 dias da sua carga de treino.",
     "fitnessAndFatigue": "Condição e fadiga",
     "fitnessDescription": "É uma média móvel ponderada exponencialmente de 42 dias da sua carga de treino.",
@@ -876,8 +881,9 @@
       "ratioFormula": "rácio = séries ponderadas dominantes / séries ponderadas secundárias"
     },
     "viewInDetail": "Ver em detalhe",
+    "routesDisabledDescription": "Os seus troços ficam guardados e voltam a abrir quando a correspondência estiver ativada.",
     "routesDisabledLine1": "Percursos e troços desativados",
-    "routesDisabledLine2": "Toque para ativar",
+    "routesDisabledLine2": "Ativar percursos e troços",
     "strengthProgression": {
       "upTitle": "O volume de {{muscle}} está a crescer",
       "downTitle": "O volume de {{muscle}} diminuiu",
@@ -949,6 +955,12 @@
       "openFitness": "Abrir o gráfico de condição",
       "openStrength": "Abrir o treino de força",
       "openDetail": "Abrir o detalhe"
+    },
+    "verdict": {
+      "good": "Bom",
+      "warning": "Atenção",
+      "concern": "Preocupante",
+      "neutral": "Neutro"
     }
   },
   "licenses": {
@@ -1220,6 +1232,7 @@
     "permissionExplanation": "O Veloq precisa da sua permissão para carregar atividades no intervals.icu",
     "permissionNeeded": "Permissão necessária para carregar atividades",
     "rec": "REC",
+    "resumeLater": "Mais tarde",
     "resumePrevious": "Retomar gravação anterior?",
     "resumePreviousMessage": "Uma gravação iniciada em {{startTime}} foi interrompida após {{duration}} de tempo em movimento. Descartá-la elimina-a permanentemente.",
     "reviewActivity": "Rever atividade",
@@ -1242,6 +1255,10 @@
     "settingsDataFields": "Campos de dados",
     "settingsUnits": "Unidades",
     "slideToUnlock": "Deslize para desbloquear",
+    "lockControls": "Bloquear controlos",
+    "unlockControls": "Desbloquear controlos",
+    "controlsLocked": "Controlos bloqueados",
+    "controlsUnlocked": "Controlos desbloqueados",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Iniciar atividade",
     "status": {
@@ -1257,7 +1274,10 @@
     },
     "trimActivity": "Recortar atividade",
     "trimmed": "Recortado",
-    "uploadErrorMessage": "Não foi possível enviar a atividade: {{error}}",
+    "uploadRejected": "O intervals.icu recusou este ficheiro. A atividade fica guardada em As minhas gravações.",
+    "uploadMissing": "O ficheiro desta atividade já não está no dispositivo, por isso não pode ser enviado.",
+    "uploadFailed": "Não foi possível enviar a atividade. Está guardada neste dispositivo.",
+    "openInRecordings": "Abrir em As minhas gravações",
     "writePermissionNotGranted": "Permissão de escrita não concedida",
     "writePermissionRequired": "Permissão de escrita necessária",
     "savedLocally": "Atividade guardada neste dispositivo. Pode enviá-la a qualquer momento em As minhas gravações.",
@@ -1625,6 +1645,7 @@
     "nameTaken": "Outra secção já tem este nome. Escolha um nome diferente.",
     "undoExcludeLap": "Anular Volta {{n}}",
     "excludeLapNumber": "Excluir Volta {{n}}",
+    "mergeFailed": "Não foi possível fundir os troços.",
     "deleteFailed": "Não foi possível eliminar o troço."
   },
   "settings": {
@@ -1810,7 +1831,11 @@
     "sectionSameTraffic": "Sensibilidade de divisão de rotas: {{value}}",
     "sectionParamPastClamp": "Acima disto o detetor deixa de distinguir os valores.",
     "sectionParamPastRange": "Estas definições estão fora do intervalo testado.",
+    "sectionParamEditHint": "Introduza um valor",
     "sectionParamRange": "Intervalo testado de {{min}} a {{max}}",
+    "sectionParamInvalid": "Introduza um número superior a 0.",
+    "sectionParamInvalidWhole": "Introduza um número inteiro, 1 ou mais.",
+    "groupingParamInvalidPercent": "Introduza uma percentagem de 1 a 100.",
     "sectionPresetDefault": "Padrão",
     "sectionPresetRelaxed": "Flexível",
     "sectionPresetStrict": "Rigoroso",
@@ -1869,7 +1894,7 @@
     "elevationBackfillPaused": "Transferência de altitude em pausa. Ative Correspondência de percursos para continuar.",
     "elevationBackfillSwitchedOff": "Transferência de altitude parada porque Correspondência de percursos está desligada.",
     "exportPrivacyTitle": "Deixar a casa fora das exportações",
-    "exportPrivacyDescription": "Corta o início e o fim de cada percurso a {{radius}} m de casa. Apenas a cópia exportada é encurtada.",
+    "exportPrivacyDescription": "Corta o início e o fim de cada percurso a {{radius}} de casa. Apenas a cópia exportada é encurtada.",
     "exportPrivacySuggested_one": "A maioria dos teus treinos começa perto do mesmo sítio, {{count}} deles. {{share}}% de todos os fins de treino.",
     "exportPrivacySuggested_many": "A maioria dos teus treinos começa perto do mesmo sítio, {{count}} deles. {{share}}% de todos os fins de treino.",
     "exportPrivacySuggested_other": "A maioria dos teus treinos começa perto do mesmo sítio, {{count}} deles. {{share}}% de todos os fins de treino.",
@@ -1877,9 +1902,8 @@
     "exportPrivacyNoSuggestion": "Ainda não há treinos suficientes para perceber onde fica casa.",
     "exportPrivacyNeedsHome": "Desligado até definir a casa. Use o local sugerido abaixo ou toque no mapa.",
     "exportPrivacyNeedsHomeNoSuggestion": "Desligado até definir a casa.",
-    "exportPrivacyCount": "Encurta {{touched}} de {{total}} treinos a {{radius}} m. Nada é apagado.",
+    "exportPrivacyCount": "Encurta {{touched}} de {{total}} treinos a {{radius}}. Nada é apagado.",
     "exportPrivacyNothingTrimmed": "Nada é cortado. As exportações levam o percurso completo.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Toca no mapa para mover a casa.",
     "previewRouteGrouping": "Pré-visualizar agrupamento de percursos",
     "groupingMatchShare": "Mesmo percurso se {{percent}}% coincidir",
@@ -1974,7 +1998,7 @@
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
     "year": "Ano",
-    "atWeight": "a {{kg}} kg"
+    "atWeight": "a {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Eficiência aeróbica",
@@ -2263,6 +2287,33 @@
       "noData": "Ligado, sem dados",
       "reconnecting": "A restabelecer ligação…",
       "disconnected": "Não ligado"
+    },
+    "purpose": "O Bluetooth é usado para encontrar e ligar sensores de frequência cardíaca, potência e cadência.",
+    "noneFound": "Nenhum sensor encontrado",
+    "noneFoundHint": "Acorde o sensor colocando a cinta ou rodando os pedais, e mantenha-o perto do telemóvel.",
+    "scanAgain": "Procurar novamente",
+    "availability": {
+      "unsupportedTitle": "Este dispositivo não tem Bluetooth LE",
+      "unsupportedHint": "Os sensores de frequência cardíaca, potência e cadência precisam de Bluetooth LE.",
+      "poweredOffTitle": "O Bluetooth está desligado",
+      "poweredOffHint": "Ligue o Bluetooth para encontrar e ligar sensores.",
+      "poweredOffHintIos": "Ligue o Bluetooth no Centro de controlo ou nas Definições para encontrar e ligar sensores.",
+      "turnOn": "Ligar Bluetooth",
+      "permissionTitle": "É necessária a autorização de Bluetooth",
+      "permissionHint": "Permita o acesso a dispositivos próximos para encontrar e ligar sensores.",
+      "blockedHint": "Permita o acesso a dispositivos próximos nas Definições para encontrar e ligar sensores.",
+      "locationPermissionTitle": "É necessária a autorização de localização",
+      "locationPermissionHint": "Nesta versão do Android, procurar sensores Bluetooth requer a autorização de localização.",
+      "locationBlockedHint": "Nesta versão do Android, procurar sensores Bluetooth requer a autorização de localização. Permita-a nas Definições.",
+      "allow": "Permitir",
+      "locationOffTitle": "A localização está desligada",
+      "locationOffHint": "Nesta versão do Android, procurar sensores Bluetooth requer a localização ligada.",
+      "openLocationSettings": "Abrir definições de localização"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth desligado",
+      "permission": "É necessária a autorização de Bluetooth",
+      "unsupported": "Bluetooth indisponível"
     }
   },
   "sectionHistory": {
@@ -2277,6 +2328,7 @@
     "current": "Atual",
     "revert": "Repor",
     "revertConfirm": "Repor a versão {{version}} como linha deste troço? A deteção mantém-na até a libertar.",
+    "revertFailed": "Não foi possível repor a versão.",
     "unpin": "Libertar",
     "showOnMap": "Mostrar no mapa",
     "hideOnMap": "Ocultar",

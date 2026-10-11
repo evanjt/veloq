@@ -139,7 +139,7 @@ jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({
 }));
 
 /** The Rust tile store's clear, which empties the tree the way the real one does. */
-const mockClearTiles = jest.fn((): number => {
+const mockClearTiles = jest.fn(async (): Promise<number> => {
   for (const uri of [...mockFiles.keys()]) {
     if (uri.startsWith('file:///docs/basemap-tiles/')) mockFiles.delete(uri);
   }
@@ -1404,9 +1404,7 @@ describe('the basemap tile store at a wipe', () => {
   });
 
   it('deletes the tile directory itself when the store was never opened', async () => {
-    mockClearTiles.mockImplementationOnce(() => {
-      throw new Error('basemap store has no path');
-    });
+    mockClearTiles.mockRejectedValueOnce(new Error('basemap store has no path'));
     mockFiles.set(tile, 'athlete-a');
 
     await wipeLibrary();
@@ -1415,9 +1413,7 @@ describe('the basemap tile store at a wipe', () => {
   });
 
   it('still finishes the rest of the wipe when the store cannot be cleared', async () => {
-    mockClearTiles.mockImplementationOnce(() => {
-      throw new Error('basemap store has no path');
-    });
+    mockClearTiles.mockRejectedValueOnce(new Error('basemap store has no path'));
     mockFiles.set('file:///docs/veloq_panic.log', 'panic at i998');
     mockRouteDbPath.mockReturnValue('/docs/routes.db');
 

@@ -28,7 +28,16 @@ import { clearRecordingBackup } from '@/features/recording/lib/storage/recording
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import { router } from 'expo-router';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { shareRecordingFit } from '@/features/recording/lib/shareRecordingFit';
 import type { RecordingStreams } from '@/features/recording/types';
+import * as haptics from '@/shared/ui/haptics';
+
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -77,6 +86,10 @@ jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
   uploadRecordingNow: jest.fn(),
 }));
 
+jest.mock('@/features/recording/lib/shareRecordingFit', () => ({
+  shareRecordingFit: jest.fn(async () => true),
+}));
+
 const mockRequestSyncRefresh = requestSyncRefresh as jest.Mock;
 const mockSaveRecording = saveRecording as jest.Mock;
 const mockAttachEngineActivity = attachEngineActivity as jest.Mock;
@@ -84,6 +97,7 @@ const mockWriteProvisional = writeProvisionalActivity as jest.Mock;
 const mockUploadRecording = uploadRecordingNow as jest.Mock;
 const mockClearBackup = clearRecordingBackup as jest.Mock;
 const mockGenerateFit = generateFitFile as jest.Mock;
+const mockShareFit = shareRecordingFit as jest.Mock;
 
 const STREAMS: RecordingStreams = {
   time: [0, 1, 2],
@@ -220,7 +234,7 @@ describe('useReviewSave', () => {
 
   it('reuses the saved entry on retry instead of duplicating it', async () => {
     mockUploadRecording
-      .mockResolvedValueOnce({ outcome: UploadOutcome.Rejected, errorDetail: 'bad file' })
+      .mockRejectedValueOnce(new Error('socket closed'))
       .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
 
     const { result } = renderHook(() => useReviewSave(makeArgs()));
@@ -233,6 +247,83 @@ describe('useReviewSave', () => {
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
     expect(mockUploadRecording).toHaveBeenCalledTimes(2);
     expect(router.replace).toHaveBeenCalledWith('/');
+  });
+
+  /**
+   * Scenario: intervals.icu refuses the file, which the same bytes sent again
+   * cannot change, so the ride parks in the library.
+   *
+   * Expected behaviour: no Retry, a translated line saying the ride is kept,
+   * the server's words only as the secondary detail, and the kept ride offered
+   * to open or share.
+   */
+  it('offers the kept ride rather than a retry when intervals.icu refuses the file', async () => {
+    mockUploadRecording.mockResolvedValue({
+      outcome: UploadOutcome.Rejected,
+      errorDetail: 'Duplicate activity',
+    });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(result.current.canRetry).toBe(false);
+    expect(result.current.errorMessage).toBe('recording.uploadRejected');
+    expect(result.current.errorDetail).toBe('Duplicate activity');
+    expect(result.current.keptRecording).toEqual(expect.objectContaining({ id: 'rec-1' }));
+
+    await act(() => result.current.shareKeptRecording());
+    expect(mockShareFit).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }));
+  });
+
+  it('leaves the detail out when the refusal carries none', async () => {
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(result.current.errorMessage).toBe('recording.uploadRejected');
+    expect(result.current.errorDetail).toBeNull();
+  });
+
+  it('offers no retry and nothing to share when the ride file is gone', async () => {
+    mockUploadRecording.mockResolvedValue({
+      outcome: UploadOutcome.Missing,
+      errorDetail: 'no such file /data/recordings/rec-1.fit',
+    });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(result.current.canRetry).toBe(false);
+    expect(result.current.errorMessage).toBe('recording.uploadMissing');
+    expect(result.current.errorDetail).toBeNull();
+    expect(result.current.keptRecording).toBeNull();
+  });
+
+  it('offers a retry for a thrown upload, in its translated line rather than the raw message', async () => {
+    mockUploadRecording.mockRejectedValue(new Error('socket closed'));
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(result.current.canRetry).toBe(true);
+    expect(result.current.errorMessage).toBe('recording.uploadFailed');
+    expect(result.current.errorDetail).toBeNull();
+    expect(result.current.keptRecording).toBeNull();
+  });
+
+  it('clears the refusal when the next save uploads', async () => {
+    mockUploadRecording
+      .mockResolvedValueOnce({ outcome: UploadOutcome.Rejected, errorDetail: 'Duplicate activity' })
+      .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleSave());
+
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.errorDetail).toBeNull();
+    expect(result.current.keptRecording).toBeNull();
   });
 
   it('explains the missing permission and offers the OAuth fix on 403', async () => {
@@ -493,8 +584,8 @@ describe('useReviewSave', () => {
       UploadOutcome.PermissionBlocked,
       { home: false, queued: false, error: true, retry: false, fix: true },
     ],
-    [UploadOutcome.Rejected, { home: false, queued: false, error: true, retry: true, fix: false }],
-    [UploadOutcome.Missing, { home: false, queued: false, error: true, retry: true, fix: false }],
+    [UploadOutcome.Rejected, { home: false, queued: false, error: true, retry: false, fix: false }],
+    [UploadOutcome.Missing, { home: false, queued: false, error: true, retry: false, fix: false }],
     [
       UploadOutcome.AuthExpired,
       { home: true, queued: true, error: false, retry: false, fix: false },
@@ -612,4 +703,63 @@ it('drops a lap the trim removes and reads the next one from its own samples', a
       avgHeartrate: 160,
     }),
   ]);
+});
+
+describe('the save haptic', () => {
+  const successes = () => (haptics.success as jest.Mock).mock.calls.length;
+
+  it('plays one success once the library holds the ride, before it leaves the review', async () => {
+    let successesAtLeave = -1;
+    (router.replace as jest.Mock).mockImplementationOnce(() => {
+      successesAtLeave = successes();
+    });
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(successes()).toBe(1);
+    expect(successesAtLeave).toBe(1);
+  });
+
+  it('plays one success for a saved manual entry', async () => {
+    useRecordingStore.setState({ status: 'recording', mode: 'manual' });
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs({ isManual: true })));
+    await act(() => result.current.handleSave());
+
+    expect(mockSaveRecording).toHaveBeenCalledTimes(1);
+    expect(successes()).toBe(1);
+  });
+
+  it('plays nothing when the library save fails', async () => {
+    mockSaveRecording.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(successes()).toBe(0);
+  });
+
+  it('plays no second success when a failed upload is retried', async () => {
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected, errorDetail: 'x' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+    await act(() => result.current.handleSave());
+
+    expect(mockSaveRecording).toHaveBeenCalledTimes(1);
+    expect(successes()).toBe(1);
+  });
+
+  it('plays nothing for a ride the library already held', async () => {
+    useRecordingStore.setState({ savedToLibrary: true });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(mockSaveRecording).not.toHaveBeenCalled();
+    expect(successes()).toBe(0);
+  });
 });

@@ -1,39 +1,34 @@
 import { Platform, TextStyle } from 'react-native';
 
-// iOS uses San Francisco (SF Pro) via system font with specific weights
-// Using -apple-system ensures proper SF Pro rendering with optical sizing
-const fontFamily = Platform.select({
-  ios: '-apple-system',
-  android: 'Roboto',
-  default: 'System',
+// Each platform draws its own system sans: `System` is San Francisco on iOS,
+// and leaving the family unset on Android keeps the
+// device's system face rather than forcing Roboto over an OEM's choice.
+const fontFamily = Platform.select<string | undefined>({
+  ios: 'System',
+  default: undefined,
 });
 
-// SF Pro Display for large headlines (optimised for 20pt+)
-const displayFamily = Platform.select({
-  ios: '-apple-system',
-  android: 'Roboto',
-  default: 'System',
-});
+// Numbers in a column or a live readout keep one width per digit.
+const tabularFigures: TextStyle['fontVariant'] = ['tabular-nums'];
 
-// Monospace for metrics (tabular numbers)
-// SF Mono on iOS for consistency with system
-const monoFamily = Platform.select({
-  ios: 'SF Mono',
-  android: 'monospace',
+// The system monospaced design, for code and formulas only; `ui-monospace` is
+// how iOS is asked for SF Mono, which it exposes to no app by family name.
+const codeFamily = Platform.select({
+  ios: 'ui-monospace',
   default: 'monospace',
 });
 
 export const typography = {
-  // Headlines & Titles (use displayFamily for optimal rendering at large sizes)
+  // Headlines & Titles
   screenTitle: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 28,
     fontWeight: '700' as const,
     lineHeight: 34,
     letterSpacing: -0.5,
   },
   sectionTitle: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 22,
     fontWeight: '700' as const,
     lineHeight: 28,
@@ -79,36 +74,39 @@ export const typography = {
     lineHeight: 18,
   },
 
-  // Stats & Metrics (large numbers use displayFamily)
+  // Stats & Metrics: every numeric role draws tabular figures
   // Hero timer for the recording screen; tabular numerals stop width jitter.
   statsHero: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 44,
     fontWeight: '700' as const,
     lineHeight: 50,
     letterSpacing: -0.5,
-    fontVariant: ['tabular-nums'] as TextStyle['fontVariant'],
+    fontVariant: tabularFigures,
   },
   heroNumber: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 48,
     fontWeight: '700' as const,
     lineHeight: 56,
     letterSpacing: -1,
+    fontVariant: tabularFigures,
   },
   largeNumber: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 36,
     fontWeight: '700' as const,
     lineHeight: 42,
     letterSpacing: -0.8,
+    fontVariant: tabularFigures,
   },
   headlineNumber: {
-    fontFamily: displayFamily,
+    fontFamily,
     fontSize: 32,
     fontWeight: '700' as const,
     lineHeight: 38,
     letterSpacing: -0.6,
+    fontVariant: tabularFigures,
   },
   statsValueLarge: {
     fontFamily,
@@ -116,6 +114,7 @@ export const typography = {
     fontWeight: '700' as const,
     lineHeight: 30,
     letterSpacing: -0.4,
+    fontVariant: tabularFigures,
   },
   statsValue: {
     fontFamily,
@@ -123,6 +122,7 @@ export const typography = {
     fontWeight: '700' as const,
     lineHeight: 26,
     letterSpacing: -0.3,
+    fontVariant: tabularFigures,
   },
   statsLabel: {
     fontFamily,
@@ -132,11 +132,38 @@ export const typography = {
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
   },
+  // The header above a group of rows in a grouped list. Case comes from the
+  // transform, so the string under it stays as the translation spells it.
+  sectionHeader: {
+    fontFamily,
+    fontSize: 12,
+    fontWeight: '500' as const,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase' as const,
+  },
   metricValue: {
-    fontFamily: monoFamily,
+    fontFamily,
     fontSize: 18,
     fontWeight: '600' as const,
     lineHeight: 24,
+    fontVariant: tabularFigures,
+  },
+  // A cell in a table of numbers.
+  tableValue: {
+    fontFamily,
+    fontSize: 14,
+    fontWeight: '400' as const,
+    lineHeight: 20,
+    fontVariant: tabularFigures,
+  },
+
+  // Code and formulas
+  code: {
+    fontFamily: codeFamily,
+    fontSize: 13,
+    fontWeight: '400' as const,
+    lineHeight: 20,
   },
 
   // Small text

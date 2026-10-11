@@ -39,12 +39,13 @@ function SectionHistoryScreenContent() {
   const activityNames = useLedgerActivityNames(ledger.history);
   const revert = useCallback(
     (version: number) => {
+      if (ledger.isReverting) return;
       Alert.alert(t('sectionHistory.revert'), t('sectionHistory.revertConfirm', { version }), [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('sectionHistory.revert'),
-          onPress: () => {
-            if (ledger.revert(version)) refresh();
+          onPress: async () => {
+            if (await ledger.revert(version)) refresh();
           },
         },
       ]);
@@ -52,6 +53,7 @@ function SectionHistoryScreenContent() {
     [ledger, refresh, t]
   );
   const unpin = useCallback(() => {
+    if (ledger.isReverting) return;
     if (ledger.unpin()) refresh();
   }, [ledger, refresh]);
   const showVersion = useCallback(
@@ -87,6 +89,7 @@ function SectionHistoryScreenContent() {
           onShowVersion={showVersion}
           onRevert={revert}
           onUnpin={unpin}
+          isReverting={ledger.isReverting}
           activityNames={activityNames}
         />
       </ScreenScrollView>

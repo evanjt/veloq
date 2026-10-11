@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
 import { getEngine } from '@/shared/native/engine';
@@ -7,7 +8,7 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 function engineWith() {
   return {
     getSectionGeometryVersionPolyline: jest.fn(() => [{ lat: 46, lng: 7 }]),
-    revertSectionToVersion: jest.fn(() => [] as unknown[]),
+    runSectionBoundsEdit: jest.fn((): Promise<unknown[] | null> => Promise.resolve([])),
     unpinSection: jest.fn(() => true),
   };
 }
@@ -39,7 +40,7 @@ function bundleWith(pinned: number | null): BundledLedger {
 }
 
 describe('useSectionLedger', () => {
-  it('shows the bundle newest first with numbers, and follows the next bundle after a write', () => {
+  it('shows the bundle newest first with numbers, and follows the next bundle after a write', async () => {
     const engine = engineWith();
     (getEngine as jest.Mock).mockReturnValue(engine);
     const { result, rerender } = renderHook(
@@ -54,10 +55,14 @@ describe('useSectionLedger', () => {
     expect(result.current.pinnedVersion).toBeNull();
     expect(result.current.versionPolyline(1)).toEqual([{ lat: 46, lng: 7 }]);
 
-    act(() => {
-      expect(result.current.revert(1)).toBe(true);
+    await act(async () => {
+      expect(await result.current.revert(1)).toBe(true);
     });
-    expect(engine.revertSectionToVersion).toHaveBeenCalledWith('sec1', 1);
+    expect(engine.runSectionBoundsEdit).toHaveBeenCalledWith({
+      kind: 'revert',
+      sectionId: 'sec1',
+      version: 1,
+    });
     expect(result.current.pinnedVersion).toBeNull();
     rerender({ bundle: bundleWith(1) });
     expect(result.current.pinnedVersion).toBe(1);
@@ -70,11 +75,11 @@ describe('useSectionLedger', () => {
     expect(result.current.pinnedVersion).toBeNull();
   });
 
-  it('is empty without a bundle, and writes nothing without an engine', () => {
+  it('is empty without a bundle, and writes nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
-    expect(result.current.revert(1)).toBe(false);
+    expect(await result.current.revert(1)).toBe(false);
     expect(result.current.unpin()).toBe(false);
   });
 
@@ -149,5 +154,61 @@ describe('useSectionLedger', () => {
     expect(result.current.history[1].details?.splitFrom).toEqual(linked);
     expect(result.current.history[1].details?.around).toEqual(['a1']);
     expect(result.current.history[0].details).toBeUndefined();
+  });
+});
+
+/**
+ * Scenario: the athlete reverts a section to a stored version, which re-matches
+ * every ride against that line.
+ * Expected behaviour: the revert runs off the JS thread, so the handler returns
+ * while it runs, a second revert is refused until it ends, and a failure is
+ * shown.
+ */
+describe('reverting to a stored version', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('returns while the revert runs and refuses a second revert', async () => {
+    const engine = engineWith();
+    engine.runSectionBoundsEdit.mockImplementation(() => new Promise(() => {}));
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
+
+    let first: Promise<boolean> | undefined;
+    act(() => {
+      first = result.current.revert(1);
+    });
+    expect(first).toBeInstanceOf(Promise);
+    expect(result.current.isReverting).toBe(true);
+
+    let second: boolean | undefined;
+    await act(async () => {
+      second = await result.current.revert(2);
+    });
+    expect(second).toBe(false);
+    expect(engine.runSectionBoundsEdit).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('shows the failure and frees the action when the revert fails', async () => {
+    const engine = engineWith();
+    engine.runSectionBoundsEdit.mockResolvedValueOnce(null).mockResolvedValueOnce([]);
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
+
+    await act(async () => {
+      expect(await result.current.revert(1)).toBe(false);
+    });
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect((Alert.alert as jest.Mock).mock.calls[0][1]).toBe('sectionHistory.revertFailed');
+    expect(result.current.isReverting).toBe(false);
+
+    await act(async () => {
+      expect(await result.current.revert(1)).toBe(true);
+    });
+    expect(engine.runSectionBoundsEdit).toHaveBeenCalledTimes(2);
   });
 });

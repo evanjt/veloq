@@ -392,16 +392,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityPill: {
-    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.15),
+    backgroundColor: colorWithOpacity(colors.run, 0.15),
     paddingHorizontal: layout.borderRadius,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
-    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.3),
+    borderColor: colorWithOpacity(colors.run, 0.3),
   },
   activityPillDark: {
-    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.2),
-    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.4),
+    backgroundColor: colorWithOpacity(colors.run, 0.2),
+    borderColor: colorWithOpacity(colors.run, 0.4),
   },
   activityLabel: {
     fontSize: typography.caption.fontSize,

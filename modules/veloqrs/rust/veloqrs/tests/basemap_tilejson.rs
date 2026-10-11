@@ -367,3 +367,32 @@ fn a_tile_fetched_under_the_old_segment_is_not_kept_after_the_refresh() {
     .expect("store");
     assert!(store.get("openfreemap", 12, 2148, 1437).is_some());
 }
+
+/// With nothing kept for a source, every miss used to read the sidecar from
+/// disk again. It is read once per store: an entry it gains afterwards comes
+/// only from a resolve, which holds the template in memory too.
+#[test]
+fn a_source_with_nothing_kept_reads_the_sidecar_once() {
+    let dir = TempDir::new().expect("tempdir");
+    let _serial = store_at(&dir);
+    planet();
+
+    assert_eq!(tile_template_for("openfreemap"), None);
+    std::fs::write(
+        dir.path().join("tile-templates.json"),
+        format!(r#"{{"openfreemap":"{SEPTEMBER}"}}"#),
+    )
+    .unwrap();
+    assert_eq!(
+        tile_template_for("openfreemap"),
+        None,
+        "the sidecar was read again on a later miss"
+    );
+
+    veloqrs::basemap::set_path(dir.path().to_string_lossy().into_owned());
+    assert_eq!(
+        tile_template_for("openfreemap").as_deref(),
+        Some(SEPTEMBER),
+        "a store set afresh did not read its own sidecar"
+    );
+}

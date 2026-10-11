@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { Alert, Platform } from 'react-native';
 import { SyncState, SyncStep } from 'veloqrs';
 
@@ -1063,13 +1063,22 @@ describe('one layout', () => {
     for (const key of keys) expect(message).toContain(key);
   });
 
-  it('labels every info button for a screen reader', () => {
+  it('names every info button after its topic, each one a control of its own', () => {
     render(<BackupSection />);
 
-    for (const id of ['auto', 'restore', 'destinations', 'export']) {
-      expect(screen.getByTestId(`backup-info-${id}`).props.accessibilityLabel).toBe(
-        'backup.moreInfo'
-      );
+    const names = ['auto', 'restore', 'destinations', 'export'].map((id) => {
+      const name = screen.getByTestId(`backup-info-${id}`).props.accessibilityLabel as string;
+      expect(name).toMatch(/^backup\.aboutTopic/);
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+      return name;
+    });
+    expect(new Set(names).size).toBe(names.length);
+
+    for (const [row, info] of [
+      ['backup-list-button', 'backup-info-restore'],
+      ['backup-export-button', 'backup-info-export'],
+    ] as const) {
+      expect(within(screen.getByTestId(row)).queryByTestId(info)).toBeNull();
     }
   });
 });

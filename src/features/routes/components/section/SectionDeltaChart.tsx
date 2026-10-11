@@ -22,6 +22,7 @@ import {
 import {
   layoutDelta,
   pickEmphasisedLap,
+  scrubDeltaSecs,
   snapScrubIndex,
   type DeltaFrame,
 } from '@/features/routes/lib/deltaLayout';
@@ -73,7 +74,7 @@ export function SectionDeltaChart({
   const referenceLap = deltas.laps.find((lap) => lap.activityId === deltas.referenceActivityId);
 
   const scrub = scrubX === null ? null : snapScrubIndex(scrubX, plot, gridStepM);
-  const scrubSecs = scrub === null ? undefined : emphasisedLap?.deltaSecs[scrub.index];
+  const scrubSecs = scrub === null ? undefined : scrubDeltaSecs(emphasisedLap, scrub.index);
   const scrubReading =
     scrub !== null && scrubSecs !== undefined && Number.isFinite(scrubSecs)
       ? t(scrubSecs < 0 ? 'sections.deltaReadoutAhead' : 'sections.deltaReadoutBehind', {

@@ -3,11 +3,13 @@
  * 10:00) and whose reverse descents best 5:40 (average 6:00).
  *
  * Expected behaviour: the Summary card and the calendar year row show each
- * direction's own Best and Avg, and never a single Best or a blended Avg.
+ * direction's own Best and Avg, and never a single Best or a blended Avg. Each
+ * value names its direction in words, so no reader has to tell the two apart
+ * by the colour of a dot.
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
@@ -101,5 +103,65 @@ describe('direction Best and Avg', () => {
 
     expect(getByTestId('year-best-forward-2026').props.children).toBe('9:10');
     expect(getByTestId('year-best-reverse-2026').props.children).toBe('5:40');
+  });
+
+  it('names the direction of every Best and Avg on the Summary card in words', () => {
+    const { getByTestId } = card({
+      bestForwardRecord: record(550),
+      bestReverseRecord: record(340),
+      forwardStats: stats(600),
+      reverseStats: stats(360),
+    });
+
+    const cells = [
+      ['section-summary-cell-1-0', 'section-best-forward', 'Forward'],
+      ['section-summary-cell-1-1', 'section-best-reverse', 'Reverse'],
+      ['section-summary-cell-2-0', 'section-avg-forward', 'Forward'],
+      ['section-summary-cell-2-1', 'section-avg-reverse', 'Reverse'],
+    ];
+    for (const [cell, value, direction] of cells) {
+      const inCell = within(getByTestId(cell));
+      expect(inCell.getByTestId(value)).toBeTruthy();
+      expect(inCell.getByText(new RegExp(direction))).toBeTruthy();
+    }
+  });
+
+  it('names each direction in words on the calendar year row and month entries', () => {
+    const calendar: CalendarSummary = {
+      years: [
+        {
+          year: 2026,
+          traversalCount: 20,
+          activityCount: 10,
+          forward: best('up', 550),
+          reverse: best('down', 340),
+          months: [
+            {
+              month: 4,
+              traversalCount: 2,
+              activityCount: 1,
+              forward: best('up', 550),
+              reverse: best('down', 340),
+            },
+          ],
+        },
+      ],
+      forwardPr: best('up', 550),
+      reversePr: best('down', 340),
+      sectionDistance: 2000,
+    };
+    const { getAllByText, getByLabelText } = render(
+      <SectionStatsCards
+        calendarSummary={calendar}
+        isDark={false}
+        isRunning={false}
+        activityColor="#3B82F6"
+      />
+    );
+
+    expect(getAllByText(/Forward/).length).toBeGreaterThan(0);
+    expect(getAllByText(/Reverse/).length).toBeGreaterThan(0);
+    expect(getByLabelText(/Forward.*9:10.*up/)).toBeTruthy();
+    expect(getByLabelText(/Reverse.*5:40.*down/)).toBeTruthy();
   });
 });

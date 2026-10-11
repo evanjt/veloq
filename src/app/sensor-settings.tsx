@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Platform, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import {
   ScreenSafeAreaView,
@@ -12,8 +13,11 @@ import {
   signalColor,
 } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
+import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { useTheme } from '@/shared/app';
+import { useForeground } from '@/shared/app/useRetryTriggers';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   useSensorStore,
@@ -21,10 +25,16 @@ import {
   stopScan,
   connectKnownSensors,
   disconnectSensor,
-  requestBlePermissions,
   isBleAvailable,
+  refreshBleAccess,
+  turnOnBluetooth,
 } from '@/features/sensors';
-import type { DiscoveredSensor, KnownSensor, SensorKind } from '@/features/sensors';
+import type {
+  DiscoveredSensor,
+  KnownSensor,
+  SensorAvailability,
+  SensorKind,
+} from '@/features/sensors';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
@@ -33,6 +43,91 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
     power: 'lightning-bolt',
     cadence: 'rotate-right',
   };
+
+interface Notice {
+  testID: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  title: string;
+  description: string;
+  action?: { label: string; onPress: () => void };
+}
+
+function openLocationSettings(): void {
+  Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+    Linking.openSettings();
+  });
+}
+
+/**
+ * What stops a scan, and the one action that fixes it, or null when Scan can
+ * run. Below Android 12 the grant a scan needs is location, so the copy says
+ * so rather than naming a Bluetooth permission the system never shows.
+ */
+function availabilityNotice(availability: SensorAvailability, t: TFunction): Notice | null {
+  const needsLocationGrant = Platform.OS === 'android' && Number(Platform.Version) < 31;
+  switch (availability) {
+    case 'unsupported':
+      return {
+        testID: 'sensor-availability-unsupported',
+        icon: 'bluetooth-off',
+        title: t('sensors.availability.unsupportedTitle'),
+        description: t('sensors.availability.unsupportedHint'),
+      };
+    case 'poweredOff':
+      return {
+        testID: 'sensor-availability-poweredOff',
+        icon: 'bluetooth-off',
+        title: t('sensors.availability.poweredOffTitle'),
+        // iOS lets an app neither turn the radio on nor open its page.
+        ...(Platform.OS === 'android'
+          ? {
+              description: t('sensors.availability.poweredOffHint'),
+              action: {
+                label: t('sensors.availability.turnOn'),
+                onPress: () => void turnOnBluetooth(),
+              },
+            }
+          : { description: t('sensors.availability.poweredOffHintIos') }),
+      };
+    case 'unauthorised':
+      return {
+        testID: 'sensor-availability-unauthorised',
+        icon: 'shield-lock-outline',
+        title: needsLocationGrant
+          ? t('sensors.availability.locationPermissionTitle')
+          : t('sensors.availability.permissionTitle'),
+        description: needsLocationGrant
+          ? t('sensors.availability.locationPermissionHint')
+          : t('sensors.availability.permissionHint'),
+        action: { label: t('sensors.availability.allow'), onPress: () => void startScan() },
+      };
+    case 'blocked':
+      return {
+        testID: 'sensor-availability-blocked',
+        icon: 'shield-lock-outline',
+        title: needsLocationGrant
+          ? t('sensors.availability.locationPermissionTitle')
+          : t('sensors.availability.permissionTitle'),
+        description: needsLocationGrant
+          ? t('sensors.availability.locationBlockedHint')
+          : t('sensors.availability.blockedHint'),
+        action: { label: t('common.openSettings'), onPress: () => void Linking.openSettings() },
+      };
+    case 'needsLocation':
+      return {
+        testID: 'sensor-availability-needsLocation',
+        icon: 'map-marker-off',
+        title: t('sensors.availability.locationOffTitle'),
+        description: t('sensors.availability.locationOffHint'),
+        action: {
+          label: t('sensors.availability.openLocationSettings'),
+          onPress: openLocationSettings,
+        },
+      };
+    default:
+      return null;
+  }
+}
 
 function SensorSettingsScreenContent() {
   const { t } = useTranslation();
@@ -44,6 +139,8 @@ function SensorSettingsScreenContent() {
   const knownSensors = useSensorStore((s) => s.knownSensors);
   const connections = useSensorStore((s) => s.connections);
   const isLoaded = useSensorStore((s) => s.isLoaded);
+  const availability = useSensorStore((s) => s.availability);
+  const scanFinished = useSensorStore((s) => s.scanFinished);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -55,21 +152,22 @@ function SensorSettingsScreenContent() {
     return () => stopScan();
   }, []);
 
+  // Open settings leaves the app, and a grant or location services turned on
+  // there is only seen by reading again on the way back.
+  useForeground(() => void refreshBleAccess());
+
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
-  const handleScan = useCallback(async () => {
+  const handleScan = useCallback(() => {
     if (scanning) {
       stopScan();
       return;
     }
-    const granted = await requestBlePermissions();
-    if (granted) {
-      await startScan();
-    }
+    void startScan();
   }, [scanning]);
 
   const handlePair = useCallback((sensor: DiscoveredSensor) => {
@@ -90,6 +188,20 @@ function SensorSettingsScreenContent() {
   const pairedIds = new Set(knownSensors.map((s) => s.id));
   const discoverable = discovered.filter((d) => !pairedIds.has(d.id));
   const bleAvailable = isBleAvailable();
+  const blocking = availabilityNotice(availability, t);
+  const foundNothing = !blocking && !scanning && scanFinished && discoverable.length === 0;
+  const notice: Notice | null =
+    blocking ??
+    (foundNothing
+      ? {
+          testID: 'sensor-scan-empty',
+          icon: 'magnify-close',
+          title: t('sensors.noneFound'),
+          description: t('sensors.noneFoundHint'),
+          action: { label: t('sensors.scanAgain'), onPress: () => void startScan() },
+        }
+      : null);
+  useAnnounceOnAppear(notice ? `${notice.title}. ${notice.description}` : null);
 
   const renderKinds = (kinds: SensorKind[], color: string) => (
     <View style={styles.kindRow}>
@@ -113,9 +225,9 @@ function SensorSettingsScreenContent() {
       >
         {/* Paired sensors */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+          <ListSectionHeader inset={false}>
             {t('sensors.paired', 'Paired sensors')}
-          </Text>
+          </ListSectionHeader>
           {knownSensors.length === 0 ? (
             <Text style={[styles.emptyHint, { color: textSecondary }]}>
               {t('sensors.nonePaired', 'No sensors paired yet. Scan below to add one.')}
@@ -162,9 +274,9 @@ function SensorSettingsScreenContent() {
 
         {/* Scan */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+          <ListSectionHeader inset={false}>
             {t('sensors.addSensor', 'Add a sensor')}
-          </Text>
+          </ListSectionHeader>
 
           {!bleAvailable ? (
             <EmptyState
@@ -176,6 +288,18 @@ function SensorSettingsScreenContent() {
               )}
               compact
             />
+          ) : notice ? (
+            <View testID={notice.testID} accessibilityLiveRegion="polite">
+              <EmptyState
+                icon={notice.icon}
+                title={notice.title}
+                description={notice.description}
+                actionLabel={notice.action?.label}
+                onAction={notice.action?.onPress}
+                actionTestID="sensor-availability-action"
+                compact
+              />
+            </View>
           ) : (
             <>
               <Button
@@ -195,6 +319,7 @@ function SensorSettingsScreenContent() {
                   />
                 }
               />
+              <Text style={[styles.purpose, { color: textSecondary }]}>{t('sensors.purpose')}</Text>
 
               {discoverable.map((sensor) => (
                 <Pressable
@@ -245,10 +370,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
-  sectionTitle: {
-    ...typography.label,
-    marginBottom: spacing.sm,
-  },
   emptyHint: {
     ...typography.bodySmall,
     fontStyle: 'italic',
@@ -293,6 +414,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scanButton: {
+    marginBottom: spacing.xs,
+  },
+  purpose: {
+    ...typography.caption,
     marginBottom: spacing.sm,
   },
 });

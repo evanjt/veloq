@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     paddingBottom: DEBUG_SCROLL_BOTTOM_PADDING,
   },
   row: {
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     fontSize: typography.label.fontSize,
     paddingVertical: spacing.xxs,
   },

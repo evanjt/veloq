@@ -1,3 +1,5 @@
+import { GROWING_LINE_REDRAW_MS } from '@/features/maps/lib/mapBudgets';
+
 import type { MapSurfaceHtmlConfig } from './mapSurface';
 
 /**
@@ -22,6 +24,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       markers: {},
       images: {},
       interactiveLayers: [],
+      redraws: {},
       ready: false,
     };
 
@@ -66,6 +69,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       var map = window.map;
       Object.keys(sources).forEach(function(id) {
         var spec = sources[id];
+        _cancelRedraw(id);
         try {
           if (spec === null) {
             window._veloq.layers.forEach(function(layerId) {
@@ -104,9 +108,49 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       });
     }
 
+    // A line sent whole, or removed, makes any redraw still pending moot.
+    function _cancelRedraw(id) {
+      var redraws = window._veloq.redraws || {};
+      var state = redraws[id];
+      if (state && state.timer) clearTimeout(state.timer);
+      delete redraws[id];
+    }
+
+    function _redrawLine(id) {
+      var spec = window._veloq.sources[id];
+      var source = window.map.getSource(id);
+      if (!spec || !source) return;
+      try {
+        source.setData(spec.data);
+      } catch (e) {
+        window._rn_log('redraw ' + id + ': ' + e.message);
+      }
+    }
+
+    // setData copies the whole line to MapLibre's worker, so a growing line
+    // is redrawn at most once a window: at once after a quiet window, else
+    // once at its end with everything that arrived meanwhile.
+    function _scheduleRedraw(id) {
+      window._veloq.redraws = window._veloq.redraws || {};
+      var redraws = window._veloq.redraws;
+      var state = redraws[id] || (redraws[id] = { last: -Infinity, timer: null });
+      if (state.timer) return;
+      var wait = state.last + ${GROWING_LINE_REDRAW_MS} - Date.now();
+      if (wait <= 0) {
+        state.last = Date.now();
+        _redrawLine(id);
+        return;
+      }
+      state.timer = setTimeout(function() {
+        state.timer = null;
+        state.last = Date.now();
+        _redrawLine(id);
+      }, wait);
+    }
+
     // Points added to the end of a line the page already holds. The cached
-    // spec is grown too, so a style swap rehydrates the whole line and not
-    // just the tail.
+    // spec is grown at once, so a style swap rehydrates the whole line and not
+    // just the drawn part.
     function _applyAppends(appends) {
       var map = window.map;
       Object.keys(appends).forEach(function(id) {
@@ -118,7 +162,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           var source = map.getSource(id);
           if (!line || line.type !== 'LineString' || !source) return;
           appends[id].forEach(function(point) { line.coordinates.push(point); });
-          source.setData(data);
+          _scheduleRedraw(id);
         } catch (e) {
           window._rn_log('append ' + id + ': ' + e.message);
         }

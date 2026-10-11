@@ -1,6 +1,6 @@
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::objects::start::{FfiStartOutcome, FfiStartResult};
-use crate::persistence::attempts::{self, Claim, JobKey, Release};
+use crate::persistence::attempts::{self, Claim, ClaimGuard, JobKey};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::route_grouping_preview::{
     PreviewOutcome as GroupingOutcome, PreviewStrictness, ROUTE_GROUPING_PREVIEW_HANDLE,
@@ -196,6 +196,18 @@ impl SectionPreview {
         config: crate::FfiSectionConfig,
         clock: C,
     ) -> Result<FfiStartResult, VeloqError> {
+        self.start_at_with(lat, lng, config, clock, || {})
+    }
+
+    /// `start_at`, with a hook run once the key is claimed.
+    fn start_at_with<C: Fn() -> i64>(
+        &self,
+        lat: f64,
+        lng: f64,
+        config: crate::FfiSectionConfig,
+        clock: C,
+        after_claim: impl FnOnce(),
+    ) -> Result<FfiStartResult, VeloqError> {
         // The slot mutex is held across reap, check, spawn and install, so two
         // concurrent starts cannot both pass the emptiness check.
         let mut slot = SECTION_PREVIEW_HANDLE
@@ -265,10 +277,12 @@ impl SectionPreview {
         };
 
         let key = JobKey::over("preview", &component);
+        let install = crate::persistence::engine_install();
         // The claim writes, so it takes the engine `Mutex` rather than a
         // pooled reader like the resolve above.
-        let claim =
-            crate::persistence::with_persistent_engine(|engine| engine.claim_job(&key, clock()));
+        let claim = crate::persistence::with_persistent_engine_for(install, |engine| {
+            engine.claim_job(&key, clock())
+        });
         match claim {
             // The lease lives in the engine, so a start before it opens is
             // early rather than refused for a reason that will never lift.
@@ -294,23 +308,24 @@ impl SectionPreview {
             }
             Some(Ok(Claim::Taken)) => {}
         }
+        // Until the worker holds it, every return gives the key back, a `?`
+        // included: no worker was spawned to free it.
+        let claim = ClaimGuard::new(install, key.clone());
+        after_claim();
 
         // The engine `Mutex`: `preview_detect_background` needs engine memory
         // and starts the worker, which a pooled reader cannot.
-        match with_engine(|e| e.preview_detect_background(lat, lng, overlay, key.clone()))? {
+        match with_engine(|e| e.preview_detect_background(lat, lng, overlay, key))? {
             Some(handle) => {
                 *slot = Some(handle);
+                claim.hand_over();
                 info!("veloqrs: [SectionPreview] Preview started");
                 Ok(FfiStartOutcome::Started.into())
             }
             None => {
                 // The component resolved a moment ago, so this is the pool
-                // moving under the start rather than an ordinary refusal. The
-                // lease has to be freed here: no worker was spawned to free it.
+                // moving under the start rather than an ordinary refusal.
                 info!("veloqrs: [SectionPreview] Start refused: the component went away");
-                crate::persistence::with_persistent_engine(|engine| {
-                    let _ = engine.release_job(&key, Release::Done, clock());
-                });
                 Ok(FfiStartOutcome::NotOwed.into())
             }
         }
@@ -595,6 +610,55 @@ mod tests {
 
             assert_eq!(outcome, FfiStartOutcome::Busy);
             assert!(slot_empty, "a refused start leaves the preview slot empty");
+        }
+
+        /// Scenario: a preview claims its component's key on the JavaScript
+        /// thread, and the app is suspended before the worker is spawned, so
+        /// the start is refused and so is the release of the key.
+        ///
+        /// Expected behaviour: once the app is back the key is free, rather
+        /// than held for the rest of the process.
+        #[test]
+        fn a_suspension_after_the_claim_leaves_the_component_free() {
+            use crate::persistence::suspension::{
+                entered_background, prepare_for_suspension, resume_after_suspension,
+            };
+            use std::time::{Duration, Instant};
+
+            let _guard = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_slot();
+            let preview = SectionPreview::new();
+            let first = preview.centres(1).unwrap().remove(0);
+            let key = key_for(first.lat, first.lng);
+
+            let outcome = preview.start_at_with(
+                first.lat,
+                first.lng,
+                crate::FfiSectionConfig::default(),
+                attempts::now_ms,
+                || {
+                    entered_background();
+                    assert!(prepare_for_suspension(Duration::from_secs(10)));
+                },
+            );
+            assert!(
+                matches!(outcome, Err(VeloqError::Suspended)),
+                "a suspended engine refuses the start: {outcome:?}"
+            );
+
+            resume_after_suspension();
+            let held = || {
+                with_persistent_engine(|e| e.job_attempt(&key))
+                    .expect("engine")
+                    .expect("attempt row")
+                    .is_some_and(|row| row.lease_gen != 0)
+            };
+            let give_up = Instant::now() + Duration::from_secs(10);
+            while held() && Instant::now() < give_up {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            assert!(!held(), "the refused start's claim outlived the suspension");
         }
 
         /// The backoff is read rather than spent: the clock is handed in, so

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
@@ -8,6 +8,7 @@ import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } fr
 import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
+import { formatWeightRounded } from '@/shared/format/weight';
 import { RangeCoverage } from 'veloqrs';
 import { BodyNotDownloaded, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
@@ -76,6 +77,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const chartColors = useChartColors();
   const lineColor = color ?? chartColors.powerCurve;
 
@@ -273,7 +275,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             style={[styles.legendText, isDark && chartStyles.textDark]}
           >
             {perKg
-              ? `${t('statsScreen.ftpLabel', { value: formatValue(ftpValue, true, unit) })} ${t('stats.atWeight', { kg: Math.round(curve.weight ?? 0) })}`
+              ? `${t('statsScreen.ftpLabel', { value: formatValue(ftpValue, true, unit) })} ${t('stats.atWeight', { weight: formatWeightRounded(curve.weight ?? 0, isMetric) })}`
               : t('statsScreen.ftpLabel', { value: ftpValue })}
           </Text>
         </View>

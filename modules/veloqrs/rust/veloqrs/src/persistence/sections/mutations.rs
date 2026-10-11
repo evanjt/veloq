@@ -147,7 +147,7 @@ impl PersistentEngine {
                 ts
             ));
         }
-        let created_at = chrono::Utc::now().to_rfc3339();
+        let created_at = super::stamp_now();
         let polyline_blob = crate::persistence::codec::serialize_track_points(&params.polyline);
 
         // Compute bounds from polyline
@@ -310,7 +310,7 @@ impl PersistentEngine {
         // moves onto it and the intent retires, before the flag flip hides
         // the row from resolution.
         self.adopt_corridor_name(section_id);
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
         let rows = self
             .db
             .execute(
@@ -368,7 +368,7 @@ impl PersistentEngine {
             )
             .and_then(|mut stmt| stmt.query_map([], |row| row.get(0))?.collect())
             .map_err(|e| format!("Failed to list sections to accept: {}", e))?;
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
         let count = self
             .db
             .execute(
@@ -427,7 +427,7 @@ impl PersistentEngine {
             )
             .map_err(|_| format!("Section not found: {}", section_id))?;
 
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
         let mut departed = Vec::new();
         let mut version: Option<i64> = None;
 

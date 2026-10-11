@@ -33,6 +33,7 @@ object InsightsWidgetRenderer {
     kinds: Set<String>?,
     widgetId: Int,
   ): RemoteViews {
+    val p = WidgetPalette(context)
     val size = InsightsWidget.sizeFor(minWidthDp, minHeightDp)
     val content = snap?.let { InsightsWidget.content(it, size, kinds) }
     val first = content?.rows?.firstOrNull()
@@ -43,7 +44,7 @@ object InsightsWidgetRenderer {
         first == null ->
           renderShortMessage(
             context, context.getString(R.string.widget_insights_empty), InsightsWidget.TAB_URL)
-        else -> renderShort(context, first)
+        else -> renderShort(context, p, first)
       }
     }
 
@@ -54,9 +55,9 @@ object InsightsWidgetRenderer {
       bindMessage(
         v, context.getString(R.string.widget_open_app),
         context.getString(R.string.widget_to_see_training))
-      bindRows(context, v, emptyList(), 0, SummarySize.SMALL)
+      bindRows(context, p, v, emptyList(), 0, SummarySize.SMALL)
       bindMore(context, v, 0)
-      WidgetRenderer.bindUpdatedAt(context, v, R.id.ins_updated, null)
+      WidgetRenderer.bindUpdatedAt(p, v, R.id.ins_updated, null)
       WidgetRenderer.bindRefresh(context, v, null)
       return v
     }
@@ -66,17 +67,17 @@ object InsightsWidgetRenderer {
     } else {
       v.setViewVisibility(R.id.ins_message, View.GONE)
     }
-    bindRows(context, v, content.rows, widgetId, size)
+    bindRows(context, p, v, content.rows, widgetId, size)
     bindMore(context, v, content.more)
-    WidgetRenderer.bindUpdatedAt(context, v, R.id.ins_updated, snap)
+    WidgetRenderer.bindUpdatedAt(p, v, R.id.ins_updated, snap)
     WidgetRenderer.bindRefresh(context, v, snap)
     return v
   }
 
   /** One row tall: the first insight's mark and title, and a tap that opens it. */
-  private fun renderShort(context: Context, insight: WidgetInsight): RemoteViews {
+  private fun renderShort(context: Context, p: WidgetPalette, insight: WidgetInsight): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_insights_short)
-    v.setInt(R.id.ins_dot0, "setColorFilter", toneColor(context, insight.tone))
+    p.colorFilter(v, R.id.ins_dot0, p.color(toneColor(insight.tone)))
     v.setTextViewText(R.id.ins_title0, insight.title)
     v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, insight.url, 21))
     return v
@@ -109,6 +110,7 @@ object InsightsWidgetRenderer {
   /** One row per insight and nothing for the rest; the line limits give a small placement room to wrap. */
   private fun bindRows(
     context: Context,
+    p: WidgetPalette,
     v: RemoteViews,
     rows: List<WidgetInsight>,
     widgetId: Int,
@@ -119,7 +121,7 @@ object InsightsWidgetRenderer {
       val insight = rows.getOrNull(i)
       v.setViewVisibility(ids.row, if (insight == null) View.GONE else View.VISIBLE)
       if (insight == null) continue
-      v.setInt(ids.dot, "setColorFilter", toneColor(context, insight.tone))
+      p.colorFilter(v, ids.dot, p.color(toneColor(insight.tone)))
       v.setTextViewText(ids.title, insight.title)
       v.setInt(ids.title, "setMaxLines", titleLines)
       if (insight.subtitle.isEmpty()) {
@@ -146,16 +148,14 @@ object InsightsWidgetRenderer {
   }
 
   /** The tab's tone for a row, from the generated palette; an unknown tone reads as neutral. */
-  private fun toneColor(context: Context, tone: String): Int =
-    WidgetRenderer.res(
-      context,
-      when (tone) {
-        "negative" -> R.color.widget_tone_negative
-        "caution" -> R.color.widget_tone_caution
-        "positive" -> R.color.widget_tone_positive
-        "record" -> R.color.widget_tone_record
-        "info" -> R.color.widget_tone_info
-        "opportunity" -> R.color.widget_tone_opportunity
-        else -> R.color.widget_tone_neutral
-      })
+  private fun toneColor(tone: String): Int =
+    when (tone) {
+      "negative" -> R.color.widget_tone_negative
+      "caution" -> R.color.widget_tone_caution
+      "positive" -> R.color.widget_tone_positive
+      "record" -> R.color.widget_tone_record
+      "info" -> R.color.widget_tone_info
+      "opportunity" -> R.color.widget_tone_opportunity
+      else -> R.color.widget_tone_neutral
+    }
 }

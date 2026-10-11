@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
-import { Button } from '@/shared/ui';
+import { Button, TextField } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   isPastClamp,
@@ -21,6 +21,18 @@ import {
   type ParamEditorSheetInput,
 } from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
+
+/** What a refused value is told: how to type one the sheet accepts. */
+function refusalKey(input: ParamEditorSheetInput) {
+  if (input.kind === 'grouping') {
+    return input.key === 'minMatchPercentage'
+      ? 'settings.groupingParamInvalidPercent'
+      : 'settings.sectionParamInvalidWhole';
+  }
+  return DETECTION_PARAM_RANGES[input.key].integer
+    ? 'settings.sectionParamInvalidWhole'
+    : 'settings.sectionParamInvalid';
+}
 
 function ParamEditorSheetContent() {
   const { t } = useTranslation();
@@ -41,6 +53,9 @@ function ParamEditorSheetContent() {
       ? isPastTestedRange(input.key, value)
       : isPastGroupingRange(input.key, value));
   const pastClamp = value !== null && input.kind === 'param' && isPastClamp(input.key, value);
+  // Text left as it opened always saves, so only an edit can be refused.
+  const refused = text !== input.initial && (value === null || value <= 0);
+  const error = refused ? t(refusalKey(input)) : null;
   const bound = (metres: number) =>
     input.unit
       ? `${toEditorText(metres, input.unit)} ${input.unit.label}`
@@ -50,25 +65,24 @@ function ParamEditorSheetContent() {
       router.back();
       return;
     }
-    if (value === null || value <= 0) return;
+    if (refused || value === null) return;
     resolve(value);
   };
   const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
-  const primary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const secondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
     <View testID={prefix} style={[styles.sheet, { backgroundColor: surface }]}>
-      <Text style={[styles.title, { color: primary }]}>{input.label}</Text>
-      <TextInput
+      <TextField
         testID={input.kind === 'param' ? 'param-editor-input' : 'grouping-editor-input'}
+        label={input.label}
+        unit={input.unit?.label}
+        error={error}
         value={text}
         onChangeText={setText}
         keyboardType="numeric"
         autoFocus
         selectTextOnFocus
-        style={[styles.input, { color: primary, borderColor: border }]}
       />
       <Text style={[styles.note, { color: secondary }]}>
         {t('settings.sectionParamRange', {
@@ -97,6 +111,7 @@ function ParamEditorSheetContent() {
           testID={input.kind === 'param' ? 'param-editor-save' : 'grouping-editor-save'}
           label={t('common.save')}
           onPress={save}
+          disabled={refused}
           variant="ghost"
         />
       </View>
@@ -106,14 +121,6 @@ function ParamEditorSheetContent() {
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, padding: spacing.md, gap: spacing.sm },
-  title: { ...typography.bodyMedium },
-  input: {
-    ...typography.body,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
   note: { ...typography.caption },
   actions: {
     flexDirection: 'row',

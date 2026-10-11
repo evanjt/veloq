@@ -11,7 +11,6 @@ import {
   Text,
   ActivityIndicator,
   LayoutAnimation,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -496,7 +495,7 @@ const styles = StyleSheet.create({
   },
   technicalText: {
     ...typography.caption,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: typography.code.fontFamily,
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     flex: 1,

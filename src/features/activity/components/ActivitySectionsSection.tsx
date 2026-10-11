@@ -371,7 +371,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           row
         );
         if (!row) return;
-        haptics.medium();
+        haptics.light();
         applyRow(row);
         setIsScrubbing(true);
         isScrubbingSV.value = true;

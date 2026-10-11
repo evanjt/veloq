@@ -12,6 +12,7 @@ import {
   GrantAccessButton,
 } from '@/features/recording';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 
 /**
@@ -31,9 +32,7 @@ export function RecordingPermissionSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.recording', 'Recording').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.recording', 'Recording')}</ListSectionHeader>
       <View
         style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark, styles.card]}
       >

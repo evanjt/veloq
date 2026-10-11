@@ -14,7 +14,6 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   useActivity,
-  useActivityStreams,
   useActivityIntervals,
   useActivityDetailStreams,
   groupSectionEncounters,
@@ -39,6 +38,7 @@ import {
 import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/settings';
 import { useActivityMapChoices } from '../hooks/useActivityMapChoices';
+import { routeOverlayLine } from '../lib/routeOverlayLine';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { waitEnded } from '@/shared/native/engineBodies';
@@ -51,7 +51,6 @@ import {
   submitSectionCreation,
   type TerrainCamera,
 } from '@/features/maps';
-import { latLngsFromFlat } from '@/shared/geo/polyline';
 import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
@@ -155,10 +154,7 @@ export function ActivityDetailScreenContent({
   const cacheDays = useCacheDays(detail?.activityCount);
 
   // Get matched route for this activity
-  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(
-    id,
-    detail?.routeGroups ?? NO_ROUTE_GROUPS
-  );
+  const { routeGroup: matchedRoute } = useRouteMatch(id, detail?.routeGroups ?? NO_ROUTE_GROUPS);
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
   const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
@@ -169,16 +165,10 @@ export function ActivityDetailScreenContent({
   const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
   const newGround = id ? newGroundMap.get(id) : undefined;
 
-  // Fetch representative activity streams for route overlay (only when on Routes tab)
-  const { data: representativeStreams } = useActivityStreams(
-    activeTab === 'routes' && representativeActivityId ? representativeActivityId : ''
+  const routeOverlayCoordinates = useMemo(
+    () => routeOverlayLine(detail, activeTab),
+    [activeTab, detail]
   );
-
-  // Convert representative activity latlng to coordinates for route overlay
-  const routeOverlayCoordinates = useMemo(() => {
-    if (activeTab !== 'routes' || !representativeStreams?.latlng) return null;
-    return latLngsFromFlat(representativeStreams.latlng);
-  }, [activeTab, representativeStreams]);
 
   const hasGpsData = coordinates.length > 0;
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);

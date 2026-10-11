@@ -8,7 +8,7 @@
  * value was never the bug.
  */
 
-import React, { useEffect } from 'react';
+import React, { Profiler, useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
@@ -22,42 +22,31 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 // pulls the IAP binding in behind it.
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-// The section's header pressable is always mounted, so an effect inside it
-// runs once per commit of the section. A render React discards before
-// committing runs no effect, which is the whole difference being measured
-// here: the effect form committed twice, once without the children.
-const mockHeaderCommits = jest.fn();
-jest.mock('@/shared/ui/AnimatedPressable', () => {
-  const { useEffect } = require('react');
-  const { View } = require('react-native');
-  return {
-    AnimatedPressable: ({ children }: { children: React.ReactNode }) => {
-      useEffect(() => {
-        mockHeaderCommits();
-      });
-      return <View>{children}</View>;
-    },
-  };
-});
+// A render React discards before committing reaches no `Profiler`, which is
+// the whole difference being measured here: the effect form committed twice,
+// once without the children.
+const mockSectionCommits = jest.fn();
 
 describe('a collapsible section opening for the first time', () => {
   it('mounts its children on the commit that expands it', () => {
     function Host({ expanded }: { expanded: boolean }) {
       return (
-        <CollapsibleSection title="Records" expanded={expanded} onToggle={jest.fn()}>
-          <Text testID="child">content</Text>
-        </CollapsibleSection>
+        <Profiler id="section" onRender={mockSectionCommits}>
+          <CollapsibleSection title="Records" expanded={expanded} onToggle={jest.fn()}>
+            <Text testID="child">content</Text>
+          </CollapsibleSection>
+        </Profiler>
       );
     }
 
     const tree = render(<Host expanded={false} />);
     expect(tree.queryByTestId('child')).toBeNull();
 
-    mockHeaderCommits.mockClear();
+    mockSectionCommits.mockClear();
     tree.rerender(<Host expanded />);
 
     expect(tree.getByTestId('child')).toBeTruthy();
-    expect(mockHeaderCommits).toHaveBeenCalledTimes(1);
+    expect(mockSectionCommits).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the children mounted once it has been collapsed again', () => {

@@ -178,8 +178,10 @@ pub(crate) fn queued(conn: &Connection) -> SqlResult<Vec<(NamedKind, String)>> {
 }
 
 /// Settle a queued item with what its lookup came to: a name, or `None` for a
-/// lookup that found no place or failed, which is not asked again. An item
-/// already settled keeps what it has.
+/// lookup the provider answered with no place or with an error that is not a
+/// refusal, which is not asked again. A lookup never sent, or one the provider
+/// throttled, blocked or failed, is not settled. An item already settled keeps
+/// what it has.
 pub(crate) fn settle(
     conn: &Connection,
     kind: NamedKind,

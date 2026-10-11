@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 
 export function DataSourcesSection() {
@@ -17,9 +18,7 @@ export function DataSourcesSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.dataSources').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.dataSources')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {isDemoMode && (
           <>

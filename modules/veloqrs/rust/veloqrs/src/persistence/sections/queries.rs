@@ -183,20 +183,21 @@ pub(crate) mod pooled {
         sport_type: Option<&str>,
         min_visits: u32,
     ) -> HashSet<String> {
+        let sport = crate::persistence::records::activity_sport_sql();
         let query = format!(
             "SELECT s.id,
                     EXISTS(SELECT 1 FROM section_activities sa
                            JOIN activities a ON a.id = sa.activity_id
                            LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                            WHERE sa.section_id = s.id AND sa.excluded = 0
-                             AND COALESCE(am.sport_type, a.sport_type) = ?1),
+                             AND {sport} = ?1),
                     CASE WHEN ?2 = 0 THEN 0 WHEN ?1 IS NULL THEN s.activity_count
                          ELSE (SELECT COUNT(DISTINCT sa.activity_id)
                                FROM section_activities sa
                                JOIN activities a ON a.id = sa.activity_id
                                LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                                WHERE sa.section_id = s.id AND sa.excluded = 0
-                                 AND COALESCE(am.sport_type, a.sport_type) = ?1) END,
+                                 AND {sport} = ?1) END,
                     CASE WHEN ?2 = 0 THEN 0 ELSE EXISTS(
                          SELECT 1 FROM section_pins p WHERE p.section_id = s.id) END
              FROM sections s WHERE s.{VISIBLE_FILTER}"
@@ -226,10 +227,13 @@ pub(crate) mod pooled {
     /// The sport an activity was recorded as, from the row rather than the
     /// memory tier the engine reads first.
     pub(crate) fn sport_of_activity(conn: &Connection, activity_id: &str) -> Option<String> {
+        let sport = crate::persistence::records::activity_sport_sql();
         conn.query_row(
-            "SELECT COALESCE(am.sport_type, a.sport_type)
-             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
-             WHERE a.id = ?",
+            &format!(
+                "SELECT {sport}
+                 FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
+                 WHERE a.id = ?"
+            ),
             params![activity_id],
             |row| row.get::<_, String>(0),
         )
@@ -607,10 +611,7 @@ pub(crate) mod pooled {
             Err(_) => return Vec::new(),
         };
 
-        let mut sections: Vec<Section> = section_ids
-            .into_iter()
-            .filter_map(|id| section(conn, &id, names))
-            .collect();
+        let mut sections = sections_with_overlay(conn, &section_ids, names);
         sections.sort_by(|a, b| {
             b.visit_count
                 .cmp(&a.visit_count)
@@ -644,9 +645,7 @@ pub(crate) mod pooled {
                 .unwrap_or_default(),
             Err(_) => return Vec::new(),
         };
-        ids.into_iter()
-            .filter_map(|id| section(conn, &id, names))
-            .collect()
+        sections_with_overlay(conn, &ids, names)
     }
 
     /// One section with the corridor overlay applied.
@@ -943,11 +942,7 @@ pub(crate) mod pooled {
     /// One section as the row has it, with no overlay. What a cache stores, so
     /// a later overlay change never serves a baked stale name.
     pub(crate) fn section_raw(conn: &Connection, section_id: &str) -> Option<Section> {
-        let query = format!("SELECT {} FROM sections WHERE id = ?", SECTION_COLUMNS);
-        let mut stmt = conn.prepare(&query).ok()?;
-        let mut section = stmt
-            .query_row(params![section_id], |row| section_from_row(conn, row))
-            .ok()?;
+        let mut section = section_row(conn, section_id)?;
         section.visit_count = section_visit_count(conn, section_id);
         section.route_ids = Some(
             super::super::super::routes::pooled::route_ids_for_sections(
@@ -958,6 +953,30 @@ pub(crate) mod pooled {
             .unwrap_or_default(),
         );
         Some(section)
+    }
+
+    /// One section's stored row alone, before `finish` or `section_raw` adds
+    /// the traversal count and the routes.
+    fn section_row(conn: &Connection, section_id: &str) -> Option<Section> {
+        let query = format!("SELECT {} FROM sections WHERE id = ?", SECTION_COLUMNS);
+        let mut stmt = conn.prepare(&query).ok()?;
+        stmt.query_row(params![section_id], |row| section_from_row(conn, row))
+            .ok()
+    }
+
+    /// These sections with the corridor overlay applied, their routes read in
+    /// one query for the batch rather than one per section.
+    fn sections_with_overlay(
+        conn: &Connection,
+        section_ids: &[String],
+        names: &BTreeMap<String, String>,
+    ) -> Vec<Section> {
+        let mut sections: Vec<Section> = section_ids
+            .iter()
+            .filter_map(|id| section_row(conn, id))
+            .collect();
+        finish(conn, &mut sections, names);
+        sections
     }
 
     /// The activities a section has been traversed in, excluded laps aside.

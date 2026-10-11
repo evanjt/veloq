@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.util.Xml
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.RemoteViews
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,6 +18,7 @@ import com.veloq.test.R
 import com.veloq.test.widget.InsightsWidgetRenderer
 import com.veloq.test.widget.StrengthWidget
 import com.veloq.test.widget.StrengthWidgetRenderer
+import com.veloq.test.widget.SummaryPlacement
 import com.veloq.test.widget.VeloqRecordWidgetProvider
 import com.veloq.test.widget.WidgetRenderer
 import com.veloq.test.widget.WidgetSnapshot
@@ -196,19 +199,11 @@ class WidgetCaptureTest {
     out: File,
     expected: String?,
   ): List<String> {
-    val widthDp = 73 * cells.cols - 16
-    val heightDp = 118 * cells.rows - 16
-    val reportedHeightDp = 66 * cells.rows - 15
+    val (widthDp, reportedHeightDp) = widthAndReportedHeight(cells)
     val views = widget.render(themed, snap, widthDp, reportedHeightDp)
-    val density = themed.resources.displayMetrics.density
-    val w = (widthDp * density).roundToInt()
-    val h = (heightDp * density).roundToInt()
-    val host = FrameLayout(themed)
-    host.addView(views.apply(themed, host), FrameLayout.LayoutParams(w, h))
-    host.measure(
-      View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
-      View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
-    host.layout(0, 0, w, h)
+    val host = place(views, themed, cells)
+    val w = host.width
+    val h = host.height
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     host.draw(Canvas(bitmap))
     File(out, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -218,6 +213,121 @@ class WidgetCaptureTest {
     if (expected != null && expected !in shownTexts(host)) found += "$name: draws no \"$expected\""
     return found
   }
+
+  /** Applies [views] the way a host does, in a portrait phone's box for [cells], laid out. */
+  private fun place(views: RemoteViews, themed: Context, cells: Cells): FrameLayout {
+    val density = themed.resources.displayMetrics.density
+    val w = ((73 * cells.cols - 16) * density).roundToInt()
+    val h = ((118 * cells.rows - 16) * density).roundToInt()
+    val host = FrameLayout(themed)
+    host.addView(views.apply(themed, host), FrameLayout.LayoutParams(w, h))
+    host.measure(
+      View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+    host.layout(0, 0, w, h)
+    return host
+  }
+
+  /**
+   * Scenario: a launcher keeps the views a widget was rendered with and applies them again when
+   * the system switches between light and dark, with no redraw from the app.
+   *
+   * Expected behaviour: views rendered in one theme and applied in the other give every line of
+   * text, every tint and every image the colours of views rendered in the theme they are applied
+   * in.
+   */
+  @Test
+  fun everyWidgetTakesTheNewThemeWhenTheHostReappliesIt() {
+    val failures = mutableListOf<String>()
+    for (fixture in listOf("demo", "long-text", "empty", "no-wellness")) {
+      val snap = snapshot(fixture)
+      for (widget in widgets) {
+        for (cells in placements(widget.info)) {
+          for (renderedDark in listOf(false, true)) {
+            val shown = if (renderedDark) "light" else "dark"
+            val name = "${widget.name}-${cells.cols}x${cells.rows}-$fixture-shown-$shown"
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+              val (w, h) = widthAndReportedHeight(cells)
+              val applied = themed(!renderedDark)
+              val kept = place(widget.render(themed(renderedDark), snap, w, h), applied, cells)
+              val fresh = place(widget.render(applied, snap, w, h), applied, cells)
+              compareColours(kept, fresh, name, failures)
+            }
+          }
+        }
+      }
+    }
+    assertTrue(
+      "Kept the theme it was rendered in at ${failures.size} places:\n" +
+        failures.joinToString("\n"),
+      failures.isEmpty())
+  }
+
+  /**
+   * Scenario: every widget at its largest placement carries its images for both themes in one
+   * update.
+   *
+   * Expected behaviour: the images both themes show together stay inside the bitmap memory a
+   * host accepts for one widget update, the memory needed to fill the screen 1.5 times.
+   */
+  @Test
+  fun everyWidgetsImagesForBothThemesFitOneUpdate() {
+    val metrics = context.resources.displayMetrics
+    val limit = metrics.widthPixels.toLong() * metrics.heightPixels * 4 * 3 / 2
+    val failures = mutableListOf<String>()
+    for (fixture in listOf("demo", "long-text")) {
+      val snap = snapshot(fixture)
+      for (widget in widgets) {
+        val cells = placements(widget.info).maxByOrNull { it.cols * it.rows } ?: continue
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+          val (w, h) = widthAndReportedHeight(cells)
+          val views = widget.render(themed(false), snap, w, h)
+          val bytes = imageBytes(place(views, themed(false), cells)) +
+            imageBytes(place(views, themed(true), cells))
+          if (bytes > limit) failures += "${widget.name}-$fixture: $bytes bytes against $limit"
+        }
+      }
+    }
+    assertTrue("Over the host's bitmap limit:\n" + failures.joinToString("\n"), failures.isEmpty())
+  }
+
+  /** What a launcher reports for [cells]: the width in portrait and the height in landscape. */
+  private fun widthAndReportedHeight(cells: Cells): Pair<Int, Int> =
+    Pair(73 * cells.cols - 16, 66 * cells.rows - 15)
+
+  /** Walks two trees of one layout side by side and lists each view whose colours differ. */
+  private fun compareColours(kept: View, fresh: View, name: String, found: MutableList<String>) {
+    if (kept.visibility != View.VISIBLE || fresh.visibility != View.VISIBLE) return
+    if (kept is TextView && fresh is TextView && kept.currentTextColor != fresh.currentTextColor) {
+      found += "$name: ${label(kept)} text is #%08X, not #%08X".format(
+        kept.currentTextColor, fresh.currentTextColor)
+    }
+    if (kept is ImageView && fresh is ImageView && !drawn(kept).sameAs(drawn(fresh))) {
+      found += "$name: ${label(kept)} draws other colours"
+    }
+    if (kept is ViewGroup && fresh is ViewGroup) {
+      for (i in 0 until min(kept.childCount, fresh.childCount)) {
+        compareColours(kept.getChildAt(i), fresh.getChildAt(i), name, found)
+      }
+    }
+  }
+
+  private fun drawn(view: View): Bitmap {
+    val bitmap =
+      Bitmap.createBitmap(max(view.width, 1), max(view.height, 1), Bitmap.Config.ARGB_8888)
+    view.draw(Canvas(bitmap))
+    return bitmap
+  }
+
+  /** The bytes of every bitmap the shown images hold. */
+  private fun imageBytes(view: View): Long =
+    when {
+      view.visibility != View.VISIBLE -> 0L
+      view is ImageView ->
+        ((view.drawable as? BitmapDrawable)?.bitmap?.allocationByteCount ?: 0).toLong()
+      view is ViewGroup -> (0 until view.childCount).sumOf { imageBytes(view.getChildAt(it)) }
+      else -> 0L
+    }
 
   private fun shownTexts(view: View): List<String> =
     when {

@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Sharing from 'expo-sharing';
 
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
@@ -23,6 +22,7 @@ import {
   getVisibleRecording,
   recordingFitExists,
   readRecordingTrack,
+  shareRecordingFit,
   useRecordingLibrary,
 } from '@/features/recording';
 import type { RecordingLibraryEntry } from '@/types';
@@ -72,19 +72,7 @@ function RecordingDetailScreenContent() {
 
   const handleShare = useCallback(async () => {
     if (!entry || !recordingActions(entry, uploadingId).canShare) return;
-    try {
-      const available = await recordingFitExists(entry);
-      setFitAvailable(available);
-      if (!available) return;
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(entry.fitPath, {
-          mimeType: 'application/octet-stream',
-          dialogTitle: `${entry.name}.fit`,
-        });
-      }
-    } catch {
-      // User cancelled or share unavailable
-    }
+    setFitAvailable(await shareRecordingFit(entry));
   }, [entry, uploadingId]);
 
   const handleDelete = useCallback(() => {

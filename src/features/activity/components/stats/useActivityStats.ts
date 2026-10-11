@@ -15,14 +15,19 @@ import {
   formatSpeed,
   formatTemperature,
 } from '@/shared/format/format';
-import { getFormZone, formatForm, formZoneTextColor, formZoneLabel } from '@/features/fitness';
+import {
+  formZoneFromLoads,
+  formatForm,
+  formZoneTextColor,
+  formZoneLabel,
+} from '@/features/fitness';
 import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact } from 'veloqrs';
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { colors, darkColors } from '@/theme';
-import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
+import { FEELS_LIKE_THRESHOLD } from '@/constants';
 import { formAsPercent } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
 
@@ -83,38 +88,16 @@ export function useActivityStats({
     // Training Load with context
     if (activity.icu_training_load && activity.icu_training_load > 0) {
       const load = activity.icu_training_load;
-      // The icon's colour bands the session, and colour alone cannot say which
-      // band it is, so the context line names it and the icon is decoration.
+      // The intensity factor is stated, never graded: a band word or a colour
+      // per band would be a judgement the data source does not make.
       const intensity = activity.icu_intensity;
-      const loadColor =
-        intensity == null
-          ? isDark
-            ? darkColors.textSecondary
-            : colors.textSecondary
-          : intensity > 100
-            ? colors.error
-            : intensity > 85
-              ? amber
-              : intensity > 70
-                ? colors.chartYellow
-                : green;
-      const intensityBand =
-        intensity == null
-          ? undefined
-          : intensity > 100
-            ? t('activity.stats.intensityVeryHard')
-            : intensity > 85
-              ? t('activity.stats.intensityHard')
-              : intensity > 70
-                ? t('activity.stats.intensityModerate')
-                : t('activity.stats.intensityEasy');
 
       result.push({
         title: t('activity.stats.trainingLoad'),
         value: `${Math.round(load)}`,
         icon: 'lightning-bolt',
-        color: loadColor,
-        context: intensity == null ? undefined : `IF ${Math.round(intensity)}% · ${intensityBand}`,
+        color: isDark ? darkColors.chartGoldText : colors.chartGoldText,
+        context: intensity == null ? undefined : `IF ${Math.round(intensity)}%`,
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
           intensity == null
@@ -196,16 +179,7 @@ export function useActivityStats({
         title: t('activity.heartRate'),
         value: `${Math.round(avgHRValue)}`,
         icon: 'heart-pulse',
-        color:
-          hrPercent > 90
-            ? isDark
-              ? darkColors.errorDeep
-              : colors.errorDeep
-            : hrPercent > 80
-              ? amber
-              : isDark
-                ? darkColors.chartPinkText
-                : colors.chartPinkText,
+        color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
         context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
         explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate'] as never),
         details: [
@@ -280,8 +254,6 @@ export function useActivityStats({
     // Temperature/Conditions
     const temp = activity.average_weather_temp ?? activity.average_temp;
     if (temp != null) {
-      const isHot = temp > TEMPERATURE_THRESHOLDS.HOT;
-      const isCold = temp < TEMPERATURE_THRESHOLDS.COLD;
       // Build context from available weather data
       const conditionParts: string[] = [];
       const feelsLike = getApparentTemperature(activity);
@@ -310,7 +282,7 @@ export function useActivityStats({
         title: t('activity.stats.conditions'),
         value: formatTemperature(temp, isMetric),
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
-        color: isHot ? amber : isCold ? colors.secondary : green,
+        color: isDark ? darkColors.infoText : colors.infoText,
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
@@ -339,7 +311,7 @@ export function useActivityStats({
       const form = formFromLoads(wellness.ctl, wellness.atl);
       const fitness = Math.round(wellness.ctl);
       const asPercent = formAsPercent();
-      const formZone = getFormZone(form, fitness, asPercent);
+      const formZone = formZoneFromLoads(wellness.ctl, wellness.atl, asPercent);
       const formColor = formZone
         ? formZoneTextColor(formZone, isDark)
         : isDark

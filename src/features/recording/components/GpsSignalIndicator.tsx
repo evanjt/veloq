@@ -1,6 +1,8 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { useMetricSystem } from '@/shared/app';
+import { formatElevation } from '@/shared/format/format';
 import { SignalStatus, type SignalLevel } from '@/shared/ui';
 
 interface GpsSignalIndicatorProps {
@@ -8,6 +10,7 @@ interface GpsSignalIndicatorProps {
 }
 
 export function GpsSignalIndicator({ accuracy }: GpsSignalIndicatorProps) {
+  const isMetric = useMetricSystem();
   let level: SignalLevel;
   let icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -29,7 +32,7 @@ export function GpsSignalIndicator({ accuracy }: GpsSignalIndicatorProps) {
     <SignalStatus
       level={level}
       icon={icon}
-      label={accuracy == null ? '--' : `${Math.round(accuracy)}m`}
+      label={accuracy == null ? '--' : formatElevation(accuracy, isMetric)}
     />
   );
 }

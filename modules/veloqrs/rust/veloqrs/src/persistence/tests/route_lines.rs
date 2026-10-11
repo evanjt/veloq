@@ -238,6 +238,7 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  DROP INDEX idx_activity_census_trackless_series;
                  ALTER TABLE activity_census DROP COLUMN has_series;
                  ALTER TABLE evidence_cache DROP COLUMN dirty_clusters;
+                 ALTER TABLE recordings DROP COLUMN upload_in_doubt;
                  DROP TRIGGER section_list_counts_ai;
                  DROP TRIGGER section_list_counts_ad;
                  DROP TRIGGER section_list_counts_au;

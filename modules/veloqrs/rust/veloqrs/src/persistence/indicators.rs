@@ -167,6 +167,7 @@ impl PersistentEngine {
     /// pass pays nothing.
     fn untimed_repeat_groups(&self, tx: &rusqlite::Transaction) -> SqlResult<i64> {
         let complete = crate::persistence::records::complete_traversal_sql();
+        let sport = crate::persistence::records::activity_sport_sql();
         tx.query_row(
             &format!(
                 "SELECT COUNT(*) FROM (
@@ -174,15 +175,15 @@ impl PersistentEngine {
                    FROM section_activities sa
                    JOIN sections s ON s.id = sa.section_id
                    JOIN activities a ON a.id = sa.activity_id
+                   LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                    WHERE sa.excluded = 0
                      AND s.disabled = 0
                      AND s.superseded_by IS NULL
                      AND sa.direction != 'partial'
                      AND ({complete})
-                   GROUP BY sa.section_id, sa.direction, a.sport_type
+                   GROUP BY sa.section_id, sa.direction, {sport}
                    HAVING COUNT(DISTINCT sa.activity_id) >= 2
-                 )",
-                complete = complete
+                 )"
             ),
             [],
             |r| r.get(0),
@@ -214,12 +215,16 @@ impl PersistentEngine {
         //    `complete_traversal_sql()` so the two cannot drift.
         //  - Group by sport. A record and a trend are earned against the same
         //    sport's efforts, so shared ground carries one of each per sport.
+        //    The sport is the synced one, `activity_sport_sql()`, the sport
+        //    the section ledger and the ranking judge the same lap under.
         let complete = crate::persistence::records::complete_traversal_sql();
+        let sport = crate::persistence::records::activity_sport_sql();
         let pair_sql = format!(
-            "SELECT sa.section_id, sa.direction, a.sport_type, COUNT(DISTINCT sa.activity_id) as cnt
+            "SELECT sa.section_id, sa.direction, {sport}, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
+             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.excluded = 0
                AND sa.lap_time IS NOT NULL
                AND s.disabled = 0
@@ -227,9 +232,8 @@ impl PersistentEngine {
                AND sa.direction != 'partial'
                AND ({complete})
                AND (? IS NULL OR sa.section_id = ?)
-             GROUP BY sa.section_id, sa.direction, a.sport_type
-             HAVING cnt >= 2",
-            complete = complete
+             GROUP BY sa.section_id, sa.direction, {sport}
+             HAVING cnt >= 2"
         );
 
         let mut pair_stmt = tx.prepare(&pair_sql)?;
@@ -267,16 +271,16 @@ impl PersistentEngine {
             "SELECT sa.activity_id, sa.lap_time
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
+             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
-               AND a.sport_type = ?
+               AND {sport} = ?
                AND sa.excluded = 0
                AND sa.lap_time IS NOT NULL
                AND sa.direction != 'partial'
                AND ({complete})
-             ORDER BY a.start_date ASC",
-            complete = complete
+             ORDER BY a.start_date ASC"
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 

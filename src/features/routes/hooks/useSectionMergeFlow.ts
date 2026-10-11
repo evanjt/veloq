@@ -63,7 +63,7 @@ export function useSectionMergeFlow({
         }
       );
       if (confirmation.kind !== 'selected') return;
-      const survivor = merge(confirmation.value.primaryId, confirmation.value.secondaryId);
+      const survivor = await merge(confirmation.value.primaryId, confirmation.value.secondaryId);
       if (survivor && survivor !== section.id) router.replace(`/section/${survivor}`);
     } finally {
       running.current = false;

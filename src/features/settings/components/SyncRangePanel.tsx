@@ -13,6 +13,7 @@ import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
+import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -92,9 +93,7 @@ export function SyncRangePanel() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.localDataRange').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.localDataRange')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Timeline slider */}
         <View style={styles.sliderWrap}>

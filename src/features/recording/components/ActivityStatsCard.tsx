@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
   },
   compactStatValue: {
     ...typography.metricValue,
-    fontVariant: ['tabular-nums'],
   },
   compactStatLabel: {
     ...typography.caption,

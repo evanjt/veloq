@@ -91,9 +91,11 @@ impl BasemapManager {
         off_the_caller(move || store.clear_all_opportunistic().map_err(tile_store_error)).await
     }
 
-    /// Drop every basemap tile, pinned pre-seed included.
-    fn clear_tiles(&self) -> Result<u32, VeloqError> {
-        store()?.clear().map_err(tile_store_error)
+    /// Drop every basemap tile, pinned pre-seed included. Async for the
+    /// reason [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
+    async fn clear_tiles(&self) -> Result<u32, VeloqError> {
+        let store = store()?;
+        off_the_caller(move || store.clear().map_err(tile_store_error)).await
     }
 
     /// Hits, misses and fetches since start or the last reset, one row per
@@ -111,9 +113,11 @@ impl BasemapManager {
         }
     }
 
-    /// Drop every tile of one source.
-    fn clear_source_tiles(&self, source: String) -> Result<u32, VeloqError> {
-        store()?.clear_source(&source).map_err(tile_store_error)
+    /// Drop every tile of one source. Async for the reason
+    /// [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
+    async fn clear_source_tiles(&self, source: String) -> Result<u32, VeloqError> {
+        let store = store()?;
+        off_the_caller(move || store.clear_source(&source).map_err(tile_store_error)).await
     }
 
     /// Write every source's sidecar back to disk.
@@ -215,7 +219,10 @@ mod tests {
         );
         assert_eq!(manager.get_tile("osm".into(), 3, 4, 3), Some(vec![5, 6]));
 
-        assert_eq!(manager.clear_source_tiles("osm".into()).unwrap(), 2);
+        assert_eq!(
+            block_on(manager.clear_source_tiles("osm".into())).unwrap(),
+            2
+        );
         assert_eq!(block_on(manager.get_source_size("osm".into())), 0.0);
         assert_eq!(block_on(manager.get_cache_size()), 0.0);
     }
@@ -237,7 +244,7 @@ mod tests {
         }
         assert_eq!(block_on(manager.get_cache_size()), 80.0);
 
-        assert_eq!(manager.clear_tiles().unwrap(), 2);
+        assert_eq!(block_on(manager.clear_tiles()).unwrap(), 2);
         assert_eq!(block_on(manager.get_cache_size()), 0.0);
         for y in 0..4u32 {
             manager
@@ -254,7 +261,7 @@ mod tests {
         let manager = BasemapManager::new();
 
         assert!(block_on(manager.set_budget(100.0)).is_err());
-        assert!(manager.clear_tiles().is_err());
+        assert!(block_on(manager.clear_tiles()).is_err());
         assert_eq!(block_on(manager.get_cache_size()), 0.0);
     }
 

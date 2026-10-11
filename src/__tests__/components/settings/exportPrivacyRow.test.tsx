@@ -34,7 +34,11 @@ jest.mock('@/features/maps', () => {
     },
   };
 });
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+const mockUnits = { metric: true };
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => mockUnits.metric,
+}));
 // The interpolated values are the point of the count line, so the stub keeps
 // them and drops only the fallback string.
 jest.mock('react-i18next', () => ({
@@ -111,6 +115,7 @@ function engineWith(over: Record<string, unknown> = {}) {
 afterEach(() => {
   jest.clearAllMocks();
   mapProps.length = 0;
+  mockUnits.metric = true;
 });
 
 const lastMap = () => mapProps[mapProps.length - 1];
@@ -281,8 +286,27 @@ describe('the export privacy row', () => {
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
     const description = describedRadius(tree);
-    expect(description).toContain('"radius":500');
-    expect(description).not.toContain('"radius":100');
+    expect(description).toContain('"radius":"500 m"');
+    expect(description).not.toContain('"radius":"100 m"');
+  });
+
+  it('offers, counts and describes the radius in feet for an imperial athlete', async () => {
+    mockUnits.metric = false;
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
+
+    expect(tree.getByTestId('export-privacy-radius-100-label')).toHaveTextContent('328 ft');
+    expect(tree.getByTestId('export-privacy-radius-250-label')).toHaveTextContent('820 ft');
+    expect(tree.getByTestId('export-privacy-radius-500-label')).toHaveTextContent('1640 ft');
+    expect(tree.getByTestId('export-privacy-count').props.children).toContain('"radius":"328 ft"');
+    expect(describedRadius(tree)).toContain('"radius":"328 ft"');
+    // What is stored stays in metres: the unit is how it reads, not what it is.
+    fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('250'));
   });
 
   it('describes the default radius in the off position, the one turning it on applies', async () => {
@@ -294,7 +318,7 @@ describe('the export privacy row', () => {
     const tree = render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
-    expect(describedRadius(tree)).toContain('"radius":100');
+    expect(describedRadius(tree)).toContain('"radius":"100 m"');
   });
 
   it('describes the radius a switch back on applies after a pick and a switch off', async () => {
@@ -309,7 +333,7 @@ describe('the export privacy row', () => {
     fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', false);
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('0'));
-    expect(describedRadius(tree)).toContain('"radius":500');
+    expect(describedRadius(tree)).toContain('"radius":"500 m"');
     fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', true);
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
   });

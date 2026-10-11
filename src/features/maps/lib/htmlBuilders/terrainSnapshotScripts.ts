@@ -108,46 +108,37 @@ export interface SnapshotRequest {
   _startedAt?: number;
 }
 
-// Builds the injected JS that renders one snapshot request - a 3D terrain
-// drape, or a flat top-down basemap when request.flat - and posts the captured
-// JPEG back to the worker bridge. Derives the base style, terrain, sky, and
-// hillshade config from the request.
-export function buildRenderSnapshotScript(
-  request: SnapshotRequest,
-  workerId: number,
-  gen: number
-): string {
-  const isSatellite = request.mapStyle === 'satellite';
-  const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
-  const isFlat = request.flat === true;
+/**
+ * The styles one worker page holds, by name, as the JSON each was given in.
+ *
+ * A page keeps every style it is given for as long as it lives, so a request
+ * for one it holds carries only the request. The pool keeps one per worker and
+ * empties it whenever the worker's map comes up, since a page that died or
+ * reloaded holds nothing.
+ */
+export type SnapshotStylesHeld = Map<MapStyleType, string>;
 
-  // Every style is an inline object, so the vector tiles, sprite and glyphs
-  // all go through the interceptor and the page fetches no style.
-  const { inline: style } = resolveStyleForWebView(request.mapStyle);
-  const styleConfig = style ? JSON.stringify(style) : 'null';
-  const gapBackground = gapBackgroundFor(request.mapStyle, style);
-
-  const coordsJSON = JSON.stringify(request.coordinates);
-  const cameraJSON = JSON.stringify(request.camera);
-
-  // Serialise shared terrain config values for injection into WebView JS.
-  // The source is built here rather than read off the config because
-  // building it is what points it at the intercept and hands Rust the
-  // upstream template.
-  const terrainSourceJSON = JSON.stringify(terrain3DSource());
-  const skyConfigJSON = JSON.stringify(
-    isSatellite
-      ? TERRAIN_3D_CONFIG.sky.satellite
-      : isDark
-        ? TERRAIN_3D_CONFIG.sky.dark
-        : TERRAIN_3D_CONFIG.sky.light
-  );
-  const hillshadePaintJSON = JSON.stringify(
-    isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
-  );
-
+/**
+ * The page's render function and the styles it draws from, run once when a
+ * worker page loads.
+ *
+ * The render code and the basemap style are most of what a render needs, and
+ * neither changes between requests: a light request carried 68 K characters
+ * when the request itself is a route and a camera. So the page defines the
+ * function once and holds each style it is given, and a request is the call.
+ *
+ * Renders one snapshot request - a 3D terrain drape, or a flat top-down
+ * basemap when the request is flat - and posts the captured JPEG back to the
+ * worker bridge.
+ */
+export function snapshotRenderScript(): string {
   return `
-          (function() {
+    // The basemap styles this page has been given, by name, as JSON. Parsed
+    // afresh for each render, because a render splices its terrain and route
+    // into the object it mounts.
+    window._styles = {};
+
+    window._renderSnapshot = function(request) {
             try {
               // Stamped before anything is decided, so the elapsed posted back
               // covers the whole render and not the branch it ended up in.
@@ -169,22 +160,21 @@ export function buildRenderSnapshotScript(
                 window._phases[name] = now - window._phaseAt;
                 window._phaseAt = now;
               }
-              var workerId = ${workerId};
-              var coords = ${coordsJSON};
-              var camera = ${cameraJSON};
-              var isSatellite = ${isSatellite};
-              var isDark = ${isDark};
-              var isFlat = ${isFlat};
-              var cameraPinned = ${request.cameraPinned === true};
-              var routeColor = ${jsLiteral(request.routeColor)};
-              var inlineStyle = ${styleConfig};
-              var activityId = ${jsLiteral(request.activityId)};
-              var mapStyle = ${jsLiteral(request.mapStyle)};
-              var myGen = ${gen};
-              var terrainSource = ${terrainSourceJSON};
-              var skyConfig = ${skyConfigJSON};
-              var hillshadePaint = ${hillshadePaintJSON};
-              var gapBackground = ${JSON.stringify(gapBackground)};
+              var workerId = request.workerId;
+              var coords = request.coords;
+              var camera = request.camera;
+              var isSatellite = request.isSatellite;
+              var isDark = request.isDark;
+              var isFlat = request.isFlat;
+              var cameraPinned = request.cameraPinned;
+              var routeColor = request.routeColor;
+              var activityId = request.activityId;
+              var mapStyle = request.mapStyle;
+              var myGen = request.gen;
+              var terrainSource = request.terrainSource;
+              var skyConfig = request.skyConfig;
+              var hillshadePaint = request.hillshadePaint;
+              var gapBackground = request.gapBackground;
               // The pitch the frame is drawn at, which a turned camera changes.
               var drawnPitch = camera.pitch;
               ${HILLSHADE_INSERT_INDEX_SCRIPT}
@@ -614,7 +604,22 @@ export function buildRenderSnapshotScript(
 
               } // end applyStyle
 
-              applyStyle(inlineStyle);
+              // A page that lost the style it was given says so, and the host
+              // gives it again with the retry.
+              var heldStyle = window._styles[mapStyle];
+              if (typeof heldStyle !== 'string') {
+                window._rn_log('Style ' + mapStyle + ' not held, asking for it');
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'snapshotError',
+                  workerId: workerId,
+                  activityId: activityId,
+                  gen: myGen,
+                  error: 'Style not held: ' + mapStyle,
+                  styleMissing: true,
+                }));
+                return;
+              }
+              applyStyle(JSON.parse(heldStyle));
 
             } catch(e) {
               window._rn_log('Error: ' + e.message);
@@ -623,14 +628,69 @@ export function buildRenderSnapshotScript(
                   phases: window._phases,
                   tileStats: window._tileStats,
                   type: 'snapshotError',
-                  workerId: ${workerId},
-                  activityId: ${jsLiteral(request.activityId)},
-                  gen: ${gen},
+                  workerId: request.workerId,
+                  activityId: request.activityId,
+                  gen: request.gen,
                   error: e.message,
                 }));
               }
             }
-          })();
-          true;
+    };
   `;
+}
+
+/**
+ * The script one snapshot request injects: the style, when the page does not
+ * hold it, and the call to the page's render function. Derives the terrain,
+ * sky and hillshade config from the request, and records in `held` that the
+ * page holds the request's style from here on.
+ */
+export function buildRenderSnapshotScript(
+  request: SnapshotRequest,
+  workerId: number,
+  gen: number,
+  held: SnapshotStylesHeld = new Map()
+): string {
+  const isSatellite = request.mapStyle === 'satellite';
+  const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
+
+  // Every style is an inline object, so the vector tiles, sprite and glyphs
+  // all go through the interceptor and the page fetches no style.
+  const { inline: style } = resolveStyleForWebView(request.mapStyle);
+  const styleJSON = style ? JSON.stringify(style) : 'null';
+  // Compared by content rather than by name, so a style that changed since the
+  // page was given it is given again.
+  const registration =
+    held.get(request.mapStyle) === styleJSON
+      ? ''
+      : `window._styles[${jsLiteral(request.mapStyle)}] = ${jsLiteral(styleJSON)};\n`;
+  held.set(request.mapStyle, styleJSON);
+
+  const render = {
+    workerId,
+    gen,
+    activityId: request.activityId,
+    mapStyle: request.mapStyle,
+    coords: request.coordinates,
+    camera: request.camera,
+    isSatellite,
+    isDark,
+    isFlat: request.flat === true,
+    cameraPinned: request.cameraPinned === true,
+    routeColor: request.routeColor,
+    // Built here rather than read off the config, because building it is
+    // what points it at the intercept and hands Rust the upstream template.
+    terrainSource: terrain3DSource(),
+    skyConfig: isSatellite
+      ? TERRAIN_3D_CONFIG.sky.satellite
+      : isDark
+        ? TERRAIN_3D_CONFIG.sky.dark
+        : TERRAIN_3D_CONFIG.sky.light,
+    hillshadePaint: isDark
+      ? TERRAIN_3D_CONFIG.hillshadePaint.dark
+      : TERRAIN_3D_CONFIG.hillshadePaint.light,
+    gapBackground: gapBackgroundFor(request.mapStyle, style),
+  };
+
+  return `${registration}window._renderSnapshot(${JSON.stringify(render)});\ntrue;`;
 }

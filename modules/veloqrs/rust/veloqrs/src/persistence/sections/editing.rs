@@ -280,7 +280,7 @@ impl PersistentEngine {
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
         let trimmed_blob = crate::persistence::codec::serialize_track_points(&trimmed);
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
 
         // The trim promotes the row to user-defined, which hides it from
         // corridor resolution, so a resolved name lands on the row first.
@@ -438,7 +438,7 @@ impl PersistentEngine {
         // Recompute distance and bounds
         let distance = calculate_route_distance(&original);
         let bounds = tracematch::geo_utils::compute_bounds(&original);
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
 
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
@@ -583,7 +583,7 @@ impl PersistentEngine {
         let distance = calculate_route_distance(&polyline);
         let bounds = tracematch::geo_utils::compute_bounds(&polyline);
         let blob = crate::persistence::codec::serialize_track_points(&polyline);
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
         // A version whose range cannot rebuild it carries its own line, and
         // the row says so, or the line reads as a cache of a slice it is not.
         let orphaned: bool = self
@@ -697,7 +697,7 @@ impl PersistentEngine {
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("Archived state of {section_id} names no sport"))?;
         let name = details.get("name").and_then(|v| v.as_str());
-        let created_at = chrono::Utc::now().to_rfc3339();
+        let created_at = super::stamp_now();
         self.db
             .execute(
                 "INSERT INTO sections (
@@ -781,7 +781,7 @@ impl PersistentEngine {
 
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
-        let updated_at = chrono::Utc::now().to_rfc3339();
+        let updated_at = super::stamp_now();
         let polyline_blob = crate::persistence::codec::serialize_track_points(&new_polyline);
 
         // The same promotion as a trim, so the same handoff of the name.
@@ -1071,7 +1071,7 @@ impl PersistentEngine {
                 crate::persistence::codec::NO_POLYLINE_JSON,
                 blob,
                 distance,
-                chrono::Utc::now().to_rfc3339(),
+                super::stamp_now(),
                 new_id,
                 start,
                 end,

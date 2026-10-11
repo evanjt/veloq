@@ -32,7 +32,7 @@ import { TOUR_CARD_HEIGHT_RATIO, tourSlideAreaHeight } from '../../lib/tourSlide
 import { tourResumeMotion } from '../../lib/tourResume';
 import { getAllSlides, getSlidesSince, type WhatsNewSlideDefinition } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
-import { Button, pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
@@ -280,11 +280,11 @@ export function WhatsNewModal() {
       exiting={FadeOut.duration(200)}
       onLayout={(event: LayoutChangeEvent) => setOverlayHeight(event.nativeEvent.layout.height)}
     >
+      {/* press-feedback: none, the scrim is the way out and not a control */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('common.close')}
-        style={pressable(styles.backdrop)}
-        android_ripple={pressRipple}
+        style={styles.backdrop}
         onPress={dismiss}
       />
       <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>

@@ -1943,27 +1943,35 @@ pub(crate) mod pooled {
             return out;
         }
         let placeholders = vec!["?"; section_ids.len()].join(", ");
+        // The floor is read off each matched group's own row. A group written
+        // before the member count was stored has none, so its membership is
+        // decoded, and only for that group.
+        let floor = crate::persistence::route_lines::MIN_ROUTE_ACTIVITIES;
         let sql = format!(
-            "SELECT DISTINCT sa.section_id, am.route_id
+            "SELECT DISTINCT sa.section_id, am.route_id, rg.activity_count,
+                    CASE WHEN rg.activity_count IS NULL THEN rg.activity_ids END,
+                    CASE WHEN rg.activity_count IS NULL THEN rg.activity_ids_blob END
              FROM section_activities sa
              JOIN activity_matches am ON am.activity_id = sa.activity_id
+             JOIN route_groups rg ON rg.id = am.route_id
              WHERE sa.section_id IN ({placeholders}) AND sa.excluded = 0 AND am.excluded = 0
+               AND (rg.activity_count IS NULL OR rg.activity_count >= {floor})
              ORDER BY sa.section_id, am.route_id"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else {
             return out;
         };
-        let routes: std::collections::HashSet<String> = group_keys(conn, false, false)
-            .into_iter()
-            .filter(|g| g.activity_count >= crate::persistence::route_lines::MIN_ROUTE_ACTIVITIES)
-            .map(|g| g.group_id)
-            .collect();
         let rows = stmt.query_map(rusqlite::params_from_iter(section_ids.iter()), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            let route_id: String = row.get(1)?;
+            let members = match row.get::<_, Option<u32>>(2)? {
+                Some(count) => count,
+                None => decode_activity_ids(row, &route_id, 3, 4)?.len() as u32,
+            };
+            Ok((row.get::<_, String>(0)?, route_id, members))
         });
         if let Ok(rows) = rows {
-            for (section_id, route_id) in rows.filter_map(|r| r.ok()) {
-                if routes.contains(&route_id) {
+            for (section_id, route_id, members) in rows.filter_map(|r| r.ok()) {
+                if members >= floor {
                     out.entry(section_id).or_default().push(route_id);
                 }
             }
@@ -2011,6 +2019,39 @@ pub(crate) mod pooled {
                 id,
                 crate::persistence::codec::encode_polyline(&points),
             )))
+        })
+        .map(|rows| rows.filter_map(Result::ok).flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Row lines for representatives with no signatures row, from their stored
+    /// tracks, strided to the thumbnail's budget. One query for the page, and
+    /// a representative with no readable track has no entry.
+    pub(crate) fn representative_track_previews(
+        conn: &Connection,
+        activity_ids: &[&str],
+    ) -> HashMap<String, Vec<u8>> {
+        if activity_ids.is_empty() {
+            return HashMap::new();
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let query = format!(
+            "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = conn.prepare(&query) else {
+            return HashMap::new();
+        };
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+        stmt.query_map(params.as_slice(), |row| {
+            let id: String = row.get(0)?;
+            let blob: Vec<u8> = row.get(1)?;
+            let points = crate::persistence::codec::TrackRead::from_blob(&blob)
+                .into_option("representative_track_previews", &id)
+                .filter(|points| points.len() > 1);
+            Ok(points.map(|points| (id, crate::persistence::screens::preview_line(&points))))
         })
         .map(|rows| rows.filter_map(Result::ok).flatten().collect())
         .unwrap_or_default()

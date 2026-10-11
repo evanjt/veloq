@@ -64,7 +64,7 @@ const mockWebView = React.forwardRef(function MockWebView(
   React.useImperativeHandle(ref, () => ({
     injectJavaScript: (script: string) => {
       injected.push(script);
-      const named = /var activityId = ["']([^"']+)["']/.exec(script);
+      const named = /"activityId":"([^"]+)"/.exec(script);
       if (named && injectedByWorker[id]) injectedByWorker[id].push(named[1]);
       else if (script === buildRecycleSnapshotMapScript()) injectedByWorker[id]?.push('recycle');
     },
@@ -131,7 +131,7 @@ const request = (activityId: string, flat = true): SnapshotRequest => ({
 /** Every request the pool has handed to a worker so far, oldest first. */
 const rendered = () =>
   injected
-    .map((script) => /var activityId = "([^"]+)"/.exec(script)?.[1])
+    .map((script) => /"activityId":"([^"]+)"/.exec(script)?.[1])
     .filter((id): id is string => !!id);
 
 const eventsOf = (kind: SnapshotQueueEvent['kind']) => mockEvents.filter((e) => e.kind === kind);
@@ -1017,7 +1017,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
   });
 
   /** Whether the script handed to a worker draws flat or the drape. */
-  const rendersFlat = (script: string) => /var isFlat = true/.test(script);
+  const rendersFlat = (script: string) => /"isFlat":true/.test(script);
 
   beforeEach(() => {
     mockCacheById = true;
@@ -1096,7 +1096,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       failOnWorkerOne('a1', false);
       jest.advanceTimersByTime(2000);
 
-      const drawn = injected.filter((s) => s.includes('activityId = "a1"'));
+      const drawn = injected.filter((s) => s.includes('"activityId":"a1"'));
       expect(drawn.length).toBeGreaterThan(0);
       expect(rendersFlat(drawn[drawn.length - 1])).toBe(true);
     });
@@ -1107,7 +1107,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
 
       // One script, the request itself. A flat render has no rung below it, so
       // nothing draws it a second time.
-      expect(injected.filter((s) => s.includes('activityId = "a2"'))).toHaveLength(1);
+      expect(injected.filter((s) => s.includes('"activityId":"a2"'))).toHaveLength(1);
     });
 
     const landOnWorkerOne = async (activityId: string) => {
@@ -1138,7 +1138,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       mockCached.add('progressive');
       await landOnWorkerOne('progressive');
 
-      const drapes = injected.filter((s) => s.includes('activityId = "progressive"'));
+      const drapes = injected.filter((s) => s.includes('"activityId":"progressive"'));
       expect(drapes).toHaveLength(1);
       expect(rendersFlat(drapes[0])).toBe(false);
       expect(save).toHaveBeenCalledWith('progressive', 'light', true, 'bytes', {
@@ -1146,7 +1146,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       });
       injected.length = 0;
       await landOnWorkerOne('progressive');
-      expect(injected.filter((s) => s.includes('activityId = "progressive"'))).toHaveLength(0);
+      expect(injected.filter((s) => s.includes('"activityId":"progressive"'))).toHaveLength(0);
     });
 
     it('keeps a failed drape for recovery without drawing its cached stand-in again', async () => {
@@ -1164,11 +1164,11 @@ describe('a drape that runs out falls back to the flat basemap', () => {
         },
       });
       jest.advanceTimersByTime(2000);
-      expect(injected.filter((s) => s.includes('activityId = "cached"'))).toHaveLength(0);
+      expect(injected.filter((s) => s.includes('"activityId":"cached"'))).toHaveLength(0);
 
       pool().requestSnapshot(request('recovered', false));
       await landOnWorkerOne('recovered');
-      const redrawn = injected.filter((s) => s.includes('activityId = "cached"'));
+      const redrawn = injected.filter((s) => s.includes('"activityId":"cached"'));
       expect(redrawn).toHaveLength(1);
       expect(rendersFlat(redrawn[0])).toBe(false);
     });
@@ -1183,7 +1183,7 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       pool().requestSnapshot(request('a5', false));
       await landOnWorkerOne('a5');
 
-      const redrawn = injected.filter((s) => s.includes('activityId = "a4"'));
+      const redrawn = injected.filter((s) => s.includes('"activityId":"a4"'));
       expect(redrawn).toHaveLength(1);
       expect(rendersFlat(redrawn[0])).toBe(false);
     });
@@ -1195,12 +1195,12 @@ describe('a drape that runs out falls back to the flat basemap', () => {
 
       await landOnWorkerOne('a6');
 
-      expect(injected.filter((s) => s.includes('activityId = "a6"'))).toHaveLength(0);
+      expect(injected.filter((s) => s.includes('"activityId":"a6"'))).toHaveLength(0);
     });
 
     /** Drapes of `activityId` handed to a worker, from the first script on. */
     const drapesOf = (activityId: string) =>
-      injected.filter((s) => s.includes(`activityId = "${activityId}"`) && !rendersFlat(s)).length;
+      injected.filter((s) => s.includes(`"activityId":"${activityId}"`) && !rendersFlat(s)).length;
 
     /** `activityId` runs out on its drape and its flat stand-in lands. */
     const standIn = async (activityId: string) => {
@@ -1365,8 +1365,8 @@ describe('an override jumps the snapshot queue', () => {
     pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
     pool().requestSnapshot(request('visible'));
     post({ type: 'mapReady', workerId: 0 });
-    expect(injected.join('\n')).toContain('activityId = "visible"');
-    expect(injected.join('\n')).not.toContain('activityId = "terrain"');
+    expect(injected.join('\n')).toContain('"activityId":"visible"');
+    expect(injected.join('\n')).not.toContain('"activityId":"terrain"');
   });
 
   it('serves an override before a first paint and a background upgrade', () => {
@@ -1374,7 +1374,7 @@ describe('an override jumps the snapshot queue', () => {
     pool().requestSnapshot(request('visible'));
     pool().requestSnapshot(request('chosen', { priority: true }));
     post({ type: 'mapReady', workerId: 0 });
-    expect(injected.join('\n')).toContain('activityId = "chosen"');
+    expect(injected.join('\n')).toContain('"activityId":"chosen"');
   });
 
   it('evicts background terrain before the oldest first paint', () => {
@@ -1382,14 +1382,14 @@ describe('an override jumps the snapshot queue', () => {
     pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
     pool().requestSnapshot(request('visible'));
     post({ type: 'mapReady', workerId: 0 });
-    expect(injected.join('\n')).toContain('activityId = "a0"');
+    expect(injected.join('\n')).toContain('"activityId":"a0"');
   });
 
   it('drops an incoming upgrade when the queue is full of first paints', () => {
     queue(MAX_QUEUE_SIZE);
     pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
     post({ type: 'mapReady', workerId: 0 });
-    expect(injected.join('\n')).toContain('activityId = "a0"');
+    expect(injected.join('\n')).toContain('"activityId":"a0"');
   });
 
   it('renders the override first, ahead of everything already queued', () => {
@@ -2108,7 +2108,7 @@ describe('the pool timers', () => {
 
       jest.advanceTimersByTime(RETRY_DELAY_MS);
       expect(rendersOf('d0')).toBe(2);
-      expect(injected[injected.length - 1]).toMatch(/var isFlat = true/);
+      expect(injected[injected.length - 1]).toMatch(/"isFlat":true/);
     });
 
     it('starts two retries in the order their delays run out', () => {
@@ -2416,5 +2416,98 @@ describe('every request the pool accepts ends in a picture or a failure', () => 
 
     expect(rendered()).toEqual(['orphan', 'orphan']);
     expect(failures).toEqual([]);
+  });
+});
+
+/**
+ * Scenario: a worker page keeps every style it is given for as long as it
+ * lives, so a request need carry the basemap style only when the page does not
+ * hold it. A page that dies, reloads or rebuilds its map comes back through
+ * `mapReady`, and a page given a request for a style it lost says so.
+ * Expected behaviour: each page is given a style with its first request for
+ * it, and with the first request after any `mapReady` or a missing-style
+ * error, and with no other.
+ */
+describe('a worker page is given each style once', () => {
+  let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
+
+  const pool = () => {
+    if (!ref.current) throw new Error('the pool did not mount');
+    return ref.current;
+  };
+
+  const registrations = (script: string) => script.match(/window\._styles\[/g)?.length ?? 0;
+  const last = () => injected[injected.length - 1];
+
+  const land = async (activityId: string, gen: number) => {
+    post({ type: 'snapshot', workerId: 0, activityId, mapStyle: 'light', base64: 'AAAA', gen });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    ref = React.createRef<TerrainSnapshotWebViewRef>();
+    render(<TerrainSnapshotWebView ref={ref} />);
+    post({ type: 'mapReady', workerId: 0 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('gives the style with the first request and only the request after it', async () => {
+    pool().requestSnapshot(request('a0'));
+    expect(registrations(last())).toBe(1);
+    await land('a0', 1);
+
+    pool().requestSnapshot(request('a1'));
+    expect(rendered()).toEqual(['a0', 'a1']);
+    expect(registrations(last())).toBe(0);
+    expect(last().length).toBeLessThan(5000);
+  });
+
+  it('gives the style again, once, to a page that died and came back', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land('a0', 1);
+
+    act(() => goneHandlers[0]?.());
+    post({ type: 'mapReady', workerId: 0 });
+    pool().requestSnapshot(request('a1'));
+    expect(registrations(last())).toBe(1);
+    await land('a1', 2);
+
+    pool().requestSnapshot(request('a2'));
+    expect(rendered()).toEqual(['a0', 'a1', 'a2']);
+    expect(registrations(last())).toBe(0);
+  });
+
+  it('gives the style again to a map rebuilt in the same page', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land('a0', 1);
+
+    post({ type: 'mapReady', workerId: 0 });
+    pool().requestSnapshot(request('a1'));
+
+    expect(registrations(last())).toBe(1);
+  });
+
+  it('gives the style again with the retry of a request the page had no style for', () => {
+    pool().requestSnapshot(request('a0'));
+    jest.advanceTimersByTime(0);
+    post({
+      type: 'snapshotError',
+      workerId: 0,
+      activityId: 'a0',
+      gen: 1,
+      error: 'style not held',
+      styleMissing: true,
+    });
+    jest.advanceTimersByTime(RETRY_DELAY_MS);
+
+    expect(rendered()).toEqual(['a0', 'a0']);
+    expect(registrations(last())).toBe(1);
   });
 });

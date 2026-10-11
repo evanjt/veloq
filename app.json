@@ -9,6 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "icon": {
+        "light": "./src/assets/icon.png",
+        "dark": "./src/assets/icon-dark.png",
+        "tinted": "./src/assets/icon-tinted.png"
+      },
       "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.veloq.app",
@@ -54,6 +59,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
+        "monochromeImage": "./src/assets/monochrome-icon.png",
         "backgroundColor": "#5B9BD5"
       },
       "edgeToEdgeEnabled": true,
@@ -91,6 +97,7 @@
       "./src/plugins/with-android-backup",
       "./src/plugins/with-plain-lan-transport",
       "./src/plugins/with-android-new-intent",
+      "./src/plugins/with-android-restricted-resizability",
       "./src/plugins/with-app-groups",
       "./src/plugins/with-android-widget",
       "./src/plugins/with-ios-widget",
@@ -129,7 +136,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./src/assets/icon.png",
+          "icon": "./src/assets/notification-icon.png",
           "color": "#0D9488"
         }
       ],

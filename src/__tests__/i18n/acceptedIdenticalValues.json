@@ -48,7 +48,6 @@
     "sections.plotDelta": "Established statistical term, written the same in this language.",
     "sections.plotHistogram": "Established statistical term, written the same in this language.",
     "settings.cutoverStop": "Danish word or phrase with the same spelling.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.storageDatabase": "Established Danish loanword or technical term.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.sixMonths": "Numeric period with the Danish month or week initial.",
@@ -77,7 +76,8 @@
     "units.seconds": "Conventional measurement unit symbol.",
     "metrics.cs": "Conventional training or recording abbreviation.",
     "routes.prTime": "PR is the conventional abbreviation for personal record.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "Danish word or phrase with the same spelling."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -127,7 +127,6 @@
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "German word or phrase with the same spelling.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.storageHeatmap": "Established German loanword or technical term.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.sixMonths": "Numeric period with the German month or week initial.",
@@ -150,7 +149,8 @@
     "units.metres": "Conventional measurement unit symbol.",
     "units.seconds": "Conventional measurement unit symbol.",
     "metrics.cs": "Conventional training or recording abbreviation.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "German word or phrase with the same spelling."
   },
   "de-DE": {
     "about.version": "German word or phrase with the same spelling.",
@@ -220,7 +220,6 @@
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "German word or phrase with the same spelling.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.heatmapGeneration": "Established German loanword or technical term.",
     "settings.storageHeatmap": "Established German loanword or technical term.",
     "settings.system": "German word or phrase with the same spelling.",
@@ -248,7 +247,8 @@
     "units.metres": "Conventional measurement unit symbol.",
     "units.seconds": "Conventional measurement unit symbol.",
     "metrics.cs": "Conventional training or recording abbreviation.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "German word or phrase with the same spelling."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -287,7 +287,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.unitsAuto": "Abbreviation of the Spanish label with the same spelling.",
     "settings.unitsImperial": "Spanish word or phrase with the same spelling.",
     "stats.sixMonths": "Numeric period with the Spanish month or week initial.",
@@ -311,7 +310,8 @@
     "units.metresPerSecond": "Conventional measurement unit symbol.",
     "units.metres": "Conventional measurement unit symbol.",
     "units.seconds": "Conventional measurement unit symbol.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "Spanish word or phrase with the same spelling."
   },
   "es-ES": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -356,7 +356,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.unitsAuto": "Abbreviation of the Spanish label with the same spelling.",
     "settings.unitsImperial": "Spanish word or phrase with the same spelling.",
     "stats.sixMonths": "Numeric period with the Spanish month or week initial.",
@@ -381,7 +380,8 @@
     "units.metresPerSecond": "Conventional measurement unit symbol.",
     "units.metres": "Conventional measurement unit symbol.",
     "units.seconds": "Conventional measurement unit symbol.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "Spanish word or phrase with the same spelling."
   },
   "es": {
     "activity.ftp": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -421,7 +421,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "stats.sixMonths": "Numeric period with the Spanish month or week initial.",
     "stats.threeMonths": "Numeric period with the Spanish month or week initial.",
     "stats.tss": "Conventional training or recording abbreviation.",
@@ -444,7 +443,8 @@
     "units.metresPerSecond": "Conventional measurement unit symbol.",
     "units.metres": "Conventional measurement unit symbol.",
     "units.seconds": "Conventional measurement unit symbol.",
-    "routes.errorDetailId": "Conventional abbreviation for identifier."
+    "routes.errorDetailId": "Conventional abbreviation for identifier.",
+    "insights.verdict.neutral": "Spanish word or phrase with the same spelling."
   },
   "fr": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -520,7 +520,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sensors.kinds.cadence": "French word or phrase with the same spelling.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.previewAreaSections_one": "French word or phrase with the same spelling.",
     "settings.previewAreaSections_other": "French word or phrase with the same spelling.",
     "settings.satellite": "French word or phrase with the same spelling.",
@@ -609,7 +608,6 @@
     "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.account": "Established Italian loanword or technical term.",
     "settings.database": "Established Italian loanword or technical term.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.storageDatabase": "Established Italian loanword or technical term.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.sixMonths": "Numeric period with the Italian month or week initial.",
@@ -657,7 +655,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.tss": "Conventional training or recording abbreviation.",
     "statsScreen.ftpLabel": "FTP abbreviation, numeric placeholder and watt symbol.",
@@ -731,6 +728,7 @@
     "recording.fieldModeGps": "Universal acronym.",
     "recording.library.statusLabel": "Dutch word or phrase with the same spelling.",
     "recording.rec": "Conventional training or recording abbreviation.",
+    "recording.resumeLater": "Dutch word or phrase with the same spelling.",
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "routes.routeWord": "Dutch word or phrase with the same spelling.",
@@ -745,7 +743,6 @@
     "sections.routesCountLabel_other": "Dutch word or phrase with the same spelling.",
     "settings.account": "Established Dutch loanword or technical term.",
     "settings.database": "Established Dutch loanword or technical term.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.heatmapGeneration": "Established Dutch loanword or technical term.",
     "settings.routesCount": "Dutch word or phrase with the same spelling.",
     "settings.storageDatabase": "Established Dutch loanword or technical term.",
@@ -831,7 +828,6 @@
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
     "sections.plotHistogram": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.unitsAuto": "Abbreviation of the Polish label with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.sixMonths": "Numeric period with the Polish month or week initial.",
@@ -905,7 +901,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.sixMonths": "Numeric period with the Brazilian Portuguese month or week initial.",
     "stats.threeMonths": "Numeric period with the Brazilian Portuguese month or week initial.",
@@ -977,7 +972,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.unitsAuto": "Abbreviation of the Portuguese label with the same spelling.",
     "settings.unitsImperial": "Portuguese word or phrase with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
@@ -1021,7 +1015,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "stats.tss": "Conventional training or recording abbreviation.",
     "statsScreen.ftpLabel": "FTP abbreviation, numeric placeholder and watt symbol.",
     "units.bpm": "Conventional measurement unit symbol.",

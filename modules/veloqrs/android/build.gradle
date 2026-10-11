@@ -246,6 +246,10 @@ dependencies {
   // autolinked by the app, so this module only compiles against them.
   androidTestImplementation "androidx.test:runner:1.5.2"
   androidTestImplementation "androidx.test.ext:junit:1.1.5"
+  // The widget capture test compiles every widget source the app ships, the
+  // pickers among them, and those are Material components under a Material 3
+  // theme. The same version the widget plugin adds to the app.
+  androidTestImplementation "com.google.android.material:material:1.13.0"
   // The push service subclasses Expo's, which the app autolinks under `:expo`,
   // and reads the FCM message that module's own dependency delivers. Neither
   // ships in this module's artifact.

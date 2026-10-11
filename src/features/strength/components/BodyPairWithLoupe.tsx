@@ -12,8 +12,10 @@ import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { bodyDiagram, brand, loupeChrome, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
+import { BODY_INTRINSIC_H, BODY_INTRINSIC_W, bodyPairLayout } from '../lib/bodyScale';
 import { findMuscleAtPoint } from '../lib/polygons';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import * as haptics from '@/shared/ui/haptics';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -22,16 +24,13 @@ const LOUPE_SCALE = 2.5;
 /** The loupe's fade out, and so how long its bodies outlive the scrub. */
 const LOUPE_FADE_MS = 150;
 
-// Body component intrinsic dimensions (from react-native-body-highlighter source)
-const BODY_INTRINSIC_W = 200;
-const BODY_INTRINSIC_H = 400;
-
 interface BodyPairWithLoupeProps {
   data: readonly ExtendedBodyPart[];
   /** The muscle drawn with the selection stroke. Kept out of `data` so a scrub does not rebuild it. */
   selectedSlug?: string | null | undefined;
   gender: 'male' | 'female';
-  scale: number;
+  /** The largest scale the figures are drawn at; a narrower row draws them smaller. */
+  maxScale: number;
   colors: readonly string[];
   defaultFill?: string | undefined;
   onMuscleTap?: ((slug: string) => void) | undefined;
@@ -46,7 +45,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   data: baseData,
   selectedSlug,
   gender,
-  scale,
+  maxScale,
   colors,
   defaultFill,
   onMuscleTap,
@@ -89,6 +88,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showLoupe = useCallback(() => {
+    haptics.light();
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
     fadeTimer.current = null;
     setScrubbing(true);
@@ -130,8 +130,13 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   const scrubCallback = onMuscleScrub ?? onMuscleTap;
 
-  // Sizes
-  const totalGap = gap + centerWidth;
+  // Sizes. Until the row is measured the figures take the largest scale.
+  const { scale, stackCenter } = layoutSize
+    ? centerContent
+      ? bodyPairLayout(layoutSize.width, centerWidth, maxScale)
+      : bodyPairLayout(layoutSize.width - gap, 0, maxScale)
+    : { scale: maxScale, stackCenter: false };
+  const totalGap = centerContent ? (stackCenter ? 0 : centerWidth) : gap;
   const bodyPixelW = BODY_INTRINSIC_W * scale;
   const bodyPixelH = BODY_INTRINSIC_H * scale;
   // The loupe renders the body at a larger scale directly (no CSS transform)
@@ -287,7 +292,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     };
   });
 
-  return (
+  const pair = (
     <GestureDetector gesture={composedGesture}>
       <Animated.View style={styles.gestureWrapper}>
         <View onLayout={handleLayout} style={styles.row}>
@@ -302,7 +307,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             />
           </View>
 
-          {centerContent}
+          {!stackCenter && centerContent}
           {!centerContent && gap > 0 && <View style={{ width: gap }} />}
 
           <View style={styles.bodyView}>
@@ -350,6 +355,14 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
         </View>
       </Animated.View>
     </GestureDetector>
+  );
+
+  if (!stackCenter) return pair;
+  return (
+    <View>
+      {pair}
+      {centerContent}
+    </View>
   );
 });
 

@@ -295,7 +295,10 @@ fn a_failed_request_is_not_kept_so_the_next_lookup_asks_again() {
     let _dir = init_global_engine("geocode_failed.db");
     switch(true);
     let geocoder = Geocoder::with_transport(Stub::answering(|_| {
-        Err(GeocodeError::Rejected { status: 503 })
+        Err(GeocodeError::Rejected {
+            status: 404,
+            retry_after: None,
+        })
     }));
 
     assert_eq!(lookup(&geocoder, HERE), None);
@@ -304,6 +307,157 @@ fn a_failed_request_is_not_kept_so_the_next_lookup_asks_again() {
     let sent = geocoder.transport().sent.lock().unwrap();
     assert_eq!(sent.len(), 2);
     assert!(sent[1].began >= sent[0].ended + PACE);
+}
+
+fn refused_until() -> Option<i64> {
+    crate::persistence::read_pool::with_read_conn(|conn| {
+        setting_from(conn, settings_keys::GEOCODER_REFUSED_UNTIL)
+            .unwrap()
+            .and_then(|raw| raw.parse().ok())
+    })
+    .flatten()
+}
+
+#[test]
+fn a_refusal_holds_every_lookup_until_its_cool_down_ends() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_refused.db");
+    switch(true);
+    let refusing = Arc::new(AtomicBool::new(true));
+    let still_refusing = Arc::clone(&refusing);
+    let geocoder = Geocoder::with_transport(Stub::answering(move |_| {
+        if still_refusing.load(Ordering::SeqCst) {
+            Err(GeocodeError::Rejected {
+                status: 429,
+                retry_after: None,
+            })
+        } else {
+            Ok(answer("Northcote"))
+        }
+    }));
+    let at = |point: (f64, f64)| {
+        crate::runtime::block_on(geocoder.lookup(Some(ENDPOINT), point.0, point.1, "en-AU"))
+    };
+
+    let before = crate::persistence::attempts::now_ms();
+    assert_eq!(at(HERE), Lookup::Refused);
+    let after = crate::persistence::attempts::now_ms();
+    let until = refused_until().expect("a refusal is held");
+    let floor = REFUSAL_FLOOR.as_millis() as i64;
+    assert!(until >= before + floor && until <= after + floor);
+
+    refusing.store(false, Ordering::SeqCst);
+    assert_eq!(at(THERE), Lookup::Refused, "another cell is held too");
+    assert_eq!(at(HERE), Lookup::Refused);
+    assert_eq!(geocoder.transport().count(), 1);
+
+    with_persistent_engine(|e| {
+        e.set_setting(
+            settings_keys::GEOCODER_REFUSED_UNTIL,
+            &(before - 1).to_string(),
+        )
+        .unwrap()
+    })
+    .expect("engine");
+    assert_eq!(at(HERE), Lookup::Place("Northcote".to_string()));
+    assert_eq!(geocoder.transport().count(), 2);
+}
+
+#[test]
+fn a_cell_already_answered_is_answered_inside_a_cool_down() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_refused_cached.db");
+    switch(true);
+    let geocoder = Geocoder::with_transport(Stub::answering(|url| {
+        if url.contains("-37.77") {
+            Ok(answer("Northcote"))
+        } else {
+            Err(GeocodeError::Rejected {
+                status: 503,
+                retry_after: None,
+            })
+        }
+    }));
+
+    assert_eq!(lookup(&geocoder, HERE).as_deref(), Some("Northcote"));
+    assert_eq!(lookup(&geocoder, THERE), None);
+    assert_eq!(lookup(&geocoder, HERE_AGAIN).as_deref(), Some("Northcote"));
+    assert_eq!(geocoder.transport().count(), 2);
+}
+
+#[test]
+fn a_refusal_holds_for_what_the_provider_asked_and_otherwise_for_the_floor() {
+    let now = 1_000_000;
+    let ms = |d: Duration| d.as_millis() as i64;
+    for status in [429, 403, 500, 502, 503, 599] {
+        assert_eq!(
+            refusal_ends_at(status, None, now),
+            Some(now + ms(REFUSAL_FLOOR)),
+            "{status}"
+        );
+        assert_eq!(
+            refusal_ends_at(status, Some(Duration::from_secs(120)), now),
+            Some(now + 120_000),
+            "{status} honours what it asked"
+        );
+    }
+    assert_eq!(
+        refusal_ends_at(429, Some(Duration::from_secs(365 * 86_400)), now),
+        Some(now + ms(REFUSAL_LONGEST)),
+        "no answer holds the geocoder longer than the longest refusal"
+    );
+    for status in [400, 401, 404, 410, 418] {
+        assert_eq!(
+            refusal_ends_at(status, None, now),
+            None,
+            "{status} is an answer"
+        );
+    }
+}
+
+#[test]
+fn retry_after_reads_seconds_or_a_date() {
+    let now = chrono::DateTime::parse_from_rfc2822("Sat, 10 Oct 2026 10:00:00 GMT")
+        .unwrap()
+        .timestamp_millis();
+    assert_eq!(retry_after_of("120", now), Some(Duration::from_secs(120)));
+    assert_eq!(retry_after_of(" 0 ", now), Some(Duration::ZERO));
+    assert_eq!(
+        retry_after_of("Sat, 10 Oct 2026 10:05:00 GMT", now),
+        Some(Duration::from_secs(300))
+    );
+    assert_eq!(
+        retry_after_of("Sat, 10 Oct 2026 09:55:00 GMT", now),
+        Some(Duration::ZERO),
+        "a date already past asks for no wait"
+    );
+    assert_eq!(retry_after_of("soon", now), None);
+    assert_eq!(retry_after_of("-5", now), None);
+}
+
+#[test]
+fn a_refusal_over_http_carries_its_retry_after() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("geocode_retry_after.db");
+    let host = MockServer::start();
+    host.mock(|when, then| {
+        when.method(GET).path("/reverse");
+        then.status(429).header("retry-after", "90");
+    });
+    let transport = HttpTransport::new().expect("client");
+
+    let reply = crate::runtime::block_on(transport.get(
+        &format!("{}/reverse?format=jsonv2", host.base_url()),
+        "en-AU",
+    ));
+
+    match reply {
+        Err(GeocodeError::Rejected {
+            status: 429,
+            retry_after,
+        }) => assert_eq!(retry_after, Some(Duration::from_secs(90))),
+        other => panic!("{other:?}"),
+    }
 }
 
 #[test]

@@ -134,11 +134,14 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const sections = data.sections?.length ? data.sections : null;
 
   // The generator judged the series where the metric is known, so a falling
-  // efficiency ratio arrives as an improvement. A series with no verdict is
-  // drawn on the neutral rung with no arrow: its first and last points say
-  // which way it went, not whether that was good.
+  // efficiency ratio arrives as an improvement. The sparkline and the
+  // comparison both draw that one move. A move with no verdict is drawn on the
+  // neutral rung: the sparkline draws no arrow for it, since its first and last
+  // points say which way it went and not whether that was good, and the
+  // comparison draws a dash.
   const trend = data.trend;
-  const trendColor = verdictColor(trend ? verdictRung(trend.verdict) : 'neutral', isDark);
+  const trendRung = trend ? verdictRung(trend.verdict) : 'neutral';
+  const trendColor = verdictColor(trendRung, isDark);
   const trendGlyph = trend ? verdictIcon(trend.verdict, trend.direction) : null;
 
   return (
@@ -165,12 +168,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
           style={[
             styles.comparisonCard,
             isDark && styles.comparisonCardDark,
-            comparison.change.context === 'good' && {
-              backgroundColor: verdictFill('positive', isDark),
-            },
-            comparison.change.context === 'concern' && {
-              backgroundColor: verdictFill('negative', isDark),
-            },
+            trendRung !== 'neutral' && { backgroundColor: verdictFill(trendRung, isDark) },
           ]}
         >
           <View style={styles.comparisonColumns}>
@@ -201,32 +199,8 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             </View>
           </View>
           <View style={styles.comparisonChange}>
-            <MaterialCommunityIcons
-              name={
-                comparison.change.context === 'good'
-                  ? 'arrow-up'
-                  : comparison.change.context === 'concern'
-                    ? 'arrow-down'
-                    : ('minus' as never)
-              }
-              size={16}
-              color={
-                comparison.change.context === 'good'
-                  ? verdictColor('positive', isDark)
-                  : comparison.change.context === 'concern'
-                    ? verdictColor('negative', isDark)
-                    : verdictColor('neutral', isDark)
-              }
-            />
-            <Text
-              style={[
-                styles.comparisonChangeText,
-                comparison.change.context === 'good' && { color: verdictColor('positive', isDark) },
-                comparison.change.context === 'concern' && {
-                  color: verdictColor('negative', isDark),
-                },
-              ]}
-            >
+            <MaterialCommunityIcons name={trendGlyph ?? 'minus'} size={16} color={trendColor} />
+            <Text style={[styles.comparisonChangeText, { color: trendColor }]}>
               {String(comparison.change.value)}
               {comparison.change.unit ? ` ${comparison.change.unit}` : ''}
             </Text>

@@ -41,7 +41,7 @@ const detection = {
 };
 const grouping = { minMatchPercentage: 55, endpointThreshold: 250 };
 
-function openPanel(kind: 'param' | 'grouping') {
+function openPanel(kind: 'param' | 'grouping', editKey?: string) {
   const onChange = jest.fn();
   const panel = render(
     kind === 'param' ? (
@@ -50,7 +50,7 @@ function openPanel(kind: 'param' | 'grouping') {
       <GroupingParamPanel params={grouping} onChange={onChange} />
     )
   );
-  const key = kind === 'param' ? 'maxSectionLength' : 'endpointThreshold';
+  const key = editKey ?? (kind === 'param' ? 'maxSectionLength' : 'endpointThreshold');
   fireEvent.press(panel.getByTestId(`${kind}-edit-${key}`));
   expect(mockPush.mock.calls.at(-1)?.[0].pathname).toBe('sheets/param-editor');
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
@@ -98,3 +98,58 @@ for (const kind of ['param', 'grouping'] as const) {
     expect(onChange).not.toHaveBeenCalled();
   });
 }
+
+describe('a value the sheet refuses', () => {
+  it('names the problem under the field and holds Save for a zero distance', () => {
+    const { onChange } = openPanel('param');
+    fireEvent.changeText(screen.getByTestId('param-editor-input'), '0');
+
+    expect(screen.getByTestId('param-editor-input-error')).toBeTruthy();
+    const save = screen.getByTestId('param-editor-save');
+    expect(save.props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(save);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('names the problem for a blank field', () => {
+    openPanel('param');
+    fireEvent.changeText(screen.getByTestId('param-editor-input'), '');
+    expect(screen.getByTestId('param-editor-input-error')).toBeTruthy();
+  });
+
+  it('refuses a match percentage past 100 with its own message', () => {
+    const { onChange } = openPanel('grouping', 'minMatchPercentage');
+    fireEvent.changeText(screen.getByTestId('grouping-editor-input'), '120');
+
+    expect(screen.getByTestId('grouping-editor-input-error')).toHaveTextContent(
+      'settings.groupingParamInvalidPercent'
+    );
+    const save = screen.getByTestId('grouping-editor-save');
+    expect(save.props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(save);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('clears the error and frees Save once the value is valid again', () => {
+    openPanel('param');
+    fireEvent.changeText(screen.getByTestId('param-editor-input'), '0');
+    fireEvent.changeText(screen.getByTestId('param-editor-input'), '50');
+    expect(screen.queryByTestId('param-editor-input-error')).toBeNull();
+    expect(screen.getByTestId('param-editor-save').props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+  });
+
+  it('accepts a value past the tested range without an error', () => {
+    openPanel('param');
+    fireEvent.changeText(screen.getByTestId('param-editor-input'), '5000');
+    expect(screen.queryByTestId('param-editor-input-error')).toBeNull();
+    expect(screen.getByTestId('param-editor-range-note')).toBeTruthy();
+  });
+
+  it('carries the unit in the field name a screen reader reads', () => {
+    openPanel('param');
+    expect(screen.getByTestId('param-editor-input').props.accessibilityLabel).toContain('km');
+  });
+});

@@ -18,6 +18,7 @@ jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
 
@@ -117,11 +118,13 @@ describe('BottomTabBar', () => {
       const { getByLabelText } = render(<BottomTabBar />);
 
       fireEvent.press(getByLabelText('navigation.feed'));
-      expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+      expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
 
       fireEvent.press(getByLabelText('navigation.fitness'));
 
-      expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledWith('segment-tick');
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled();
       expect(Haptics.impactAsync).not.toHaveBeenCalled();
     } finally {
       Platform.OS = originalOS;

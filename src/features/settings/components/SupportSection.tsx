@@ -10,8 +10,7 @@ import { TipButtons } from '@/shared/ui/TipButtons';
 import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
-import { settingsStyles } from './settingsStyles';
-import { Button, pressable, pressRipple } from '@/shared/ui';
+import { Button, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -52,9 +51,7 @@ export function SupportSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.support').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.support')}</ListSectionHeader>
 
       <View testID="support-section" style={[styles.card, isDark && styles.cardDark]}>
         {/* Action buttons */}

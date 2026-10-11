@@ -13,7 +13,7 @@ import {
   type IntervalsUnitPreferences,
   getIntervalsUnitSystem,
 } from '@/shared/app/UnitPreferenceStore';
-import { LanguageList, ToggleButtonRow } from '@/shared/ui';
+import { LanguageList, ListSectionHeader, ToggleButtonRow } from '@/shared/ui';
 
 // LanguageChoice from useLanguageStore (always a string now, no System option)
 type LanguageChoice = string;
@@ -125,13 +125,13 @@ function DisplaySettingsComponent({
       <View style={[styles.divider, isDark && styles.dividerDark]} />
 
       {/* Language */}
-      <View style={styles.languageHeader}>
+      <View style={[styles.subsectionHeader, styles.languageHeader]}>
         <MaterialCommunityIcons
           name="translate"
-          size={22}
+          size={18}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textLight]}>
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
           {t('settings.language')}
         </Text>
         <Text
@@ -150,9 +150,7 @@ function DisplaySettingsComponent({
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.display').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.display')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {displayContent}
 
@@ -207,12 +205,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   languageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
-    gap: spacing.sm,
   },
   subsectionLabel: {
     ...typography.captionBold,

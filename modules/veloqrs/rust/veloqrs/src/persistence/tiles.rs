@@ -73,9 +73,10 @@ type Hold = (mpsc::Sender<()>, mpsc::Receiver<()>);
 #[cfg(any(test, feature = "synthetic"))]
 static TILE_PASS_HOLD: std::sync::Mutex<Option<(Hold, HoldPoint)>> = std::sync::Mutex::new(None);
 
-/// The test's side of [`hold_next_tile_pass`] and
-/// [`hold_next_tile_pass_inside_a_tile`]. Dropping it releases the pass,
-/// so a failed assertion never leaves the worker waiting.
+/// The test's side of [`hold_next_tile_pass`],
+/// [`hold_next_tile_pass_inside_a_tile`] and [`hold_next_tile_draw`].
+/// Dropping it releases the pass or the draw, so a failed assertion never
+/// leaves the worker waiting.
 #[cfg(any(test, feature = "synthetic"))]
 #[doc(hidden)]
 pub struct TilePassHold {
@@ -86,7 +87,8 @@ pub struct TilePassHold {
 #[cfg(any(test, feature = "synthetic"))]
 impl TilePassHold {
     /// Block until the pass reaches its hold: its tiles scheduled, or its
-    /// first tile drawn and not yet saved.
+    /// first tile drawn and not yet saved. A tile drawn on request holds with
+    /// its tracks read and nothing drawn.
     /// Panics when the pass ended without getting there.
     pub fn wait_until_reached(&self) {
         self.reached
@@ -133,8 +135,14 @@ fn hold_next_tile_pass_at(point: HoldPoint) -> TilePassHold {
 /// one token that reaches the worker actually drawing.
 static TILE_PASS: Mutex<Option<super::CancelToken>> = Mutex::new(None);
 
-/// A wipe holds this from before stopping a pass until every set is marked.
-static TILE_WIPE_GATE: Mutex<()> = Mutex::new(());
+/// A wipe holds this exclusively from before stopping a pass until every set
+/// is marked. A pass claims and a tile drawn on request is written under a
+/// shared hold, so neither waits on the other and neither lands inside a wipe.
+static TILE_WIPE_GATE: RwLock<()> = RwLock::new(());
+
+/// Wipes begun in this process, so a tile drawn on request can tell a wipe ran
+/// while it drew though the wipe has since ended.
+static TILE_WIPES: AtomicU64 = AtomicU64::new(0);
 
 /// Signalled when the pass in [`TILE_PASS`] ends.
 static TILE_PASS_ENDED: Condvar = Condvar::new();
@@ -262,7 +270,7 @@ impl TilePassGuard {
     /// already holds it, the key is backing off after a failure, or a wipe is
     /// under way.
     fn claim(engine: &PersistentEngine, cancel: &super::CancelToken) -> Option<Self> {
-        let _gate = match TILE_WIPE_GATE.try_lock() {
+        let _gate = match TILE_WIPE_GATE.try_read() {
             Ok(gate) => gate,
             Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
             Err(TryLockError::WouldBlock) => return None,
@@ -394,14 +402,37 @@ struct TileGeneration {
     cancelled: bool,
 }
 
-/// The tiles directory, readable without the engine lock.
+/// What the map's tile reader needs, readable without the engine lock.
 ///
 /// The WebView's request interceptor runs on a background thread with no
 /// JavaScript context and no business taking the engine's lock: a tile the map
-/// is drawing would then queue behind whatever a sync is writing. The path is
-/// the only thing it needs, it changes twice in a session, and it is written
-/// here beside the field it mirrors.
-static HEATMAP_TILES_DIR: RwLock<Option<String>> = RwLock::new(None);
+/// is drawing would then queue behind whatever a sync is writing. It needs the
+/// tiles directory to read a drawn tile, and to draw a deep one it has not got
+/// it needs the database and every activity's bounds. A new value is
+/// published whole whenever the path or the catalogue changes, so a reader
+/// holding the old one can tell, by identity, that what it drew from moved.
+static HEATMAP_SOURCE: RwLock<Option<Arc<HeatmapSource>>> = RwLock::new(None);
+
+struct HeatmapSource {
+    dir: String,
+    db_path: String,
+    bounds: Arc<rstar::RTree<super::ActivityBoundsEntry>>,
+}
+
+fn publish_heatmap_source(source: Option<HeatmapSource>) {
+    let source = source.map(Arc::new);
+    match HEATMAP_SOURCE.write() {
+        Ok(mut held) => *held = source,
+        Err(poisoned) => *poisoned.into_inner() = source,
+    }
+}
+
+fn heatmap_source() -> Option<Arc<HeatmapSource>> {
+    match HEATMAP_SOURCE.read() {
+        Ok(held) => held.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
+    }
+}
 
 /// Where the athlete is looking, so the pass can draw that ground first.
 ///
@@ -483,31 +514,271 @@ fn priority_rank(coord: (u8, u32, u32), priority: Option<(f64, f64, u8)>) -> u8 
     if z.abs_diff(zoom) <= 1 { 0 } else { 1 }
 }
 
-fn publish_tiles_dir(path: Option<String>) {
-    match HEATMAP_TILES_DIR.write() {
-        Ok(mut held) => *held = path,
-        Err(poisoned) => *poisoned.into_inner() = path,
+/// The lowest zoom a missing tile is drawn at when the map asks for it.
+///
+/// Deep tiles are most of the tree and each holds only the tracks that pass
+/// through it, so one is drawn in the time the map waits for it. A shallower
+/// tile holds more of the library the higher it goes, so a miss there stays a
+/// hole the pass fills.
+pub const ON_REQUEST_MIN_ZOOM: u8 = 15;
+
+/// One heatmap tile's PNG bytes, or `None` when the athlete has the heatmap
+/// off, the tile holds no heat, or it is shallower than
+/// [`ON_REQUEST_MIN_ZOOM`] and the pass has not drawn it yet.
+///
+/// A deep tile no pass has drawn is drawn here, from the stored tracks whose
+/// bounds reach it, and written for the next read. A miss is not a failure:
+/// heatmap tiles are generated from local GPS rather than fetched, so "not
+/// drawn yet" is the ordinary answer and the caller turns it into a 404.
+pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+    let wipes = TILE_WIPES.load(Ordering::Acquire);
+    let source = heatmap_source()?;
+    let base = Path::new(&source.dir);
+    if let Some(drawn) = read_drawn_tile(base, z, x, y) {
+        return drawn;
+    }
+    if !(ON_REQUEST_MIN_ZOOM..=tiles::HeatmapConfig::default().max_zoom).contains(&z) {
+        return None;
+    }
+    count_on_request(|c| c.misses += 1);
+    // A second ask for a tile being drawn waits for that draw and reads what
+    // it wrote, rather than drawing the same tile again beside it.
+    let _flight = TileDraw::claim((z, x, y));
+    if let Some(drawn) = read_drawn_tile(base, z, x, y) {
+        return drawn;
+    }
+    let png = draw_tile_on_request(&source, z, x, y)?;
+    match keep_tile_drawn_on_request(&source, wipes, (z, x, y), png.as_deref()) {
+        Kept::Written | Kept::NotWritten => png,
+        Kept::Withdrawn => None,
     }
 }
 
-/// One heatmap tile's PNG bytes, or `None` when the athlete has the heatmap
-/// off, the pass has not drawn that tile yet, or the file is an empty marker.
-///
-/// A miss is not a failure here: heatmap tiles are generated from local GPS
-/// rather than fetched, so "not drawn yet" is the ordinary answer and the
-/// caller turns it into a 404.
-pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
-    let dir = match HEATMAP_TILES_DIR.read() {
-        Ok(held) => held.clone()?,
-        Err(poisoned) => poisoned.into_inner().clone()?,
-    };
-    let path = Path::new(&dir)
+/// What the set holds for a tile: `Some(Some(bytes))` drawn with heat,
+/// `Some(None)` drawn and empty, `None` never drawn.
+fn read_drawn_tile(base: &Path, z: u8, x: u32, y: u32) -> Option<Option<Vec<u8>>> {
+    let path = base
         .join(z.to_string())
         .join(x.to_string())
         .join(format!("{}.png", y));
+    if let Ok(bytes) = std::fs::read(path) {
+        return Some((!bytes.is_empty()).then_some(bytes));
+    }
+    tiles::tile_exists(base, z, x, y).then_some(None)
+}
 
-    let bytes = std::fs::read(path).ok()?;
-    if bytes.is_empty() { None } else { Some(bytes) }
+/// Draw one tile from the tracks that reach it, as the pass draws it.
+/// `Some(None)` when no heat falls in it, `None` when the tracks could not be
+/// read.
+fn draw_tile_on_request(source: &HeatmapSource, z: u8, x: u32, y: u32) -> Option<Option<Vec<u8>>> {
+    let reaching = activities_reaching_tile(&source.bounds, z, x, y);
+    count_on_request(|c| c.tracks_loaded += reaching.len());
+    let tracks = if reaching.is_empty() {
+        LoadedTracksById::new()
+    } else {
+        with_track_reader(&source.db_path, |conn| {
+            bulk_load_tracks(conn, &reaching).tracks
+        })?
+    };
+    // The pass gives a tile the tracks whose walk at its zoom holds it, and
+    // the same set here keeps the two draws of one tile the same picture.
+    let drawn: Vec<&tiles::ProjectedTrack> = tracks
+        .values()
+        .filter(|track| !track.is_empty() && track.tiles_along(z).contains(&(x, y)))
+        .map(|track| track.as_ref())
+        .collect();
+    #[cfg(any(test, feature = "synthetic"))]
+    {
+        let held = TILE_DRAW_HOLD
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        if let Some((reached, release)) = held {
+            let _ = reached.send(());
+            let _ = release.recv();
+        }
+    }
+    count_on_request(|c| c.draws += 1);
+    Some(tiles::draw_heatmap_tile(z, x, y, &drawn))
+}
+
+/// The activities whose bounds can put ink in a tile: the tile is inside the
+/// box's tile range with the one-tile halo a point's stroke can bleed into.
+fn activities_reaching_tile(
+    index: &rstar::RTree<super::ActivityBoundsEntry>,
+    z: u8,
+    x: u32,
+    y: u32,
+) -> Vec<(String, Bounds)> {
+    // The tile and every neighbour, which is the widest a reach can be, read
+    // off the index; the exact reach is tested on what that returns.
+    let west = tiles::tile_x_to_lon(f64::from(x.saturating_sub(1)), z);
+    let east = tiles::tile_x_to_lon(f64::from(x) + 2.0, z);
+    let north = tiles::tile_y_to_lat(f64::from(y.saturating_sub(1)), z);
+    let south = tiles::tile_y_to_lat(f64::from(y) + 2.0, z);
+    let around = rstar::AABB::from_corners([west, south], [east, north]);
+    index
+        .locate_in_envelope_intersecting(&around)
+        .filter(|entry| {
+            let b = &entry.bounds;
+            let reach =
+                tiles::reach_range_for_bounds(b.min_lat, b.max_lat, b.min_lng, b.max_lng, z);
+            x >= reach.x0 && x <= reach.x1 && y >= reach.y0 && y <= reach.y1
+        })
+        .map(|entry| (entry.activity_id.clone(), entry.bounds))
+        .collect()
+}
+
+/// A read-only connection to `db_path`: the pool's when it is bound to that
+/// database, else one of the draw's own.
+fn with_track_reader<R>(db_path: &str, f: impl FnOnce(&Connection) -> R) -> Option<R> {
+    if super::read_pool::binding().is_some_and(|(_, bound)| bound == db_path) {
+        return super::read_pool::with_read_conn(f);
+    }
+    match super::read_pool::open_reader(db_path) {
+        Ok(conn) => Some(f(&conn)),
+        Err(e) => {
+            log::warn!("[heatmap] Could not open the tracks to draw a tile: {e}");
+            None
+        }
+    }
+}
+
+/// What became of a tile drawn on request.
+enum Kept {
+    Written,
+    /// The catalogue moved while it was drawn, so it may be short a track or
+    /// hold a removed one. It is shown, and drawn again on the next ask.
+    NotWritten,
+    /// The heatmap was turned off, moved or wiped while it was drawn.
+    Withdrawn,
+}
+
+/// Write a tile drawn on request, unless what it was drawn from is gone.
+///
+/// Under the wipe gate, so a wipe cannot start between the check and the
+/// write, and against the wipe count, so one that ran during the draw is seen
+/// though it has ended. A sweep runs after the catalogue it changes is
+/// published, so a write made before that publish is swept with the rest.
+fn keep_tile_drawn_on_request(
+    drawn_from: &Arc<HeatmapSource>,
+    wipes: u64,
+    (z, x, y): TileKey,
+    png: Option<&[u8]>,
+) -> Kept {
+    let _gate = match TILE_WIPE_GATE.try_read() {
+        Ok(gate) => gate,
+        Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+        Err(TryLockError::WouldBlock) => return Kept::Withdrawn,
+    };
+    if TILE_WIPES.load(Ordering::Acquire) != wipes {
+        return Kept::Withdrawn;
+    }
+    let Some(now) = heatmap_source() else {
+        return Kept::Withdrawn;
+    };
+    if now.dir != drawn_from.dir {
+        return Kept::Withdrawn;
+    }
+    if !Arc::ptr_eq(&now, drawn_from) {
+        return Kept::NotWritten;
+    }
+    let base = Path::new(&drawn_from.dir);
+    let written = match png {
+        Some(png) => tiles::save_tile(base, z, x, y, png),
+        None => tiles::mark_tile_empty(base, z, x, y),
+    };
+    match written {
+        Ok(()) => Kept::Written,
+        Err(e) => {
+            log::warn!("[heatmap] Could not keep the tile drawn on request: {e}");
+            Kept::NotWritten
+        }
+    }
+}
+
+/// The deep tiles being drawn on request, one draw each.
+static TILE_DRAWS: Mutex<BTreeSet<TileKey>> = Mutex::new(BTreeSet::new());
+
+/// Signalled when a draw in [`TILE_DRAWS`] ends.
+static TILE_DRAW_ENDED: Condvar = Condvar::new();
+
+/// The one draw of a tile under way, held until it is written or given up.
+struct TileDraw(TileKey);
+
+impl TileDraw {
+    /// Wait out a draw of `key` already under way, then take it.
+    fn claim(key: TileKey) -> Self {
+        let held = TILE_DRAWS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut held = TILE_DRAW_ENDED
+            .wait_while(held, |drawing| drawing.contains(&key))
+            .unwrap_or_else(|e| e.into_inner());
+        held.insert(key);
+        TileDraw(key)
+    }
+}
+
+impl Drop for TileDraw {
+    fn drop(&mut self) {
+        TILE_DRAWS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.0);
+        TILE_DRAW_ENDED.notify_all();
+    }
+}
+
+/// What the on-request draw did, so a test can count it rather than time it.
+/// Counted only in the test lanes.
+#[doc(hidden)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct OnRequestCounts {
+    /// Asks for a deep tile the set did not hold.
+    pub misses: usize,
+    /// Tiles drawn.
+    pub draws: usize,
+    /// Tracks read from the database to draw them.
+    pub tracks_loaded: usize,
+}
+
+#[cfg(any(test, feature = "synthetic"))]
+static ON_REQUEST_COUNTS: Mutex<OnRequestCounts> = Mutex::new(OnRequestCounts {
+    misses: 0,
+    draws: 0,
+    tracks_loaded: 0,
+});
+
+/// The on-request work since the last call.
+#[cfg(any(test, feature = "synthetic"))]
+#[doc(hidden)]
+pub fn take_on_request_counts() -> OnRequestCounts {
+    std::mem::take(&mut *ON_REQUEST_COUNTS.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+#[cfg(any(test, feature = "synthetic"))]
+fn count_on_request(add: impl FnOnce(&mut OnRequestCounts)) {
+    add(&mut ON_REQUEST_COUNTS.lock().unwrap_or_else(|e| e.into_inner()));
+}
+
+#[cfg(not(any(test, feature = "synthetic")))]
+fn count_on_request(_: impl FnOnce(&mut OnRequestCounts)) {}
+
+/// A hold the next on-request draw waits on, its tracks read and nothing
+/// drawn, so a test can put a second ask beside it.
+#[cfg(any(test, feature = "synthetic"))]
+static TILE_DRAW_HOLD: Mutex<Option<Hold>> = Mutex::new(None);
+
+/// Hold the next tile drawn on request before it draws.
+#[cfg(any(test, feature = "synthetic"))]
+#[doc(hidden)]
+pub fn hold_next_tile_draw() -> TilePassHold {
+    let (reached_tx, reached_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    *TILE_DRAW_HOLD.lock().unwrap_or_else(|e| e.into_inner()) = Some((reached_tx, release_rx));
+    TilePassHold {
+        reached: reached_rx,
+        release: release_tx,
+    }
 }
 
 impl PersistentEngine {
@@ -541,7 +812,7 @@ impl PersistentEngine {
     pub fn set_heatmap_tiles_path(&mut self, path: String) {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
-        publish_tiles_dir(Some(path.clone()));
+        self.publish_heatmap_source();
 
         // Check tile format version - clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");
@@ -746,7 +1017,22 @@ impl PersistentEngine {
     pub fn clear_heatmap_tiles_path(&mut self) {
         info!("[heatmap] Tiles path cleared - generation disabled");
         self.heatmap_tiles_path = None;
-        publish_tiles_dir(None);
+        publish_heatmap_source(None);
+    }
+
+    /// Hand the map's tile reader the tiles path, the database and the
+    /// catalogue's bounds as they stand. An engine with the heatmap off
+    /// publishes nothing, so a second engine opened on a copy of the library
+    /// cannot point the reader at the copy.
+    pub(super) fn publish_heatmap_source(&self) {
+        let Some(dir) = self.heatmap_tiles_path.clone() else {
+            return;
+        };
+        publish_heatmap_source(Some(HeatmapSource {
+            dir,
+            db_path: self.db_path.clone(),
+            bounds: Arc::clone(&self.spatial_index),
+        }));
     }
 
     /// The tiles path in force, or `None` when the athlete has the heatmap off.
@@ -830,7 +1116,8 @@ fn wipe_tile_sets_within_after_stop(
     wait: Duration,
     after_stop: impl FnOnce(),
 ) -> Result<(), String> {
-    let _gate = TILE_WIPE_GATE.lock().unwrap_or_else(|e| e.into_inner());
+    let _gate = TILE_WIPE_GATE.write().unwrap_or_else(|e| e.into_inner());
+    TILE_WIPES.fetch_add(1, Ordering::AcqRel);
     // A wipe drew a library that is gone and a clear was asked for, so the
     // set is owed a draw either way.
     let mut failed = Vec::new();
@@ -1408,13 +1695,14 @@ fn background_generate_tiles(
     // --- Phase 4: parallel rasterise + save ---------------------------------
     // Each worker owns its own refs; the placed tracks are shared through their
     // Arc rather than cloned across threads. No SQLite connection inside workers.
+    // Each run of tiles a worker takes is drawn in one canvas, so its buffers are
+    // made per run rather than per tile, and freed when the pass ends.
     let generated = AtomicU32::new(0);
     let processed = AtomicU32::new(0);
 
-    pending
-        .par_iter()
-        .enumerate()
-        .for_each(|(index, (coord, arcs))| {
+    pending.par_iter().enumerate().for_each_init(
+        tiles::TileCanvas::new,
+        |canvas, (index, (coord, arcs))| {
             // Per tile, not per batch: a tile is tens of milliseconds and a whole
             // pass is minutes, so this is where a cancel actually lands. A tile
             // already written stays written, which is correct: the marker below
@@ -1440,7 +1728,7 @@ fn background_generate_tiles(
                 }
             }
             let tracks: Vec<&tiles::ProjectedTrack> = arcs.iter().map(|a| a.as_ref()).collect();
-            match tiles::draw_heatmap_tile(coord.0, coord.1, coord.2, &tracks) {
+            match tiles::draw_heatmap_tile_on(canvas, coord.0, coord.1, coord.2, &tracks) {
                 Some(png_data) => {
                     if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
                         generated.fetch_add(1, Ordering::Relaxed);
@@ -1459,7 +1747,8 @@ fn background_generate_tiles(
             if first_band_drawn.tile_done(index < first_band) {
                 crate::objects::observer::notify(Announcement::TilesGenerated);
             }
-        });
+        },
+    );
 
     let generated = generated.load(Ordering::SeqCst);
 
@@ -1918,11 +2207,15 @@ mod tests {
         let column = tmp.path().join("12").join("1");
         std::fs::create_dir_all(&column).expect("column");
         std::fs::write(column.join("1.png.0.tmp"), b"half a PNG").expect("temp");
-        publish_tiles_dir(Some(tmp.path().to_string_lossy().into_owned()));
+        publish_heatmap_source(Some(HeatmapSource {
+            dir: tmp.path().to_string_lossy().into_owned(),
+            db_path: String::new(),
+            bounds: Arc::new(rstar::RTree::new()),
+        }));
 
         let served = heatmap_tile_bytes(12, 1, 1);
 
-        publish_tiles_dir(None);
+        publish_heatmap_source(None);
         assert!(served.is_none(), "a temp file was served as a tile");
     }
 

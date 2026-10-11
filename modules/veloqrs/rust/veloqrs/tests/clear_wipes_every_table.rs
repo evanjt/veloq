@@ -271,10 +271,10 @@ fn clear_forgets_the_record_restore_state() {
 /// Scenario: athlete A sets a home for exports and syncs their history, then
 /// signs out and deletes their data, and athlete B signs in.
 ///
-/// Expected behaviour: A's home, privacy radius, history span, yearly counts
-/// and last sync go with A's library. Left behind, B's export privacy row
-/// shows A's home, and B's next record zip carries A's coordinates under B's
-/// athlete id.
+/// Expected behaviour: A's home, privacy radius, history span, yearly counts,
+/// answered wellness window and last sync go with A's library. Left behind,
+/// B's export privacy row shows A's home, and B's next record zip carries A's
+/// coordinates under B's athlete id.
 #[test]
 fn clear_forgets_the_athletes_home_and_sync_history() {
     let dir = TempDir::new().expect("tempdir");
@@ -286,6 +286,7 @@ fn clear_forgets_the_athletes_home_and_sync_history() {
         "__export_privacy_radius_m",
         "oldest_activity_date",
         "activity_year_counts",
+        "__wellness_answered",
         "sync.last_success_at",
     ];
     for key in athlete_keys {

@@ -19,7 +19,7 @@ use crate::test_globals::{init_global_engine, serial_global_state};
 const ENDPOINT: &str = "https://places.example";
 
 /// Two points in one suburb a cell apart, one in another suburb, one the
-/// provider names no place for and one it answers with a server error.
+/// provider names no place for and one it has no page for.
 const NORTHCOTE: (f64, f64) = (-37.7701, 145.0102);
 const NORTHCOTE_EAST: (f64, f64) = (-37.7701, 145.0302);
 const SOUTHBANK: (f64, f64) = (-37.8101, 144.9602);
@@ -28,10 +28,13 @@ const UNANSWERED: (f64, f64) = (-39.0001, 145.5001);
 
 /// The provider as a script, keyed on the latitude of the cell asked about,
 /// writing down every request and the language it carried. While `offline`
-/// is set no request reaches it, as on a device with no connection.
+/// is set no request reaches it, as on a device with no connection, and while
+/// `refusing` holds a status every request that reaches it is answered with
+/// that status.
 struct Provider {
     sent: Mutex<Vec<(String, String)>>,
     offline: AtomicBool,
+    refusing: Mutex<Option<u16>>,
 }
 
 impl Provider {
@@ -39,7 +42,12 @@ impl Provider {
         Self {
             sent: Mutex::new(Vec::new()),
             offline: AtomicBool::new(false),
+            refusing: Mutex::new(None),
         }
+    }
+
+    fn refuse(&self, status: Option<u16>) {
+        *self.refusing.lock().unwrap() = status;
     }
 
     fn count(&self) -> usize {
@@ -56,6 +64,12 @@ impl GeocodeTransport for Provider {
         if self.offline.load(Ordering::SeqCst) {
             return Err(GeocodeError::Unreachable("connection refused".to_string()));
         }
+        if let Some(status) = *self.refusing.lock().unwrap() {
+            return Err(GeocodeError::Rejected {
+                status,
+                retry_after: None,
+            });
+        }
         let suburb = if url.contains("lat=-37.770") {
             "Northcote"
         } else if url.contains("lat=-37.810") {
@@ -63,7 +77,10 @@ impl GeocodeTransport for Provider {
         } else if url.contains("lat=-38.500") {
             return Ok(r#"{"address":{"water":"Bass Strait"}}"#.to_string());
         } else {
-            return Err(GeocodeError::Rejected { status: 500 });
+            return Err(GeocodeError::Rejected {
+                status: 404,
+                retry_after: None,
+            });
         };
         Ok(format!(
             r#"{{"address":{{"road":"High Street","suburb":"{suburb}","city":"Melbourne"}}}}"#
@@ -385,6 +402,98 @@ fn an_end_that_never_reaches_the_provider_leaves_the_item_queued() {
     assert_eq!(waiting().len(), 1);
 
     provider.transport().offline.store(false, Ordering::SeqCst);
+    assert_eq!(run(&provider), 1);
+    assert_eq!(route_name("journey"), "Northcote to Southbank");
+}
+
+/// The geocoder's cool-down after a refusal, ended as if the time had passed.
+fn cool_down_over() {
+    with_persistent_engine(|e| {
+        e.set_setting(settings_keys::GEOCODER_REFUSED_UNTIL, "0")
+            .unwrap()
+    })
+    .expect("engine");
+}
+
+/// Whether the item has been given what its lookup came to.
+fn settled(kind: NamedKind, id: &str) -> bool {
+    crate::persistence::read_pool::with_read_conn(|conn| {
+        conn.query_row(
+            "SELECT named_at IS NOT NULL FROM geocoded_names WHERE kind = ?1 AND item_id = ?2",
+            params![kind.as_str(), id],
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap()
+    })
+    .expect("engine")
+}
+
+#[test]
+fn a_provider_that_throttles_blocks_or_fails_stops_the_pass_and_leaves_the_queue() {
+    for status in [429, 403, 500, 503] {
+        let _serial = serial_global_state();
+        let _dir = init_global_engine(&format!("place_names_refused_{status}.db"));
+        switch(true);
+        store_words();
+        add_route("loop", round_trip(NORTHCOTE));
+        add_route("journey", line(NORTHCOTE, SOUTHBANK));
+        add_section("climb", line(SOUTHBANK, NORTHCOTE));
+        let provider = Geocoder::with_transport(Provider::new());
+        provider.transport().refuse(Some(status));
+
+        assert_eq!(run(&provider), 0, "{status}");
+        assert_eq!(
+            provider.transport().count(),
+            1,
+            "a {status} stops the pass at the request it answered"
+        );
+        assert_eq!(waiting().len(), 3, "a {status} settles nothing");
+        assert!(!settled(NamedKind::Route, "loop"), "{status}");
+        assert!(!settled(NamedKind::Route, "journey"), "{status}");
+        assert!(!settled(NamedKind::Section, "climb"), "{status}");
+        assert_eq!(route_name("loop"), "Route 1");
+
+        provider.transport().refuse(None);
+        assert_eq!(run(&provider), 0, "{status}");
+        assert_eq!(
+            provider.transport().count(),
+            1,
+            "a pass inside the cool-down after a {status} sends nothing"
+        );
+        assert_eq!(
+            ask(&provider, NamedKind::Route, "loop"),
+            OnDemand::Failed,
+            "an item asked for inside the cool-down after a {status}"
+        );
+        assert_eq!(provider.transport().count(), 1);
+
+        cool_down_over();
+        assert_eq!(run(&provider), 3, "{status}");
+        assert_eq!(route_name("loop"), "Northcote Loop");
+        assert_eq!(route_name("journey"), "Northcote to Southbank");
+        assert_eq!(section_name("climb"), "Southbank to Northcote");
+        assert!(waiting().is_empty());
+    }
+}
+
+#[test]
+fn an_end_the_provider_refuses_leaves_the_item_queued_rather_than_named_after_its_start() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_end_refused.db");
+    switch(true);
+    store_words();
+    add_route("journey", line(NORTHCOTE, SOUTHBANK));
+    let provider = Geocoder::with_transport(Provider::new());
+    crate::runtime::block_on(provider.lookup(Some(ENDPOINT), NORTHCOTE.0, NORTHCOTE.1, "en-AU"));
+    provider.transport().refuse(Some(429));
+
+    assert_eq!(run(&provider), 0);
+    assert_eq!(route_name("journey"), "Route 1");
+    assert!(!settled(NamedKind::Route, "journey"));
+    assert_eq!(waiting().len(), 1);
+
+    provider.transport().refuse(None);
+    cool_down_over();
     assert_eq!(run(&provider), 1);
     assert_eq!(route_name("journey"), "Northcote to Southbank");
 }

@@ -377,6 +377,169 @@ fn a_year_short_at_its_oldest_end_asks_the_whole_year() {
     assert_eq!(taken_wellness_oldest(), vec![days_back(WELLNESS_DAYS)]);
 }
 
+/// The endpoints a default sync reaches, with wellness answering a row for
+/// every day of the trailing year from `oldest_row` days back except the
+/// `holes`, whatever window is asked, and `failing` a 500 instead.
+fn upstream_keeping_holes(oldest_row: i64, holes: &[i64], failing: bool) -> MockServer {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1");
+        then.status(200)
+            .json_body(json!({"id": "i1", "sportSettings": sport_settings()}));
+    });
+    let rows: Vec<_> = (0..=oldest_row.min(WELLNESS_DAYS))
+        .rev()
+        .filter(|back| !holes.contains(back))
+        .map(|back| wellness_day(back, 50.0))
+        .collect();
+    server.mock(|when, then| {
+        when.method(GET)
+            .path("/athlete/i1/wellness")
+            .matches(note_wellness);
+        if failing {
+            then.status(500);
+        } else {
+            then.status(200).json_body(json!(rows));
+        }
+    });
+    server.mock(|when, then| {
+        when.method(GET)
+            .path("/athlete/i1/activities")
+            .query_param("oldest", "2000-01-01")
+            .matches(note_census);
+        then.status(200).json_body(json!([]));
+    });
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1/activities");
+        then.status(200).json_body(json!([]));
+    });
+    taken_wellness_oldest();
+    taken_order();
+    server
+}
+
+/// Scenario: upstream has no wellness row for one day of the year, so the day
+/// stays absent from the store after a pull that asked for it.
+///
+/// Expected behaviour: the day was asked and answered, so the next run asks
+/// only the fortnight rather than back to the day for ever.
+#[test]
+fn a_day_upstream_has_no_row_for_is_asked_once() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_upstream_hole.db");
+    let server = upstream_keeping_holes(WELLNESS_DAYS, &[200], false);
+
+    run_against(&server, false);
+    run_against(&server, false);
+    run_against(&server, false);
+
+    assert_eq!(
+        taken_wellness_oldest(),
+        vec![
+            days_back(WELLNESS_DAYS),
+            days_back(WELLNESS_REFRESH_DAYS),
+            days_back(WELLNESS_REFRESH_DAYS),
+        ]
+    );
+}
+
+/// Scenario: an account whose wellness starts 100 days back, so the oldest
+/// days of the year never get a row.
+///
+/// Expected behaviour: after the first run asks the year, later runs ask the
+/// fortnight, and do it behind the census.
+#[test]
+fn a_young_account_asks_the_year_once() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_young.db");
+    let server = upstream_keeping_holes(100, &[], false);
+
+    run_against(&server, false);
+    taken_order();
+    run_against(&server, false);
+
+    assert_eq!(
+        taken_wellness_oldest(),
+        vec![days_back(WELLNESS_DAYS), days_back(WELLNESS_REFRESH_DAYS)]
+    );
+    let order = taken_order();
+    let wellness = order.iter().position(|name| *name == "wellness");
+    let census = order.iter().position(|name| *name == "census");
+    assert!(
+        census < wellness,
+        "a held year waits on the census: {order:?}"
+    );
+}
+
+/// Scenario: an account with no wellness at all, so every pull answers empty.
+///
+/// Expected behaviour: an empty answer is an answer, and the year is asked once.
+#[test]
+fn an_account_with_no_wellness_asks_the_year_once() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_no_wellness.db");
+    let upstream = upstream();
+
+    run(&upstream, false);
+    run(&upstream, false);
+
+    assert_eq!(
+        taken_wellness_oldest(),
+        vec![days_back(WELLNESS_DAYS), days_back(WELLNESS_REFRESH_DAYS)]
+    );
+}
+
+#[test]
+fn a_failed_wellness_pull_leaves_the_year_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_failed_pull.db");
+
+    run_against(&upstream_keeping_holes(WELLNESS_DAYS, &[], true), false);
+    run_against(&upstream_keeping_holes(WELLNESS_DAYS, &[200], false), false);
+
+    assert_eq!(
+        taken_wellness_oldest(),
+        vec![days_back(WELLNESS_DAYS)],
+        "the second upstream records only its own requests"
+    );
+}
+
+#[test]
+fn a_cleared_library_asks_the_year_again() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_cleared.db");
+    let server = upstream_keeping_holes(100, &[], false);
+
+    run_against(&server, false);
+    crate::persistence::with_persistent_engine(|engine| engine.clear().expect("clear"))
+        .expect("engine");
+    run_against(&server, false);
+
+    assert_eq!(
+        taken_wellness_oldest(),
+        vec![days_back(WELLNESS_DAYS), days_back(WELLNESS_DAYS)]
+    );
+}
+
+#[test]
+fn a_window_answered_for_another_athlete_is_not_held() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_answered_owner.db");
+    store_wellness(100, &[]);
+    let answered = format!("i2|{}|{}", days_back(WELLNESS_DAYS), today());
+    crate::persistence::with_persistent_engine(move |engine| {
+        engine
+            .set_setting(WELLNESS_ANSWERED_KEY, &answered)
+            .expect("seed answered window");
+    })
+    .expect("engine");
+    let upstream = upstream();
+
+    run(&upstream, false);
+
+    assert_eq!(taken_wellness_oldest(), vec![days_back(WELLNESS_DAYS)]);
+}
+
 fn census_entry(id: &str, day: &str, version: &str) -> serde_json::Value {
     json!({
         "id": id,
@@ -573,23 +736,36 @@ fn the_wellness_window_starts_at_the_first_missing_day_or_the_oldest_owed() {
             .collect()
     };
 
-    assert_eq!(wellness_oldest(&BTreeSet::new(), None, today), year);
-    assert_eq!(wellness_oldest(&stored_except(&[]), None, today), fortnight);
+    assert_eq!(wellness_oldest(&BTreeSet::new(), None, None, today), year);
     assert_eq!(
-        wellness_oldest(&stored_except(&[0, 3, WELLNESS_REFRESH_DAYS]), None, today),
+        wellness_oldest(&stored_except(&[]), None, None, today),
+        fortnight
+    );
+    assert_eq!(
+        wellness_oldest(
+            &stored_except(&[0, 3, WELLNESS_REFRESH_DAYS]),
+            None,
+            None,
+            today
+        ),
         fortnight,
         "the fortnight's own days are fetched anyway"
     );
     assert_eq!(
-        wellness_oldest(&stored_except(&[WELLNESS_REFRESH_DAYS + 1]), None, today),
+        wellness_oldest(
+            &stored_except(&[WELLNESS_REFRESH_DAYS + 1]),
+            None,
+            None,
+            today
+        ),
         back(WELLNESS_REFRESH_DAYS + 1)
     );
     assert_eq!(
-        wellness_oldest(&stored_except(&[WELLNESS_DAYS]), None, today),
+        wellness_oldest(&stored_except(&[WELLNESS_DAYS]), None, None, today),
         year
     );
     let full = stored_except(&[]);
-    let owed = |day: chrono::NaiveDate| wellness_oldest(&full, Some(&day.to_string()), today);
+    let owed = |day: chrono::NaiveDate| wellness_oldest(&full, None, Some(&day.to_string()), today);
     assert_eq!(
         owed(back(3)),
         fortnight,
@@ -598,15 +774,142 @@ fn the_wellness_window_starts_at_the_first_missing_day_or_the_oldest_owed() {
     assert_eq!(owed(back(30)), back(30));
     assert_eq!(owed(back(WELLNESS_DAYS + 100)), year, "never past the year");
     assert_eq!(
-        wellness_oldest(&full, Some("not a day"), today),
+        wellness_oldest(&full, None, Some("not a day"), today),
         fortnight,
         "an unreadable day widens nothing"
     );
     assert_eq!(
-        wellness_oldest(&stored_except(&[60]), Some(&back(30).to_string()), today),
+        wellness_oldest(
+            &stored_except(&[60]),
+            None,
+            Some(&back(30).to_string()),
+            today
+        ),
         back(60),
         "a gap older than the owed day wins"
     );
+}
+
+#[test]
+fn an_answered_run_holds_its_days_and_nothing_older() {
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date");
+    let back = |days: i64| today - chrono::Duration::days(days);
+    let year = back(WELLNESS_DAYS);
+    let fortnight = back(WELLNESS_REFRESH_DAYS);
+    let rows_from =
+        |oldest: i64| -> BTreeSet<chrono::NaiveDate> { (0..=oldest).map(back).collect() };
+    let run = |from: i64, through: i64| AnsweredDays {
+        from: back(from),
+        through: back(through),
+    };
+
+    assert_eq!(
+        wellness_oldest(&rows_from(100), Some(run(WELLNESS_DAYS, 0)), None, today),
+        fortnight
+    );
+    assert_eq!(
+        wellness_oldest(&rows_from(100), Some(run(300, 0)), None, today),
+        year,
+        "a day older than the run is still asked"
+    );
+    assert_eq!(
+        wellness_oldest(&BTreeSet::new(), Some(run(WELLNESS_DAYS, 60)), None, today),
+        back(59),
+        "a day newer than the run is still asked"
+    );
+    assert_eq!(
+        wellness_oldest(
+            &rows_from(100),
+            Some(run(WELLNESS_DAYS, 0)),
+            Some(&back(30).to_string()),
+            today
+        ),
+        back(30),
+        "an owed day still widens the window"
+    );
+}
+
+#[test]
+fn an_answered_run_extends_only_across_stored_rows() {
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date");
+    let back = |days: i64| today - chrono::Duration::days(days);
+    let run = |from: i64, through: i64| AnsweredDays {
+        from: back(from),
+        through: back(through),
+    };
+    let rows = |days: std::ops::RangeInclusive<i64>| -> BTreeSet<chrono::NaiveDate> {
+        days.map(back).collect()
+    };
+
+    assert_eq!(
+        answered_after(&BTreeSet::new(), None, back(WELLNESS_DAYS), today),
+        run(WELLNESS_DAYS, 0)
+    );
+    assert_eq!(
+        answered_after(
+            &BTreeSet::new(),
+            Some(run(WELLNESS_DAYS, 60)),
+            back(59),
+            today
+        ),
+        run(WELLNESS_DAYS, 0),
+        "a request from the day after the run extends it"
+    );
+    assert_eq!(
+        answered_after(
+            &BTreeSet::new(),
+            Some(run(WELLNESS_DAYS, 10)),
+            back(14),
+            today
+        ),
+        run(WELLNESS_DAYS, 0),
+        "an overlapping request extends it"
+    );
+    assert_eq!(
+        answered_after(
+            &rows(15..=59),
+            Some(run(WELLNESS_DAYS, 60)),
+            back(14),
+            today
+        ),
+        run(WELLNESS_DAYS, 0),
+        "stored rows bridge the run to the request"
+    );
+    assert_eq!(
+        answered_after(
+            &rows(20..=59),
+            Some(run(WELLNESS_DAYS, 60)),
+            back(14),
+            today
+        ),
+        run(14, 0),
+        "an unstored day between them breaks the run"
+    );
+    assert_eq!(
+        answered_after(
+            &BTreeSet::new(),
+            Some(run(30, 0)),
+            back(WELLNESS_DAYS),
+            today
+        ),
+        run(WELLNESS_DAYS, 0),
+        "an older request starts the run"
+    );
+}
+
+#[test]
+fn an_answered_run_reads_back_only_for_its_athlete() {
+    let run = AnsweredDays {
+        from: chrono::NaiveDate::from_ymd_opt(2025, 3, 1).expect("date"),
+        through: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date"),
+    };
+    let stored = run.encode("i1");
+
+    assert_eq!(AnsweredDays::decode(&stored, "i1"), Some(run));
+    assert_eq!(AnsweredDays::decode(&stored, "i2"), None);
+    assert_eq!(AnsweredDays::decode("i1|2026-03-01|2025-03-01", "i1"), None);
+    assert_eq!(AnsweredDays::decode("i1|2025-03-01", "i1"), None);
+    assert_eq!(AnsweredDays::decode("i1|not a day|2026-03-01", "i1"), None);
 }
 
 /// A recorded pair, reduced and with invented values: the athlete body and

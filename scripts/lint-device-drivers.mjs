@@ -14,6 +14,10 @@
 // flow lands on whichever transport Maestro enumerates first. The wrapper pins
 // the serial the lock was taken on and checks where the run landed.
 //
+// A simulator is not the handset. A script that runs Maestro on one takes the
+// simulator lock instead, names the simulator with `--device` on every Maestro
+// call, and runs no `adb`, so it cannot reach a phone.
+//
 // An invocation is a command, not a mention: comments and the text of a
 // message are left out, and so is `command -v`. The lock machinery reads
 // `adb devices` to choose which lock to take, so it is not a driver.
@@ -59,6 +63,7 @@ function nodeCode(source) {
 
 const SHELL_ADB = /(^|[\s;&|(`]|\$\()("?\$\{?ADB\}?"?|adb)\s+[-a-z"$]/;
 const SHELL_MAESTRO = /(^|[\s;&|(`]|\$\()maestro\s+[-a-z"$]/;
+const SHELL_MAESTRO_DEVICE = /(^|[\s;&|(`]|\$\()maestro\s+--device[=\s]/;
 const SHELL_MAESTRO_VAR = /(^|[\s;&|(`]|\$\()"?\$\{?MAESTRO\}?"?\s+[-a-z"$]/;
 const SHELL_SIMCTL = /\bsimctl\s+([a-z]+)/g;
 // A script that names the wrapper `MAESTRO` calls the wrapper through it.
@@ -102,6 +107,19 @@ export function takesTheLock(source) {
   return source.includes('with-device-lock.sh') && source.includes('VELOQ_DEVICE_LOCK_HELD');
 }
 
+/** Whether a script re-execs through the simulator lock unless it already holds it. */
+export function takesTheSimulatorLock(source) {
+  return source.includes('with-simulator-lock.sh') && source.includes('VELOQ_SIM_LOCK_HELD');
+}
+
+/** Whether every Maestro call in a shell script names the device it drives. */
+function everyMaestroNamesADevice(file, source) {
+  if (!SHELL.test(file)) return false;
+  const lines = source.split('\n').map(shellCode);
+  if (lines.some((l) => SHELL_MAESTRO_VAR.test(l))) return false;
+  return lines.filter((l) => SHELL_MAESTRO.test(l)).every((l) => SHELL_MAESTRO_DEVICE.test(l));
+}
+
 function main() {
   const sources = indexedSources(ROOT, ['scripts', '.maestro']);
   const unlocked = [];
@@ -118,8 +136,10 @@ function main() {
     const { adb, maestro } = invocations(file, source);
     if (!adb && !maestro) continue;
     drivers += 1;
-    if (!takesTheLock(source)) unlocked.push(file);
-    if (maestro && file !== WRAPPER && file.startsWith('scripts/')) bare.push(file);
+    const simulator =
+      maestro && !adb && takesTheSimulatorLock(source) && everyMaestroNamesADevice(file, source);
+    if (!takesTheLock(source) && !simulator) unlocked.push(file);
+    if (maestro && file !== WRAPPER && !simulator && file.startsWith('scripts/')) bare.push(file);
   }
 
   if (unlocked.length > 0) {
@@ -135,6 +155,7 @@ function main() {
     for (const file of bare.sort()) console.error(`  ${file}`);
     console.error('\nMaestro chooses its own transport, so a bare call can drive a phone the');
     console.error('lock was not taken on. The wrapper pins the locked serial and checks it.');
+    console.error('A simulator run takes scripts/with-simulator-lock.sh and passes --device.');
   }
   if (unlockedSimulator.length > 0) {
     if (unlocked.length > 0 || bare.length > 0) console.error('');

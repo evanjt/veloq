@@ -14,6 +14,12 @@ import { tapTo } from '@/shared/app/navigation';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+// The ripple Android selects, so a row is checked against the value it gets
+// on that platform.
+jest.mock('@/shared/ui/pressFeedback', () => ({
+  ...jest.requireActual('@/shared/ui/pressFeedback'),
+  pressRipple: { borderless: false },
+}));
 
 function change(overrides: Partial<ActivityLedgerChange>): ActivityLedgerChange {
   return {
@@ -71,5 +77,15 @@ describe('ActivityLedgerChanges', () => {
     expect(getAllByText('Lake loop')).toHaveLength(2);
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
     expect(queryByText('sectionHistory.kind_reverted')).toBeNull();
+  });
+
+  it('answers a press on a row with the shared ripple', () => {
+    const { UNSAFE_root } = render(
+      <ActivityLedgerChanges changes={[change({ eventId: 4 })]} isDark={false} />
+    );
+    const row = UNSAFE_root.find(
+      (node) => node.props.testID === 'activity-ledger-change-4' && 'android_ripple' in node.props
+    );
+    expect(row.props.android_ripple).toEqual({ borderless: false });
   });
 });

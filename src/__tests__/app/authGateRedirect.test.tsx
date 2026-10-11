@@ -35,11 +35,11 @@ jest.mock('@/shared/storage', () => ({
   rememberStoredActivityCount: jest.fn(async () => undefined),
 }));
 
-const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useSegments: () => ['login'],
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: jest.fn(), dismissTo: mockDismissTo }),
 }));
 
 const mockPrompt = jest.fn();
@@ -138,7 +138,7 @@ beforeEach(() => {
 it('redirects once the identity is settled, and stamps it', async () => {
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(true);
 });
 
@@ -148,7 +148,7 @@ it('holds the redirect while the athlete is asked whose library it is', async ()
 
   await waitFor(() => expect(mockPrompt).toHaveBeenCalled());
   await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(mockReplace).not.toHaveBeenCalledWith('/');
+  expect(mockDismissTo).not.toHaveBeenCalledWith('/');
 });
 
 it('writes the whole library to the stored-count mirror, not the GPS-backed set', async () => {
@@ -157,7 +157,7 @@ it('writes the whole library to the stored-count mirror, not the GPS-backed set'
   });
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(rememberStoredActivityCount).toHaveBeenCalledWith(7);
 });
 
@@ -181,7 +181,7 @@ it('redirects without a stamp when the init gives up', async () => {
   });
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(false);
 });
 
@@ -189,7 +189,7 @@ it('redirects when there is no path to open the library at', async () => {
   mockEngineHolder.path = null;
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(false);
 });
 
@@ -197,7 +197,7 @@ it('redirects when there is no engine at all', async () => {
   mockEngineHolder.engine = null;
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
 });
 
 it("deletes the other athlete's decisions zip when launch wipes their empty library", async () => {
@@ -209,7 +209,7 @@ it("deletes the other athlete's decisions zip when launch wipes their empty libr
   });
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockEngineHolder.engine?.clear).toHaveBeenCalled();
   expect(FileSystem.deleteAsync).toHaveBeenCalledWith(ZIP_URI, { idempotent: true });
   expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///docs/backups/', {
@@ -232,7 +232,7 @@ it("stamps an older build's ownerless library recordings for the library's athle
   });
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockAdoptOwnerlessRecordings).toHaveBeenCalledWith('i-other');
   const [stamped] = mockAdoptOwnerlessRecordings.mock.invocationCallOrder;
   const [wiped] = mockEngineHolder.engine!.clear.mock.invocationCallOrder;
@@ -248,7 +248,7 @@ it("hands an older build's ownerless crash backup to the library's athlete befor
   });
   render(<AuthGate>{null}</AuthGate>);
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockAdoptOwnerless).toHaveBeenCalledWith('i-other');
   const [adopted] = mockAdoptOwnerless.mock.invocationCallOrder;
   const [wiped] = mockEngineHolder.engine!.clear.mock.invocationCallOrder;
@@ -310,7 +310,7 @@ describe('the decisions zip a device backup brought back', () => {
     mockEngineHolder.engine = engine({ getSetting: heldBy('i1') });
     render(<AuthGate>{null}</AuthGate>);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(mockEngineHolder.engine?.checkRecordZip).not.toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
@@ -320,7 +320,7 @@ describe('the decisions zip a device backup brought back', () => {
 it('runs the background work when the app goes to the background, and not on a return', async () => {
   const addListener = jest.spyOn(AppState, 'addEventListener');
   render(<AuthGate>{null}</AuthGate>);
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
 
   const fire = (state: string) => {
     for (const [event, listener] of addListener.mock.calls) {

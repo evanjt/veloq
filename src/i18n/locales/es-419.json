@@ -95,7 +95,6 @@
     "noData": "Sin datos de condición física"
   },
   "fitnessScreen": {
-    "failedToLoad": "Error al cargar datos de condición física",
     "fitnessAndFatigue": "Condición física y fatiga",
     "linkFitnessPage": "Página de condición física de intervals.icu",
     "linkTSBManagement": "Gestión del entrenamiento con TSB (Joe Friel)",

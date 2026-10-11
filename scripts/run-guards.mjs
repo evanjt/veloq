@@ -101,6 +101,13 @@ const GUARDS = [
     catches: 'an Expo package on a different SDK major than expo, which breaks the native build',
   },
   {
+    name: 'check:app-icons',
+    kind: 'correctness',
+    cmd: node('check-app-icons.mjs'),
+    catches:
+      'an app icon with transparent corners iOS flattens onto white, or no themed, dark or tinted variant',
+  },
+  {
     name: 'check:peer-ranges',
     kind: 'correctness',
     cmd: node('check-peer-ranges.mjs'),
@@ -226,6 +233,12 @@ const GUARDS = [
     cmd: node('generate-muscle-polygons.mjs', '--check'),
     catches:
       'the generated muscle polygons or widget body outlines drifting from their source drawing',
+  },
+  {
+    name: 'lint:notification-icon',
+    kind: 'correctness',
+    cmd: node('lint-notification-icon.mjs'),
+    catches: 'a notification small icon that renders as a solid square in the status bar',
   },
   {
     name: 'lint:expo-location-altitude',
@@ -586,7 +599,8 @@ const GUARDS = [
     name: 'lint:em-dashes',
     kind: 'style',
     cmd: node('lint-em-dashes.mjs'),
-    catches: 'an em dash in prose or comments',
+    catches:
+      'an em dash in prose, comments or a web page, written as the character or as its HTML reference',
   },
   {
     name: 'lint:service-name',
@@ -710,7 +724,8 @@ const GUARDS = [
     name: 'lint:press-feedback',
     kind: 'style',
     cmd: node('lint-press-feedback.mjs'),
-    catches: 'a pressable with no pressed state or a rendered Touchable control',
+    catches:
+      'a pressable with no pressed state, a rendered Touchable control, or a press wrapper that skips the platform press answer',
   },
   {
     name: 'lint:haptics-owner',

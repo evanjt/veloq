@@ -7,9 +7,9 @@ import android.widget.RemoteViews
 import __PKG__.R
 
 /**
- * Quick-Record widget: a teal button that starts a ride. Everything it draws
- * comes from the generated widget theme resources, and the whole widget is one
- * PendingIntent.
+ * Quick-Record widget: a button in the recording tone that starts a ride.
+ * Everything it draws comes from the generated widget theme resources, and the
+ * whole widget is one PendingIntent.
  *
  * Which ride is per instance: the configure activity stores a link against this
  * widget's id, and an instance with none falls back to the last sport recorded,

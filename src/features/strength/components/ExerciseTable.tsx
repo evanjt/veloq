@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   colValue: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.tableValue,
     color: colors.textPrimary,
   },
   colSet: {

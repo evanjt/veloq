@@ -31,6 +31,8 @@ export interface ActivityDetailBundle {
   sectionCount: number;
   /** Route groups above the requested minimum, most attempts first */
   routeGroups: RouteGroup[];
+  /** The route's representative signature, encoded; empty for an activity in no route */
+  representativeSignature: ArrayBuffer;
   /** Route group total before the minimum-activity filter */
   /** Visible sections this activity traverses, in the light record */
   matchedSections: SectionWithPolyline[];
@@ -101,6 +103,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       activityCount: result.activityCount,
       sectionCount: result.sectionCount,
       routeGroups: result.routeGroups,
+      representativeSignature: result.representativeSignature,
       matchedSections: result.matchedSections,
       customSections: result.customSections,
       encounters: result.encounters,

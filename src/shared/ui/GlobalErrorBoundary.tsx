@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     textAlign: 'center',
     marginTop: spacing.lg,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: typography.code.fontFamily,
   },
   reloadButton: {
     marginTop: spacing.lg,

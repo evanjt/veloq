@@ -140,7 +140,9 @@ const styles = StyleSheet.create({
     borderTopColor: colorWithOpacity(ink.white, 0.08),
   },
   indexText: {
+    ...typography.tableValue,
     fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
     fontWeight: '600',
     color: colors.textSecondary,
     width: 18,
@@ -160,7 +162,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   colStat: {
+    ...typography.tableValue,
     fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
     fontWeight: '500',
     color: colors.textPrimary,
     textAlign: 'right',

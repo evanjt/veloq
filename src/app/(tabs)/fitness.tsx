@@ -7,7 +7,6 @@ import {
   ScreenSafeAreaView,
   useTabBarClearance,
   ChartSkeleton,
-  ErrorStatePreset,
   ExplanationCard,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
@@ -44,6 +43,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 
 const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
+const NO_WELLNESS: NonNullable<ReturnType<typeof useFitnessScreenData>['wellness']> = [];
 
 /** The fitness and form charts sit in the card at the top; the rest in their section. */
 function fitnessChartAnchor(chart: FitnessChart): 'chart' | 'performance' | 'trends' {
@@ -172,6 +172,7 @@ function FitnessScreenContent() {
     isLoading,
     isFetching,
     isError,
+    error,
     refetch,
   } = useFitnessScreenData({ timeRange, sportMode });
 
@@ -199,6 +200,9 @@ function FitnessScreenContent() {
   });
 
   const days = timeRangeToDays(timeRange);
+  const retryWellness = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   // Only show full loading on initial load (no data yet)
   if (isLoading && !wellness) {
@@ -211,20 +215,6 @@ function FitnessScreenContent() {
         <View style={styles.skeletonContainer}>
           <ChartSkeleton height={180} />
           <ChartSkeleton height={120} />
-        </View>
-      </ScreenSafeAreaView>
-    );
-  }
-
-  if (isError || !wellness) {
-    return (
-      <ScreenSafeAreaView style={shared.container}>
-        <View style={styles.header}>
-          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
-          <BestEffortsHeaderButton />
-        </View>
-        <View style={shared.loadingContainer}>
-          <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -271,8 +261,10 @@ function FitnessScreenContent() {
         {/* Combined fitness charts card */}
         <View onLayout={(event) => onAnchorLayout('chart', event)}>
           {chartReady ? (
+            // The curves, bests, zones and decoupling are reads of their own, so a
+            // failed wellness read is named in this card and leaves them standing.
             <FitnessChartCard
-              wellness={wellness}
+              wellness={wellness ?? NO_WELLNESS}
               activities={activities ?? NO_ACTIVITIES}
               dailyLoads={dailyLoads}
               eftpChanges={eftpChanges}
@@ -280,6 +272,8 @@ function FitnessScreenContent() {
               sharedSelectedIdx={sharedSelectedIdx}
               onDateSelect={handleDateSelect}
               onInteractionChange={handleInteractionChange}
+              readError={isError ? error : undefined}
+              onRetry={retryWellness}
             />
           ) : (
             <View
@@ -291,12 +285,8 @@ function FitnessScreenContent() {
 
         {belowFoldReady && (
           <>
-            {/* Sport Toggle - compact pill selector */}
-            <SportToggleSelector
-              sportMode={sportMode}
-              onSportModeChange={setSportMode}
-              isDark={isDark}
-            />
+            {/* Sport toggle */}
+            <SportToggleSelector sportMode={sportMode} onSportModeChange={setSportMode} />
 
             {/* Performance curves + season bests */}
             <View onLayout={(event) => onAnchorLayout('performance', event)}>

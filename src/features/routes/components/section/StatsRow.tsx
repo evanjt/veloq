@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
+import { DirectionArrow, directionWord } from './DirectionCue';
 import { colors, colorWithOpacity, darkColors, typography, layout, spacing } from '@/theme';
 import type {
   DirectionBestRecord,
@@ -65,13 +66,9 @@ export function StatsRow({
     <View>
       <View style={styles.statsRow}>
         <View style={styles.statsLeft}>
-          <MaterialCommunityIcons
-            name={direction === 'forward' ? 'arrow-right' : 'arrow-left'}
-            size={14}
-            color={color}
-          />
+          <DirectionArrow direction={direction} color={color} />
           <Text style={[styles.statsDirection, isDark && styles.textLight]}>
-            {direction === 'forward' ? t('sections.forward') : t('sections.reverse')}
+            {directionWord(t, direction)}
           </Text>
           <View style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, 0.13) }]}>
             <Text testID={`stats-row-count-${direction}`} style={[styles.countText, { color }]}>

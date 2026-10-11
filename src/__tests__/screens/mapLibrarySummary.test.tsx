@@ -4,6 +4,8 @@ import MapScreen from '@/app/(tabs)/map';
 import { MapDistanceBand } from 'veloqrs';
 
 const mockUseMap = jest.fn();
+const mockRefetchActivities = jest.fn();
+const mockActivitiesRead: { isError: boolean; error: unknown } = { isError: false, error: null };
 const mockMapView = jest.fn((_props: unknown) => null);
 const mockTranslate = jest.fn((key: string, options?: { count?: number; mapped?: number }) => {
   if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
@@ -40,13 +42,17 @@ jest.mock('@/features/maps', () => ({
     ]),
   MapNameSearch: () => null,
   PERIOD_OPTIONS: [{ id: 'all', labelKey: 'all' }],
-  RegionalMapView: (props: unknown) => mockMapView(props),
+  RegionalMapView: (props: unknown) => {
+    const { View } = require('react-native');
+    mockMapView(props);
+    return <View testID="regional-map" />;
+  },
   SyncProgressBanner: () => null,
   useEngineMapActivities: (options: unknown) => mockUseMap(options),
   useHeatmapPreference: (select: (s: unknown) => unknown) => select({ routesVisible: false }),
 }));
 jest.mock('@/features/activity', () => ({
-  useActivities: () => ({ isError: false, refetch: jest.fn() }),
+  useActivities: () => ({ ...mockActivitiesRead, refetch: mockRefetchActivities }),
   useActivityBoundsCache: () => ({
     isReady: true,
     cacheStats: { oldestDate: null, newestDate: null },
@@ -54,7 +60,7 @@ jest.mock('@/features/activity', () => ({
 }));
 jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({ isDark: false, colors: {} }),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (state: { isAuthenticated: boolean }) => boolean) =>
@@ -71,6 +77,8 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorStatePreset: () => null,
+    EngineReadFailureRetry: jest.requireActual('@/shared/ui/EngineReadFailureRetry')
+      .EngineReadFailureRetry,
     useTabBarClearance: () => 0,
     Shimmer: () => null,
     pressable: (style: unknown) => style,
@@ -80,6 +88,8 @@ jest.mock('@/shared/ui', () => {
 describe('map library summary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockActivitiesRead.isError = false;
+    mockActivitiesRead.error = null;
     mockUseMap.mockReturnValue({
       activities: [],
       availableTypes: ['Ride', 'Run'],
@@ -156,5 +166,42 @@ describe('map library summary', () => {
         distanceBand: MapDistanceBand.Short,
       })
     );
+  });
+});
+
+describe('map with the activities read failing', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockActivitiesRead.isError = true;
+    mockActivitiesRead.error = { tag: 'Database' };
+    mockUseMap.mockReturnValue({
+      activities: [{ id: 'ride-1', type: 'Ride' }],
+      availableTypes: ['Ride'],
+      categoryCounts: [{ category: 'Ride', count: 1 }],
+      totalCount: 1,
+    });
+  });
+
+  it('keeps the map and its filters and shows the failure with a Retry', () => {
+    const view = render(<MapScreen />);
+    expect(view.getByTestId('regional-map')).toBeTruthy();
+    expect(mockMapView).toHaveBeenCalledWith(
+      expect.objectContaining({ activities: [{ id: 'ride-1', type: 'Ride' }] })
+    );
+    expect(view.getByTestId('map-filter-handle')).toBeTruthy();
+    expect(view.getByTestId('map-activities-failed')).toBeTruthy();
+
+    fireEvent.press(view.getByText('common.retry'));
+    expect(mockRefetchActivities).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the failure once the read answers', () => {
+    const view = render(<MapScreen />);
+    expect(view.getByTestId('map-activities-failed')).toBeTruthy();
+    mockActivitiesRead.isError = false;
+    mockActivitiesRead.error = null;
+    view.rerender(<MapScreen />);
+    expect(view.queryByTestId('map-activities-failed')).toBeNull();
+    expect(view.getByTestId('regional-map')).toBeTruthy();
   });
 });

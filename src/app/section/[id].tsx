@@ -55,9 +55,15 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { isEngineReady } from '@/shared/native/engine';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, EngineReadFailure, useHeroMapHeight, useTabBarClearance } from '@/shared/ui';
+import {
+  Button,
+  EmptyState,
+  EngineReadFailure,
+  useHeroMapHeight,
+  useTabBarClearance,
+} from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import type { RoutePoint } from '@/types';
 import type {
   FfiSectionChartPoint,
@@ -444,7 +450,6 @@ function SectionDetailScreenContent() {
                 // engine's default.
                 setSelectedSportType(selectedSportType === st ? undefined : st);
               }}
-              isDark={isDark}
             />
           )}
 
@@ -549,18 +554,8 @@ function SectionDetailScreenContent() {
 }
 
 const disabledStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, justifyContent: 'center', backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  title: { fontSize: typography.body.fontSize, color: colors.textSecondary },
-  link: { fontSize: typography.label.fontSize, color: colors.linkTeal, fontWeight: '500' },
-  linkDark: { color: darkColors.linkTeal },
 });
 
 /** Sections are stored while route matching is off, and none of them opens. */
@@ -574,15 +569,13 @@ function SectionDetailScreen() {
       testID="section-detail-disabled"
       style={[disabledStyles.container, isDark && disabledStyles.containerDark]}
     >
-      <Text style={disabledStyles.title}>
-        {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
-      </Text>
-      <Text
-        style={[disabledStyles.link, isDark && disabledStyles.linkDark]}
-        onPress={() => useRouteSettings.getState().setEnabled(true)}
-      >
-        {t('insights.routesDisabledLine2', 'Tap to enable')}
-      </Text>
+      <EmptyState
+        icon="map-marker-off-outline"
+        title={t('insights.routesDisabledLine1')}
+        description={t('insights.routesDisabledDescription')}
+        actionLabel={t('insights.routesDisabledLine2')}
+        onAction={() => useRouteSettings.getState().setEnabled(true)}
+      />
     </View>
   );
 }

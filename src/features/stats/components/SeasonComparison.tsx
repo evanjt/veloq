@@ -26,7 +26,7 @@ import {
 } from '@/features/stats/hooks/useEngineStats';
 import { EngineReadFailureRetry, ToggleButton } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { seasonMonthChange } from '@/features/stats/lib/periodWindows';
+import { seasonChange, seasonMonthChange } from '@/features/stats/lib/periodWindows';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
   formatLocalDate,
@@ -49,11 +49,6 @@ interface SeasonComparisonProps {
  */
 function percentChange(current: number, previous: number): number | null {
   return previous > 0 ? ((current - previous) / previous) * 100 : null;
-}
-
-/** A change as the card prints it, signed and whole. */
-function formatChange(pct: number): string {
-  return `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
 }
 
 /**
@@ -215,6 +210,8 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
           previous: metricValue(monthPrevious, metric, isMetric),
         })
       : null;
+  const monthChange = selectedMonthDiff !== null ? seasonChange(metric, selectedMonthDiff) : null;
+  const totalChange = totals.pctChange !== null ? seasonChange(metric, totals.pctChange) : null;
 
   // Build the bar chart as a single Skia Picture
   const chartPicture = useMemo(() => {
@@ -413,6 +410,9 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
             <View style={styles.tooltipValues}>
               <View style={styles.tooltipItem}>
                 <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
+                <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
+                  {currentYear - 1}
+                </Text>
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
                   {selectedMonthData.previous}
                   {metricLabels[metric].unit}
@@ -420,21 +420,19 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
               </View>
               <View style={styles.tooltipItem}>
                 <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
+                <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
+                  {currentYear}
+                </Text>
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
                   {selectedMonthData.current}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
-              {selectedMonthDiff !== null && (
+              {monthChange && (
                 <Text
-                  style={[
-                    styles.tooltipDiff,
-                    {
-                      color: verdictColor(selectedMonthDiff >= 0 ? 'positive' : 'negative', isDark),
-                    },
-                  ]}
+                  style={[styles.tooltipDiff, { color: verdictColor(monthChange.rung, isDark) }]}
                 >
-                  {formatChange(selectedMonthDiff)}
+                  {monthChange.text}
                 </Text>
               )}
             </View>
@@ -467,17 +465,12 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 {metricLabels[metric].unit}
               </Text>
             </View>
-            {totals.pctChange !== null && (
+            {totalChange && (
               <View style={styles.summaryItem}>
                 <Text
-                  style={[
-                    styles.summaryValue,
-                    {
-                      color: verdictColor(totals.pctChange >= 0 ? 'positive' : 'negative', isDark),
-                    },
-                  ]}
+                  style={[styles.summaryValue, { color: verdictColor(totalChange.rung, isDark) }]}
                 >
-                  {formatChange(totals.pctChange)}
+                  {totalChange.text}
                 </Text>
               </View>
             )}

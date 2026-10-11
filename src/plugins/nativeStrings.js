@@ -171,6 +171,7 @@ const ANDROID_STRINGS = [
   { name: 'widget_refreshing', path: 'systemSurfaces.refreshing' },
   { name: 'widget_to_see_training', path: 'systemSurfaces.toSeeTraining' },
   { name: 'widget_record', path: 'systemSurfaces.record' },
+  { name: 'widget_record_choose', path: 'systemSurfaces.sportDescription' },
   { name: 'widget_summary_label', path: 'systemSurfaces.summary' },
   { name: 'widget_summary_description', path: 'systemSurfaces.summaryDescription' },
   { name: 'widget_summary_choose', path: 'systemSurfaces.metricDescription' },

@@ -11,6 +11,7 @@
 import React from 'react';
 import { render, renderHook } from '@testing-library/react-native';
 
+import { initialiseI18n } from '@/i18n';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
@@ -80,5 +81,19 @@ describe.each([
 
   it('the Today banner agrees', () => {
     expect(todayBannerForm(day, shown)).not.toBeNull();
+  });
+});
+
+describe.each([
+  [60.4, 70.45, '-10', 'Grey Zone'],
+  [60.4, 90.45, '-30', 'Optimal'],
+])('ctl %d and atl %d near a zone boundary', (ctl, atl, shown, zoneLabel) => {
+  beforeAll(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('the Today banner names the zone of the form it prints', () => {
+    const tree = render(<TodayBanner form={{ ctl, atl }} />);
+    expect(tree.getByText(new RegExp(`^${zoneLabel} \\(${shown} TSB\\)$`))).toBeTruthy();
   });
 });

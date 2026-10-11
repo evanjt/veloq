@@ -1,8 +1,8 @@
 /**
  * Pixel layout for the delta plot. The engine decides every lap's seconds won
- * or lost against the reference along the section; this only places them:
- * one path per lap, the zero line, where a distance falls on the x axis and
- * the grid point a touch snaps to.
+ * or lost against the reference along the section, and the peak the y axis
+ * scales to; this only places them: one path per lap, the zero line, where a
+ * distance falls on the x axis and the grid point a touch snaps to.
  */
 
 import type { FfiDirectionDeltas, FfiLapDelta } from 'veloqrs';
@@ -10,7 +10,7 @@ import type { FfiDirectionDeltas, FfiLapDelta } from 'veloqrs';
 /** What the section map needs to colour its line by the shown attempt's per-stretch delta. */
 export interface SectionDeltaLine {
   /** Seconds won (negative) or lost per `splitStepM` metres, in the attempt's travel order. */
-  splits: readonly number[];
+  splits: ArrayLike<number>;
   splitStepM: number;
   sectionLengthM: number;
   direction: 'forward' | 'reverse';
@@ -25,7 +25,10 @@ export interface DeltaFrame {
 export interface DeltaLapPath {
   activityId: string;
   startIndex: number;
-  /** SVG path data. A NaN run in the lap's curve starts a new subpath. */
+  /**
+   * SVG path data, at most two points a pixel column besides where each run
+   * starts. A NaN run in the lap's curve starts a new subpath.
+   */
   path: string;
   emphasised: boolean;
 }
@@ -64,6 +67,68 @@ export function pickEmphasisedLap(
   );
 }
 
+/**
+ * The seconds the scrub reads at grid index `index`, from the lap's curve at
+ * full resolution rather than from the path drawn, which keeps only a pixel
+ * column's extremes.
+ */
+export function scrubDeltaSecs(lap: FfiLapDelta | undefined, index: number): number | undefined {
+  if (lap === undefined || !Number.isInteger(index) || index < 0) return undefined;
+  return index < lap.deltaSecs.length ? lap.deltaSecs[index] : undefined;
+}
+
+/**
+ * SVG path data for one curve. A long curve holds many grid points to a pixel
+ * column, so a column draws only its lowest and highest point, in the order
+ * they come, which keeps a one-point surge on the plot. A run's first point is
+ * drawn as well, so a lap starts exactly where its coverage does.
+ */
+function curvePath(
+  curve: Float32Array,
+  columnOf: (index: number) => number,
+  pointAt: (index: number, secs: number) => string
+): string {
+  let path = '';
+  let drawing = false;
+  let lastDrawn = -1;
+  let column = -1;
+  // The column's lowest and highest point so far, as [index, seconds].
+  let low: [number, number] | null = null;
+  let high: [number, number] | null = null;
+  const draw = ([index, secs]: [number, number]) => {
+    if (index === lastDrawn) return;
+    const point = pointAt(index, secs);
+    path += drawing ? ` L${point}` : `${path === '' ? '' : ' '}M${point}`;
+    drawing = true;
+    lastDrawn = index;
+  };
+  const flush = () => {
+    if (low === null || high === null) return;
+    const [first, second] = low[0] <= high[0] ? [low, high] : [high, low];
+    draw(first);
+    draw(second);
+    low = null;
+    high = null;
+  };
+  curve.forEach((secs, i) => {
+    if (!Number.isFinite(secs)) {
+      flush();
+      drawing = false;
+      return;
+    }
+    if (!drawing) draw([i, secs]);
+    const at = columnOf(i);
+    if (at !== column) {
+      flush();
+      column = at;
+    }
+    if (low === null || secs < low[1]) low = [i, secs];
+    if (high === null || secs > high[1]) high = [i, secs];
+  });
+  flush();
+  return path;
+}
+
 export function layoutDelta(
   deltas: FfiDirectionDeltas,
   gridStepM: number,
@@ -75,13 +140,7 @@ export function layoutDelta(
   const plotWidth = Math.max(0, frame.width - padding.left - padding.right);
   const plotHeight = Math.max(0, frame.height - padding.top - padding.bottom);
 
-  let peak = 0;
-  for (const lap of deltas.laps) {
-    for (const secs of lap.deltaSecs) {
-      if (Number.isFinite(secs)) peak = Math.max(peak, Math.abs(secs));
-    }
-  }
-  const extentSecs = Math.max(peak, MIN_EXTENT_SECS);
+  const extentSecs = Math.max(deltas.peakDeltaSecs, MIN_EXTENT_SECS);
   const zeroY = padding.top + plotHeight / 2;
 
   const xForDistance = (distanceM: number) =>
@@ -93,27 +152,23 @@ export function layoutDelta(
   };
   // Behind the reference is positive and drawn up, so ahead falls below zero.
   const yForSecs = (secs: number) => zeroY - (secs / extentSecs) * (plotHeight / 2);
+  const columns = Math.max(1, Math.ceil(plotWidth));
+  const columnOf = (index: number) =>
+    sectionLengthM > 0
+      ? Math.min(Math.floor(((index * gridStepM) / sectionLengthM) * plotWidth), columns - 1)
+      : 0;
 
   const emphasised = pickEmphasisedLap(deltas.laps, selectedActivityId);
-  const laps = deltas.laps.map((lap) => {
-    let path = '';
-    let drawing = false;
-    lap.deltaSecs.forEach((secs, i) => {
-      if (!Number.isFinite(secs)) {
-        drawing = false;
-        return;
-      }
-      const point = `${xForDistance(i * gridStepM)} ${yForSecs(secs)}`;
-      path += drawing ? ` L${point}` : `${path === '' ? '' : ' '}M${point}`;
-      drawing = true;
-    });
-    return {
-      activityId: lap.activityId,
-      startIndex: lap.startIndex,
-      path,
-      emphasised: lap === emphasised,
-    };
-  });
+  const laps = deltas.laps.map((lap) => ({
+    activityId: lap.activityId,
+    startIndex: lap.startIndex,
+    path: curvePath(
+      lap.deltaSecs,
+      columnOf,
+      (i, secs) => `${xForDistance(i * gridStepM)} ${yForSecs(secs)}`
+    ),
+    emphasised: lap === emphasised,
+  }));
 
   return { laps, zeroY, extentSecs, xForDistance, distanceForX };
 }

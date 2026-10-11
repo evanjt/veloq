@@ -10,6 +10,7 @@ enum WidgetTheme {
     static let textPrimary = Color(hex: "#18181B")
     static let textSecondary = Color(hex: "#52525B")
     static let primary = Color(hex: "#0D9488")
+    static let textOnPrimary = Color(hex: "#18181B")
     static let gold = Color(hex: "#D4AF37")
     static let blue = Color(hex: "#3A7AB8")
     static let fatigue = Color(hex: "#A855F7")
@@ -48,6 +49,7 @@ enum WidgetTheme {
     static let textPrimary = Color(hex: "#FAFAFA")
     static let textSecondary = Color(hex: "#A1A1AA")
     static let primary = Color(hex: "#2DD4BF")
+    static let textOnPrimary = Color(hex: "#18181B")
     static let gold = Color(hex: "#D4AF37")
     static let blue = Color(hex: "#5B9BD5")
     static let fatigue = Color(hex: "#C084FC")
@@ -82,16 +84,23 @@ enum WidgetTheme {
 
   enum Record {
     enum Light {
-      static let gradientStart = Color(hex: "#14B8A6")
-      static let gradientEnd = Color(hex: "#0D9488")
+      static let gradientStart = Color(hex: "#C1121F")
+      static let gradientEnd = Color(hex: "#C1121F")
+      static let accent = Color(hex: "#C1121F")
     }
 
     enum Dark {
-      static let gradientStart = Color(hex: "#0D9488")
-      static let gradientEnd = Color(hex: "#0F766E")
+      static let gradientStart = Color(hex: "#DC2626")
+      static let gradientEnd = Color(hex: "#DC2626")
+      static let accent = Color(hex: "#DC2626")
     }
 
     static let foreground = Color(hex: "#FFFFFF")
+
+    /// The record tone for the scheme a view is drawn in.
+    static func accent(_ scheme: ColorScheme) -> Color {
+      scheme == .dark ? Dark.accent : Light.accent
+    }
   }
 
   enum Layout {

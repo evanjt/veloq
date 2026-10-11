@@ -17,6 +17,7 @@ import {
 } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
 import { type BestEffort, type ClimbBest, type ClimbStatus } from '@/features/stats';
+import { BestEffortRow } from './BestEffortRow';
 import { ClimbingBestRows } from './ClimbingBestRows';
 import { ClimbingStatusNote } from './ClimbingStatusNote';
 import { tapTo } from '@/shared/app/navigation';
@@ -104,41 +105,30 @@ export function SeasonBestsSection({
         const timeStr = formatDurationOrNull(effort.time);
 
         return (
-          <View
+          <BestEffortRow
             key={effort.label}
-            style={[
-              styles.row,
-              isDark && styles.rowDark,
-              index < efforts.length - 1 && styles.rowBorder,
-              index < efforts.length - 1 && isDark && styles.rowBorderDark,
-            ]}
+            testID={`season-bests-row-${effort.label}`}
+            label={effort.label}
+            value={formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
+            secondary={sport !== 'Cycling' ? timeStr : null}
+            valueColor={sportText}
+            isLast={index === efforts.length - 1}
           >
-            <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
-            <View style={styles.valueColumn}>
-              <Text style={[styles.value, { color: sportText }]}>
-                {formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
-              </Text>
-              {timeStr && sport !== 'Cycling' && (
-                <Text style={[styles.time, isDark && styles.timeDark]}>{timeStr}</Text>
-              )}
-            </View>
-            <View style={styles.activityColumn}>
-              {activityName && effort.activityId ? (
-                <Pressable
-                  android_ripple={pressRipple}
-                  accessibilityRole="button"
-                  accessibilityLabel={activityName}
-                  onPress={() => tapTo(`/activity/${effort.activityId}`)}
-                  style={pressable()}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
-                    {activityName} →
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
+            {activityName && effort.activityId ? (
+              <Pressable
+                android_ripple={pressRipple}
+                accessibilityRole="button"
+                accessibilityLabel={activityName}
+                onPress={() => tapTo(`/activity/${effort.activityId}`)}
+                style={pressable()}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
+                  {activityName} →
+                </Text>
+              </Pressable>
+            ) : null}
+          </BestEffortRow>
         );
       })}
       {hasClimbing ? (
@@ -171,48 +161,6 @@ const styles = StyleSheet.create({
   },
   emptyTextDark: {
     color: darkColors.textSecondary,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  rowDark: {},
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colorWithOpacity(ink.black, 0.08),
-  },
-  rowBorderDark: {
-    borderBottomColor: colorWithOpacity(ink.white, 0.08),
-  },
-  label: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    width: 48,
-  },
-  labelDark: {
-    color: darkColors.textSecondary,
-  },
-  valueColumn: {
-    width: 100,
-    alignItems: 'flex-end',
-  },
-  value: {
-    ...typography.body,
-    fontWeight: '700',
-  },
-  time: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  timeDark: {
-    color: darkColors.textSecondary,
-  },
-  activityColumn: {
-    flex: 1,
-    marginLeft: spacing.md,
   },
   activityName: {
     ...typography.caption,

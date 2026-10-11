@@ -14,6 +14,7 @@ import {
   applyRecordingNotificationAction,
   parsePendingAction,
 } from '@/features/recording/lib/recordingNotification';
+import { recording } from '@/theme';
 
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
   buildRecordingBackup: jest.fn(() => ({ startTime: 1 })),
@@ -50,6 +51,20 @@ function stateWith(overrides: Record<string, unknown> = {}) {
 }
 
 const translate = (key: string) => key;
+
+/** WCAG 2.2 AA for a graphical object, which is what the trace on the card is. */
+const AA_GRAPHIC = 3;
+
+function relativeLuminance(hex: string): number {
+  const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 describe('decimateTrace', () => {
   it('flattens lat,lng pairs in order', () => {
@@ -134,6 +149,18 @@ describe('buildRecordingNotificationPayload', () => {
     });
     expect(payload!.accentColor).toBeDefined();
     expect(payload!.traceColor.toLowerCase()).not.toBe(payload!.accentColor.toLowerCase());
+  });
+
+  it('colourises the card in the recording tone, with the trace readable on it', () => {
+    const payload = buildRecordingNotificationPayload(stateWith(), {
+      translate,
+      isMetric: true,
+      now: NOW,
+    });
+    expect(payload!.accentColor).toBe(recording.light);
+    expect(contrastRatio(payload!.traceColor, payload!.accentColor)).toBeGreaterThanOrEqual(
+      AA_GRAPHIC
+    );
   });
 
   it('offers pause, lap and stop while recording', () => {

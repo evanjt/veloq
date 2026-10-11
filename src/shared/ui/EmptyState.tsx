@@ -18,6 +18,8 @@ interface EmptyStateProps {
   actionLabel?: string | undefined;
   /** Action button callback */
   onAction?: (() => void) | undefined;
+  /** testID for the action button */
+  actionTestID?: string;
   /** Compact mode for inline display */
   compact?: boolean;
 }
@@ -28,6 +30,7 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  actionTestID,
   compact = false,
 }: EmptyStateProps) {
   const { isDark, colors } = useTheme();
@@ -70,6 +73,7 @@ export function EmptyState({
 
       {actionLabel && onAction && (
         <Button
+          {...(actionTestID ? { testID: actionTestID } : {})}
           label={actionLabel}
           onPress={onAction}
           variant="primary"

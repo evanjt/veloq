@@ -35,6 +35,8 @@ export interface SectionHistoryPanelProps {
   onShowVersion: (version: number | null) => void;
   onRevert: (version: number) => void;
   onUnpin: () => void;
+  /** A revert is running: revert and unpin are disabled until it ends. */
+  isReverting?: boolean;
   /** Activity display names by id. Ids absent from it draw as themselves. */
   activityNames?: Record<string, string>;
 }
@@ -134,6 +136,7 @@ export function SectionHistoryPanel({
   onShowVersion,
   onRevert,
   onUnpin,
+  isReverting = false,
   activityNames,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
@@ -180,6 +183,8 @@ export function SectionHistoryPanel({
             style={pressable([styles.pill, isDark && styles.pillDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sectionHistory.unpin')}
+            accessibilityState={{ disabled: isReverting }}
+            disabled={isReverting}
             onPress={onUnpin}
             android_ripple={pressRipple}
           >
@@ -232,6 +237,8 @@ export function SectionHistoryPanel({
                     accessibilityLabel={t('sectionHistory.revertVersion', {
                       version: v.version,
                     })}
+                    accessibilityState={{ disabled: isReverting }}
+                    disabled={isReverting}
                     onPress={() => onRevert(v.version)}
                     android_ripple={pressRipple}
                   >

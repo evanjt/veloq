@@ -137,7 +137,7 @@ describe('saving a manual entry', () => {
     expect(uploadRecordingNow).not.toHaveBeenCalled();
   });
 
-  it('keeps the entry and offers a retry when the server refuses it', async () => {
+  it('keeps the entry and offers it in place of a retry when the server refuses it', async () => {
     (uploadRecordingNow as jest.Mock).mockResolvedValue({
       outcome: UploadOutcome.Rejected,
       errorDetail: 'server said no',
@@ -147,8 +147,10 @@ describe('saving a manual entry', () => {
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalled();
-    expect(result.current.canRetry).toBe(true);
+    expect(result.current.canRetry).toBe(false);
     expect(result.current.errorMessage).not.toBeNull();
+    expect(result.current.errorDetail).toBe('server said no');
+    expect(result.current.keptRecording).not.toBeNull();
   });
 
   it('leaves it to the queue when the post cannot reach the server', async () => {

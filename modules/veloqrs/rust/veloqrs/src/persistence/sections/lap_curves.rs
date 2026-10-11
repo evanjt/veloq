@@ -470,19 +470,38 @@ fn reference_lap<'a>(
     Some((lap, FfiReferenceSource::Record))
 }
 
-/// A direction is worth drawing only with a lap beside its reference.
-fn compared(deltas: FfiDirectionDeltas) -> Option<FfiDirectionDeltas> {
-    deltas
-        .laps
+/// One direction's laps against its reference, with the peak the plot scales
+/// to. `None` without a lap beside the reference, as a direction is worth
+/// drawing only with one.
+fn compared(
+    reference_activity_id: String,
+    reference_source: FfiReferenceSource,
+    laps: Vec<FfiLapDelta>,
+    missing: Vec<FfiLapDeltaMissing>,
+) -> Option<FfiDirectionDeltas> {
+    fn finite(lap: &FfiLapDelta) -> impl Iterator<Item = f32> + '_ {
+        lap.delta_secs
+            .iter()
+            .copied()
+            .filter(|delta| delta.is_finite())
+    }
+    let beside = laps.iter().any(|lap| {
+        lap.activity_id != reference_activity_id || finite(lap).any(|delta| delta != 0.0)
+    });
+    if !beside {
+        return None;
+    }
+    let peak_delta_secs = laps
         .iter()
-        .any(|lap| {
-            lap.activity_id != deltas.reference_activity_id
-                || lap
-                    .delta_secs
-                    .iter()
-                    .any(|delta| delta.is_finite() && *delta != 0.0)
-        })
-        .then_some(deltas)
+        .flat_map(finite)
+        .fold(0.0_f32, |peak, delta| peak.max(delta.abs()));
+    Some(FfiDirectionDeltas {
+        reference_activity_id,
+        reference_source,
+        laps,
+        missing,
+        peak_delta_secs,
+    })
 }
 
 fn either(curves: FfiSectionLapCurves) -> Option<FfiSectionLapCurves> {
@@ -573,20 +592,15 @@ where
                         activity_id: record.activity_id.clone(),
                         start_index: lap.start_index,
                         activity_date: record.activity_date as f64,
-                        delta_secs: d.delta_secs,
-                        split_delta_secs: d.split_delta_secs,
+                        delta_secs: d.delta_secs.into(),
+                        split_delta_secs: d.split_delta_secs.into(),
                         end_delta_secs: d.end_delta_secs,
                     }),
                     None => missing.push(missed(FfiLapDeltaMissingReason::NotProjectable)),
                 }
             }
         }
-        compared(FfiDirectionDeltas {
-            reference_activity_id: reference.activity_id.clone(),
-            reference_source: source,
-            laps,
-            missing,
-        })
+        compared(reference.activity_id.clone(), source, laps, missing)
     };
 
     either(FfiSectionLapCurves {
@@ -600,31 +614,35 @@ where
 
 /// The curves of the laps from `cutoff` on, measured against the reference
 /// the whole history chose. The time chips filter this way, so a chip change
-/// computes nothing.
+/// computes nothing, and a kept lap shares its curve with the held one rather
+/// than copying it.
 pub(crate) fn in_range(curves: &FfiSectionLapCurves, cutoff: i64) -> Option<FfiSectionLapCurves> {
     let cutoff = cutoff as f64;
     let ranged = |deltas: &Option<FfiDirectionDeltas>| {
         let deltas = deltas.as_ref()?;
-        compared(FfiDirectionDeltas {
-            laps: deltas
+        compared(
+            deltas.reference_activity_id.clone(),
+            deltas.reference_source,
+            deltas
                 .laps
                 .iter()
                 .filter(|lap| lap.activity_date >= cutoff)
                 .cloned()
                 .collect(),
-            missing: deltas
+            deltas
                 .missing
                 .iter()
                 .filter(|lap| lap.activity_date >= cutoff)
                 .cloned()
                 .collect(),
-            ..deltas.clone()
-        })
+        )
     };
     either(FfiSectionLapCurves {
+        grid_step_m: curves.grid_step_m,
+        split_step_m: curves.split_step_m,
+        section_length_m: curves.section_length_m,
         forward: ranged(&curves.forward),
         reverse: ranged(&curves.reverse),
-        ..curves.clone()
     })
 }
 

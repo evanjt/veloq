@@ -207,9 +207,19 @@ path = "tests/screen_read_bytes.rs"
 
 # Standalone: installs a counting global allocator, which would count every other test's allocations.
 [[test]]
+name = "heatmap_tile_memory"
+path = "tests/heatmap_tile_memory.rs"
+
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
+[[test]]
 name = "evidence_cache_release"
 path = "tests/evidence_cache_release.rs"
 required-features = ["synthetic"]
+
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
+[[test]]
+name = "page_split_memory"
+path = "tests/page_split_memory.rs"
 
 # Area: heatmap tiles and their scheme handler.
 [[test]]
@@ -365,7 +375,18 @@ path = "examples/grouping_preview_cost.rs"
 name = "upgrade_elevation_replay"
 path = "examples/upgrade_elevation_replay.rs"
 
+# Counts and bytes of the heatmap tree a complete pass writes for a private
+# GPX corpus. CI has no corpus to point it at, so it is never run there.
+[[example]]
+name = "heatmap_tree_size"
+path = "examples/heatmap_tree_size.rs"
+
 [[example]]
 name = "heatmap_pass_phases"
 path = "examples/heatmap_pass_phases.rs"
+required-features = ["synthetic"]
+
+[[example]]
+name = "heatmap_tile_on_request"
+path = "examples/heatmap_tile_on_request.rs"
 required-features = ["synthetic"]

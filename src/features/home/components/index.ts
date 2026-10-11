@@ -5,3 +5,4 @@ export { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 export { NotificationOptInCard } from './NotificationOptInCard';
 export { SupportCard } from './SupportCard';
 export { FeedFirstSyncStandby } from './FeedFirstSyncStandby';
+export { FeedEmptyLibrary } from './FeedEmptyLibrary';

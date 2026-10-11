@@ -18,34 +18,58 @@ describe('useMergeSections departed rides', () => {
   beforeEach(() => jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());
 
-  it('returns the kept section and names the ride that left in the merge', () => {
+  it('returns the kept section and names the ride that left in the merge', async () => {
     (getEngine as jest.Mock).mockReturnValue({
-      mergeSections: jest.fn(() => ({ sectionId: 'primary', departed: [ride] })),
+      runSectionMerge: jest.fn(async () => ({ sectionId: 'primary', departed: [ride] })),
     });
     const { result } = renderHook(() => useMergeSections());
 
     let kept: string | null = null;
-    act(() => {
-      kept = result.current.merge('primary', 'donor');
+    await act(async () => {
+      kept = await result.current.merge('primary', 'donor');
     });
 
     expect(kept).toBe('primary');
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('Morning ride');
   });
 
-  it('shows nothing when no ride left, and returns null when the merge failed', () => {
-    const mergeSections = jest
+  it('names no ride when none left, and shows the failure when the merge failed', async () => {
+    const runSectionMerge = jest
       .fn()
-      .mockReturnValueOnce({ sectionId: 'primary', departed: [] })
-      .mockReturnValueOnce(null);
-    (getEngine as jest.Mock).mockReturnValue({ mergeSections });
+      .mockResolvedValueOnce({ sectionId: 'primary', departed: [] })
+      .mockResolvedValueOnce(null);
+    (getEngine as jest.Mock).mockReturnValue({ runSectionMerge });
     const { result } = renderHook(() => useMergeSections());
 
-    act(() => {
-      expect(result.current.merge('primary', 'donor')).toBe('primary');
-      expect(result.current.merge('primary', 'donor')).toBeNull();
+    await act(async () => {
+      expect(await result.current.merge('primary', 'donor')).toBe('primary');
     });
+    expect(Alert.alert).not.toHaveBeenCalled();
 
+    await act(async () => {
+      expect(await result.current.merge('primary', 'donor')).toBeNull();
+    });
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect((Alert.alert as jest.Mock).mock.calls[0][1]).toBe('sections.mergeFailed');
+    expect(result.current.isMerging).toBe(false);
+  });
+
+  it('returns while the merge runs and refuses a second merge', async () => {
+    const runSectionMerge = jest.fn(() => new Promise(() => {}));
+    (getEngine as jest.Mock).mockReturnValue({ runSectionMerge });
+    const { result } = renderHook(() => useMergeSections());
+
+    let first: Promise<string | null> | undefined;
+    act(() => {
+      first = result.current.merge('primary', 'donor');
+    });
+    expect(first).toBeInstanceOf(Promise);
+    expect(result.current.isMerging).toBe(true);
+
+    await act(async () => {
+      expect(await result.current.merge('primary', 'donor')).toBeNull();
+    });
+    expect(runSectionMerge).toHaveBeenCalledTimes(1);
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 

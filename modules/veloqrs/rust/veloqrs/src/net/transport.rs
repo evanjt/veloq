@@ -383,8 +383,8 @@ impl Transport {
     /// is retried. A POST that creates an activity may already have been applied
     /// when a 5xx or a dropped connection comes back, so retrying it here risks
     /// a duplicate activity. Those surface to the caller instead, and the upload
-    /// queue decides whether to try again on its own backoff. A 429 is the one
-    /// safe retry, because the server rejected the request outright.
+    /// queue looks for the activity on the server before it sends again. A 429
+    /// is the one safe retry, because the server rejected the request outright.
     pub async fn post_json(
         &self,
         path: &str,
@@ -573,12 +573,17 @@ impl Transport {
 
         if status.is_success() {
             self.governor.note_success(&budget, chrono::Utc::now());
-            return WriteStep::Done(
-                resp.bytes()
-                    .await
-                    .map(|b| b.to_vec())
-                    .map_err(|e| NetError::Transport(e.to_string())),
-            );
+            // The status says the server applied the write. A body that breaks
+            // off after it loses only the answer's detail, and reporting a
+            // transport failure would have the caller send the write again.
+            let body = match resp.bytes().await {
+                Ok(bytes) => bytes.to_vec(),
+                Err(e) => {
+                    log::warn!("veloqrs: [transport] a write landed but its answer broke off: {e}");
+                    Vec::new()
+                }
+            };
+            return WriteStep::Done(Ok(body));
         }
         if status == reqwest::StatusCode::UNAUTHORIZED {
             return WriteStep::Done(Err(NetError::Unauthorized));
@@ -1289,6 +1294,41 @@ mod tests {
         ));
         assert!(matches!(res, Err(NetError::Unauthorized)));
         assert_eq!(mock.hits(), 1);
+    }
+
+    /// Scenario: the server answers a create with 200 and a length it never
+    /// delivers, the connection closing partway through the body.
+    /// Expected behaviour: the write is reported landed with an empty answer,
+    /// once, rather than as a transport failure the caller would send again.
+    #[test]
+    fn a_write_whose_answer_breaks_off_after_a_200_is_landed() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = hits.clone();
+        std::thread::spawn(move || {
+            for mut stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut request = [0u8; 4096];
+                let _ = stream.read(&mut request);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
+                      Content-Length: 400\r\n\r\n{\"id\":\"i7",
+                );
+                let _ = stream.flush();
+            }
+        });
+        let t = transport_to(addr, brisk_timeouts());
+
+        let res = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities/manual",
+            &json!({}),
+            Lane::Interactive,
+        ));
+
+        assert!(matches!(&res, Ok(body) if body.is_empty()), "{res:?}");
+        assert_eq!(hits.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
     /// A socket that completes the TCP handshake and then never answers. This

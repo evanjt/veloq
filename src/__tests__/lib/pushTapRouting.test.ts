@@ -178,7 +178,6 @@ describe('routeFromNotificationData', () => {
 
     for (const data of [activity, insight]) {
       routeFromNotificationData(data);
-      routeFromNotificationData(data, true);
     }
 
     expect(router.push).not.toHaveBeenCalled();
@@ -189,7 +188,6 @@ describe('routeFromNotificationData', () => {
   it.each(SHAPES)("opens nothing from another athlete's %s push", (_name, data) => {
     signIn('i777');
     routeFromNotificationData(data);
-    routeFromNotificationData(data, true);
     expect(router.push).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
   });
@@ -212,7 +210,6 @@ describe('routeFromNotificationData', () => {
     signIn(null);
     const { athlete_id: _athlete, ...unnamed } = TAP;
     routeFromNotificationData(unnamed);
-    routeFromNotificationData(unnamed, true);
     routeFromNotificationData({ route: '/insights' });
     expect(router.push).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
@@ -224,14 +221,9 @@ describe('routeFromNotificationData', () => {
     expect(router.push).toHaveBeenCalledWith('/activity/i999');
   });
 
-  it('leaves a warm tap on the stack it already has', () => {
+  it('pushes over the stack it finds rather than replacing it', () => {
     routeFromNotificationData({ ...TAP });
     expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it('seats the feed under a cold-start tap, so back does not leave the app', () => {
-    routeFromNotificationData({ ...TAP }, true);
-    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
     expect(router.push).toHaveBeenCalledWith('/activity/i999');
   });
 
@@ -259,6 +251,17 @@ describe('the two tap entry points', () => {
     );
     await handleInitialNotificationResponse();
 
+    expect(router.push).toHaveBeenCalledWith('/activity/i999');
+  });
+
+  it('pushes a cold-start tap over the tab group the root layout seats', async () => {
+    (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(
+      response('n9', { dataString: JSON.stringify(TAP) })
+    );
+
+    await handleInitialNotificationResponse();
+
+    expect(router.replace).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledWith('/activity/i999');
   });
 

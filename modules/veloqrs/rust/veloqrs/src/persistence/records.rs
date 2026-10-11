@@ -300,6 +300,22 @@ pub fn complete_traversal_sql() -> String {
     complete_traversal_sql_for("sa", "s")
 }
 
+/// An activity's sport as SQL over `activities a` left-joined to
+/// `activity_metrics am`: the synced sport, else the one stored with the track.
+///
+/// An upstream retype rewrites the metrics row and leaves the activity row's
+/// sport as it was, so a read that takes `a.sport_type` alone judges a lap
+/// under a sport every other section read has moved it out of. Each read that
+/// groups, filters or labels by an activity's sport takes it from here.
+pub fn activity_sport_sql() -> String {
+    activity_sport_sql_for("a", "am")
+}
+
+/// The same sport over whichever aliases the caller joined under.
+pub fn activity_sport_sql_for(a: &str, am: &str) -> String {
+    format!("COALESCE({am}.sport_type, {a}.sport_type)")
+}
+
 /// A complete traversal as a `WHERE` fragment, to append after a condition:
 /// not a `partial` overlap, and covering enough of the section to stand as a
 /// traversal of it. The ranking, the section ledger and the encounters share

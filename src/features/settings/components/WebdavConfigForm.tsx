@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { useTheme } from '@/shared/app';
 import {
   getWebdavConfig,
@@ -93,6 +94,16 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
     setConnectionError(null);
   }, []);
   const plainHttp = /^\s*http:/i.test(webdavUrl);
+
+  // The test's outcome is a status message: Android speaks the live region it
+  // sits in, iOS hears it announced.
+  const connectionStatus =
+    connectionResult === 'success'
+      ? t('backup.connectionSuccess')
+      : connectionResult === 'error'
+        ? connectionError || t('backup.connectionFailed')
+        : null;
+  useAnnounceOnAppear(connectionStatus);
 
   const handleQrScanned = useCallback(
     (data: string) => {
@@ -247,21 +258,23 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
             onPress={handleTestConnection}
             loading={testingConnection}
           />
-          {connectionResult === 'success' && (
-            <Text
-              style={[
-                styles.connectionSuccess,
-                { color: isDark ? darkColors.successDeep : colors.successDeep },
-              ]}
-            >
-              {t('backup.connectionSuccess')}
-            </Text>
-          )}
-          {connectionResult === 'error' && (
-            <Text style={[styles.connectionError, isDark && styles.connectionErrorDark]}>
-              {connectionError || t('backup.connectionFailed')}
-            </Text>
-          )}
+          <View accessibilityLiveRegion="polite">
+            {connectionResult === 'success' && (
+              <Text
+                style={[
+                  styles.connectionSuccess,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
+                {connectionStatus}
+              </Text>
+            )}
+            {connectionResult === 'error' && (
+              <Text style={[styles.connectionError, isDark && styles.connectionErrorDark]}>
+                {connectionStatus}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
       <Modal

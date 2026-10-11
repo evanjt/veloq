@@ -106,12 +106,12 @@ export function MuscleGroupView({
           data={bodyData}
           selectedSlug={selectedMuscle}
           gender={gender}
-          scale={0.65}
+          maxScale={0.65}
           colors={BODY_COLORS}
           onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
           onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
           tappableSlugs={tappableSlugs}
-          centerWidth={120}
+          centerWidth={CENTER_COLUMN_WIDTH}
           centerContent={
             <View style={styles.centerColumn}>
               <View style={styles.legendItem}>
@@ -238,6 +238,9 @@ export function MuscleGroupView({
   );
 }
 
+/** The legend between the two figures. */
+const CENTER_COLUMN_WIDTH = 120;
+
 const MUSCLE_VIEW_BOTTOM_PADDING = spacing.xl + spacing.lg;
 
 const styles = StyleSheet.create({
@@ -253,7 +256,7 @@ const styles = StyleSheet.create({
     paddingBottom: MUSCLE_VIEW_BOTTOM_PADDING,
   },
   centerColumn: {
-    width: 120,
+    width: CENTER_COLUMN_WIDTH,
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
     gap: spacing.xs,

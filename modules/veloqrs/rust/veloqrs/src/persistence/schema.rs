@@ -11,7 +11,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 68;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 69;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -163,6 +163,8 @@ impl PersistentEngine {
     /// M67: the name the geocoder gave each route and section that appeared
     /// while geocoding was on, apart from the names the athlete typed.
     /// M68: checkpoint debt beside the evidence blob, readable without decoding it.
+    /// M69: whether a recording's last upload attempt may have created the
+    /// activity without saying so, looked for on the server before a re-send.
     /// M54: the cutover archive tables dropped, their rows carried into the
     /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
@@ -246,6 +248,7 @@ impl PersistentEngine {
             include_str!("../migrations/066_route_list_counts.sql"),
             include_str!("../migrations/067_geocoded_names.sql"),
             include_str!("../migrations/068_evidence_debt.sql"),
+            include_str!("../migrations/m20261010_121634_recording_upload_in_doubt.sql"),
         ]
     }
 
@@ -459,18 +462,6 @@ impl PersistentEngine {
             .to_latest(conn)
             .map_err(Self::migration_error)?;
 
-        // Update schema version
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
-            params![Self::SCHEMA_VERSION.to_string()],
-        )?;
-
-        // Record migration timestamp
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('last_migration', datetime('now'))",
-            [],
-        )?;
-
         let migrations_ms = crate::elapsed_ms(migrations_started);
         let hooks_started = std::time::Instant::now();
 
@@ -551,6 +542,19 @@ impl PersistentEngine {
                 Self::populate_route_group_counts(conn)?;
             }
         }
+
+        // The version is written last because every hook above that gates on
+        // it reads the version this pass started from. Written before them, a
+        // hook that fails or a process that dies part way leaves the file
+        // recorded as current, and the next launch skips what never ran.
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
+            params![Self::SCHEMA_VERSION.to_string()],
+        )?;
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('last_migration', datetime('now'))",
+            [],
+        )?;
 
         // The first launch after an update is the one a user waits on, and a
         // field report of a slow one is unactionable without a split between

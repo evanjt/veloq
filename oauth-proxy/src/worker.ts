@@ -157,30 +157,35 @@ export default {
 };
 
 /**
- * Check rate limit for an IP address
- * Returns true if request should be allowed, false if rate limited
+ * Check the rate limit for the client address on one route.
+ * Returns true if the request should be allowed, false if rate limited.
+ *
+ * The count is read and written back without a transaction, so it is
+ * approximate, and KV refuses a second write to one key inside a second. A
+ * failing counter allows the request: refusing a valid sign-in because the
+ * limiter could not count it costs more than one uncounted request.
  */
-async function checkRateLimit(ip: string, env: Env): Promise<boolean> {
-  const key = rateKey(ip);
-  const current = await env.OAUTH_STATES.get(key);
-
-  if (!current) {
-    // First request in window
-    await env.OAUTH_STATES.put(key, "1", {
+async function checkRateLimit(
+  route: "state" | "token",
+  request: Request,
+  env: Env
+): Promise<boolean> {
+  // Cloudflare sets this on every request; any other address header is the
+  // client's own to choose.
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const key = rateKey(route, ip);
+  try {
+    const current = await env.OAUTH_STATES.get(key);
+    const count = current ? parseInt(current, 10) : 0;
+    if (count >= RATE_LIMIT_MAX_REQUESTS) {
+      return false;
+    }
+    await env.OAUTH_STATES.put(key, String(count + 1), {
       expirationTtl: RATE_LIMIT_WINDOW_SECONDS,
     });
-    return true;
+  } catch (error) {
+    console.error("Rate limit counter failed, allowing the request:", error);
   }
-
-  const count = parseInt(current, 10);
-  if (count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  // Increment counter (preserve existing TTL by using same window)
-  await env.OAUTH_STATES.put(key, String(count + 1), {
-    expirationTtl: RATE_LIMIT_WINDOW_SECONDS,
-  });
   return true;
 }
 
@@ -192,14 +197,8 @@ async function handleRegisterState(
   request: Request,
   env: Env
 ): Promise<Response> {
-  // Get client IP for rate limiting
-  const ip =
-    request.headers.get("CF-Connecting-IP") ||
-    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
-    "unknown";
-
   try {
-    const allowed = await checkRateLimit(ip, env);
+    const allowed = await checkRateLimit("state", request, env);
     if (!allowed) {
       return new Response(
         JSON.stringify({ error: "Too many requests. Please try again later." }),
@@ -399,8 +398,7 @@ function challengeFromStoredState(storedState: string): string | null {
  * out, so a code works once whatever happens next.
  */
 async function handleTokenExchange(request: Request, env: Env): Promise<Response> {
-  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  if (!(await checkRateLimit(ip, env))) {
+  if (!(await checkRateLimit("token", request, env))) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429,
       headers: {

@@ -346,6 +346,11 @@ pub(crate) mod pooled {
         // ranking and the feed apply. A fragment stays an encounter, takes no
         // trophy, and is never anyone's rival.
         let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
+        let sport = crate::persistence::records::activity_sport_sql();
+        let current_sport = crate::persistence::records::activity_sport_sql_for(
+            "current_activity",
+            "current_metrics",
+        );
 
         // Get this activity's traversals with section metadata, a complete
         // traversal ahead of a fragment of the same pair.
@@ -457,8 +462,8 @@ pub(crate) mod pooled {
                  LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                  LEFT JOIN sections s ON s.id = sa.section_id
                  WHERE sa.section_id = ?1 AND sa.direction = ?2
-                   AND COALESCE(am.sport_type, a.sport_type) = (
-                       SELECT COALESCE(current_metrics.sport_type, current_activity.sport_type)
+                   AND {sport} = (
+                       SELECT {current_sport}
                        FROM activities current_activity
                        LEFT JOIN activity_metrics current_metrics
                          ON current_metrics.activity_id = current_activity.id

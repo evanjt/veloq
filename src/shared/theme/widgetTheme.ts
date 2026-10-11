@@ -16,6 +16,7 @@ import {
   colors,
   darkColors,
   insightToneColor,
+  recording,
   strengthRamp,
   verdictColor,
 } from '@/theme/colors';
@@ -29,6 +30,8 @@ export interface WidgetPalette {
   textSecondary: string;
   /** Teal: values, accents, selected state. */
   primary: string;
+  /** Ink on a filled primary control, such as a picker's Save button. */
+  textOnPrimary: string;
   /** Gold: achievements / PR moments ONLY. */
   gold: string;
   /** Blue: CTL / data-viz series. */
@@ -83,6 +86,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     textPrimary: colors.textPrimary,
     textSecondary: colors.textSecondary,
     primary: brand.tealLight,
+    textOnPrimary: colors.textOnPrimary,
     gold: brand.gold,
     blue: brand.blueDark,
     fatigue: colors.fatigue,
@@ -120,6 +124,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     textPrimary: darkColors.textPrimary,
     textSecondary: darkColors.textSecondary,
     primary: brand.tealDark,
+    textOnPrimary: colors.textOnPrimary,
     gold: brand.gold,
     blue: brand.blue,
     fatigue: darkColors.chartFatigue,
@@ -154,13 +159,24 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
 };
 
 /**
- * Quick-Record widget chrome. Static (no snapshot behind it): a teal gradient
- * surface that steps one shade deeper in the dark scheme, with a white
- * glyph/label in both.
+ * Quick-Record widget chrome and every other record surface the widget targets
+ * draw. Static (no snapshot behind it). The fill is the `recording` tone the
+ * in-app record button wears, per scheme, so the record action is one colour on
+ * every surface, and both tones carry the white glyph and label at AA text.
+ * `accent` is the same tone drawn as a mark: the large widget's record glyph and
+ * the Live Activity's keyline, trace, glyph and control.
  */
 export const widgetRecord = {
-  light: { gradientStart: brand.teal, gradientEnd: brand.tealLight },
-  dark: { gradientStart: brand.tealLight, gradientEnd: brand.tealHover },
+  light: {
+    gradientStart: recording.light,
+    gradientEnd: recording.light,
+    accent: recording.light,
+  },
+  dark: {
+    gradientStart: recording.dark,
+    gradientEnd: recording.dark,
+    accent: recording.dark,
+  },
   foreground: colors.textOnDark,
   /** The Android widget is one fixed 57dp cell, so its chrome is smaller than a card's. */
   padding: spacing.xs,

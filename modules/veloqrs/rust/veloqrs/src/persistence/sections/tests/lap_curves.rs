@@ -490,6 +490,143 @@ fn a_direction_holding_only_its_reference_has_no_deltas() {
     assert_eq!(forward.laps[0].activity_id, "fading");
 }
 
+/// Held forward curves of one lap a curve, the `n`th lap from day `n`, each
+/// with its 100 m splits, as the cache keeps them.
+fn held_curves(curves: Vec<Vec<f32>>) -> crate::FfiSectionLapCurves {
+    let laps = curves
+        .into_iter()
+        .enumerate()
+        .map(|(n, curve)| {
+            let splits: Vec<f32> = curve
+                .windows(11)
+                .step_by(10)
+                .map(|w| w[10] - w[0])
+                .collect();
+            crate::FfiLapDelta {
+                activity_id: format!("attempt-{n}"),
+                start_index: 0,
+                activity_date: (FIRST_DAY + n as i64 * DAY) as f64,
+                end_delta_secs: curve.last().copied(),
+                delta_secs: curve.into(),
+                split_delta_secs: splits.into(),
+            }
+        })
+        .collect();
+    crate::FfiSectionLapCurves {
+        grid_step_m: GRID_STEP_M,
+        split_step_m: SPLIT_STEP_M,
+        section_length_m: 40_000.0,
+        forward: compared(
+            "attempt-0".to_string(),
+            FfiReferenceSource::Record,
+            laps,
+            Vec::new(),
+        ),
+        reverse: None,
+    }
+}
+
+/// Curves the shape of a 40 km route of `attempts` attempts: every lap a
+/// whole curve on the 10 m grid.
+fn long_route_curves(attempts: usize) -> crate::FfiSectionLapCurves {
+    held_curves(
+        (0..attempts)
+            .map(|n| {
+                (0..4_001)
+                    .map(|k| ((k + n) % 97) as f32 * 0.25 - 12.0)
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
+/// Scenario: a time chip filters a long route's held curves, fifty attempts
+/// of 4,001 grid points each, keeping every one of them.
+///
+/// Expected behaviour: the kept laps share the held curves rather than
+/// copying them, so the filter allocates under a tenth of the bytes the
+/// curves lower to.
+#[test]
+fn a_range_over_held_curves_shares_them_rather_than_copying() {
+    let held = long_route_curves(50);
+    let lowered: usize = held
+        .forward
+        .iter()
+        .flat_map(|deltas| &deltas.laps)
+        .map(|lap| 4 * (lap.delta_secs.len() + lap.split_delta_secs.len()))
+        .sum();
+    assert!(
+        lowered > 800_000,
+        "the fixture is a long route: {lowered} B"
+    );
+
+    let (ranged, count, bytes) = crate::test_alloc::allocated_by(|| in_range(&held, FIRST_DAY));
+    let ranged = ranged.expect("every attempt is in range");
+    assert_eq!(ranged.forward.as_ref().expect("forward").laps.len(), 50);
+    assert!(
+        bytes < lowered / 10,
+        "in_range allocated {bytes} B in {count} allocations for {lowered} B of curves"
+    );
+}
+
+/// Scenario: the plot scales its y axis to the largest delta among the laps
+/// it draws, and a range drops the lap that reached it.
+///
+/// Expected behaviour: each direction carries that peak as an absolute value,
+/// over finite deltas only, and a range carries the peak of the laps it kept.
+#[test]
+fn a_direction_carries_the_peak_of_the_laps_it_holds() {
+    let held = held_curves(vec![
+        vec![0.0, 2.0, 5.0],
+        vec![0.0, -20.0, f32::NAN],
+        vec![0.0, 8.0, -3.0],
+    ]);
+    let peak = |curves: &crate::FfiSectionLapCurves| {
+        curves.forward.as_ref().expect("forward").peak_delta_secs
+    };
+    assert_eq!(peak(&held), 20.0);
+    assert_eq!(peak(&in_range(&held, FIRST_DAY).expect("all")), 20.0);
+    assert_eq!(
+        peak(&in_range(&held, FIRST_DAY + 2 * DAY).expect("newest")),
+        8.0
+    );
+
+    let computed = curves_of(&reference_and_fading(), None).expect("curves");
+    let forward = computed.forward.as_ref().expect("forward deltas");
+    let largest = forward
+        .laps
+        .iter()
+        .flat_map(|lap| lap.delta_secs.iter())
+        .filter(|delta| delta.is_finite())
+        .fold(0.0_f32, |peak, delta| peak.max(delta.abs()));
+    assert!(largest > 30.0, "the fading lap loses over 30 s");
+    assert_eq!(forward.peak_delta_secs, largest);
+}
+
+/// The curve type crosses the bridge as its values' little-endian bytes and
+/// comes back the same, NaN gaps included, and refuses a partial float.
+#[test]
+fn a_curve_crosses_the_bridge_as_little_endian_floats() {
+    let curve = crate::FfiFloat32Array::from(vec![1.5, -0.25, f32::NAN, 40_000.0]);
+    let bytes = curve.to_le_bytes();
+    assert_eq!(bytes.len(), 16);
+    assert_eq!(&bytes[..4], &1.5_f32.to_le_bytes());
+    assert_eq!(&bytes[4..8], &(-0.25_f32).to_le_bytes());
+
+    let back = crate::FfiFloat32Array::from_le_bytes(&bytes).expect("whole floats");
+    assert_eq!(back.len(), 4);
+    assert_eq!(back[0], 1.5);
+    assert_eq!(back[1], -0.25);
+    assert!(back[2].is_nan());
+    assert_eq!(back[3], 40_000.0);
+    assert!(crate::FfiFloat32Array::from_le_bytes(&bytes[..15]).is_none());
+    assert!(
+        crate::FfiFloat32Array::from_le_bytes(&[])
+            .expect("empty")
+            .is_empty()
+    );
+}
+
 /// A 1,000 m square loop, 250 m a side, from its start corner north, east,
 /// south and west back to the start.
 fn square(d: f64) -> GpsPoint {

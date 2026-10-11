@@ -11,6 +11,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 import { i18n } from '@/i18n';
 import { formAsPercent } from '@/shared/app/FormPreferenceStore';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
+import { runWhenIdle, type Cancel } from '@/shared/async/runWhenIdle';
 import { debug } from '@/shared/debug/debug';
 import type { TFunc } from '@/features/insights/light';
 
@@ -56,12 +57,43 @@ export function writeWidgetSnapshot(snapshot: WidgetSnapshotPayload): void {
  */
 export function updateWidgetSnapshot(now?: Date): void {
   if (!VeloqWidget) return;
+  // This write reads the engine as it is now, so one still waiting would only
+  // repeat it.
+  cancelScheduledWrite();
   try {
     const snapshot = gatherCurrentSnapshot(now);
     if (snapshot) writeWidgetSnapshot(snapshot);
   } catch (e) {
     log.warn('updateWidgetSnapshot failed:', e);
   }
+}
+
+let scheduledWrite: Cancel | null = null;
+
+/**
+ * Refresh the widget once the JS thread is idle, for a caller in the foreground.
+ *
+ * The refresh reads the insights bundle, ranks it and composes the snapshot,
+ * tens of milliseconds of engine work in one task, and the callers that ask for
+ * it are the moments every screen is refreshing too. Asks that arrive before
+ * the write runs share it, since it reads the engine as it is when it runs.
+ * Nothing cancels it but a write that supersedes it: the caller may be gone by
+ * then, and the home screen still wants the numbers.
+ *
+ * Backgrounding and the headless push task call `updateWidgetSnapshot` instead,
+ * because the process may be frozen before the thread idles.
+ */
+export function scheduleWidgetSnapshot(): void {
+  if (!VeloqWidget || scheduledWrite) return;
+  scheduledWrite = runWhenIdle(() => {
+    scheduledWrite = null;
+    updateWidgetSnapshot();
+  });
+}
+
+function cancelScheduledWrite(): void {
+  scheduledWrite?.();
+  scheduledWrite = null;
 }
 
 /**
@@ -101,6 +133,8 @@ function gatherCurrentSnapshot(now?: Date): WidgetSnapshotPayload | null {
  */
 export function resetWidgetSnapshot(): void {
   if (!VeloqWidget) return;
+  // A write asked for before the wipe would compose over the replacement.
+  cancelScheduledWrite();
   try {
     if (showsSampleLibrary()) {
       const sample = gatherCurrentSnapshot();

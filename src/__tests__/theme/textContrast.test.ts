@@ -11,7 +11,7 @@
  * nobody noticed.
  */
 
-import { colors, darkColors, chartStreamColors } from '@/theme';
+import { colors, darkColors, chartStreamColors, recording } from '@/theme';
 import {
   FORM_ZONE_COLORS,
   FORM_ZONE_MARK_COLORS,
@@ -19,7 +19,7 @@ import {
   FORM_ZONE_TEXT_COLORS_DARK,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { widgetPalette } from '@/shared/theme/widgetTheme';
+import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 import {
   FAMILY_BARS,
   FAMILY_EXEMPTIONS,
@@ -148,6 +148,8 @@ describe('body text clears AA on every surface it is drawn on', () => {
     'rideText',
     'runText',
     'swimText',
+    'chartHrvText',
+    'chartRhrText',
   ] as const;
 
   it.each(TEXT_VARIANTS)('light %s clears AA on every light surface', (token) => {
@@ -374,8 +376,8 @@ describe('the marks the screens draw come from that family', () => {
     expect(FORM_ZONE_MARK_COLORS.optimal).not.toBe(FORM_ZONE_COLORS.optimal);
   });
 
-  it('draws the power and gap streams in a tone that clears the bar', () => {
-    for (const stream of [chartStreamColors.power, chartStreamColors.gap]) {
+  it("draws the power, gap and W'bal streams in a tone that clears the bar", () => {
+    for (const stream of [chartStreamColors.power, chartStreamColors.gap, chartStreamColors.wbal]) {
       for (const ground of Object.values(ALL_SURFACES)) {
         expect(contrastRatio(stream, ground)).toBeGreaterThanOrEqual(AA_MARK);
       }
@@ -501,4 +503,37 @@ describe('every palette token answers to its family bar', () => {
 
     expect(repaired).toEqual([]);
   });
+});
+
+/**
+ * Scenario: the Record widget writes its label in white over its own gradient,
+ * 18pt semibold on iOS and 8 to 12sp bold on Android, neither of which is large
+ * text, so the bar is 4.5:1 at both ends of the gradient in both schemes.
+ *
+ * Expected behaviour: every stop carries the white label at AA text, and the
+ * stops are the `recording` tones the in-app record button wears, so the record
+ * action is one colour wherever the app draws it.
+ */
+describe('the Record widget label clears AA on its own chrome', () => {
+  it.each(['light', 'dark'] as const)('white on every %s gradient stop', (scheme) => {
+    const { gradientStart, gradientEnd } = widgetRecord[scheme];
+    for (const stop of [gradientStart, gradientEnd]) {
+      expect(contrastRatio(widgetRecord.foreground, stop)).toBeGreaterThanOrEqual(AA_TEXT);
+    }
+  });
+
+  it.each(['light', 'dark'] as const)('paints the %s chrome in the recording tone', (scheme) => {
+    expect(widgetRecord[scheme].gradientStart).toBe(recording[scheme]);
+    expect(widgetRecord[scheme].gradientEnd).toBe(recording[scheme]);
+    expect(widgetRecord[scheme].accent).toBe(recording[scheme]);
+  });
+
+  it.each(['light', 'dark'] as const)(
+    'separates the %s record glyph from the widget surface at the mark bar',
+    (scheme) => {
+      expect(
+        contrastRatio(widgetRecord[scheme].accent, widgetPalette[scheme].surface)
+      ).toBeGreaterThanOrEqual(AA_MARK);
+    }
+  );
 });

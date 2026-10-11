@@ -1,100 +1,51 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { pressable, pressRipple } from '@/shared/ui';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { StyleSheet } from 'react-native';
+import { SportChipRow, type SportChip } from '@/shared/ui/SportChipRow';
+import type { PrimarySport } from '@/features/fitness/stores';
+import { spacing } from '@/theme';
 
-const SPORTS = ['Cycling', 'Running', 'Swimming'] as const;
+/** Each sport's chip, drawn with its `ACTIVITY_CATEGORIES` fill and ink. */
+const SPORT_CHIPS = [
+  {
+    key: 'Cycling',
+    category: 'Ride',
+    label: 'filters.cycling',
+    testID: 'fitness-sport-toggle-Cycling',
+  },
+  {
+    key: 'Running',
+    category: 'Run',
+    label: 'filters.running',
+    testID: 'fitness-sport-toggle-Running',
+  },
+  {
+    key: 'Swimming',
+    category: 'Swim',
+    label: 'filters.swimming',
+    testID: 'fitness-sport-toggle-Swimming',
+  },
+] as const satisfies readonly SportChip[];
 
 interface SportToggleSelectorProps {
   sportMode: PrimarySport;
   onSportModeChange: (sport: PrimarySport) => void;
-  isDark: boolean;
 }
 
-/**
- * Pill-button group for selecting the active fitness sport (Cycling/Running/Swimming).
- */
+/** Chip row for selecting the active fitness sport (Cycling/Running/Swimming). */
 export const SportToggleSelector = React.memo(function SportToggleSelector({
   sportMode,
   onSportModeChange,
-  isDark,
 }: SportToggleSelectorProps) {
-  const { t } = useTranslation();
-  const { colors: themeColors } = useTheme();
-
   return (
-    <View style={styles.sportToggleContainer}>
-      {SPORTS.map((sport) => (
-        <Pressable
-          android_ripple={pressRipple}
-          accessibilityRole="button"
-          accessibilityLabel={t(`filters.${sport.toLowerCase()}` as never)}
-          accessibilityState={{ selected: sportMode === sport }}
-          key={sport}
-          testID={`fitness-sport-toggle-${sport}`}
-          style={pressable([
-            styles.sportToggleButton,
-            isDark && styles.sportToggleButtonDark,
-            sportMode === sport && {
-              backgroundColor: SPORT_COLORS[sport],
-            },
-          ])}
-          onPress={() => onSportModeChange(sport)}
-        >
-          <MaterialCommunityIcons
-            name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
-            size={16}
-            color={sportMode === sport ? colors.textOnDark : themeColors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.sportToggleText,
-              isDark && styles.sportToggleTextDark,
-              sportMode === sport && styles.sportToggleTextActive,
-            ]}
-          >
-            {t(`filters.${sport.toLowerCase()}` as never)}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+    <SportChipRow
+      chips={SPORT_CHIPS}
+      value={sportMode}
+      onSelect={(key) => onSportModeChange(key as PrimarySport)}
+      style={styles.row}
+    />
   );
 });
 
 const styles = StyleSheet.create({
-  sportToggleContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  sportToggleButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: opacity.overlay.light,
-    gap: spacing.xsPlus,
-  },
-  sportToggleButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  sportToggleText: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  sportToggleTextDark: {
-    color: darkColors.textSecondary,
-  },
-  sportToggleTextActive: {
-    color: colors.textOnDark,
-  },
+  row: { marginBottom: spacing.md },
 });

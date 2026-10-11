@@ -5,7 +5,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ScreenSafeAreaView,
-  ErrorStatePreset,
+  EngineReadFailureRetry,
   useTabBarClearance,
   Shimmer,
   IconButton,
@@ -112,6 +112,7 @@ function HealthScreenContent() {
     isLoading: wellnessLoading,
     isFetching: wellnessFetching,
     isError: isWellnessError,
+    error: wellnessError,
     refetch: refetchWellness,
   } = useWellness(timeRange);
 
@@ -142,15 +143,9 @@ function HealthScreenContent() {
     [refetchWellness, queryClient, requestRefresh]
   );
 
-  // Wellness is the one read that replaces the tab. The engine aggregates name
-  // their own failure inside the card that reads them.
-  if (isWellnessError) {
-    return (
-      <ScreenSafeAreaView style={shared.container} testID="training-screen">
-        <ErrorStatePreset onRetry={refetchWellness} />
-      </ScreenSafeAreaView>
-    );
-  }
+  const retryWellness = useCallback(() => {
+    void refetchWellness();
+  }, [refetchWellness]);
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="training-screen">
@@ -224,7 +219,15 @@ function HealthScreenContent() {
               {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
             </Text>
           </View>
-          {!skiaReady || (wellnessLoading && !wellness) ? (
+          {/* Each card names its own failed read, so a wellness failure leaves the
+              title, the range pills and the other cards standing. */}
+          {isWellnessError ? (
+            <EngineReadFailureRetry
+              error={wellnessError}
+              onRetry={retryWellness}
+              testID="wellness-trends-failed"
+            />
+          ) : !skiaReady || (wellnessLoading && !wellness) ? (
             <Shimmer width="100%" height={200} borderRadius={layout.borderRadius} />
           ) : (
             <WellnessTrendsChart

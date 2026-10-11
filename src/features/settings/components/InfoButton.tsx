@@ -23,7 +23,7 @@ export function InfoButton({ testID, title, message }: InfoButtonProps) {
   return (
     <IconButton
       testID={testID}
-      accessibilityLabel={t('backup.moreInfo')}
+      accessibilityLabel={t('backup.aboutTopic', { title })}
       onPress={() => Alert.alert(title, message)}
     >
       <MaterialCommunityIcons

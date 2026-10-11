@@ -19,7 +19,7 @@ use std::sync::{LazyLock, Mutex};
 
 use serde::Deserialize;
 
-use crate::net::types::ManualActivityBody;
+use crate::net::types::{ListedActivity, ManualActivityBody};
 use crate::objects::observer::{Announcement, notify};
 use crate::objects::sync::{FfiCallKind, FfiCallOutcome};
 use crate::persistence::recordings::UploadTransition;
@@ -43,7 +43,8 @@ pub enum FfiUploadOutcome {
     Rejected = 4,
     /// A failure worth another attempt once the backoff has run.
     Retriable = 5,
-    /// The request never reached intervals.icu.
+    /// The request failed in transport. It may have reached intervals.icu, so
+    /// the ride is looked for there before it is sent again.
     Network = 6,
     /// The FIT, or a manual entry's body, is not on the device.
     Missing = 7,
@@ -99,6 +100,14 @@ pub(crate) trait Uplink {
     fn send_rpe(&self, intervals_id: &str, rpe: u32) -> FfiCallOutcome;
     /// Read the activity an upload created back off intervals.icu.
     fn read_back(&self, intervals_id: &str) -> FfiCallOutcome;
+    /// Look on intervals.icu for the activity an earlier attempt at the ride
+    /// may have created. `Ok` with an id is that activity, `Ok` with none says
+    /// the server holds none, and anything else is no answer.
+    fn find_landed(
+        &self,
+        ride: &FfiRecordingEntry,
+        manual: Option<&ManualActivityBody>,
+    ) -> FfiCallOutcome;
 }
 
 /// The uplink the app runs: the held credential and the shared transport.
@@ -142,10 +151,90 @@ impl Uplink for Live {
             intervals_id.to_string(),
         ))
     }
+
+    fn find_landed(
+        &self,
+        ride: &FfiRecordingEntry,
+        manual: Option<&ManualActivityBody>,
+    ) -> FfiCallOutcome {
+        let (oldest, newest) = search_window(ride, manual);
+        let (ride_id, manual) = (ride.id.clone(), manual.cloned());
+        crate::runtime::block_on(crate::objects::sync::find_landed_activity(
+            ride.athlete_id.clone(),
+            oldest,
+            newest,
+            move |listed| landed_match(&ride_id, manual.as_ref(), listed),
+        ))
+    }
 }
 
 fn file_upload_name(ride: &FfiRecordingEntry) -> String {
     format!("{}.fit", ride.id)
+}
+
+/// The activity among `listed` that an earlier attempt at the ride created.
+///
+/// Every upload carries the ride's id as its external id, and the server may
+/// keep it as sent or as the file's name, so either form is the ride. A manual
+/// entry whose activity came back with no external id at all is matched on
+/// its start and type instead, which an activity from any other source cannot
+/// meet: those carry an external id of their own.
+fn landed_match(
+    ride_id: &str,
+    manual: Option<&ManualActivityBody>,
+    listed: &[ListedActivity],
+) -> Option<String> {
+    let file_name = format!("{ride_id}.fit");
+    let by_external_id = listed.iter().find(|a| {
+        a.external_id
+            .as_deref()
+            .is_some_and(|ext| ext == ride_id || ext == file_name)
+    });
+    let by_start_and_type = || {
+        let body = manual?;
+        listed.iter().find(|a| {
+            a.external_id.as_deref().is_none_or(str::is_empty)
+                && a.activity_type.as_deref() == Some(body.activity_type.as_str())
+                && a.start_date_local
+                    .as_deref()
+                    .is_some_and(|start| same_second(start, &body.start_date_local))
+        })
+    };
+    by_external_id
+        .or_else(by_start_and_type)
+        .map(|a| a.id.clone())
+}
+
+/// Whether two local start times name the same second, whatever either adds
+/// after it.
+fn same_second(a: &str, b: &str) -> bool {
+    const SECOND: usize = "YYYY-MM-DDTHH:MM:SS".len();
+    a.get(..SECOND)
+        .is_some_and(|second| b.get(..SECOND) == Some(second))
+}
+
+/// The local dates to list activities between when looking for a ride's
+/// activity: the day it started, by its own local start when it has one, and a
+/// day either side, which covers any offset between the device's clock and the
+/// local time the server files the activity under.
+fn search_window(
+    ride: &FfiRecordingEntry,
+    manual: Option<&ManualActivityBody>,
+) -> (String, String) {
+    let day = manual
+        .and_then(|body| body.start_date_local.get(..10))
+        .and_then(|date| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+        .or_else(|| {
+            chrono::DateTime::from_timestamp_millis(ride.start_time as i64)
+                .map(|start| start.date_naive())
+        })
+        .unwrap_or_default();
+    let day_off = |days: i64| {
+        (day + chrono::TimeDelta::days(days))
+            .format("%Y-%m-%d")
+            .to_string()
+    };
+    (day_off(-1), day_off(1))
 }
 
 /// A manual entry's body as the entry screen stored it: the request's own
@@ -180,16 +269,21 @@ impl From<StoredManualBody> for ManualActivityBody {
             description: stored.description,
             trainer: stored.trainer.unwrap_or(false),
             commute: stored.commute.unwrap_or(false),
+            external_id: None,
         }
     }
 }
 
 /// The body a manual entry holds, `None` when the device cannot produce it.
+/// It carries the ride's id as its external id.
 fn read_manual_body(ride: &FfiRecordingEntry) -> Option<ManualActivityBody> {
     let path = recording_file(ride.streams_path.as_deref()?)?;
     let text = std::fs::read_to_string(path).ok()?;
     let stored: StoredManualBody = serde_json::from_str(&text).ok()?;
-    Some(stored.into())
+    Some(ManualActivityBody {
+        external_id: Some(ride.id.clone()),
+        ..stored.into()
+    })
 }
 
 /// The app's documents directory, which the file names a row stores are
@@ -270,9 +364,9 @@ enum Verdict {
 }
 
 /// Read the request's answer. A 403 is a missing write grant whatever else the
-/// answer says, and only a request that never reached the server is a network
-/// failure: a refused, rate-limited or locally failed write is not, and holding
-/// one for the connection would wait on a change that cannot help it.
+/// answer says, and only a transport failure is a network failure: a refused,
+/// rate-limited or locally failed write is not, and holding one for the
+/// connection would wait on a change that cannot help it.
 fn classify(answer: &FfiCallOutcome) -> Verdict {
     let detail = || {
         answer
@@ -291,6 +385,19 @@ fn classify(answer: &FfiCallOutcome) -> Verdict {
             Verdict::Retriable(detail())
         }
         (_, Some(_)) => Verdict::Rejected(detail()),
+    }
+}
+
+/// Whether an answer leaves open that the server created the activity. A
+/// transport failure can come after the request was sent, a 5xx or a 408 after
+/// the server applied it, and a call that ended without reporting says
+/// nothing. Only a success or a refusal the server or the engine gave before
+/// acting settles it.
+fn may_have_landed(answer: &FfiCallOutcome) -> bool {
+    match (answer.kind, answer.status) {
+        (FfiCallKind::Ok | FfiCallKind::OtherAthlete, _) => false,
+        (_, Some(status)) => status >= 500 || status == 408,
+        (_, None) => true,
     }
 }
 
@@ -485,13 +592,49 @@ fn send_and_settle(
 
     let id = ride.id.as_str();
     let install_f = install as f64;
-    let answer = match manual_body {
-        Some(body) => uplink.send_manual(ride, body),
-        None => uplink.send_file(ride),
+    let in_doubt = |value: bool| {
+        if let Some(Err(err)) = under(install, |e| e.set_recording_upload_in_doubt(id, value)) {
+            log::warn!("veloqrs: [upload] could not mark {id}'s attempt: {err}");
+        }
+    };
+
+    // An earlier attempt may have created the activity without the answer
+    // saying so. Posting again would make a second one, so the server is asked
+    // first, and a ride it already holds settles as that activity.
+    let unsettled = under(install, |e| e.recording_upload_in_doubt(id))
+        .and_then(Result::ok)
+        .flatten()
+        .unwrap_or(true);
+    let looked = unsettled.then(|| uplink.find_landed(ride, manual_body.as_ref()));
+    let verdict = match &looked {
+        Some(found) if found.kind == FfiCallKind::Ok && found.id.is_some() => {
+            log::info!("veloqrs: [upload] {id} was already on intervals.icu, not sending it again");
+            classify(found)
+        }
+        // A look that failed sent nothing and settled nothing, so the mark
+        // stays and the ride waits as a send that failed the same way would.
+        // A refusal of the look says nothing against the ride's own bytes.
+        Some(found) if found.kind != FfiCallKind::Ok => match classify(found) {
+            Verdict::Rejected(error) => Verdict::Retriable(error),
+            verdict => verdict,
+        },
+        _ => {
+            // Written before the request goes out, so an app killed while it
+            // is in flight leaves the next attempt looking first.
+            in_doubt(true);
+            let answer = match manual_body {
+                Some(body) => uplink.send_manual(ride, body),
+                None => uplink.send_file(ride),
+            };
+            if !may_have_landed(&answer) {
+                in_doubt(false);
+            }
+            classify(&answer)
+        }
     };
 
     let outcome = |transition: UploadTransition| moved(install, id, transition, now_ms());
-    match classify(&answer) {
+    match verdict {
         Verdict::Landed(intervals_id) => {
             outcome(UploadTransition::Uploaded {
                 install: install_f,
@@ -524,8 +667,9 @@ fn send_and_settle(
             });
             FfiUploadResult::with(O::AuthExpired, error)
         }
-        // A transport failure never reached intervals.icu, so it is not an
-        // attempt the ride spent.
+        // The connection failed, which costs the ride no attempt. Whether the
+        // request reached intervals.icu is unknown, and the mark written before
+        // it went out has the next attempt look for it first.
         Verdict::Network(error) => {
             outcome(UploadTransition::HeldForNetwork {
                 install: install_f,

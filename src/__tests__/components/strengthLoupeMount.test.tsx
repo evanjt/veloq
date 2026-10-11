@@ -79,7 +79,7 @@ function diagram() {
     <BodyPairWithLoupe
       data={[]}
       gender="male"
-      scale={SCALE}
+      maxScale={SCALE}
       colors={['#111111']}
       onMuscleScrub={() => {}}
       tappableSlugs={new Set(['chest'])}

@@ -260,6 +260,59 @@ impl PersistentEngine {
     }
 }
 
+/// Give `key` back on the install that claimed it, from any thread.
+///
+/// A release a suspension refuses is kept and lands at the resume, so a lease
+/// asked back on the JavaScript thread is never held for the rest of the
+/// process. `now` is when the release was asked for, not when it lands.
+pub(crate) fn release_job_for(install: u64, key: JobKey, release: Release) {
+    let now = now_ms();
+    super::suspension::write_or_defer(move || {
+        super::with_persistent_engine_for(install, |engine| {
+            if let Err(e) = engine.release_job(&key, release.clone(), now) {
+                log::warn!(
+                    "veloqrs: [attempts] could not release {}: {e}",
+                    key.as_str()
+                );
+            }
+        })
+        .is_some()
+    });
+}
+
+/// A claim a start has taken and not yet handed to the run that frees it.
+///
+/// Dropped before the hand-over, which is every early return, `?` and unwind
+/// in between, it gives the key back as [`Release::Deferred`]: nothing ran, so
+/// nothing failed, and an earlier failure keeps its backoff.
+#[must_use = "the claim is given back the moment the guard is dropped"]
+pub(crate) struct ClaimGuard {
+    install: u64,
+    key: Option<JobKey>,
+}
+
+impl ClaimGuard {
+    pub(crate) fn new(install: u64, key: JobKey) -> Self {
+        Self {
+            install,
+            key: Some(key),
+        }
+    }
+
+    /// The run now holds the claim and gives it back when it ends.
+    pub(crate) fn hand_over(mut self) {
+        self.key = None;
+    }
+}
+
+impl Drop for ClaimGuard {
+    fn drop(&mut self) {
+        if let Some(key) = self.key.take() {
+            release_job_for(self.install, key, Release::Deferred);
+        }
+    }
+}
+
 /// [`PersistentEngine::release_job`] on a connection of its own, for work that
 /// claimed through an engine it can no longer reach.
 pub(crate) fn release_job_in(

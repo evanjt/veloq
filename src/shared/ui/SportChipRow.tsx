@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, controlHeight, spacing, slopToMinTapTarget } from '@/theme';
 import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
@@ -10,37 +10,56 @@ export interface SportChip {
   label: string;
   count?: number;
   testID?: string;
+  /** The `ACTIVITY_CATEGORIES` key whose fill and ink it takes, when that is not `key`. */
+  category?: string;
 }
 
-interface SportChipRowProps {
+interface SportChipRowBaseProps {
   chips: readonly SportChip[];
+  children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}
+
+/** Any number of chips selected, each tap toggling one. */
+interface MultiSelectProps extends SportChipRowBaseProps {
   selected: ReadonlySet<string>;
   onToggle: (key: string) => void;
-  children?: React.ReactNode;
 }
 
-export function SportChipRow({ chips, selected, onToggle, children }: SportChipRowProps) {
+/** At most one chip selected, each tap handing its key to the caller. */
+interface SingleSelectProps extends SportChipRowBaseProps {
+  value: string | undefined;
+  onSelect: (key: string) => void;
+}
+
+type SportChipRowProps = MultiSelectProps | SingleSelectProps;
+
+export function SportChipRow(props: SportChipRowProps) {
+  const { chips, children, style } = props;
   const { t } = useTranslation();
+  const isSelected = (key: string) =>
+    'value' in props ? props.value === key : props.selected.has(key);
+  const onPress = (key: string) => ('value' in props ? props.onSelect(key) : props.onToggle(key));
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      style={styles.scroller}
+      style={[styles.scroller, style]}
       contentContainerStyle={styles.row}
     >
       {chips.map((chip) => {
-        const category = ACTIVITY_CATEGORIES[chip.key];
+        const category = ACTIVITY_CATEGORIES[chip.category ?? chip.key];
         return (
           <ToggleButton
             key={chip.key}
             {...(chip.testID && { testID: chip.testID })}
             label={t(chip.label, chip.key)}
-            selected={selected.has(chip.key)}
+            selected={isSelected(chip.key)}
             fill={category?.selectedFill ?? colors.primary}
             ink={category?.selectedInk ?? colors.textOnPrimary}
             {...(chip.count !== undefined && { count: chip.count })}
-            onPress={() => onToggle(chip.key)}
+            onPress={() => onPress(chip.key)}
           />
         );
       })}

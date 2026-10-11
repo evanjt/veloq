@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Quick-Record widget surface: teal gradient, one shade deeper in the night resources. -->
+<!-- Quick-Record widget surface: the recording tone, the lighter one in the night resources. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
   <gradient
     android:startColor="@color/widget_record_grad_start"

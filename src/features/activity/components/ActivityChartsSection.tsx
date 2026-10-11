@@ -4,14 +4,17 @@ import {
   ScrollView,
   Pressable,
   Modal,
-  StatusBar,
   StyleSheet,
-  useWindowDimensions,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  useSafeAreaFrame,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
@@ -43,6 +46,7 @@ import {
   chartConfigsFor,
   CHART_CONFIGS,
 } from '@/features/activity/lib/chartConfig';
+import { fullscreenPlotFrame } from '@/features/activity/lib/fullscreenPlotFrame';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type {
@@ -141,8 +145,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   onExportGpx,
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const { getPageMetrics } = useFFITimer();
 
   // Chart state
@@ -180,16 +182,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const effectiveXAxisMode = !hasDistance ? 'time' : xAxisMode;
   const canToggleXAxis = hasDistance && hasTime;
 
-  // Initialise with single default chart when data loads
-  React.useEffect(() => {
-    if (!chartsInitialised && availableCharts.length > 0 && activity) {
-      const defaultChart = defaultChartFor(activity.type);
-      const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
-      const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
-      setSelectedCharts([initialChart]);
-      setChartsInitialised(true);
-    }
-  }, [availableCharts, chartsInitialised, activity]);
+  // Initialise with single default chart when data loads. Set during render
+  // rather than in an effect, so the first frame with streams already carries it.
+  if (!chartsInitialised && availableCharts.length > 0 && activity) {
+    const defaultChart = defaultChartFor(activity.type);
+    const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
+    const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
+    setSelectedCharts([initialChart]);
+    setChartsInitialised(true);
+  }
 
   // Toggle a chart type on/off
   const handleChartToggle = useCallback((chartId: string) => {
@@ -212,17 +213,18 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     setChartMetrics(metrics);
   }, []);
 
-  // Open fullscreen chart with landscape orientation
-  const openChartFullscreen = useCallback(async () => {
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    setIsChartFullscreen(true);
-  }, []);
+  // The landscape lock lives exactly as long as the full-screen view, so closing
+  // it and unmounting the section with it open both hand the app back to portrait.
+  React.useEffect(() => {
+    if (!isChartFullscreen) return undefined;
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    return () => {
+      void ScreenOrientation.lockAsync(APP_ORIENTATION_LOCK);
+    };
+  }, [isChartFullscreen]);
 
-  // Close fullscreen chart and restore portrait orientation
-  const closeChartFullscreen = useCallback(async () => {
-    setIsChartFullscreen(false);
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-  }, []);
+  const openChartFullscreen = useCallback(() => setIsChartFullscreen(true), []);
+  const closeChartFullscreen = useCallback(() => setIsChartFullscreen(false), []);
 
   // Zone summary for intervals bar
   const intervalZoneSummary = useMemo(() => {
@@ -259,7 +261,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       } else if (isRecovery) {
         key = 'REC';
         label = 'Rec';
-        color = colors.chartPaceCurve;
+        // The chip keys the band, which draws recovery in the neutral grey.
+        color = colors.chartBandNeutral;
       } else if (isWarmup) {
         key = 'WU';
         label = 'WU';
@@ -570,75 +573,134 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         visible={isChartFullscreen}
         animationType="fade"
         statusBarTranslucent
+        navigationBarTranslucent
         supportedOrientations={['landscape-left', 'landscape-right']}
         onRequestClose={closeChartFullscreen}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar hidden />
-          <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
-            {/* Close button */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('common.close')}
-              style={pressable([
-                styles.fullscreenCloseButton,
-                { top: Math.max(insets.top, insets.left, 16) + 8 },
-              ])}
-              onPress={closeChartFullscreen}
-              hitSlop={CLOSE_SLOP}
-              android_ripple={pressRipple}
-            >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </Pressable>
-
-            {/* Chart type selector in fullscreen */}
-            <View
-              style={[
-                styles.fullscreenControls,
-                { paddingTop: Math.max(insets.top, insets.left, 16) + 8 },
-              ]}
-            >
-              <ChartTypeSelector
-                available={availableCharts}
-                selected={selectedCharts}
-                onToggle={handleChartToggle}
-                onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
-                onPreviewEnd={() => setPreviewMetricId(null)}
-                metricValues={chartMetrics}
-              />
-            </View>
-
-            {/* Chart area */}
-            {streams && selectedCharts.length > 0 && (
-              <View style={styles.fullscreenChartWrapper}>
-                <CombinedPlot
-                  streams={streams}
-                  elevationGain={activity.total_elevation_gain}
-                  selectedCharts={selectedCharts}
-                  chartConfigs={effectiveChartConfigs}
-                  height={windowHeight - 100}
-                  onPointSelect={onPointSelect}
-                  onInteractionChange={onInteractionChange}
-                  previewMetricId={previewMetricId}
-                  xAxisMode={effectiveXAxisMode}
-                  onXAxisModeToggle={handleXAxisToggle}
-                  canToggleXAxis={canToggleXAxis}
-                  intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
-                  activityType={activity.type}
-                  onMetricsChange={handleMetricsChange}
+          <SafeAreaProvider>
+            <FullscreenPlotLayout
+              isDark={isDark}
+              closeLabel={t('common.close')}
+              onClose={closeChartFullscreen}
+              controls={
+                <ChartTypeSelector
+                  available={availableCharts}
+                  selected={selectedCharts}
+                  onToggle={handleChartToggle}
+                  onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
+                  onPreviewEnd={() => setPreviewMetricId(null)}
+                  metricValues={chartMetrics}
                 />
-              </View>
-            )}
-          </View>
+              }
+              renderPlot={(plotHeight) =>
+                streams && selectedCharts.length > 0 ? (
+                  <CombinedPlot
+                    streams={streams}
+                    elevationGain={activity.total_elevation_gain}
+                    selectedCharts={selectedCharts}
+                    chartConfigs={effectiveChartConfigs}
+                    height={plotHeight}
+                    onPointSelect={onPointSelect}
+                    onInteractionChange={onInteractionChange}
+                    previewMetricId={previewMetricId}
+                    xAxisMode={effectiveXAxisMode}
+                    onXAxisModeToggle={handleXAxisToggle}
+                    canToggleXAxis={canToggleXAxis}
+                    intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                    activityType={activity.type}
+                    onMetricsChange={handleMetricsChange}
+                  />
+                ) : null
+              }
+            />
+          </SafeAreaProvider>
         </GestureHandlerRootView>
       </Modal>
     </>
   );
 });
+
+/**
+ * The full-screen plot's chrome and plot, laid out from the insets of the
+ * full-screen window itself. Read here, under the Modal's own provider, they
+ * belong to the Modal's window, which on Android is a separate dialog, and they
+ * follow its rotation rather than the portrait screen behind it.
+ */
+function FullscreenPlotLayout({
+  isDark,
+  closeLabel,
+  onClose,
+  controls,
+  renderPlot,
+}: {
+  isDark: boolean;
+  closeLabel: string;
+  onClose: () => void;
+  controls: React.ReactNode;
+  renderPlot: (plotHeight: number) => React.ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  const { height: frameHeight } = useSafeAreaFrame();
+  // The plot waits for the controls row to be measured: its height grows when
+  // the chips wrap under a larger text size, and that height is the plot's.
+  const [chromeHeight, setChromeHeight] = useState<number | null>(null);
+  const frame = fullscreenPlotFrame(insets, frameHeight, chromeHeight ?? 0);
+  const onControlsLayout = useCallback(
+    (event: LayoutChangeEvent) => setChromeHeight(event.nativeEvent.layout.height),
+    []
+  );
+
+  return (
+    <View
+      style={[
+        styles.fullscreenContainer,
+        isDark && styles.fullscreenContainerDark,
+        {
+          paddingTop: frame.padding.top,
+          paddingRight: frame.padding.right,
+          paddingBottom: frame.padding.bottom,
+          paddingLeft: frame.padding.left,
+        },
+      ]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={closeLabel}
+        style={pressable([styles.fullscreenCloseButton, frame.closeButton])}
+        onPress={onClose}
+        hitSlop={CLOSE_SLOP}
+        android_ripple={pressRipple}
+      >
+        <MaterialCommunityIcons
+          name="close"
+          size={24}
+          color={isDark ? colors.textOnDark : colors.textPrimary}
+        />
+      </Pressable>
+
+      <View
+        testID="fullscreen-chart-controls"
+        style={styles.fullscreenControls}
+        onLayout={onControlsLayout}
+      >
+        {controls}
+      </View>
+
+      {chromeHeight !== null && (
+        <View style={styles.fullscreenChartWrapper}>{renderPlot(frame.plotHeight)}</View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * The orientation the app runs in everywhere but the full-screen plot, as
+ * `app.json` pins it. The way back from the plot is this lock, not
+ * `unlockAsync`: on Android that requests an unspecified orientation, which
+ * outranks the manifest's portrait and leaves every screen free to rotate.
+ */
+const APP_ORIENTATION_LOCK = ScreenOrientation.OrientationLock.PORTRAIT_UP;
 
 const BOTTOM_BAR_HEIGHT = 80;
 
@@ -747,15 +809,12 @@ const styles = StyleSheet.create({
   fullscreenContainer: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
   },
   fullscreenContainerDark: {
     backgroundColor: darkColors.surface,
   },
   fullscreenCloseButton: {
     position: 'absolute',
-    left: spacing.md,
     width: controlHeight.button,
     height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
@@ -768,12 +827,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: controlHeight.button,
+    // Clears the close button on both sides, so the chips stay centred.
+    paddingHorizontal: controlHeight.button + spacing.sm,
     paddingBottom: spacing.xs,
   },
   fullscreenChartWrapper: {
     flex: 1,
     justifyContent: 'center',
-    paddingBottom: spacing.md,
   },
   exportGpxButton: {
     marginHorizontal: spacing.md,

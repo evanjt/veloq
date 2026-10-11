@@ -90,6 +90,12 @@ pub mod settings_keys {
     /// The last worker geocoder response and when it arrived, as one JSON row.
     pub const GEOCODER_CONFIG: &str = "__geocoder_config";
 
+    /// Until when the geocoder sends nothing, in epoch milliseconds, because
+    /// its provider throttled, blocked or failed the last request. It belongs
+    /// to the device that was refused rather than to the library, so a clear
+    /// leaves it, and kept in the file so a relaunch does not ask again early.
+    pub const GEOCODER_REFUSED_UNTIL: &str = "__geocoder_refused_until";
+
     /// The words a geocoded name is put together with and the language tag
     /// the lookups are asked in, as the JSON `geocoded_names::PlaceNameWords`
     /// reads. The app stores it whenever it resolves its language, so a

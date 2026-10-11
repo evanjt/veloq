@@ -378,6 +378,10 @@ export const colors = {
   // Wellness metric colors
   chartHrv: '#EC4899', // Pink-500
   chartRhr: '#EF4444', // Red-500
+  // The two wellness hues as text, for the value and label beside a sparkline
+  // drawn in them. Worst light surface: chartHrvText 5.43:1, chartRhrText 5.82:1.
+  chartHrvText: '#BE185D',
+  chartRhrText: '#B91C1C',
   chartSleep: '#A855F7', // Purple-500
   chartSleepScore: '#6366F1', // Indigo-500
   chartWeight: '#64748B', // Slate-500
@@ -385,9 +389,6 @@ export const colors = {
   // The same amber as text: the estimated-FTP headline reads in it, and
   // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface.
   chartFtpText: '#8B6200',
-  chartPowerCurve: brand.blue, // Power curve line
-  chartPaceCurve: '#4CAF50', // Green - pace curve line
-  chartSwimCurve: '#2196F3', // Blue - swim pace curve line
   // The grey rule a curve chart draws its threshold on: FTP, critical speed and
   // critical swim speed each mark one, and none of them is a theme colour.
   chartGuideLine: '#969696',
@@ -489,8 +490,8 @@ export const colors = {
 // =============================================================================
 
 // One colour per activity data stream (activity charts via chartConfig.ts).
-// Picked for contrast against both themes and against each other; wbal shares
-// cadence's orange because the two never plot together.
+// Picked for contrast against both themes and against each other, and no two
+// streams share one: a ride plots cadence and W'bal on the same canvas.
 export const chartStreamColors = {
   // Power and gap take the mark tones: the line is the only thing telling one
   // series from another on the canvas and the chip that keys it is the same
@@ -502,7 +503,9 @@ export const chartStreamColors = {
   pace: '#818CF8',
   elevation: '#A3E635',
   grade: '#6B8E23',
-  wbal: '#F97316',
+  // Fuchsia, a hue no other stream is near. 3.32:1 on the worst surface of
+  // either theme, so the line carries as a mark wherever it is drawn.
+  wbal: '#C026D3',
   gap: colors.markCyan,
   distance: '#457B9D',
   temp: '#E76F51',
@@ -520,7 +523,7 @@ export const chartStreamInk: Record<keyof typeof chartStreamColors, 'light' | 'd
   pace: 'dark',
   elevation: 'dark',
   grade: 'dark',
-  wbal: 'dark',
+  wbal: 'light',
   gap: 'dark',
   distance: 'light',
   temp: 'dark',
@@ -823,6 +826,10 @@ export const darkColors = {
   // Wellness metric colors for dark mode (one Tailwind step lighter)
   chartHrv: '#F472B6', // Pink-400
   chartRhr: '#F87171', // Red-400
+  // On the dark surfaces both fills already clear 4.5:1, 5.91:1 and 5.65:1 on
+  // the worst, so the text tone is the fill.
+  chartHrvText: '#F472B6',
+  chartRhrText: '#F87171',
   chartSleep: '#C084FC', // Purple-400
   chartSleepScore: '#818CF8', // Indigo-400
   chartWeight: '#94A3B8', // Slate-400

@@ -259,16 +259,16 @@ data class WidgetSnapshot(
         refreshLabel = display.optString("refreshLabel", "Refresh"),
         refreshingLabel = display.optString("refreshingLabel", "Refreshing"),
         perWeekSuffix = display.optString("perWeekSuffix", "/wk"),
-        formZoneLabel = display.optString("formZone", "").takeIf { it.isNotEmpty() },
+        formZoneLabel = optText(display, "formZone"),
         formSparkline = floatArray(sparklines?.optJSONArray("form")),
         fitnessSparkline = floatArray(sparklines?.optJSONArray("fitness")),
         fatigueSparkline = floatArray(sparklines?.optJSONArray("fatigue")),
         hrvSparkline = floatArray(sparklines?.optJSONArray("hrv")),
         recordShortcuts = parseShortcuts(root, "recordShortcuts"),
         launcherShortcuts = parseShortcuts(root, "launcherShortcuts"),
-        demoLabel = display.optString("demoLabel", "").takeIf { it.isNotEmpty() },
+        demoLabel = optText(display, "demoLabel"),
         dataAsOf = root.optLong("dataAsOf", 0L),
-        dataAsOfLabel = display.optString("dataAsOfLabel", "").takeIf { it.isNotEmpty() },
+        dataAsOfLabel = optText(display, "dataAsOfLabel"),
         insights = parseInsights(root),
         strength = parseStrength(root),
       )
@@ -363,9 +363,9 @@ data class WidgetSnapshot(
         value = o.optDouble("value", 0.0),
         trendDir = o.optString("trendDir", "flat"),
         verdict = o.optString("verdict", "flat"),
-        zone = o.optString("zone", "").takeIf { it.isNotEmpty() },
+        zone = optText(o, "zone"),
         delta = o.optDouble("deltaVsYesterday").takeIf { !it.isNaN() },
-        text = o.optString("text", "").takeIf { it.isNotEmpty() },
+        text = optText(o, "text"),
       )
     }
 
@@ -373,7 +373,7 @@ data class WidgetSnapshot(
       if (root.isNull("latest")) return null
       val l = root.optJSONObject("latest") ?: return null
       return Latest(
-        activityId = l.optString("activityId", "").takeIf { it.isNotEmpty() },
+        activityId = optText(l, "activityId"),
         name = l.optString("name", ""),
         distanceLabel = l.optString("distanceLabel", ""),
         durationLabel = l.optString("durationLabel", ""),
@@ -383,8 +383,8 @@ data class WidgetSnapshot(
         trainingLoad = if (l.isNull("trainingLoad")) null else l.optInt("trainingLoad"),
         routePreview = parseRoutePreview(l),
         headline = parseHeadline(l),
-        loadText = l.optString("loadText", "").takeIf { it.isNotEmpty() },
-        sectionPrsText = l.optString("sectionPrsText", "").takeIf { it.isNotEmpty() },
+        loadText = optText(l, "loadText"),
+        sectionPrsText = optText(l, "sectionPrsText"),
       )
     }
 
@@ -404,7 +404,7 @@ data class WidgetSnapshot(
         kind = h.optString("kind", ""),
         label = h.optString("label", ""),
         hero = hero,
-        detail = h.optString("detail", "").takeIf { it.isNotEmpty() },
+        detail = optText(h, "detail"),
         dots = dots,
       )
     }
@@ -433,10 +433,10 @@ data class WidgetSnapshot(
       return Impact(
         formBefore = before,
         formAfter = after,
-        beforeText = i.optString("formBeforeText", "").takeIf { it.isNotEmpty() },
-        afterText = i.optString("formAfterText", "").takeIf { it.isNotEmpty() },
-        beforeZone = i.optString("formBeforeZone", "").takeIf { it.isNotEmpty() },
-        afterZone = i.optString("formAfterZone", "").takeIf { it.isNotEmpty() },
+        beforeText = optText(i, "formBeforeText"),
+        afterText = optText(i, "formAfterText"),
+        beforeZone = optText(i, "formBeforeZone"),
+        afterZone = optText(i, "formAfterZone"),
         tssAdded = if (i.isNull("tssAdded")) null else i.optInt("tssAdded"),
       )
     }

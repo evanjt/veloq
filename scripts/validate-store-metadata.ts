@@ -89,9 +89,10 @@ export function changelogCharCount(text: string): number {
 }
 
 /**
- * A claim a store description must not make, in the wording each store locale
- * used for it. A tag push uploads these texts to both stores, so a claim the
- * app or the privacy policy contradicts is published with the release.
+ * A claim a store description or the privacy policy must not make, in the
+ * wording each locale used for it. A tag push uploads these texts to both
+ * stores, so a claim the app or the privacy policy contradicts is published
+ * with the release.
  */
 interface ListingClaim {
   claim: string;
@@ -176,6 +177,37 @@ export const UNSUPPORTED_LISTING_CLAIMS: ListingClaim[] = [
       'sem dados pessoais',
       '不保留任何个人数据',
       '不含任何个人信息',
+    ],
+  },
+  {
+    claim: 'no data collected',
+    reason:
+      'push registration keeps the athlete id and the sign-in worker keeps the IP address ' +
+      'for rate limiting, as the privacy policy says',
+    phrases: [
+      'no data is collected',
+      'no data collection',
+      'telemetry or data collection',
+      'no se recopilan datos',
+      'ni recopilación de datos',
+      'ni recopilacion de datos',
+      "aucune donnée n'est collectée",
+      "aucune donnee n'est collectee",
+      'ni collecte de données',
+      'ni collecte de donnees',
+    ],
+  },
+  {
+    claim: 'no identifying data sent',
+    reason: 'every map tile request carries the device IP address and the tile coordinates',
+    phrases: [
+      'no identifying data',
+      'sin datos identificativos',
+      'sin datos identificables',
+      'aucune donnée identifiante',
+      'aucune donnee identifiante',
+      'sans données identifiantes',
+      'sans donnees identifiantes',
     ],
   },
 ];

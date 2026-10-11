@@ -4,9 +4,24 @@
   android:layout_height="match_parent">
 
   <LinearLayout
-    android:id="@+id/record_configure_list"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="@dimen/widget_padding" />
+    android:padding="@dimen/widget_padding">
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingStart="@dimen/widget_padding"
+      android:paddingEnd="@dimen/widget_padding"
+      android:paddingBottom="@dimen/widget_gap"
+      android:text="@string/widget_record_choose"
+      android:textSize="@dimen/widget_text_label" />
+
+    <LinearLayout
+      android:id="@+id/record_configure_list"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical" />
+  </LinearLayout>
 </ScrollView>

@@ -12,7 +12,7 @@ import {
 } from '@/features/settings/lib/notificationService';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { pressable, pressRipple } from '@/shared/ui';
+import { ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 
 /**
  * The kinds of push the athlete can turn off one at a time. Both flags shipped
@@ -95,9 +95,7 @@ export function NotificationSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('notifications.settings.title').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('notifications.settings.title')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         <View style={styles.row}>
           <MaterialCommunityIcons

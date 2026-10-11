@@ -1,17 +1,13 @@
 /**
- * Sport-type filter pills for cross-sport routes and sections. Localised
- * labels, optional per-sport counts, sport-tinted selected state.
+ * Sport-type filter chips for cross-sport routes and sections. Localised
+ * labels, optional per-sport counts, the sport's chip fill when selected.
  */
 
-import { View, Pressable, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
+import { StyleSheet } from 'react-native';
 
-import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
-import { colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
-import { toActivityType } from '../types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { getActivityCategory } from '@/shared/activity/sportCategories';
+import { SportChipRow } from '@/shared/ui/SportChipRow';
+import { spacing } from '@/theme';
 
 export interface SportTypeOption {
   type: string;
@@ -22,80 +18,25 @@ interface SportTypeSelectorProps {
   options: SportTypeOption[];
   selectedType: string | undefined;
   onSelect: (type: string) => void;
-  isDark: boolean;
 }
 
-export function SportTypeSelector({
-  options,
-  selectedType,
-  onSelect,
-  isDark,
-}: SportTypeSelectorProps) {
-  const { t } = useTranslation();
-
+export function SportTypeSelector({ options, selectedType, onSelect }: SportTypeSelectorProps) {
   return (
-    <View style={styles.row}>
-      {options.map(({ type, count }) => {
-        const isSelected = type === selectedType;
-        const sportColor = getActivityColor(toActivityType(type));
-        const idleColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-        return (
-          <Pressable
-            key={type}
-            testID={`sport-pill-${type}`}
-            style={pressable([
-              styles.pill,
-              isDark && styles.pillDark,
-              isSelected && {
-                backgroundColor: colorWithOpacity(sportColor, 0.13),
-                borderColor: sportColor,
-              },
-            ])}
-            android_ripple={pressRipple}
-            onPress={() => onSelect(type)}
-            accessibilityRole="button"
-            accessibilityLabel={t(`activityTypes.${type}`, type)}
-            accessibilityState={{ selected: isSelected }}
-          >
-            <MaterialCommunityIcons
-              name={getActivityIcon(toActivityType(type))}
-              size={14}
-              color={isSelected ? sportColor : idleColor}
-            />
-            <Text style={[styles.pillText, { color: isSelected ? sportColor : idleColor }]}>
-              {t(`activityTypes.${type}`, type)}
-              {count != null ? ` ${count}` : ''}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <SportChipRow
+      chips={options.map(({ type, count }) => ({
+        key: type,
+        category: getActivityCategory(type),
+        label: `activityTypes.${type}`,
+        testID: `sport-pill-${type}`,
+        ...(count != null && { count }),
+      }))}
+      value={selectedType}
+      onSelect={onSelect}
+      style={styles.row}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    gap: spacing.xs,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.xs,
-  },
-  pillDark: {
-    borderColor: darkColors.border,
-  },
-  pillText: {
-    fontSize: typography.captionBold.fontSize,
-    fontWeight: '600',
-  },
+  row: { marginHorizontal: spacing.md, marginTop: spacing.md },
 });

@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui';
+import * as haptics from '@/shared/ui/haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, layout, typography, spacing, colorWithOpacity } from '@/theme';
@@ -79,6 +80,7 @@ export function ChartTypeSelector({
   const handleLongPress = useCallback(
     (id: string) => {
       isLongPressRef.current = true;
+      haptics.light();
       onPreviewStart?.(id);
     },
     [onPreviewStart]

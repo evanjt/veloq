@@ -552,7 +552,7 @@ function InsightsScreenContent() {
                 {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
               </Text>
               <Text style={[styles.disabledHintLink, isDark && { color: darkColors.linkTeal }]}>
-                {t('insights.routesDisabledLine2', 'Tap to enable')}
+                {t('insights.routesDisabledLine2', 'Turn on routes and sections')}
               </Text>
             </View>
           </Pressable>

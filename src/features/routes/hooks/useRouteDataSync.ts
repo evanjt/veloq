@@ -145,7 +145,7 @@ export function useRouteDataSync(
           }
           endGpsSync('no-engine', {
             updateProgress,
-            isMounted: isMountedRef.current,
+            owns: isMountedRef.current && !abortController.signal.aborted,
             withGpsCount: 0,
           });
           markSyncComplete(abortController);

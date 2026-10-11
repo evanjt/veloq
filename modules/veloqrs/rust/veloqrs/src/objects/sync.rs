@@ -36,7 +36,7 @@ use crate::net::offline_prefetch::{
     split_curve_windows,
 };
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::{ActivityRecord, ManualActivityBody};
+use crate::net::types::{ActivityRecord, ListedActivity, ManualActivityBody};
 use crate::persistence::PersistentEngine;
 use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::bodies::CurveKind;
@@ -1555,6 +1555,33 @@ pub(crate) async fn send_manual_activity(
     .await
 }
 
+/// Look on intervals.icu for the activity an earlier upload may have created,
+/// between two local dates, under the athlete the ride was recorded for. `Ok`
+/// with an id is the activity `matches` picked, `Ok` with none says the server
+/// holds no such activity, and anything else is no answer.
+pub(crate) async fn find_landed_activity(
+    expected_athlete_id: Option<String>,
+    oldest: String,
+    newest: String,
+    matches: impl FnOnce(&[ListedActivity]) -> Option<String> + Send + 'static,
+) -> FfiCallOutcome {
+    run_write_for(
+        expected_athlete_id,
+        move |transport, athlete_id| async move {
+            let listed = endpoints::list_activities_between(
+                &transport,
+                &athlete_id,
+                &oldest,
+                &newest,
+                Lane::Interactive,
+            )
+            .await?;
+            Ok(matches(&listed))
+        },
+    )
+    .await
+}
+
 /// Set the effort the athlete gave an uploaded ride, as its `icu_rpe`. It names
 /// the activity the upload created, so a failure never sends the file again.
 pub(crate) async fn send_activity_rpe(intervals_id: String, rpe: u32) -> FfiCallOutcome {
@@ -1741,12 +1768,21 @@ pub(crate) async fn perform_sync(
     // whose fitness and form an activity download is about to move.
     let today = chrono::Local::now().date_naive();
     let stored_wellness = stored_wellness_dates(today);
-    let whole_year = wellness_oldest(&stored_wellness, None, today);
+    let answered = answered_wellness(&athlete_id);
+    let whole_year = wellness_oldest(&stored_wellness, answered, None, today);
     let wellness_ahead = whole_year <= today - chrono::Duration::days(WELLNESS_DAYS);
     if wellness_ahead {
+        let answering = answered_after(&stored_wellness, answered, whole_year, today);
         step!(
             FfiSyncStep::Wellness,
-            sync_wellness(install, &transport, &athlete_id, whole_year).await
+            sync_wellness(
+                install,
+                &transport,
+                &athlete_id,
+                whole_year,
+                Some(answering)
+            )
+            .await
         );
     }
     // Then the census, because it is the input to every window: they ask it
@@ -1764,10 +1800,11 @@ pub(crate) async fn perform_sync(
     let plan = owed_activity_windows(&athlete_id, census_succeeded).await;
     let windows = &plan.windows;
     if !wellness_ahead {
-        let oldest = wellness_oldest(&stored_wellness, plan.owed_from.as_deref(), today);
+        let oldest = wellness_oldest(&stored_wellness, answered, plan.owed_from.as_deref(), today);
+        let answering = answered_after(&stored_wellness, answered, oldest, today);
         step!(
             FfiSyncStep::Wellness,
-            sync_wellness(install, &transport, &athlete_id, oldest).await
+            sync_wellness(install, &transport, &athlete_id, oldest, Some(answering)).await
         );
     }
     // The newest few by count before any window, because the newest window is
@@ -2631,11 +2668,15 @@ async fn ready_detail_body(
 /// The start of an activity's detail body as epoch seconds, or `None` when the
 /// body carries no date that parses.
 fn detail_body_date(body: &str) -> Option<i64> {
-    serde_json::from_str::<serde_json::Value>(body)
+    #[derive(serde::Deserialize)]
+    struct DetailDate {
+        #[serde(default)]
+        start_date_local: Option<serde_json::Value>,
+    }
+    let date = serde_json::from_str::<DetailDate>(body)
         .ok()?
-        .get("start_date_local")
-        .and_then(|d| d.as_str())
-        .and_then(|d| start_date_to_timestamp(Some(d)))
+        .start_date_local?;
+    start_date_to_timestamp(Some(date.as_str()?))
 }
 
 /// How many of the newest owed days the collapsed case asks for on its own,
@@ -3692,29 +3733,120 @@ async fn sync_activity_history_summary(
 /// keyed on date, so the narrow window merges into the year a full sync stored.
 pub(crate) const WELLNESS_REFRESH_DAYS: i64 = 14;
 
+/// Settings key holding the wellness window intervals.icu last answered for
+/// the default sync, as `athlete|from|through`. Upstream keeps no row for a
+/// day it has no data for, so a stored row cannot say a day was asked. The
+/// `__` prefix keeps it out of a record backup, which carries no wellness
+/// rows, and a clear takes it with the rows.
+pub(crate) const WELLNESS_ANSWERED_KEY: &str = "__wellness_answered";
+
+/// A run of days intervals.icu answered wellness for, both ends included,
+/// whether or not it had a row for each of them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AnsweredDays {
+    from: chrono::NaiveDate,
+    through: chrono::NaiveDate,
+}
+
+impl AnsweredDays {
+    fn contains(&self, day: chrono::NaiveDate) -> bool {
+        self.from <= day && day <= self.through
+    }
+
+    fn encode(&self, athlete_id: &str) -> String {
+        format!("{athlete_id}|{}|{}", self.from, self.through)
+    }
+
+    /// The run a stored value names, when it was answered for `athlete_id`.
+    fn decode(value: &str, athlete_id: &str) -> Option<Self> {
+        let mut parts = value.split('|');
+        let (owner, from, through) = (parts.next()?, parts.next()?, parts.next()?);
+        if owner != athlete_id || parts.next().is_some() {
+            return None;
+        }
+        let day = |text: &str| chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok();
+        let answered = Self {
+            from: day(from)?,
+            through: day(through)?,
+        };
+        (answered.from <= answered.through).then_some(answered)
+    }
+}
+
+/// The wellness run intervals.icu last answered for this athlete. `None` when
+/// none is stored or the read fails, which asks by the stored rows alone.
+fn answered_wellness(athlete_id: &str) -> Option<AnsweredDays> {
+    with_reader(|conn| {
+        crate::persistence::settings::setting_from(conn, WELLNESS_ANSWERED_KEY)
+            .map_err(|e| log::warn!("[Sync] answered wellness read failed: {e}"))
+            .ok()
+            .flatten()
+    })
+    .ok()
+    .flatten()
+    .and_then(|value| AnsweredDays::decode(&value, athlete_id))
+}
+
+/// The answered run once a request from `asked` through `today` succeeds.
+///
+/// It reaches back to the run held before when nothing lies between the two
+/// but stored rows, so a request that starts at the first unheld day extends
+/// the run rather than replacing it. Otherwise it is the request alone.
+fn answered_after(
+    stored: &BTreeSet<chrono::NaiveDate>,
+    held: Option<AnsweredDays>,
+    asked: chrono::NaiveDate,
+    today: chrono::NaiveDate,
+) -> AnsweredDays {
+    let from = match held {
+        Some(held)
+            if held.from < asked
+                && held
+                    .through
+                    .iter_days()
+                    .skip(1)
+                    .take_while(|day| *day < asked)
+                    .all(|day| stored.contains(&day)) =>
+        {
+            held.from
+        }
+        _ => asked,
+    };
+    AnsweredDays {
+        from,
+        through: today.max(from),
+    }
+}
+
 /// The oldest day the default sync asks wellness from.
 ///
-/// The fortnight when every day of the year before it is stored, since only
+/// The fortnight when every day of the year before it is held, since only
 /// recent days move upstream and the upsert merges the fortnight into the
 /// year. Otherwise back to the first day the year is missing, so a gap left by
 /// a week away is filled by the next run, and an empty store asks the whole
-/// year. Keyed on the stored rows rather than a flag, so a wipe or a restore
-/// asks again on its own.
+/// year. A day is held when a row is stored for it or when it lies in the run
+/// intervals.icu last `answered`: upstream keeps no row for a day it has no
+/// data for, so a young account's oldest days never get one. A wipe takes both
+/// the rows and the run, so it asks again on its own.
 ///
 /// `owed_from` is the oldest day the census owes an activity download for.
 /// That activity moves fitness and form from its day on, so the window reaches
 /// back to it, never past the year the screens show.
 fn wellness_oldest(
     stored: &BTreeSet<chrono::NaiveDate>,
+    answered: Option<AnsweredDays>,
     owed_from: Option<&str>,
     today: chrono::NaiveDate,
 ) -> chrono::NaiveDate {
     let year = today - chrono::Duration::days(WELLNESS_DAYS);
     let fortnight = today - chrono::Duration::days(WELLNESS_REFRESH_DAYS);
+    let held = |day: &chrono::NaiveDate| {
+        stored.contains(day) || answered.is_some_and(|run| run.contains(*day))
+    };
     let oldest = year
         .iter_days()
         .take_while(|day| *day < fortnight)
-        .find(|day| !stored.contains(day))
+        .find(|day| !held(day))
         .unwrap_or(fortnight);
     let owed = owed_from.and_then(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok());
     match owed {
@@ -3744,14 +3876,24 @@ fn stored_wellness_dates(today: chrono::NaiveDate) -> BTreeSet<chrono::NaiveDate
 }
 
 /// Persist wellness from `oldest` through today, typed columns plus the
-/// untyped body per day.
+/// untyped body per day, then record `answered` as the run upstream answered.
 async fn sync_wellness(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
     oldest: chrono::NaiveDate,
+    answered: Option<AnsweredDays>,
 ) -> Result<(), NetError> {
-    sync_wellness_window(install, transport, athlete_id, oldest, SYNC_REQUEST).await
+    let answered = answered.map(|run| run.encode(athlete_id));
+    sync_wellness_window(
+        install,
+        transport,
+        athlete_id,
+        oldest,
+        SYNC_REQUEST,
+        answered,
+    )
+    .await
 }
 
 /// The targeted wellness pull: the trailing `days` on the interactive lane,
@@ -3764,17 +3906,22 @@ pub(crate) async fn refresh_wellness(
     days: i64,
 ) -> Result<(), NetError> {
     let oldest = chrono::Local::now().date_naive() - chrono::Duration::days(days);
-    sync_wellness_window(install, transport, athlete_id, oldest, PROFILE_SLICE).await
+    sync_wellness_window(install, transport, athlete_id, oldest, PROFILE_SLICE, None).await
 }
 
 /// Persist wellness from `oldest` through today, typed columns plus the
 /// untyped body per day.
+///
+/// `answered`, when given, is written as `WELLNESS_ANSWERED_KEY` only after
+/// the rows are stored, so a failed fetch or write leaves the days owed. An
+/// empty answer is still an answer: upstream has nothing for those days.
 async fn sync_wellness_window(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
     oldest: chrono::NaiveDate,
     dispatch: Dispatch,
+    answered: Option<String>,
 ) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
     let days = endpoints::fetch_wellness_with_bodies(
@@ -3786,6 +3933,13 @@ async fn sync_wellness_window(
     )
     .await?;
     if days.is_empty() {
+        if let Some(answered) = answered {
+            crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+                record_answered_wellness(engine, &answered);
+            })
+            .await
+            .ok_or(NetError::EngineClosed)?;
+        }
         return Ok(());
     }
 
@@ -3816,10 +3970,22 @@ async fn sync_wellness_window(
     // activity id is empty because wellness is a day and not an activity; the
     // kind is what a reader filters on.
     store_body_or_fail(install, "wellness", String::new(), move |engine| {
-        engine.upsert_wellness(&rows)
+        engine.upsert_wellness(&rows)?;
+        if let Some(answered) = answered {
+            record_answered_wellness(engine, &answered);
+        }
+        Ok(())
     })
     .await?;
     Ok(())
+}
+
+/// Write the answered run. A failure only costs the next run a wider request,
+/// so it is logged rather than failing a step whose rows already landed.
+fn record_answered_wellness(engine: &PersistentEngine, answered: &str) {
+    if let Err(e) = engine.set_setting(WELLNESS_ANSWERED_KEY, answered) {
+        log::warn!("[Sync] answered wellness write failed: {e}");
+    }
 }
 
 /// The FFI service object. The single thing TypeScript calls for I/O.
@@ -4243,6 +4409,26 @@ mod tests {
     use crate::governor::{Governor, NoopPolicy};
     use httpmock::prelude::*;
     use serde_json::json;
+
+    #[test]
+    fn a_detail_body_is_dated_by_its_start_and_nothing_else() {
+        let expected = start_date_to_timestamp(Some("2026-05-01T07:00:00"));
+        assert!(expected.is_some());
+        assert_eq!(
+            detail_body_date(
+                r#"{"icu_intervals":[{"start_date_local":"x"}],"start_date_local":"2026-05-01T07:00:00.000"}"#
+            ),
+            expected
+        );
+        assert_eq!(detail_body_date(r#"{"id":"i1"}"#), None);
+        assert_eq!(detail_body_date(r#"{"start_date_local":null}"#), None);
+        assert_eq!(detail_body_date(r#"{"start_date_local":20260501}"#), None);
+        assert_eq!(
+            detail_body_date(r#"{"start_date_local":"not a date"}"#),
+            None
+        );
+        assert_eq!(detail_body_date("not json"), None);
+    }
 
     fn transport_to(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
@@ -6857,6 +7043,7 @@ mod tests {
             &transport_to(server.base_url()),
             "i1",
             chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
+            None,
         ))
         .expect("wellness sync");
 
@@ -6894,6 +7081,7 @@ mod tests {
             &transport_to(server.base_url()),
             "i1",
             chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
+            None,
         ))
         .expect("wellness sync");
 
@@ -6932,7 +7120,8 @@ mod tests {
             crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
-            wellness_oldest(&BTreeSet::new(), None, today),
+            wellness_oldest(&BTreeSet::new(), None, None, today),
+            None,
         ))
         .expect("wellness sync");
         mock.assert();
@@ -10710,6 +10899,7 @@ mod write_auth_tests {
                 description: None,
                 trainer: false,
                 commute: false,
+                external_id: None,
             },
         ));
 

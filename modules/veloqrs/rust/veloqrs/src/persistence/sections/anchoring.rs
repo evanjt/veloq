@@ -268,7 +268,7 @@ impl PersistentEngine {
                         crate::persistence::codec::NO_POLYLINE_JSON,
                         crate::persistence::codec::serialize_track_points(&polyline),
                         calculate_route_distance(&polyline),
-                        chrono::Utc::now().to_rfc3339(),
+                        super::stamp_now(),
                         triple.0,
                         triple.1,
                         triple.2,

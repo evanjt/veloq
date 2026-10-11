@@ -1,4 +1,6 @@
 import { calendarDaysBetween, getMonday } from '@/shared/format/format';
+import { trendVerdict, verdictRung, type TrendMetric } from '@/shared/format/trend';
+import type { VerdictRung } from '@/theme/colors';
 
 export type WindowRange = 'week' | 'month' | '3m' | '6m' | 'year';
 
@@ -107,4 +109,30 @@ export function seasonMonthChange(
   if (month > currentMonth) return null;
   const { current, previous } = month === currentMonth ? toDate : bar;
   return previous > 0 ? ((current - previous) / previous) * 100 : null;
+}
+
+/** What the season card compares, and the trend metric whose polarity judges it. */
+const SEASON_METRIC: Record<'hours' | 'distance' | 'tss', TrendMetric> = {
+  hours: 'weekHours',
+  distance: 'weekDistance',
+  tss: 'weekTss',
+};
+
+/**
+ * A season percentage as the card prints it, and the rung it is drawn on. The
+ * move is the printed whole percentage, so a change that rounds to nothing is
+ * '0%' on the neutral rung rather than a green '+0%' or a red '-0%', and the
+ * metric's polarity decides the rung, so load moves with no judgement.
+ */
+export function seasonChange(
+  metric: 'hours' | 'distance' | 'tss',
+  pct: number
+): { text: string; rung: VerdictRung } {
+  const whole = Math.round(Math.abs(pct)) * Math.sign(pct);
+  if (whole === 0) return { text: '0%', rung: 'neutral' };
+  const direction = whole > 0 ? 'up' : 'down';
+  return {
+    text: `${whole > 0 ? '+' : ''}${whole}%`,
+    rung: verdictRung(trendVerdict(SEASON_METRIC[metric], direction)),
+  };
 }

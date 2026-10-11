@@ -42,17 +42,18 @@ export function deltaToColor(scaled: number): string {
  * length to place them on.
  */
 export function buildDeltaLineStops(
-  splits: readonly number[],
+  splits: ArrayLike<number>,
   splitStepM: number,
   sectionLengthM: number,
   direction: 'forward' | 'reverse'
 ): (string | number)[] | null {
   if (splits.length === 0 || !(splitStepM > 0) || !(sectionLengthM > 0)) return null;
 
+  const values = Array.from(splits);
   let peak = 0;
-  for (const secs of splits) if (Number.isFinite(secs)) peak = Math.max(peak, Math.abs(secs));
+  for (const secs of values) if (Number.isFinite(secs)) peak = Math.max(peak, Math.abs(secs));
 
-  const bins = splits.map((secs, i) => {
+  const bins = values.map((secs, i) => {
     const start = Math.min(i * splitStepM, sectionLengthM);
     const end = Math.min((i + 1) * splitStepM, sectionLengthM);
     const color = !Number.isFinite(secs)

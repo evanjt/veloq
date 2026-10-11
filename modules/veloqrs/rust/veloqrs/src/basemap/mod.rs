@@ -42,7 +42,7 @@ pub use preseed::{
 pub use store::{SourceTileCounts, TileCounts, TileStore, is_kept_offline};
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
@@ -64,6 +64,12 @@ pub fn set_path(path: String) {
         let _ = previous.flush();
     }
     *guard = Some(store);
+    drop(guard);
+    // A new store has a sidecar of its own that nothing has read yet.
+    SIDECAR_READ
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
     log::info!("[basemap] Tile store path set to: {}", path);
 }
 
@@ -160,10 +166,37 @@ pub const TEMPLATE_REFRESH: Duration = Duration::from_secs(24 * 60 * 60);
 /// cost a TileJSON request that cannot land.
 const REFRESH_RETRY: Duration = Duration::from_secs(10 * 60);
 
-/// When a refresh was last started for each source, in seconds since the
-/// epoch. A refresh in flight counts, so a pan's dozens of misses start one.
+/// How long a TileJSON that has never resolved waits before it is asked for
+/// again. Shorter than [`REFRESH_RETRY`], because with nothing held the map
+/// draws no tiles above the bundled floor until it lands, and a failed request
+/// costs only a runtime thread's wait.
+const UNRESOLVED_RETRY: Duration = Duration::from_secs(30);
+
+/// When a resolve was last started for each source, in seconds since the
+/// epoch. A resolve in flight counts, so a pan's dozens of misses start one.
 static REFRESH_STARTED: LazyLock<Mutex<HashMap<String, u64>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Sources whose entry in the sidecar has been read since the store was set.
+/// The sidecar gains an entry only through a resolve, which holds it in
+/// memory too, so a source with nothing held is not read again on every miss.
+static SIDECAR_READ: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+/// One resolve at a time per source. A miss that finds a resolve in flight
+/// waits for it here, on the runtime, and then fills from what it resolved.
+static RESOLVING: LazyLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn resolve_turn(source: &str) -> Arc<tokio::sync::Mutex<()>> {
+    Arc::clone(
+        RESOLVING
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .entry(source.to_string())
+            .or_default(),
+    )
+}
 
 /// A resolved template and when its TileJSON was fetched, in seconds since
 /// the epoch.
@@ -208,8 +241,17 @@ fn read_resolved(path: &std::path::Path) -> HashMap<String, HeldTemplate> {
         .unwrap_or_default()
 }
 
+/// This source's entry in the sidecar, read once per store.
 fn load_resolved(source: &str) -> Option<HeldTemplate> {
-    read_resolved(&resolved_path()?).remove(source)
+    let path = resolved_path()?;
+    if !SIDECAR_READ
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(source.to_string())
+    {
+        return None;
+    }
+    read_resolved(&path).remove(source)
 }
 
 fn save_resolved(source: &str, held: &HeldTemplate) {
@@ -232,6 +274,10 @@ pub fn forget_resolved_templates() {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clear();
+    SIDECAR_READ
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
 }
 
 /// The wall clock in seconds since the epoch. A clock set before it reads as
@@ -250,17 +296,20 @@ fn is_due(fetched_at: u64, now: u64) -> bool {
     now < fetched_at || now - fetched_at >= TEMPLATE_REFRESH.as_secs()
 }
 
-/// Claim the refresh for `source` at `now`, or `false` when one was started
-/// inside [`REFRESH_RETRY`].
-fn claim_refresh(source: &str, now: u64) -> bool {
+/// Whether a resolve of `source` was started inside `retry` before `now`.
+fn started_within(started: &HashMap<String, u64>, source: &str, now: u64, retry: Duration) -> bool {
+    matches!(started.get(source), Some(&at) if at <= now && now - at < retry.as_secs())
+}
+
+/// Claim the resolve for `source` at `now`, or `false` when one was started
+/// inside `retry`.
+fn claim_refresh(source: &str, now: u64, retry: Duration) -> bool {
     let mut started = REFRESH_STARTED.lock().unwrap_or_else(|e| e.into_inner());
-    match started.get(source) {
-        Some(&at) if at <= now && now - at < REFRESH_RETRY.as_secs() => false,
-        _ => {
-            started.insert(source.to_string(), now);
-            true
-        }
+    if started_within(&started, source, now, retry) {
+        return false;
     }
+    started.insert(source.to_string(), now);
+    true
 }
 
 /// The held template for a source that names a TileJSON, from memory or from
@@ -325,17 +374,69 @@ pub fn resolve_template_at(
     now: u64,
     fetch_text: impl FnOnce(&str) -> Result<String, String>,
 ) -> Option<String> {
+    match resolve_step(source, now)? {
+        ResolveStep::Ready(template) => Some(template),
+        ResolveStep::Unavailable => None,
+        ResolveStep::Fetch { url, held } => finish_resolve(source, now, held, fetch_text(&url)),
+    }
+}
+
+/// What a resolve does next, decided without asking any host.
+enum ResolveStep {
+    /// The template to fill from, with nothing to fetch.
+    Ready(String),
+    /// Fetch the TileJSON at `url`. `held` serves if the fetch fails.
+    Fetch {
+        url: String,
+        held: Option<HeldTemplate>,
+    },
+    /// Nothing is held and a resolve was started inside [`UNRESOLVED_RETRY`],
+    /// so there is no template and no request is made for one.
+    Unavailable,
+}
+
+/// The next step of a resolve at `now`, claiming the fetch when it is one.
+/// Only one resolve per source is started inside the retry window, whether or
+/// not a template is held, so a pan's misses never ask for the TileJSON
+/// together and a host that failed is not asked again on the next miss.
+fn resolve_step(source: &str, now: u64) -> Option<ResolveStep> {
     let template = template_for(source)?;
     if TemplateSource::of(&template) == TemplateSource::Tiles {
-        return Some(template);
+        return Some(ResolveStep::Ready(template));
     }
-    let held = held_template(source);
-    if let Some(held) = &held
-        && (!is_due(held.fetched_at, now) || !claim_refresh(source, now))
-    {
-        return Some(held.template.clone());
-    }
-    let fetched = fetch_text(&template).and_then(|body| {
+    let step = match held_template(source) {
+        Some(held) => {
+            if is_due(held.fetched_at, now) && claim_refresh(source, now, REFRESH_RETRY) {
+                ResolveStep::Fetch {
+                    url: template,
+                    held: Some(held),
+                }
+            } else {
+                ResolveStep::Ready(held.template)
+            }
+        }
+        None => {
+            if claim_refresh(source, now, UNRESOLVED_RETRY) {
+                ResolveStep::Fetch {
+                    url: template,
+                    held: None,
+                }
+            } else {
+                ResolveStep::Unavailable
+            }
+        }
+    };
+    Some(step)
+}
+
+/// Keep what a TileJSON fetch named, or fall back to what was held before.
+fn finish_resolve(
+    source: &str,
+    now: u64,
+    held: Option<HeldTemplate>,
+    fetched: Result<String, String>,
+) -> Option<String> {
+    let fetched = fetched.and_then(|body| {
         tiles_template_of(&body).ok_or_else(|| "the TileJSON named no tiles template".to_string())
     });
     match fetched {
@@ -372,33 +473,78 @@ pub fn resolve_template_at(
 }
 
 /// The template a tile fill uses, or the status the page is to be answered
-/// with when the TileJSON could not be had and none is held. A host asking to
-/// be left alone crosses as itself, as it does for a tile, so the page backs
-/// off rather than retrying as for an outage.
+/// with when the TileJSON could not be had and none is held. Blocks the
+/// caller until the resolve ends, so it is for the engine's own background
+/// threads and never for one the page is waiting on or one on the runtime.
 fn resolve_template(source: &str) -> Result<String, u16> {
-    resolve_template_status(source, |url| {
+    crate::runtime::block_on(resolve_template_now(source))
+}
+
+/// [`resolve_template`] for a caller already on the runtime.
+async fn resolve_template_now(source: &str) -> Result<String, u16> {
+    resolve_template_status(source, |url| async move {
         let fetcher = INTERACTIVE
             .as_ref()
             .ok_or(TileFetchError::Unreachable("no tile fetcher".to_string()))?;
-        crate::runtime::block_on(fetcher.fetch(url))
+        fetcher.fetch(&url).await
     })
+    .await
 }
 
-/// [`resolve_template`] with the fetch handed in, so the status can be
-/// exercised without a host.
-pub(crate) fn resolve_template_status(
-    source: &str,
-    fetch: impl FnOnce(&str) -> Result<Vec<u8>, TileFetchError>,
-) -> Result<String, u16> {
-    let failure = std::cell::Cell::new(None);
-    let resolved = resolve_template_with(source, |url| {
-        let bytes = fetch(url).map_err(|e| {
-            failure.set(Some(page_status(&e)));
-            e.to_string()
-        })?;
-        String::from_utf8(bytes).map_err(|e| e.to_string())
-    });
-    resolved.ok_or_else(|| failure.get().unwrap_or(UPSTREAM_FAILED))
+/// [`resolve_template_now`] with the fetch handed in, so the status can be
+/// exercised without a host. A resolve already in flight for the source is
+/// waited for rather than repeated. A host asking to be left alone crosses as
+/// itself, as it does for a tile, so the page backs off rather than retrying
+/// as for an outage.
+pub(crate) async fn resolve_template_status<F, Fut>(source: &str, fetch: F) -> Result<String, u16>
+where
+    F: FnOnce(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<u8>, TileFetchError>>,
+{
+    let turn = resolve_turn(source);
+    let _turn = turn.lock().await;
+    let now = now_secs();
+    match resolve_step(source, now) {
+        None => Err(NO_TILE),
+        Some(ResolveStep::Ready(template)) => Ok(template),
+        Some(ResolveStep::Unavailable) => Err(UPSTREAM_FAILED),
+        Some(ResolveStep::Fetch { url, held }) => {
+            let mut failure = UPSTREAM_FAILED;
+            let body = match fetch(url).await {
+                Ok(bytes) => String::from_utf8(bytes).map_err(|e| e.to_string()),
+                Err(e) => {
+                    failure = page_status(&e);
+                    Err(e.to_string())
+                }
+            };
+            finish_resolve(source, now, held, body).ok_or(failure)
+        }
+    }
+}
+
+/// The template a miss fills from without asking any host: `Ok(None)` when
+/// the TileJSON is to be resolved on the runtime first, and the status to
+/// answer at once when nothing is held and the last resolve failed.
+fn template_in_hand(source: &str, registered: String) -> Result<Option<String>, u16> {
+    if TemplateSource::of(&registered) == TemplateSource::Tiles {
+        return Ok(Some(registered));
+    }
+    let now = now_secs();
+    match held_template(source) {
+        Some(held) if !is_due(held.fetched_at, now) => Ok(Some(held.template)),
+        Some(_) => Ok(None),
+        None => {
+            // A resolve in flight is waited for. One that has finished inside
+            // the window failed, or a template would be held.
+            let in_flight = resolve_turn(source).try_lock().is_err();
+            let started = REFRESH_STARTED.lock().unwrap_or_else(|e| e.into_inner());
+            if !in_flight && started_within(&started, source, now, UNRESOLVED_RETRY) {
+                Err(UPSTREAM_FAILED)
+            } else {
+                Ok(None)
+            }
+        }
+    }
 }
 
 /// The first `tiles` entry of a TileJSON document.
@@ -536,8 +682,8 @@ pub enum TileLookup {
 pub struct TileMiss {
     store: Arc<TileStore>,
     source: String,
-    template: String,
-    url: String,
+    /// `None` when the source's TileJSON is to be resolved first.
+    template: Option<String>,
     z: u8,
     x: u32,
     y: u32,
@@ -545,12 +691,14 @@ pub struct TileMiss {
 
 /// Answer a tile from what is already held, and say when the host has to be
 /// asked. Only reads: the store, the bundled floor, the ground the host has
-/// refused and a host that asked to be left alone. A source naming a TileJSON
-/// may still fetch that document here, once a day.
+/// refused and a host that asked to be left alone. Never asks a host: a source
+/// naming a TileJSON that is not resolved, or is due a refresh, resolves it in
+/// [`TileMiss::fetch`] on the runtime.
 pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
     // The heatmap is drawn here rather than fetched from a host, so it is not a
-    // basemap source and has no template: a miss means the pass has not
-    // reached that tile, which is a 404.
+    // basemap source and has no template: a deep tile is drawn on the miss,
+    // and any other miss means the pass has not reached that tile, which is a
+    // 404.
     if source == HEATMAP_SOURCE {
         return match crate::persistence::tiles::heatmap_tile_bytes(z, x, y) {
             Some(bytes) => TileLookup::Ready(bytes),
@@ -570,9 +718,9 @@ pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
         Some(bytes) => TileLookup::Ready(bytes.to_vec()),
         None => TileLookup::Refused(NO_TILE),
     };
-    if template_for(source).is_none() {
+    let Some(registered) = template_for(source) else {
         return held_or_floor(floor);
-    }
+    };
 
     let Some(store) = store() else {
         return held_or_floor(floor);
@@ -596,23 +744,19 @@ pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
         return TileLookup::Refused(status);
     }
 
-    // A source that names a TileJSON is resolved here rather than at style
-    // time, because the dated snapshot segment the tiles live under is only in
-    // that document. Resolved and kept, so the miss below is the only request
-    // a tile costs until the template is due a refresh. With no template at
-    // all the TileJSON could not be fetched, which is the host failing.
-    let template = match resolve_template(source) {
+    // A source that names a TileJSON is resolved rather than templated at
+    // style time, because the dated snapshot segment the tiles live under is
+    // only in that document. Resolved and kept, so the miss is the only
+    // request a tile costs until the template is due a refresh. The resolve
+    // itself runs with the miss on the runtime, never on the caller's thread.
+    let template = match template_in_hand(source, registered) {
         Ok(template) => template,
-        Err(status) => {
-            throttle::remember(source, status, Instant::now());
-            return TileLookup::Refused(status);
-        }
+        Err(status) => return TileLookup::Refused(status),
     };
 
     TileLookup::Miss(TileMiss {
         store,
         source: source.to_string(),
-        url: fill_template(&template, z, x, y),
         template,
         z,
         x,
@@ -621,18 +765,29 @@ pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
 }
 
 impl TileMiss {
-    /// Ask the host, and keep what it sends. A 404 is remembered as refused
+    /// Resolve the TileJSON if the source names one that is not in hand, ask
+    /// the host, and keep what it sends. A 404 is remembered as refused
     /// ground, and a 429 or a 503 holds the source's next misses.
     pub async fn fetch(self) -> Result<Vec<u8>, u16> {
         let Self {
             store,
             source,
             template,
-            url,
             z,
             x,
             y,
         } = self;
+        let template = match template {
+            Some(template) => template,
+            None => match resolve_template_now(&source).await {
+                Ok(template) => template,
+                Err(status) => {
+                    throttle::remember(&source, status, Instant::now());
+                    return Err(status);
+                }
+            },
+        };
+        let url = fill_template(&template, z, x, y);
         let fetcher = INTERACTIVE.as_ref().ok_or(UPSTREAM_FAILED)?;
         let bytes = match fetcher.fetch(&url).await {
             Ok(bytes) => bytes,
@@ -706,9 +861,10 @@ mod template_tests {
             "limited-source".to_string(),
             "https://tiles.example.test/planet".to_string(),
         );
-        let status = resolve_template_status("limited-source", |_| {
-            Err(TileFetchError::Rejected { status: 429 })
-        });
+        let status =
+            crate::runtime::block_on(resolve_template_status("limited-source", |_| async {
+                Err(TileFetchError::Rejected { status: 429 })
+            }));
         assert_eq!(status, Err(429));
     }
 
@@ -718,10 +874,39 @@ mod template_tests {
             "down-source".to_string(),
             "https://tiles.example.test/planet".to_string(),
         );
-        let status = resolve_template_status("down-source", |_| {
+        let status = crate::runtime::block_on(resolve_template_status("down-source", |_| async {
             Err(TileFetchError::Unreachable("offline".to_string()))
-        });
+        }));
         assert_eq!(status, Err(UPSTREAM_FAILED));
+    }
+
+    /// Offline on a fresh install every tile the map asks for is a miss, and
+    /// with nothing held each one used to ask for the TileJSON again.
+    #[test]
+    fn a_tilejson_that_never_resolved_is_asked_once_inside_the_retry() {
+        const AT: u64 = 1_790_000_000;
+        set_template(
+            "never-resolved".to_string(),
+            "https://tiles.example.test/never-resolved".to_string(),
+        );
+
+        let mut asks = 0;
+        for _ in 0..20 {
+            let resolved = resolve_template_at("never-resolved", AT, |_| {
+                asks += 1;
+                Err("offline".to_string())
+            });
+            assert_eq!(resolved, None);
+        }
+        assert_eq!(asks, 1, "every miss asked for the TileJSON again");
+
+        let retried =
+            resolve_template_at("never-resolved", AT + UNRESOLVED_RETRY.as_secs(), |_| {
+                asks += 1;
+                Err("offline".to_string())
+            });
+        assert_eq!(retried, None);
+        assert_eq!(asks, 2, "a failed resolve was never tried again");
     }
 
     #[test]

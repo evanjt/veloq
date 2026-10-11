@@ -1479,6 +1479,18 @@ fn the_load_and_the_section_prs_are_worded_for_the_widget_and_absent_when_there_
     assert_eq!(latest.load_text, None, "an unrecorded load is not a zero");
 }
 
+/// Android's `org.json` reads a JSON null through `optString` as the text "null",
+/// so an absent line must leave its key out rather than write a null.
+#[test]
+fn an_absent_load_or_section_prs_line_leaves_its_key_out_of_the_file() {
+    let mut raw = make_raw();
+    raw.latest.as_mut().unwrap().training_load = None;
+    let value = json(&compose_raw(&raw));
+    let latest = value["latest"].as_object().expect("a latest activity");
+    assert!(!latest.contains_key("loadText"), "{latest:?}");
+    assert!(!latest.contains_key("sectionPrsText"), "{latest:?}");
+}
+
 #[test]
 fn the_headline_reaches_the_natives_under_the_names_they_read() {
     let mut raw = make_raw();

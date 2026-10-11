@@ -11,11 +11,9 @@ import { toActivityType } from '@/types';
 interface UseRouteMatchResult {
   /** The route group this activity belongs to */
   routeGroup: RouteGroup | null;
-  /** ID of the representative activity for this route */
-  representativeActivityId: string | null;
 }
 
-const NO_MATCH: UseRouteMatchResult = { routeGroup: null, representativeActivityId: null };
+const NO_MATCH: UseRouteMatchResult = { routeGroup: null };
 
 /** Matches an activity against groups the caller already read; it reads none itself. */
 export function useRouteMatch(
@@ -40,9 +38,6 @@ export function useRouteMatch(
       lastDate: '', // Not available from engine
     };
 
-    return {
-      routeGroup: typedGroup,
-      representativeActivityId: routeGroup.representativeId || null,
-    };
+    return { routeGroup: typedGroup };
   }, [activityId, groups]);
 }

@@ -26,6 +26,12 @@ const LOCKED = [
   'fi',
 ].join('\n');
 
+const SIMULATOR_LOCKED = [
+  'if [ -z "${VELOQ_SIM_LOCK_HELD:-}" ]; then',
+  '  exec "$(dirname "$0")/with-simulator-lock.sh" "$udid" "$0" "$@"',
+  'fi',
+].join('\n');
+
 function guard(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-drivers-'));
   for (const [file, body] of Object.entries(files)) {
@@ -115,6 +121,31 @@ describe('a script that drives the handset', () => {
     });
 
     expect(result.code).toBe(0);
+  });
+
+  it('passes when it runs Maestro on a simulator it holds the simulator lock for', () => {
+    const result = guard({
+      'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nmaestro --device "$udid" test flow.yaml\n`,
+    });
+
+    expect(result.code).toBe(0);
+  });
+
+  it('is refused when it holds the simulator lock but Maestro names no device', () => {
+    const result = guard({
+      'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nmaestro test flow.yaml\n`,
+    });
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('scripts/foo.sh');
+  });
+
+  it('is refused when it holds only the simulator lock and runs adb', () => {
+    const result = guard({
+      'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nadb shell am force-stop com.veloq.app.dev\n`,
+    });
+
+    expect(result.code).not.toBe(0);
   });
 
   it('passes when Maestro goes through the wrapper', () => {

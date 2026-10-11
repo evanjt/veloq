@@ -116,6 +116,26 @@ it('ignores a binary file that happens to hold the bytes', () => {
   expect(runGuard(root).status).toBe(0);
 });
 
+it.each(['&mdash;', '&#8212;', '&#x2014;', '&#X2014;', '&#08212;'])(
+  'fails on the dash written as the HTML reference %s, which renders the same on a web page',
+  (reference) => {
+    const root = fixture({
+      'docs/site.html': `<p>plain</p>\n<p>Open source ${reference} sideload</p>\n`,
+    });
+
+    const { status, output } = runGuard(root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('docs/site.html:2');
+  }
+);
+
+it('passes the en dash and arrow references through', () => {
+  const root = fixture({ 'docs/site.html': '<p>a &ndash; b &rarr; c &#8211; d</p>\n' });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
 it('passes an en dash and a hyphen through', () => {
   const root = fixture({ 'docs/dashes.md': 'a – b, and c-d\n' });
 

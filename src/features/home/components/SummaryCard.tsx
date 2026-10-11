@@ -163,6 +163,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   // read from are 2.66:1 and 3.17:1 on the light card.
   const fitnessTextColor = isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText;
   const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
+  const hrvTextColor = isDark ? darkColors.chartHrvText : colors.chartHrvText;
 
   // Current fitness sparkline values (latest or scrubbed)
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
@@ -187,15 +188,15 @@ export const SummaryCard = React.memo(function SummaryCard({
   const displayColor =
     scrubValues !== null
       ? isHrvMode
-        ? fatigueTextColor
+        ? hrvTextColor
         : isFormMode
           ? currentFormColor
           : fitnessTextColor
       : heroColor;
   const formattedHeroValue = String(displayValue);
-  // RHR borrows the high-risk red, and it is a value and a label, so it takes
-  // the text variant of that token like every other word drawn in one.
-  const rhrColor = formZoneTextColor('highRisk', isDark);
+  // Resting HR is a value and a label beside the line drawn in its series
+  // colour, so it takes that series' text tone.
+  const rhrColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
   // Current HRV sparkline values (latest or scrubbed)
   const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
@@ -343,11 +344,11 @@ export const SummaryCard = React.memo(function SummaryCard({
                 <View style={styles.heroValueRow}>
                   <Text
                     testID="summary-card-hrv-value"
-                    style={[styles.heroValueFixed, { color: fatigueTextColor }]}
+                    style={[styles.heroValueFixed, { color: hrvTextColor }]}
                   >
                     {currentHrv}
                   </Text>
-                  <Text style={[styles.heroLabel, { color: fatigueTextColor }]}>
+                  <Text style={[styles.heroLabel, { color: hrvTextColor }]}>
                     {t('metrics.hrv')}
                   </Text>
                   {currentRhr !== null && (

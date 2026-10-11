@@ -898,8 +898,6 @@ class EngineClient implements DelegateHost {
     sectionDelegates.getSectionGeometryVersions(this, sectionId);
   getSectionGeometryVersionPolyline = (sectionId: string, version: number) =>
     sectionDelegates.getSectionGeometryVersionPolyline(this, sectionId, version);
-  revertSectionToVersion = (sectionId: string, version: number) =>
-    sectionDelegates.revertSectionToVersion(this, sectionId, version);
   unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
@@ -1462,7 +1460,10 @@ class EngineClient implements DelegateHost {
   // Section Bounds Trimming
   // ==========================================================================
 
-  /** Trim, reset or expand a section's bounds, or set or reset its reference, off the JS thread. */
+  /**
+   * Trim, reset or expand a section's bounds, set or reset its reference, or
+   * revert it to a stored version, off the JS thread.
+   */
   runSectionBoundsEdit = (edit: SectionBoundsEdit): Promise<FfiDepartedRide[] | null> =>
     sectionDelegates.runSectionBoundsEdit(this, edit);
 
@@ -1581,8 +1582,9 @@ class EngineClient implements DelegateHost {
   indexNewActivity = (activityId: string): FfiIndexActivitySummary | null =>
     sectionDelegates.indexNewActivity(this, activityId);
 
-  mergeSections = (primaryId: string, secondaryId: string): FfiMergeOutcome | null =>
-    sectionDelegates.mergeSections(this, primaryId, secondaryId);
+  /** Merge the secondary section into the primary, off the JS thread. */
+  runSectionMerge = (primaryId: string, secondaryId: string): Promise<FfiMergeOutcome | null> =>
+    sectionDelegates.runSectionMerge(this, primaryId, secondaryId);
 
   mergePreview = (primaryId: string, secondaryId: string): FfiMergeDropped[] | null =>
     sectionDelegates.mergePreview(this, primaryId, secondaryId);

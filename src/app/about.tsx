@@ -1,6 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
-import { ScreenSafeAreaView, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
+import {
+  ListSectionHeader,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -108,15 +114,13 @@ function AboutScreenContent() {
         </View>
 
         {/* Disclaimer */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.disclaimerTitle').toUpperCase()}
-        </Text>
+        <ListSectionHeader>{t('about.disclaimerTitle')}</ListSectionHeader>
         <View style={styles.section(isDark)}>
           <Text style={[styles.disclaimerText, shared.textSecondary]}>{t('about.disclaimer')}</Text>
         </View>
 
         {/* intervals.icu Links */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>INTERVALS.ICU</Text>
+        <ListSectionHeader>intervals.icu</ListSectionHeader>
         <View style={styles.section(isDark)}>
           <LinkRow
             testID="about-link-privacy"
@@ -144,7 +148,7 @@ function AboutScreenContent() {
         </View>
 
         {/* Veloq Links */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>VELOQ</Text>
+        <ListSectionHeader>Veloq</ListSectionHeader>
         <View style={styles.section(isDark)}>
           <LinkRow
             testID="about-link-veloq-privacy"
@@ -188,9 +192,7 @@ function AboutScreenContent() {
         </View>
 
         {/* Data Attribution */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.dataAttribution').toUpperCase()}
-        </Text>
+        <ListSectionHeader>{t('about.dataAttribution')}</ListSectionHeader>
         <View style={styles.section(isDark)}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.garminNote')}
@@ -219,9 +221,7 @@ function AboutScreenContent() {
         </View>
 
         {/* Map Data */}
-        <Text style={[styles.sectionLabel, shared.textSecondary]}>
-          {t('about.mapData').toUpperCase()}
-        </Text>
+        <ListSectionHeader>{t('about.mapData')}</ListSectionHeader>
         <View style={styles.section(isDark)}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.mapAttribution')}
@@ -262,14 +262,6 @@ const styles = {
   // Static styles
   content: {
     paddingBottom: spacing.xl,
-  },
-  sectionLabel: {
-    ...typography.caption,
-    fontWeight: '600' as const,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
   },
   appInfo: {
     alignItems: 'center' as const,

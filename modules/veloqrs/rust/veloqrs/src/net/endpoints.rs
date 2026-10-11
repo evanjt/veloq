@@ -69,15 +69,27 @@ pub async fn fetch_wellness_with_bodies(
             dispatch,
         )
         .await?;
-    let days: Vec<serde_json::Value> =
-        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+    split_page(&bytes)
+}
 
-    let mut out = Vec::with_capacity(days.len());
-    for day in days {
-        let body = day.to_string();
-        let record: WellnessRecord =
-            serde_json::from_value(day).map_err(|e| NetError::Decode(e.to_string()))?;
-        out.push((record, body));
+/// A JSON array page split into each item typed and as its own body, the body
+/// being the item's bytes exactly as the server sent them.
+///
+/// Each item is held as a slice of the page and parsed on its own, so the
+/// page is never built into a tree: a 200-activity page of several megabytes
+/// costs its bodies and one record at a time rather than a tree several times
+/// its size. The stored text keeps the server's key order.
+pub fn split_page<T: serde::de::DeserializeOwned>(
+    bytes: &[u8],
+) -> Result<Vec<(T, String)>, NetError> {
+    let items: Vec<&serde_json::value::RawValue> =
+        serde_json::from_slice(bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        let raw = item.get();
+        let record: T = serde_json::from_str(raw).map_err(|e| NetError::Decode(e.to_string()))?;
+        out.push((record, raw.to_owned()));
     }
     Ok(out)
 }
@@ -125,27 +137,18 @@ pub async fn fetch_activities_with_bodies(
             dispatch,
         )
         .await?;
-    let items: Vec<serde_json::Value> =
-        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
-
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        let body = item.to_string();
-        let record: ActivityRecord =
-            serde_json::from_value(item).map_err(|e| NetError::Decode(e.to_string()))?;
-        out.push((record, body));
-    }
-    Ok(out)
+    split_page(&bytes)
 }
 
-/// Oldest activity date across the whole history (cheap two-field pull + reduce).
+/// The whole history as five fields an activity: the oldest date, the year
+/// counts and the census, all from one pull.
 pub async fn fetch_activity_history_summary(
     t: &Transport,
     athlete_id: &str,
     today: &str,
     dispatch: impl Into<Dispatch>,
 ) -> Result<ActivityHistorySummary, NetError> {
-    let acts: Vec<ActivityRecord> = t
+    let acts: Vec<CensusRecord> = t
         .get_json(
             &format!("/athlete/{}/activities", athlete_id),
             &[
@@ -315,26 +318,34 @@ pub async fn fetch_calendar_events_bodies(
             dispatch,
         )
         .await?;
-    let items: Vec<serde_json::Value> =
-        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+    split_event_page(&bytes)
+}
 
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        // An event with no id cannot be keyed, and one with no date cannot be
-        // windowed. Either way it would be unreachable, so skip it.
-        let Some(id) = item.get("id").map(value_to_id) else {
-            continue;
-        };
-        let Some(start) = item
-            .get("start_date_local")
-            .and_then(|v| v.as_str())
-            .map(str::to_string)
-        else {
-            continue;
-        };
-        out.push((id, start, item.to_string()));
-    }
-    Ok(out)
+/// The two fields an event is stored under. Left as values so an event whose
+/// date is not a string is skipped like one with no date, rather than failing
+/// the page.
+#[derive(serde::Deserialize)]
+struct EventKey {
+    #[serde(default)]
+    id: Option<serde_json::Value>,
+    #[serde(default)]
+    start_date_local: Option<serde_json::Value>,
+}
+
+/// An events page as `(id, start_date_local, body)` per event, each body the
+/// event's bytes as sent.
+pub fn split_event_page(bytes: &[u8]) -> Result<Vec<(String, String, String)>, NetError> {
+    let items: Vec<(EventKey, String)> = split_page(bytes)?;
+    Ok(items
+        .into_iter()
+        .filter_map(|(key, body)| {
+            // An event with no id cannot be keyed, and one with no date cannot be
+            // windowed. Either way it would be unreachable, so skip it.
+            let id = key.id.as_ref().map(value_to_id)?;
+            let start = key.start_date_local?.as_str()?.to_string();
+            Some((id, start, body))
+        })
+        .collect())
 }
 
 /// intervals.icu sends event ids as numbers; the store keys them as text.
@@ -648,6 +659,27 @@ pub async fn create_activity(
         )
         .await?;
     Ok(created_activity_id(&response))
+}
+
+/// `GET /athlete/{id}/activities` between two local dates, inclusive, asking
+/// only for the fields the upload's duplicate check matches on.
+pub async fn list_activities_between(
+    t: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<ListedActivity>, NetError> {
+    t.get_json(
+        &format!("/athlete/{}/activities", athlete_id),
+        &[
+            ("oldest", oldest),
+            ("newest", newest),
+            ("fields", "id,external_id,start_date_local,type"),
+        ],
+        dispatch,
+    )
+    .await
 }
 
 /// Best-effort id from a create response, which comes back as either the
@@ -1186,6 +1218,88 @@ mod tests {
         assert_eq!(w[0].0.resting_hr, Some(48.0));
     }
 
+    /// An activity page as the server writes it: keys out of alphabetical
+    /// order, an escape inside a string and a number with a trailing zero.
+    const ACTIVITY_PAGE: &str = r#"[
+  {"id":"i9","type":"Ride","name":"Col du L\u00e9man \"loop\"","distance":42000.0,"average_speed":7.50},
+  {"name":"Harbour run","id":"i8","start_date_local":"2026-05-01T07:00:00","moving_time":1800}
+]"#;
+
+    /// The bytes of each item as it appears in the page.
+    fn item_slices(page: &str) -> Vec<&str> {
+        let items: Vec<&serde_json::value::RawValue> = serde_json::from_str(page).unwrap();
+        items.into_iter().map(|item| item.get()).collect()
+    }
+
+    #[test]
+    fn an_activity_page_stores_each_body_as_sent() {
+        let split: Vec<(ActivityRecord, String)> = split_page(ACTIVITY_PAGE.as_bytes()).unwrap();
+        let bodies: Vec<&str> = split.iter().map(|(_, body)| body.as_str()).collect();
+        assert_eq!(bodies, item_slices(ACTIVITY_PAGE));
+        assert!(bodies[1].starts_with(r#"{"name":"Harbour run","id":"i8""#));
+        assert_eq!(split[0].0.id, "i9");
+        assert_eq!(split[0].0.name.as_deref(), Some("Col du Léman \"loop\""));
+        assert_eq!(split[0].0.average_speed, Some(7.5));
+        assert_eq!(split[1].0.moving_time, Some(1800));
+    }
+
+    #[test]
+    fn a_wellness_page_stores_each_body_as_sent() {
+        let page = r#"[{"restingHR":48,"id":"2026-05-01","ctl":50.0},{"id":"2026-05-02"}]"#;
+        let split: Vec<(WellnessRecord, String)> = split_page(page.as_bytes()).unwrap();
+        let bodies: Vec<&str> = split.iter().map(|(_, body)| body.as_str()).collect();
+        assert_eq!(bodies, item_slices(page));
+        assert_eq!(split[0].0.resting_hr, Some(48.0));
+        assert_eq!(split[1].0.id, "2026-05-02");
+    }
+
+    #[test]
+    fn an_empty_page_splits_into_nothing() {
+        let split: Vec<(ActivityRecord, String)> = split_page(b"[]").unwrap();
+        assert!(split.is_empty());
+        assert!(split_event_page(b"[]").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_page_that_is_not_an_array_or_holds_a_bad_item_is_a_decode_error() {
+        assert!(matches!(
+            split_page::<ActivityRecord>(br#"{"id":"i1"}"#),
+            Err(NetError::Decode(_))
+        ));
+        assert!(matches!(
+            split_page::<ActivityRecord>(br#"[{"id":"i1"},{"name":"no id"}]"#),
+            Err(NetError::Decode(_))
+        ));
+    }
+
+    #[test]
+    fn an_events_page_keys_each_event_and_stores_its_body_as_sent() {
+        let page = r#"[
+  {"start_date_local":"2026-06-01T00:00:00","id":101,"name":"Tempo"},
+  {"id":"note-7","start_date_local":"2026-06-02T00:00:00"},
+  {"name":"no id","start_date_local":"2026-06-03T00:00:00"},
+  {"id":102,"name":"no date"},
+  {"id":103,"start_date_local":20260604}
+]"#;
+        let events = split_event_page(page.as_bytes()).unwrap();
+        let slices = item_slices(page);
+        assert_eq!(
+            events,
+            vec![
+                (
+                    "101".to_string(),
+                    "2026-06-01T00:00:00".to_string(),
+                    slices[0].to_string()
+                ),
+                (
+                    "note-7".to_string(),
+                    "2026-06-02T00:00:00".to_string(),
+                    slices[1].to_string()
+                ),
+            ]
+        );
+    }
+
     /// A FIT file on disk, plus the handle keeping it alive for the test.
     fn staged_fit() -> (tempfile::NamedTempFile, String) {
         use std::io::Write;
@@ -1430,6 +1544,7 @@ mod tests {
             description: None,
             trainer: false,
             commute: false,
+            external_id: None,
         }
     }
 

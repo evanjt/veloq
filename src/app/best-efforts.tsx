@@ -1,13 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   BodyNotDownloaded,
   EngineReadFailure,
-  pressable,
-  pressRipple,
   ScreenSafeAreaView,
   useTabBarClearance,
   ToggleButtonRow,
@@ -31,6 +29,7 @@ import {
 import { useTheme } from '@/shared/app';
 import { formatDurationOrNull } from '@/shared/format/format';
 import {
+  BestEffortRow,
   ClimbingBestRows,
   ClimbingStatusNote,
   formatEffortValue,
@@ -39,7 +38,7 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness';
-import { colors, darkColors, layout, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
@@ -126,77 +125,38 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           const timeStr = formatDurationOrNull(effort.time);
           const isLast = index === efforts.length - 1;
 
-          const rowBody = (
-            <>
-              <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
-              <View style={styles.valueColumn}>
-                <Text style={[styles.value, { color: sportText }]}>
-                  {formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
-                </Text>
-                {timeStr && sport !== 'Cycling' ? (
-                  <Text style={[styles.timeText, isDark && styles.timeTextDark]}>{timeStr}</Text>
-                ) : null}
-              </View>
-              <View style={styles.activityColumn}>
-                {activityInfo ? (
-                  <>
-                    <Text
-                      style={[styles.activityName, isDark && styles.activityNameDark]}
-                      numberOfLines={1}
-                    >
-                      {activityInfo.name}
-                    </Text>
-                    <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-                      {activityInfo.date}
-                    </Text>
-                  </>
-                ) : effort.value !== null ? (
-                  <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
-                    {t('bestEffortsScreen.activityNotCached')}
-                  </Text>
-                ) : null}
-              </View>
-              {activityInfo ? (
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-              ) : null}
-            </>
-          );
-
-          if (activityInfo && effort.activityId) {
-            return (
-              <Pressable
-                android_ripple={pressRipple}
-                accessibilityRole="button"
-                accessibilityLabel={effort.label}
-                key={effort.label}
-                testID={`best-efforts-row-${sport}-${effort.label}`}
-                style={pressable([
-                  styles.row,
-                  !isLast && styles.rowBorder,
-                  !isLast && isDark && styles.rowBorderDark,
-                ])}
-                onPress={() => tapTo(`/activity/${effort.activityId}`)}
-              >
-                {rowBody}
-              </Pressable>
-            );
-          }
+          const opensActivity = !!activityInfo && !!effort.activityId;
 
           return (
-            <View
+            <BestEffortRow
               key={effort.label}
-              style={[
-                styles.row,
-                !isLast && styles.rowBorder,
-                !isLast && isDark && styles.rowBorderDark,
-              ]}
+              testID={`best-efforts-row-${sport}-${effort.label}`}
+              label={effort.label}
+              value={formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
+              secondary={sport !== 'Cycling' ? timeStr : null}
+              valueColor={sportText}
+              isLast={isLast}
+              onPress={opensActivity ? () => tapTo(`/activity/${effort.activityId}`) : undefined}
+              accessibilityLabel={effort.label}
             >
-              {rowBody}
-            </View>
+              {activityInfo ? (
+                <>
+                  <Text
+                    style={[styles.activityName, isDark && styles.activityNameDark]}
+                    numberOfLines={1}
+                  >
+                    {activityInfo.name}
+                  </Text>
+                  <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
+                    {activityInfo.date}
+                  </Text>
+                </>
+              ) : effort.value !== null ? (
+                <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
+                  {t('bestEffortsScreen.activityNotCached')}
+                </Text>
+              ) : null}
+            </BestEffortRow>
           );
         })
       )}
@@ -401,47 +361,6 @@ const styles = StyleSheet.create({
   },
   emptyTextDark: {
     color: darkColors.textSecondary,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colorWithOpacity(ink.black, 0.08),
-  },
-  rowBorderDark: {
-    borderBottomColor: colorWithOpacity(ink.white, 0.08),
-  },
-  label: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    width: 48,
-  },
-  labelDark: {
-    color: darkColors.textSecondary,
-  },
-  valueColumn: {
-    width: 100,
-    alignItems: 'flex-end',
-  },
-  value: {
-    ...typography.body,
-    fontWeight: '700',
-  },
-  timeText: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  timeTextDark: {
-    color: darkColors.textSecondary,
-  },
-  activityColumn: {
-    flex: 1,
-    marginLeft: spacing.md,
   },
   activityName: {
     ...typography.caption,

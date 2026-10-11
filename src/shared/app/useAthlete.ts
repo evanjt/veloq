@@ -15,7 +15,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
+import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import type { Athlete } from '@/types';
 import { TIME } from '@/shared/app/time';
 
@@ -74,7 +74,7 @@ export function useAthlete() {
         // moved reaches it only when the snapshot is rebuilt. Rebuilding on
         // the data alone left it a sync behind.
         const moved = setFormAsPercent(Boolean(athleteData.icu_form_as_percent));
-        if (moved) updateWidgetSnapshot();
+        if (moved) scheduleWidgetSnapshot();
       }
     }
   }, [query.data, setAthlete, setIntervalsPreferences, setFormAsPercent]);
