@@ -6,6 +6,7 @@ import { ProfileAccountSection } from '@/features/settings/components/ProfileAcc
 import * as haptics from '@/shared/ui/haptics';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { exportRecordBackup } from '@/features/settings/lib/backup';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
@@ -22,6 +23,10 @@ jest.mock('@/shared/ui/haptics', () => ({
   light: jest.fn(),
   medium: jest.fn(),
   success: jest.fn(),
+}));
+jest.mock('@/features/settings/lib/backup', () => ({
+  ...jest.requireActual('@/features/settings/lib/backup'),
+  exportRecordBackup: jest.fn(async () => 'complete'),
 }));
 jest.mock('@/shared/storage', () => ({
   ...jest.requireActual('@/shared/storage'),
@@ -74,7 +79,7 @@ it.each([
     fireEvent.press(screen.getByTestId(button));
     const buttons = alert.mock.calls[0][2];
     await act(async () => {
-      buttons?.[1]?.onPress?.();
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
     });
     await waitFor(() => expect(clearCredentials).toHaveBeenCalled());
     expect(alert).toHaveBeenCalledTimes(1);
@@ -94,7 +99,7 @@ it('reports a failed destructive wipe without signing out', async () => {
     fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
     const buttons = alert.mock.calls[0][2];
     await act(async () => {
-      buttons?.[1]?.onPress?.();
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
       await Promise.resolve();
     });
     expect(clearCredentials).not.toHaveBeenCalled();
@@ -143,6 +148,88 @@ describe.each([
         buttons?.find((b) => b.style === 'cancel')?.onPress?.();
       });
       expect(haptics.medium).not.toHaveBeenCalled();
+    } finally {
+      alert.mockRestore();
+    }
+  });
+});
+
+/**
+ * Scenario: the athlete opens Sign out and delete data, which deletes their
+ * local backups, names, trims, pins and paired sensors for good.
+ *
+ * Expected behaviour: the confirm lists what is deleted for good and offers a
+ * backup first. The backup runs the record export, deletes nothing and signs
+ * nobody out, and the confirm opens again once the file has been offered.
+ */
+describe('Sign out and delete data confirm', () => {
+  function openConfirm() {
+    const clearCredentials = jest.fn(async () => {});
+    useAuthStore.setState({ authMethod: 'oauth', clearCredentials });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    render(<ProfileAccountSection />);
+    fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
+    return { alert, clearCredentials };
+  }
+
+  beforeEach(() => {
+    jest.mocked(exportRecordBackup).mockReset();
+    jest.mocked(exportRecordBackup).mockResolvedValue('complete');
+  });
+
+  it('lists what comes back and what is deleted for good', () => {
+    const { alert } = openConfirm();
+    try {
+      const message = alert.mock.calls[0][1] ?? '';
+      expect(message).toContain('alerts.wipeList.returns');
+      expect(message).toContain('alerts.wipeList.deleted');
+      expect(message).toContain('alerts.wipeList.localBackups');
+      expect(message).toContain('alerts.wipeList.backupSetup');
+      expect(message).toContain('alerts.wipeList.sensors');
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
+  it('backs up first, then asks again without deleting anything', async () => {
+    const { alert, clearCredentials } = openConfirm();
+    try {
+      const backUp = alert.mock.calls[0][2]?.find(
+        (b) => b.text === 'alerts.disconnectAndClearBackUpFirst'
+      );
+      expect(backUp).toBeDefined();
+      expect(backUp?.style).not.toBe('destructive');
+
+      await act(async () => {
+        backUp?.onPress?.();
+      });
+
+      await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
+      expect(exportRecordBackup).toHaveBeenCalledTimes(1);
+      expect(alert.mock.calls[1][0]).toBe(alert.mock.calls[0][0]);
+      expect(alert.mock.calls[1][1]).toBe(alert.mock.calls[0][1]);
+      expect(clearAccountData).not.toHaveBeenCalled();
+      expect(clearCredentials).not.toHaveBeenCalled();
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
+  it('does not ask again when the backup failed', async () => {
+    jest.mocked(exportRecordBackup).mockRejectedValueOnce(new Error('disk full'));
+    const { alert, clearCredentials } = openConfirm();
+    try {
+      const backUp = alert.mock.calls[0][2]?.find(
+        (b) => b.text === 'alerts.disconnectAndClearBackUpFirst'
+      );
+      await act(async () => {
+        backUp?.onPress?.();
+      });
+
+      await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
+      expect(alert.mock.calls[1][0]).toBe('common.error');
+      expect(clearAccountData).not.toHaveBeenCalled();
+      expect(clearCredentials).not.toHaveBeenCalled();
     } finally {
       alert.mockRestore();
     }

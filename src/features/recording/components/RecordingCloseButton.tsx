@@ -1,9 +1,8 @@
 import React, { useCallback } from 'react';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { tapBack } from '@/shared/app/navigation';
 import { Button } from '@/shared/ui';
-import * as haptics from '@/shared/ui/haptics';
 
 /**
  * Leaves the recording screen while nothing is recording. The screen has no
@@ -13,11 +12,7 @@ import * as haptics from '@/shared/ui/haptics';
  */
 export function RecordingCloseButton(): React.JSX.Element {
   const { t } = useTranslation();
-  const close = useCallback(() => {
-    haptics.light();
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  }, []);
+  const close = useCallback(() => tapBack(), []);
 
   return (
     <Button

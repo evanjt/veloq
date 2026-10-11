@@ -71,9 +71,10 @@ pub use activities::{
 /// directly decode it the same way the engine wrote it.
 pub mod codec;
 pub mod cutover;
+pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;
-pub use export::{ExportPrivacyPreview, SuggestedHome};
+pub use export::{ExportPrivacyPreview, GeoJsonFeature, SuggestedHome, write_geojson_feature};
 pub(crate) mod fitness;
 pub mod geocoded_names;
 pub mod geocoded_places;
@@ -2285,6 +2286,8 @@ fn routes_screen_data(
     let group_page = pooled_route_group_page(conn, &query);
     let section_page = pooled_route_section_page(conn, &query);
     let activity_count = activities::pooled::activity_count(conn).unwrap_or(0);
+    let (group_empty_reason, section_empty_reason) =
+        catalogue_empty_reasons(conn, query.min_group_activity_count);
     crate::FfiRoutesScreenData {
         activity_count,
         group_count: group_page.total_count,
@@ -2305,7 +2308,45 @@ fn routes_screen_data(
         available_sport_types: read_cache::sport_types(conn, || {
             screens::pooled::available_sport_types(conn)
         }),
+        group_empty_reason,
+        section_empty_reason,
     }
+}
+
+/// Why each catalogue is empty, `None` for one that is not. Emptiness is the
+/// catalogue's and not the page's: a search or a sport filter that leaves
+/// nothing is a list that matched nothing, which the screen says on its own.
+/// A route is a group with at least `min_group_activity_count` members, and a
+/// group whose count was never stored may be one, so it counts.
+fn catalogue_empty_reasons(
+    conn: &Connection,
+    min_group_activity_count: u32,
+) -> (
+    Option<crate::FfiCatalogueEmptyReason>,
+    Option<crate::FfiCatalogueEmptyReason>,
+) {
+    let has_route = conn
+        .query_row(
+            "SELECT EXISTS (SELECT 1 FROM route_groups
+                             WHERE activity_count IS NULL OR activity_count >= ?1)",
+            params![min_group_activity_count],
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap_or(true);
+    let has_section = !sections::queries::pooled::section_kind_counts(conn).is_empty();
+    if has_route && has_section {
+        return (None, None);
+    }
+    let state = empty_reason::detection_state(conn);
+    let group_reason =
+        (!has_route).then(|| empty_reason::empty_reason(&state, min_group_activity_count.max(1)));
+    let section_reason = (!has_section).then(|| {
+        let min_activities = settings::section_config_from(conn)
+            .unwrap_or_default()
+            .min_activities;
+        empty_reason::empty_reason(&state, min_activities)
+    });
+    (group_reason, section_reason)
 }
 
 struct PooledGroupPage {
@@ -2688,7 +2729,8 @@ fn pooled_section_rows(
     // Batch-load section polylines (1 query instead of N)
     let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
     let section_polylines = sections::pooled::section_polylines(conn, &section_ids);
-    let latest_is_record = sections::pooled::sections_where_latest_is_record(conn, &section_ids);
+    let latest_is_record =
+        sections::pooled::sections_where_latest_is_record(conn, &section_ids, selected_sport);
     let trends = sections::ranking::pooled::page_trends(conn, &section_ids, selected_sport);
 
     let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
@@ -3342,6 +3384,15 @@ pub(crate) fn file_can_be_a_database(path: &str) -> bool {
             .unwrap_or(true);
     }
     read == head.len() && &head == HEADER
+}
+
+/// Whether SQLite refused a write because the device has no space left.
+///
+/// SQLite reports a write that failed with no space left on the device as
+/// SQLITE_FULL, the same code a connection capped by `max_page_count` gets, so
+/// this one code covers both.
+pub(crate) fn is_disk_full(e: &rusqlite::Error) -> bool {
+    e.sqlite_error_code() == Some(rusqlite::ErrorCode::DiskFull)
 }
 
 /// What a transient open failure waits for before the same file can open.

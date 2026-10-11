@@ -24,6 +24,7 @@ const KEYS = [
   'notConfigured',
   'internal',
   'engineClosed',
+  'storageFull',
 ] as const;
 
 const locales = fs

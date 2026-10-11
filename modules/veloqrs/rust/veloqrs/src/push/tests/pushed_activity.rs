@@ -382,7 +382,7 @@ fn a_pushed_activity_leaves_the_ready_pass_nothing_to_fetch() {
     });
     ready_pass(&quiet);
     assert_eq!(
-        anything.hits(),
+        anything.calls(),
         0,
         "the sync asked for what the push stored"
     );
@@ -509,9 +509,9 @@ fn an_analysed_push_after_the_upload_replaces_what_the_upload_stored() {
     );
 
     push(analysed.id);
-    assert_eq!(served[0].hits(), 2, "the detail is asked each time");
-    assert_eq!(served[1].hits(), 1, "a repeated push asks no streams");
-    assert_eq!(served[2].hits(), 1, "a repeated push asks no intervals");
+    assert_eq!(served[0].calls(), 2, "the detail is asked each time");
+    assert_eq!(served[1].calls(), 1, "a repeated push asks no streams");
+    assert_eq!(served[2].calls(), 1, "a repeated push asks no intervals");
     crate::objects::clear_test_credentials();
 }
 
@@ -541,7 +541,7 @@ fn a_push_then_a_sync_leaves_the_library_the_sync_alone_would() {
             record_census(vec![census_entry(&shape, version)]);
             store_list_page(&shape, version);
             ready_pass(&quiet);
-            assert_eq!(anything.hits(), 0, "{}: the sync asked again", shape.label);
+            assert_eq!(anything.calls(), 0, "{}: the sync asked again", shape.label);
             library_rows(shape.id)
         };
         let synced = {

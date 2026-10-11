@@ -7,6 +7,9 @@ export const GPS_ALERT_MS = 60_000;
 // Crash recovery backup interval (15s to finish before iOS ~30s background limit)
 export const BACKUP_INTERVAL_MS = 15_000;
 
+// How long review waits after the last edit before writing the stopped ride's backup
+export const REVIEW_BACKUP_DEBOUNCE_MS = 1_000;
+
 /**
  * How often a live GPS session re-asks whether the location foreground service
  * is running. Short enough that a service which came up a moment late clears its

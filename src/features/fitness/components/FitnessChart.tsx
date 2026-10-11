@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+import { RangeCoverage } from 'veloqrs';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,11 @@ interface FitnessChartProps {
     values: { fitness: number; fatigue: number; form: number } | null
   ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  /**
+   * Whether wellness was downloaded for the range drawn. `NotFetched` turns the
+   * empty state into "not downloaded". Absent, the chart claims nothing.
+   */
+  coverage?: RangeCoverage | undefined;
 }
 
 interface ChartDataPoint {
@@ -80,6 +86,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   sharedSelectedIdx,
   onDateSelect,
   onInteractionChange,
+  coverage,
 }: FitnessChartProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
@@ -181,9 +188,18 @@ export const FitnessChart = React.memo(function FitnessChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
-          {t('fitness.noData')}
-        </Text>
+        {coverage === RangeCoverage.NotFetched ? (
+          <Text
+            testID="fitness-chart-not-downloaded"
+            style={[styles.placeholderText, isDark && chartStyles.textDark]}
+          >
+            {t('stats.rangeNotDownloaded')}
+          </Text>
+        ) : (
+          <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
+            {t('fitness.noData')}
+          </Text>
+        )}
       </View>
     );
   }

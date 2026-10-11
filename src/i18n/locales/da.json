@@ -48,7 +48,7 @@
       "trainingLoad": "Training Stress Score (TSS) kvantificerer træningsbelastning baseret på varighed og intensitet i forhold til din tærskel.",
       "yourForm": "Din form (TSB) på denne dag. Dette er en daglig værdi baseret på din samlede træning, ikke specifik for denne aktivitet. TSB = Fitness (CTL) minus Træthed (ATL)."
     },
-    "ftp": "FTP: {{value}} W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Puls",
     "mapStyle": "Kortstil",
     "maxHR": "Maks: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "Din form"
     },
     "hrZoneTotal": "Tid med puls: {{duration}}",
+    "powerZoneTotal": "Tid med effekt: {{duration}}",
     "movingTime": "Tid i bevægelse: {{duration}}",
     "timeInHRZones": "Tid i pulszoner",
     "timeInPowerZones": "Tid i effektzoner",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "Denne enhed har et bibliotek fra en anden konto. Fortsætter du til demotilstand, slettes det permanent. Gå tilbage og log ind på den konto først for at beholde det.",
     "accountChangeContinue": "Fortsæt og slet",
     "disconnectAndClearTitle": "Log ud og slet data?",
-    "disconnectAndClearMessage": "Dette logger dig ud OG sletter alle cachelagrede aktiviteter, GPS-spor, sektioner og rutedata på denne enhed. Data synkroniseres igen fra intervals.icu næste gang du logger ind. Dette kan ikke fortrydes.",
-    "disconnectAndClearConfirm": "Slet og log ud"
+    "disconnectAndClearMessage": "Dette logger dig ud og sletter dit bibliotek på denne telefon. Dette kan ikke fortrydes.",
+    "disconnectAndClearConfirm": "Slet og log ud",
+    "disconnectAndClearBackUpFirst": "Tag backup først",
+    "wipeList": {
+      "returns": "Kommer tilbage, når du logger ind igen:",
+      "deleted": "Slettes for altid:",
+      "kept": "Bliver på denne telefon:",
+      "activities": "Aktiviteter og deres GPS-spor",
+      "wellness": "Velvære og form",
+      "detectedSections": "Sektioner og ruter fundet i dine aktiviteter",
+      "localBackups": "Backups gemt på denne telefon",
+      "backupSetup": "Backupopsætning: WebDAV-login, Google Drev-konto og backupmappe",
+      "names": "Navne, du har givet sektioner og ruter",
+      "sectionEdits": "Sektioner, du har oprettet, beskåret eller fastgjort",
+      "sensors": "Parrede sensorer",
+      "exportPrivacy": "Hjemmeposition sat til eksportprivatliv",
+      "notificationChoices": "Valg for notifikationer",
+      "mapChoices": "Kortindstillinger gemt for enkelte aktiviteter",
+      "recordings": "Aktiviteter optaget på denne telefon"
+    }
   },
   "attribution": {
     "demoData": "Demotilstand bruger rigtige aktivitetsspor. Brugt med tilladelse fra forfatteren.",
@@ -415,12 +434,14 @@
     "pullToRefresh": "Træk ned for at opdatere",
     "reset": "Nulstil",
     "retry": "Prøv igen",
+    "freeUpSpace": "Frigør plads",
     "save": "Gem",
     "showDetails": "Vis detaljer for udvikler",
     "undo": "Fortryd",
     "on": "Til",
     "off": "Fra",
-    "openSettings": "Åbn indstillinger"
+    "openSettings": "Åbn indstillinger",
+    "allow": "Tillad"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -444,10 +465,11 @@
         "rateLimited": "intervals.icu bad os saenke farten, saa synkronisering venter",
         "server": "intervals.icu sendte noget tilbage, appen ikke kunne bruge",
         "network": "Kunne ikke naa intervals.icu",
-        "storage": "En fil paa denne enhed kunne ikke laeses",
+        "storage": "En fil på denne enhed kunne ikke læses eller skrives",
         "notConfigured": "Der er ikke gemt noget intervals.icu-login paa denne enhed",
         "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive",
-        "engineClosed": "Synkroniseringen stoppede, fordi biblioteket blev lukket undervejs"
+        "engineClosed": "Synkroniseringen stoppede, fordi biblioteket blev lukket undervejs",
+        "storageFull": "Enheden er løbet tør for plads, så synkroniseringen kunne ikke gemme det hentede"
       }
     },
     "tracksMissing": {
@@ -718,8 +740,8 @@
       "sectionTrendName": "Tendens i sektionspræstation",
       "stalePrCrossRefName": "{{metric}}-PR-krydsreference",
       "efficiencyName": "Regression af aerob effektivitet",
-      "efficiencyDescription": "Følger gennemsnitlig puls ganget med tempo på tværs af matchede forsøg på sektionen, med en mindste kvadraters regression over tid. En retning vises kun, når hældningens 95 %-interval udelukker nul, og den modellerede ændring over forsøgene er mere end 2 % af gennemsnittet. En faldende værdi betyder færre slag ved samme tempo.",
-      "efficiencyFormula": "effektivitet = gennemsnitlig puls × tempo (sekunder pr. km)",
+      "efficiencyDescription": "Følger gennemsnitlig puls ganget med tempo på tværs af matchede forsøg på sektionen, med en mindste kvadraters regression over tid. En retning vises kun, når hældningens 95 %-interval udelukker nul, og den modellerede ændring over forsøgene er mere end 2 % af gennemsnittet. En faldende værdi betyder færre hjerteslag pr. km: lavere puls, hurtigere tempo eller begge dele.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = gennemsnitlig puls × tempo (sekunder pr. km)",
       "routeName": "Ruterekorder og tendenser",
       "route": "Tæller forsøg på en rute i én sportsgren og retning, som er tidsmålt, ikke udelukket, ikke delvist og inden for rutens afstandsbånd. En rekord er den hurtigste af dem, sat for nylig. En tendens sammenligner medianen af de seneste tre med de tre før, fra seks forsøg."
     },
@@ -831,7 +853,8 @@
     },
     "aboutRanking": "Kortene sorteres efter, hvor meget hvert af dem har at sige: hvor nyt det er, hvor meget det skiller sig ud fra dit saedvanlige, hvor meget det har flyttet sig, og hvor ofte du goer det.",
     "efficiencyTrend": {
-      "seriesLabel": "Puls per tempoenhed, ældste forsøg til nyeste",
+      "seriesLabel": "{{quantity}}, ældste forsøg til nyeste",
+      "quantity": "Puls × tempo",
       "title": "Effektivitet forbedres på {{name}}",
       "changeTitle": "Effektivitet på {{name}}: +{{hrChange}} bpm",
       "changeSubtitle": "Modelleret +{{hrChange}} bpm ved gennemsnitstempo over {{efforts}} ture",
@@ -993,6 +1016,7 @@
     "sessionKeyRejected": "Din API-nøgle blev afvist.",
     "sessionRestore": "Log ind igen for at få dem tilbage.",
     "sessionRestoreAthlete": "Log ind igen som {{athleteId}} for at få dem tilbage.",
+    "sessionHeldRide": "Din tur fra {{when}} er gemt og åbner, når du logger ind igen.",
     "subtitle": "Opret forbindelse til intervals.icu",
     "termsOfService": "Servicevilkår",
     "title": "Veloq",
@@ -1135,6 +1159,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "Live Activities er slået fra, så turens knapper vises ikke på låseskærmen",
+    "notificationsOffNotice": "Notifikationer er slået fra, så turens knapper og beskeder vises ikke uden for appen",
     "strengthRest": "Hvil",
     "strengthLine": "Linje {{n}} af {{total}}",
     "strengthDone": "Færdig",
@@ -1171,6 +1197,8 @@
       "stop": "AFSLUT"
     },
     "discard": "Kassér",
+    "discardConfirmMessage": "Den er ikke gemt og kan ikke gendannes, når den er kasseret.",
+    "discardConfirmTitle": "Kassér denne optagelse?",
     "distance": "Afstand (km)",
     "distanceInvalid": "Indtast venligst en gyldig distance (0-999).",
     "duration": "Varighed (minutter)",
@@ -1196,13 +1224,18 @@
     },
     "gpsAcquiring": "Venter på GPS...",
     "gpsAlertContinue": "Fortsæt uden GPS",
-    "gpsAlertMessage": "Kan ikke få GPS-fix. Kontroller at placeringstjenester er aktiveret, og at du har frit udsyn til himlen.",
+    "gpsAlertMessage": "Kan ikke få GPS-fix. Find et sted med frit udsyn til himlen.",
     "gpsAlertSettings": "Åbn indstillinger",
     "gpsAlertStop": "Stop optagelse",
     "gpsAlertTitle": "GPS-signal ikke fundet",
     "gpsNone": "Placering nægtet",
     "gpsPermissionDenied": "Placeringstilladelse nægtet. Giv adgang i Indstillinger for at optage GPS.",
     "gpsReady": "GPS klar",
+    "gpsServicesOff": "Placering slået fra",
+    "gpsServicesOffAndroid": "Placering er slået fra på telefonen, så der kan ikke optages et spor.",
+    "gpsServicesOffIos": "Lokalitetstjenester er slået fra, så der kan ikke optages et spor. Slå dem til under Indstillinger > Anonymitet og sikkerhed > Lokalitetstjenester.",
+    "gpsServicesOffTitle": "Placering er slået fra",
+    "gpsServicesTurnOn": "Slå til",
     "gpsTrackingError": "Kunne ikke starte GPS-sporing. Prøv at pause og genoptage.",
     "gpsWaiting": "Venter på GPS-signal. Gå udenfor for bedre modtagelse.",
     "gpsWeakWarning": "Svagt GPS-signal, optagelsen kan være unøjagtig",
@@ -1228,6 +1261,7 @@
       "max": "Maksimal"
     },
     "saveError": "Gem fejlede",
+    "saveErrorNoSpace": "Enheden er næsten fuld, så aktiviteten kunne ikke gemmes. Frigør plads, og prøv igen.",
     "savedQueued": "Aktivitet gemt. Den uploades automatisk, når du er online igen.",
     "savedQueuedAuth": "Aktivitet gemt. Den uploades, når du logger ind igen.",
     "settings": "Optagelsesindstillinger",
@@ -1255,6 +1289,8 @@
       "night": "Nat"
     },
     "trimActivity": "Beskær aktivitet",
+    "trimEndHandle": "Beskæringsslut",
+    "trimStartHandle": "Beskæringsstart",
     "trimmed": "Beskåret",
     "uploadRejected": "intervals.icu afviste denne fil. Turen er gemt i Mine optagelser.",
     "uploadMissing": "Filen til denne tur findes ikke længere på enheden, så den kan ikke uploades.",
@@ -1386,7 +1422,6 @@
     "renameFailedMessage": "Rutenavnet blev ikke gemt. Prøv igen.",
     "routeNamePlaceholder": "Rutenavn",
     "routeWord": "Rute",
-    "routesWillAppear": "Ruter vises efter dine aktiviteter er analyseret",
     "routesWithTwoPlus": "Ruter med 2+ aktiviteter på lignende stier vises her",
     "sectionCreationFailed": "Kunne ikke oprette sektion. Prøv venligst igen.",
     "sectionWord": "Afsnit",
@@ -1419,7 +1454,19 @@
     "resetReferenceConfirm": "Gå tilbage til automatisk valg af reference? Matchprocenterne for denne rute beregnes igen.",
     "prTime": "PR {{time}}",
     "errorDetailId": "ID: {{id}}",
-    "errorDetailRange": "Interval: {{start}} → {{end}}"
+    "errorDetailRange": "Interval: {{start}} → {{end}}",
+    "emptyNoGpsTitle": "Ingen aktiviteter med GPS",
+    "emptyNoGps": "Ruter og sektioner findes i GPS-spor, og det synkroniserede interval rummer kun træninger uden, såsom hometrainer, svømmehal eller styrke.",
+    "emptyNotYetRunTitle": "Venter på analyse",
+    "emptyNotYetRun_one": "{{count}} aktivitet med GPS venter på analyse. Ruter og sektioner vises, når den er kørt.",
+    "emptyNotYetRun_other": "{{count}} aktiviteter med GPS venter på analyse. Ruter og sektioner vises, når den er kørt.",
+    "emptyRunningTitle": "Analyse i gang",
+    "emptyRunning": "{{phase}}: {{percent}} % færdig. Ruter og sektioner vises, når den er færdig.",
+    "emptyHeldTitle": "Analyse sat i bero",
+    "emptyNoRoutes_one": "En rute kræver mindst {{count}} aktivitet på en lignende strækning. Ingen af dine aktiviteter med GPS danner en endnu.",
+    "emptyNoRoutes_other": "En rute kræver mindst {{count}} aktiviteter på en lignende strækning. Ingen af dine aktiviteter med GPS deler en endnu.",
+    "emptyNoSections_one": "En sektion kræver mindst {{count}} aktivitet på samme vejstykke. Der blev ikke fundet nogen i dine aktiviteter med GPS.",
+    "emptyNoSections_other": "En sektion kræver mindst {{count}} aktiviteter på samme vejstykke, også på forskellige ruter. Der blev ikke fundet nogen i dine aktiviteter med GPS."
   },
   "routesScreen": {
     "computingRoutes": "Beregner ruter...",
@@ -1486,7 +1533,7 @@
     "sectionNotFound": "Sektion ikke fundet",
     "aerobicEfficiency": "Aerob effektivitet",
     "aerobicEfficiencyDetail": "{{efforts}} matchede forsøg, modelleret ændring på {{hrChange}} bpm ved gennemsnitstempo",
-    "aerobicEfficiencyCaption": "Puls per tempoenhed, ældste forsøg til nyeste",
+    "aerobicEfficiencyCaption": "{{quantity}}, ældste forsøg til nyeste",
     "correlationTitle": "Velvære og fart",
     "correlationMethod": "Pearsons r for omgangsfart mod dagens velværeværdi, 95 % interval, mindst 10 forsøg med en værdi",
     "correlationFamily_one": "Holm-justeret over {{count}} variabel",
@@ -1948,7 +1995,6 @@
     "atWeight": "ved {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Aerob effektivitet",
     "eFTPTrend": "eFTP-trend",
     "ftpLabel": "FTP {{value}} W",
     "heartRate": "Puls",
@@ -1997,6 +2043,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2094,6 +2141,15 @@
       "routesBody": "Aktiviteter på samme strækning samles i en rute, med hvert forsøg vist mod de andre.",
       "sectionPageTip": "Rul ned på afsnitssiden for tendensen, spredningen af dine tider og linjen farvet efter, hvor tid blev vundet eller tabt.",
       "routesTip": "Rul ned på rutesiden for at se hvert forsøg på strækningen sammenlignet med de andre."
+    },
+    "tutorial": {
+      "firstLoadTitle": "Din træning på denne telefon",
+      "firstLoadBody": "Veloq henter dine aktiviteter og dit velvære fra intervals.icu og gemmer dem på denne telefon. Den første indlæsning kører i baggrunden, og forsiden fyldes op, efterhånden som aktiviteterne kommer.",
+      "feedTitle": "Din forside",
+      "feedBody": "Hver aktivitet lander her med sit kort, nyeste først.",
+      "feedTip": "Træk ned for at tjekke intervals.icu for nye aktiviteter, eller tryk på en aktivitet for at åbne den.",
+      "activityTitle": "Inde i en aktivitet",
+      "activityBody": "Åbn en aktivitet for at se dens kort og grafer, dens intervaller og de ruter og sektioner, den hører til."
     }
   },
   "strength": {
@@ -2130,6 +2186,7 @@
     "sets": "sæt",
     "setsCount_one": "{{count}} sæt",
     "setsCount_other": "{{count}} sæt",
+    "clearMuscle": "Fravælg {{muscle}}",
     "muscleGroupVolume": "Muskelgruppevolumen",
     "relativeWeightedSets": "Relative vægtede sæt i den valgte periode",
     "reps": "gentagelser",
@@ -2359,7 +2416,16 @@
   "summaryCardChange": {
     "window_one": "{{change}} på {{count}} dag",
     "window_other": "{{change}} på {{count}} dage",
-    "rule": "Ændringen er den sidste fitnessværdi i perioden minus den første. En prik markerer hver dag, hvor fitness steg med mere end 1 point i forhold til dagen før."
+    "rule": "Ændringen er den sidste fitnessværdi i perioden minus den første. En prik markerer hver dag, hvor fitness steg med mere end 1 point i forhold til dagen før.",
+    "trend": {
+      "improved": "forbedret",
+      "declined": "forværret",
+      "rising": "stigende",
+      "falling": "faldende",
+      "steady": "stabil",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Sammenlignet med {{previous}} den {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Sammenlignet med {{previous}} på samme tidspunkt sidste uge."
+    }
   },
   "period": {
     "short": {

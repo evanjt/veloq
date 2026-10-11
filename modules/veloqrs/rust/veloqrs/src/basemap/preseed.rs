@@ -195,14 +195,15 @@ pub fn plan_area_preseed(centres: &[(f64, f64)], source: &PreseedSource) -> Vec<
 /// again: the pin is what the pass is for and the bytes are the same bytes. A
 /// tile is priced only once it is in hand, so the budget is honoured by
 /// dropping the tile that would break it rather than by storing it and
-/// reporting the overshoot.
+/// reporting the overshoot. The price is the body kept, compressed when the
+/// host compressed it, which is what the store counts against its own budget.
 pub async fn seed_preseed(
     store: &TileStore,
     fetcher: &TileFetcher,
     plan: &[PlannedTile],
     budget: u64,
 ) -> SeedOutcome {
-    seed_preseed_with(store, plan, budget, |url| fetcher.fetch(url)).await
+    seed_preseed_with(store, plan, budget, |url| fetcher.fetch_as_sent(url)).await
 }
 
 /// `seed_preseed` with the request handed in, so a test can stand in for the

@@ -19,6 +19,7 @@ export {
   getProxyRedirectUri,
   INTERVALS_URLS,
   oauthFailureKey,
+  type OAuthFlowResult,
   type OAuthTokenResponse,
 } from './lib/oauth';
 

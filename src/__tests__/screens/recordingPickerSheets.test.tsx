@@ -23,7 +23,7 @@ const mockOverlayReads: (string | null)[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: jest.fn() },
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({
@@ -33,7 +33,11 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({ getCalendarEventBodies: () => [], subscribe: () => () => {} }),
 }));
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), replaceTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({
+  navigateTo: jest.fn(),
+  replaceTo: jest.fn(),
+  goBack: jest.requireActual('@/shared/app/navigation').goBack,
+}));
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: <P extends object>(Screen: React.ComponentType<P>) => Screen,
 }));

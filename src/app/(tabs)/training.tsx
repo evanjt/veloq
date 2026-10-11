@@ -17,7 +17,7 @@ import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/sta
 import type { ActivityHeatmapHandle } from '@/features/stats';
 import { WellnessTrendsChart } from '@/features/wellness';
 import { useAthleteSummary } from '@/features/fitness';
-import { useWellness, type TimeRange } from '@/features/wellness';
+import { useWellness, useWellnessCoverage, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -115,6 +115,7 @@ function HealthScreenContent() {
     error: wellnessError,
     refetch: refetchWellness,
   } = useWellness(timeRange);
+  const wellnessCoverage = useWellnessCoverage(timeRange);
 
   // Fetch athlete summary for WeeklySummary (lifted from child component)
   const {
@@ -232,6 +233,7 @@ function HealthScreenContent() {
           ) : (
             <WellnessTrendsChart
               data={wellness}
+              coverage={wellnessCoverage}
               height={200}
               timeRange={timeRange}
               smoothingWindow={smoothingWindow}

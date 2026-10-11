@@ -3,11 +3,18 @@ import { openSheet, useSheetRequest, useSheetOpener } from '@/shared/app/sheetRe
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
+let mockCanGoBack = true;
 let mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    back: () => mockBack(),
+    replace: (...a: unknown[]) => mockReplace(...a),
+    canGoBack: () => mockCanGoBack,
+  },
   useLocalSearchParams: () => mockParams,
 }));
 
@@ -22,6 +29,8 @@ function mountSheet(id: string) {
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockReplace.mockClear();
+  mockCanGoBack = true;
   mockParams = {};
 });
 
@@ -63,6 +72,25 @@ describe('sheet request channel', () => {
     expect(sheet.result.current.input).toBeUndefined();
     expect(sheet.result.current.missing).toBe(true);
     expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('leaves an unknown request for the Feed when nothing is behind the sheet', () => {
+    mockCanGoBack = false;
+    const sheet = mountSheet('gone');
+    expect(sheet.result.current.missing).toBe(true);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('leaves for the Feed after a selection when nothing is behind the sheet', async () => {
+    const result = openSheet<{ name: string }, string>('/sheet', { name: 'x' });
+    const sheet = mountSheet(pushedId());
+    mockCanGoBack = false;
+    act(() => sheet.result.current.resolve('picked'));
+    await expect(result).resolves.toEqual({ kind: 'selected', value: 'picked' });
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/');
   });
 
   it('keeps two callers of the same route apart', async () => {

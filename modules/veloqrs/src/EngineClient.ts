@@ -1182,7 +1182,7 @@ class EngineClient implements DelegateHost {
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
 
-  getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDay[] =>
+  getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDays =>
     fitnessDelegates.getWellnessDays(this, oldest, newest);
 
   getWellnessLatestDate = (): string | null => fitnessDelegates.getWellnessLatestDate(this);

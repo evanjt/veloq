@@ -67,6 +67,7 @@ export enum SyncErrorReason {
   NotConfigured = 6,
   Internal = 7,
   EngineClosed = 8,
+  StorageFull = 9,
 }
 
 /** `FfiSyncStep` as generated, held to the source by the same test. */
@@ -198,6 +199,23 @@ export enum FfiReferenceSource {
   AthleteSet,
 }
 
+/** The tags of `FfiCatalogueEmptyReason` as generated, held to the source by the same test. */
+export enum FfiCatalogueEmptyReason_Tags {
+  NoGpsActivities = 'NoGpsActivities',
+  NotYetRun = 'NotYetRun',
+  Running = 'Running',
+  Held = 'Held',
+  NoneFound = 'NoneFound',
+}
+
+/** The tags of `FfiDetectionHold` as generated, held to the source by the same test. */
+export enum FfiDetectionHold_Tags {
+  ElevationPaused = 'ElevationPaused',
+  ElevationRunning = 'ElevationRunning',
+  ElevationWaiting = 'ElevationWaiting',
+  Cutover = 'Cutover',
+}
+
 export const startOutcome = (result: StartOutcome | { outcome: StartOutcome }): StartOutcome =>
   typeof result === 'object' ? result.outcome : result;
 
@@ -263,6 +281,7 @@ export const engine = {
   ...fetchCalls,
   subscribe: jest.fn(() => () => {}),
   getSyncStatus: jest.fn(() => null),
+  getStats: jest.fn(() => undefined),
   getSetting: jest.fn(() => undefined),
   setSetting: jest.fn(),
   setSettings: jest.fn(),
@@ -319,6 +338,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     InitOutcome,
     RangeCoverage,
     FfiReferenceSource,
+    FfiCatalogueEmptyReason_Tags,
+    FfiDetectionHold_Tags,
     isRetryableInit,
     hasOpened,
     isRetryableStart,

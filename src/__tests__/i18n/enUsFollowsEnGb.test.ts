@@ -44,7 +44,6 @@ const SPELLING = [
   'phaseNames.diffing',
   'phaseNames.draining',
   'recording.batteryOptNudge',
-  'routes.routesWillAppear',
   'sections.aerobicEfficiencyDetail',
   'sectionHistory.kind_algorithm_changed',
   'sensors.availability.poweredOffHintIos',

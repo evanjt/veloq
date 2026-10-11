@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, Once};
 
+use super::encoding;
 use crate::atomic_file::write_atomically;
 
 /// The sidecar beside each source's tree. Named so it cannot collide with a
@@ -334,7 +335,9 @@ impl TileStore {
     }
 
     /// The tile's bytes, or `None` when the store does not hold it. A hit
-    /// moves the tile to the back of the eviction queue.
+    /// moves the tile to the back of the eviction queue. A tile kept gzipped
+    /// is handed back decompressed, and one that will not decompress is a
+    /// miss, so the next pan fetches a tile to replace it.
     ///
     /// The lock is dropped for the read, the way `put` drops it for the write.
     /// One mutex covers every source, and a map pan asks for dozens of tiles at
@@ -342,13 +345,14 @@ impl TileStore {
     /// one of them queue behind the slowest.
     pub fn get(&self, source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
         if !is_kept_offline(source) {
-            let found = self.satellite_cache().get(source, z, x, y);
+            let held = self.satellite_cache().get(source, z, x, y);
+            let found = held.and_then(encoding::decode);
             if found.is_some() {
                 self.count(source, |c| c.hits += 1);
             }
             return found;
         }
-        let found = self.get_counted(source, z, x, y);
+        let found = self.get_counted(source, z, x, y).and_then(encoding::decode);
         self.count(source, |c| {
             if found.is_some() {
                 c.hits += 1
@@ -414,7 +418,8 @@ impl TileStore {
     }
 
     /// Store a tile. `pinned` marks the pre-seeded offline base, which is
-    /// evicted only once every opportunistic tile is gone.
+    /// evicted only once every opportunistic tile is gone. The bytes are kept
+    /// as given, gzipped or not, and counted against the budget at that size.
     ///
     /// A satellite raster is held in the in-memory cache and never written, so
     /// this reports success without touching the disk. See [`is_kept_offline`].

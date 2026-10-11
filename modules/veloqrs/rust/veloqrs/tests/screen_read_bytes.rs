@@ -216,6 +216,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         pr_section_ids => |v: &FfiActivityDetailData| v.pr_section_ids.len(),
         max_hr,
         hr_zones => |v: &FfiActivityDetailData| v.hr_zones.len(),
+        power_zones => |v: &FfiActivityDetailData| v.power_zones.len(),
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),
     )
 }
@@ -312,6 +313,8 @@ fn routes_screen(v: FfiRoutesScreenData) -> Lowered {
         custom_count,
         retired_count,
         available_sport_types => |v: &FfiRoutesScreenData| v.available_sport_types.len(),
+        group_empty_reason,
+        section_empty_reason,
     )
 }
 
@@ -324,7 +327,7 @@ fn startup(v: FfiStartupData) -> Lowered {
 }
 
 fn fitness(v: FfiFitnessScreenData) -> Lowered {
-    lower!(FfiFitnessScreenData, v; ftp_trend, run_pace_trend, swim_pace_trend)
+    lower!(FfiFitnessScreenData, v; ftp_trend, ftp_trend_coverage, run_pace_trend, swim_pace_trend)
 }
 
 fn best_efforts(v: FfiBestEffortsData) -> Lowered {

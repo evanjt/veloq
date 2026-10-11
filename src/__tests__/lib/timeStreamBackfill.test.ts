@@ -8,7 +8,7 @@
 
 import type { TFunction } from 'i18next';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
-import { engine } from 'veloqrs';
+import { engine, StartOutcome } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -18,7 +18,7 @@ jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
       getActivitiesNeedingTimeStreams: jest.fn(() => [] as string[]),
-      syncTimeStreams: jest.fn(),
+      syncTimeStreams: jest.fn(() => ({ outcome: 1 })),
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
         forEvent.add(callback);
@@ -43,6 +43,7 @@ describe('backfillTimeStreams', () => {
     jest.useFakeTimers();
     mockListeners.clear();
     needing.mockReturnValue([]);
+    syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Started });
   });
 
   afterEach(() => {
@@ -105,6 +106,32 @@ describe('backfillTimeStreams', () => {
     jest.advanceTimersByTime(60_000);
 
     await expect(backfill).resolves.toEqual({ total: 2, remaining: 1 });
+  });
+
+  it.each([
+    ['backing off', StartOutcome.NotReady],
+    ['offline', StartOutcome.Offline],
+    ['not configured', StartOutcome.NotConfigured],
+    ['owing nothing', StartOutcome.NotOwed],
+  ])('moves on at once when the start is refused for %s', async (_reason, outcome) => {
+    needing.mockReturnValue(['local-recording']);
+    syncTimeStreams.mockReturnValue({ outcome });
+    const onProgress = jest.fn();
+
+    await expect(backfillTimeStreams(onProgress)).resolves.toEqual({ total: 1, remaining: 1 });
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
+  });
+
+  it('still waits when the same batch is already in flight', async () => {
+    needing.mockReturnValue(['a1']);
+    syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Busy });
+
+    const backfill = backfillTimeStreams(jest.fn());
+    await Promise.resolve();
+    announce(['a1']);
+
+    await expect(backfill).resolves.toEqual({ total: 1, remaining: 0 });
   });
 
   it('ends the wait when the screen goes away', async () => {

@@ -20,7 +20,16 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as haptics from './haptics';
-import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  verdictColor,
+  verdictFill,
+} from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 
@@ -64,6 +73,70 @@ interface SwipeableTabsProps {
   gestureEnabled?: boolean;
   /** Only mount tab content once visited (default: false for backward compatibility) */
   lazy?: boolean;
+}
+
+/** The ink a tab draws its icon and its label in, one per state. */
+function tabInk(isActive: boolean, isDark: boolean): string {
+  const palette = isDark ? darkColors : colors;
+  return isActive ? palette.linkTeal : palette.textSecondary;
+}
+
+/**
+ * The fill behind a tab's count or badge and the ink on it. Each pair holds
+ * 4.5:1 on the tab bar's ground in its own theme. A slower time is a decline,
+ * so it takes the verdict ladder's negative rung, its own tone on a tint of it,
+ * and reads as one in both themes rather than as a neutral grey.
+ */
+function badgePaint(
+  tab: SwipeableTab,
+  isActive: boolean,
+  isDark: boolean
+): { fill: string; ink: string } {
+  const palette = isDark ? darkColors : colors;
+  const tone = tab.badgeText !== undefined ? (tab.badgeTone ?? 'neutral') : null;
+  if (tone === 'pr') return { fill: brand.gold, ink: colors.textOnPrimary };
+  if (tone === 'positive') return { fill: colors.success, ink: colors.textOnPrimary };
+  if (tone === 'negative') {
+    return { fill: verdictFill('negative', isDark), ink: verdictColor('negative', isDark) };
+  }
+  if (tone === null && isActive) return { fill: palette.primary, ink: colors.textOnPrimary };
+  return { fill: isDark ? darkColors.border : colors.gray200, ink: palette.textSecondary };
+}
+
+function TabContent({
+  tab,
+  isActive,
+  isDark,
+  onLayout,
+}: {
+  tab: SwipeableTab;
+  isActive: boolean;
+  isDark: boolean;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
+  const ink = tabInk(isActive, isDark);
+  const badge = tab.badgeText ?? tab.count;
+  const paint = badge === undefined ? null : badgePaint(tab, isActive, isDark);
+  return (
+    <View testID={`tab-content-${tab.key}`} style={styles.tabContent} onLayout={onLayout}>
+      <MaterialCommunityIcons name={tab.icon} size={18} color={ink} />
+      <Text
+        // The tabs share the width with `flex: 1`, so a label wider than its
+        // share used to wrap mid-word and the icon ended up between the halves:
+        // five tabs at 1080 wide gave "Insight" over "s". Truncating says the
+        // same thing and stays a row.
+        numberOfLines={1}
+        style={[styles.tabText, isActive && styles.tabTextActive, { color: ink }]}
+      >
+        {tab.label}
+      </Text>
+      {paint && (
+        <View style={[styles.tabBadge, { backgroundColor: paint.fill }]}>
+          <Text style={[styles.tabBadgeText, { color: paint.ink }]}>{badge}</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 export function SwipeableTabs({
@@ -286,78 +359,12 @@ export function SwipeableTabs({
                   accessibilityState={{ selected: isActive }}
                   accessibilityLabel={tab.label}
                 >
-                  <View
-                    testID={`tab-content-${tab.key}`}
-                    style={styles.tabContent}
+                  <TabContent
+                    tab={tab}
+                    isActive={isActive}
+                    isDark={isDark}
                     onLayout={(event) => handleContentLayout(index, event)}
-                  >
-                    <MaterialCommunityIcons
-                      name={tab.icon}
-                      size={18}
-                      color={
-                        isActive
-                          ? colors.primary
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary
-                      }
-                    />
-                    <Text
-                      // The tabs share the width with `flex: 1`, so a label wider
-                      // than its share used to wrap mid-word and the icon ended up
-                      // between the halves: five tabs at 1080 wide gave "Insight"
-                      // over "s". Truncating says the same thing and stays a row.
-                      numberOfLines={1}
-                      style={[
-                        styles.tabText,
-                        isActive && styles.tabTextActive,
-                        isDark && isActive && styles.tabTextActiveDark,
-                        isDark && !isActive && styles.tabTextDark,
-                      ]}
-                    >
-                      {tab.label}
-                    </Text>
-                    {tab.badgeText !== undefined ? (
-                      <View
-                        style={[
-                          styles.tabBadge,
-                          tab.badgeTone === 'pr'
-                            ? styles.tabBadgePr
-                            : tab.badgeTone === 'positive'
-                              ? styles.tabBadgePositive
-                              : tab.badgeTone === 'negative'
-                                ? styles.tabBadgeNegative
-                                : isDark
-                                  ? styles.tabBadgeDark
-                                  : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.tabBadgeText,
-                            tab.badgeTone === 'pr' ||
-                            tab.badgeTone === 'positive' ||
-                            tab.badgeTone === 'negative'
-                              ? styles.tabBadgeTextActive
-                              : null,
-                          ]}
-                        >
-                          {tab.badgeText}
-                        </Text>
-                      </View>
-                    ) : tab.count !== undefined ? (
-                      <View
-                        style={[
-                          styles.tabBadge,
-                          isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
-                        ]}
-                      >
-                        <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                          {tab.count}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
+                  />
                 </Pressable>
               );
             })}
@@ -381,78 +388,12 @@ export function SwipeableTabs({
                   accessibilityState={{ selected: isActive }}
                   accessibilityLabel={tab.label}
                 >
-                  <View
-                    testID={`tab-content-${tab.key}`}
-                    style={styles.tabContent}
+                  <TabContent
+                    tab={tab}
+                    isActive={isActive}
+                    isDark={isDark}
                     onLayout={(event) => handleContentLayout(index, event)}
-                  >
-                    <MaterialCommunityIcons
-                      name={tab.icon}
-                      size={18}
-                      color={
-                        isActive
-                          ? colors.primary
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary
-                      }
-                    />
-                    <Text
-                      // The tabs share the width with `flex: 1`, so a label wider
-                      // than its share used to wrap mid-word and the icon ended up
-                      // between the halves: five tabs at 1080 wide gave "Insight"
-                      // over "s". Truncating says the same thing and stays a row.
-                      numberOfLines={1}
-                      style={[
-                        styles.tabText,
-                        isActive && styles.tabTextActive,
-                        isDark && isActive && styles.tabTextActiveDark,
-                        isDark && !isActive && styles.tabTextDark,
-                      ]}
-                    >
-                      {tab.label}
-                    </Text>
-                    {tab.badgeText !== undefined ? (
-                      <View
-                        style={[
-                          styles.tabBadge,
-                          tab.badgeTone === 'pr'
-                            ? styles.tabBadgePr
-                            : tab.badgeTone === 'positive'
-                              ? styles.tabBadgePositive
-                              : tab.badgeTone === 'negative'
-                                ? styles.tabBadgeNegative
-                                : isDark
-                                  ? styles.tabBadgeDark
-                                  : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.tabBadgeText,
-                            tab.badgeTone === 'pr' ||
-                            tab.badgeTone === 'positive' ||
-                            tab.badgeTone === 'negative'
-                              ? styles.tabBadgeTextActive
-                              : null,
-                          ]}
-                        >
-                          {tab.badgeText}
-                        </Text>
-                      </View>
-                    ) : tab.count !== undefined ? (
-                      <View
-                        style={[
-                          styles.tabBadge,
-                          isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
-                        ]}
-                      >
-                        <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                          {tab.count}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
+                  />
                 </Pressable>
               );
             })}
@@ -517,48 +458,20 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
-    color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.linkTeal,
     fontWeight: '600',
   },
-  tabTextActiveDark: {
-    color: darkColors.linkTeal,
-  },
-  tabTextDark: {
-    color: darkColors.textSecondary,
-  },
   tabBadge: {
-    backgroundColor: colors.gray200,
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     minWidth: 22,
     alignItems: 'center',
   },
-  tabBadgeDark: {
-    backgroundColor: darkColors.border,
-  },
-  tabBadgeActive: {
-    backgroundColor: colors.primary,
-  },
-  tabBadgePr: {
-    backgroundColor: brand.gold,
-  },
-  tabBadgePositive: {
-    backgroundColor: colors.success,
-  },
-  tabBadgeNegative: {
-    backgroundColor: colors.textSecondary,
-  },
   tabBadgeText: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  tabBadgeTextActive: {
-    color: colors.textOnPrimary,
   },
   indicator: {
     position: 'absolute',

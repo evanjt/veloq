@@ -572,6 +572,10 @@ pub(crate) mod pooled {
 /// The activities with missing or track-misaligned time streams for section
 /// laps. Committed rows only, so a pooled connection answers it with no engine
 /// lock.
+///
+/// A device-minted key no upload has given a server id is left out: upstream
+/// has no stream to send for it, so asking would only hold a waiter until its
+/// deadline on every pass.
 pub(crate) fn activities_needing_time_streams(conn: &rusqlite::Connection) -> Vec<String> {
     match conn.prepare(
         "SELECT DISTINCT sa.activity_id
@@ -580,7 +584,13 @@ pub(crate) fn activities_needing_time_streams(conn: &rusqlite::Connection) -> Ve
          LEFT JOIN gps_tracks g ON g.activity_id = sa.activity_id
          WHERE sa.excluded = 0
            AND ((sa.lap_time IS NULL AND ts.activity_id IS NULL)
-                OR (ts.point_count > 0 AND ts.point_count != g.point_count))",
+                OR (ts.point_count > 0 AND ts.point_count != g.point_count))
+           AND (sa.activity_id NOT LIKE 'local-%'
+                OR EXISTS (SELECT 1 FROM activities a
+                           WHERE a.id = sa.activity_id AND a.intervals_id IS NOT NULL)
+                OR EXISTS (SELECT 1 FROM activity_bodies ab
+                           WHERE ab.activity_id = sa.activity_id
+                             AND ab.intervals_id IS NOT NULL))",
     ) {
         Ok(mut stmt) => stmt
             .query_map([], |row| row.get(0))

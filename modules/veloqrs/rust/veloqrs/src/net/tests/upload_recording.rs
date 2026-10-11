@@ -1165,17 +1165,17 @@ fn the_live_uplink_sends_what_the_review_saved() {
         when.method(POST)
             .path("/athlete/1/activities")
             .query_param("external_id", "r1")
-            .body_contains("filename=\"r1.fit\"")
-            .body_contains("Bern loop")
-            .body_contains("legs heavy")
-            .body_contains("4321");
+            .body_includes("filename=\"r1.fit\"")
+            .body_includes("Bern loop")
+            .body_includes("legs heavy")
+            .body_includes("4321");
         then.status(200)
             .json_body(serde_json::json!({ "id": "i999" }));
     });
     let effort = server.mock(|when, then| {
         when.method(PUT)
             .path("/activity/i999")
-            .body_contains("\"icu_rpe\":6");
+            .body_includes("\"icu_rpe\":6");
         then.status(200).json_body(serde_json::json!({}));
     });
     let mut entry = ride(&dir, "r1", 1_000);

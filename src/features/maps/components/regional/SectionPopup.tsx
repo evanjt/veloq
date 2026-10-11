@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { colors, darkColors, typography, spacing, layout, shadows } from '@/them
 import { SportIcons } from '@/shared/activity/SportIcons';
 import type { FrequentSection } from '@/types';
 import { Button, IconButton } from '@/shared/ui';
+import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 
 interface SectionPopupProps {
   section: FrequentSection;
@@ -24,6 +25,8 @@ export const SectionPopup = memo(function SectionPopup({
 }: SectionPopupProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const titleRef = useRef<Text>(null);
+  useFocusOnAppear(titleRef, section.id);
   const isMetric = useMetricSystem();
 
   // Names are stored in Rust (user-set or auto-generated on creation/migration)
@@ -33,7 +36,12 @@ export const SectionPopup = memo(function SectionPopup({
     <View testID="section-popup" style={[styles.popup, isDark && styles.popupDark, { bottom }]}>
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
-          <Text style={[styles.popupTitle, isDark && styles.popupTitleDark]} numberOfLines={1}>
+          <Text
+            ref={titleRef}
+            testID="section-popup-title"
+            style={[styles.popupTitle, isDark && styles.popupTitleDark]}
+            numberOfLines={1}
+          >
             {displayName}
           </Text>
           <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>

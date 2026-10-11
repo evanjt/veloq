@@ -180,4 +180,18 @@ describe('saving a manual entry', () => {
     );
     expect(uploadRecordingNow).not.toHaveBeenCalled();
   });
+
+  it('saves the effort chosen after the session on the row', async () => {
+    const { result } = renderHook(() => useReviewSave({ ...args(), rpe: 7 }));
+    await act(() => result.current.handleSave());
+
+    expect(saveRecording).toHaveBeenCalledWith(expect.objectContaining({ rpe: 7 }));
+  });
+
+  it('saves no effort when none was chosen', async () => {
+    const { result } = renderHook(() => useReviewSave({ ...args(), rpe: null }));
+    await act(() => result.current.handleSave());
+
+    expect((saveRecording as jest.Mock).mock.calls[0][0].rpe).toBeUndefined();
+  });
 });

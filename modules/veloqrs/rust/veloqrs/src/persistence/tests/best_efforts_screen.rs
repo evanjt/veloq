@@ -466,3 +466,34 @@ fn a_family_with_no_corrected_track_has_no_best_and_a_count() {
     assert_eq!(climbing(&data, "Run").source_excluded, 0);
     assert_all_finite(&data);
 }
+
+#[test]
+fn an_activity_with_no_elevation_is_neither_owed_nor_excluded_and_holds_no_best() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let points: Vec<GpsPoint> = (0..POINTS)
+        .map(|t| GpsPoint::new(46.0, 7.0 + f64::from(t) * 0.00003))
+        .collect();
+    engine
+        .add_activities_batch(vec![("bare".to_string(), points, "Run".to_string())])
+        .unwrap();
+    engine
+        .update_activity_metadata("bare", Some(NOW - 3 * DAY), Some("bare"), None, None)
+        .unwrap();
+    let times: Vec<u32> = (0..POINTS).collect();
+    engine.store_time_streams_flat(&["bare".to_string()], &times, &[0]);
+
+    for days in [SEASON, ALL_TIME] {
+        let data = read(&engine, days);
+        let run = climbing(&data, "Run");
+        assert_eq!(run.owed, 0);
+        assert_eq!(run.source_excluded, 0);
+        assert!(
+            run.bests
+                .iter()
+                .all(|b| b.vam.is_none() && b.activity_id.is_none())
+        );
+        assert_eq!(run.bests.len(), CLIMB_WINDOWS_S.len());
+        assert_all_finite(&data);
+    }
+}

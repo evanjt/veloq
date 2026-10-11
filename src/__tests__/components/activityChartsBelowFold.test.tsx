@@ -71,6 +71,7 @@ const activity = {
 } as unknown as ActivityDetail;
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
+const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100 }];
 
 const frames: FrameRequestCallback[] = [];
 
@@ -96,6 +97,7 @@ function section(transitionSettled: boolean) {
       chartInteracting={false}
       engineSectionCount={0}
       customSectionCount={0}
+      hrZones={hrZones}
       transitionSettled={transitionSettled}
       onPointSelect={() => {}}
       onInteractionChange={() => {}}

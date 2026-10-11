@@ -68,7 +68,7 @@ fn run_result(run: f64) -> FetchAndStoreResult {
 
 fn wait_for_a_hit(mocks: &[httpmock::Mock<'_>]) {
     let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while mocks.iter().all(|mock| mock.hits() == 0) {
+    while mocks.iter().all(|mock| mock.calls() == 0) {
         assert!(
             std::time::Instant::now() < until,
             "no request reached the fake transport"
@@ -110,7 +110,7 @@ fn a_track_run_parks_on_a_401_only_when_the_profile_confirms_it() {
         run_result(run);
 
         assert!(
-            track.hits() > 0,
+            track.calls() > 0,
             "the run never asked for the track (profile {status})"
         );
         assert_eq!(SYNC_SERVICE.snapshot().state, expected, "profile {status}");
@@ -172,7 +172,7 @@ fn a_sign_out_stops_the_track_run_and_stores_nothing_after_it() {
     crate::objects::sync::clear_test_credentials();
     let result = run_result(run);
 
-    let dispatched: usize = mocks.iter().map(httpmock::Mock::hits).sum();
+    let dispatched: usize = mocks.iter().map(httpmock::Mock::calls).sum();
     assert!(
         dispatched <= crate::http::MAX_CONCURRENCY,
         "dispatched {dispatched} track requests after the sign-out"
@@ -228,7 +228,7 @@ fn a_sign_out_stops_the_time_stream_tail() {
     crate::objects::sync::clear_test_credentials();
     run_result(run);
 
-    let asked: usize = time_mocks.iter().map(httpmock::Mock::hits).sum();
+    let asked: usize = time_mocks.iter().map(httpmock::Mock::calls).sum();
     assert!(
         asked <= TIME_STREAM_CONCURRENCY,
         "asked for {asked} time streams after the sign-out"
@@ -271,7 +271,7 @@ fn a_401_on_the_time_stream_tail_parks_and_asks_nothing_more() {
         let run = start_fetch_and_store(ids.clone(), vec![], crate::http::DownloadPriority::Bulk);
         run_result(run);
 
-        let asked: usize = time_mocks.iter().map(httpmock::Mock::hits).sum();
+        let asked: usize = time_mocks.iter().map(httpmock::Mock::calls).sum();
         assert!(
             asked <= TIME_STREAM_CONCURRENCY,
             "asked for {asked} time streams after a 401 (profile {status})"

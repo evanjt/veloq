@@ -214,6 +214,46 @@ describe('OAuth write scope boundary', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('stays silent when the athlete closes the upgrade tab', async () => {
+    mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.DISMISS });
+    const { result } = renderHook(() => usePermissionUpgrade());
+    await act(async () => {
+      expect(await result.current.upgradePermissions()).toEqual({ granted: false, error: null });
+    });
+    expect(result.current.error).toBeNull();
+  });
+
+  it('reports an upgrade the browser could not open', async () => {
+    mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.LOCKED });
+    const { result } = renderHook(() => usePermissionUpgrade());
+    await act(async () => {
+      expect(await result.current.upgradePermissions()).toEqual({
+        granted: false,
+        error: 'login.oauthFailed',
+      });
+    });
+    expect(result.current.error).toBe('login.oauthFailed');
+  });
+
+  it.each([WebBrowser.WebBrowserResultType.CANCEL, WebBrowser.WebBrowserResultType.DISMISS])(
+    'shows no sign-in error when the browser returns %s',
+    async (type) => {
+      mockBrowser.mockResolvedValue({ type });
+      const { result } = renderHook(() => useOAuthLogin({ setError }));
+      await act(() => result.current.handleOAuthLogin());
+      expect(setError).toHaveBeenCalledTimes(1);
+      expect(setError).toHaveBeenLastCalledWith(null);
+      expect(result.current.isLoading).toBe(false);
+    }
+  );
+
+  it('shows a sign-in error when the browser could not open', async () => {
+    mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.LOCKED });
+    const { result } = renderHook(() => useOAuthLogin({ setError }));
+    await act(() => result.current.handleOAuthLogin());
+    expect(setError).toHaveBeenLastCalledWith('login.oauthFailed');
+  });
+
   it('reserves write access for the explicit upgrade', () => {
     expect(OAUTH.SCOPES.filter((scope) => scope.endsWith(':WRITE'))).toEqual([]);
     expect(OAUTH.UPGRADE_SCOPES).toContain('ACTIVITY:WRITE');

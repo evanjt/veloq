@@ -57,8 +57,8 @@ appId: com.veloq.app.dev
       visible:
         id: "review-discard-button"
     commands:
-      - tapOn:
-          id: "review-discard-button"
+      - runFlow:
+          file: confirm-review-discard.yaml
       - extendedWaitUntil:
           visible:
             id: "home-screen"

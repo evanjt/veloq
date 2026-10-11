@@ -6,7 +6,7 @@
  *
  * Expected behaviour: the 0.4.0 tour carries a sections slide drawing those four pictures on fixed
  * demo attempts, and a routes slide, each with a Show Me that opens the athlete's most visited
- * section or route, or the list when there is none.
+ * section or route, and none while there is no such section or route.
  */
 import React from 'react';
 import * as fs from 'fs';
@@ -18,6 +18,7 @@ import {
   SECTIONS_LIST_ROUTE,
   ROUTES_LIST_ROUTE,
   resolveShowMeRoute,
+  type TourLibrary,
 } from '@/features/settings/lib/tourShowMe';
 import {
   TOUR_DEMO_ATTEMPTS,
@@ -70,33 +71,38 @@ describe('the 0.4.0 tour', () => {
 describe('the sections and routes Show Me', () => {
   const sections = slideOf('whatsNew.v040.sectionPageTitle');
   const routes = slideOf('whatsNew.v040.routesTitle');
+  const library = (places: { sectionId?: string; routeId?: string }): TourLibrary => ({
+    hasActivities: true,
+    cutoverChanged: false,
+    ...places,
+  });
 
   it('opens the most visited section', () => {
-    expect(resolveShowMeRoute(sections, { sectionId: 's-busy', routeId: 'r-busy' })).toBe(
+    expect(resolveShowMeRoute(sections, library({ sectionId: 's-busy', routeId: 'r-busy' }))).toBe(
       '/section/s-busy'
     );
   });
 
   it('opens the route with the most activities', () => {
-    expect(resolveShowMeRoute(routes, { sectionId: 's-busy', routeId: 'r-busy' })).toBe(
+    expect(resolveShowMeRoute(routes, library({ sectionId: 's-busy', routeId: 'r-busy' }))).toBe(
       '/route/r-busy'
     );
   });
 
-  it('lands on the list when the library has none', () => {
-    expect(resolveShowMeRoute(sections, {})).toBe(SECTIONS_LIST_ROUTE);
-    expect(resolveShowMeRoute(routes, {})).toBe(ROUTES_LIST_ROUTE);
+  it('offers no Show Me when the library has none', () => {
+    expect(resolveShowMeRoute(sections, library({}))).toBeUndefined();
+    expect(resolveShowMeRoute(routes, library({}))).toBeUndefined();
   });
 
-  it('lands on the list when only the other kind exists', () => {
-    expect(resolveShowMeRoute(sections, { routeId: 'r-busy' })).toBe(SECTIONS_LIST_ROUTE);
-    expect(resolveShowMeRoute(routes, { sectionId: 's-busy' })).toBe(ROUTES_LIST_ROUTE);
+  it('offers no Show Me when only the other kind exists', () => {
+    expect(resolveShowMeRoute(sections, library({ routeId: 'r-busy' }))).toBeUndefined();
+    expect(resolveShowMeRoute(routes, library({ sectionId: 's-busy' }))).toBeUndefined();
   });
 
   it('leaves a slide with a fixed route on that route', () => {
     const settings = WHATS_NEW_SLIDES['0.4.0'].find((s) => s.showMeRoute === '/detection-preview');
     expect(settings).toBeDefined();
-    expect(resolveShowMeRoute(settings!, { sectionId: 's-busy', routeId: 'r-busy' })).toBe(
+    expect(resolveShowMeRoute(settings!, library({ sectionId: 's-busy', routeId: 'r-busy' }))).toBe(
       '/detection-preview'
     );
   });

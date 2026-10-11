@@ -204,6 +204,10 @@ export const widgetLayout = {
   heroLine: 44,
   /** One line at `widgetType.metric`, the same for a metric figure. */
   metricLine: 30,
+  /** The Summary widget's supporting row: a label over a value. */
+  supportingRow: 40,
+  /** The same row when an entry also draws a caption under its value. */
+  supportingRowCaptioned: 52,
 } as const;
 
 /**
@@ -219,4 +223,20 @@ export const widgetType = {
   caption: 10,
   /** The smallest a line shrinks to when it is fitted to its box rather than cut off. */
   floor: 8,
+} as const;
+
+/**
+ * How the widget charts tell their marks apart without hue. A tinted or clear Home Screen
+ * draws a widget in one colour, keeping only shape and alpha, so each of these holds in
+ * every mode and the colour on top is a second carrier.
+ */
+export const widgetChart = {
+  /** Fatigue is dashed, so it reads apart from the solid fitness line. */
+  fatigueDash: [3, 2],
+  /** A form zone band's fill over its zone colour. */
+  bandOpacity: 0.3,
+  /** In one colour, neighbouring bands alternate between these two alphas. */
+  bandAccentedOpacities: [0.12, 0.3],
+  /** The line drawn at each band boundary. */
+  bandBoundary: 0.5,
 } as const;

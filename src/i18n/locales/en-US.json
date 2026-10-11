@@ -24,7 +24,7 @@
         "unauthorized": "intervals.icu rejected your login",
         "server": "intervals.icu sent back something the app couldn't use",
         "network": "Couldn't reach intervals.icu",
-        "storage": "A file on this device couldn't be read",
+        "storage": "A file on this device couldn't be read or written",
         "internal": "Sync stopped for a reason the app can't name"
       }
     }
@@ -76,8 +76,7 @@
     "batteryOptNudge": "Long recordings work best with battery optimization off for Veloq."
   },
   "routes": {
-    "createSection": "Create section",
-    "routesWillAppear": "Routes will appear after your activities are analyzed"
+    "createSection": "Create section"
   },
   "settings": {
     "customiseByActivity": "Customize by Activity Type",

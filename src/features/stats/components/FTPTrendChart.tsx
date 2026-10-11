@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+import { RangeCoverage } from 'veloqrs';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +27,12 @@ interface FTPTrendChartProps {
   changePercent?: number | undefined;
   /** Chart height */
   height?: number | undefined;
+  /**
+   * Whether the wellness the series is read from was downloaded for the days
+   * the chart draws. `NotFetched` turns the empty state into "not downloaded".
+   * Absent, the chart claims nothing either way.
+   */
+  coverage?: RangeCoverage | undefined;
 }
 
 interface FtpPoint {
@@ -43,6 +50,7 @@ export function FTPTrendChart({
   change: ftpChange = 0,
   changePercent = 0,
   height = 180,
+  coverage,
 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -82,15 +90,27 @@ export function FTPTrendChart({
 
   // Show empty state if no data
   if (!data || data.length === 0) {
+    const notDownloaded = coverage === RangeCoverage.NotFetched;
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('stats.noFtpData')}
-          </Text>
-          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-            {t('stats.completePowerActivities')}
-          </Text>
+          {notDownloaded ? (
+            <Text
+              testID="ftp-trend-not-downloaded"
+              style={[styles.emptyText, isDark && chartStyles.textDark]}
+            >
+              {t('stats.rangeNotDownloaded')}
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+                {t('stats.noFtpData')}
+              </Text>
+              <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
+                {t('stats.completePowerActivities')}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     );

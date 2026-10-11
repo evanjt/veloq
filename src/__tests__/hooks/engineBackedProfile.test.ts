@@ -8,6 +8,7 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { RangeCoverage, type WellnessDay } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useAthlete } from '@/shared/app/useAthlete';
@@ -35,6 +36,11 @@ const engine = {
   subscribe: jest.fn(() => () => {}),
 };
 
+/** The days a window holds, as the engine answers them with the window's coverage. */
+function stored(days: WellnessDay[]) {
+  return { days, coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty };
+}
+
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 let client: QueryClient;
@@ -49,7 +55,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getAthleteProfile.mockReturnValue(null);
   engine.getSportSettings.mockReturnValue(null);
-  engine.getWellnessDays.mockReturnValue([]);
+  engine.getWellnessDays.mockReturnValue(stored([]));
   useAuthStore.setState({ isAuthenticated: true, setAthlete });
 });
 
@@ -113,10 +119,12 @@ describe('useSportSettings', () => {
 
 describe('useWellness', () => {
   it('carries each stored day through, in the order the engine gave them', async () => {
-    engine.getWellnessDays.mockReturnValue([
-      { date: '2026-07-01', ctl: 60, sportLoad: [] },
-      { date: '2026-07-02', ctl: 61, sportLoad: [] },
-    ]);
+    engine.getWellnessDays.mockReturnValue(
+      stored([
+        { date: '2026-07-01', ctl: 60, sportLoad: [] },
+        { date: '2026-07-02', ctl: 61, sportLoad: [] },
+      ])
+    );
 
     const { result } = renderHook(() => useWellness('1m'), { wrapper });
 
@@ -126,16 +134,18 @@ describe('useWellness', () => {
   });
 
   it('keeps the per-sport loads the daily load bar sums', async () => {
-    engine.getWellnessDays.mockReturnValue([
-      {
-        date: '2026-07-01',
-        ctl: 60,
-        sportLoad: [
-          { sportGroup: 'Ride', load: 63 },
-          { sportGroup: 'Run', load: 28 },
-        ],
-      },
-    ]);
+    engine.getWellnessDays.mockReturnValue(
+      stored([
+        {
+          date: '2026-07-01',
+          ctl: 60,
+          sportLoad: [
+            { sportGroup: 'Ride', load: 63 },
+            { sportGroup: 'Run', load: 28 },
+          ],
+        },
+      ])
+    );
 
     const { result } = renderHook(() => useWellness('1m'), { wrapper });
 
@@ -157,7 +167,9 @@ describe('useWellness', () => {
 
 describe('useWellnessForDate', () => {
   it('returns the single day stored for that date', async () => {
-    engine.getWellnessDays.mockReturnValue([{ date: '2026-07-04', ctl: 62, sportLoad: [] }]);
+    engine.getWellnessDays.mockReturnValue(
+      stored([{ date: '2026-07-04', ctl: 62, sportLoad: [] }])
+    );
 
     const { result } = renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
 

@@ -48,6 +48,10 @@
 //              from inputs.variant in its own or the workflow's env, and no
 //              step sets it, since Gradle, the bundler and fastlane read the
 //              Expo configuration again after prebuild
+//   node       every setup-node reads its version from .nvmrc and no step
+//              passes a node-version, so CI builds under the major local
+//              builds are checked against, and package.json engines.node
+//              holds that same major
 //   deploys    a workflow only a tag starts never skips a store deploy: no step sets
 //              `skip=true` for a missing credential and no job runs only when an
 //              earlier job found its artefact, so a green run means an upload
@@ -65,6 +69,9 @@
 //              and GitHub's own actions/* is pinned to a full commit sha, since
 //              a tag or branch moves at the will of whoever holds that repository
 //              and the release jobs hand these steps the signing keys
+//   runtimes   no step pins an action at a version whose runtime is Node 20,
+//              which the runner has deprecated and forces onto Node 24, a sha
+//              pin judged by the tag in its trailing comment
 //
 // Usage: node scripts/lint-workflows.mjs [--root <dir>]
 
@@ -90,6 +97,9 @@ const AGGREGATED = ['.github/workflows/test.yml', '.github/workflows/build.yml']
 /** The workflow that type-checks every bench, since nothing else builds one. */
 const BENCH_CHECKED = '.github/workflows/test.yml';
 
+/** The file every Node setup reads its version from, and the engines field echoes. */
+const NODE_VERSION_FILE = '.nvmrc';
+
 /** The one native build definition per platform, reached through workflow_call. */
 const BUILD_DEFINITIONS = [
   '.github/workflows/build-android.yml',
@@ -114,6 +124,51 @@ const GEM_INSTALL_PODS = /\bgem\s+install\b[^\n;&|]*\bcocoapods\b/;
 
 /** Set once any step runs pod, which is when the bundle has to pin it. */
 let podsRun = false;
+
+/**
+ * The first version of each action whose action.yml declares `using: node24`,
+ * read from each tag's action.yml. Every version before it declares node20. A
+ * sha pin is judged by the tag in its trailing comment, and a ref that names no
+ * version is not judged.
+ */
+const FIRST_NODE24 = {
+  'actions/checkout': '5',
+  'actions/cache': '5',
+  'actions/cache/restore': '5',
+  'actions/cache/save': '5',
+  'actions/upload-artifact': '6',
+  'actions/download-artifact': '7',
+  'actions/setup-java': '5',
+  'actions/setup-node': '5',
+  'actions/setup-go': '6',
+  'dorny/paths-filter': '4',
+  'dependabot/fetch-metadata': '3',
+  'hendrikmuhs/ccache-action': '1.2.21',
+};
+
+/** A version ref's numbers, or null for a ref that is not a version. */
+function versionOf(ref) {
+  const match = /^v?(\d+(?:\.\d+)*)$/.exec(ref);
+  return match ? match[1].split('.').map(Number) : null;
+}
+
+/** The tag in each sha pin's trailing comment, keyed on the pinned ref. */
+const PIN_TAGS = new Map();
+const PIN_COMMENT = /^\s*-?\s*uses:\s*['"]?([^\s'"#]+@[0-9a-f]{40})['"]?\s+#\s*(\S+)/gm;
+
+/** The version a step's ref names, read from the comment when the ref is a sha. */
+function refVersion(uses) {
+  const ref = uses.split('@')[1] ?? '';
+  return versionOf(FULL_SHA.test(ref) ? (PIN_TAGS.get(uses) ?? '') : ref);
+}
+
+/** Whether version a sorts before b, a missing number reading as 0. */
+function before(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) < (b[i] ?? 0);
+  }
+  return false;
+}
 
 const failures = [];
 const fail = (file, where, message) =>
@@ -327,6 +382,16 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
     );
   }
 
+  const first = FIRST_NODE24[uses];
+  const version = first && refVersion(step.uses);
+  if (version && before(version, versionOf(first))) {
+    fail(
+      file,
+      where,
+      `${step.uses} runs on Node 20, which the runner has deprecated. Pin ${uses}@v${first} or later.`
+    );
+  }
+
   if (uses === 'actions/cache') {
     fail(
       file,
@@ -370,6 +435,20 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
       file,
       where,
       'actions/setup-node caches npm in a post step from any ref once package.json names npm. Set package-manager-cache: false.'
+    );
+  }
+  if (uses === 'actions/setup-node' && text(w['node-version-file']) !== NODE_VERSION_FILE) {
+    fail(
+      file,
+      where,
+      `actions/setup-node must read the Node major from the one pin. Set node-version-file: ${NODE_VERSION_FILE}.`
+    );
+  }
+  if (Object.hasOwn(w, 'node-version')) {
+    fail(
+      file,
+      where,
+      `node-version names a Node major beside ${NODE_VERSION_FILE}. Drop it and read ${NODE_VERSION_FILE}.`
     );
   }
   if (uses === 'actions/setup-go' && text(w.cache) !== 'false') {
@@ -655,6 +734,33 @@ function checkBenchesChecked(file, workflow) {
       file,
       'jobs',
       'no step runs cargo check --benches, so a bench rots behind any signature change and nothing says so.'
+    );
+  }
+}
+
+/** The pin exists, and package.json engines.node admits that major and no other. */
+function checkNodePin(sources) {
+  const pin = sources.get(NODE_VERSION_FILE)?.toString('utf8') ?? '';
+  const major = /^\s*v?(\d+)/.exec(pin)?.[1];
+  if (!major) {
+    fail(
+      NODE_VERSION_FILE,
+      '',
+      'is missing or names no Node major, and every setup-node reads it.'
+    );
+    return;
+  }
+  let range = '';
+  try {
+    range = text(JSON.parse(sources.get('package.json')?.toString('utf8') ?? '{}').engines?.node);
+  } catch {
+    // A package.json that does not parse fails every other gate first.
+  }
+  if (!new RegExp(`^\\s*[\\^~]?${major}(\\.|\\s*$)`).test(range) || /\|\||>|</.test(range)) {
+    fail(
+      'package.json',
+      '',
+      `engines.node must hold Node ${major} alone, the major ${NODE_VERSION_FILE} pins (for example ^${major}.0.0).`
     );
   }
 }
@@ -975,8 +1081,14 @@ function checkAggregators(file, workflow) {
   }
 }
 
-const sources = indexedSources(root, ['.github/workflows', '.github/actions']);
+const sources = indexedSources(root, [
+  '.github/workflows',
+  '.github/actions',
+  NODE_VERSION_FILE,
+  'package.json',
+]);
 refuseEmptyListing(sources, 'Workflow guard');
+checkNodePin(sources);
 
 const parsed = new Map();
 for (const [file, bytes] of sources) {
@@ -984,7 +1096,9 @@ for (const [file, bytes] of sources) {
   const isAction = /^\.github\/actions\/[^/]+\/action\.ya?ml$/.test(file);
   if (!isWorkflow && !isAction) continue;
   try {
-    const doc = load(bytes.toString('utf8'));
+    const source = bytes.toString('utf8');
+    for (const [, pinned, tag] of source.matchAll(PIN_COMMENT)) PIN_TAGS.set(pinned, tag);
+    const doc = load(source);
     if (doc && typeof doc === 'object') parsed.set(file, { doc, isAction });
   } catch (error) {
     fail(file, '', `does not parse: ${error.message.split('\n')[0]}`);

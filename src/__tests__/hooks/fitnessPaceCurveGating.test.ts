@@ -15,6 +15,7 @@ import { useFitnessScreenData } from '@/features/fitness/hooks/useFitnessScreenD
 import { usePaceCurve } from '@/features/stats';
 
 jest.mock('@/features/wellness', () => ({
+  useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
   useWellness: () => ({ data: undefined, isLoading: false }),
   timeRangeToDays: () => 42,
 }));

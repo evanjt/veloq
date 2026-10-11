@@ -1,7 +1,8 @@
 /**
  * Scenario: the manual entry header draws a back arrow over a screen with no stack header.
  *
- * Expected behaviour: pressing it fires one light impact and goes back.
+ * Expected behaviour: pressing it fires one light impact and goes back, and when the screen was
+ * opened as the stack root it goes to the Feed instead of doing nothing.
  */
 
 import React from 'react';
@@ -18,6 +19,18 @@ jest.mock('expo-haptics', () => ({
   performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
 }));
+
+let canGoBack: jest.SpyInstance;
+
+beforeEach(() => {
+  (router.back as jest.Mock).mockClear();
+  (router.replace as jest.Mock).mockClear();
+  canGoBack = jest.spyOn(router, 'canGoBack').mockReturnValue(true);
+});
+
+afterEach(() => {
+  canGoBack.mockRestore();
+});
 
 describe('ManualEntryHeader back arrow', () => {
   it.each([
@@ -39,5 +52,15 @@ describe('ManualEntryHeader back arrow', () => {
     } finally {
       Platform.OS = originalOS;
     }
+  });
+
+  it('goes to the Feed when the screen is the stack root', () => {
+    canGoBack.mockReturnValue(false);
+    render(<ManualEntryHeader activityType="Run" textPrimary="#000" />);
+
+    fireEvent.press(screen.UNSAFE_getByProps({ name: 'arrow-left' }));
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/');
   });
 });

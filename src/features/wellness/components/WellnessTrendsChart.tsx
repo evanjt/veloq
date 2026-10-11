@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
+import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -29,6 +30,7 @@ import {
 import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';
+import { wellnessRowDomain, wellnessRowReading } from '../lib';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -36,6 +38,11 @@ interface WellnessTrendsChartProps {
   timeRange: TimeRange;
   smoothingWindow?: SmoothingWindow | undefined;
   onDateSelect?: ((date: string | null) => void) | undefined;
+  /**
+   * Whether wellness was downloaded for the range drawn. `NotFetched` turns the
+   * empty state into "not downloaded". Absent, the chart claims nothing.
+   */
+  coverage?: RangeCoverage | undefined;
 }
 
 interface MetricChartData {
@@ -124,6 +131,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   timeRange,
   smoothingWindow = 'auto',
   onDateSelect,
+  coverage,
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -331,10 +339,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     if (activeMetrics.length === 0 || sparklineWidth <= 0) return null;
     return activeMetrics.map((metric, i) => {
       const yOffset = i * sparklineHeight;
-      const values = metric.data.map((d) => d.value);
-      const minValue = Math.min(...values);
-      const maxValue = Math.max(...values);
-      const range = maxValue - minValue || 1;
+      const domain = wellnessRowDomain(metric.data);
       return {
         metric,
         yOffset,
@@ -344,8 +349,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           sparklineHeight,
           yOffset,
           totalDays,
-          minValue - range * 0.15,
-          maxValue + range * 0.15
+          domain.min,
+          domain.max
         ),
       };
     });
@@ -407,8 +412,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
     for (const { metric, yOffset, path } of metricGeometry) {
       if (!path) continue;
-      const selectedPoint = metric.data.find((d) => d.x === selectedIdx);
-      if (!selectedPoint) continue;
+      const reading = wellnessRowReading(metric.data, selectedIdx);
+      if (!reading) continue;
       canvas.drawLine(
         path.sx(selectedIdx),
         yOffset + SPARKLINE_PADDING.top,
@@ -417,7 +422,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         linePaint
       );
       circlePaint.setColor(Skia.Color(metric.color));
-      canvas.drawCircle(path.sx(selectedPoint.x), path.sy(selectedPoint.value), 5, circlePaint);
+      canvas.drawCircle(path.sx(reading.x), path.sy(reading.value), 5, circlePaint);
     }
 
     return recorder.finishRecordingAsPicture();
@@ -426,13 +431,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   // Compute display values for each metric row
   const metricDisplayValues = useMemo(() => {
     return activeMetrics.map((metric) => {
-      const latestValue = metric.data[metric.data.length - 1];
       const avgValue = metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length;
       const isSelected = selectedIdx !== null;
-      // A scrubbed day this metric was not logged on shows none, not its latest reading.
-      const displayValue = isSelected
-        ? (metric.data.find((d) => d.x === selectedIdx) ?? null)
-        : latestValue;
+      const displayValue = wellnessRowReading(metric.data, selectedIdx);
       return { displayValue, avgValue, isSelected };
     });
   }, [activeMetrics, selectedIdx]);
@@ -458,12 +459,23 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('wellness.noTrendData')}
-          </Text>
-          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-            {t('wellness.trendHint')}
-          </Text>
+          {coverage === RangeCoverage.NotFetched ? (
+            <Text
+              testID="wellness-trends-not-downloaded"
+              style={[styles.emptyText, isDark && chartStyles.textDark]}
+            >
+              {t('stats.rangeNotDownloaded')}
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+                {t('wellness.noTrendData')}
+              </Text>
+              <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
+                {t('wellness.trendHint')}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     );
@@ -515,7 +527,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               <View style={styles.metricValues}>
                 <Text style={[styles.metricValue, isDark && styles.textLight]}>
                   {metricDisplayValues[i]?.displayValue
-                    ? metric.formatValue(metricDisplayValues[i].displayValue.rawValue)
+                    ? metric.formatValue(metricDisplayValues[i].displayValue.value)
                     : '-'}
                 </Text>
                 <Text style={[styles.metricUnit, isDark && chartStyles.textDark]}>

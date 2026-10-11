@@ -7,6 +7,7 @@
 import React from 'react';
 import { RefreshControl } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { RangeCoverage } from 'veloqrs';
 
 import FitnessScreen from '@/app/(tabs)/fitness';
 import { FitnessChartCard } from '@/features/fitness/components/sections/FitnessChartCard';
@@ -164,6 +165,7 @@ describe('fitness chart card with the wellness read failing', () => {
     return render(
       <FitnessChartCard
         wellness={[]}
+        wellnessCoverage={RangeCoverage.NotFetched}
         activities={[]}
         dailyLoads={[]}
         eftpChanges={[]}

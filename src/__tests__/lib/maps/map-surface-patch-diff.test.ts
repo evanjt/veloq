@@ -155,6 +155,21 @@ describe('createSurfacePatcher', () => {
     expect(fresh.patch?.sources).toBeDefined();
   });
 
+  it('sends the images once, since the page keeps them for the patches after', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    const images = [{ id: 'glyph', uri: 'data:image/png;base64,AAAA', sdf: true }];
+    const first = p.next({ sources: { traces }, layers, images });
+    expect(first.patch?.images).toBe(images);
+
+    const scrub = p.next({ sources: { traces: collection(4) }, layers, images });
+    expect(scrub.patch?.sources).toBeDefined();
+    expect(scrub.patch?.images).toBeUndefined();
+
+    p.forget();
+    expect(p.next({ sources: { traces }, layers, images }).patch?.images).toBe(images);
+  });
+
   it('sends nothing at all when nothing moved', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');

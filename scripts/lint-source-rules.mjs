@@ -228,6 +228,29 @@ const GROUND_TEXT_BASELINE = [];
 const DARK_COUNTERPART_TOKENS = ['linkTeal'];
 
 /**
+ * Dimmed text that is allowed to be, by file and style key, with the reason:
+ * measured on the ground behind it at 4.5:1 or more, or a glyph that is pure
+ * decoration, which 1.4.3 exempts. Every other dimmed text fails `dimmed-text`.
+ * An entry whose style no longer dims fails too, so the list cannot keep a
+ * measurement of something that has since changed.
+ */
+const DIMMED_TEXT_MEASURED = {
+  'src/app/(tabs)/map.tsx': {
+    chipTextDark:
+      'white at 0.8 on the dark chip wash, 6.93:1 over surfaceCard and higher elsewhere',
+  },
+  'src/shared/app/DemoBanner.tsx': {
+    subtext: 'dark ink at 0.85 on brand.blue, 4.78:1',
+  },
+  'src/shared/ui/OfflineBanner.tsx': {
+    subtitleText: 'pill ink at 0.8 on the pill fill, 4.90:1',
+  },
+  'src/shared/ui/DetailHero.tsx': {
+    statDivider: 'the dot between two stats, which carries no information of its own',
+  },
+};
+
+/**
  * TypeScript sites that still write `activity_metrics` and are another item's
  * to remove. Like the ground baseline it only shrinks: an entry that has
  * stopped writing fails the rule rather than going quiet.
@@ -687,6 +710,70 @@ const RULES = {
     fix: 'read `isDark ? darkColors.<token> : colors.<token>`, or a dark style that sets the dark token',
   },
 
+  // A text token clears 4.5:1 at full strength, and the token test measures it
+  // there. A style that draws it through an `opacity` below 1, or a colour
+  // built at an alpha with `colorWithOpacity`, lands as a lighter colour that
+  // test never sees: the tab bar's labels sat at 3.27:1 that way. The text of a
+  // disabled control is exempt, as 1.4.3 exempts it, and a style key naming
+  // `disabled` is read as one. Anything else measured and passing is listed in
+  // DIMMED_TEXT_MEASURED with its measurement.
+  'dimmed-text': {
+    pathspec: ['src'],
+    check(sources) {
+      const flagged = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        if (!/opacity|colorWithOpacity/i.test(text)) continue;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        const visit = (node, inStyle) => {
+          const styled =
+            inStyle ||
+            (ts.isCallExpression(node) && node.expression.getText(sf) === 'StyleSheet.create') ||
+            (ts.isJsxAttribute(node) && /style$/i.test(node.name.getText(sf)));
+          if (styled && ts.isObjectLiteralExpression(node)) {
+            const props = node.properties.filter(ts.isPropertyAssignment);
+            const prop = (key) => props.find((p) => propertyName(p) === key);
+            const color = prop('color');
+            const opacity = prop('opacity');
+            const dimmed =
+              color &&
+              (/^colorWithOpacity\(/.test(color.initializer.getText(sf)) ||
+                (opacity &&
+                  ts.isNumericLiteral(opacity.initializer) &&
+                  Number(opacity.initializer.text) < 1));
+            if (dimmed) {
+              const key =
+                ts.isPropertyAssignment(node.parent) && propertyName(node.parent)
+                  ? propertyName(node.parent)
+                  : '(inline)';
+              const line = sf.getLineAndCharacterOfPosition(color.getStart(sf)).line + 1;
+              flagged.push({ file, key, line });
+            }
+          }
+          ts.forEachChild(node, (child) => visit(child, styled));
+        };
+        visit(sf, false);
+      }
+
+      const out = flagged
+        .filter(({ key }) => !/disabled/i.test(key))
+        .filter(({ file, key }) => !DIMMED_TEXT_MEASURED[file]?.[key])
+        .map(({ file, key, line }) => `${file}:${line}  ${key} dims a text colour`);
+      for (const [file, keys] of Object.entries(DIMMED_TEXT_MEASURED)) {
+        if (!sources.has(file)) continue;
+        for (const key of Object.keys(keys)) {
+          if (!flagged.some((f) => f.file === file && f.key === key)) {
+            out.push(
+              `${file}  ${key} no longer dims: take it off DIMMED_TEXT_MEASURED in scripts/lint-source-rules.mjs`
+            );
+          }
+        }
+      }
+      return out;
+    },
+    fix: 'draw the text in a full-strength text token, textSecondary for the quieter line, or measure it on its ground and list it in DIMMED_TEXT_MEASURED',
+  },
+
   // The engine derives every `activity_metrics` row from the body it stores,
   // with one precedence per value. A row built in TypeScript beside it carries
   // a rule of its own and replaces the engine's, which is how push ingest
@@ -732,6 +819,24 @@ const RULES = {
       return out;
     },
     fix: 'open the library with openLibrary(engine, dbPath) from @/shared/storage/routeDbLocation',
+  },
+
+  // `router.back()` on a screen with nothing beneath it, as one a cold link or a
+  // replace left as the stack root, dispatches a pop nothing handles, so the
+  // control gives a haptic and the screen stays. `goBack` goes to the Feed then.
+  'one-back': {
+    pathspec: ['src'],
+    check(sources) {
+      const OWNER = 'src/shared/app/navigation.ts';
+      if (!sources.has(OWNER)) return [`${OWNER}  is gone: it owns the root-safe back`];
+      const out = [];
+      for (const [file, text] of sources) {
+        if (file === OWNER || !/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        out.push(...linesMatching(file, text, /^(?!\s*(?:\/\/|\*|\/\*)).*\brouter\.back\b/));
+      }
+      return out;
+    },
+    fix: 'leave the screen with goBack or tapBack from @/shared/app/navigation',
   },
 
   // `src/shared/` is the layer every feature imports, so a cycle inside it is a

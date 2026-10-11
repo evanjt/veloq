@@ -148,8 +148,7 @@ fn mock_bulk_answering<'a>(
 /// Any single-activity request, which a bulk-served sweep should not make.
 fn mock_single_activity_requests(server: &MockServer) -> httpmock::Mock<'_> {
     server.mock(|when, then| {
-        when.method(GET)
-            .path_matches(httpmock::Regex::new(r"^/activity/").expect("pattern"));
+        when.method(GET).path_matches(r"^/activity/");
         then.status(500);
     })
 }
@@ -199,9 +198,9 @@ fn four_hundred_and_fifty_owed_bodies_cost_three_requests() {
     sweep(&server).expect("the sweep");
 
     for chunk in &chunks {
-        chunk.assert_hits(1);
+        chunk.assert_calls(1);
     }
-    single.assert_hits(0);
+    single.assert_calls(0);
     for id in &ids {
         assert_eq!(
             interval_body(id),
@@ -223,7 +222,7 @@ fn four_hundred_and_fifty_owed_bodies_cost_three_requests() {
         then.status(500);
     });
     sweep(&quiet).expect("a library with every body owes nothing");
-    any.assert_hits(0);
+    any.assert_calls(0);
 }
 
 #[test]
@@ -260,9 +259,9 @@ fn exactly_two_hundred_owed_is_one_request_and_two_hundred_and_one_is_two() {
 
         assert_eq!(chunks.len(), requests);
         for chunk in &chunks {
-            chunk.assert_hits(1);
+            chunk.assert_calls(1);
         }
-        single.assert_hits(0);
+        single.assert_calls(0);
         assert!(ids.iter().all(|id| interval_body(id).is_some()), "{count}");
     }
 }
@@ -281,7 +280,7 @@ fn ids_asked_out_of_order_are_matched_to_their_own_rows() {
 
     sweep(&server).expect("the sweep");
 
-    bulk.assert_hits(1);
+    bulk.assert_calls(1);
     for id in &ids {
         assert_eq!(interval_body(id), Some(intervals_text(id)), "{id}");
         assert_eq!(activity_body(id), Some(detail_text(id)), "{id}");
@@ -308,9 +307,9 @@ fn an_id_the_answer_leaves_out_is_confirmed_by_one_single_request() {
 
     sweep(&server).expect("an answered absence is not a failed sweep");
 
-    bulk.assert_hits(1);
-    confirm.assert_hits(1);
-    others.assert_hits(0);
+    bulk.assert_calls(1);
+    confirm.assert_calls(1);
+    others.assert_calls(0);
     assert_eq!(interval_body("b001").as_deref(), Some(NO_INTERVALS_BODY));
     assert!(interval_body("b000").is_some() && interval_body("b002").is_some());
 }
@@ -331,7 +330,7 @@ fn a_left_out_id_the_single_request_answers_is_stored_as_answered() {
 
     sweep(&server).expect("the sweep");
 
-    confirm.assert_hits(1);
+    confirm.assert_calls(1);
     assert_eq!(interval_body("b001"), Some(intervals_text("b001")));
 }
 
@@ -381,7 +380,7 @@ fn an_answer_naming_an_id_not_asked_for_confirms_nothing_absent() {
         outcome.is_err(),
         "a mismatched answer is not a finished sweep"
     );
-    single.assert_hits(0);
+    single.assert_calls(0);
     assert_eq!(interval_body("b001"), None, "still owed");
     assert_eq!(interval_body("b999"), None, "not a row of this library");
     assert_eq!(interval_body("b000"), Some(intervals_text("b000")));
@@ -408,7 +407,7 @@ fn an_item_with_null_intervals_is_confirmed_and_stored_as_the_single_answer() {
 
     sweep(&server).expect("the sweep");
 
-    confirm.assert_hits(1);
+    confirm.assert_calls(1);
     assert_eq!(interval_body("b000").as_deref(), Some(single_answer));
     assert!(
         activity_body("b000").is_some_and(|b| b.contains("icu_athlete_id")),
@@ -434,7 +433,7 @@ fn a_stub_item_stores_no_detail_and_is_confirmed_before_it_is_absent() {
 
     sweep(&server).expect("the sweep");
 
-    confirm.assert_hits(1);
+    confirm.assert_calls(1);
     assert_eq!(interval_body("b000").as_deref(), Some(NO_INTERVALS_BODY));
     assert!(
         !activity_body("b000").is_some_and(|b| b.contains("_note")),
@@ -459,9 +458,9 @@ fn a_timed_out_chunk_of_two_hundred_is_retried_as_two_of_one_hundred() {
     let transport = transport_with_backfill_ceiling(&server, Duration::from_millis(300));
     sweep_with(&transport).expect("the halves land");
 
-    assert!(whole.hits() >= 1, "the whole chunk was asked for first");
+    assert!(whole.calls() >= 1, "the whole chunk was asked for first");
     for half in &halves {
-        half.assert_hits(1);
+        half.assert_calls(1);
     }
     assert!(ids.iter().all(|id| interval_body(id).is_some()));
 }
@@ -490,8 +489,8 @@ fn a_chunk_that_times_out_at_the_floor_fails_the_step_and_stays_owed() {
         matches!(outcome, Err(NetError::Transport(_))),
         "{outcome:?}"
     );
-    assert!(slow.hits() >= 1);
-    others.assert_hits(0);
+    assert!(slow.calls() >= 1);
+    others.assert_calls(0);
     assert!(ids.iter().all(|id| interval_body(id).is_none()));
 }
 
@@ -561,7 +560,7 @@ fn a_refused_credential_ends_the_sweep() {
         matches!(outcome, Err(NetError::Unauthorized)),
         "{outcome:?}"
     );
-    any.assert_hits(1);
+    any.assert_calls(1);
 }
 
 #[test]
@@ -584,7 +583,7 @@ fn a_cancelled_sweep_asks_for_nothing() {
     ))
     .expect("a cancel is not a failure");
 
-    any.assert_hits(0);
+    any.assert_calls(0);
 }
 
 #[test]
@@ -596,9 +595,8 @@ fn the_newest_five_cost_one_bulk_request_and_their_stream_requests() {
     let server = MockServer::start();
     let bulk = mock_bulk(&server, &ids[..5]);
     let streams = server.mock(|when, then| {
-        when.method(GET).path_matches(
-            httpmock::Regex::new(r"^/activity/b\d+/streams\.json$").expect("pattern"),
-        );
+        when.method(GET)
+            .path_matches(r"^/activity/b\d+/streams\.json$");
         then.status(200).body("[]");
     });
     let single = mock_single_activity_requests(&server);
@@ -611,9 +609,9 @@ fn the_newest_five_cost_one_bulk_request_and_their_stream_requests() {
     ))
     .expect("the step");
 
-    bulk.assert_hits(1);
-    streams.assert_hits(5);
-    single.assert_hits(0);
+    bulk.assert_calls(1);
+    streams.assert_calls(5);
+    single.assert_calls(0);
     for id in &ids[..5] {
         assert_eq!(interval_body(id), Some(intervals_text(id)), "{id}");
         assert_eq!(activity_body(id), Some(detail_text(id)), "{id}");
@@ -643,8 +641,7 @@ fn mock_single_endpoints(server: &MockServer) {
     for id in FIXTURE_IDS {
         if id == FIXTURE_STUB {
             server.mock(|when, then| {
-                when.method(GET)
-                    .path_matches(httpmock::Regex::new(&format!("^/activity/{id}")).unwrap());
+                when.method(GET).path_matches(format!("^/activity/{id}"));
                 then.status(422);
             });
             continue;
@@ -723,7 +720,7 @@ fn the_bulk_path_stores_what_the_single_requests_store() {
         let bulk = mock_bulk_answering(&server, &asked, fixture("bulk.json"));
         mock_single_endpoints(&server);
         sweep(&server).expect("the bulk sweep");
-        bulk.assert_hits(1);
+        bulk.assert_calls(1);
         FIXTURE_IDS.iter().map(|id| reads(id)).collect::<Vec<_>>()
     };
 

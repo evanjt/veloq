@@ -48,7 +48,7 @@
       "trainingLoad": "O Training Stress Score (TSS) quantifica a carga de treino com base na duração e intensidade relativas ao seu limiar.",
       "yourForm": "A sua Forma (TSB) neste dia. Este é um valor diário baseado no seu treino geral, não específico desta atividade. TSB = Condição (CTL) menos Fadiga (ATL)."
     },
-    "ftp": "FTP: {{value}}W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Frequência cardíaca",
     "mapStyle": "Estilo do mapa",
     "maxHR": "Máx: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "A sua forma"
     },
     "hrZoneTotal": "Tempo com frequência cardíaca: {{duration}}",
+    "powerZoneTotal": "Tempo com potência: {{duration}}",
     "movingTime": "Tempo em movimento: {{duration}}",
     "timeInHRZones": "Tempo nas zonas FC",
     "timeInPowerZones": "Tempo em zonas de potência",
@@ -223,8 +224,26 @@
     "accountChangeUnknownDemoMessage": "Este dispositivo tem uma biblioteca de outra conta. Continuar para o modo demo eliminá-la-á permanentemente. Para a manter, volte atrás e inicie sessão nessa conta primeiro.",
     "accountChangeContinue": "Continuar e eliminar",
     "disconnectAndClearTitle": "Terminar sessão e eliminar dados?",
-    "disconnectAndClearMessage": "Isto termina a sua sessão E elimina todas as atividades, trilhos GPS, troços e dados de percursos em cache neste dispositivo. Os dados serão ressincronizados a partir de intervals.icu na próxima vez que iniciar sessão. Esta ação não pode ser desfeita.",
-    "disconnectAndClearConfirm": "Eliminar e terminar sessão"
+    "disconnectAndClearMessage": "Isto termina a sua sessão e elimina a sua biblioteca deste telemóvel. Esta ação não pode ser desfeita.",
+    "disconnectAndClearConfirm": "Eliminar e terminar sessão",
+    "disconnectAndClearBackUpFirst": "Fazer cópia primeiro",
+    "wipeList": {
+      "returns": "Volta quando iniciar sessão de novo:",
+      "deleted": "Eliminado para sempre:",
+      "kept": "Fica neste telemóvel:",
+      "activities": "Atividades e os seus trilhos GPS",
+      "wellness": "Bem-estar e forma",
+      "detectedSections": "Troços e percursos encontrados nas suas atividades",
+      "localBackups": "Cópias de segurança guardadas neste telemóvel",
+      "backupSetup": "Configuração das cópias: início de sessão WebDAV, conta do Google Drive e pasta de cópias",
+      "names": "Nomes que deu a troços e percursos",
+      "sectionEdits": "Troços que criou, recortou ou fixou",
+      "sensors": "Sensores emparelhados",
+      "exportPrivacy": "Localização de casa definida para a privacidade das exportações",
+      "notificationChoices": "Escolhas de notificações",
+      "mapChoices": "Definições de mapa guardadas para atividades específicas",
+      "recordings": "Atividades gravadas neste telemóvel"
+    }
   },
   "attribution": {
     "demoData": "O modo demo utiliza trajetos de atividade reais. Utilizados com permissão do autor.",
@@ -420,12 +439,14 @@
     "pullToRefresh": "Puxar para atualizar",
     "reset": "Repor",
     "retry": "Tentar novamente",
+    "freeUpSpace": "Libertar espaço",
     "save": "Guardar",
     "showDetails": "Mostrar detalhes para o programador",
     "undo": "Desfazer",
     "on": "Ligado",
     "off": "Desligado",
-    "openSettings": "Abrir definições"
+    "openSettings": "Abrir definições",
+    "allow": "Permitir"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -449,10 +470,11 @@
         "rateLimited": "O intervals.icu pediu uma pausa, a sincronização está a aguardar",
         "server": "O intervals.icu devolveu algo que a app não conseguiu usar",
         "network": "Não foi possível contactar o intervals.icu",
-        "storage": "Não foi possível ler um ficheiro deste dispositivo",
+        "storage": "Não foi possível ler nem gravar um ficheiro deste dispositivo",
         "notConfigured": "Não há nenhum início de sessão do intervals.icu guardado neste dispositivo",
         "internal": "A sincronização parou por um motivo que a app não sabe nomear",
-        "engineClosed": "A sincronização parou porque a biblioteca foi fechada a meio"
+        "engineClosed": "A sincronização parou porque a biblioteca foi fechada a meio",
+        "storageFull": "Este dispositivo ficou sem espaço, por isso a sincronização não conseguiu guardar o que transferiu"
       }
     },
     "tracksMissing": {
@@ -734,8 +756,8 @@
       "sectionTrendName": "Tendência de desempenho em troços",
       "stalePrCrossRefName": "Cruzamento de PR com {{metric}}",
       "efficiencyName": "Regressão da eficiência aeróbia",
-      "efficiencyDescription": "Acompanha a frequência cardíaca média multiplicada pelo ritmo nos esforços correspondentes da secção, com uma regressão por mínimos quadrados ordinários ao longo do tempo. Só se mostra uma direção quando o intervalo de 95 % do declive exclui o zero e a variação modelada ao longo dos esforços é superior a 2 % da média. Um valor a descer significa menos batimentos ao mesmo ritmo.",
-      "efficiencyFormula": "eficiência = frequência cardíaca média × ritmo (segundos por km)",
+      "efficiencyDescription": "Acompanha a frequência cardíaca média multiplicada pelo ritmo nos esforços correspondentes da secção, com uma regressão por mínimos quadrados ordinários ao longo do tempo. Só se mostra uma direção quando o intervalo de 95 % do declive exclui o zero e a variação modelada ao longo dos esforços é superior a 2 % da média. Um valor a descer significa menos batimentos por km: frequência cardíaca mais baixa, ritmo mais rápido ou ambos.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = frequência cardíaca média × ritmo (segundos por km)",
       "routeName": "Recordes e tendências de rota",
       "route": "Conta as tentativas numa rota, num desporto e numa direção, que têm tempo, não estão excluídas, não são parciais e estão dentro da faixa de distância da rota. Um recorde é a mais rápida delas, feita recentemente. Uma tendência compara a mediana das últimas três com as três anteriores, a partir de seis tentativas."
     },
@@ -848,7 +870,8 @@
     },
     "aboutRanking": "Os cartões são ordenados pelo que tem para dizer: quão recente é, quanto foge ao teu habitual, quanto mudou e com que frequência o fazes.",
     "efficiencyTrend": {
-      "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
+      "seriesLabel": "{{quantity}}, da passagem mais antiga à mais recente",
+      "quantity": "Frequência cardíaca × ritmo",
       "title": "Eficiência a melhorar em {{name}}",
       "changeTitle": "Eficiência em {{name}}: +{{hrChange}} bpm",
       "changeSubtitle": "+{{hrChange}} bpm estimados ao ritmo médio em {{efforts}} passagens",
@@ -1010,6 +1033,7 @@
     "sessionKeyRejected": "A sua chave API foi recusada.",
     "sessionRestore": "Inicie sessão novamente para as recuperar.",
     "sessionRestoreAthlete": "Inicie sessão novamente como {{athleteId}} para as recuperar.",
+    "sessionHeldRide": "A sua atividade de {{when}} foi guardada e abre quando iniciar sessão novamente.",
     "subtitle": "Ligar ao intervals.icu",
     "termsOfService": "Termos de Serviço",
     "title": "Veloq",
@@ -1153,6 +1177,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "As Atividades em direto estão desativadas, por isso os controlos não aparecem no ecrã bloqueado",
+    "notificationsOffNotice": "As notificações estão desativadas, por isso os controlos e avisos da gravação não aparecem fora da app",
     "strengthRest": "Descanso",
     "strengthLine": "Linha {{n}} de {{total}}",
     "strengthDone": "Feito",
@@ -1189,6 +1215,8 @@
       "stop": "PARAR"
     },
     "discard": "Descartar",
+    "discardConfirmMessage": "Não foi guardada e não poderá ser recuperada depois de descartada.",
+    "discardConfirmTitle": "Descartar esta gravação?",
     "distance": "Distância (km)",
     "distanceInvalid": "Introduza uma distância válida (0-999).",
     "duration": "Duração (minutos)",
@@ -1214,13 +1242,18 @@
     },
     "gpsAcquiring": "A aguardar GPS...",
     "gpsAlertContinue": "Continuar sem GPS",
-    "gpsAlertMessage": "Não foi possível obter sinal GPS. Verifique se os serviços de localização estão ativados e se tem visibilidade desimpedida do céu.",
+    "gpsAlertMessage": "Não foi possível obter sinal GPS. Desloque-se para um local com visibilidade desimpedida do céu.",
     "gpsAlertSettings": "Abrir definições",
     "gpsAlertStop": "Parar gravação",
     "gpsAlertTitle": "Sinal GPS não encontrado",
     "gpsNone": "Localização recusada",
     "gpsPermissionDenied": "Permissão de localização negada. Conceda acesso nas Definições para gravar GPS.",
     "gpsReady": "GPS pronto",
+    "gpsServicesOff": "Localização desativada",
+    "gpsServicesOffAndroid": "A localização está desativada neste telemóvel, por isso não é possível gravar um percurso.",
+    "gpsServicesOffIos": "Os serviços de localização estão desativados, por isso não é possível gravar um percurso. Ative-os em Definições > Privacidade e segurança > Serviços de localização.",
+    "gpsServicesOffTitle": "A localização está desativada",
+    "gpsServicesTurnOn": "Ativar",
     "gpsTrackingError": "Não foi possível iniciar o rastreamento GPS. Tente pausar e retomar.",
     "gpsWaiting": "A aguardar sinal GPS. Vá para o exterior para melhor receção.",
     "gpsWeakWarning": "Sinal GPS fraco, a gravação pode ser imprecisa",
@@ -1246,6 +1279,7 @@
       "max": "Máximo"
     },
     "saveError": "Falha ao guardar",
+    "saveErrorNoSpace": "Este dispositivo está quase sem espaço, por isso não foi possível guardar a atividade. Liberte espaço e tente novamente.",
     "savedQueued": "Atividade guardada. Será enviada automaticamente quando voltar a estar online.",
     "savedQueuedAuth": "Atividade guardada. Será carregada quando iniciares sessão novamente.",
     "settings": "Definições de gravação",
@@ -1273,6 +1307,8 @@
       "night": "Noite"
     },
     "trimActivity": "Recortar atividade",
+    "trimEndHandle": "Fim do recorte",
+    "trimStartHandle": "Início do recorte",
     "trimmed": "Recortado",
     "uploadRejected": "O intervals.icu recusou este ficheiro. A atividade fica guardada em As minhas gravações.",
     "uploadMissing": "O ficheiro desta atividade já não está no dispositivo, por isso não pode ser enviado.",
@@ -1408,7 +1444,6 @@
     "renameFailedMessage": "O nome da rota não foi guardado. Tenta novamente.",
     "routeNamePlaceholder": "Nome do percurso",
     "routeWord": "Rota",
-    "routesWillAppear": "Os percursos aparecerão após as suas atividades serem analisadas",
     "routesWithTwoPlus": "Percursos com 2+ atividades em trajetos semelhantes aparecerão aqui",
     "sectionCreationFailed": "Falha ao criar o troço. Por favor, tente novamente.",
     "sectionWord": "Secção",
@@ -1441,7 +1476,19 @@
     "resetReferenceConfirm": "Voltar à seleção automática da referência? As percentagens de correspondência deste percurso serão recalculadas.",
     "prTime": "RP {{time}}",
     "errorDetailId": "ID: {{id}}",
-    "errorDetailRange": "Intervalo: {{start}} → {{end}}"
+    "errorDetailRange": "Intervalo: {{start}} → {{end}}",
+    "emptyNoGpsTitle": "Nenhuma atividade com GPS",
+    "emptyNoGps": "Os percursos e os troços são encontrados nos trajetos GPS, e o intervalo sincronizado só tem sessões sem GPS, como rolo, piscina ou força.",
+    "emptyNotYetRunTitle": "A aguardar análise",
+    "emptyNotYetRun_one": "{{count}} atividade com GPS aguarda análise. Os percursos e troços aparecem quando esta terminar.",
+    "emptyNotYetRun_other": "{{count}} atividades com GPS aguardam análise. Os percursos e troços aparecem quando esta terminar.",
+    "emptyRunningTitle": "Análise em curso",
+    "emptyRunning": "{{phase}}: {{percent}}% concluído. Os percursos e troços aparecem quando terminar.",
+    "emptyHeldTitle": "Análise em espera",
+    "emptyNoRoutes_one": "Um percurso precisa de pelo menos {{count}} atividade num trajeto semelhante. Nenhuma das suas atividades com GPS forma um ainda.",
+    "emptyNoRoutes_other": "Um percurso precisa de pelo menos {{count}} atividades num trajeto semelhante. Nenhuma das suas atividades com GPS partilha um ainda.",
+    "emptyNoSections_one": "Um troço precisa de pelo menos {{count}} atividade no mesmo pedaço de estrada. Não foi encontrado nenhum nas suas atividades com GPS.",
+    "emptyNoSections_other": "Um troço precisa de pelo menos {{count}} atividades no mesmo pedaço de estrada, mesmo em percursos diferentes. Não foi encontrado nenhum nas suas atividades com GPS."
   },
   "routesScreen": {
     "computingRoutes": "A calcular percursos...",
@@ -1511,7 +1558,7 @@
     "sectionNotFound": "Troço não encontrado",
     "aerobicEfficiency": "Eficiência aeróbia",
     "aerobicEfficiencyDetail": "{{efforts}} passagens comparáveis, variação modelada de {{hrChange}} bpm ao ritmo médio",
-    "aerobicEfficiencyCaption": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
+    "aerobicEfficiencyCaption": "{{quantity}}, da passagem mais antiga à mais recente",
     "correlationTitle": "Bem-estar e velocidade",
     "correlationMethod": "r de Pearson da velocidade por volta face ao valor de bem-estar desse dia, intervalo de 95%, pelo menos 10 passagens com um valor",
     "correlationFamily_one": "Ajustado por Holm em {{count}} variável",
@@ -2001,7 +2048,6 @@
     "atWeight": "a {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Eficiência aeróbica",
     "eFTPTrend": "Tendência eFTP",
     "ftpLabel": "FTP {{value}}w",
     "heartRate": "Frequência cardíaca",
@@ -2051,6 +2097,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2149,6 +2196,15 @@
       "routesBody": "As atividades no mesmo trajeto são agrupadas num percurso, com cada tentativa comparada com as outras.",
       "sectionPageTip": "Desliza a página do troço para ver a tendência, a distribuição dos teus tempos e a linha colorida onde ganhaste ou perdeste tempo.",
       "routesTip": "Desliza a página da rota para ver cada tentativa no percurso comparada com as outras."
+    },
+    "tutorial": {
+      "firstLoadTitle": "O seu treino, neste telemóvel",
+      "firstLoadBody": "O Veloq lê as suas atividades e o seu bem-estar a partir do intervals.icu e guarda-os neste telemóvel. O primeiro carregamento decorre em segundo plano, e o feed vai sendo preenchido à medida que as atividades chegam.",
+      "feedTitle": "O seu feed",
+      "feedBody": "Cada atividade chega aqui como um cartão com o seu mapa, da mais recente para a mais antiga.",
+      "feedTip": "Puxe para baixo para procurar novas atividades no intervals.icu, ou toque num cartão para o abrir.",
+      "activityTitle": "Dentro de uma atividade",
+      "activityBody": "Abra uma atividade para ver o mapa e os gráficos, os intervalos e os percursos e troços a que pertence."
     }
   },
   "strength": {
@@ -2185,6 +2241,7 @@
     "sets": "séries",
     "setsCount_one": "{{count}} série",
     "setsCount_other": "{{count}} séries",
+    "clearMuscle": "Desmarcar {{muscle}}",
     "muscleGroupVolume": "Volume por grupo muscular",
     "relativeWeightedSets": "Séries ponderadas relativas no período selecionado",
     "reps": "repetições",
@@ -2425,7 +2482,16 @@
     "window_one": "{{change}} em {{count}} dia",
     "window_other": "{{change}} em {{count}} dias",
     "window_many": "{{change}} em {{count}} dias",
-    "rule": "A variação é o último valor de condição física no período menos o primeiro. Um ponto marca cada dia em que subiu mais de 1 ponto em relação ao dia anterior."
+    "rule": "A variação é o último valor de condição física no período menos o primeiro. Um ponto marca cada dia em que subiu mais de 1 ponto em relação ao dia anterior.",
+    "trend": {
+      "improved": "em melhoria",
+      "declined": "em agravamento",
+      "rising": "a subir",
+      "falling": "a descer",
+      "steady": "estável",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Comparado com {{previous}} em {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Comparado com {{previous}} no mesmo ponto da semana passada."
+    }
   },
   "period": {
     "short": {

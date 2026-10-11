@@ -20,6 +20,8 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ preferences: { defaultStyle: 'light' } }),
 }));
 
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
@@ -88,6 +90,24 @@ describe('RecordingMap', () => {
 
     fireEvent.press(screen.getByTestId('recording-map-route-overlay'));
     expect(onOpenRoutePicker).toHaveBeenCalledTimes(1);
+  });
+
+  it('names each control and says when the route overlay is on', () => {
+    const props = { coordinates: TRACK, currentLocation: HERE, onOpenRoutePicker: jest.fn() };
+    const { rerender } = render(<RecordingMap {...props} />);
+    panTheMap();
+
+    expect(screen.getByRole('button', { name: 'maps.toggleStyle' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'maps.goToLocation' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: false })
+    ).toBeTruthy();
+
+    rerender(<RecordingMap {...props} routeOverlay={[{ lat: 46.948, lng: 7.447 }]} />);
+
+    expect(
+      screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: true })
+    ).toBeTruthy();
   });
 
   it('hides the controls in review mode', () => {

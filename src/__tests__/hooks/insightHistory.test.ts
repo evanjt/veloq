@@ -418,7 +418,7 @@ describe('the scale a card graphic prints', () => {
     });
   });
 
-  it('prints no scale for the efficiency ratio, which has no unit to print', () => {
+  it('prints the efficiency scale in heart rate times pace', () => {
     const [card] = generateEfficiencyTrendInsights(
       [
         {
@@ -440,7 +440,8 @@ describe('the scale a card graphic prints', () => {
       NOW,
       t
     );
-    expect(card.supportingData?.history).toBeDefined();
-    expect(card.supportingData?.history).not.toHaveProperty('scale');
+    expect(card.supportingData?.history).toMatchObject({
+      scale: { top: '35900 units.bpmSecondsPerKm', bottom: '35700 units.bpmSecondsPerKm' },
+    });
   });
 });

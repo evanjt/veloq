@@ -251,15 +251,15 @@ fn assert_clear_under_running_sync(clear: impl FnOnce(&VeloqEngine, &Path), expe
 
     test_hold_sync_slot();
     clear(&VeloqEngine, &path);
-    assert_eq!(asked.hits(), 0, "the cancelled run still holds the slot");
+    assert_eq!(asked.calls(), 0, "the cancelled run still holds the slot");
     SYNC_SERVICE.finish(SyncState::Idle, None, false);
 
     let until =
         std::time::Instant::now() + Duration::from_secs(if expect_restart { 10 } else { 1 });
-    while asked.hits() == 0 && std::time::Instant::now() < until {
+    while asked.calls() == 0 && std::time::Instant::now() < until {
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert_eq!(asked.hits() > 0, expect_restart);
+    assert_eq!(asked.calls() > 0, expect_restart);
     let settle = std::time::Instant::now() + Duration::from_secs(10);
     while SYNC_SERVICE.snapshot().state == SyncState::Syncing && std::time::Instant::now() < settle
     {

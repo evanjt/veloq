@@ -31,6 +31,8 @@ interface SupportingMetric {
   value: string | number;
   color?: string | undefined;
   trend?: TrendGlyph | undefined;
+  /** What a screen reader hears: the value, and what its arrow was judged against. */
+  accessibilityLabel?: string | undefined;
   /** The route and chart a tap opens. */
   navigationTarget: string;
 }
@@ -50,6 +52,8 @@ export interface SummaryCardProps {
   heroColor: string;
   heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
+  /** The same for the hero, read when it draws its number and arrow alone. */
+  heroAccessibilityLabel?: string | undefined;
   onHeroPress?: (() => void) | undefined;
 
   // Sparkline data (30 days) - fitness line + fatigue line + form zone bar
@@ -99,6 +103,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroColor,
   heroZone,
   heroTrend,
+  heroAccessibilityLabel,
   onHeroPress,
   fitnessData,
   fitnessDelta,
@@ -273,6 +278,11 @@ export const SummaryCard = React.memo(function SummaryCard({
             {/* Hero metric - tappable */}
             <Pressable
               accessibilityRole={onHeroPress ? 'button' : undefined}
+              // Only the plain hero is one number and its arrow; a sparkline
+              // hero reads several numbers, each its own text.
+              accessibilityLabel={
+                isLoading || fitnessSparkline || hrvSparkline ? undefined : heroAccessibilityLabel
+              }
               style={pressable(styles.heroSection)}
               android_ripple={pressRipple}
               onPress={onHeroPress}
@@ -424,6 +434,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 <Pressable
                   accessibilityRole="button"
                   testID={`summary-card-metric-${index}`}
+                  accessibilityLabel={isLoading ? undefined : metric.accessibilityLabel}
                   style={pressable(styles.supportingMetric)}
                   android_ripple={pressRipple}
                   onPress={() => tapTo(metric.navigationTarget)}

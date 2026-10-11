@@ -290,12 +290,33 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
 }
 
 /**
+ * Empty the Rust basemap tile store, whose pinned ground maps the athlete's
+ * activity bounds. The store's own clear keeps the directory and the
+ * excluded-from-backup attribute on it. When the store was never opened, a
+ * launch whose `setPath` failed, there is no handle to clear, so the directory
+ * goes instead.
+ */
+async function clearBasemapTiles(): Promise<void> {
+  try {
+    // Required lazily, as in `getAppStorageSize`.
+    const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
+    await basemapStore().clearTiles();
+  } catch {
+    const documents = FileSystem.documentDirectory;
+    if (documents) {
+      await FileSystem.deleteAsync(`${documents}basemap-tiles`, { idempotent: true });
+    }
+  }
+}
+
+/**
  * Empty the library and everything kept beside it that names its athlete.
  *
  * The one wipe every path takes when a library goes: Sign out and delete data,
  * Clear & Sync when another athlete signs in, and the launch wipe of another
  * athlete's empty library. Whatever is added beside the library is deleted
- * here, so no path can leave it behind.
+ * here, so no path can leave it behind. What the athlete is told it deletes
+ * is `WIPE_INVENTORY`, which changes with any kind of their data added here.
  *
  * Clears:
  * - Rust engine cache including athlete_profile + sport_settings, the record
@@ -342,26 +363,6 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
  * Rejects when the engine wipe fails, so a caller never reports a library gone
  * that is still there.
  */
-/**
- * Empty the Rust basemap tile store, whose pinned ground maps the athlete's
- * activity bounds. The store's own clear keeps the directory and the
- * excluded-from-backup attribute on it. When the store was never opened, a
- * launch whose `setPath` failed, there is no handle to clear, so the directory
- * goes instead.
- */
-async function clearBasemapTiles(): Promise<void> {
-  try {
-    // Required lazily, as in `getAppStorageSize`.
-    const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
-    await basemapStore().clearTiles();
-  } catch {
-    const documents = FileSystem.documentDirectory;
-    if (documents) {
-      await FileSystem.deleteAsync(`${documents}basemap-tiles`, { idempotent: true });
-    }
-  }
-}
-
 export async function wipeLibrary(): Promise<void> {
   // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
@@ -413,56 +414,87 @@ export async function wipeLibrary(): Promise<void> {
   // Group move kept it and so wrote its rollback and quarantined copies.
   const documents = FileSystem.documentDirectory?.replace(/^file:\/\//, '');
   const snapshotBeside = new Set([dbPath, documents ? `${documents}routes.db` : null]);
-  await Promise.all([
-    clearAllGpsTracks(),
-    clearBoundsCache(),
-    FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
-    platformRecord ? FileSystem.deleteAsync(platformRecord, { idempotent: true }) : undefined,
-    deleteRecordTemporaries(),
-    ...[...snapshotBeside].map((path) => (path ? deleteClearSnapshot(path) : undefined)),
-    ...[...snapshotBeside].map((path) => (path ? deleteSetAsideCopies(path) : undefined)),
-    ...[...snapshotBeside].map((path) => (path ? deletePanicLog(path) : undefined)),
-    FileSystem.deleteAsync(LEGACY_HEATMAP_TILES_DIR, { idempotent: true }),
-    clearTerrainPreviews(),
-    clearBasemapTiles(),
-    forgetCameraOverrides(),
-    forgetMapCameraState(),
-    Promise.resolve(disconnectAllSensors())
-      .catch(() => {})
-      .then(() => forgetKnownSensors()),
-    forgetActivityMapOverrides(),
-    forgetTrackFetchDismissal(),
-    clearTaskRuns(),
-    clearCrashLog(),
-    ...LEGACY_LIBRARY_KEYS.map((key) => removeSetting(key).catch(() => {})),
-    forgetCachedAthleteId(),
-    forgetStoredActivityCount(),
-    forgetInsightFingerprint(),
-    deleteBackupFiles(),
-    deleteCachedAthleteFiles(),
-    clearWebdavConfig(),
-    clearPendingApiKey(),
-    releasePushRegistration(),
+  // The library is gone by now, so a step that fails is logged and the rest
+  // still run: a rejection here would report a wipe that already happened as
+  // failed and skip the steps after it.
+  await settleWipeSteps([
+    () => clearAllGpsTracks(),
+    () => clearBoundsCache(),
+    () => FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
+    () =>
+      platformRecord ? FileSystem.deleteAsync(platformRecord, { idempotent: true }) : undefined,
+    () => deleteRecordTemporaries(),
+    ...[...snapshotBeside].flatMap((path) =>
+      path
+        ? [
+            () => deleteClearSnapshot(path),
+            () => deleteSetAsideCopies(path),
+            () => deletePanicLog(path),
+          ]
+        : []
+    ),
+    () => FileSystem.deleteAsync(LEGACY_HEATMAP_TILES_DIR, { idempotent: true }),
+    () => clearTerrainPreviews(),
+    () => clearBasemapTiles(),
+    () => forgetCameraOverrides(),
+    () => forgetMapCameraState(),
+    () =>
+      Promise.resolve()
+        .then(() => disconnectAllSensors())
+        .catch(() => {})
+        .then(() => forgetKnownSensors()),
+    () => forgetActivityMapOverrides(),
+    () => forgetTrackFetchDismissal(),
+    () => clearTaskRuns(),
+    () => clearCrashLog(),
+    ...LEGACY_LIBRARY_KEYS.map((key) => () => removeSetting(key)),
+    () => forgetCachedAthleteId(),
+    () => forgetStoredActivityCount(),
+    () => forgetInsightFingerprint(),
+    () => deleteBackupFiles(),
+    () => deleteCachedAthleteFiles(),
+    () => clearWebdavConfig(),
+    () => clearPendingApiKey(),
+    () => releasePushRegistration(),
   ]);
-  // Once the token is released, so no push for this athlete lands after it.
-  await cancelQueuedActivityPushes();
-  clearImageDiskCache();
-  await dismissAllNotifications();
-  // After the engine wipe, so no refresh can write the previous library back
-  // once the snapshot is gone.
-  resetWidgetSnapshot();
-  // After the engine wipe, whose re-opened handle these settings go through.
-  forgetBackupCarrier();
-  useNotificationPreferences.getState().reset();
-  useNotificationPrompt.getState().reset();
-  useUploadPermissionStore.getState().reset();
-  // The launch's Clear & Sync wipes for an athlete already signed in, and no
-  // sign-in follows to answer the scope, so the store is loaded with no answer
-  // and the screens ask for it rather than wait for ever.
-  if (useAuthStore.getState().authMethod) useUploadPermissionStore.setState({ isLoaded: true });
-
   const { useInsightsStore } = require('@/features/insights/store');
-  useInsightsStore.getState().reset();
+  // One at a time and in this order, each still run when the one before fails.
+  for (const step of [
+    // Once the token is released, so no push for this athlete lands after it.
+    async () => {
+      await cancelQueuedActivityPushes();
+    },
+    () => clearImageDiskCache(),
+    () => dismissAllNotifications(),
+    // After the engine wipe, so no refresh can write the previous library back
+    // once the snapshot is gone.
+    () => resetWidgetSnapshot(),
+    // After the engine wipe, whose re-opened handle these settings go through.
+    () => forgetBackupCarrier(),
+    () => useNotificationPreferences.getState().reset(),
+    () => useNotificationPrompt.getState().reset(),
+    () => {
+      useUploadPermissionStore.getState().reset();
+      // The launch's Clear & Sync wipes for an athlete already signed in, and
+      // no sign-in follows to answer the scope, so the store is loaded with no
+      // answer and the screens ask for it rather than wait for ever.
+      if (useAuthStore.getState().authMethod) useUploadPermissionStore.setState({ isLoaded: true });
+    },
+    () => useInsightsStore.getState().reset(),
+  ]) {
+    await settleWipeSteps([step]);
+  }
+}
+
+/**
+ * Run the cleanup steps that follow the engine wipe side by side, logging each
+ * one that throws or rejects rather than failing the wipe.
+ */
+async function settleWipeSteps(steps: (() => unknown)[]): Promise<void> {
+  const results = await Promise.allSettled(steps.map((step) => Promise.resolve().then(step)));
+  for (const result of results) {
+    if (result.status === 'rejected') log.warn('A wipe cleanup step failed:', result.reason);
+  }
 }
 
 /**

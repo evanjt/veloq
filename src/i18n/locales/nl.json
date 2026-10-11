@@ -48,7 +48,7 @@
       "trainingLoad": "Training Stress Score (TSS) kwantificeert de trainingsbelasting op basis van duur en intensiteit ten opzichte van je drempel.",
       "yourForm": "Je vorm (TSB) op deze dag. Dit is een dagwaarde gebaseerd op je totale training, niet specifiek voor deze activiteit. TSB = Fitheid (CTL) min Vermoeidheid (ATL)."
     },
-    "ftp": "FTP: {{value}} W",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Hartslag",
     "mapStyle": "Kaartstijl",
     "maxHR": "Max.: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "Jouw vorm"
     },
     "hrZoneTotal": "Tijd met hartslag: {{duration}}",
+    "powerZoneTotal": "Tijd met vermogen: {{duration}}",
     "movingTime": "Beweegtijd: {{duration}}",
     "timeInHRZones": "Tijd in HF-zones",
     "timeInPowerZones": "Tijd in vermogenszones",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "Dit apparaat bevat een bibliotheek van een ander account. Doorgaan naar demo-modus verwijdert deze permanent. Ga terug en log eerst in op dat account om deze te behouden.",
     "accountChangeContinue": "Doorgaan en verwijderen",
     "disconnectAndClearTitle": "Uitloggen en gegevens verwijderen?",
-    "disconnectAndClearMessage": "Dit logt je uit EN verwijdert alle gecachte activiteiten, GPS-tracks, secties en routegegevens op dit apparaat. De gegevens worden opnieuw gesynchroniseerd vanuit intervals.icu wanneer je weer inlogt. Dit kan niet ongedaan worden gemaakt.",
-    "disconnectAndClearConfirm": "Verwijderen en uitloggen"
+    "disconnectAndClearMessage": "Dit logt je uit en verwijdert je bibliotheek op deze telefoon. Dit kan niet ongedaan worden gemaakt.",
+    "disconnectAndClearConfirm": "Verwijderen en uitloggen",
+    "disconnectAndClearBackUpFirst": "Eerst back-up maken",
+    "wipeList": {
+      "returns": "Komt terug wanneer je weer inlogt:",
+      "deleted": "Voorgoed verwijderd:",
+      "kept": "Blijft op deze telefoon:",
+      "activities": "Activiteiten en hun GPS-tracks",
+      "wellness": "Welzijn en fitheid",
+      "detectedSections": "Secties en routes gevonden in je activiteiten",
+      "localBackups": "Back-ups op deze telefoon",
+      "backupSetup": "Back-upinstelling: WebDAV-login, Google Drive-account en back-upmap",
+      "names": "Namen die je secties en routes gaf",
+      "sectionEdits": "Secties die je maakte, inkortte of vastzette",
+      "sensors": "Gekoppelde sensoren",
+      "exportPrivacy": "Thuislocatie ingesteld voor exportprivacy",
+      "notificationChoices": "Meldingskeuzes",
+      "mapChoices": "Kaartinstellingen bewaard voor losse activiteiten",
+      "recordings": "Activiteiten opgenomen op deze telefoon"
+    }
   },
   "attribution": {
     "demoData": "Demo-modus gebruikt echte activiteitssporen. Gebruikt met toestemming van de auteur.",
@@ -415,12 +434,14 @@
     "pullToRefresh": "Trek om te vernieuwen",
     "reset": "Resetten",
     "retry": "Opnieuw proberen",
+    "freeUpSpace": "Ruimte vrijmaken",
     "save": "Opslaan",
     "showDetails": "Details tonen voor ontwikkelaar",
     "undo": "Ongedaan maken",
     "on": "Aan",
     "off": "Uit",
-    "openSettings": "Instellingen openen"
+    "openSettings": "Instellingen openen",
+    "allow": "Toestaan"
   },
   "demo": {
     "banner": "Demo-modus",
@@ -444,10 +465,11 @@
         "rateLimited": "intervals.icu vroeg om rust, de synchronisatie wacht",
         "server": "intervals.icu stuurde iets terug dat de app niet kon gebruiken",
         "network": "intervals.icu was niet bereikbaar",
-        "storage": "Een bestand op dit toestel kon niet worden gelezen",
+        "storage": "Een bestand op dit toestel kon niet worden gelezen of geschreven",
         "notConfigured": "Er is geen intervals.icu-login op dit toestel opgeslagen",
         "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen",
-        "engineClosed": "De synchronisatie is gestopt omdat de bibliotheek halverwege werd gesloten"
+        "engineClosed": "De synchronisatie is gestopt omdat de bibliotheek halverwege werd gesloten",
+        "storageFull": "Dit toestel heeft geen ruimte meer, dus de synchronisatie kon de opgehaalde gegevens niet opslaan"
       }
     },
     "tracksMissing": {
@@ -718,8 +740,8 @@
       "sectionTrendName": "Prestatietrend per sectie",
       "stalePrCrossRefName": "{{metric}}-PR-kruisverwijzing",
       "efficiencyName": "Regressie van aerobe efficiëntie",
-      "efficiencyDescription": "Volgt de gemiddelde hartslag maal tempo over overeenkomende pogingen op de sectie, met een kleinste-kwadratenregressie over de tijd. Een richting wordt alleen getoond als het 95%-interval van de helling nul uitsluit en de gemodelleerde verandering over de pogingen meer dan 2 % van het gemiddelde is. Een dalende waarde betekent minder slagen bij hetzelfde tempo.",
-      "efficiencyFormula": "efficiëntie = gemiddelde hartslag × tempo (seconden per km)",
+      "efficiencyDescription": "Volgt de gemiddelde hartslag maal tempo over overeenkomende pogingen op de sectie, met een kleinste-kwadratenregressie over de tijd. Een richting wordt alleen getoond als het 95%-interval van de helling nul uitsluit en de gemodelleerde verandering over de pogingen meer dan 2 % van het gemiddelde is. Een dalende waarde betekent minder hartslagen per km: een lagere hartslag, een sneller tempo of beide.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = gemiddelde hartslag × tempo (seconden per km)",
       "routeName": "Routerecords en trends",
       "route": "Telt pogingen op een route in één sport en richting die getimed zijn, niet uitgesloten, niet gedeeltelijk en binnen de afstandsband van de route. Een record is de snelste daarvan, recent gezet. Een trend vergelijkt de mediaan van de laatste drie met de drie ervoor, vanaf zes pogingen."
     },
@@ -831,7 +853,8 @@
     },
     "aboutRanking": "Kaarten staan gesorteerd op hoeveel ze te zeggen hebben: hoe recent iets is, hoe sterk het afwijkt van je gewoonte, hoeveel het verschoven is en hoe vaak je het doet.",
     "efficiencyTrend": {
-      "seriesLabel": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
+      "seriesLabel": "{{quantity}}, oudste poging tot nieuwste",
+      "quantity": "Hartslag × tempo",
       "title": "Efficiëntie verbetert op {{name}}",
       "changeTitle": "Efficiëntie op {{name}}: +{{hrChange}} bpm",
       "changeSubtitle": "Gemodelleerd +{{hrChange}} bpm bij gemiddeld tempo over {{efforts}} ritten",
@@ -993,6 +1016,7 @@
     "sessionKeyRejected": "Je API-sleutel is geweigerd.",
     "sessionRestore": "Log opnieuw in om ze terug te krijgen.",
     "sessionRestoreAthlete": "Log opnieuw in als {{athleteId}} om ze terug te krijgen.",
+    "sessionHeldRide": "Je activiteit van {{when}} is bewaard en opent zodra je opnieuw inlogt.",
     "subtitle": "Verbinden met intervals.icu",
     "termsOfService": "Servicevoorwaarden",
     "title": "Veloq",
@@ -1072,7 +1096,7 @@
     "activities": "Activiteiten",
     "feed": "Feed",
     "fitness": "Fitness",
-    "health": "Gezondheid",
+    "health": "Welzijn",
     "map": "Kaart",
     "settings": "Instellingen",
     "training": "Training",
@@ -1135,6 +1159,8 @@
     }
   },
   "recording": {
+    "liveActivityOffNotice": "Live Activities staan uit, dus de bediening verschijnt niet op het toegangsscherm",
+    "notificationsOffNotice": "Meldingen staan uit, dus de bediening en meldingen van de opname verschijnen niet buiten de app",
     "strengthRest": "Rust",
     "strengthLine": "Regel {{n}} van {{total}}",
     "strengthDone": "Klaar",
@@ -1171,6 +1197,8 @@
       "stop": "STOP"
     },
     "discard": "Verwijderen",
+    "discardConfirmMessage": "De opname is niet opgeslagen en kan na het verwijderen niet worden hersteld.",
+    "discardConfirmTitle": "Deze opname verwijderen?",
     "distance": "Afstand (km)",
     "distanceInvalid": "Voer een geldige afstand in (0-999).",
     "duration": "Duur (minuten)",
@@ -1196,13 +1224,18 @@
     },
     "gpsAcquiring": "Wachten op GPS...",
     "gpsAlertContinue": "Doorgaan zonder GPS",
-    "gpsAlertMessage": "Kan geen GPS-signaal ontvangen. Controleer of locatieservices zijn ingeschakeld en je vrij zicht op de lucht hebt.",
+    "gpsAlertMessage": "Kan geen GPS-signaal ontvangen. Ga naar een plek met vrij zicht op de lucht.",
     "gpsAlertSettings": "Instellingen openen",
     "gpsAlertStop": "Opname stoppen",
     "gpsAlertTitle": "GPS-signaal niet gevonden",
     "gpsNone": "Locatie geweigerd",
     "gpsPermissionDenied": "Locatietoestemming geweigerd. Geef toegang in Instellingen om GPS op te nemen.",
     "gpsReady": "GPS gereed",
+    "gpsServicesOff": "Locatie uit",
+    "gpsServicesOffAndroid": "Locatie staat uit op deze telefoon, dus er kan geen route worden opgenomen.",
+    "gpsServicesOffIos": "Locatievoorzieningen staan uit, dus er kan geen route worden opgenomen. Zet ze aan via Instellingen > Privacy en beveiliging > Locatievoorzieningen.",
+    "gpsServicesOffTitle": "Locatie staat uit",
+    "gpsServicesTurnOn": "Aanzetten",
     "gpsTrackingError": "Kon GPS-tracking niet starten. Probeer te pauzeren en hervatten.",
     "gpsWaiting": "Wachten op GPS-signaal. Ga naar buiten voor een beter signaal.",
     "gpsWeakWarning": "GPS-signaal zwak, opname kan onnauwkeurig zijn",
@@ -1228,6 +1261,7 @@
       "max": "Maximaal"
     },
     "saveError": "Opslaan mislukt",
+    "saveErrorNoSpace": "Dit toestel is bijna vol, dus de activiteit kon niet worden opgeslagen. Maak ruimte vrij en probeer het opnieuw.",
     "savedQueued": "Activiteit opgeslagen. Deze wordt automatisch geüpload wanneer je weer online bent.",
     "savedQueuedAuth": "Activiteit opgeslagen. Deze wordt geüpload wanneer je opnieuw inlogt.",
     "settings": "Opname-instellingen",
@@ -1255,6 +1289,8 @@
       "night": "Nacht"
     },
     "trimActivity": "Activiteit bijsnijden",
+    "trimEndHandle": "Eindpunt bijsnijden",
+    "trimStartHandle": "Beginpunt bijsnijden",
     "trimmed": "Bijgesneden",
     "uploadRejected": "intervals.icu heeft dit bestand geweigerd. De rit blijft bewaard in Mijn opnamen.",
     "uploadMissing": "Het bestand van deze rit staat niet meer op het apparaat en kan dus niet worden geüpload.",
@@ -1386,7 +1422,6 @@
     "renameFailedMessage": "De routenaam is niet opgeslagen. Probeer het opnieuw.",
     "routeNamePlaceholder": "Routenaam",
     "routeWord": "Route",
-    "routesWillAppear": "Routes verschijnen nadat je activiteiten zijn geanalyseerd",
     "routesWithTwoPlus": "Routes met 2+ activiteiten op vergelijkbare paden verschijnen hier",
     "sectionCreationFailed": "Sectie aanmaken mislukt. Probeer het opnieuw.",
     "sectionWord": "Sectie",
@@ -1419,7 +1454,19 @@
     "resetReferenceConfirm": "Teruggaan naar automatische referentiekeuze? De overeenkomstpercentages voor deze route worden opnieuw berekend.",
     "prTime": "PR {{time}}",
     "errorDetailId": "ID: {{id}}",
-    "errorDetailRange": "Bereik: {{start}} → {{end}}"
+    "errorDetailRange": "Bereik: {{start}} → {{end}}",
+    "emptyNoGpsTitle": "Geen activiteiten met GPS",
+    "emptyNoGps": "Routes en secties worden gevonden in GPS-sporen, en de gesynchroniseerde periode bevat alleen sessies zonder, zoals fietstrainer, zwembad of kracht.",
+    "emptyNotYetRunTitle": "Wacht op analyse",
+    "emptyNotYetRun_one": "{{count}} activiteit met GPS wacht op analyse. Routes en secties verschijnen zodra die is uitgevoerd.",
+    "emptyNotYetRun_other": "{{count}} activiteiten met GPS wachten op analyse. Routes en secties verschijnen zodra die is uitgevoerd.",
+    "emptyRunningTitle": "Analyse bezig",
+    "emptyRunning": "{{phase}}: {{percent}}% klaar. Routes en secties verschijnen wanneer die klaar is.",
+    "emptyHeldTitle": "Analyse in de wacht",
+    "emptyNoRoutes_one": "Een route vraagt minstens {{count}} activiteit over een vergelijkbaar traject. Geen van je activiteiten met GPS vormt er nog een.",
+    "emptyNoRoutes_other": "Een route vraagt minstens {{count}} activiteiten over een vergelijkbaar traject. Geen van je activiteiten met GPS deelt er nog een.",
+    "emptyNoSections_one": "Een sectie vraagt minstens {{count}} activiteit over hetzelfde stuk weg. In je activiteiten met GPS is er geen gevonden.",
+    "emptyNoSections_other": "Een sectie vraagt minstens {{count}} activiteiten over hetzelfde stuk weg, ook op verschillende routes. In je activiteiten met GPS is er geen gevonden."
   },
   "routesScreen": {
     "computingRoutes": "Routes berekenen...",
@@ -1486,7 +1533,7 @@
     "sectionNotFound": "Sectie niet gevonden",
     "aerobicEfficiency": "Aerobe efficiëntie",
     "aerobicEfficiencyDetail": "{{efforts}} vergelijkbare pogingen, gemodelleerde verandering van {{hrChange}} bpm bij gemiddeld tempo",
-    "aerobicEfficiencyCaption": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
+    "aerobicEfficiencyCaption": "{{quantity}}, oudste poging tot nieuwste",
     "correlationTitle": "Welzijn en snelheid",
     "correlationMethod": "Pearson-r van de rondesnelheid tegen de welzijnswaarde van die dag, 95%-interval, minstens 10 pogingen met een waarde",
     "correlationFamily_one": "Holm-gecorrigeerd over {{count}} variabele",
@@ -1948,7 +1995,6 @@
     "atWeight": "bij {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Aerobe efficiëntie",
     "eFTPTrend": "eFTP-trend",
     "ftpLabel": "FTP {{value}} W",
     "heartRate": "Hartslag",
@@ -1997,6 +2043,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2094,6 +2141,15 @@
       "routesBody": "Activiteiten over hetzelfde parcours worden gegroepeerd tot een route, met elke poging naast de andere.",
       "sectionPageTip": "Scrol omlaag op de sectiepagina voor de trend, de spreiding van je tijden en de lijn gekleurd naar waar je tijd won of verloor.",
       "routesTip": "Scrol omlaag op de routepagina om elke poging op het parcours te zien, vergeleken met de andere."
+    },
+    "tutorial": {
+      "firstLoadTitle": "Je training, op deze telefoon",
+      "firstLoadBody": "Veloq leest je activiteiten en welzijn uit intervals.icu en bewaart ze op deze telefoon. Het eerste laden loopt op de achtergrond en je feed vult zich naarmate activiteiten binnenkomen.",
+      "feedTitle": "Je feed",
+      "feedBody": "Elke activiteit verschijnt hier met haar kaart, de nieuwste eerst.",
+      "feedTip": "Trek omlaag om intervals.icu op nieuwe activiteiten te controleren, of tik op een activiteit om die te openen.",
+      "activityTitle": "Binnen een activiteit",
+      "activityBody": "Open een activiteit voor haar kaart en grafieken, haar intervallen en de routes en secties waar ze bij hoort."
     }
   },
   "strength": {
@@ -2130,6 +2186,7 @@
     "sets": "sets",
     "setsCount_one": "{{count}} set",
     "setsCount_other": "{{count}} sets",
+    "clearMuscle": "{{muscle}} deselecteren",
     "muscleGroupVolume": "Spiergroepvolume",
     "relativeWeightedSets": "Relatieve gewogen sets over de geselecteerde periode",
     "reps": "herhalingen",
@@ -2359,7 +2416,16 @@
   "summaryCardChange": {
     "window_one": "{{change}} in {{count}} dag",
     "window_other": "{{change}} in {{count}} dagen",
-    "rule": "De verandering is de laatste fitnesswaarde in de periode min de eerste. Een stip markeert elke dag waarop fitness meer dan 1 punt steeg ten opzichte van de dag ervoor."
+    "rule": "De verandering is de laatste fitnesswaarde in de periode min de eerste. Een stip markeert elke dag waarop fitness meer dan 1 punt steeg ten opzichte van de dag ervoor.",
+    "trend": {
+      "improved": "verbeterd",
+      "declined": "verslechterd",
+      "rising": "stijgend",
+      "falling": "dalend",
+      "steady": "stabiel",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Vergeleken met {{previous}} op {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Vergeleken met {{previous}} op hetzelfde moment vorige week."
+    }
   },
   "period": {
     "short": {

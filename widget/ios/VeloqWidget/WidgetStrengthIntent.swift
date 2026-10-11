@@ -38,15 +38,22 @@ struct SelectStrengthWindowIntent: WidgetConfigurationIntent {
 
 @available(iOS 17.0, *)
 struct StrengthConfigProvider: AppIntentTimelineProvider {
+  static func placeholderEntry() -> StrengthEntry {
+    StrengthEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> StrengthEntry {
-    StrengthEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func snapshot(for configuration: SelectStrengthWindowIntent, in context: Context) async
     -> StrengthEntry
   {
     StrengthEntry(
-      date: Date(), snapshot: WidgetSnapshotStore.load(), window: configuration.period.choice)
+      date: Date(),
+      snapshot: WidgetSample.snapshot(
+        stored: WidgetSnapshotStore.load(), isPreview: context.isPreview),
+      window: configuration.period.choice)
   }
 
   func timeline(for configuration: SelectStrengthWindowIntent, in context: Context) async

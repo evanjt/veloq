@@ -114,7 +114,7 @@ it('waits for a running auto-backup and then shares its own archive', async () =
   await untilClaimed(1);
 
   const { result } = renderHook(() => useExportRecordBackup());
-  let exporting: Promise<void> = Promise.resolve();
+  let exporting: Promise<unknown> = Promise.resolve();
   await act(async () => {
     exporting = result.current.exportRecordBackup();
     await new Promise((resolve) => setTimeout(resolve, 50));

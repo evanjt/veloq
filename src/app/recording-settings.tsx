@@ -8,20 +8,43 @@ import {
   useTabBarClearance,
 } from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
-import { IconButton } from '@/shared/ui/IconButton';
+import { Stepper, type StepperScale } from '@/shared/ui/Stepper';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { MPS_TO_KPH, formatElevation, formatSpeed } from '@/shared/format/format';
+import {
+  KM_TO_MI,
+  MPS_TO_KPH,
+  M_TO_FT,
+  formatElevation,
+  formatSpeed,
+} from '@/shared/format/format';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { tapTo } from '@/shared/app/navigation';
-import { useRecordingPreferences, type GpsAccuracyMode } from '@/features/recording';
+import {
+  ACCURACY_REJECT_BOUNDS_M,
+  AUTO_PAUSE_DURATION_BOUNDS_MS,
+  AUTO_PAUSE_THRESHOLD_BOUNDS_KMH,
+  useRecordingPreferences,
+  type GpsAccuracyMode,
+} from '@/features/recording';
 import { DEFAULT_AUTO_PAUSE_KMH, type SportCategory } from '@/shared/recording';
 import type { DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const GPS_MODES: GpsAccuracyMode[] = ['high', 'balanced', 'batterySaver'];
+
+/** Each stepper steps a whole unit of the athlete's own system, over a value stored in metric. */
+const ACCURACY_SCALE: Record<'metric' | 'imperial', StepperScale> = {
+  metric: { perStored: 1, step: 5 },
+  imperial: { perStored: M_TO_FT, step: 15 },
+};
+const THRESHOLD_SCALE: Record<'metric' | 'imperial', StepperScale> = {
+  metric: { perStored: 1, step: 0.5 },
+  imperial: { perStored: KM_TO_MI, step: 0.5 },
+};
+const DELAY_SCALE: StepperScale = { perStored: 1, step: 500 };
 
 const SPORT_THRESHOLDS: {
   key: SportCategory;
@@ -107,27 +130,31 @@ function RecordingSettingsScreenContent() {
     useRecordingPreferences.getState().setGpsAccuracyMode(mode);
   }, []);
 
-  const handleAdjustAccuracyFilter = useCallback((delta: number) => {
-    const current = useRecordingPreferences.getState().accuracyRejectThreshold;
-    useRecordingPreferences
-      .getState()
-      .setAccuracyRejectThreshold(Math.max(10, Math.min(100, current + delta)));
+  const handleSetAccuracyFilter = useCallback((metres: number) => {
+    useRecordingPreferences.getState().setAccuracyRejectThreshold(metres);
   }, []);
 
-  const handleAdjustAutoPauseDelay = useCallback((deltaMs: number) => {
-    const current = useRecordingPreferences.getState().autoPauseDurationMs;
-    useRecordingPreferences
-      .getState()
-      .setAutoPauseDuration(Math.max(1000, Math.min(10_000, current + deltaMs)));
+  const handleSetAutoPauseDelay = useCallback((ms: number) => {
+    useRecordingPreferences.getState().setAutoPauseDuration(ms);
   }, []);
 
-  const handleAdjustThreshold = useCallback((sport: SportCategory, delta: number) => {
-    const current =
-      useRecordingPreferences.getState().autoPauseThresholds[sport] ??
-      DEFAULT_AUTO_PAUSE_KMH[sport];
-    const next = Math.max(0.5, Math.min(10, current + delta));
-    useRecordingPreferences.getState().setAutoPauseThreshold(sport, Math.round(next * 10) / 10);
+  const handleSetThreshold = useCallback((sport: SportCategory, kmh: number) => {
+    useRecordingPreferences.getState().setAutoPauseThreshold(sport, kmh);
   }, []);
+
+  const formatAccuracy = useCallback(
+    (metres: number) => formatElevation(metres, isMetric),
+    [isMetric]
+  );
+  const formatDelay = useCallback(
+    (ms: number) => `${(ms / 1000).toFixed(1)} ${t('units.seconds')}`,
+    [t]
+  );
+  const formatThreshold = useCallback(
+    (kmh: number) => formatSpeed(kmh / MPS_TO_KPH, isMetric),
+    [isMetric]
+  );
+  const unitSystem = isMetric ? 'metric' : 'imperial';
 
   const handleToggleField = useCallback((mode: string, field: DataFieldType) => {
     const current = useRecordingPreferences.getState().dataFields[mode] ?? [];
@@ -248,27 +275,17 @@ function RecordingSettingsScreenContent() {
                   )}
                 </Text>
               </View>
-              <View style={styles.thresholdControls}>
-                <IconButton
-                  testID="settings-accuracy-filter-minus"
-                  onPress={() => handleAdjustAccuracyFilter(-5)}
-                  accessibilityLabel={t('recording.accuracyFilterDecrease')}
-                  variant="secondary"
-                >
-                  <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                </IconButton>
-                <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                  {formatElevation(accuracyRejectThreshold, isMetric)}
-                </Text>
-                <IconButton
-                  testID="settings-accuracy-filter-plus"
-                  onPress={() => handleAdjustAccuracyFilter(5)}
-                  accessibilityLabel={t('recording.accuracyFilterIncrease')}
-                  variant="secondary"
-                >
-                  <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                </IconButton>
-              </View>
+              <Stepper
+                testID="settings-accuracy-filter"
+                accessibilityLabel={t('recording.accuracyFilter', 'Accuracy filter')}
+                decrementLabel={t('recording.accuracyFilterDecrease')}
+                incrementLabel={t('recording.accuracyFilterIncrease')}
+                value={accuracyRejectThreshold}
+                {...ACCURACY_REJECT_BOUNDS_M}
+                scale={ACCURACY_SCALE[unitSystem]}
+                format={formatAccuracy}
+                onChange={handleSetAccuracyFilter}
+              />
             </View>
 
             <View style={[styles.thresholdRow, { borderTopColor: border }]}>
@@ -324,33 +341,24 @@ function RecordingSettingsScreenContent() {
                   <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
                     {t('recording.autoPauseDelay', 'Auto-pause delay')}
                   </Text>
-                  <View style={styles.thresholdControls}>
-                    <IconButton
-                      testID="settings-auto-pause-delay-minus"
-                      onPress={() => handleAdjustAutoPauseDelay(-500)}
-                      accessibilityLabel={t('recording.autoPauseDelayDecrease')}
-                      variant="secondary"
-                    >
-                      <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                    </IconButton>
-                    <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                      {(autoPauseDurationMs / 1000).toFixed(1)} {t('units.seconds')}
-                    </Text>
-                    <IconButton
-                      testID="settings-auto-pause-delay-plus"
-                      onPress={() => handleAdjustAutoPauseDelay(500)}
-                      accessibilityLabel={t('recording.autoPauseDelayIncrease')}
-                      variant="secondary"
-                    >
-                      <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                    </IconButton>
-                  </View>
+                  <Stepper
+                    testID="settings-auto-pause-delay"
+                    accessibilityLabel={t('recording.autoPauseDelay', 'Auto-pause delay')}
+                    decrementLabel={t('recording.autoPauseDelayDecrease')}
+                    incrementLabel={t('recording.autoPauseDelayIncrease')}
+                    value={autoPauseDurationMs}
+                    {...AUTO_PAUSE_DURATION_BOUNDS_MS}
+                    scale={DELAY_SCALE}
+                    format={formatDelay}
+                    onChange={handleSetAutoPauseDelay}
+                  />
                 </View>
                 <Text style={[styles.thresholdTitle, { color: textSecondary }]}>
                   {t('recording.settingsAutoPauseThreshold')}
                 </Text>
                 {SPORT_THRESHOLDS.map((sport) => {
                   const value = autoPauseThresholds[sport.key] ?? DEFAULT_AUTO_PAUSE_KMH[sport.key];
+                  const sportLabel = t(sport.labelKey, sport.fallback);
                   return (
                     <View
                       key={sport.key}
@@ -358,33 +366,23 @@ function RecordingSettingsScreenContent() {
                       style={[styles.thresholdRow, { borderTopColor: border }]}
                     >
                       <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
-                        {t(sport.labelKey, sport.fallback)}
+                        {sportLabel}
                       </Text>
-                      <View style={styles.thresholdControls}>
-                        <IconButton
-                          testID={`settings-threshold-${sport.key}-minus`}
-                          onPress={() => handleAdjustThreshold(sport.key, -0.5)}
-                          accessibilityLabel={t('recording.speedThresholdDecrease', {
-                            sport: t(sport.labelKey, sport.fallback),
-                          })}
-                          variant="secondary"
-                        >
-                          <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                        </IconButton>
-                        <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                          {formatSpeed(value / MPS_TO_KPH, isMetric)}
-                        </Text>
-                        <IconButton
-                          testID={`settings-threshold-${sport.key}-plus`}
-                          onPress={() => handleAdjustThreshold(sport.key, 0.5)}
-                          accessibilityLabel={t('recording.speedThresholdIncrease', {
-                            sport: t(sport.labelKey, sport.fallback),
-                          })}
-                          variant="secondary"
-                        >
-                          <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                        </IconButton>
-                      </View>
+                      <Stepper
+                        testID={`settings-threshold-${sport.key}`}
+                        accessibilityLabel={sportLabel}
+                        decrementLabel={t('recording.speedThresholdDecrease', {
+                          sport: sportLabel,
+                        })}
+                        incrementLabel={t('recording.speedThresholdIncrease', {
+                          sport: sportLabel,
+                        })}
+                        value={value}
+                        {...AUTO_PAUSE_THRESHOLD_BOUNDS_KMH}
+                        scale={THRESHOLD_SCALE[unitSystem]}
+                        format={formatThreshold}
+                        onChange={(kmh) => handleSetThreshold(sport.key, kmh)}
+                      />
                     </View>
                   );
                 })}
@@ -520,17 +518,6 @@ const styles = StyleSheet.create({
   },
   thresholdLabel: {
     ...typography.body,
-  },
-  thresholdControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  thresholdValue: {
-    ...typography.bodyBold,
-    fontVariant: ['tabular-nums'],
-    minWidth: 60,
-    textAlign: 'center',
   },
   modeLabel: {
     ...typography.bodyBold,

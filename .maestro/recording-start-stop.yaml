@@ -101,9 +101,9 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-review-screen"
 
-# Long-press discard to return to home
-- longPressOn:
-    id: "review-discard-button"
+# Discard to return to home
+- runFlow:
+    file: helpers/confirm-review-discard.yaml
 
 # Verify return to home screen
 - extendedWaitUntil:

@@ -20,4 +20,5 @@ export const SYNC_ERROR_REASON_KEY = {
   [SyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
   [SyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
   [SyncErrorReason.EngineClosed]: 'emptyState.syncError.reason.engineClosed',
+  [SyncErrorReason.StorageFull]: 'emptyState.syncError.reason.storageFull',
 } as const satisfies Record<SyncErrorReason, string>;

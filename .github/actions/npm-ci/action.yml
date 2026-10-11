@@ -7,25 +7,23 @@ description: Set up Node.js and run npm ci, reading main's npm cache and writing
 # gated on main. `package-manager-cache` is off for the same reason: setup-node
 # turns it on by itself once package.json names npm as its package manager.
 
-inputs:
-  node-version:
-    description: 'Node.js version'
-    required: true
+# The Node major is read from .nvmrc, the pin local builds are checked against
+# by scripts/check-toolchain.mjs, so CI and a build host run the same major.
 
 runs:
   using: composite
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: .nvmrc
         package-manager-cache: false
 
     # Exact key only, as setup-node keys it: a prefix restore would carry every
     # retired tarball forward into the next save.
     - name: Restore npm cache
       id: npm-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
@@ -36,7 +34,7 @@ runs:
 
     - name: Save npm cache
       if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: ~/.npm
         key: ${{ steps.npm-cache.outputs.cache-primary-key }}

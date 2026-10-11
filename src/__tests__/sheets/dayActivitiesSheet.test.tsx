@@ -10,6 +10,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import DayActivitiesSheet, { type DayActivitiesInput } from '@/app/sheets/day-activities';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
 
 const mockPush = jest.fn();
@@ -18,7 +19,11 @@ let mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -59,6 +64,11 @@ describe('day activities sheet', () => {
     open();
     expect(screen.getByTestId('day-activity-a1')).toHaveTextContent(/80/);
     expect(screen.getByTestId('day-activity-a2')).not.toHaveTextContent(/\b0\b/);
+  });
+
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    open();
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {

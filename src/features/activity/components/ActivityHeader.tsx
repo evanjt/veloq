@@ -23,7 +23,7 @@ import {
 } from '@/shared/format/format';
 import { engine } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
-import { colors, colorWithOpacity, mapTextShadow, opacity, spacing, typography } from '@/theme';
+import { colors, mapTextShadow, opacity, spacing, typography } from '@/theme';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface ActivityHeaderProps {
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     ...typography.bodyCompact,
-    color: colorWithOpacity(colors.textOnDark, 0.85),
+    color: colors.textOnDark,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
   },

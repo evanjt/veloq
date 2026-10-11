@@ -2182,6 +2182,32 @@ fn startup_matches_the_calls_it_replaces() {
     }
 }
 
+/// Scenario: the summary card judged its week hours and week count arrows in
+/// TypeScript, from the two weeks the engine handed it.
+///
+/// Expected behaviour: the bundle carries both arrows, judged on the shared
+/// table: two activities against none is a rise, ten minutes against none is
+/// inside the half-hour deadband and reads flat.
+#[test]
+fn startup_judges_the_week_against_the_week_before() {
+    let _serial_state = crate::serial_state();
+    let s = populated();
+    let p = insights_params();
+
+    let bundle = s.engine.startup_data(
+        p.current_start as i64,
+        p.current_end as i64,
+        p.prev_start as i64,
+        p.prev_end as i64,
+        &[],
+    );
+
+    assert_eq!(bundle.summary_card.current_week.count, 2);
+    assert_eq!(bundle.summary_card.prev_week.count, 0);
+    assert_eq!(bundle.summary_card.week_count_trend.as_deref(), Some("↑"));
+    assert_eq!(bundle.summary_card.week_hours_trend.as_deref(), Some("→"));
+}
+
 #[test]
 fn startup_skips_ids_with_no_signature() {
     let _serial_state = crate::serial_state();

@@ -25,6 +25,7 @@ import {
   typography,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
+import { useBackDismiss } from '@/shared/app/useBackDismiss';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -198,6 +199,7 @@ export function MapControlStack({
   const routesToggle = routeCount > 0 ? onToggleRoutes : undefined;
   const hasLayers = hasActivities || !!sectionsToggle || !!onToggleHeatmap || !!routesToggle;
   const menuOpen = layersOpen && hasLayers;
+  useBackDismiss(menuOpen, () => setLayersOpen(false));
 
   // Any other control, and fit-all, closes the menu on the way: the athlete has
   // gone back to the map.

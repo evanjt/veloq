@@ -3163,6 +3163,81 @@ const FfiConverterTypeFfiHrZoneBand = (() => {
 })();
 
 /**
+ * One power zone of a saved activity.
+ */
+export type FfiPowerZoneBand = {
+  /**
+   * Zone number, from 1
+   */
+  zone: number;
+  /**
+   * Lower edge in watts, 0 for zone 1
+   */
+  minWatts: number;
+  /**
+   * Upper edge in watts, absent for the open top zone
+   */
+  maxWatts?: number;
+  /**
+   * Seconds spent in the zone
+   */
+  seconds: number;
+  /**
+   * Share of the total time in zones, 0 to 100
+   */
+  percent: number;
+};
+
+/**
+ * Generated factory for {@link FfiPowerZoneBand} record objects.
+ */
+export const FfiPowerZoneBand = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPowerZoneBand, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPowerZoneBand>,
+  });
+})();
+
+const FfiConverterTypeFfiPowerZoneBand = (() => {
+  type TypeName = FfiPowerZoneBand;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        zone: FfiConverterUInt32.readFromCursor(c),
+        minWatts: FfiConverterUInt32.readFromCursor(c),
+        maxWatts: FfiConverterOptionalUInt32.readFromCursor(c),
+        seconds: FfiConverterFloat64.readFromCursor(c),
+        percent: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.zone, c);
+      FfiConverterUInt32.writeIntoCursor(value.minWatts, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.maxWatts, c);
+      FfiConverterFloat64.writeIntoCursor(value.seconds, c);
+      FfiConverterFloat64.writeIntoCursor(value.percent, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.zone) +
+        FfiConverterUInt32.allocationSize(value.minWatts) +
+        FfiConverterOptionalUInt32.allocationSize(value.maxWatts) +
+        FfiConverterFloat64.allocationSize(value.seconds) +
+        FfiConverterFloat64.allocationSize(value.percent)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One ledger change on a section that names an activity, for that activity's
  * screen. It is where the activity was around the change, never a cause.
  */
@@ -3322,6 +3397,12 @@ export type FfiActivityDetailData = {
    */
   hrZones: Array<FfiHrZoneBand>;
   /**
+   * The power zone bands in watts for this activity and the time in each,
+   * from its own zones and FTP. Empty when the activity has no power zone
+   * time or no zones to place it in.
+   */
+  powerZones: Array<FfiPowerZoneBand>;
+  /**
    * Section changes whose ledger rows name this activity, newest first.
    */
   ledgerChanges: Array<FfiActivityLedgerChange>;
@@ -3370,6 +3451,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         prSectionIds: FfiConverterSequenceString.readFromCursor(c),
         maxHr: FfiConverterFloat64.readFromCursor(c),
         hrZones: FfiConverterSequenceTypeFfiHrZoneBand.readFromCursor(c),
+        powerZones: FfiConverterSequenceTypeFfiPowerZoneBand.readFromCursor(c),
         ledgerChanges:
           FfiConverterSequenceTypeFfiActivityLedgerChange.readFromCursor(c),
       };
@@ -3413,6 +3495,10 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
       FfiConverterSequenceString.writeIntoCursor(value.prSectionIds, c);
       FfiConverterFloat64.writeIntoCursor(value.maxHr, c);
       FfiConverterSequenceTypeFfiHrZoneBand.writeIntoCursor(value.hrZones, c);
+      FfiConverterSequenceTypeFfiPowerZoneBand.writeIntoCursor(
+        value.powerZones,
+        c,
+      );
       FfiConverterSequenceTypeFfiActivityLedgerChange.writeIntoCursor(
         value.ledgerChanges,
         c,
@@ -3450,6 +3536,9 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterSequenceString.allocationSize(value.prSectionIds) +
         FfiConverterFloat64.allocationSize(value.maxHr) +
         FfiConverterSequenceTypeFfiHrZoneBand.allocationSize(value.hrZones) +
+        FfiConverterSequenceTypeFfiPowerZoneBand.allocationSize(
+          value.powerZones,
+        ) +
         FfiConverterSequenceTypeFfiActivityLedgerChange.allocationSize(
           value.ledgerChanges,
         )
@@ -7714,6 +7803,12 @@ export type FfiFtpTrend = {
    */
   deltaWatts?: number;
   /**
+   * The arrow the step draws, judged by [`crate::trend_table::glyph`]: up
+   * for a gain, flat inside the deadband, `None` when there is nothing to
+   * compare against.
+   */
+  glyph?: string;
+  /**
    * Days carrying an estimate from the one compared against to the newest,
    * inclusive. The insight ranker weighs a claim by what it stands on, and
    * a step measured off three days is not the one measured off thirty.
@@ -7759,6 +7854,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         previousFtp: FfiConverterOptionalUInt16.readFromCursor(c),
         previousDate: FfiConverterOptionalFloat64.readFromCursor(c),
         deltaWatts: FfiConverterOptionalInt32.readFromCursor(c),
+        glyph: FfiConverterOptionalString.readFromCursor(c),
         sampleCount: FfiConverterUInt32.readFromCursor(c),
         history: FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
         changes: FfiConverterSequenceTypeFfiEftpChange.readFromCursor(c),
@@ -7770,6 +7866,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
       FfiConverterOptionalUInt16.writeIntoCursor(value.previousFtp, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.previousDate, c);
       FfiConverterOptionalInt32.writeIntoCursor(value.deltaWatts, c);
+      FfiConverterOptionalString.writeIntoCursor(value.glyph, c);
       FfiConverterUInt32.writeIntoCursor(value.sampleCount, c);
       FfiConverterSequenceTypeFfiSeriesPoint.writeIntoCursor(value.history, c);
       FfiConverterSequenceTypeFfiEftpChange.writeIntoCursor(value.changes, c);
@@ -7781,10 +7878,71 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.previousFtp) +
         FfiConverterOptionalFloat64.allocationSize(value.previousDate) +
         FfiConverterOptionalInt32.allocationSize(value.deltaWatts) +
+        FfiConverterOptionalString.allocationSize(value.glyph) +
         FfiConverterUInt32.allocationSize(value.sampleCount) +
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(value.history) +
         FfiConverterSequenceTypeFfiEftpChange.allocationSize(value.changes)
       );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Whether a date range holds nothing, owes a download, or is fully local.
+ *
+ * Activities are judged against the census, wellness against what is stored:
+ * intervals.icu answers a wellness row for every day of the athlete's history,
+ * so for wellness `NotFetched` is nothing stored at all.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum RangeCoverage {
+  /**
+   * The census, or the stored wellness, names nothing inside the range.
+   * The account holds nothing there, so an empty chart is the truth.
+   */
+  Empty = 1,
+  /**
+   * The census names activities the device has not stored at the version the
+   * census gives them. An empty chart here is ignorance, not an empty range.
+   */
+  NotFetched = 2,
+  /**
+   * Every activity the census names inside the range is local and current,
+   * or wellness is stored for a day inside it.
+   */
+  Loaded = 3,
+}
+
+const FfiConverterTypeRangeCoverage = (() => {
+  type TypeName = RangeCoverage;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return RangeCoverage.Empty;
+        case 2:
+          return RangeCoverage.NotFetched;
+        case 3:
+          return RangeCoverage.Loaded;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case RangeCoverage.Empty:
+          return c.writeI32(1);
+        case RangeCoverage.NotFetched:
+          return c.writeI32(2);
+        case RangeCoverage.Loaded:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
     }
   }
   return new FFIConverter();
@@ -7913,6 +8071,12 @@ export type FfiFitnessScreenData = {
    */
   ftpTrend: FfiFtpTrend;
   /**
+   * Whether the wellness the trend is read from was pulled for the days
+   * its chart draws. `NotFetched` makes an empty chart a download still
+   * owed rather than an athlete with no estimate.
+   */
+  ftpTrendCoverage: RangeCoverage;
+  /**
    * The last stored critical speeds, the threshold the running and
    * swimming cards fall back on when no curve is to hand.
    */
@@ -7944,18 +8108,21 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         ftpTrend: FfiConverterTypeFfiFtpTrend.readFromCursor(c),
+        ftpTrendCoverage: FfiConverterTypeRangeCoverage.readFromCursor(c),
         runPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
         swimPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterTypeFfiFtpTrend.writeIntoCursor(value.ftpTrend, c);
+      FfiConverterTypeRangeCoverage.writeIntoCursor(value.ftpTrendCoverage, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.runPaceTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.swimPaceTrend, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend) +
+        FfiConverterTypeRangeCoverage.allocationSize(value.ftpTrendCoverage) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend)
       );
@@ -13329,6 +13496,517 @@ const FfiConverterTypeFfiRouteGroupPreview = (() => {
   return new FFIConverter();
 })();
 
+// Enum: FfiDetectionHold
+export enum FfiDetectionHold_Tags {
+  ElevationPaused = "ElevationPaused",
+  ElevationRunning = "ElevationRunning",
+  ElevationWaiting = "ElevationWaiting",
+  Cutover = "Cutover",
+}
+/**
+ * What is refusing a detect that is owed.
+ */
+export const FfiDetectionHold = (() => {
+  type ElevationPaused__interface = {
+    tag: FfiDetectionHold_Tags.ElevationPaused;
+  };
+  /**
+   * The athlete paused the elevation download, and only resuming it lifts
+   * the hold.
+   */
+  class ElevationPaused_
+    extends UniffiEnum
+    implements ElevationPaused__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiDetectionHold";
+    readonly tag = FfiDetectionHold_Tags.ElevationPaused;
+    constructor() {
+      super("FfiDetectionHold", "ElevationPaused");
+    }
+
+    static new(): ElevationPaused_ {
+      return new ElevationPaused_();
+    }
+
+    static instanceOf(obj: any): obj is ElevationPaused_ {
+      return obj.tag === FfiDetectionHold_Tags.ElevationPaused;
+    }
+  }
+
+  type ElevationRunning__interface = {
+    tag: FfiDetectionHold_Tags.ElevationRunning;
+  };
+  /**
+   * An elevation pass is running and holds detection until it ends.
+   */
+  class ElevationRunning_
+    extends UniffiEnum
+    implements ElevationRunning__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiDetectionHold";
+    readonly tag = FfiDetectionHold_Tags.ElevationRunning;
+    constructor() {
+      super("FfiDetectionHold", "ElevationRunning");
+    }
+
+    static new(): ElevationRunning_ {
+      return new ElevationRunning_();
+    }
+
+    static instanceOf(obj: any): obj is ElevationRunning_ {
+      return obj.tag === FfiDetectionHold_Tags.ElevationRunning;
+    }
+  }
+
+  type ElevationWaiting__interface = {
+    tag: FfiDetectionHold_Tags.ElevationWaiting;
+    inner: Readonly<{ remaining: number }>;
+  };
+  /**
+   * Stored tracks are still owed elevation and wait on the network.
+   */
+  class ElevationWaiting_
+    extends UniffiEnum
+    implements ElevationWaiting__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiDetectionHold";
+    readonly tag = FfiDetectionHold_Tags.ElevationWaiting;
+    readonly inner: Readonly<{ remaining: number }>;
+    constructor(inner: { remaining: number }) {
+      super("FfiDetectionHold", "ElevationWaiting");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { remaining: number }): ElevationWaiting_ {
+      return new ElevationWaiting_(inner);
+    }
+
+    static instanceOf(obj: any): obj is ElevationWaiting_ {
+      return obj.tag === FfiDetectionHold_Tags.ElevationWaiting;
+    }
+  }
+
+  type Cutover__interface = {
+    tag: FfiDetectionHold_Tags.Cutover;
+  };
+  /**
+   * The detector migration has to run before any other detect.
+   */
+  class Cutover_ extends UniffiEnum implements Cutover__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiDetectionHold";
+    readonly tag = FfiDetectionHold_Tags.Cutover;
+    constructor() {
+      super("FfiDetectionHold", "Cutover");
+    }
+
+    static new(): Cutover_ {
+      return new Cutover_();
+    }
+
+    static instanceOf(obj: any): obj is Cutover_ {
+      return obj.tag === FfiDetectionHold_Tags.Cutover;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiDetectionHold {
+    return obj[uniffiTypeNameSymbol] === "FfiDetectionHold";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    ElevationPaused: ElevationPaused_,
+    ElevationRunning: ElevationRunning_,
+    ElevationWaiting: ElevationWaiting_,
+    Cutover: Cutover_,
+  });
+})();
+/**
+ * What is refusing a detect that is owed.
+ */
+export type FfiDetectionHold = InstanceType<
+  (typeof FfiDetectionHold)[
+    | "ElevationPaused"
+    | "ElevationRunning"
+    | "ElevationWaiting"
+    | "Cutover"]
+>;
+
+// FfiConverter for enum FfiDetectionHold
+const FfiConverterTypeFfiDetectionHold = (() => {
+  type TypeName = FfiDetectionHold;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiDetectionHold.ElevationPaused();
+        case 2:
+          return new FfiDetectionHold.ElevationRunning();
+        case 3:
+          return new FfiDetectionHold.ElevationWaiting({
+            remaining: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 4:
+          return new FfiDetectionHold.Cutover();
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiDetectionHold_Tags.ElevationPaused: {
+          c.writeI32(1);
+          return;
+        }
+        case FfiDetectionHold_Tags.ElevationRunning: {
+          c.writeI32(2);
+          return;
+        }
+        case FfiDetectionHold_Tags.ElevationWaiting: {
+          c.writeI32(3);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.remaining, c);
+          return;
+        }
+        case FfiDetectionHold_Tags.Cutover: {
+          c.writeI32(4);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiDetectionHold_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiDetectionHold_Tags.ElevationPaused: {
+          return 4;
+        }
+        case FfiDetectionHold_Tags.ElevationRunning: {
+          return 4;
+        }
+        case FfiDetectionHold_Tags.ElevationWaiting: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.remaining);
+          return size;
+        }
+        case FfiDetectionHold_Tags.Cutover: {
+          return 4;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiCatalogueEmptyReason
+export enum FfiCatalogueEmptyReason_Tags {
+  NoGpsActivities = "NoGpsActivities",
+  NotYetRun = "NotYetRun",
+  Running = "Running",
+  Held = "Held",
+  NoneFound = "NoneFound",
+}
+/**
+ * Why a routes or sections catalogue is empty, so the list states its cause
+ * rather than promising rows that cannot come.
+ */
+export const FfiCatalogueEmptyReason = (() => {
+  type NoGpsActivities__interface = {
+    tag: FfiCatalogueEmptyReason_Tags.NoGpsActivities;
+  };
+  /**
+   * No stored activity in the synced range has a GPS track, so detection
+   * has nothing to compare: trainer, pool or strength sessions only.
+   */
+  class NoGpsActivities_
+    extends UniffiEnum
+    implements NoGpsActivities__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiCatalogueEmptyReason";
+    readonly tag = FfiCatalogueEmptyReason_Tags.NoGpsActivities;
+    constructor() {
+      super("FfiCatalogueEmptyReason", "NoGpsActivities");
+    }
+
+    static new(): NoGpsActivities_ {
+      return new NoGpsActivities_();
+    }
+
+    static instanceOf(obj: any): obj is NoGpsActivities_ {
+      return obj.tag === FfiCatalogueEmptyReason_Tags.NoGpsActivities;
+    }
+  }
+
+  type NotYetRun__interface = {
+    tag: FfiCatalogueEmptyReason_Tags.NotYetRun;
+    inner: Readonly<{ awaiting: number }>;
+  };
+  /**
+   * Activities with GPS that no detect has seen yet, and nothing holding
+   * the detect that would see them.
+   */
+  class NotYetRun_ extends UniffiEnum implements NotYetRun__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiCatalogueEmptyReason";
+    readonly tag = FfiCatalogueEmptyReason_Tags.NotYetRun;
+    readonly inner: Readonly<{ awaiting: number }>;
+    constructor(inner: { awaiting: number }) {
+      super("FfiCatalogueEmptyReason", "NotYetRun");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { awaiting: number }): NotYetRun_ {
+      return new NotYetRun_(inner);
+    }
+
+    static instanceOf(obj: any): obj is NotYetRun_ {
+      return obj.tag === FfiCatalogueEmptyReason_Tags.NotYetRun;
+    }
+  }
+
+  type Running__interface = {
+    tag: FfiCatalogueEmptyReason_Tags.Running;
+    inner: Readonly<{ phase: string; percent: number }>;
+  };
+  /**
+   * A detect is running now. `phase` is the detector's own phase token.
+   */
+  class Running_ extends UniffiEnum implements Running__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiCatalogueEmptyReason";
+    readonly tag = FfiCatalogueEmptyReason_Tags.Running;
+    readonly inner: Readonly<{ phase: string; percent: number }>;
+    constructor(inner: { phase: string; percent: number }) {
+      super("FfiCatalogueEmptyReason", "Running");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { phase: string; percent: number }): Running_ {
+      return new Running_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Running_ {
+      return obj.tag === FfiCatalogueEmptyReason_Tags.Running;
+    }
+  }
+
+  type Held__interface = {
+    tag: FfiCatalogueEmptyReason_Tags.Held;
+    inner: Readonly<{ hold: FfiDetectionHold }>;
+  };
+  /**
+   * A detect is owed and something is refusing it.
+   */
+  class Held_ extends UniffiEnum implements Held__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiCatalogueEmptyReason";
+    readonly tag = FfiCatalogueEmptyReason_Tags.Held;
+    readonly inner: Readonly<{ hold: FfiDetectionHold }>;
+    constructor(inner: { hold: FfiDetectionHold }) {
+      super("FfiCatalogueEmptyReason", "Held");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { hold: FfiDetectionHold }): Held_ {
+      return new Held_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Held_ {
+      return obj.tag === FfiCatalogueEmptyReason_Tags.Held;
+    }
+  }
+
+  type NoneFound__interface = {
+    tag: FfiCatalogueEmptyReason_Tags.NoneFound;
+    inner: Readonly<{ minActivities: number }>;
+  };
+  /**
+   * Every activity with GPS has been through a detect and none met the
+   * threshold: the least activities on a shared path that make one.
+   */
+  class NoneFound_ extends UniffiEnum implements NoneFound__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiCatalogueEmptyReason";
+    readonly tag = FfiCatalogueEmptyReason_Tags.NoneFound;
+    readonly inner: Readonly<{ minActivities: number }>;
+    constructor(inner: { minActivities: number }) {
+      super("FfiCatalogueEmptyReason", "NoneFound");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { minActivities: number }): NoneFound_ {
+      return new NoneFound_(inner);
+    }
+
+    static instanceOf(obj: any): obj is NoneFound_ {
+      return obj.tag === FfiCatalogueEmptyReason_Tags.NoneFound;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiCatalogueEmptyReason {
+    return obj[uniffiTypeNameSymbol] === "FfiCatalogueEmptyReason";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    NoGpsActivities: NoGpsActivities_,
+    NotYetRun: NotYetRun_,
+    Running: Running_,
+    Held: Held_,
+    NoneFound: NoneFound_,
+  });
+})();
+/**
+ * Why a routes or sections catalogue is empty, so the list states its cause
+ * rather than promising rows that cannot come.
+ */
+export type FfiCatalogueEmptyReason = InstanceType<
+  (typeof FfiCatalogueEmptyReason)[
+    | "NoGpsActivities"
+    | "NotYetRun"
+    | "Running"
+    | "Held"
+    | "NoneFound"]
+>;
+
+// FfiConverter for enum FfiCatalogueEmptyReason
+const FfiConverterTypeFfiCatalogueEmptyReason = (() => {
+  type TypeName = FfiCatalogueEmptyReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiCatalogueEmptyReason.NoGpsActivities();
+        case 2:
+          return new FfiCatalogueEmptyReason.NotYetRun({
+            awaiting: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 3:
+          return new FfiCatalogueEmptyReason.Running({
+            phase: FfiConverterString.readFromCursor(c),
+            percent: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 4:
+          return new FfiCatalogueEmptyReason.Held({
+            hold: FfiConverterTypeFfiDetectionHold.readFromCursor(c),
+          });
+        case 5:
+          return new FfiCatalogueEmptyReason.NoneFound({
+            minActivities: FfiConverterUInt32.readFromCursor(c),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiCatalogueEmptyReason_Tags.NoGpsActivities: {
+          c.writeI32(1);
+          return;
+        }
+        case FfiCatalogueEmptyReason_Tags.NotYetRun: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.awaiting, c);
+          return;
+        }
+        case FfiCatalogueEmptyReason_Tags.Running: {
+          c.writeI32(3);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.phase, c);
+          FfiConverterUInt32.writeIntoCursor(inner.percent, c);
+          return;
+        }
+        case FfiCatalogueEmptyReason_Tags.Held: {
+          c.writeI32(4);
+          const inner = value.inner;
+          FfiConverterTypeFfiDetectionHold.writeIntoCursor(inner.hold, c);
+          return;
+        }
+        case FfiCatalogueEmptyReason_Tags.NoneFound: {
+          c.writeI32(5);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.minActivities, c);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiCatalogueEmptyReason_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiCatalogueEmptyReason_Tags.NoGpsActivities: {
+          return 4;
+        }
+        case FfiCatalogueEmptyReason_Tags.NotYetRun: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.awaiting);
+          return size;
+        }
+        case FfiCatalogueEmptyReason_Tags.Running: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.phase);
+          size += FfiConverterUInt32.allocationSize(inner.percent);
+          return size;
+        }
+        case FfiCatalogueEmptyReason_Tags.Held: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterTypeFfiDetectionHold.allocationSize(inner.hold);
+          return size;
+        }
+        case FfiCatalogueEmptyReason_Tags.NoneFound: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.minActivities);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
 /**
  * All data needed by the Routes screen in a single FFI call.
  * Supports pagination via limit/offset for groups and sections.
@@ -13387,6 +14065,17 @@ export type FfiRoutesScreenData = {
    * The sports the athlete has activities in, which the sport chips offer.
    */
   availableSportTypes: Array<string>;
+  /**
+   * Why the routes catalogue holds no route with the minimum activity
+   * count, whatever the search and the sport filter. `None` while it holds
+   * one, so an empty page under a search is a search that matched nothing.
+   */
+  groupEmptyReason?: FfiCatalogueEmptyReason;
+  /**
+   * Why the sections catalogue holds no section of any kind, hidden or not.
+   * `None` while it holds one.
+   */
+  sectionEmptyReason?: FfiCatalogueEmptyReason;
 };
 
 /**
@@ -13429,6 +14118,10 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         customCount: FfiConverterUInt32.readFromCursor(c),
         retiredCount: FfiConverterUInt32.readFromCursor(c),
         availableSportTypes: FfiConverterSequenceString.readFromCursor(c),
+        groupEmptyReason:
+          FfiConverterOptionalTypeFfiCatalogueEmptyReason.readFromCursor(c),
+        sectionEmptyReason:
+          FfiConverterOptionalTypeFfiCatalogueEmptyReason.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -13455,6 +14148,14 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
       FfiConverterUInt32.writeIntoCursor(value.customCount, c);
       FfiConverterUInt32.writeIntoCursor(value.retiredCount, c);
       FfiConverterSequenceString.writeIntoCursor(value.availableSportTypes, c);
+      FfiConverterOptionalTypeFfiCatalogueEmptyReason.writeIntoCursor(
+        value.groupEmptyReason,
+        c,
+      );
+      FfiConverterOptionalTypeFfiCatalogueEmptyReason.writeIntoCursor(
+        value.sectionEmptyReason,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -13478,7 +14179,13 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         FfiConverterUInt32.allocationSize(value.acceptedAutoCount) +
         FfiConverterUInt32.allocationSize(value.customCount) +
         FfiConverterUInt32.allocationSize(value.retiredCount) +
-        FfiConverterSequenceString.allocationSize(value.availableSportTypes)
+        FfiConverterSequenceString.allocationSize(value.availableSportTypes) +
+        FfiConverterOptionalTypeFfiCatalogueEmptyReason.allocationSize(
+          value.groupEmptyReason,
+        ) +
+        FfiConverterOptionalTypeFfiCatalogueEmptyReason.allocationSize(
+          value.sectionEmptyReason,
+        )
       );
     }
   }
@@ -16928,6 +17635,12 @@ const FfiConverterTypeFfiStartResult = (() => {
  *
  * A glyph is the engine's judgement of improvement. `None` means the
  * comparison had no nearby baseline or enough earlier readings.
+ *
+ * Beside each arrow is what it was judged against, so the card can state the
+ * method: `*_previous` is the baseline value, `*_previous_date` the day it was
+ * read (Unix timestamp seconds of that day's midnight, UTC, as `FfiFtpTrend`
+ * dates its estimates), and `*_basis` the evidence behind the claim. A metric
+ * with no baseline row carries no previous value and no date.
  */
 export type FfiWellnessSummary = {
   fitness?: number;
@@ -16944,6 +17657,21 @@ export type FfiWellnessSummary = {
    * The newest row's fatigue, rounded as `fitness` is. It has no arrow of its own.
    */
   fatigue?: number;
+  fitnessPrevious?: number;
+  fitnessPreviousDate?: number;
+  fitnessBasis?: FfiClaimBasis;
+  formPrevious?: number;
+  formPreviousDate?: number;
+  formBasis?: FfiClaimBasis;
+  hrvPrevious?: number;
+  hrvPreviousDate?: number;
+  hrvBasis?: FfiClaimBasis;
+  rhrPrevious?: number;
+  rhrPreviousDate?: number;
+  rhrBasis?: FfiClaimBasis;
+  weightPrevious?: number;
+  weightPreviousDate?: number;
+  weightBasis?: FfiClaimBasis;
 };
 
 /**
@@ -16979,6 +17707,21 @@ const FfiConverterTypeFfiWellnessSummary = (() => {
         weight: FfiConverterOptionalFloat64.readFromCursor(c),
         weightTrend: FfiConverterOptionalString.readFromCursor(c),
         fatigue: FfiConverterOptionalFloat64.readFromCursor(c),
+        fitnessPrevious: FfiConverterOptionalFloat64.readFromCursor(c),
+        fitnessPreviousDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        fitnessBasis: FfiConverterOptionalTypeFfiClaimBasis.readFromCursor(c),
+        formPrevious: FfiConverterOptionalFloat64.readFromCursor(c),
+        formPreviousDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        formBasis: FfiConverterOptionalTypeFfiClaimBasis.readFromCursor(c),
+        hrvPrevious: FfiConverterOptionalFloat64.readFromCursor(c),
+        hrvPreviousDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        hrvBasis: FfiConverterOptionalTypeFfiClaimBasis.readFromCursor(c),
+        rhrPrevious: FfiConverterOptionalFloat64.readFromCursor(c),
+        rhrPreviousDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        rhrBasis: FfiConverterOptionalTypeFfiClaimBasis.readFromCursor(c),
+        weightPrevious: FfiConverterOptionalFloat64.readFromCursor(c),
+        weightPreviousDate: FfiConverterOptionalFloat64.readFromCursor(c),
+        weightBasis: FfiConverterOptionalTypeFfiClaimBasis.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16993,6 +17736,27 @@ const FfiConverterTypeFfiWellnessSummary = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.weight, c);
       FfiConverterOptionalString.writeIntoCursor(value.weightTrend, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.fatigue, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.fitnessPrevious, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.fitnessPreviousDate, c);
+      FfiConverterOptionalTypeFfiClaimBasis.writeIntoCursor(
+        value.fitnessBasis,
+        c,
+      );
+      FfiConverterOptionalFloat64.writeIntoCursor(value.formPrevious, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.formPreviousDate, c);
+      FfiConverterOptionalTypeFfiClaimBasis.writeIntoCursor(value.formBasis, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.hrvPrevious, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.hrvPreviousDate, c);
+      FfiConverterOptionalTypeFfiClaimBasis.writeIntoCursor(value.hrvBasis, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.rhrPrevious, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.rhrPreviousDate, c);
+      FfiConverterOptionalTypeFfiClaimBasis.writeIntoCursor(value.rhrBasis, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightPrevious, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightPreviousDate, c);
+      FfiConverterOptionalTypeFfiClaimBasis.writeIntoCursor(
+        value.weightBasis,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -17006,7 +17770,24 @@ const FfiConverterTypeFfiWellnessSummary = (() => {
         FfiConverterOptionalString.allocationSize(value.rhrTrend) +
         FfiConverterOptionalFloat64.allocationSize(value.weight) +
         FfiConverterOptionalString.allocationSize(value.weightTrend) +
-        FfiConverterOptionalFloat64.allocationSize(value.fatigue)
+        FfiConverterOptionalFloat64.allocationSize(value.fatigue) +
+        FfiConverterOptionalFloat64.allocationSize(value.fitnessPrevious) +
+        FfiConverterOptionalFloat64.allocationSize(value.fitnessPreviousDate) +
+        FfiConverterOptionalTypeFfiClaimBasis.allocationSize(
+          value.fitnessBasis,
+        ) +
+        FfiConverterOptionalFloat64.allocationSize(value.formPrevious) +
+        FfiConverterOptionalFloat64.allocationSize(value.formPreviousDate) +
+        FfiConverterOptionalTypeFfiClaimBasis.allocationSize(value.formBasis) +
+        FfiConverterOptionalFloat64.allocationSize(value.hrvPrevious) +
+        FfiConverterOptionalFloat64.allocationSize(value.hrvPreviousDate) +
+        FfiConverterOptionalTypeFfiClaimBasis.allocationSize(value.hrvBasis) +
+        FfiConverterOptionalFloat64.allocationSize(value.rhrPrevious) +
+        FfiConverterOptionalFloat64.allocationSize(value.rhrPreviousDate) +
+        FfiConverterOptionalTypeFfiClaimBasis.allocationSize(value.rhrBasis) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightPrevious) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightPreviousDate) +
+        FfiConverterOptionalTypeFfiClaimBasis.allocationSize(value.weightBasis)
       );
     }
   }
@@ -17021,6 +17802,15 @@ export type FfiSummaryCardData = {
   wellness: FfiWellnessSummary;
   currentWeek: FfiPeriodStats;
   prevWeek: FfiPeriodStats;
+  /**
+   * The arrow for this week's hours so far against the same part of the
+   * week before, on hours rounded to a tenth as the card prints them.
+   */
+  weekHoursTrend?: string;
+  /**
+   * The same for this week's activity count.
+   */
+  weekCountTrend?: string;
   ftpTrend: FfiFtpTrend;
   runPaceTrend: FfiPaceTrend;
   swimPaceTrend: FfiPaceTrend;
@@ -17051,6 +17841,8 @@ const FfiConverterTypeFfiSummaryCardData = (() => {
         wellness: FfiConverterTypeFfiWellnessSummary.readFromCursor(c),
         currentWeek: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
         prevWeek: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        weekHoursTrend: FfiConverterOptionalString.readFromCursor(c),
+        weekCountTrend: FfiConverterOptionalString.readFromCursor(c),
         ftpTrend: FfiConverterTypeFfiFtpTrend.readFromCursor(c),
         runPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
         swimPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
@@ -17060,6 +17852,8 @@ const FfiConverterTypeFfiSummaryCardData = (() => {
       FfiConverterTypeFfiWellnessSummary.writeIntoCursor(value.wellness, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.currentWeek, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.prevWeek, c);
+      FfiConverterOptionalString.writeIntoCursor(value.weekHoursTrend, c);
+      FfiConverterOptionalString.writeIntoCursor(value.weekCountTrend, c);
       FfiConverterTypeFfiFtpTrend.writeIntoCursor(value.ftpTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.runPaceTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.swimPaceTrend, c);
@@ -17069,6 +17863,8 @@ const FfiConverterTypeFfiSummaryCardData = (() => {
         FfiConverterTypeFfiWellnessSummary.allocationSize(value.wellness) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.currentWeek) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.prevWeek) +
+        FfiConverterOptionalString.allocationSize(value.weekHoursTrend) +
+        FfiConverterOptionalString.allocationSize(value.weekCountTrend) +
         FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend)
@@ -17635,6 +18431,12 @@ export enum FfiSyncErrorReason {
    * a failure however many steps had already succeeded.
    */
   EngineClosed = 8,
+  /**
+   * The device ran out of space while the sync was writing what it had
+   * fetched: SQLite reported the disk full, or a write failed with no
+   * space left. Freeing space is the fix, not a retry.
+   */
+  StorageFull = 9,
 }
 
 const FfiConverterTypeFfiSyncErrorReason = (() => {
@@ -17658,6 +18460,8 @@ const FfiConverterTypeFfiSyncErrorReason = (() => {
           return FfiSyncErrorReason.Internal;
         case 8:
           return FfiSyncErrorReason.EngineClosed;
+        case 9:
+          return FfiSyncErrorReason.StorageFull;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -17680,6 +18484,8 @@ const FfiConverterTypeFfiSyncErrorReason = (() => {
           return c.writeI32(7);
         case FfiSyncErrorReason.EngineClosed:
           return c.writeI32(8);
+        case FfiSyncErrorReason.StorageFull:
+          return c.writeI32(9);
       }
     }
     allocationSize(value: TypeName): number {
@@ -18474,6 +19280,60 @@ const FfiConverterTypeFfiWellnessDay = (() => {
         FfiConverterOptionalInt32.allocationSize(value.mood) +
         FfiConverterOptionalInt32.allocationSize(value.motivation) +
         FfiConverterSequenceTypeFfiSportLoad.allocationSize(value.sportLoad)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The stored wellness days of a window and whether the window was pulled.
+ *
+ * An empty `days` is either a window the account holds nothing in or one the
+ * device never downloaded, and the charts drawing it said the same for both.
+ */
+export type FfiWellnessDays = {
+  /**
+   * Oldest first.
+   */
+  days: Array<FfiWellnessDay>;
+  coverage: RangeCoverage;
+};
+
+/**
+ * Generated factory for {@link FfiWellnessDays} record objects.
+ */
+export const FfiWellnessDays = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWellnessDays, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWellnessDays>,
+  });
+})();
+
+const FfiConverterTypeFfiWellnessDays = (() => {
+  type TypeName = FfiWellnessDays;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        days: FfiConverterSequenceTypeFfiWellnessDay.readFromCursor(c),
+        coverage: FfiConverterTypeRangeCoverage.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiWellnessDay.writeIntoCursor(value.days, c);
+      FfiConverterTypeRangeCoverage.writeIntoCursor(value.coverage, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiWellnessDay.allocationSize(value.days) +
+        FfiConverterTypeRangeCoverage.allocationSize(value.coverage)
       );
     }
   }
@@ -19986,61 +20846,6 @@ const FfiConverterTypeMapDistanceBand = (() => {
           return c.writeI32(4);
         case MapDistanceBand.Long:
           return c.writeI32(5);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Whether a date range holds nothing, owes a download, or is fully local.
- *
- * The wire carries the variant's position, so the order here is the contract:
- * append, never reorder. The discriminants start at one so no member is falsy.
- */
-export enum RangeCoverage {
-  /**
-   * The census names nothing inside the range. The account holds nothing
-   * there, so an empty chart is the truth.
-   */
-  Empty = 1,
-  /**
-   * The census names activities the device has not stored at the version the
-   * census gives them. An empty chart here is ignorance, not an empty range.
-   */
-  NotFetched = 2,
-  /**
-   * Every activity the census names inside the range is local and current.
-   */
-  Loaded = 3,
-}
-
-const FfiConverterTypeRangeCoverage = (() => {
-  type TypeName = RangeCoverage;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return RangeCoverage.Empty;
-        case 2:
-          return RangeCoverage.NotFetched;
-        case 3:
-          return RangeCoverage.Loaded;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case RangeCoverage.Empty:
-          return c.writeI32(1);
-        case RangeCoverage.NotFetched:
-          return c.writeI32(2);
-        case RangeCoverage.Loaded:
-          return c.writeI32(3);
       }
     }
     allocationSize(value: TypeName): number {
@@ -24113,14 +24918,13 @@ export interface FitnessManagerLike {
     weekLengthSecs: number,
   ) /*throws*/ : Array<FfiWeeklySummary>;
   /**
-   * Stored wellness days over an inclusive date window, oldest first.
+   * Stored wellness days over an inclusive date window, oldest first, with
+   * whether the window was pulled at all.
    * Typed: every field the wellness and fitness screens render, so nothing
-   * parses a body to draw a chart.
+   * parses a body to draw a chart, and a chart with no days can say whether
+   * they were never downloaded.
    */
-  getWellnessDays(
-    oldest: string,
-    newest: string,
-  ) /*throws*/ : Array<FfiWellnessDay>;
+  getWellnessDays(oldest: string, newest: string) /*throws*/ : FfiWellnessDays;
   /**
    * The newest stored wellness date, or `None` when nothing has synced.
    * A scalar the insights panel dates its dropped form cards from, so the
@@ -24672,14 +25476,13 @@ export class FitnessManager
   }
 
   /**
-   * Stored wellness days over an inclusive date window, oldest first.
+   * Stored wellness days over an inclusive date window, oldest first, with
+   * whether the window was pulled at all.
    * Typed: every field the wellness and fitness screens render, so nothing
-   * parses a body to draw a chart.
+   * parses a body to draw a chart, and a chart with no days can say whether
+   * they were never downloaded.
    */
-  getWellnessDays(
-    oldest: string,
-    newest: string,
-  ): Array<FfiWellnessDay> /*throws*/ {
+  getWellnessDays(oldest: string, newest: string): FfiWellnessDays /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -24695,7 +25498,7 @@ export class FitnessManager
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-      return FfiConverterSequenceTypeFfiWellnessDay.lift(__rb);
+      return FfiConverterTypeFfiWellnessDays.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -32379,6 +33182,11 @@ const FfiConverterSequenceTypeFfiHrZoneBand = new FfiConverterArray(
   FfiConverterTypeFfiHrZoneBand,
 );
 
+// FfiConverter for Array<FfiPowerZoneBand>
+const FfiConverterSequenceTypeFfiPowerZoneBand = new FfiConverterArray(
+  FfiConverterTypeFfiPowerZoneBand,
+);
+
 // FfiConverter for Array<FfiActivityLedgerChange>
 const FfiConverterSequenceTypeFfiActivityLedgerChange = new FfiConverterArray(
   FfiConverterTypeFfiActivityLedgerChange,
@@ -32712,6 +33520,10 @@ const FfiConverterSequenceTypeFfiGroupWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiGroupWithPolyline,
 );
 
+// FfiConverter for FfiCatalogueEmptyReason | undefined
+const FfiConverterOptionalTypeFfiCatalogueEmptyReason =
+  new FfiConverterOptional(FfiConverterTypeFfiCatalogueEmptyReason);
+
 // FfiConverter for FfiDetectionProgress | undefined
 const FfiConverterOptionalTypeFfiDetectionProgress = new FfiConverterOptional(
   FfiConverterTypeFfiDetectionProgress,
@@ -32833,6 +33645,11 @@ const FfiConverterSequenceTypeSectionSummary = new FfiConverterArray(
   FfiConverterTypeSectionSummary,
 );
 
+// FfiConverter for FfiClaimBasis | undefined
+const FfiConverterOptionalTypeFfiClaimBasis = new FfiConverterOptional(
+  FfiConverterTypeFfiClaimBasis,
+);
+
 // FfiConverter for Array<FfiPreviewTrack>
 const FfiConverterSequenceTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
@@ -32882,6 +33699,11 @@ const FfiConverterOptionalTypeUploadRefusal = new FfiConverterOptional(
 // FfiConverter for Array<FfiSportLoad>
 const FfiConverterSequenceTypeFfiSportLoad = new FfiConverterArray(
   FfiConverterTypeFfiSportLoad,
+);
+
+// FfiConverter for Array<FfiWellnessDay>
+const FfiConverterSequenceTypeFfiWellnessDay = new FfiConverterArray(
+  FfiConverterTypeFfiWellnessDay,
 );
 
 // FfiConverter for Array<FfiRouteGroupPreview>
@@ -32951,11 +33773,6 @@ const FfiConverterOptionalTypeFfiPowerCurve = new FfiConverterOptional(
 // FfiConverter for Array<FfiWeeklySummary>
 const FfiConverterSequenceTypeFfiWeeklySummary = new FfiConverterArray(
   FfiConverterTypeFfiWeeklySummary,
-);
-
-// FfiConverter for Array<FfiWellnessDay>
-const FfiConverterSequenceTypeFfiWellnessDay = new FfiConverterArray(
-  FfiConverterTypeFfiWellnessDay,
 );
 
 // FfiConverter for FfiRecordingEntry | undefined
@@ -33974,7 +34791,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_days() !==
-    57838
+    35584
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_days",
@@ -35584,6 +36401,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCallKind,
     FfiConverterTypeFfiCallOutcome,
     FfiConverterTypeFfiCatalogueCounts,
+    FfiConverterTypeFfiCatalogueEmptyReason,
     FfiConverterTypeFfiChangeCardSupport,
     FfiConverterTypeFfiClaimBasis,
     FfiConverterTypeFfiClimbBest,
@@ -35596,6 +36414,7 @@ export default Object.freeze({
     FfiConverterTypeFfiDayLoad,
     FfiConverterTypeFfiDayLoadStatus,
     FfiConverterTypeFfiDepartedRide,
+    FfiConverterTypeFfiDetectionHold,
     FfiConverterTypeFfiDetectionProgress,
     FfiConverterTypeFfiDirectionDeltas,
     FfiConverterTypeFfiDirectionStats,
@@ -35659,6 +36478,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPlaceNameOutcome,
     FfiConverterTypeFfiPowerCurve,
     FfiConverterTypeFfiPowerModel,
+    FfiConverterTypeFfiPowerZoneBand,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewPool,
     FfiConverterTypeFfiPreviewResult,
@@ -35748,6 +36568,7 @@ export default Object.freeze({
     FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWeeklyTotal,
     FfiConverterTypeFfiWellnessDay,
+    FfiConverterTypeFfiWellnessDays,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
     FfiConverterTypeFfiWellnessSummary,

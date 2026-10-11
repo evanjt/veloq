@@ -8,7 +8,7 @@
  * engine judged rather than one TypeScript re-decided.
  */
 
-import type { SummaryCardData as EngineSummaryCardData } from 'veloqrs';
+import { RangeCoverage, type SummaryCardData as EngineSummaryCardData } from 'veloqrs';
 import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
@@ -64,7 +64,7 @@ const CARD = {
 const engine = {
   getSummaryCardData: jest.fn(() => CARD),
   getWellnessSparklines: jest.fn(() => null),
-  getWellnessDays: jest.fn(() => []),
+  getWellnessDays: jest.fn(() => ({ days: [], coverage: RangeCoverage.Empty })),
   subscribe: jest.fn(() => () => {}),
 };
 

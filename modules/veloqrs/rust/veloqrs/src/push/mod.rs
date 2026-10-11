@@ -358,6 +358,13 @@ const PUSH_READIES_ACTIVITY: bool = !cfg!(target_os = "ios");
 /// is between this and no entry at all.
 const FALLBACK_TITLE: &str = "New activity";
 
+/// What a native entry hands its caller for an `Ok(None)` from
+/// [`activity_push_json`]: the engine's own refusal, notifications off or an
+/// athlete who differs, which posts nothing beyond what the server sent. It is
+/// not null, because null is an entry that could not answer at all, which each
+/// platform covers with a fallback entry of its own.
+pub(crate) const SKIP_MARKER: &str = "{\"skip\":true}";
+
 /// The plain entry to post when the ladder produced no sentence, or when a
 /// step failed after the gate let the push through.
 ///

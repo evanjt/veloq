@@ -656,6 +656,58 @@ fn activity_hr_zones_from(
     .unwrap_or_default()
 }
 
+/// The value intervals.icu puts last in `icu_power_zones` for a top zone with
+/// no upper edge.
+const POWER_ZONE_OPEN_TOP_PERCENT: f64 = 999.0;
+
+/// The saved activity's power zone bands in watts and the time spent in each,
+/// or `None` when there is no time to show or no bounds to place it in.
+///
+/// `icu_power_zones` holds the upper edge of each zone as a percent of the
+/// activity's `icu_ftp`, ending in [`POWER_ZONE_OPEN_TOP_PERCENT`]. Every edge
+/// below that sentinel closes a zone and the zone after the last one is open,
+/// whether or not the sentinel was sent. A body with no positive FTP, or with an
+/// edge that is not a positive number, has no bands. The time in each zone is
+/// the activity's own `icu_zone_times`, placed by zone id.
+fn activity_power_zones(body: Option<&str>) -> Option<Vec<crate::FfiPowerZoneBand>> {
+    let body: serde_json::Value = serde_json::from_str(body?).ok()?;
+    let ftp = positive(body.get("icu_ftp")?.as_f64())?;
+    let percents: Vec<f64> = body
+        .get("icu_power_zones")?
+        .as_array()?
+        .iter()
+        .map(|v| v.as_f64().filter(|p| *p > 0.0))
+        .collect::<Option<_>>()?;
+    let uppers: Vec<u32> = percents
+        .iter()
+        .take_while(|p| **p < POWER_ZONE_OPEN_TOP_PERCENT)
+        .map(|p| (p * ftp / 100.0).round() as u32)
+        .collect();
+    if uppers.is_empty() {
+        return None;
+    }
+    let zone_times: Vec<crate::net::types::ZoneTime> =
+        serde_json::from_value(body.get("icu_zone_times")?.clone()).ok()?;
+    let seconds = crate::objects::sync::power_zone_seconds(&zone_times, uppers.len() + 1);
+    let total: f64 = seconds.iter().map(|s| f64::from(*s)).sum();
+    if total <= 0.0 {
+        return None;
+    }
+    Some(
+        seconds
+            .iter()
+            .enumerate()
+            .map(|(i, secs)| crate::FfiPowerZoneBand {
+                zone: i as u32 + 1,
+                min_watts: if i == 0 { 0 } else { uppers[i - 1] },
+                max_watts: uppers.get(i).copied(),
+                seconds: f64::from(*secs),
+                percent: f64::from(*secs) / total * 100.0,
+            })
+            .collect(),
+    )
+}
+
 impl super::PersistentEngine {
     /// This engine's connection, after dropping what the pooled reads
     /// remember. That cache belongs to the database the pool is bound to,
@@ -1130,22 +1182,25 @@ fn climb_bests(
          JOIN activities a ON a.id = b.activity_id
          JOIN gps_tracks g ON g.activity_id = b.activity_id
          WHERE a.sport_type IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
-           AND g.elevation_source = {}
+           AND g.elevation_source = {} AND b.window_s != {}
          GROUP BY b.window_s",
         crate::sport::sql_list(&family),
-        crate::persistence::ELEVATION_SOURCE_CORRECTED
+        crate::persistence::ELEVATION_SOURCE_CORRECTED,
+        crate::persistence::climb_bests::NO_WINDOW_S
     );
-    // A track row missing or not corrected leaves the activity unranked.
+    // A track row missing or not corrected leaves the activity unranked. One
+    // that measured to no window has nothing to rank, so it is not excluded.
     let excluded_sql = format!(
         "SELECT COUNT(DISTINCT b.activity_id)
          FROM activity_climb_bests b
          JOIN activities a ON a.id = b.activity_id
          LEFT JOIN gps_tracks g ON g.activity_id = b.activity_id
          WHERE a.sport_type IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
-           AND COALESCE(g.elevation_source, {}) != {}",
+           AND COALESCE(g.elevation_source, {}) != {} AND b.window_s != {}",
         crate::sport::sql_list(&family),
         crate::persistence::ELEVATION_SOURCE_UNKNOWN,
-        crate::persistence::ELEVATION_SOURCE_CORRECTED
+        crate::persistence::ELEVATION_SOURCE_CORRECTED,
+        crate::persistence::climb_bests::NO_WINDOW_S
     );
     let source_excluded: i64 = conn
         .prepare_cached(&excluded_sql)?
@@ -1454,6 +1509,38 @@ pub(crate) fn preview_line(points: &[crate::GpsPoint]) -> Vec<u8> {
     crate::persistence::codec::encode_polyline(&strided(points, PREVIEW_POINTS))
 }
 
+/// A week's moving time in hours, rounded to the tenth the summary card and
+/// the widget print. A non-finite total reads as none.
+pub(crate) fn week_hours(week: &crate::FfiPeriodStats) -> f64 {
+    let seconds = if week.total_duration.is_finite() {
+        week.total_duration
+    } else {
+        0.0
+    };
+    (seconds / 3600.0 * 10.0).round() / 10.0
+}
+
+/// The arrows for this week's hours and activity count against the same part
+/// of the week before, judged once for the summary card and the widget. Hours
+/// are judged as printed, so the arrow never disagrees with the two numbers.
+pub(crate) fn week_trends(
+    current: &crate::FfiPeriodStats,
+    previous: &crate::FfiPeriodStats,
+) -> (Option<String>, Option<String>) {
+    (
+        crate::trend_table::glyph(
+            "weekHours",
+            Some(week_hours(current)),
+            Some(week_hours(previous)),
+        ),
+        crate::trend_table::glyph(
+            "weekCount",
+            Some(f64::from(current.count)),
+            Some(f64::from(previous.count)),
+        ),
+    )
+}
+
 /// The tail of a series, oldest first, capped.
 ///
 /// Every insight card draws a graphic of its own history, and the points come
@@ -1594,13 +1681,23 @@ pub mod pooled {
     ///
     /// The trend is read from wellness bodies and the eFTP markers a sync
     /// stores, the speeds from the snapshots a pace curve download writes, and
-    /// all three land with the `activities` event. The range and sport the
+    /// all three land with the `activities` event. The trend's coverage is the
+    /// wellness over the days its chart draws, so an empty chart can say
+    /// whether those bodies were never pulled. The range and sport the
     /// athlete taps are not here: a tap would otherwise re-read the trend to
     /// get a curve.
     pub fn fitness_screen_data(conn: &Connection, today: &str) -> crate::FfiFitnessScreenData {
         use crate::persistence::fitness::derivations::pooled as fitness;
+        let window_start = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d")
+            .map(|day| (day - chrono::Duration::days(FITNESS_FTP_LOOKBACK_DAYS)).to_string())
+            .unwrap_or_else(|_| today.to_string());
         crate::FfiFitnessScreenData {
             ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
+            ftp_trend_coverage: crate::persistence::wellness::pooled::coverage(
+                conn,
+                &window_start,
+                today,
+            ),
             run_pace_trend: fitness::pace_trend(conn, "Run"),
             swim_pace_trend: fitness::pace_trend(conn, "Swim"),
         }
@@ -2239,6 +2336,10 @@ pub mod pooled {
             pr_section_ids,
             max_hr: super::activity_max_hr(conn, activity_id),
             hr_zones: super::activity_hr_zones_from(conn, activity_id),
+            power_zones: super::activity_power_zones(
+                crate::persistence::activities::pooled::activity_body(conn, activity_id).as_deref(),
+            )
+            .unwrap_or_default(),
             ledger_changes:
                 crate::persistence::sections::history::pooled::ledger_changes_naming_activity(
                     conn,
@@ -2925,10 +3026,15 @@ pub mod pooled {
         prev_end: i64,
     ) -> crate::FfiSummaryCardData {
         use crate::persistence::fitness::derivations::pooled as fitness;
+        let current_week = fitness::period_stats(conn, current_start, current_end);
+        let prev_week = fitness::period_stats(conn, prev_start, prev_end);
+        let (week_hours_trend, week_count_trend) = super::week_trends(&current_week, &prev_week);
         crate::FfiSummaryCardData {
             wellness: crate::persistence::wellness::pooled::summary(conn),
-            current_week: fitness::period_stats(conn, current_start, current_end),
-            prev_week: fitness::period_stats(conn, prev_start, prev_end),
+            current_week,
+            prev_week,
+            week_hours_trend,
+            week_count_trend,
             ftp_trend: fitness::ftp_trend_to(conn, &crate::persistence::wellness::today_iso()),
             run_pace_trend: fitness::pace_trend(conn, "Run"),
             swim_pace_trend: fitness::pace_trend(conn, "Swim"),
@@ -3581,6 +3687,95 @@ mod tests {
             assert!(
                 pooled::activity_detail_data(&engine.db, "unknown", 1)
                     .hr_zones
+                    .is_empty()
+            );
+        }
+    }
+
+    /// Scenario: intervals.icu sends `icu_power_zones` as percent of FTP with 999
+    /// standing for the open top, and the chart printed those percentages as watts.
+    ///
+    /// Expected behaviour: each bound is converted with the activity's own FTP,
+    /// the sentinel leaves the top zone open, and the time in each zone is read
+    /// by its id so sweet spot never takes a slot.
+    mod saved_power_zones {
+        use super::*;
+
+        const RIDE: &str = r#"{"type":"Ride","icu_ftp":155,
+            "icu_power_zones":[55,75,90,105,120,150,999],
+            "icu_zone_times":[{"id":"Z1","secs":600},{"id":"Z2","secs":300},
+              {"id":"Z3","secs":0},{"id":"Z4","secs":0},{"id":"Z5","secs":0},
+              {"id":"Z6","secs":0},{"id":"Z7","secs":100},{"id":"SS","secs":450}]}"#;
+
+        #[test]
+        fn percent_of_ftp_bounds_become_watts_with_an_open_top() {
+            let bands = activity_power_zones(Some(RIDE)).expect("zones");
+            assert_eq!(bands.len(), 7);
+            assert_eq!(
+                (bands[0].zone, bands[0].min_watts, bands[0].max_watts),
+                (1, 0, Some(85))
+            );
+            assert_eq!(
+                (bands[1].zone, bands[1].min_watts, bands[1].max_watts),
+                (2, 85, Some(116))
+            );
+            assert_eq!((bands[5].min_watts, bands[5].max_watts), (186, Some(233)));
+            assert_eq!(
+                (bands[6].zone, bands[6].min_watts, bands[6].max_watts),
+                (7, 233, None)
+            );
+        }
+
+        #[test]
+        fn time_is_placed_by_zone_id_and_sweet_spot_is_left_out() {
+            let bands = activity_power_zones(Some(RIDE)).expect("zones");
+            assert_eq!(bands[0].seconds, 600.0);
+            assert_eq!(bands[1].seconds, 300.0);
+            assert_eq!(bands[6].seconds, 100.0);
+            assert_eq!(bands[0].percent, 60.0);
+            assert_eq!(bands.iter().map(|b| b.percent).sum::<f64>(), 100.0);
+        }
+
+        #[test]
+        fn bounds_without_the_sentinel_still_end_in_an_open_zone() {
+            let body = r#"{"type":"Ride","icu_ftp":200,"icu_power_zones":[55,75,90,105,120,150],
+                "icu_zone_times":[{"id":"Z1","secs":10},{"id":"Z7","secs":10}]}"#;
+            let bands = activity_power_zones(Some(body)).expect("zones");
+            assert_eq!(bands.len(), 7);
+            assert_eq!((bands[6].min_watts, bands[6].max_watts), (300, None));
+            assert_eq!(bands[6].seconds, 10.0);
+        }
+
+        #[test]
+        fn nothing_to_show_is_none() {
+            let no_time = r#"{"icu_ftp":155,"icu_power_zones":[55,75,999],
+                "icu_zone_times":[{"id":"Z1","secs":0}]}"#;
+            let no_ftp =
+                r#"{"icu_power_zones":[55,75,999],"icu_zone_times":[{"id":"Z1","secs":5}]}"#;
+            let zero_ftp = r#"{"icu_ftp":0,"icu_power_zones":[55,75,999],
+                "icu_zone_times":[{"id":"Z1","secs":5}]}"#;
+            let no_zones = r#"{"icu_ftp":155,"icu_zone_times":[{"id":"Z1","secs":5}]}"#;
+            let bad_bound = r#"{"icu_ftp":155,"icu_power_zones":[55,0,999],
+                "icu_zone_times":[{"id":"Z1","secs":5}]}"#;
+            for body in [no_time, no_ftp, zero_ftp, no_zones, bad_bound, "not json"] {
+                assert!(activity_power_zones(Some(body)).is_none(), "{body}");
+            }
+            assert!(activity_power_zones(None).is_none());
+        }
+
+        #[test]
+        fn the_detail_read_carries_the_power_zones() {
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .upsert_activity_bodies(&[("a1".into(), 1_700_000_000, RIDE.into())])
+                .expect("body");
+
+            let zones = pooled::activity_detail_data(&engine.db, "a1", 1).power_zones;
+            assert_eq!(zones.len(), 7);
+            assert_eq!(zones[1].max_watts, Some(116));
+            assert!(
+                pooled::activity_detail_data(&engine.db, "unknown", 1)
+                    .power_zones
                     .is_empty()
             );
         }
@@ -5431,6 +5626,58 @@ mod tests {
         let lines = data.sparklines.expect("a day of wellness");
         assert_eq!(lines.fitness, vec![70]);
         assert_eq!(lines.form, vec![10], "form is fitness less fatigue");
+
+        crate::persistence::read_cache::close();
+    }
+
+    /// Scenario: the eFTP chart is read from the stored wellness bodies, and
+    /// with none stored it told the athlete to complete power activities.
+    ///
+    /// Expected behaviour: the fitness screen read says the chart's window owes
+    /// its download until wellness is stored, and says it is loaded once a day
+    /// inside the window is, whether or not that day carries an estimate.
+    #[test]
+    fn the_fitness_screen_read_says_whether_the_eftp_window_was_downloaded() {
+        use tempfile::TempDir;
+
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("fitness_screen_coverage.db");
+        let path = path.to_str().expect("utf-8");
+        let engine = crate::persistence::PersistentEngine::new(path).expect("engine");
+        let today = "2026-06-30";
+
+        let read = pooled::fitness_screen_data(&engine.db, today);
+        assert!(read.ftp_trend.history.is_empty());
+        assert_eq!(read.ftp_trend_coverage, crate::RangeCoverage::NotFetched);
+
+        let before_window = "2026-03-01";
+        engine
+            .db
+            .execute(
+                "INSERT INTO wellness (date, ctl, atl) VALUES (?1, 50.0, 40.0)",
+                rusqlite::params![before_window],
+            )
+            .expect("wellness");
+        assert_eq!(
+            pooled::fitness_screen_data(&engine.db, today).ftp_trend_coverage,
+            crate::RangeCoverage::Empty,
+            "wellness stored only before the chart's window"
+        );
+
+        engine
+            .db
+            .execute(
+                "INSERT INTO wellness (date, ctl, atl) VALUES (?1, 50.0, 40.0)",
+                rusqlite::params!["2026-06-29"],
+            )
+            .expect("wellness");
+        let read = pooled::fitness_screen_data(&engine.db, today);
+        assert!(
+            read.ftp_trend.history.is_empty(),
+            "no day carries an estimate"
+        );
+        assert_eq!(read.ftp_trend_coverage, crate::RangeCoverage::Loaded);
 
         crate::persistence::read_cache::close();
     }

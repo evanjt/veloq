@@ -187,22 +187,54 @@ function linkAthlete(query: string | undefined): string | undefined | null {
 }
 
 /**
+ * The routes a link from outside the app may open: the screens a widget, a
+ * notification, the sign-in callback or a test flow publishes, each one a
+ * screen with its own way back. A sheet, the recording review and the login
+ * screen are reached only from inside the app, and a sheet opened cold has no
+ * request to answer and renders nothing.
+ */
+const ENTRY_ROUTES: readonly RegExp[] = [
+  /^$/,
+  /^(fitness|insights|map|training)$/,
+  /^(activity|route|recordings)\/[^/]+$/,
+  /^section\/((history|laps)\/)?[^/]+$/,
+  /^recording\/(?!review$)[^/]+$/,
+  /^(record|recordings|routes)$/,
+  /^oauth\/callback$/,
+  /^(settings|about|display-settings|cache-settings|summary-card-settings)$/,
+  /^(notification-settings|backup-settings)$/,
+];
+
+/** The developer screens, which a link opens only for a developer. */
+const DEVELOPER_ROUTES = /^(debug|detection-preview|route-grouping-preview)$/;
+
+/**
  * The deep link to open, or null to open the app where it is.
+ *
+ * Only a route the app publishes as an entry opens; a link to a sheet, the
+ * recording review, the login screen or any route not on that list opens
+ * nothing. The developer screens open only when `developer` holds, which the
+ * caller decides from the unlocked debug switch or the development build.
  *
  * The native Android entry opens its activity by link rather than through the
  * tap handler, so the link carries the athlete and passes the same check. An
  * activity link that names another athlete, or names none after the parameter
  * is present, opens nothing; one without the parameter is the app's or a
  * widget's own and passes. A link to the retired summary route is checked the
- * same way and sent to the activity. Every other link is returned as it came.
+ * same way and sent to the activity.
  */
 export function openableSystemPath(
   path: string,
-  signedIn: string | null | undefined
+  signedIn: string | null | undefined,
+  developer = false
 ): string | null {
-  const route = path.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/^\/+/, '');
+  const route = path.replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/]*\/--\/)?/i, '').replace(/^\/+/, '');
+  const screen = route.replace(/[?#].*$/, '').replace(/\/+$/, '');
   const link = /^(activity|summary)\/([^/?#]+)\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
-  if (!link) return path;
+  if (!link) {
+    if (ENTRY_ROUTES.some((entry) => entry.test(screen))) return path;
+    return developer && DEVELOPER_ROUTES.test(screen) ? path : null;
+  }
   const [, kind, id, query] = link;
   const named = linkAthlete(query);
   if (kind === 'summary') {

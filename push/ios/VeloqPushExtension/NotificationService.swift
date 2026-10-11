@@ -13,12 +13,15 @@ import WidgetKit
 ///
 /// The whole of the work is the crate's: open the database in the App Group
 /// container, fetch and index the ride, ask for the sentence, and compose the
-/// widget snapshot from the ride just stored. Every refusal
-/// on the way ends the same, with the notification the server wrote delivered
-/// unchanged. Every exit that has a database path also records a failed run
-/// with its reason, where the Developer Dashboard lists the runs. With no
-/// library in the container there is nowhere to write, so no row then means
-/// the extension was not invoked or there was no library.
+/// widget snapshot from the ride just stored. Every refusal on the way ends
+/// the same, with the server's line rewritten to the recorded title from this
+/// bundle's own catalogue, so it reads in the device's language rather than
+/// the server's English. Only the engine's own refusal, notifications off or
+/// another athlete, delivers what the server wrote unchanged. Every exit that
+/// has a database path also records a failed run with its reason, where the
+/// Developer Dashboard lists the runs. With no library in the container there
+/// is nowhere to write, so no row then means the extension was not invoked or
+/// there was no library.
 final class NotificationService: UNNotificationServiceExtension {
   private var deliver: ((UNNotificationContent) -> Void)?
   private var original: UNNotificationContent?
@@ -56,25 +59,28 @@ final class NotificationService: UNNotificationServiceExtension {
     // `serviceExtensionTimeWillExpire` on the main thread, and an extension
     // that blocked it would never hear the warning it exists to act on.
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-      guard let enriched = Self.enrich(request.content, with: push) else {
+      switch Self.enrich(request.content, with: push) {
+      case .enriched(let enriched):
+        self?.hold(enriched)
+        Self.refreshWidgets()
+        self?.post(enriched)
+      case .declined:
         self?.post(request.content)
-        return
+      case .unanswered:
+        self?.post(Self.fallback(request.content))
       }
-      self?.hold(enriched)
-      Self.refreshWidgets()
-      self?.post(enriched)
     }
   }
 
   /// The last thirty seconds are up. Post the best content in hand: the
   /// enriched content when the engine answered and the widget write is what
-  /// ran long, else the server's. Only the second is a failed run, recorded
-  /// after, best effort, since the budget is spent.
+  /// ran long, else the fallback over the server's line. Only the second is a
+  /// failed run, recorded after, best effort, since the budget is spent.
   override func serviceExtensionTimeWillExpire() {
     once.lock()
     let answered = enrichedContent
     once.unlock()
-    post(answered ?? original ?? UNMutableNotificationContent())
+    post(answered ?? original.map(Self.fallback) ?? UNMutableNotificationContent())
     if answered == nil, let database = VeloqPaths.routeDatabase() {
       VeloqPushEngine.recordRefusal(
         databasePath: database, activityId: activityId, reason: "time ran out")
@@ -114,21 +120,44 @@ final class NotificationService: UNNotificationServiceExtension {
     WidgetCenter.shared.reloadAllTimelines()
   }
 
-  /// The ride as Veloq knows it, or nil for every case that leaves the
-  /// server's line standing: no library in the container yet, a keychain that
-  /// would not answer, an engine that would not open, notifications switched
-  /// off or an athlete who differs. A ride with nothing in it worth
-  /// a sentence is posted as the stored title over the ride's name. Each
-  /// refusal that has a database path is recorded with its reason.
+  /// The server's line with the recorded title from this bundle's catalogue
+  /// and no body, which is the engine's own fallback for a run that learned no
+  /// ride name. The catalogue is generated at prebuild from the app's locale
+  /// bundles, so the title needs neither the keychain nor the database.
+  private static func fallback(_ content: UNNotificationContent) -> UNNotificationContent {
+    guard let rewritten = content.mutableCopy() as? UNMutableNotificationContent else {
+      return content
+    }
+    rewritten.title = String(localized: "Activity Recorded")
+    rewritten.body = ""
+    return rewritten
+  }
+
+  private enum Outcome {
+    /// The sentence, or the stored title over the ride's name for a ride with
+    /// nothing in it worth a sentence.
+    case enriched(UNNotificationContent)
+    /// The engine's own refusal: notifications switched off or an athlete who
+    /// differs. The server's line stands.
+    case declined
+    /// The engine could not answer: no library in the container yet, a
+    /// keychain that would not answer, an engine that would not open, no
+    /// answer at all or one that would not parse. The fallback replaces the
+    /// server's line.
+    case unanswered
+  }
+
+  /// The ride as Veloq knows it, or why there is none. Each refusal that has
+  /// a database path is recorded with its reason.
   private static func enrich(
     _ content: UNNotificationContent,
     with push: VeloqPushPayload
-  ) -> UNNotificationContent? {
-    guard let database = VeloqPaths.routeDatabase() else { return nil }
-    func refuse(_ reason: String) -> UNNotificationContent? {
+  ) -> Outcome {
+    guard let database = VeloqPaths.routeDatabase() else { return .unanswered }
+    func refuse(_ reason: String) -> Outcome {
       VeloqPushEngine.recordRefusal(
         databasePath: database, activityId: push.activityId, reason: reason)
-      return nil
+      return .unanswered
     }
 
     guard let credentials = VeloqCredentials.read() else {
@@ -138,10 +167,11 @@ final class NotificationService: UNNotificationServiceExtension {
     guard prepared.ready else {
       return refuse(prepared.refusal ?? "prepare refused")
     }
-    // A nil answer is the engine's own: notifications off or another athlete,
-    // which it records itself as a run.
     guard let answer = VeloqPushEngine.sentence(activityId: push.activityId, athleteId: push.athleteId)
-    else { return nil }
+    else { return refuse("the engine did not answer") }
+    // The engine's own refusal, notifications off or another athlete, which it
+    // records itself as a run.
+    if VeloqSentence.skips(answer) { return .declined }
     guard
       let sentence = VeloqSentence(json: answer),
       let enriched = content.mutableCopy() as? UNMutableNotificationContent
@@ -149,6 +179,6 @@ final class NotificationService: UNNotificationServiceExtension {
 
     enriched.title = sentence.title
     enriched.body = sentence.body
-    return enriched
+    return .enriched(enriched)
   }
 }

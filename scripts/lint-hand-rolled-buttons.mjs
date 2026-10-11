@@ -19,10 +19,13 @@
 // built; and tests. Map controls are counted too, including the remaining
 // pressable rows and chips, so new hand-rolled controls cannot enter unnoticed.
 //
-// Also refused, with no baseline: `Button` or `SegmentedButtons` imported from
-// `react-native-paper` anywhere under `src/`, `src/shared/ui/` included. The
-// ratchet above sees only the press primitives, so a Paper control draws a
-// second button style that no count reaches. `IconButton` is not covered.
+// Also refused, with no baseline: `Button`, `SegmentedButtons` or `IconButton`
+// imported from `react-native-paper` anywhere under `src/`, `src/shared/ui/`
+// included. The ratchet above sees only the press primitives, so a Paper
+// control draws a second button style that no count reaches. Paper's
+// `IconButton` also takes no label and sizes its target from the glyph, so it
+// reaches a screen reader as "button" and nothing else, under the label and
+// tap-target guards both.
 //
 // A press target that is not a button, a card or a row stays on `Pressable`.
 // The ratchet does not know the difference, which is why it is a ceiling that
@@ -52,9 +55,9 @@ const RENDERED = /<(?:TouchableOpacity|Pressable)[\s/>]/g;
 
 const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 
-/** An import from Paper naming `Button` or `SegmentedButtons`, aliased or not. */
+/** An import from Paper naming one of its buttons, aliased or not. */
 const PAPER_IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]react-native-paper['"]/g;
-const PAPER_BUTTONS = new Set(['Button', 'SegmentedButtons']);
+const PAPER_BUTTONS = new Set(['Button', 'SegmentedButtons', 'IconButton']);
 
 const paperButtons = [];
 const counts = {};
@@ -86,7 +89,7 @@ if (WRITE) {
 }
 
 if (paperButtons.length > 0) {
-  console.error('Paper draws a second button style. Use Button or ToggleButton from');
+  console.error('Paper draws a second button style. Use Button, IconButton or ToggleButton from');
   console.error('src/shared/ui, one ToggleButton per option in place of SegmentedButtons.\n');
   for (const [file, name] of paperButtons) {
     console.error(`  ${file}  imports ${name} from react-native-paper`);

@@ -1,10 +1,11 @@
 /**
  * Scenario: an activity opened offline whose streams were never fetched. Its
- * intervals and its power zone times are both in SQLite and neither needs a
- * stream, but they sat inside a block gated on `availableCharts.length > 0`.
+ * intervals and both zone cards' bands are in SQLite and none needs a stream,
+ * but they sat inside a block gated on `availableCharts.length > 0`, and the
+ * HR card was gated on the heart rate stream.
  *
  * Expected behaviour: each block is gated on the data it actually reads, so a
- * streamless activity still shows its interval table and its power zones.
+ * streamless activity still shows its interval table and both zone cards.
  */
 
 import React from 'react';
@@ -12,6 +13,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
 import type { ActivityDetail, ActivityInterval, ActivityStreams } from '@/types';
+import type { HrZoneBand, PowerZoneBand } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -78,6 +80,16 @@ function activityWith(extra: Partial<ActivityDetail> = {}): ActivityDetail {
   } as unknown as ActivityDetail;
 }
 
+const powerZones: PowerZoneBand[] = [
+  { zone: 1, minWatts: 0, maxWatts: 85, seconds: 10, percent: 1 / 3 },
+  { zone: 2, minWatts: 85, seconds: 20, percent: 2 / 3 },
+];
+
+const hrZones: HrZoneBand[] = [
+  { zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 2 / 3 },
+  { zone: 2, minBpm: 140, maxBpm: 160, seconds: 30, percent: 1 / 3 },
+];
+
 function renderSection(props: {
   streams?: ActivityStreams | undefined;
   streamsDownloaded?: boolean | undefined;
@@ -85,6 +97,8 @@ function renderSection(props: {
   onRetryStreams?: (() => void) | undefined;
   activity?: ActivityDetail | undefined;
   intervalsData?: { icu_intervals: ActivityInterval[] } | undefined;
+  hrZones?: HrZoneBand[] | undefined;
+  powerZones?: PowerZoneBand[] | undefined;
 }) {
   return render(
     <ActivityChartsSection
@@ -104,6 +118,8 @@ function renderSection(props: {
       chartInteracting={false}
       engineSectionCount={0}
       customSectionCount={0}
+      hrZones={props.hrZones}
+      powerZones={props.powerZones}
       transitionSettled={false}
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
@@ -123,17 +139,26 @@ it('shows the interval table for an activity with no streams', () => {
 });
 
 it('shows the power zone chart for an activity with no streams', () => {
-  const { getByTestId } = renderSection({
-    streams: undefined,
-    activity: activityWith({
-      icu_zone_times: [
-        { id: 'Z1', secs: 10 },
-        { id: 'Z2', secs: 20 },
-      ],
-    }),
-  });
+  const { getByTestId } = renderSection({ streams: undefined, powerZones });
 
   expect(getByTestId('power-zones-chart')).toBeTruthy();
+});
+
+it('shows the HR zone card for an activity whose bands came from its body, with no streams', () => {
+  const { getByTestId } = renderSection({ streams: undefined, hrZones });
+
+  expect(getByTestId('activity-zone-chart')).toBeTruthy();
+  expect(getByTestId('hr-zones-chart')).toBeTruthy();
+});
+
+it('hides the HR zone card when the engine has no bands, though a heart rate stream is there', () => {
+  const { queryByTestId, getByTestId } = renderSection({
+    streams: { heartrate: [120, 130], time: [0, 1] } as unknown as ActivityStreams,
+    hrZones: [],
+  });
+
+  expect(getByTestId('combined-plot')).toBeTruthy();
+  expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
 it('shows neither when the activity carries neither', () => {
@@ -141,6 +166,7 @@ it('shows neither when the activity carries neither', () => {
 
   expect(queryByTestId('activity-interval-table')).toBeNull();
   expect(queryByTestId('power-zones-chart')).toBeNull();
+  expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
 it('still shows the chart and the HR zones when the streams are there', () => {
@@ -150,12 +176,8 @@ it('still shows the chart and the HR zones when the streams are there', () => {
       time: [0, 1],
     } as unknown as ActivityStreams,
     intervalsData: { icu_intervals: intervals },
-    activity: activityWith({
-      icu_zone_times: [
-        { id: 'Z1', secs: 10 },
-        { id: 'Z2', secs: 20 },
-      ],
-    }),
+    hrZones,
+    powerZones,
   });
 
   expect(getByTestId('combined-plot')).toBeTruthy();
@@ -171,9 +193,7 @@ it('keeps independent sections while a stream download waits and offers retry af
     streamsStatus: 'timedOut',
     onRetryStreams: retry,
     intervalsData: { icu_intervals: intervals },
-    activity: activityWith({
-      icu_zone_times: [{ id: 'Z1', secs: 300 }],
-    } as Partial<ActivityDetail>),
+    powerZones,
   });
   expect(view.getByTestId('streams-not-downloaded')).toBeTruthy();
   expect(view.getByTestId('activity-interval-table')).toBeTruthy();

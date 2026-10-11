@@ -83,6 +83,50 @@ describe('moving time through a pause', () => {
     expect(result.current.movingTime).toBe(40);
   });
 
+  it('keeps the elapsed reading counting through a pause with no other clock reader', () => {
+    start();
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      const { formattedElapsed, formattedMoving } = useTimer();
+      return { formattedElapsed, formattedMoving };
+    });
+    advance(10_000);
+    expect(result.current.formattedElapsed).toBe('00:10');
+
+    act(() => useRecordingStore.getState().pauseRecording());
+    renders = 0;
+    for (let i = 0; i < 60; i += 1) advance(1000);
+    expect(renders).toBe(60);
+    expect(result.current.formattedElapsed).toBe('01:10');
+    expect(result.current.formattedMoving).toBe('00:10');
+
+    act(() => useRecordingStore.getState().resumeRecording());
+    expect(result.current.formattedElapsed).toBe('01:10');
+    expect(result.current.formattedMoving).toBe('00:10');
+
+    advance(1000);
+    expect(result.current.formattedElapsed).toBe('01:11');
+    expect(result.current.formattedMoving).toBe('00:11');
+  });
+
+  it('stops the clock once the ride is stopped', () => {
+    start();
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useTimer().formattedElapsed;
+    });
+    advance(5000);
+    act(() => useRecordingStore.getState().pauseRecording());
+    advance(5000);
+    act(() => useRecordingStore.getState().stopRecording());
+    renders = 0;
+    advance(60_000);
+    expect(renders).toBe(0);
+    expect(result.current).toBe('00:10');
+  });
+
   it('gives the screen, the notification and the store one moving time mid-pause', () => {
     start();
     const { result, rerender } = renderHook(() => useTimer());

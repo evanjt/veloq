@@ -31,9 +31,11 @@ import {
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SeasonBestsSection } from '..';
+import type { TimeRange } from '@/shared/app/timeRange';
 
 interface PerformanceCurveSectionProps {
   sportMode: PrimarySport;
+  timeRange: TimeRange;
   days: number;
   currentFTP: number | null | undefined;
   thresholdPace: number | undefined;
@@ -51,6 +53,7 @@ interface PerformanceCurveSectionProps {
 
 export const PerformanceCurveSection = React.memo(function PerformanceCurveSection({
   sportMode,
+  timeRange,
   days,
   currentFTP,
   thresholdPace,
@@ -175,6 +178,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
               climbing={bestsClimbing}
               climbingStatus={bestsClimbingStatus}
               sport={sportMode}
+              period={timeRange}
               isLoading={loadingBests}
             />
           </View>

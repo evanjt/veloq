@@ -291,9 +291,9 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
         BACKFILL_PHASE_PARTIAL,
         "an outstanding track is not a complete conversion"
     );
-    ok_a1.assert_hits(1);
-    ok_a2.assert_hits(1);
-    broken_a3.assert_hits(1);
+    ok_a1.assert_calls(1);
+    ok_a2.assert_calls(1);
+    broken_a3.assert_calls(1);
     drain_detection();
 
     broken_a3.delete();
@@ -315,8 +315,8 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
         outcome.detects_started, 1,
         "the pass that drains the queue owes the whole conversion its re-cut"
     );
-    ok_a1.assert_hits(1);
-    ok_a2.assert_hits(1);
+    ok_a1.assert_calls(1);
+    ok_a2.assert_calls(1);
     assert!(queue_ids().is_empty());
     drain_detection();
 }
@@ -378,7 +378,7 @@ fn detection_is_released_when_the_pass_fails() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
 
@@ -481,7 +481,7 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     // upstream has no altitude for it. The row is state 2 afterwards and no
     // later pass asks again. The elevation-only ask's two steps are pinned by
     // `an_answer_with_no_altitude_series_is_settled_by_the_whole_track`.
-    bare.assert_hits(1);
+    bare.assert_calls(1);
     assert_eq!(state_of("bare"), UNAVAILABLE);
     assert!(
         queue_ids().is_empty(),
@@ -498,7 +498,7 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     // re-requested. The count is the one ask the first pass made, unchanged.
     let again = run_backfill(&fast_transport(server.base_url()));
     assert_eq!(again, BackfillRun::Finished(Default::default()));
-    bare.assert_hits(1);
+    bare.assert_calls(1);
 }
 
 /// One failed request costs its own activity and nothing else, and leaves that
@@ -1171,7 +1171,7 @@ fn refused_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
     let path = format!("/activity/{id}/streams.json");
     let refused = path.clone();
     server.mock(|when, then| {
-        when.path(refused).matches(refuse_the_first_ask);
+        when.path(refused).is_true(refuse_the_first_ask);
         then.status(429)
             .header("Retry-After", "0")
             .body("slow down");
@@ -1232,7 +1232,7 @@ fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
     };
 
     assert_eq!(
-        mock.hits(),
+        mock.calls(),
         1,
         "a 404 is upstream answering, not the connection going away"
     );
@@ -1266,7 +1266,7 @@ fn a_connection_that_is_gone_is_not_re_asked_at_all() {
         outcome.failed, MAX_CONSECUTIVE_FAILURES as u32,
         "the stop threshold already decided nothing is coming back"
     );
-    let hits: Vec<usize> = asked.iter().map(|mock| mock.hits()).collect();
+    let hits: Vec<usize> = asked.iter().map(|mock| mock.calls()).collect();
     let one_ask = hits[0];
     assert!(one_ask > 0, "the first track was never asked");
     assert!(
@@ -1317,7 +1317,7 @@ fn a_rejected_credential_parks_the_sync_service() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
     confirm_rejection(&server);
@@ -1348,7 +1348,7 @@ fn an_api_key_401_parks_the_service_too() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
     confirm_rejection(&server);
@@ -1371,7 +1371,7 @@ fn a_single_401_does_not_sign_the_athlete_out() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
     server.mock(|when, then| {
@@ -1402,7 +1402,7 @@ fn a_confirmation_that_errors_leaves_the_session_alone() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
     server.mock(|when, then| {
@@ -1429,7 +1429,7 @@ fn a_connectivity_failure_leaves_the_session_alone() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(503);
     });
 
@@ -1451,7 +1451,7 @@ fn a_clean_pass_leaves_the_session_alone() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(200).json_body(elevated_streams(0.0));
     });
 
@@ -1496,7 +1496,7 @@ fn a_second_rejected_pass_parks_again() {
 
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.path_contains("/streams.json");
+        when.path_includes("/streams.json");
         then.status(401);
     });
     confirm_rejection(&server);
@@ -1582,7 +1582,7 @@ fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() 
     assert_eq!(outcome.elevated, 1);
     elevation.assert();
     assert_eq!(
-        whole_track.hits(),
+        whole_track.calls(),
         0,
         "a track whose sample count still matches must not be re-downloaded"
     );
@@ -1679,7 +1679,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
     assert_eq!(outcome.unavailable, 1);
     assert_eq!(outcome.elevated, 0);
     assert_eq!(
-        whole_track.hits(),
+        whole_track.calls(),
         0,
         "an answered activity is not re-asked"
     );

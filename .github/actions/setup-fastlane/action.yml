@@ -25,7 +25,7 @@ runs:
 
     - name: Restore gems
       id: gems-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: config/fastlane/vendor/bundle
         key: gems-${{ runner.os }}-${{ runner.arch }}-ruby${{ steps.ruby.outputs.version }}-${{ hashFiles('config/fastlane/Gemfile.lock') }}
@@ -40,7 +40,7 @@ runs:
 
     - name: Save gems
       if: github.ref == 'refs/heads/main' && steps.gems-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: config/fastlane/vendor/bundle
         key: ${{ steps.gems-cache.outputs.cache-primary-key }}

@@ -39,6 +39,8 @@ export function generateEfficiencyTrendInsights(
   const cap = maxPerCategoryFor('efficiency_trend');
   const minEfforts = INSIGHTS_CONFIG.repetition.efficiency_trend_min;
   const insights: Insight[] = [];
+  const quantity = t('insights.efficiencyTrend.quantity');
+  const unit = t('units.bpmSecondsPerKm');
 
   const ordered = [...trends].sort(
     (a, b) =>
@@ -100,15 +102,14 @@ export function generateEfficiencyTrendInsights(
       supportingData: {
         ...sparkline(
           trend.points.map((point) => ({ date: point.date, value: point.hrPaceRatio })),
-          t('insights.efficiencyTrend.seriesLabel'),
+          t('insights.efficiencyTrend.seriesLabel', { quantity }),
           `/section/${trend.sectionId}`,
-          // The ratio is heart rate times pace, a number with no unit a reader
-          // knows, so the card prints no scale for it.
           {
             mark:
               firstEffort && lastEffort
                 ? { from: firstEffort.date, to: lastEffort.date }
                 : undefined,
+            format: (ratio) => `${Math.round(ratio)} ${unit}`,
           }
         ),
         // The ratio is heart rate times pace, so its slope and the engine's
@@ -147,7 +148,7 @@ export function generateEfficiencyTrendInsights(
       methodology: {
         name: t('insights.methodology.efficiencyName'),
         description: t('insights.methodology.efficiencyDescription'),
-        formula: t('insights.methodology.efficiencyFormula'),
+        formula: t('insights.methodology.efficiencyFormula', { quantity, unit }),
       },
     });
   }

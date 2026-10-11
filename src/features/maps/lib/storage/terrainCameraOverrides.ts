@@ -13,6 +13,7 @@
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
+import { isTerrainCamera } from './storedCamera';
 
 const STORAGE_KEY = '@terrain_camera_overrides';
 const MAX_OVERRIDES = 100;
@@ -68,7 +69,14 @@ export function initCameraOverrides(): Promise<void> {
     try {
       const raw = await getSetting(STORAGE_KEY);
       if (raw) {
-        stored = Object.entries(JSON.parse(raw) as Record<string, TerrainCamera>);
+        const parsed: unknown = JSON.parse(raw);
+        // A restored backup writes this verbatim, so an entry that is not a
+        // camera is dropped rather than written into the 3D page.
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          stored = Object.entries(parsed).filter((entry): entry is [string, TerrainCamera] =>
+            isTerrainCamera(entry[1])
+          );
+        }
       }
     } catch {
       // Best effort - start with empty overrides

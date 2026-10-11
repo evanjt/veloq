@@ -79,6 +79,7 @@ function TimerHeaderInner({
           onPress={onOpenTypePicker}
           disabled={isLocked}
           accessibilityRole="button"
+          accessibilityHint={t('recording.changeType')}
         >
           <MaterialCommunityIcons
             name={getActivityIcon(currentActivityType)}

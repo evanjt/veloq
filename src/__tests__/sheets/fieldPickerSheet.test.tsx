@@ -11,6 +11,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import FieldPickerSheet, { type FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import type { DataFieldType } from '@/types';
 
 const mockPush = jest.fn();
@@ -19,7 +20,11 @@ let mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -60,6 +65,11 @@ describe('field picker sheet', () => {
     expect(screen.getByTestId('field-option-speed').props.accessibilityState).toMatchObject({
       selected: false,
     });
+  });
+
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    open(null);
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {

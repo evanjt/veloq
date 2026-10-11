@@ -68,7 +68,7 @@ fn a_401_ends_the_record_dependency_fetch_and_parks_only_when_confirmed() {
             matches!(outcome, Err(NetError::Unauthorized)),
             "a refused credential reported {outcome:?} (profile {status})"
         );
-        let hits: usize = asked.iter().map(httpmock::Mock::hits).sum();
+        let hits: usize = asked.iter().map(httpmock::Mock::calls).sum();
         assert_eq!(
             hits, 1,
             "asked {hits} activities after a 401 (profile {status})"
@@ -87,7 +87,7 @@ fn a_401_ends_the_record_dependency_fetch_and_parks_only_when_confirmed() {
 
 fn wait_for_a_hit(mock: &httpmock::Mock<'_>) {
     let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while mock.hits() == 0 {
+    while mock.calls() == 0 {
         assert!(
             std::time::Instant::now() < until,
             "no request reached the fake transport"
@@ -149,7 +149,7 @@ fn a_sign_out_ends_the_record_dependency_fetch() {
     let outcome = walk.join().expect("the walk");
 
     assert!(outcome.is_ok(), "a sign-out is not a failure: {outcome:?}");
-    let asked: usize = later.iter().map(httpmock::Mock::hits).sum();
+    let asked: usize = later.iter().map(httpmock::Mock::calls).sum();
     assert_eq!(asked, 0, "asked {asked} activities after the sign-out");
     let stored = crate::persistence::with_persistent_engine(|engine| engine.has_activity("old-1"))
         .expect("engine");

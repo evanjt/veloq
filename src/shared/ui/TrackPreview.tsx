@@ -1,6 +1,6 @@
 /**
  * A track as a thumbnail: the line over a map-like backdrop, with a start and
- * a finish marker.
+ * a finish marker of different shapes.
  *
  * Lifted out of the routes row so the insight cards draw a section the same
  * way. It takes points already normalised because the routes list holds them
@@ -10,11 +10,12 @@
  */
 
 import React, { memo, useId } from 'react';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
+import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
-import { colors, mapPreviewColors, ink } from '@/theme';
+import { mapPreviewColors, ink } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
+import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
 
 export interface NormalisedPoint {
   x: number;
@@ -157,11 +158,7 @@ export const TrackPreview = memo(function TrackPreview({
         strokeLinejoin="round"
       />
 
-      <Circle cx={startPoint.x} cy={startPoint.y} r={3} fill={colors.success} />
-      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill={ink.white} />
-
-      <Circle cx={endPoint.x} cy={endPoint.y} r={3} fill={colors.error} />
-      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill={ink.white} />
+      <TrackEndpointMarkers start={startPoint} end={endPoint} />
     </Svg>
   );
 });

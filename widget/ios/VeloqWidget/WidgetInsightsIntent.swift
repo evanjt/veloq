@@ -54,15 +54,21 @@ struct SelectInsightKindsIntent: WidgetConfigurationIntent {
 
 @available(iOS 17.0, *)
 struct InsightsConfigProvider: AppIntentTimelineProvider {
+  static func placeholderEntry() -> InsightsEntry {
+    InsightsEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> InsightsEntry {
-    InsightsEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func snapshot(for configuration: SelectInsightKindsIntent, in context: Context) async
     -> InsightsEntry
   {
     InsightsEntry(
-      date: Date(), snapshot: WidgetSnapshotStore.load(),
+      date: Date(),
+      snapshot: WidgetSample.snapshot(
+        stored: WidgetSnapshotStore.load(), isPreview: context.isPreview),
       kinds: configuration.kinds.map(\.rawValue))
   }
 

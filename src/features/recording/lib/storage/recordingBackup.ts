@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
-import type { RecordingBackup } from '@/types';
+import { isActivityType, type RecordingBackup } from '@/types';
+import type { ReviewDraft } from '../../types';
 import { replaceFile } from '@/shared/native/replaceFile';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
@@ -122,7 +123,35 @@ function parseBackup(value: unknown): RecordingBackup | null {
     ...backup.streams,
     altitude: decodeStoredAltitude(backup.streams.altitude, backup.streams.time.length),
   };
+  const review = backup.status === 'stopped' ? parseReviewDraft(obj.review) : null;
+  if (review) backup.review = review;
+  else delete backup.review;
   return backup;
+}
+
+function isIndex(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * The review edits a backup carries, field by field: a field of the wrong
+ * shape is dropped and the rest kept, because the ride matters more than any
+ * one edit. The trim survives only as a pair.
+ */
+function parseReviewDraft(value: unknown): ReviewDraft | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  const draft: ReviewDraft = {};
+  if (typeof raw.name === 'string') draft.name = raw.name;
+  if (typeof raw.notes === 'string') draft.notes = raw.notes;
+  if (typeof raw.reviewedType === 'string' && isActivityType(raw.reviewedType)) {
+    draft.reviewedType = raw.reviewedType;
+  }
+  if (isIndex(raw.trimStart) && isIndex(raw.trimEnd) && raw.trimStart < raw.trimEnd) {
+    draft.trimStart = raw.trimStart;
+    draft.trimEnd = raw.trimEnd;
+  }
+  return Object.keys(draft).length > 0 ? draft : null;
 }
 
 /**
@@ -144,6 +173,7 @@ export function buildRecordingBackup(state: {
   laps: RecordingBackup['laps'];
   pairedEventId: number | null;
   workout?: RecordingBackup['workout'] | null;
+  review?: ReviewDraft | null;
   _pauseStart: number | null;
   /** The pause reason, which lives beside the recording store rather than in it. */
   autoPaused?: boolean;
@@ -175,6 +205,7 @@ export function buildRecordingBackup(state: {
     laps: state.laps,
     pairedEventId: state.pairedEventId,
     ...(state.workout ? { workout: state.workout } : {}),
+    ...(status === 'stopped' && state.review ? { review: state.review } : {}),
     savedAt: now,
   };
 }
@@ -205,8 +236,10 @@ async function clearTemporaryBackup(path: string): Promise<void> {
   }
 }
 
-export async function loadRecordingBackup(): Promise<RecordingBackup | null> {
-  const path = backupPath(useAuthStore.getState().athleteId);
+export async function loadRecordingBackup(
+  athleteId = useAuthStore.getState().athleteId
+): Promise<RecordingBackup | null> {
+  const path = backupPath(athleteId);
   return queueBackupOperation(path, async () => {
     await clearTemporaryBackup(path);
     try {

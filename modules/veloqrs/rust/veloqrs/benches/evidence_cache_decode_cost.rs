@@ -6,6 +6,10 @@
 //! budgeted at 200 ms once, and `initWithPath` was about 130 ms cold at 490
 //! activities without anyone knowing how much of that is this decode.
 //!
+//! The restore has since moved to the first read of the cache, so
+//! `first_read_ms` is where the decode now shows, the inflate of the stored
+//! row included, and `decode_ms` is what is left of it inside `load()`.
+//!
 //! Ignored by default: it detects a whole corpus per size and takes minutes.
 //! Run: `cargo test --bench evidence_cache_decode_cost -p veloqrs --features synthetic -- --ignored --nocapture`
 
@@ -95,6 +99,26 @@ fn load_ms(dir: &TempDir) -> f64 {
     runs[1]
 }
 
+/// The first read of the cache after an open, which is where the restore
+/// decodes, inflation included. Median of three opens.
+fn first_read_ms(dir: &TempDir) -> f64 {
+    let path = dir.path().join("evidence.db");
+    let mut runs = Vec::new();
+    for _ in 0..3 {
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine.load().expect("load");
+        let start = Instant::now();
+        assert!(
+            engine.evidence_cache_folded_count() > 0,
+            "the restart came up cold"
+        );
+        runs.push(start.elapsed().as_secs_f64() * 1000.0);
+        assert_eq!(engine.evidence_cache_decode_count(), 1);
+    }
+    runs.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+    runs[1]
+}
+
 /// The same open with no cache row, so the difference is the decode and not
 /// everything else `load()` does.
 fn load_ms_without_cache(dir: &TempDir) -> f64 {
@@ -108,7 +132,9 @@ fn load_ms_without_cache(dir: &TempDir) -> f64 {
 #[test]
 #[ignore = "detects a whole corpus per size; run it deliberately"]
 fn the_evidence_cache_decode_inside_load() {
-    println!("activities  cache_bytes  bytes/act  load_warm_ms  load_cold_ms  decode_ms");
+    println!(
+        "activities  cache_bytes  bytes/act  load_warm_ms  load_cold_ms  decode_ms  first_read_ms"
+    );
     for &bucket_a in SIZES {
         let dir = TempDir::new().expect("tempdir");
         let pool = corpus(bucket_a);
@@ -122,10 +148,11 @@ fn the_evidence_cache_decode_inside_load() {
         assert!(bytes > 0, "nothing was persisted at {count} activities");
 
         let warm = load_ms(&dir);
+        let first_read = first_read_ms(&dir);
         let cold = load_ms_without_cache(&dir);
 
         println!(
-            "{count:>10}  {bytes:>11}  {:>9.0}  {warm:>12.1}  {cold:>12.1}  {:>9.1}",
+            "{count:>10}  {bytes:>11}  {:>9.0}  {warm:>12.1}  {cold:>12.1}  {:>9.1}  {first_read:>13.1}",
             bytes as f64 / count as f64,
             warm - cold
         );

@@ -119,8 +119,8 @@ mod tests {
         assert_eq!(points[1].latitude, 46.2);
         assert_eq!(points[1].longitude, 7.2);
         assert_eq!(points[1].elevation, Some(401.0));
-        detail.assert_hits(1);
-        streams.assert_hits(1);
+        detail.assert_calls(1);
+        streams.assert_calls(1);
     }
 
     #[test]
@@ -136,6 +136,6 @@ mod tests {
         ))
         .unwrap();
         assert!(matches!(fetched, FetchedRecordActivity::Missing));
-        detail.assert_hits(1);
+        detail.assert_calls(1);
     }
 }

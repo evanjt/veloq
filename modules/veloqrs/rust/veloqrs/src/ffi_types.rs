@@ -374,6 +374,10 @@ pub struct FfiFtpTrend {
     /// subtract and round their own way. `None` when there is nothing to
     /// compare against.
     pub delta_watts: Option<i32>,
+    /// The arrow the step draws, judged by [`crate::trend_table::glyph`]: up
+    /// for a gain, flat inside the deadband, `None` when there is nothing to
+    /// compare against.
+    pub glyph: Option<String>,
     /// Days carrying an estimate from the one compared against to the newest,
     /// inclusive. The insight ranker weighs a claim by what it stands on, and
     /// a step measured off three days is not the one measured off thirty.
@@ -450,6 +454,12 @@ pub struct FfiClaimBasis {
 ///
 /// A glyph is the engine's judgement of improvement. `None` means the
 /// comparison had no nearby baseline or enough earlier readings.
+///
+/// Beside each arrow is what it was judged against, so the card can state the
+/// method: `*_previous` is the baseline value, `*_previous_date` the day it was
+/// read (Unix timestamp seconds of that day's midnight, UTC, as `FfiFtpTrend`
+/// dates its estimates), and `*_basis` the evidence behind the claim. A metric
+/// with no baseline row carries no previous value and no date.
 #[derive(Debug, Clone, uniffi::Record, Default)]
 pub struct FfiWellnessSummary {
     pub fitness: Option<f64>,
@@ -464,6 +474,21 @@ pub struct FfiWellnessSummary {
     pub weight_trend: Option<String>,
     /// The newest row's fatigue, rounded as `fitness` is. It has no arrow of its own.
     pub fatigue: Option<f64>,
+    pub fitness_previous: Option<f64>,
+    pub fitness_previous_date: Option<f64>,
+    pub fitness_basis: Option<FfiClaimBasis>,
+    pub form_previous: Option<f64>,
+    pub form_previous_date: Option<f64>,
+    pub form_basis: Option<FfiClaimBasis>,
+    pub hrv_previous: Option<f64>,
+    pub hrv_previous_date: Option<f64>,
+    pub hrv_basis: Option<FfiClaimBasis>,
+    pub rhr_previous: Option<f64>,
+    pub rhr_previous_date: Option<f64>,
+    pub rhr_basis: Option<FfiClaimBasis>,
+    pub weight_previous: Option<f64>,
+    pub weight_previous_date: Option<f64>,
+    pub weight_basis: Option<FfiClaimBasis>,
 }
 
 /// The readings and baselines consumed while composing a native widget.
@@ -485,6 +510,13 @@ pub struct WidgetWellnessSummary {
     pub form_previous: Option<f64>,
     pub hrv_previous: Option<f64>,
     pub rhr_previous: Option<f64>,
+    pub weight_previous: Option<f64>,
+    /// The day each baseline was read, as `FfiWellnessSummary` dates them.
+    /// Fatigue shares fitness's row, and form is read off that row too.
+    pub load_previous_date: Option<f64>,
+    pub hrv_previous_date: Option<f64>,
+    pub rhr_previous_date: Option<f64>,
+    pub weight_previous_date: Option<f64>,
     pub fitness_basis: Option<FfiClaimBasis>,
     pub fatigue_basis: Option<FfiClaimBasis>,
     pub form_basis: Option<FfiClaimBasis>,
@@ -507,6 +539,21 @@ impl From<WidgetWellnessSummary> for FfiWellnessSummary {
             weight: w.weight,
             weight_trend: w.weight_trend,
             fatigue: w.fatigue,
+            fitness_previous: w.fitness_previous,
+            fitness_previous_date: w.fitness_previous.and(w.load_previous_date),
+            fitness_basis: w.fitness_basis,
+            form_previous: w.form_previous,
+            form_previous_date: w.form_previous.and(w.load_previous_date),
+            form_basis: w.form_basis,
+            hrv_previous: w.hrv_previous,
+            hrv_previous_date: w.hrv_previous_date,
+            hrv_basis: w.hrv_basis,
+            rhr_previous: w.rhr_previous,
+            rhr_previous_date: w.rhr_previous_date,
+            rhr_basis: w.rhr_basis,
+            weight_previous: w.weight_previous,
+            weight_previous_date: w.weight_previous_date,
+            weight_basis: w.weight_basis,
         }
     }
 }
@@ -529,6 +576,11 @@ pub struct FfiSummaryCardData {
     pub wellness: FfiWellnessSummary,
     pub current_week: FfiPeriodStats,
     pub prev_week: FfiPeriodStats,
+    /// The arrow for this week's hours so far against the same part of the
+    /// week before, on hours rounded to a tenth as the card prints them.
+    pub week_hours_trend: Option<String>,
+    /// The same for this week's activity count.
+    pub week_count_trend: Option<String>,
     pub ftp_trend: FfiFtpTrend,
     pub run_pace_trend: FfiPaceTrend,
     pub swim_pace_trend: FfiPaceTrend,
@@ -1650,6 +1702,46 @@ pub struct FfiRoutesScreenData {
     pub retired_count: u32,
     /// The sports the athlete has activities in, which the sport chips offer.
     pub available_sport_types: Vec<String>,
+    /// Why the routes catalogue holds no route with the minimum activity
+    /// count, whatever the search and the sport filter. `None` while it holds
+    /// one, so an empty page under a search is a search that matched nothing.
+    pub group_empty_reason: Option<FfiCatalogueEmptyReason>,
+    /// Why the sections catalogue holds no section of any kind, hidden or not.
+    /// `None` while it holds one.
+    pub section_empty_reason: Option<FfiCatalogueEmptyReason>,
+}
+
+/// Why a routes or sections catalogue is empty, so the list states its cause
+/// rather than promising rows that cannot come.
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum FfiCatalogueEmptyReason {
+    /// No stored activity in the synced range has a GPS track, so detection
+    /// has nothing to compare: trainer, pool or strength sessions only.
+    NoGpsActivities,
+    /// Activities with GPS that no detect has seen yet, and nothing holding
+    /// the detect that would see them.
+    NotYetRun { awaiting: u32 },
+    /// A detect is running now. `phase` is the detector's own phase token.
+    Running { phase: String, percent: u32 },
+    /// A detect is owed and something is refusing it.
+    Held { hold: FfiDetectionHold },
+    /// Every activity with GPS has been through a detect and none met the
+    /// threshold: the least activities on a shared path that make one.
+    NoneFound { min_activities: u32 },
+}
+
+/// What is refusing a detect that is owed.
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum FfiDetectionHold {
+    /// The athlete paused the elevation download, and only resuming it lifts
+    /// the hold.
+    ElevationPaused,
+    /// An elevation pass is running and holds detection until it ends.
+    ElevationRunning,
+    /// Stored tracks are still owed elevation and wait on the network.
+    ElevationWaiting { remaining: u32 },
+    /// The detector migration has to run before any other detect.
+    Cutover,
 }
 
 // ============================================================================
@@ -2099,6 +2191,17 @@ pub struct FfiWellnessDay {
     pub sport_load: Vec<FfiSportLoad>,
 }
 
+/// The stored wellness days of a window and whether the window was pulled.
+///
+/// An empty `days` is either a window the account holds nothing in or one the
+/// device never downloaded, and the charts drawing it said the same for both.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessDays {
+    /// Oldest first.
+    pub days: Vec<FfiWellnessDay>,
+    pub coverage: crate::RangeCoverage,
+}
+
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
 /// first, forward-filled where needed so renderers produce continuous lines.
 /// Empty arrays mean "not enough data" (TS renders `undefined` / skips).
@@ -2491,6 +2594,10 @@ pub struct FfiActivityDetailData {
     /// the same resolver live recording classifies with. Empty when the
     /// activity has no heart rate time to show.
     pub hr_zones: Vec<FfiHrZoneBand>,
+    /// The power zone bands in watts for this activity and the time in each,
+    /// from its own zones and FTP. Empty when the activity has no power zone
+    /// time or no zones to place it in.
+    pub power_zones: Vec<FfiPowerZoneBand>,
     /// Section changes whose ledger rows name this activity, newest first.
     pub ledger_changes: Vec<FfiActivityLedgerChange>,
 }
@@ -2512,6 +2619,21 @@ pub struct FfiHrZoneBand {
     pub min_bpm: u32,
     /// Upper edge in bpm
     pub max_bpm: u32,
+    /// Seconds spent in the zone
+    pub seconds: f64,
+    /// Share of the total time in zones, 0 to 100
+    pub percent: f64,
+}
+
+/// One power zone of a saved activity.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPowerZoneBand {
+    /// Zone number, from 1
+    pub zone: u32,
+    /// Lower edge in watts, 0 for zone 1
+    pub min_watts: u32,
+    /// Upper edge in watts, absent for the open top zone
+    pub max_watts: Option<u32>,
     /// Seconds spent in the zone
     pub seconds: f64,
     /// Share of the total time in zones, 0 to 100
@@ -3074,6 +3196,10 @@ pub struct FfiFitnessScreenData {
     /// The cycling eFTP compared across the chart's three months, with the
     /// daily series of that window and every activity that moved it.
     pub ftp_trend: FfiFtpTrend,
+    /// Whether the wellness the trend is read from was pulled for the days
+    /// its chart draws. `NotFetched` makes an empty chart a download still
+    /// owed rather than an athlete with no estimate.
+    pub ftp_trend_coverage: crate::RangeCoverage,
     /// The last stored critical speeds, the threshold the running and
     /// swimming cards fall back on when no curve is to hand.
     pub run_pace_trend: FfiPaceTrend,

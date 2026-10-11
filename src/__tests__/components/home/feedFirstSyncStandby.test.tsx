@@ -12,6 +12,7 @@ import { resolvedLocale } from '../../i18n/resolvedLocale';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
+import { AccessibilityInfo, Platform } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { SyncStep } from 'veloqrs';
 
@@ -29,6 +30,8 @@ let mockStatus: {
   completed: number;
   total: number;
   step?: SyncStep;
+  stepItemsDone?: number;
+  stepItemsTotal?: number;
 } | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncStatus: () => mockStatus,
@@ -89,6 +92,71 @@ describe('the first-sync standby', () => {
 
     expect(screen.getByTestId('feed-first-sync-standby')).toBeTruthy();
     expect(screen.queryByTestId('feed-first-sync-step')).toBeNull();
+  });
+
+  /** The step line is the only progress on the Feed during a first sync, so
+   *  a screen reader has to hear it change without focus moving to it. */
+  describe('reaching a screen reader', () => {
+    const os = Platform.OS;
+    let announce: jest.SpyInstance;
+
+    beforeEach(() => {
+      announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation();
+    });
+
+    afterEach(() => {
+      Platform.OS = os;
+      announce.mockRestore();
+    });
+
+    it('marks the step line as a polite live region for Android', () => {
+      mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+      render(<FeedFirstSyncStandby />);
+
+      expect(screen.getByTestId('feed-first-sync-step').props.accessibilityLiveRegion).toBe(
+        'polite'
+      );
+    });
+
+    it('announces each new step on iOS, which has no live region', () => {
+      Platform.OS = 'ios';
+      mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+      const { rerender } = render(<FeedFirstSyncStandby />);
+      expect(announce).toHaveBeenLastCalledWith('settings.syncStep.athlete');
+
+      mockStatus = { state: 1, completed: 1, total: 8, step: SyncStep.SportSettings };
+      rerender(<FeedFirstSyncStandby />);
+
+      expect(announce).toHaveBeenLastCalledWith('settings.syncStep.sportSettings');
+      expect(announce).toHaveBeenCalledTimes(2);
+    });
+
+    it('says nothing new on iOS while only the counts inside one step move', () => {
+      Platform.OS = 'ios';
+      mockStatus = {
+        state: 1,
+        completed: 4,
+        total: 8,
+        step: SyncStep.Activities,
+        stepItemsDone: 10,
+        stepItemsTotal: 400,
+      };
+      const { rerender } = render(<FeedFirstSyncStandby />);
+      mockStatus = { ...mockStatus, stepItemsDone: 11 };
+      rerender(<FeedFirstSyncStandby />);
+      mockStatus = { ...mockStatus, stepItemsDone: 12 };
+      rerender(<FeedFirstSyncStandby />);
+
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith('settings.syncStep.activities');
+    });
+
+    it('announces nothing before the engine reports a step', () => {
+      Platform.OS = 'ios';
+      render(<FeedFirstSyncStandby />);
+
+      expect(announce).not.toHaveBeenCalled();
+    });
   });
 
   it.each(KEYS)('%s is in en-AU', (key) => {

@@ -48,7 +48,7 @@
       "trainingLoad": "TSS zeigt wie streng s Training gsi isch.",
       "yourForm": "Dini Form (TSB) a dem Tag. Fitness minus Müedigkeit."
     },
-    "ftp": "FTP: {{value}} Watt",
+    "ftp": "FTP: {{value}}",
     "heartRate": "Puls",
     "mapStyle": "Chartestil",
     "maxHR": "Maximum: {{value}} bpm",
@@ -104,6 +104,7 @@
       "yourForm": "Dini Form"
     },
     "hrZoneTotal": "Ziit mit Puls: {{duration}}",
+    "powerZoneTotal": "Ziit mit Leistig: {{duration}}",
     "movingTime": "Beweigs-Ziit: {{duration}}",
     "timeInHRZones": "Ziit i de Pulszone",
     "timeInPowerZones": "Ziit i Leistigszone",
@@ -222,8 +223,26 @@
     "accountChangeUnknownDemoMessage": "Uf dem Grät isch es Bibliothek vunere andere Konto. Wennd zum Demo wächslisch, wird sie permanent glöscht. Gang zrugg und mäld dich zerscht bi dem Konto aa, wenn dus bhalte wotsch.",
     "accountChangeContinue": "Wiiterfahre und lösche",
     "disconnectAndClearTitle": "Usmälde und Date lösche?",
-    "disconnectAndClearMessage": "Das mäldet dich ab UND löscht alli zwischegspicherete Aktivitäte, GPS-Spure, Abschnitt und Routedate uf dem Grät. D Date werded bi der nächschte Aamäldig wider vo intervals.icu synchronisiert. Das chan nöd rückgängig gmacht werde.",
-    "disconnectAndClearConfirm": "Lösche und usmälde"
+    "disconnectAndClearMessage": "Das mäldet dich ab und löscht dini Bibliothek uf dem Telefon. Das chan nöd rückgängig gmacht werde.",
+    "disconnectAndClearConfirm": "Lösche und usmälde",
+    "disconnectAndClearBackUpFirst": "Zerscht sichere",
+    "wipeList": {
+      "returns": "Chunnt bi der nächschte Aamäldig zrugg:",
+      "deleted": "Für immer glöscht:",
+      "kept": "Blibt uf dem Telefon:",
+      "activities": "Aktivitäte und ihri GPS-Spure",
+      "wellness": "Wellness und Fitness",
+      "detectedSections": "Abschnitt und Route us dine Aktivitäte",
+      "localBackups": "Sicherige uf dem Telefon",
+      "backupSetup": "Sicherigs-Iirichtig: WebDAV-Aamäldig, Google-Drive-Konto und Sicherigsordner",
+      "names": "Näme, wo du Abschnitt und Route gä häsch",
+      "sectionEdits": "Abschnitt, wo du erstellt, kürzt oder aagheftet häsch",
+      "sensors": "Kopplete Sensore",
+      "exportPrivacy": "Wohnort für de Exportschutz",
+      "notificationChoices": "Benachrichtigungs-Iistellige",
+      "mapChoices": "Charte-Iistellige für einzelni Aktivitäte",
+      "recordings": "Aktivitäte, wo uf dem Telefon ufzeichnet worde sind"
+    }
   },
   "attribution": {
     "demoData": "Demo bruucht echti Aktivitätsspure. Mit Erlaubnis vom Autor bruucht.",
@@ -415,6 +434,7 @@
     "pullToRefresh": "Züüch abe zum Lade",
     "reset": "Zruggsetze",
     "retry": "Nomol, gäll!",
+    "freeUpSpace": "Platz freimache",
     "save": "Spichere",
     "showDetails": "Details für Entwickler zeige",
     "undo": "Rückgängig",
@@ -444,10 +464,11 @@
         "rateLimited": "intervals.icu bittet um eine Pause, die Synchronisierung wartet",
         "server": "intervals.icu hat etwas zurueckgeschickt, das die App nicht verwenden kann",
         "network": "intervals.icu war nicht erreichbar",
-        "storage": "Eine Datei auf diesem Geraet konnte nicht gelesen werden",
+        "storage": "Eine Datei auf diesem Gerät konnte nicht gelesen oder geschrieben werden",
         "notConfigured": "Auf diesem Geraet ist keine intervals.icu-Anmeldung gespeichert",
         "internal": "Die Synchronisierung endete aus einem Grund, den die App nicht benennen kann",
-        "engineClosed": "Die Synchronisierung wurde gestoppt, weil die Bibliothek zwischendurch geschlossen wurde"
+        "engineClosed": "Die Synchronisierung wurde gestoppt, weil die Bibliothek zwischendurch geschlossen wurde",
+        "storageFull": "Auf diesem Gerät ist kein Speicherplatz mehr frei, daher konnte die Synchronisierung die abgerufenen Daten nicht speichern"
       }
     },
     "tracksMissing": {
@@ -710,8 +731,8 @@
       "sectionTrendName": "Leistigstrend i de Abschnitt",
       "stalePrCrossRefName": "{{metric}}-PR-Abgleich",
       "efficiencyName": "Regression vo de aerobe Effizienz",
-      "efficiencyDescription": "Verfolgt di durchschnittlich Härzfrequänz mal Tempo über passendi Versüech uf em Abschnitt, mit ere lineare Regression nach de Methode vo de chliinschte Quadrat über d Ziit. E Richtig wird nume zeigt, wänn s 95-%-Intervall vo de Steigig null usschliesst und di modellierti Änderig über d Versüech meh als 2 % vom Schnitt usmacht. En sinkende Wärt heisst weniger Schläg bim gliiche Tempo.",
-      "efficiencyFormula": "Effizienz = durchschnittlechi Herzfrequänz × Pace (Sekunde pro km)",
+      "efficiencyDescription": "Verfolgt di durchschnittlich Härzfrequänz mal Tempo über passendi Versüech uf em Abschnitt, mit ere lineare Regression nach de Methode vo de chliinschte Quadrat über d Ziit. E Richtig wird nume zeigt, wänn s 95-%-Intervall vo de Steigig null usschliesst und di modellierti Änderig über d Versüech meh als 2 % vom Schnitt usmacht. En sinkende Wärt heisst weniger Härzschläg pro km: e tüüferi Härzfrequänz, es schnällers Tempo oder beides.",
+      "efficiencyFormula": "{{quantity}} ({{unit}}) = durchschnittlechi Herzfrequänz × Pace (Sekunde pro km)",
       "routeName": "Streckenrekorde und Trends",
       "route": "Zählt Versuche auf einer Strecke in einer Sportart und Richtung, die gestoppt, nicht ausgeschlossen, nicht teilweise sind und im Distanzband der Strecke liegen. Ein Rekord ist der schnellste davon, kürzlich aufgestellt. Ein Trend vergleicht den Median der letzten drei mit den drei davor, ab sechs Versuchen."
     },
@@ -823,7 +844,8 @@
     },
     "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst.",
     "efficiencyTrend": {
-      "seriesLabel": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
+      "seriesLabel": "{{quantity}}, vom eltschte bis zum neuschte Versüech",
+      "quantity": "Härzfrequänz × Tempo",
       "title": "Effizienz verbessert sich uf {{name}}",
       "changeTitle": "Effizienz auf {{name}}: +{{hrChange}} bpm",
       "changeSubtitle": "Modelliert +{{hrChange}} bpm bei mittlerem Tempo über {{efforts}} Versuche",
@@ -985,6 +1007,7 @@
     "sessionKeyRejected": "Dis API-Schlüssel isch abglehnt worde.",
     "sessionRestore": "Mäld di nomol aa, denn hesch si wieder.",
     "sessionRestoreAthlete": "Mäld di nomol als {{athleteId}} aa, denn hesch si wieder.",
+    "sessionHeldRide": "Dini Ufzeichnig vo {{when}} isch no da und gaht uf, wenn di wieder aamäldsch.",
     "subtitle": "Verbinde mit intervals.icu",
     "termsOfService": "AGB",
     "title": "Veloq",
@@ -1061,9 +1084,9 @@
   },
   "navigation": {
     "activities": "Aktivitäte",
-    "feed": "S Nöischte",
+    "feed": "Aktuell",
     "fitness": "Fitnäss",
-    "health": "Gsundheit",
+    "health": "Befinde",
     "map": "Charte",
     "settings": "Istellige",
     "training": "Trainig",
@@ -1162,6 +1185,8 @@
       "stop": "STOPP"
     },
     "discard": "Verwärfe",
+    "discardConfirmMessage": "Si isch nonig gspeicheret und cha nach em Verwärfe nümm zruggholt wärde.",
+    "discardConfirmTitle": "Die Ufnahm verwärfe?",
     "distance": "Distanz (km)",
     "distanceInvalid": "Bitte gib e gültigi Distanz ii (0-999).",
     "duration": "Duur (Minute)",
@@ -1187,13 +1212,18 @@
     },
     "gpsAcquiring": "Warte uf GPS...",
     "gpsAlertContinue": "Ohni GPS witerfahre",
-    "gpsAlertMessage": "Cha kei GPS-Fix becho. Prüef ob d Standortdienst aktiviert sind und du freii Sicht zum Himmel hesch.",
+    "gpsAlertMessage": "Cha kei GPS-Fix becho. Gang anen Ort mit freier Sicht zum Himmel.",
     "gpsAlertSettings": "Iistellige öffne",
     "gpsAlertStop": "Ufnahm stoppe",
     "gpsAlertTitle": "GPS-Signal nöd gfunde",
     "gpsNone": "Standort verweigeret",
     "gpsPermissionDenied": "Standortberächtigung verweigert. Gib Zuegriff in de Iistellige frei zum GPS ufznehmä.",
     "gpsReady": "GPS bereit",
+    "gpsServicesOff": "Standort us",
+    "gpsServicesOffAndroid": "De Standort isch uf däm Handy usgschaltet, drum cha kei Strecki ufgnoh wärde.",
+    "gpsServicesOffIos": "D Ortungsdienst sind usgschaltet, drum cha kei Strecki ufgnoh wärde. Schalt sie ii under Einstellungen > Datenschutz & Sicherheit > Ortungsdienste.",
+    "gpsServicesOffTitle": "Standort isch usgschaltet",
+    "gpsServicesTurnOn": "Iischalte",
     "gpsTrackingError": "GPS-Ufnahm hät nöd chönne gstartet werde. Probier pausiere und wiiterfahre.",
     "gpsWaiting": "Warte uf GPS-Signal. Gang use für bessere Empfang.",
     "gpsWeakWarning": "GPS-Signal schwach, Ufnahm chönnt ungenau sii",
@@ -1219,6 +1249,7 @@
       "max": "Maximum"
     },
     "saveError": "Spichere fählgschlage",
+    "saveErrorNoSpace": "Spichere fählgschlage: Uf däm Grät hets fasch kei Platz meh. Mach Platz frei und probier's nomol.",
     "savedQueued": "Aktivität gspeicheret. Wird automatisch ueglade wenn du wieder online bisch.",
     "savedQueuedAuth": "Aktivität gspeicheret. Si wird ueglade, sobald du dich wieder aameldisch.",
     "settings": "Ufnahm-Iistellige",
@@ -1376,7 +1407,6 @@
     "renameFailedMessage": "Der Routenname wurde nicht gespeichert. Versuch es erneut.",
     "routeNamePlaceholder": "Routename",
     "routeWord": "Strecke",
-    "routesWillAppear": "Route chömed noch de Analyse",
     "routesWithTwoPlus": "Route mit 2+ Aktivitäte chömed da",
     "sectionCreationFailed": "Gopferteckel, hät nöd klappet!",
     "sectionWord": "Abschnitt",
@@ -1404,7 +1434,19 @@
     "standingBest": "Deine schnellste von {{total}}",
     "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
     "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
-    "largeSectionPerformanceWarning": "Grosse Abschnitte können länger zur Verarbeitung brauchen."
+    "largeSectionPerformanceWarning": "Grosse Abschnitte können länger zur Verarbeitung brauchen.",
+    "emptyNoGpsTitle": "Kei Aktivitäte mit GPS",
+    "emptyNoGps": "Route und Abschnitt wärded i GPS-Spure gfunde, und de synchronisiert Zitruum het nur Einheite ohni, zum Bispiel Rolletrainer, Hallebad oder Chraft.",
+    "emptyNotYetRunTitle": "Wartet uf d Analyse",
+    "emptyNotYetRun_one": "{{count}} Aktivität mit GPS wartet uf d Analyse. Route und Abschnitt chömed, sobald si glaufe isch.",
+    "emptyNotYetRun_other": "{{count}} Aktivitäte mit GPS warted uf d Analyse. Route und Abschnitt chömed, sobald si glaufe isch.",
+    "emptyRunningTitle": "Analyse lauft",
+    "emptyRunning": "{{phase}}: {{percent}} % gmacht. Route und Abschnitt chömed, wenn si fertig isch.",
+    "emptyHeldTitle": "Analyse aaghalte",
+    "emptyNoRoutes_one": "E Route bruucht mindestens {{count}} Aktivität uf ere ähnliche Strecki. No keini vo dine Aktivitäte mit GPS bildet eini.",
+    "emptyNoRoutes_other": "E Route bruucht mindestens {{count}} Aktivitäte uf ere ähnliche Strecki. No keini vo dine Aktivitäte mit GPS teilt eini.",
+    "emptyNoSections_one": "En Abschnitt bruucht mindestens {{count}} Aktivität uf em gliiche Strasseteil. I dine Aktivitäte mit GPS isch keine gfunde worde.",
+    "emptyNoSections_other": "En Abschnitt bruucht mindestens {{count}} Aktivitäte uf em gliiche Strasseteil, au uf verschiedene Route. I dine Aktivitäte mit GPS isch keine gfunde worde."
   },
   "routesScreen": {
     "computingRoutes": "Am Berechne...",
@@ -1468,7 +1510,7 @@
     "sectionNotFound": "Abschnitt nöd gfunde",
     "aerobicEfficiency": "Aerobi Effizienz",
     "aerobicEfficiencyDetail": "{{efforts}} verglichbari Versüech, modellierti Änderig vo {{hrChange}} bpm bim durchschnittlichä Tempo",
-    "aerobicEfficiencyCaption": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
+    "aerobicEfficiencyCaption": "{{quantity}}, vom eltschte bis zum neuschte Versüech",
     "correlationTitle": "Wohlbefinden und Tempo",
     "correlationMethod": "Pearson-r der Rundengeschwindigkeit gegen den Wohlbefindenswert des Tages, 95-%-Intervall, mindestens 10 Versuche mit Wert",
     "correlationFamily_one": "Holm-korrigiert über {{count}} Variable",
@@ -1920,7 +1962,6 @@
     "atWeight": "bei {{weight}}"
   },
   "statsScreen": {
-    "decoupling": "Aerobi Effizienz",
     "eFTPTrend": "eFTP-Trend",
     "ftpLabel": "FTP {{value}} Watt",
     "heartRate": "Puls",
@@ -1962,6 +2003,7 @@
   },
   "units": {
     "bpm": "bpm",
+    "bpmSecondsPerKm": "bpm·s/km",
     "kcal": "kcal",
     "ms": "ms",
     "watts": "W",
@@ -2055,6 +2097,15 @@
       "routesBody": "Aktivitäte uf de gliiche Strecki werded zu ere Route zämegfasst, jede Versuech im Vergliich zu de andere.",
       "sectionPageTip": "Scrolle auf der Abschnittsseite nach unten für den Trend, die Verteilung deiner Zeiten und die Linie, eingefärbt nach gewonnener oder verlorener Zeit.",
       "routesTip": "Scrolle auf der Routenseite nach unten, um jeden Versuch auf der Strecke im Vergleich zu den anderen zu sehen."
+    },
+    "tutorial": {
+      "firstLoadTitle": "Dis Training uf däm Handy",
+      "firstLoadBody": "Veloq liest dini Aktivitäte und dis Wohlsii us intervals.icu und speicheret si uf däm Handy. De erscht Download lauft im Hintergrund, und «S Nöischte» füllt sich, sobald Aktivitäte aachömed.",
+      "feedTitle": "S Nöischte",
+      "feedBody": "Jedi Aktivität chunnt da als Iitrag mit ihrere Charte aa, di nöischt zersch.",
+      "feedTip": "Zieh nach unde, zum bi intervals.icu nach neue Aktivitäte z luege, oder tipp uf e Aktivität, zum si z öffne.",
+      "activityTitle": "I ere Aktivität",
+      "activityBody": "Öffne e Aktivität für ihri Charte und Diagramm, ihri Intervall und d Strecki und Abschnitt, wo si dezue ghört."
     }
   },
   "strength": {
@@ -2091,6 +2142,7 @@
     "sets": "Sätz",
     "setsCount_one": "{{count}} Satz",
     "setsCount_other": "{{count}} Sätz",
+    "clearMuscle": "{{muscle}} abwähle",
     "muscleGroupVolume": "Muskelgruppe-Volume",
     "relativeWeightedSets": "Relativi gwichteti Sätz über d usgwählti Periode",
     "reps": "Widerholige",
@@ -2320,7 +2372,16 @@
   "summaryCardChange": {
     "window_one": "{{change}} in {{count}} Tag",
     "window_other": "{{change}} in {{count}} Tagen",
-    "rule": "Die Änderung ist der letzte Fitnesswert im Zeitraum minus der erste. Ein Punkt markiert jeden Tag, an dem die Fitness gegenüber dem Vortag um mehr als 1 Punkt stieg."
+    "rule": "Die Änderung ist der letzte Fitnesswert im Zeitraum minus der erste. Ein Punkt markiert jeden Tag, an dem die Fitness gegenüber dem Vortag um mehr als 1 Punkt stieg.",
+    "trend": {
+      "improved": "verbessert",
+      "declined": "verschlechtert",
+      "rising": "steigend",
+      "falling": "fallend",
+      "steady": "stabil",
+      "comparedOn": "{{metric}} {{value}}, {{move}}. Verglichen mit {{previous}} am {{date}}.",
+      "comparedLastWeek": "{{metric}} {{value}}, {{move}}. Verglichen mit {{previous}} zum gleichen Zeitpunkt letzte Woche."
+    }
   },
   "period": {
     "short": {

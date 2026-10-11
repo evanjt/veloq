@@ -30,6 +30,7 @@ export interface ApiActivity {
   icu_average_watts: number | null;
   icu_weighted_avg_watts: number | null;
   icu_hr_zones: number[];
+  /** The upper edge of each power zone as a percent of `icu_ftp`, 999 for the open top */
   icu_power_zones: number[];
   icu_zone_times: { id: string; secs: number }[] | null;
   stream_types: string[];

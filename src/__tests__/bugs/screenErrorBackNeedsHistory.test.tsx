@@ -1,9 +1,12 @@
 /**
- * Scenario: a screen throws on the first tab after a cold start, so the root
- * stack holds nothing beneath it.
+ * Scenario: a screen throws on every render. On a tab, replacing to the Feed
+ * would land on the screen that threw, so Back there needs history beneath it.
+ * Outside the tabs a screen with no history, as one a cold link opened, can
+ * still leave for the Feed.
  *
- * Expected behaviour: the fallback offers Back only when the router has
- * history to go back to. Otherwise Back is absent and Retry still works.
+ * Expected behaviour: on a tab the fallback offers Back only with history, and
+ * Retry still works without it. Outside the tabs Back is always offered, and
+ * with no history it replaces to the Feed.
  */
 
 import React from 'react';
@@ -32,20 +35,26 @@ function Broken() {
 
 let consoleError: jest.SpyInstance;
 let canGoBack: jest.SpyInstance;
+let segments: jest.SpyInstance;
 
 beforeEach(() => {
   failing = true;
   (router.back as jest.Mock).mockClear();
+  (router.replace as jest.Mock).mockClear();
   consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
   canGoBack = jest.spyOn(router, 'canGoBack');
+  segments = jest
+    .spyOn(jest.requireMock('expo-router'), 'useSegments')
+    .mockReturnValue(['(tabs)'] as never);
 });
 
 afterEach(() => {
   consoleError.mockRestore();
   canGoBack.mockRestore();
+  segments.mockRestore();
 });
 
-describe('the screen error fallback Back button', () => {
+describe('the screen error fallback Back button on a tab', () => {
   it('is absent when the router has no history, and Retry still works', () => {
     canGoBack.mockReturnValue(false);
     const { getByText, queryByText } = render(
@@ -70,5 +79,37 @@ describe('the screen error fallback Back button', () => {
 
     fireEvent.press(getByText('common.back'));
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the screen error fallback Back button outside the tabs', () => {
+  beforeEach(() => {
+    segments.mockReturnValue(['section', '[id]'] as never);
+  });
+
+  it('is offered with no history and replaces to the Feed', () => {
+    canGoBack.mockReturnValue(false);
+    const { getByText } = render(
+      <ScreenErrorBoundary>
+        <Broken />
+      </ScreenErrorBoundary>
+    );
+
+    fireEvent.press(getByText('common.back'));
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/');
+  });
+
+  it('pops when the router has history', () => {
+    canGoBack.mockReturnValue(true);
+    const { getByText } = render(
+      <ScreenErrorBoundary>
+        <Broken />
+      </ScreenErrorBoundary>
+    );
+
+    fireEvent.press(getByText('common.back'));
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

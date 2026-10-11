@@ -23,8 +23,12 @@ import {
   copyDir,
   configurePushExtensionProject,
   pushSwiftFiles,
+  writePushExtensionFiles,
 } from '@/../src/plugins/with-ios-push-extension';
 import { compiledSourceNames, targetUuidByName } from '@/../src/plugins/with-ios-widget';
+import { resolvedLocale } from '../i18n/resolvedLocale';
+
+const strings = require('@/../src/plugins/nativeStrings.js');
 
 const projectRoot = path.join(__dirname, '../../..');
 
@@ -298,5 +302,88 @@ describe('the files the prebuild copies into the native tree', () => {
     const copied = path.join(dest, 'Extension', 'Shared.swift');
     expect(fs.lstatSync(copied).isSymbolicLink()).toBe(false);
     expect(fs.readFileSync(copied, 'utf8')).toBe('enum Shared {}\n');
+  });
+});
+
+/**
+ * Scenario: a ride push reaches a phone set to German while the keychain is
+ * still locked from a restart, or the engine will not open, or the fetch runs
+ * past the thirty seconds. The extension has no sentence to post, and without
+ * text of its own it delivers the server's English line.
+ *
+ * Expected behaviour: the prebuild compiles a string catalogue into the
+ * extension carrying the recorded title in every language the app is
+ * translated into, so the extension can rewrite the line from its own bundle.
+ */
+describe('the fallback the extension posts when the engine cannot answer', () => {
+  const FALLBACK_TITLE = 'Activity Recorded';
+
+  type Catalogue = {
+    strings: Record<string, { localizations: Record<string, { stringUnit: { value: string } }> }>;
+  };
+
+  it('carries the recorded title in every language the app is translated into', () => {
+    const iosRoot = tempDir('veloq-push-ios-');
+
+    writePushExtensionFiles(projectRoot, iosRoot);
+
+    const catalogue: Catalogue = JSON.parse(
+      fs.readFileSync(path.join(iosRoot, TARGET, 'Localizable.xcstrings'), 'utf8')
+    );
+    const wrong: string[] = [];
+    const locales = Object.entries(strings.PLATFORM_LOCALES) as [string, { apple: string[] }][];
+    for (const [locale, { apple }] of locales) {
+      const expected = (
+        resolvedLocale(locale) as { notifications: { activityRecorded: { title: string } } }
+      ).notifications.activityRecorded.title;
+      for (const language of apple) {
+        const unit = catalogue.strings[FALLBACK_TITLE]?.localizations[language]?.stringUnit;
+        if (!expected || unit?.value !== expected) wrong.push(`${language}: ${unit?.value}`);
+      }
+    }
+    expect(locales.length).toBeGreaterThan(1);
+    expect(wrong).toEqual([]);
+  });
+
+  it('still copies the tracked sources beside the catalogue', () => {
+    const iosRoot = tempDir('veloq-push-ios-');
+
+    writePushExtensionFiles(projectRoot, iosRoot);
+
+    expect(fs.existsSync(path.join(iosRoot, TARGET, 'NotificationService.swift'))).toBe(true);
+  });
+
+  /** The resources the extension target copies, with the file type each reference carries. */
+  function resources(proj: ReturnType<typeof openFixture>) {
+    const uuid = targetUuidByName(proj, TARGET) as string;
+    const refs = proj.pbxFileReferenceSection();
+    const builds = proj.pbxBuildFileSection();
+    return (proj.pbxResourcesBuildPhaseObj(uuid)?.files ?? []).map((entry: { value: string }) => {
+      const ref = refs[(builds[entry.value] as { fileRef: string }).fileRef] as {
+        path: string;
+        lastKnownFileType: string;
+      };
+      return `${path.basename(String(ref.path).replace(/"/g, ''))} ${ref.lastKnownFileType}`;
+    });
+  }
+
+  it('is compiled into the extension once, however many prebuilds run', () => {
+    const proj = openFixture();
+
+    configurePushExtensionProject(proj, options);
+    configurePushExtensionProject(proj, options);
+
+    expect(resources(proj)).toEqual(['Localizable.xcstrings text.json.xcstrings']);
+  });
+
+  it('lists every catalogue language as a region the project knows', () => {
+    const proj = openFixture();
+
+    configurePushExtensionProject(proj, options);
+
+    const unknown = strings
+      .appleLanguages()
+      .filter((language: string) => !proj.hasKnownRegion(language));
+    expect(unknown).toEqual([]);
   });
 });

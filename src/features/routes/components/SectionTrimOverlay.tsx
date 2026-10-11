@@ -17,6 +17,7 @@ import { ActivityIndicator } from 'react-native-paper';
 import * as haptics from '@/shared/ui/haptics';
 import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
+import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { Button, IconButton, ToggleButton, pressable, pressRipple } from '@/shared/ui';
 import {
@@ -28,7 +29,6 @@ import {
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
-const MIN_HANDLE_GAP = 0.05;
 const STEP_BUTTON_WIDTH = 30;
 const STEP_BUTTON_HEIGHT = 28;
 
@@ -124,28 +124,25 @@ export function SectionTrimOverlay({
   }, [lastPrecision]);
 
   // ── Step button handlers (JS thread - immediate) ──
+  const minGap = useMemo(() => trimMinGap(maxIndex), [maxIndex]);
+  const minGapFrac = minGap / maxIndex;
+  const stepped = (bound: TrimBound, delta: number) =>
+    stepTrimBound(startIndex, endIndex, maxIndex, bound, delta, minGap);
+
   const nudgeStart = useCallback(
     (delta: number) => {
-      const newIndex = Math.max(
-        0,
-        Math.min(startIndex + delta, endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP))
-      );
-      onStartChange(newIndex);
+      onStartChange(stepTrimBound(startIndex, endIndex, maxIndex, 'start', delta, minGap));
       haptics.light();
     },
-    [startIndex, endIndex, maxIndex, onStartChange]
+    [startIndex, endIndex, maxIndex, minGap, onStartChange]
   );
 
   const nudgeEnd = useCallback(
     (delta: number) => {
-      const newIndex = Math.max(
-        startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP),
-        Math.min(endIndex + delta, maxIndex)
-      );
-      onEndChange(newIndex);
+      onEndChange(stepTrimBound(startIndex, endIndex, maxIndex, 'end', delta, minGap));
       haptics.light();
     },
-    [startIndex, endIndex, maxIndex, onEndChange]
+    [startIndex, endIndex, maxIndex, minGap, onEndChange]
   );
 
   // ── Start handle gesture ──
@@ -171,7 +168,7 @@ export function SectionTrimOverlay({
           const deltaX = (e.translationX - prevTransX.value) * ratio;
           prevTransX.value = e.translationX;
           const newFrac = Math.max(0, Math.min(startFrac.value + deltaX / tw, 1));
-          if (newFrac < endFrac.value - MIN_HANDLE_GAP) {
+          if (newFrac < endFrac.value - minGapFrac) {
             startFrac.value = newFrac;
             const now = Date.now();
             if (now - lastEmitTime.value >= 150) {
@@ -196,6 +193,7 @@ export function SectionTrimOverlay({
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
       maxIndex,
+      minGapFrac,
       onStartChange,
       startFrac,
       endFrac,
@@ -232,7 +230,7 @@ export function SectionTrimOverlay({
           const deltaX = (e.translationX - prevTransX.value) * ratio;
           prevTransX.value = e.translationX;
           const newFrac = Math.max(0, Math.min(endFrac.value + deltaX / tw, 1));
-          if (newFrac > startFrac.value + MIN_HANDLE_GAP) {
+          if (newFrac > startFrac.value + minGapFrac) {
             endFrac.value = newFrac;
             const now = Date.now();
             if (now - lastEmitTime.value >= 150) {
@@ -257,6 +255,7 @@ export function SectionTrimOverlay({
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
       maxIndex,
+      minGapFrac,
       onEndChange,
       startFrac,
       endFrac,
@@ -378,7 +377,7 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimStartEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(-1)}
-            disabled={startIndex <= 0}
+            disabled={stepped('start', -1) === startIndex}
             android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
@@ -389,7 +388,7 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimStartLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(1)}
-            disabled={startIndex >= endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+            disabled={stepped('start', 1) === startIndex}
             android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
@@ -402,7 +401,7 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimEndEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(-1)}
-            disabled={endIndex <= startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+            disabled={stepped('end', -1) === endIndex}
             android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
@@ -413,7 +412,7 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimEndLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(1)}
-            disabled={endIndex >= maxIndex}
+            disabled={stepped('end', 1) === endIndex}
             android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />

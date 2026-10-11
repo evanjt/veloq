@@ -8,7 +8,6 @@ import Constants from 'expo-constants';
 import { tapTo } from '@/shared/app/navigation';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import { settingsStyles } from './settingsStyles';
@@ -42,25 +41,23 @@ export function FooterSection() {
 
   return (
     <>
-      {getAllSlides().length > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.appTour')}
-          style={pressable(styles.toggleRow)}
-          onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
-          android_ripple={pressRipple}
-        >
-          <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
-              {t('settings.appTour')}
-            </Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
-              {t('settings.appTourDescription')}
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-        </Pressable>
-      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.appTour')}
+        style={pressable(styles.toggleRow)}
+        onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
+        android_ripple={pressRipple}
+      >
+        <View style={styles.toggleInfo}>
+          <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+            {t('settings.appTour')}
+          </Text>
+          <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
+            {t('settings.appTourDescription')}
+          </Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"

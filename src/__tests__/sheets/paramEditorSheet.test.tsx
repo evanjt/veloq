@@ -13,6 +13,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: {
     push: (...args: unknown[]) => mockPush(...args),
+    canGoBack: () => true,
     back: () => mockBack(),
   },
   useLocalSearchParams: () => mockParams,

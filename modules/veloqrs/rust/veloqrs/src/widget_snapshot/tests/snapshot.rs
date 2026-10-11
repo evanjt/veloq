@@ -121,6 +121,7 @@ fn make_raw() -> Raw {
             ftp_trend: FfiFtpTrend {
                 latest_ftp: Some(251),
                 previous_ftp: Some(245),
+                glyph: Some("↑".to_string()),
                 ..Default::default()
             },
             run_pace_trend: FfiPaceTrend {

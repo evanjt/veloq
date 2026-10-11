@@ -132,6 +132,16 @@ const APPLE_STRINGS = [
 ];
 
 /**
+ * The push extension's own `Localizable` keys. It shares no sources with the
+ * widget, so it carries only what it reads: the title it posts over the
+ * server's English line when the engine cannot answer, the same string the
+ * engine's fallback entry reads from the stored templates.
+ */
+const PUSH_EXTENSION_STRINGS = [
+  { key: 'Activity Recorded', path: 'notifications.activityRecorded.title' },
+];
+
+/**
  * The Siri phrases, keyed as an `AppShortcuts` table requires: the English
  * phrase with each interpolation written `${name}`. The bundles write the same
  * slots the i18next way, `{{app}}` and `{{sport}}`.
@@ -282,6 +292,10 @@ function catalogue(entries, bundles) {
 
 function localizableCatalogue(bundles) {
   return catalogue(APPLE_STRINGS, bundles);
+}
+
+function pushExtensionCatalogue(bundles) {
+  return catalogue(PUSH_EXTENSION_STRINGS, bundles);
 }
 
 /** Each Apple language's phrases, keyed by the English phrase. */
@@ -435,6 +449,12 @@ function writeIosCatalogues({ widgetDir, appDir }, bundles = loadLocaleBundles()
   fs.rmSync(path.join(appDir, STALE_APP_SHORTCUTS_FILE), { force: true });
 }
 
+/** The push extension's string catalogue, written beside its sources. */
+function writePushExtensionCatalogue(extensionDir, bundles = loadLocaleBundles()) {
+  fs.mkdirSync(extensionDir, { recursive: true });
+  fs.writeFileSync(path.join(extensionDir, LOCALIZABLE_FILE), json(pushExtensionCatalogue(bundles)));
+}
+
 /** Every Apple language a catalogue carries, for the project's known regions. */
 function appleLanguages() {
   return Object.values(PLATFORM_LOCALES).flatMap(({ apple }) => apple);
@@ -444,6 +464,7 @@ module.exports = {
   PLATFORM_LOCALES,
   APPLE_STRINGS,
   APP_SHORTCUT_PHRASES,
+  PUSH_EXTENSION_STRINGS,
   ANDROID_STRINGS,
   INFO_PLIST_STRINGS,
   LOCALIZABLE_FILE,
@@ -453,6 +474,7 @@ module.exports = {
   ANDROID_STRINGS_FILE,
   loadLocaleBundles,
   localizableCatalogue,
+  pushExtensionCatalogue,
   appShortcutPhrases,
   appShortcutsStringFiles,
   infoPlistFallback,
@@ -462,5 +484,6 @@ module.exports = {
   decodeAndroidString,
   writeAndroidStrings,
   writeIosCatalogues,
+  writePushExtensionCatalogue,
   appleLanguages,
 };

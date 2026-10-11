@@ -27,10 +27,10 @@ fn note(name: &'static str) {
 
 fn note_wellness(req: &HttpMockRequest) -> bool {
     let oldest = req
-        .query_params
-        .as_ref()
-        .and_then(|q| q.iter().find(|(k, _)| k == "oldest"))
-        .map(|(_, v)| v.clone())
+        .query_params()
+        .into_iter()
+        .find(|(k, _)| k == "oldest")
+        .map(|(_, v)| v)
         .unwrap_or_default();
     WELLNESS_OLDEST
         .lock()
@@ -92,7 +92,7 @@ impl Upstream {
     }
 
     fn server_hits(&self, id: usize) -> usize {
-        httpmock::Mock::new(id, &self.server).hits()
+        httpmock::Mock::new(id, &self.server).calls()
     }
 }
 
@@ -115,7 +115,7 @@ fn upstream_with(athlete: serde_json::Value, census: serde_json::Value) -> Upstr
     server.mock(|when, then| {
         when.method(GET)
             .path("/athlete/i1/wellness")
-            .matches(note_wellness);
+            .is_true(note_wellness);
         then.status(200).json_body(json!([]));
     });
     // Created first, so it is the mock a census request meets first.
@@ -123,7 +123,7 @@ fn upstream_with(athlete: serde_json::Value, census: serde_json::Value) -> Upstr
         when.method(GET)
             .path("/athlete/i1/activities")
             .query_param("oldest", "2000-01-01")
-            .matches(note_census);
+            .is_true(note_census);
         then.status(200).json_body(census);
     });
     server.mock(|when, then| {
@@ -395,7 +395,7 @@ fn upstream_keeping_holes(oldest_row: i64, holes: &[i64], failing: bool) -> Mock
     server.mock(|when, then| {
         when.method(GET)
             .path("/athlete/i1/wellness")
-            .matches(note_wellness);
+            .is_true(note_wellness);
         if failing {
             then.status(500);
         } else {
@@ -406,7 +406,7 @@ fn upstream_keeping_holes(oldest_row: i64, holes: &[i64], failing: bool) -> Mock
         when.method(GET)
             .path("/athlete/i1/activities")
             .query_param("oldest", "2000-01-01")
-            .matches(note_census);
+            .is_true(note_census);
         then.status(200).json_body(json!([]));
     });
     server.mock(|when, then| {
@@ -688,8 +688,8 @@ fn the_fortnight_stores_what_the_year_would_have() {
 
     run_against(&server, false);
     run_against(&server, false);
-    whole.assert_hits(1);
-    recent.assert_hits(1);
+    whole.assert_calls(1);
+    recent.assert_calls(1);
 
     let stored = crate::persistence::with_persistent_engine(|engine| {
         engine
@@ -1010,7 +1010,7 @@ fn the_athlete_body_stores_what_the_sport_settings_endpoint_did() {
         then.status(200).body(SPORT_SETTINGS_BODY);
     });
     run_against(&server, false);
-    endpoint.assert_hits(0);
+    endpoint.assert_calls(0);
     let new_stored =
         crate::persistence::with_persistent_engine(|engine| engine.get_sport_settings())
             .expect("engine")

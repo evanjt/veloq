@@ -64,6 +64,7 @@ export function restoreRecordingBackup(
     // may have changed since, and the gap credited as paused keeps its step.
     workout: readWorkoutFollow(backup.workout),
     savedToLibrary: false,
+    review: stopped ? (backup.review ?? null) : null,
     startTime: backup.startTime,
     stopTime: stopped ? (backup.stopTime ?? backup.savedAt) : null,
     ...pause,

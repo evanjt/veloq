@@ -21,6 +21,7 @@ import {
   canDrawProfilePhoto,
   IconButton,
   SearchBar,
+  useLargeText,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { StreamConsentCard, useDashboardPreferences } from '@/features/settings';
@@ -156,9 +157,15 @@ function FeedScreenContent() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Past the dense cap the pinned cards can fill the window, so they move into
+  // the list header and scroll with the feed.
+  const largeText = useLargeText();
+
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
-  const searchSectionHeight = useRef(ESTIMATED_SEARCH_SECTION_HEIGHT);
+  // How far the list opens scrolled: the search section, and the cards above
+  // it while they sit in the list header.
+  const hiddenHeadHeight = useRef(ESTIMATED_SEARCH_SECTION_HEIGHT);
   const searchOffsetCorrected = useRef(false);
   const wasFeedFocused = useRef(isFeedFocused);
 
@@ -225,6 +232,7 @@ function FeedScreenContent() {
     heroColor,
     heroZone,
     heroTrend,
+    heroAccessibilityLabel,
     fitnessData,
     fitnessDelta,
     fitnessRiseDays,
@@ -258,7 +266,7 @@ function FeedScreenContent() {
     const returned = isFeedFocused && !wasFeedFocused.current;
     wasFeedFocused.current = isFeedFocused;
     if (returned && !filtering) {
-      listRef.current?.scrollToOffset({ offset: searchSectionHeight.current, animated: false });
+      listRef.current?.scrollToOffset({ offset: hiddenHeadHeight.current, animated: false });
     }
   }, [isFeedFocused, filtering]);
   const search = useFeedSearch(searchQuery, selectedTypeGroups, feedRange);
@@ -336,7 +344,7 @@ function FeedScreenContent() {
           if (!searchQuery && selectedTypeGroups.size === 0) {
             setTimeout(() => {
               listRef.current?.scrollToOffset({
-                offset: searchSectionHeight.current,
+                offset: hiddenHeadHeight.current,
                 animated: true,
               });
             }, 100);
@@ -485,14 +493,16 @@ function FeedScreenContent() {
 
   const handleSearchSectionLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const measured = event.nativeEvent.layout.height;
+      // The section's top is the height of whatever the header holds above it.
+      const { y, height } = event.nativeEvent.layout;
+      const measured = y + height;
       const offset = searchOffsetCorrection({
         measured,
         applied: Platform.OS === 'ios' ? ESTIMATED_SEARCH_SECTION_HEIGHT : 0,
         filtering: Boolean(searchQuery || selectedTypeGroups.size > 0),
         corrected: searchOffsetCorrected.current,
       });
-      if (measured > 0) searchSectionHeight.current = Math.round(measured);
+      if (measured > 0) hiddenHeadHeight.current = Math.round(measured);
       if (offset === null) return;
       searchOffsetCorrected.current = true;
       listRef.current?.scrollToOffset({ offset, animated: false });
@@ -693,9 +703,9 @@ function FeedScreenContent() {
   }
   /* eslint-enable react-hooks/refs */
 
-  // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
-  return (
-    <ScreenSafeAreaView style={shared.container} testID="home-screen">
+  // The cards above the feed, pinned at ordinary text sizes.
+  const headCards = (
+    <>
       <StreamConsentCard />
       <View testID="home-pinned-cards" style={styles.homeCards}>
         <NotificationOptInCard />
@@ -711,6 +721,7 @@ function FeedScreenContent() {
             heroColor={heroColor}
             heroZone={heroZone}
             heroTrend={heroTrend}
+            heroAccessibilityLabel={heroAccessibilityLabel}
             onHeroPress={navigateToHeroMetric}
             fitnessData={fitnessData}
             fitnessDelta={fitnessDelta}
@@ -727,6 +738,13 @@ function FeedScreenContent() {
           />
         )}
       </View>
+    </>
+  );
+
+  // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
+  return (
+    <ScreenSafeAreaView style={shared.container} testID="home-screen">
+      {!largeText && headCards}
 
       <FlatList
         ref={listRef}
@@ -741,7 +759,16 @@ function FeedScreenContent() {
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
         extraData={isDark}
-        ListHeaderComponent={renderListHeader}
+        ListHeaderComponent={
+          largeText ? (
+            <>
+              {headCards}
+              {renderListHeader()}
+            </>
+          ) : (
+            renderListHeader
+          )
+        }
         ListEmptyComponent={renderListEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={listContentStyle}
@@ -782,7 +809,8 @@ function FeedScreenContent() {
 
 const styles = StyleSheet.create({
   // The list opens with its search section scrolled exactly past, so the gap
-  // above the first activity card is this padding, outside the scroll.
+  // above the first activity card is this padding. Pinned, it sits outside the
+  // scroll; past the dense cap the cards scroll and it sits above the search.
   homeCards: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: CARD_MARGIN,

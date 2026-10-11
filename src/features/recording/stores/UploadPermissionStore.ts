@@ -30,9 +30,10 @@ interface UploadPermissionState {
   /**
    * The athlete took the ride in front of them past the missing-scope warning.
    *
-   * Session only, never persisted: it belongs to one ride, and the save clears
-   * it. A ride recorded this way stays on the device whatever auto-upload says,
-   * because the upload it would be queued for cannot succeed.
+   * Session only, never persisted: it belongs to one ride, and the ride ending
+   * clears it, saved or discarded, as does write access arriving. A ride
+   * recorded this way stays on the device whatever auto-upload says, because
+   * the upload it would be queued for cannot succeed.
    */
   recordingWithoutScope: boolean;
   initialise: () => Promise<void>;
@@ -43,7 +44,7 @@ interface UploadPermissionState {
   dismissBanner: () => void;
   /** Record the ride anyway, keeping it on the device. */
   continueWithoutScope: () => void;
-  /** Forget that, once the ride it belonged to is saved. */
+  /** Forget that, once the ride it belonged to has ended. */
   clearWithoutScope: () => void;
   reset: () => void;
 }
@@ -111,6 +112,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
       needsUpgrade: !hasWrite,
       grantedScopes: scope,
       isLoaded: true,
+      ...(hasWrite && { recordingWithoutScope: false }),
     });
     persistPermission(get());
   },
@@ -118,7 +120,12 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   setNeedsUpgrade: (v) => set({ needsUpgrade: v }),
 
   setHasWritePermission: (v) => {
-    set({ hasWritePermission: v, needsUpgrade: !v, isLoaded: true });
+    set({
+      hasWritePermission: v,
+      needsUpgrade: !v,
+      isLoaded: true,
+      ...(v && { recordingWithoutScope: false }),
+    });
     persistPermission(get());
   },
 

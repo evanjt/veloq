@@ -1005,7 +1005,7 @@ mod tests {
         });
 
         let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        while mocks.iter().all(|mock| mock.hits() == 0) {
+        while mocks.iter().all(|mock| mock.calls() == 0) {
             assert!(
                 std::time::Instant::now() < until,
                 "no request reached the fake transport"
@@ -1016,7 +1016,7 @@ mod tests {
         worker.join().expect("fetch worker");
         drop(slot);
 
-        let dispatched: usize = mocks.iter().map(|mock| mock.hits()).sum();
+        let dispatched: usize = mocks.iter().map(|mock| mock.calls()).sum();
         assert!(
             dispatched <= MAX_CONCURRENCY,
             "cancelled bulk run still dispatched {dispatched} requests"
@@ -1068,7 +1068,7 @@ mod tests {
             .collect();
         std::thread::sleep(std::time::Duration::from_secs(1));
         assert_eq!(
-            mocks.iter().map(httpmock::Mock::hits).sum::<usize>(),
+            mocks.iter().map(httpmock::Mock::calls).sum::<usize>(),
             MAX_CONCURRENCY,
             "a store stall must stop the next dispatch"
         );
@@ -1083,7 +1083,7 @@ mod tests {
         drop(rest);
         worker.join().expect("fetch worker");
         assert_eq!(
-            mocks.iter().map(httpmock::Mock::hits).sum::<usize>(),
+            mocks.iter().map(httpmock::Mock::calls).sum::<usize>(),
             2 * MAX_CONCURRENCY
         );
         drop(slot);
@@ -1137,7 +1137,7 @@ mod tests {
             .join()
             .expect("cancelled fetch must exit with all permits held");
         assert_eq!(
-            mocks.iter().map(httpmock::Mock::hits).sum::<usize>(),
+            mocks.iter().map(httpmock::Mock::calls).sum::<usize>(),
             MAX_CONCURRENCY
         );
         assert!(rx.try_recv().is_err(), "no result follows cancellation");
@@ -1686,7 +1686,7 @@ mod tests {
         let _serial = crate::test_globals::serial_global_state();
         let server = MockServer::start();
         server.mock(|when, then| {
-            when.method(GET).path_contains("/streams.json");
+            when.method(GET).path_includes("/streams.json");
             then.status(200).json_body(json!([]));
         });
 

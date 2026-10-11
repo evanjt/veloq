@@ -34,7 +34,8 @@ import {
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
-import { SECTION_END_ICON, SECTION_START_ICON, TROPHY_ICON } from '@/features/maps/lib/mapIcons';
+import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
+import { ENDPOINT_IMAGES } from '@/features/maps/lib/endpointLayers';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
@@ -59,7 +60,7 @@ import {
   SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
-const OVERLAY_IMAGES = [TROPHY_ICON, SECTION_START_ICON, SECTION_END_ICON];
+const OVERLAY_IMAGES = [TROPHY_ICON, ...ENDPOINT_IMAGES];
 
 /** The 2D layer, held transparent until the surface reports one way or the other. */
 export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';

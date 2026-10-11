@@ -13,6 +13,11 @@ export type GpsAccuracyMode = 'high' | 'balanced' | 'batterySaver';
 const DEFAULT_ACCURACY_REJECT_THRESHOLD_M = 30;
 const DEFAULT_AUTO_PAUSE_DURATION_MS = 3000;
 
+/** The range the athlete may set each recording threshold to, in its stored unit. */
+export const ACCURACY_REJECT_BOUNDS_M = { min: 10, max: 100 } as const;
+export const AUTO_PAUSE_DURATION_BOUNDS_MS = { min: 1000, max: 10_000 } as const;
+export const AUTO_PAUSE_THRESHOLD_BOUNDS_KMH = { min: 0.5, max: 10 } as const;
+
 const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = DEFAULT_AUTO_PAUSE_KMH;
 
 const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
@@ -30,6 +35,12 @@ interface RecordingPreferencesState {
    * once, so this is asked-not-granted: a denial must never lead to a second ask.
    */
   alwaysLocationAsked: boolean;
+  /**
+   * Whether the record screen has raised the Android notification dialog.
+   * Android shows it twice at most, so the screen asks once and the notice it
+   * draws offers the second ask by hand.
+   */
+  notificationsAsked: boolean;
   autoPauseEnabled: boolean;
   autoPauseThresholds: Record<string, number>;
   dataFields: Record<string, DataFieldType[]>;
@@ -57,12 +68,14 @@ interface RecordingPreferencesState {
   setKeepAwake: (enabled: boolean) => void;
   dismissBatteryOptNudge: () => void;
   markAlwaysLocationAsked: () => void;
+  markNotificationsAsked: () => void;
 }
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
   recordedActivityTypes: [],
   alwaysLocationAsked: false,
+  notificationsAsked: false,
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
   dataFields: { ...DEFAULT_DATA_FIELDS },
@@ -130,6 +143,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
             typeof parsed.batteryOptDismissed === 'boolean' ? parsed.batteryOptDismissed : false,
           alwaysLocationAsked:
             typeof parsed.alwaysLocationAsked === 'boolean' ? parsed.alwaysLocationAsked : false,
+          notificationsAsked:
+            typeof parsed.notificationsAsked === 'boolean' ? parsed.notificationsAsked : false,
           isLoaded: true,
         });
       } else {
@@ -164,6 +179,14 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       if (state.alwaysLocationAsked) return state;
       persistPreferences({ ...state, alwaysLocationAsked: true });
       return { alwaysLocationAsked: true };
+    });
+  },
+
+  markNotificationsAsked: () => {
+    set((state) => {
+      if (state.notificationsAsked) return state;
+      persistPreferences({ ...state, notificationsAsked: true });
+      return { notificationsAsked: true };
     });
   },
 
@@ -206,7 +229,13 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   },
 
   setAccuracyRejectThreshold: (metres) => {
-    if (!Number.isFinite(metres) || metres < 10 || metres > 100) return;
+    if (
+      !Number.isFinite(metres) ||
+      metres < ACCURACY_REJECT_BOUNDS_M.min ||
+      metres > ACCURACY_REJECT_BOUNDS_M.max
+    ) {
+      return;
+    }
     set((state) => {
       persistPreferences({ ...state, accuracyRejectThreshold: metres });
       return { accuracyRejectThreshold: metres };
@@ -214,7 +243,13 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   },
 
   setAutoPauseDuration: (ms) => {
-    if (!Number.isFinite(ms) || ms < 1000 || ms > 10_000) return;
+    if (
+      !Number.isFinite(ms) ||
+      ms < AUTO_PAUSE_DURATION_BOUNDS_MS.min ||
+      ms > AUTO_PAUSE_DURATION_BOUNDS_MS.max
+    ) {
+      return;
+    }
     set((state) => {
       persistPreferences({ ...state, autoPauseDurationMs: ms });
       return { autoPauseDurationMs: ms };
@@ -251,6 +286,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       keepAwakeEnabled: state.keepAwakeEnabled,
       batteryOptDismissed: state.batteryOptDismissed,
       alwaysLocationAsked: state.alwaysLocationAsked,
+      notificationsAsked: state.notificationsAsked,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

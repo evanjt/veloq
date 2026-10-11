@@ -30,6 +30,7 @@ import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeT
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { IconButton, pressable, pressRipple } from '@/shared/ui';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 export type CreationState =
   | 'idle'
@@ -182,6 +183,15 @@ export function SectionCreationOverlay({
   // Auto-expand on error to show details
   const shouldExpand = expanded || isError;
 
+  // Each step's prompt is spoken as the step begins. A finished selection
+  // shows only its distance, so the spoken line says what the distance is of.
+  const statusText = getStatusText();
+  const statusLabel =
+    isComplete && sectionDistance !== null
+      ? `${t('maps.sectionSelected' as never)}, ${statusText}`
+      : statusText;
+  useAnnounceOnAppear(statusLabel);
+
   return (
     <View style={styles.container} pointerEvents="box-none">
       {/* Compact bottom bar */}
@@ -224,8 +234,10 @@ export function SectionCreationOverlay({
             <Text
               style={[styles.statusText, { color: statusTone.text }]}
               numberOfLines={isError ? 2 : 1}
+              accessibilityLabel={statusLabel}
+              accessibilityLiveRegion="polite"
             >
-              {getStatusText()}
+              {statusText}
             </Text>
             {!isCreating && (hasSelection || isComplete || isError) && (
               <MaterialCommunityIcons

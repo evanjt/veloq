@@ -65,6 +65,7 @@ export {
   buildUserLocationCollection,
   buildUserLocationLayers,
 } from './lib/userLocationLayer';
+export { ENDPOINT_IMAGES, buildEndpointLayers } from './lib/endpointLayers';
 export {
   boundsOfLngLat,
   EMPTY_FEATURE_COLLECTION,

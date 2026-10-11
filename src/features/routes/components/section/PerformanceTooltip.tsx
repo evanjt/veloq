@@ -3,7 +3,8 @@
  *
  * Displays the activity name, date, section time, pace/speed delta vs PR,
  * and exposes the reference / exclude / include controls. Tapping the row
- * navigates to the activity detail screen.
+ * navigates to the activity detail screen. The controls are drawn inside the
+ * row's own button, so a screen reader is offered them as actions on the row.
  */
 
 import { useMetricSystem } from '@/shared/app';
@@ -24,7 +25,7 @@ import {
 } from '@/shared/format/format';
 import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { assistiveActions, pressable, pressRipple, type AssistiveAction } from '@/shared/ui';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
 type ChartPoint = PerformanceDataPoint & { x: number };
@@ -90,13 +91,61 @@ export function PerformanceTooltip({
         : undefined,
   });
 
+  const activityId = selectedPoint.activityId;
+  const setReference =
+    onSetAsReference && !selectedPoint.isExcluded ? () => onSetAsReference(activityId) : undefined;
+  const include =
+    selectedPoint.isExcluded && onIncludeActivity
+      ? () => {
+          onIncludeActivity(activityId);
+          onClearSelection();
+        }
+      : undefined;
+  const exclude =
+    !selectedPoint.isExcluded && onExcludeActivity
+      ? () => {
+          onExcludeActivity(activityId);
+          onClearSelection();
+        }
+      : undefined;
+
+  const avgPower = selectedPoint.avgPower;
+  const power =
+    avgPower != null && Number.isFinite(avgPower) && avgPower > 0 ? formatPower(avgPower) : null;
+  const rowLabel = [
+    recordsSettled && selectedPoint.isBest ? t('sections.legendPr') : null,
+    selectedPoint.activityName,
+    formatShortDateWithYear(selectedPoint.date),
+    selectedPoint.sectionTime != null ? formatDuration(selectedPoint.sectionTime) : null,
+    power,
+    delta.deltaDisplay,
+    formatSpeedValue(selectedPoint.speed),
+  ]
+    .filter((part): part is string => !!part)
+    .join(', ');
+
+  const rowActions: AssistiveAction[] = [];
+  if (setReference) {
+    rowActions.push({
+      name: 'setReference',
+      label: t('sections.setAsReference'),
+      run: setReference,
+    });
+  }
+  if (include) {
+    rowActions.push({ name: 'include', label: t('sections.includeActivity'), run: include });
+  } else if (exclude) {
+    rowActions.push({ name: 'exclude', label: t('sections.excludeActivity'), run: exclude });
+  }
+
   return (
     <View style={styles.tooltipContainer}>
       <Pressable
         style={pressable([styles.selectedTooltip, isDark && styles.selectedTooltipDark])}
         accessibilityRole="button"
-        accessibilityLabel={selectedPoint.activityName}
-        onPress={() => tapTo(`/activity/${selectedPoint.activityId}`)}
+        accessibilityLabel={rowLabel}
+        {...assistiveActions(rowActions)}
+        onPress={() => tapTo(`/activity/${activityId}`)}
         android_ripple={pressRipple}
       >
         <View style={styles.tooltipLeft}>
@@ -137,14 +186,12 @@ export function PerformanceTooltip({
                 {formatDuration(selectedPoint.sectionTime)}
               </Text>
             )}
-            {selectedPoint.avgPower != null &&
-              Number.isFinite(selectedPoint.avgPower) &&
-              selectedPoint.avgPower > 0 && (
-                <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
-                  {' \u00b7 '}
-                  {formatPower(selectedPoint.avgPower)}
-                </Text>
-              )}
+            {power && (
+              <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
+                {' \u00b7 '}
+                {power}
+              </Text>
+            )}
             {delta.deltaDisplay && (
               <Text
                 style={[
@@ -181,9 +228,9 @@ export function PerformanceTooltip({
           >
             {formatSpeedValue(selectedPoint.speed)}
           </Text>
-          {onSetAsReference && !selectedPoint.isExcluded && (
+          {setReference && (
             <Pressable
-              onPress={() => onSetAsReference(selectedPoint.activityId)}
+              onPress={setReference}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={pressable(styles.referenceButton)}
               accessibilityLabel={t('sections.setAsReference')}
@@ -203,14 +250,11 @@ export function PerformanceTooltip({
               />
             </Pressable>
           )}
-          {selectedPoint.isExcluded && onIncludeActivity ? (
+          {include ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('sections.includeActivity')}
-              onPress={() => {
-                onIncludeActivity(selectedPoint.activityId);
-                onClearSelection();
-              }}
+              onPress={include}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={pressable(styles.excludeButton)}
               android_ripple={pressRipple}
@@ -218,15 +262,11 @@ export function PerformanceTooltip({
               <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
             </Pressable>
           ) : (
-            onExcludeActivity &&
-            !selectedPoint.isExcluded && (
+            exclude && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('sections.excludeActivity')}
-                onPress={() => {
-                  onExcludeActivity(selectedPoint.activityId);
-                  onClearSelection();
-                }}
+                onPress={exclude}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={pressable(styles.excludeButton)}
                 android_ripple={pressRipple}

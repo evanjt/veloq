@@ -18,8 +18,7 @@ fn a_refused_tile_is_asked_for_once_and_its_children_never() {
     let _serial = super::serial_state();
     let host = MockServer::start();
     let refused = host.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new(r"^/\d+/\d+/\d+\.png$").unwrap());
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.png$");
         then.status(404);
     });
 
@@ -33,21 +32,21 @@ fn a_refused_tile_is_asked_for_once_and_its_children_never() {
     set_template("ign_test".to_string(), host.url("/{z}/{x}/{y}.png"));
 
     assert_eq!(get_or_fetch("ign_test", 10, 512, 340), None);
-    refused.assert_hits(1);
+    refused.assert_calls(1);
 
     // The same tile again, which is a pan back to where the map just was.
     assert_eq!(get_or_fetch("ign_test", 10, 512, 340), None);
-    refused.assert_hits(1);
+    refused.assert_calls(1);
 
     // A child of it, which is a zoom in.
     assert_eq!(get_or_fetch("ign_test", 12, 2048, 1360), None);
-    refused.assert_hits(1);
+    refused.assert_calls(1);
 
     // A neighbour is not implied by it: nothing was learnt about that ground.
     assert_eq!(get_or_fetch("ign_test", 10, 513, 340), None);
-    refused.assert_hits(2);
+    refused.assert_calls(2);
 
     // Nor is the parent, which covers ground the refusal said nothing about.
     assert_eq!(get_or_fetch("ign_test", 9, 256, 170), None);
-    refused.assert_hits(3);
+    refused.assert_calls(3);
 }

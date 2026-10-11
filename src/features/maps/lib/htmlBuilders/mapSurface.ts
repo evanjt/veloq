@@ -22,6 +22,7 @@ import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolut
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
 import { MAP_SURFACE_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
+import { jsNumber } from '@/features/maps/lib/webViewLiterals';
 
 export { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurfaceScripts';
 
@@ -193,7 +194,7 @@ ${tileProtocolsScript()}
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
     var _fitPadding = ${paddingExpression(camera.padding, 40)};
-    var _maxZoom = ${camera.maxZoom ?? 'null'};
+    var _maxZoom = ${jsNumber(camera.maxZoom, null)};
     window._veloqMaxZoom = _maxZoom;
     window._veloqFitPadding = _fitPadding;
 
@@ -204,8 +205,8 @@ ${tileProtocolsScript()}
         attributionControl: false,
         antialias: true,
         pixelRatio: ${config.devicePixelRatio},
-        bearing: ${camera.bearing ?? 0},
-        pitch: ${camera.pitch ?? 0},
+        bearing: ${jsNumber(camera.bearing, 0)},
+        pitch: ${jsNumber(camera.pitch, 0)},
         maxPitch: 85,
         dragPan: ${interaction.scroll},
         scrollZoom: ${interaction.zoom},
@@ -222,7 +223,7 @@ ${tileProtocolsScript()}
         options.fitBoundsOptions = { padding: _fitPadding };
       } else if (_center) {
         options.center = _center;
-        options.zoom = ${camera.zoom ?? 12};
+        options.zoom = ${jsNumber(camera.zoom, 12)};
       } else {
         options.center = [0, 0];
         options.zoom = 2;
@@ -346,7 +347,9 @@ export function buildSetStyleScript(
 /** Move the camera. `duration` of 0 jumps. */
 export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): string {
   if (camera.bounds) {
-    const maxZoom = camera.maxZoom !== undefined ? `maxZoom: ${camera.maxZoom},` : '';
+    const maxZoom = Number.isFinite(camera.maxZoom)
+      ? `maxZoom: ${jsNumber(camera.maxZoom, null)},`
+      : '';
     return `
     if (window.map) {
       window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {

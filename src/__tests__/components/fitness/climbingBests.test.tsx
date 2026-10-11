@@ -63,6 +63,7 @@ describe('Season Bests climbing rows', () => {
         efforts={[]}
         climbing={climbBestsOf(read, 'Running')}
         sport="Running"
+        period="6m"
         isLoading={false}
       />
     );
@@ -78,7 +79,15 @@ describe('Season Bests climbing rows', () => {
   });
 
   it('draws no climbing heading when there are no climbing rows', () => {
-    render(<SeasonBestsSection efforts={[]} climbing={[]} sport="Running" isLoading={false} />);
+    render(
+      <SeasonBestsSection
+        efforts={[]}
+        climbing={[]}
+        sport="Running"
+        period="6m"
+        isLoading={false}
+      />
+    );
 
     expect(screen.queryByText('bestEffortsScreen.climbingBests')).toBeNull();
     expect(screen.getByText('statsScreen.noEffortData')).toBeTruthy();
@@ -120,6 +129,7 @@ describe('Season Bests climbing status', () => {
         climbing={climbBestsOf(read, 'Running')}
         climbingStatus={{ owed: 0, sourceExcluded: 2 }}
         sport="Running"
+        period="6m"
         isLoading={false}
       />
     );
@@ -131,6 +141,7 @@ describe('Season Bests climbing status', () => {
         climbing={climbBestsOf(read, 'Running')}
         climbingStatus={{ owed: 0, sourceExcluded: 0 }}
         sport="Running"
+        period="6m"
         isLoading={false}
       />
     );
@@ -145,6 +156,7 @@ describe('Season Bests climbing status', () => {
         climbing={emptyBests}
         climbingStatus={{ owed: 3, sourceExcluded: 0 }}
         sport="Running"
+        period="6m"
         isLoading={false}
       />
     );

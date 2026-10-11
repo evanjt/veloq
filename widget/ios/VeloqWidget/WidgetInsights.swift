@@ -24,12 +24,18 @@ func insightsTimeline(_ entry: InsightsEntry) -> Timeline<InsightsEntry> {
 }
 
 struct InsightsProvider: TimelineProvider {
+  static func placeholderEntry() -> InsightsEntry {
+    InsightsEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> InsightsEntry {
-    InsightsEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func getSnapshot(in context: Context, completion: @escaping (InsightsEntry) -> Void) {
-    completion(InsightsEntry(date: Date(), snapshot: WidgetSnapshotStore.load()))
+    let snapshot = WidgetSample.snapshot(
+      stored: WidgetSnapshotStore.load(), isPreview: context.isPreview)
+    completion(InsightsEntry(date: Date(), snapshot: snapshot))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<InsightsEntry>) -> Void) {

@@ -303,6 +303,13 @@ const GUARDS = [
       "tracematch's standalone Cargo.lock naming another version than its manifest, which fails its CI publish after the next push",
   },
   {
+    name: 'lint:tls-verifier-hold',
+    kind: 'correctness',
+    cmd: node('lint-tls-verifier-hold.mjs'),
+    catches:
+      'a reqwest bump pulling rustls-platform-verifier with no Android init, failing every engine HTTPS request on the handset, or Dependabot grouping that bump with every other cargo update',
+  },
+  {
     name: 'lint:device-writes',
     kind: 'correctness',
     cmd: node('lint-device-writes.mjs'),
@@ -470,7 +477,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, or a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, or an action pinned at a version that runs on Node 20',
   },
   {
     name: 'lint:counted-translation',
@@ -521,6 +528,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'one-library-open'),
     catches: 'an engine open that leaves the library in the iOS device backup',
+  },
+  {
+    name: 'lint:one-back',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'one-back'),
+    catches:
+      'a back or close control that does nothing on a screen with no history, because it pops past the owner that falls back to the Feed',
   },
   {
     name: 'lint:shared-import-cycles',
@@ -649,6 +663,12 @@ const GUARDS = [
       'a translation that drops or invents a placeholder, or a locale missing a plural form its counts select, which then reads in English',
   },
   {
+    name: 'lint:tab-label-budget',
+    kind: 'correctness',
+    cmd: node('lint-tab-label-budget.mjs'),
+    catches: 'a bottom tab label that truncates in a new or edited locale',
+  },
+  {
     name: 'lint:insight-valence',
     kind: 'correctness',
     cmd: node('lint-insight-valence.mjs'),
@@ -762,7 +782,8 @@ const GUARDS = [
     name: 'lint:hand-rolled-buttons',
     kind: 'style',
     cmd: node('lint-hand-rolled-buttons.mjs'),
-    catches: 'a new hand-built button instead of the shared one',
+    catches:
+      "a new hand-built button instead of the shared one, or Paper's IconButton, which takes no label and reaches a screen reader unnamed",
   },
   {
     name: 'lint:modal-sheets',
@@ -774,7 +795,8 @@ const GUARDS = [
     name: 'lint:roleless-pressables',
     kind: 'style',
     cmd: node('lint-roleless-pressables.mjs'),
-    catches: 'a new press target outside the shared ui that a screen reader announces with no role',
+    catches:
+      'a new press target outside the shared ui that a screen reader announces with no role, or one anywhere with a role and no label or text, announced as "button" alone',
   },
   {
     name: 'lint:untranslated-labels',
@@ -816,6 +838,13 @@ const GUARDS = [
     cmd: node('lint-source-rules.mjs', '--rule', 'dark-text-counterpart'),
     catches:
       'a text token the dark theme redefines, drawn in its light value in a file that switches on isDark',
+  },
+  {
+    name: 'lint:dimmed-text',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'dimmed-text'),
+    catches:
+      'text dimmed below its token by a style opacity or a colour built at an alpha, which the token contrast test cannot see',
   },
   {
     name: 'lint:widget-layouts',

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import type { GroupWithPolyline } from 'veloqrs';
+import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,7 @@ import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { EmptyState, ExplanationCard, SearchBar, pressable, pressRipple } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
+import { CatalogueEmptyState } from './CatalogueEmptyState';
 import { DataRangeFooter } from './DataRangeFooter';
 import { routesExplanation } from '@/features/routes/lib/explanationCopy';
 import { SportFilterMenu } from './SportFilterMenu';
@@ -73,6 +74,8 @@ interface RoutesListProps {
   loadError?: Error | null | undefined;
   /** Reads the page again after a failure */
   onRetry?: (() => void) | undefined;
+  /** Why the engine holds no route at all, or null while it holds one */
+  emptyReason?: FfiCatalogueEmptyReason | null | undefined;
 }
 
 export const RoutesList = memo(function RoutesList({
@@ -89,6 +92,7 @@ export const RoutesList = memo(function RoutesList({
   isLoading = false,
   loadError,
   onRetry,
+  emptyReason = null,
   searchQuery,
   onSearchChange,
   sportOptions = [],
@@ -181,22 +185,8 @@ export const RoutesList = memo(function RoutesList({
       );
     }
 
-    if (routeTotal === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={48}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t('routes.noRoutesYet')}
-          </Text>
-          <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
-            {t('routes.routesWillAppear')}
-          </Text>
-        </View>
-      );
+    if (emptyReason) {
+      return <CatalogueEmptyState reason={emptyReason} kind="routes" />;
     }
 
     return (
@@ -236,7 +226,7 @@ export const RoutesList = memo(function RoutesList({
   return (
     <View style={styles.outerContainer}>
       {/* Search and sport filters - outside FlatList to prevent keyboard dismissal */}
-      {(routeTotal > 0 || searchQuery.length > 0 || sportType !== undefined) && (
+      {((routeTotal > 0 && !emptyReason) || searchQuery.length > 0 || sportType !== undefined) && (
         <View style={styles.filterHeader}>
           <SearchBar
             value={searchQuery}

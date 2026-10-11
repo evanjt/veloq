@@ -11,6 +11,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityTypeSheet from '@/app/sheets/activity-type';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
 import type { ActivityType } from '@/types';
 
@@ -21,7 +22,11 @@ const mockScreenOptions: Record<string, unknown>[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
   Stack: {
     Screen: ({ options }: { options: Record<string, unknown> }) => {
@@ -71,6 +76,11 @@ describe('activity type sheet', () => {
     screen.unmount();
     open({ selectedType: 'Ride', mode: 'recording' });
     expect(screen.UNSAFE_getByType(FlatList).props.data).toContain('Kayaking');
+  });
+
+  it('keeps its scroll view where the iOS sheet sizes it', () => {
+    open({ selectedType: 'Ride', mode: 'review' });
+    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('turns the dismiss gesture off in review only', () => {

@@ -28,6 +28,7 @@ import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import { sectionsExplanation } from '@/features/routes/lib/explanationCopy';
 import { SectionsListHeader } from './SectionsListHeader';
+import { CatalogueEmptyState } from './CatalogueEmptyState';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { tapTo } from '@/shared/app/navigation';
@@ -41,7 +42,7 @@ import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import type { FrequentSection } from '@/types';
-import { type SectionWithPolyline } from 'veloqrs';
+import { type FfiCatalogueEmptyReason, type SectionWithPolyline } from 'veloqrs';
 import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
@@ -91,6 +92,8 @@ interface SectionsListProps {
   loadError?: Error | null | undefined;
   /** Reads the page again after a failure */
   onRetry?: (() => void) | undefined;
+  /** Why the engine holds no section of any kind, or null while it holds one */
+  emptyReason?: FfiCatalogueEmptyReason | null | undefined;
 }
 
 export type { SectionsSortOption };
@@ -238,6 +241,7 @@ export const SectionsList = memo(function SectionsList({
   retiredSectionCount,
   loadError,
   onRetry,
+  emptyReason = null,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -371,22 +375,8 @@ export const SectionsList = memo(function SectionsList({
       );
     }
 
-    if (totalCount === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="road-variant"
-            size={48}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t('routes.noFrequentSections')}
-          </Text>
-          <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
-            {t('routes.sectionsDescription')}
-          </Text>
-        </View>
-      );
+    if (emptyReason) {
+      return <CatalogueEmptyState reason={emptyReason} kind="sections" />;
     }
 
     return (

@@ -10,24 +10,30 @@
  * The engine's classified reason picks a translated line, never its English
  * message. The message stays as the fallback for a reason a shipped build has
  * no string for, which is what an engine newer than the bundle produces.
+ *
+ * A full device is the one reason the athlete can fix from here, so it carries
+ * an action to the screen where space is freed.
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { SyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
 import { useTheme } from '@/shared/app/useTheme';
+import { tapTo } from '@/shared/app/navigation';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { formatDateTime } from '@/shared/format';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
-import { amberBanner, typography, spacing } from '@/theme';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { amberBanner, typography, spacing, layout } from '@/theme';
 
 export function SyncErrorBanner() {
   const { t } = useTranslation();
@@ -80,6 +86,21 @@ export function SyncErrorBanner() {
                 })
               : t('emptyState.syncError.neverSynced')}
           </Text>
+          {lastErrorReason === SyncErrorReason.StorageFull && (
+            <Pressable
+              testID="sync-error-free-space"
+              accessibilityRole="button"
+              accessibilityLabel={t('common.freeUpSpace')}
+              onPress={() => tapTo('/cache-settings')}
+              hitSlop={8}
+              style={pressable(styles.action)}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.actionLabel, { color: palette.text }]}>
+                {t('common.freeUpSpace')}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </Animated.View>
@@ -108,5 +129,13 @@ const styles = StyleSheet.create({
   detail: {
     fontSize: typography.caption.fontSize,
     textAlign: 'center',
+  },
+  action: {
+    minHeight: layout.minTapTarget,
+    justifyContent: 'center',
+  },
+  actionLabel: {
+    ...typography.label,
+    fontWeight: '600',
   },
 });

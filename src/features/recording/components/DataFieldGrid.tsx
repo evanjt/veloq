@@ -174,7 +174,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
       onPress={emptyKind ? handleEmptyTap : undefined}
       onLongPress={onLongPressField ? handleLongPress : undefined}
       delayLongPress={DELIBERATE_HOLD_MS}
-      accessibilityRole="button"
+      accessibilityRole={emptyKind ? 'button' : undefined}
       style={pressable([
         styles.cell,
         {

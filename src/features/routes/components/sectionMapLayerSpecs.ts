@@ -10,6 +10,7 @@ import {
   type MapLayerSpec,
   type MapSourceSpec,
   USER_LOCATION_SOURCE_ID,
+  buildEndpointLayers,
   buildUserLocationLayers,
 } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
@@ -212,26 +213,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: { 'line-color': colors.chartCyan, 'line-width': 4 },
     },
-    {
-      id: 'endpoint-border',
-      type: 'circle',
-      source: 'endpoints',
-      paint: { 'circle-radius': 7.5, 'circle-color': mapLayerColors.casing },
-    },
-    {
-      id: 'endpoint-fill',
-      type: 'circle',
-      source: 'endpoints',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'position'], 'start'],
-          mapLayerColors.start,
-          mapLayerColors.end,
-        ],
-      },
-    }
+    ...buildEndpointLayers()
   );
 
   if (input.userLocationGeoJSON) layers.push(...buildUserLocationLayers(!!input.hasUserLocation));

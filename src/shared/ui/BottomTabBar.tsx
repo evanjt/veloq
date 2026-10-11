@@ -15,7 +15,7 @@ import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { brand, colorWithOpacity, ink, spacing, typography } from '@/theme';
+import { colorWithOpacity, colors, darkColors, ink, spacing, typography } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -25,7 +25,7 @@ import { GRADIENT_HEIGHT, TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearanc
 
 const log = debug.create('BottomTabBar');
 
-// Menu items with routes and icons (labels come from i18n)
+// Labels come from i18n, and each has to fit a fifth of a 320 dp phone at the 1.3 text cap.
 const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness' },
@@ -36,10 +36,13 @@ const MENU_ITEMS = [
 
 const ICON_SIZE = 26;
 
-// Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
-const INACTIVE_COLOR_DARK = colorWithOpacity(ink.white, 0.55); // Muted but visible
-const INACTIVE_COLOR_LIGHT = colorWithOpacity(ink.black, 0.45); // Muted but visible
-const ACTIVE_COLOR_DARK = ink.white; // Bright white - pops
+// The labels are text and hold 4.5:1, the icons are marks and hold 3:1, both
+// over the worst ground the bar can have: its densest scrim stop over content
+// of the opposite extreme, #EBEBEB in light and #141414 in dark. An inactive
+// tab is an operable control, so it answers to the bar as much as the active
+// one. The active tab is told apart by its weight and its icon, with the brand
+// carried by the icon: the label is `textPrimary`, 14.9:1 there, since the
+// primary teal is 3.14:1 and passes only as the icon's mark.
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -56,9 +59,10 @@ function BottomTabBarComponent() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  // Colors with proper contrast for accessibility
-  const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
-  const inactiveColor = isDark ? INACTIVE_COLOR_DARK : INACTIVE_COLOR_LIGHT;
+  const palette = isDark ? darkColors : colors;
+  const activeLabel = palette.textPrimary;
+  const activeIcon = isDark ? palette.textPrimary : palette.primary;
+  const inactiveColor = palette.textSecondary;
 
   // Gradient: smooth fade, slightly transparent at bottom (92% max)
   const gradientColors = isDark
@@ -151,14 +155,14 @@ function BottomTabBarComponent() {
                   <MaterialCommunityIcons
                     name={item.icon as never}
                     size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
-                    color={isActive ? activeColor : inactiveColor}
+                    color={isActive ? activeIcon : inactiveColor}
                   />
                 </View>
                 <Text
                   maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[
                     styles.label,
-                    { color: isActive ? activeColor : inactiveColor },
+                    { color: isActive ? activeLabel : inactiveColor },
                     isActive && styles.labelActive,
                   ]}
                   numberOfLines={1}

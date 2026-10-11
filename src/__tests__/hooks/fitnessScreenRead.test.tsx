@@ -10,11 +10,13 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
+import { RangeCoverage } from 'veloqrs';
 
 import { useFitnessScreenRead } from '@/features/fitness/hooks/useFitnessScreenRead';
 import { getEngine } from '@/shared/native/engine';
 import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const listeners = new Map<string, Set<() => void>>();
@@ -48,6 +50,7 @@ function screenRead(over: { changes?: unknown[]; history?: unknown[] } = {}) {
       ],
       changes: over.changes ?? [],
     },
+    ftpTrendCoverage: RangeCoverage.Loaded,
     runPaceTrend: pace(3.8),
     swimPaceTrend: pace(1.2),
   };
@@ -136,6 +139,25 @@ describe('the fitness screen read', () => {
     expect(result.current.storedSwimPace).toBeNull();
   });
 
+  it('hands the chart the coverage of the wellness its trend is read from', () => {
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead({ history: [] }),
+      ftpTrendCoverage: RangeCoverage.NotFetched,
+    }));
+    const { result } = renderHook(useFitnessScreenRead);
+
+    expect(result.current.eftpTrend).toBeUndefined();
+    expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
+
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead({ history: [] }),
+      ftpTrendCoverage: RangeCoverage.Empty,
+    }));
+    emit('activities');
+
+    expect(result.current.eftpCoverage).toBe(RangeCoverage.Empty);
+  });
+
   it('answers nothing from a read that throws, and reads again on the next event', () => {
     engine.getFitnessScreenData.mockImplementation(() => {
       throw new Error('engine closed');
@@ -145,6 +167,7 @@ describe('the fitness screen read', () => {
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
     expect(result.current.storedRunPace).toBeNull();
+    expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
 
     engine.getFitnessScreenData.mockImplementation(() => screenRead());
     emit('activities');
@@ -162,6 +185,7 @@ describe('the fitness screen read', () => {
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
     expect(result.current.storedSwimPace).toBeNull();
+    expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
   });
 });
 

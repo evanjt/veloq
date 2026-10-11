@@ -368,6 +368,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | rusqlite_migration | MIT | https://github.com/cljoly/rusqlite_migration |
 | rmp-serde | MIT | https://github.com/3Hren/msgpack-rust |
 | postcard | MIT OR Apache-2.0 | https://github.com/jamesmunns/postcard |
+| flate2 | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs |
 | reqwest | MIT OR Apache-2.0 | https://github.com/seanmonstar/reqwest |
 | tokio | MIT | https://github.com/tokio-rs/tokio |
 | tokio-util | MIT | https://github.com/tokio-rs/tokio |
@@ -386,6 +387,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | tempfile | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
 | rstar | MIT OR Apache-2.0 | https://github.com/georust/rstar |
 | zip | MIT | https://github.com/zip-rs/zip2 |
+| flate2 | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs |
 | android_logger | MIT OR Apache-2.0 | https://github.com/rust-mobile/android_logger-rs |
 | jni | MIT OR Apache-2.0 | https://github.com/jni-rs/jni-rs |
 | oslog | MIT | https://github.com/steven-joruk/oslog |

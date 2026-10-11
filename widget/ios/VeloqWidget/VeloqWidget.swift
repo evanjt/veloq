@@ -28,12 +28,18 @@ func summaryTimeline(_ entry: VeloqEntry) -> Timeline<VeloqEntry> {
 }
 
 struct VeloqProvider: TimelineProvider {
+  static func placeholderEntry() -> VeloqEntry {
+    VeloqEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> VeloqEntry {
-    VeloqEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func getSnapshot(in context: Context, completion: @escaping (VeloqEntry) -> Void) {
-    completion(VeloqEntry(date: Date(), snapshot: WidgetSnapshotStore.load()))
+    let snapshot = WidgetSample.snapshot(
+      stored: WidgetSnapshotStore.load(), isPreview: context.isPreview)
+    completion(VeloqEntry(date: Date(), snapshot: snapshot))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<VeloqEntry>) -> Void) {

@@ -40,6 +40,7 @@ const mockStrip: {
   onTabChange?: (key: string) => void;
 } = { tabs: [], pages: [] };
 jest.mock('@/shared/ui', () => ({
+  IconButton: jest.requireActual('@/shared/ui/IconButton').IconButton,
   pressable: (style: unknown) => style,
   ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
   ScreenSafeAreaView: ({ children }: { children: React.ReactNode }) => children,
@@ -170,6 +171,14 @@ describe('the Insights screen', () => {
 
     expect(screen.getByTestId('insights-beta-marker')).toBeTruthy();
     expect(screen.getByText('insights.beta')).toBeTruthy();
+  });
+
+  it('names the control that explains the screen', () => {
+    Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
+
+    render(<InsightsScreen />);
+
+    expect(screen.getByRole('button', { name: 'insights.aboutTitle' })).toBeTruthy();
   });
 
   it('leaves a failed engine start to the global banner and shows none of its own', () => {

@@ -10,6 +10,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
+import { RangeCoverage } from 'veloqrs';
 
 import { InsightListCard } from '@/features/insights/components/InsightListCard';
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
@@ -96,6 +97,7 @@ describe('cards off the home scroll', () => {
       render(
         <FitnessChartCard
           wellness={[]}
+          wellnessCoverage={RangeCoverage.Loaded}
           activities={[]}
           dailyLoads={[]}
           eftpChanges={[]}

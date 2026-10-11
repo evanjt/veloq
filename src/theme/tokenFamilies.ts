@@ -150,8 +150,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   info: 'ground',
   infoLight: 'ground',
   warningBannerBg: 'ground',
-  insightGold: 'ground',
-  insightStrength: 'ground',
   eventPriorityA: 'ground',
   eventPriorityB: 'ground',
   eventPriorityC: 'ground',

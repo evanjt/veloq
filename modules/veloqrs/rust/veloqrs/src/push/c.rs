@@ -110,8 +110,10 @@ pub unsafe extern "C" fn veloq_push_prepare(
 /// is what writes the `activity_metrics` row the ladder needs to date a lap,
 /// and it also carries the ride's name, which the push itself does not.
 ///
-/// Null when the switch is off, the athlete differs or the engine is not open.
-/// The extension delivers the server's original notification in that case.
+/// [`super::SKIP_MARKER`] when the switch is off or the athlete differs, and
+/// the extension delivers the server's notification as it is. Null is an
+/// entry that could not answer, a missing id or an engine that is not open,
+/// and the extension posts its own fallback over the server's line.
 ///
 /// The string is the caller's until it hands it back to
 /// [`veloq_push_string_free`]. Nothing else may free it.
@@ -135,7 +137,7 @@ pub unsafe extern "C" fn veloq_push_activity(
 
         match super::activity_push_json(activity_id, athlete_id) {
             Ok(Some(json)) => hand_over(json),
-            Ok(None) => std::ptr::null_mut(),
+            Ok(None) => hand_over(super::SKIP_MARKER.to_string()),
             Err(e) => {
                 log::warn!("[push] nothing to post for {activity_id}: {e}");
                 std::ptr::null_mut()
@@ -169,7 +171,8 @@ pub extern "C" fn veloq_push_widget_snapshot() -> *mut c_char {
 ///
 /// The extension calls it on every exit that has a database path and posts
 /// nothing enriched: an unreadable payload, a keychain that answered nothing,
-/// a refused prepare, an answer that would not parse, the time running out.
+/// a refused prepare, an engine that did not answer, an answer that would not
+/// parse, the time running out.
 /// A null or empty `activity_id` is a payload that named none, and is kept as
 /// an empty id. Best effort and silent, so a diagnostic never fails a push.
 ///

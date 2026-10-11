@@ -4,7 +4,8 @@ import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBa
 import { BACKUP_INTERVAL_MS } from './constants';
 
 // When the live ride last went to disk, in epoch milliseconds. Background
-// batches throttle on it, so a write from the foreground timer counts too.
+// batches throttle on it, so a write from the foreground timer counts too. Only
+// a write that landed counts: a failed one leaves the next batch free to retry.
 let lastWrittenAt: number | null = null;
 
 /**
@@ -17,8 +18,9 @@ export async function writeRideBackup(at: number = Date.now()): Promise<boolean>
     autoPaused: useRecordingLiveStore.getState().autoPaused,
   });
   if (!backup) return false;
-  lastWrittenAt = at;
-  return saveRecordingBackup(backup);
+  const saved = await saveRecordingBackup(backup);
+  if (saved) lastWrittenAt = at;
+  return saved;
 }
 
 /**
@@ -30,4 +32,17 @@ export async function writeRideBackup(at: number = Date.now()): Promise<boolean>
 export async function writeRideBackupIfDue(at: number): Promise<boolean> {
   if (lastWrittenAt != null && Math.abs(at - lastWrittenAt) < BACKUP_INTERVAL_MS) return false;
   return writeRideBackup(at);
+}
+
+/**
+ * Write a stopped ride's backup again with its review edits. A ride the library
+ * holds is never written back, or its cleared backup would reopen it for a
+ * second save.
+ */
+export async function writeReviewedRideBackup(): Promise<boolean> {
+  const state = useRecordingStore.getState();
+  if (state.status !== 'stopped' || state.savedToLibrary) return false;
+  const backup = buildRecordingBackup(state);
+  if (!backup) return false;
+  return saveRecordingBackup(backup);
 }

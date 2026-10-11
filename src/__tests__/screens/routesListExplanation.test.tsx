@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { render, screen, within } from '@testing-library/react-native';
-import type { GroupWithPolyline } from 'veloqrs';
+import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 
 import { RoutesList } from '@/features/routes/components/RoutesList';
 
@@ -27,6 +27,10 @@ jest.mock('@/features/routes/lib/batchGroupToRouteGroup', () => ({
 }));
 
 const group = { groupId: 'loop-a' } as unknown as GroupWithPolyline;
+const noneFound = {
+  tag: 'NoneFound',
+  inner: { minActivities: 2 },
+} as unknown as FfiCatalogueEmptyReason;
 
 function renderList(batchGroups: GroupWithPolyline[]) {
   return render(
@@ -39,6 +43,7 @@ function renderList(batchGroups: GroupWithPolyline[]) {
       onSearchChange={jest.fn()}
       totalGroupCount={batchGroups.length}
       shownGroupCount={batchGroups.length}
+      emptyReason={batchGroups.length === 0 ? noneFound : null}
     />
   );
 }

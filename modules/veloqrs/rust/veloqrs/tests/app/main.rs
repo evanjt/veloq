@@ -126,6 +126,9 @@ mod route_attempt_standing;
 #[path = "../route_name_sport_prefix.rs"]
 mod route_name_sport_prefix;
 
+#[path = "../routes_screen_empty_reason.rs"]
+mod routes_screen_empty_reason;
+
 #[path = "../routes_screen_query.rs"]
 mod routes_screen_query;
 

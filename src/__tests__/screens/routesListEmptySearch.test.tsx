@@ -1,6 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import type { FfiCatalogueEmptyReason } from 'veloqrs';
+
 import { RoutesList } from '@/features/routes/components/RoutesList';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -13,7 +15,16 @@ jest.mock('@/features/routes/components/DataRangeFooter', () => ({
   DataRangeFooter: () => null,
 }));
 
-function renderList(props: { searchQuery: string; totalGroupCount: number }) {
+const noneFound = {
+  tag: 'NoneFound',
+  inner: { minActivities: 2 },
+} as unknown as FfiCatalogueEmptyReason;
+
+function renderList(props: {
+  searchQuery: string;
+  totalGroupCount: number;
+  emptyReason?: FfiCatalogueEmptyReason;
+}) {
   return render(
     <RoutesList
       onRefresh={jest.fn()}
@@ -54,7 +65,7 @@ describe('RoutesList with an empty page', () => {
   });
 
   it('reads No routes yet and shows no search box when the library has none', () => {
-    renderList({ searchQuery: '', totalGroupCount: 0 });
+    renderList({ searchQuery: '', totalGroupCount: 0, emptyReason: noneFound });
     expect(screen.getByText('routes.noRoutesYet')).toBeTruthy();
     expect(screen.queryByPlaceholderText('routes.searchRoutes')).toBeNull();
   });

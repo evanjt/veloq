@@ -7,10 +7,10 @@
  * for good.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/shared/ui';
+import { Button, SheetScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -35,43 +35,31 @@ export function RestorePromptSheet({ onClose }: RestorePromptSheetProps) {
   }, [onClose]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <SheetScrollView
+      testID="restore-prompt-sheet"
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+      contentContainerStyle={styles.content}
     >
-      <View testID="restore-prompt-sheet" style={[styles.sheet, isDark && styles.sheetDark]}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('backup.restorePromptTitle')}
-          </Text>
-          <Text style={[styles.body, isDark && styles.textSecondary]}>
-            {t('backup.restorePromptMessage')}
-          </Text>
-          <RestoreChooser onRestored={finish} onBusyChange={setBusy} />
-          <Button
-            testID="restore-prompt-dismiss"
-            label={t('backup.restorePromptDismiss')}
-            variant="ghost"
-            onPress={finish}
-            disabled={busy}
-          />
-        </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+      <Text style={[styles.title, isDark && styles.textLight]}>
+        {t('backup.restorePromptTitle')}
+      </Text>
+      <Text style={[styles.body, isDark && styles.textSecondary]}>
+        {t('backup.restorePromptMessage')}
+      </Text>
+      <RestoreChooser onRestored={finish} onBusyChange={setBusy} />
+      <Button
+        testID="restore-prompt-dismiss"
+        label={t('backup.restorePromptDismiss')}
+        variant="ghost"
+        onPress={finish}
+        disabled={busy}
+      />
+    </SheetScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  sheetDark: {
-    backgroundColor: darkColors.surface,
-  },
   content: {
     padding: spacing.xl,
     gap: spacing.md,

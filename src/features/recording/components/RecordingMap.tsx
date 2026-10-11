@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import {
@@ -104,6 +105,7 @@ function RecordingMapInner({
   style,
 }: RecordingMapProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   // Re-render on a cycle: the choice itself lives above the component so it
   // survives the athlete leaving the tab, and this is only what redraws.
   const [, bumpStyle] = useState(0);
@@ -336,6 +338,8 @@ function RecordingMapInner({
               ])}
               onPress={onOpenRoutePicker}
               accessibilityRole="button"
+              accessibilityLabel={t('recording.routeOverlay.title')}
+              accessibilityState={{ selected: !!routeOverlay }}
               android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
@@ -350,6 +354,7 @@ function RecordingMapInner({
             style={pressable(styles.controlButton)}
             onPress={cycleStyle}
             accessibilityRole="button"
+            accessibilityLabel={t('maps.toggleStyle')}
             android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="layers" size={20} color={darkColors.textPrimary} />
@@ -360,6 +365,7 @@ function RecordingMapInner({
               style={pressable(styles.controlButton)}
               onPress={() => setIsFollowing(true)}
               accessibilityRole="button"
+              accessibilityLabel={t('maps.goToLocation')}
               android_ripple={pressRipple}
             >
               <MaterialCommunityIcons

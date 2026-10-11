@@ -113,6 +113,7 @@
     "lint:au-spelling": "node scripts/lint-au-spelling.mjs",
     "lint:locale-overrides": "node scripts/lint-locale-overrides.mjs",
     "lint:locale-bundles": "node scripts/lint-locale-bundles.mjs",
+    "lint:tab-label-budget": "node scripts/lint-tab-label-budget.mjs",
     "lint:generated-files": "node scripts/lint-generated-files.mjs",
     "lint:pod-source-links": "node scripts/lint-pod-source-links.mjs",
     "lint:audit-ids": "node scripts/lint-audit-ids.mjs",
@@ -127,6 +128,7 @@
     "lint:glyph-stacks": "node scripts/lint-source-rules.mjs --rule glyph-stacks",
     "lint:metrics-one-writer": "node scripts/lint-source-rules.mjs --rule metrics-one-writer",
     "lint:one-library-open": "node scripts/lint-source-rules.mjs --rule one-library-open",
+    "lint:one-back": "node scripts/lint-source-rules.mjs --rule one-back",
     "lint:shared-import-cycles": "node scripts/lint-source-rules.mjs --rule shared-import-cycles",
     "lint:shared-ui-accessibility": "node scripts/lint-source-rules.mjs --rule shared-ui-accessibility",
     "lint:no-geocoding": "node scripts/lint-source-rules.mjs --rule no-geocoding",
@@ -136,6 +138,7 @@
     "lint:large-title-scroll": "node scripts/lint-source-rules.mjs --rule large-title-scroll",
     "lint:ground-token-text": "node scripts/lint-source-rules.mjs --rule ground-token-text",
     "lint:dark-text-counterpart": "node scripts/lint-source-rules.mjs --rule dark-text-counterpart",
+    "lint:dimmed-text": "node scripts/lint-source-rules.mjs --rule dimmed-text",
     "lint:exhaustive-deps-disables": "node scripts/lint-exhaustive-deps-disables.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
@@ -158,6 +161,7 @@
     "lint:submodule-pointer": "node scripts/lint-submodule-pointer.mjs",
     "lint:detector-revision": "node scripts/lint-detector-revision.mjs",
     "lint:tracematch-lockfile": "node scripts/lint-tracematch-lockfile.mjs",
+    "lint:tls-verifier-hold": "node scripts/lint-tls-verifier-hold.mjs",
     "lint:tracematch-clone": "node scripts/lint-tracematch-clone.mjs",
     "check:android-bundle": "node scripts/lint-android-bundle.mjs",
     "check:native-records": "node scripts/lint-native-record-shapes.mjs",
@@ -296,6 +300,9 @@
     "uniffi-bindgen-react-native": "^0.31.0-6"
   },
   "private": true,
+  "engines": {
+    "node": "^24.3.0"
+  },
   "overrides": {
     "expo-modules-core": "56.0.27",
     "js-yaml": "^4.3.2",

@@ -13,6 +13,7 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn(), setParams: jest.fn() },
 }));
 jest.mock('@/shared/ui', () => ({
+  IconButton: jest.requireActual('@/shared/ui/IconButton').IconButton,
   ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
   ScreenSafeAreaView: ({ children }: { children: React.ReactNode }) => children,
   SwipeableTabs: ({ children }: { children: React.ReactNode }) => children,

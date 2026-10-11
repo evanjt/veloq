@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { trackedText } from './lib/indexedSources.mjs';
 
 import {
+  widgetChart,
   widgetLayout,
   widgetPalette,
   widgetRecord,
@@ -121,6 +122,8 @@ ${swiftPalette('Dark', widgetPalette.dark)}
     static let gap: CGFloat = ${widgetLayout.gap}
     static let heroLine: CGFloat = ${widgetLayout.heroLine}
     static let metricLine: CGFloat = ${widgetLayout.metricLine}
+    static let supportingRow: CGFloat = ${widgetLayout.supportingRow}
+    static let supportingRowCaptioned: CGFloat = ${widgetLayout.supportingRowCaptioned}
   }
 
   enum TypeScale {
@@ -130,6 +133,13 @@ ${swiftPalette('Dark', widgetPalette.dark)}
     static let label: CGFloat = ${widgetType.label}
     static let caption: CGFloat = ${widgetType.caption}
     static let floor: CGFloat = ${widgetType.floor}
+  }
+
+  enum Chart {
+    static let fatigueDash: [CGFloat] = [${widgetChart.fatigueDash.join(', ')}]
+    static let bandOpacity: Double = ${widgetChart.bandOpacity}
+    static let bandAccentedOpacities: [Double] = [${widgetChart.bandAccentedOpacities.join(', ')}]
+    static let bandBoundary: CGFloat = ${widgetChart.bandBoundary}
   }
 }
 `;

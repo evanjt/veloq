@@ -2,10 +2,11 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { View, StyleSheet, Alert, Pressable } from 'react-native';
-import { Text, IconButton } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
+  IconButton,
   ScreenSafeAreaView,
   SwipeableTabs,
   pressable,
@@ -413,6 +414,7 @@ function InsightsScreenContent() {
           isLoading={!routesData}
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
+          emptyReason={routesData?.groupEmptyReason}
         />
       </View>
     ),
@@ -458,6 +460,7 @@ function InsightsScreenContent() {
           retiredSectionCount={routesData?.retiredCount ?? 0}
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
+          emptyReason={routesData?.sectionEmptyReason}
         />
       </View>
     ),
@@ -476,6 +479,7 @@ function InsightsScreenContent() {
       routesData?.unacceptedAutoCount,
       routesData?.acceptedAutoCount,
       routesData?.retiredCount,
+      routesData?.sectionEmptyReason,
       customSectionCount,
       handleSectionSortChange,
       routesLoadError,
@@ -558,12 +562,15 @@ function InsightsScreenContent() {
           </Pressable>
         )}
         <IconButton
-          icon="information-outline"
-          size={20}
-          iconColor={isDark ? darkColors.textSecondary : colors.textSecondary}
+          accessibilityLabel={t('insights.aboutTitle')}
           onPress={() => Alert.alert(t('insights.aboutTitle'), aboutInsightsBody(t, activeTab))}
-          style={styles.infoButton}
-        />
+        >
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={20}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+        </IconButton>
       </View>
 
       {renderSharedRouteState()}
@@ -596,9 +603,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  infoButton: {
-    margin: 0,
   },
   disabledHint: {
     flexDirection: 'row',

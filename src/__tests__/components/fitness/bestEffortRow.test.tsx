@@ -131,6 +131,7 @@ describe('the three surfaces that draw a best', () => {
       <SeasonBestsSection
         efforts={[{ label: '3.8km', activityId: 'long-swim', value: 0.7, time: 5565 }] as never}
         sport="Swimming"
+        period="6m"
         isLoading={false}
       />
     );

@@ -50,6 +50,7 @@ import {
   type FfiActivityFitnessImpact,
   type FfiActivityLedgerChange,
   type FfiHrZoneBand,
+  type FfiPowerZoneBand,
   type FfiSectionTrace,
   type FfiSectionDetailData,
   type FfiSectionPerformanceData,
@@ -152,6 +153,7 @@ export type {
 // The typed wellness day the fitness and wellness screens read
 export type {
   WellnessDay,
+  WellnessDays,
   WellnessSparklines,
   SportLoad,
   CurveActivityRow,
@@ -217,6 +219,7 @@ export type ActivityDetailData = FfiActivityDetailData;
 export type ActivityFitnessImpact = FfiActivityFitnessImpact;
 export type ActivityLedgerChange = FfiActivityLedgerChange;
 export type HrZoneBand = FfiHrZoneBand;
+export type PowerZoneBand = FfiPowerZoneBand;
 export type SectionTrace = FfiSectionTrace;
 // Section detail batch types
 export type SectionDetailData = FfiSectionDetailData;

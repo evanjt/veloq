@@ -50,16 +50,16 @@ fn a_miss_is_answered_before_the_host_is_asked_and_kept_once_fetched() {
 
     let lookup = lookup_tile("cold-vector", 14, 8000, 5000);
     assert!(matches!(lookup, TileLookup::Miss(_)));
-    tile.assert_hits(0);
+    tile.assert_calls(0);
 
     assert_eq!(spawn_and_wait(lookup), Ok(b"tile-bytes".to_vec()));
-    tile.assert_hits(1);
+    tile.assert_calls(1);
 
     match lookup_tile("cold-vector", 14, 8000, 5000) {
         TileLookup::Ready(bytes) => assert_eq!(bytes, b"tile-bytes"),
         _ => panic!("a fetched tile is kept and served from the store"),
     }
-    tile.assert_hits(1);
+    tile.assert_calls(1);
 }
 
 #[test]
@@ -67,8 +67,7 @@ fn a_host_that_answered_429_is_not_asked_again_inside_the_hold() {
     let _serial = super::serial_state();
     let host = MockServer::start();
     let busy = host.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new(r"^/\d+/\d+/\d+\.pbf$").unwrap());
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.pbf$");
         then.status(429);
     });
     let tmp = TempDir::new().expect("tempdir");
@@ -76,11 +75,11 @@ fn a_host_that_answered_429_is_not_asked_again_inside_the_hold() {
     set_template("busy-vector".to_string(), host.url("/{z}/{x}/{y}.pbf"));
 
     assert_eq!(fetch_tile("busy-vector", 14, 8000, 5000), Err(429));
-    busy.assert_hits(1);
+    busy.assert_calls(1);
 
     // A neighbour, which is the rest of the same pan.
     assert_eq!(fetch_tile("busy-vector", 14, 8001, 5000), Err(429));
-    busy.assert_hits(1);
+    busy.assert_calls(1);
 }
 
 #[test]
@@ -88,8 +87,7 @@ fn a_spawned_miss_refused_with_503_holds_the_next_miss_with_503() {
     let _serial = super::serial_state();
     let host = MockServer::start();
     let down = host.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new(r"^/\d+/\d+/\d+\.jpg$").unwrap());
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.jpg$");
         then.status(503);
     });
     let tmp = TempDir::new().expect("tempdir");
@@ -104,7 +102,7 @@ fn a_spawned_miss_refused_with_503_holds_the_next_miss_with_503() {
         lookup_tile("down-imagery", 14, 8001, 5000),
         TileLookup::Refused(503)
     ));
-    down.assert_hits(1);
+    down.assert_calls(1);
 }
 
 #[test]
@@ -112,8 +110,7 @@ fn a_host_that_failed_otherwise_is_asked_again() {
     let _serial = super::serial_state();
     let host = MockServer::start();
     let failing = host.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new(r"^/\d+/\d+/\d+\.pbf$").unwrap());
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.pbf$");
         then.status(500);
     });
     let tmp = TempDir::new().expect("tempdir");
@@ -128,7 +125,7 @@ fn a_host_that_failed_otherwise_is_asked_again() {
         lookup_tile("flaky-vector", 14, 8001, 5000),
         TileLookup::Miss(_)
     ));
-    failing.assert_hits(1);
+    failing.assert_calls(1);
 }
 
 /// Every miss in `lookups`, spawned at once, and their answers in order.
@@ -179,8 +176,7 @@ fn a_pan_with_no_template_held_resolves_the_tilejson_once_off_the_lookup() {
         ));
     });
     let tiles = host.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new(r"^/run-1/\d+/\d+/\d+\.pbf$").unwrap());
+        when.method(GET).path_matches(r"^/run-1/\d+/\d+/\d+\.pbf$");
         then.status(200).body("tile-bytes");
     });
     let tmp = TempDir::new().expect("tempdir");
@@ -191,13 +187,13 @@ fn a_pan_with_no_template_held_resolves_the_tilejson_once_off_the_lookup() {
     let lookups: Vec<_> = (0..12)
         .map(|i| lookup_tile("fresh-vector", 14, 8000 + i, 5000))
         .collect();
-    tilejson.assert_hits(0);
+    tilejson.assert_calls(0);
 
     for answer in spawn_all(lookups) {
         assert_eq!(answer, Ok(b"tile-bytes".to_vec()));
     }
-    tilejson.assert_hits(1);
-    tiles.assert_hits(12);
+    tilejson.assert_calls(1);
+    tiles.assert_calls(12);
 }
 
 /// Scenario: the same pan with the TileJSON host failing.
@@ -226,5 +222,43 @@ fn a_pan_with_no_template_held_and_the_tilejson_down_asks_once() {
     for answer in spawn_all(rest) {
         assert_eq!(answer, Err(502));
     }
-    tilejson.assert_hits(1);
+    tilejson.assert_calls(1);
+}
+
+/// Both platforms read tiles through the lookup, the fetched miss and the hit
+/// after it alike, and a tile handed to the map still compressed renders
+/// blank.
+#[test]
+fn a_tile_the_host_gzipped_reaches_the_page_decoded_on_the_miss_and_the_hit() {
+    use std::io::Write;
+    let _serial = super::serial_state();
+    let tile = b"\x1avector-tile-layers-vector-tile-layers-vector-tile-layers".to_vec();
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(&tile).expect("gzip");
+    let sent = encoder.finish().expect("gzip");
+    let host = MockServer::start();
+    host.mock(|when, then| {
+        when.method(GET).path("/14/8000/5000.pbf");
+        then.status(200)
+            .header("content-encoding", "gzip")
+            .body(sent.clone());
+    });
+    let tmp = TempDir::new().expect("tempdir");
+    store_at(&tmp);
+    set_template("gzip-vector".to_string(), host.url("/{z}/{x}/{y}.pbf"));
+
+    assert_eq!(
+        spawn_and_wait(lookup_tile("gzip-vector", 14, 8000, 5000)),
+        Ok(tile.clone())
+    );
+    match lookup_tile("gzip-vector", 14, 8000, 5000) {
+        TileLookup::Ready(bytes) => assert_eq!(bytes, tile),
+        _ => panic!("a fetched tile is kept and served from the store"),
+    }
+    assert_eq!(
+        veloqrs::basemap::store()
+            .expect("store")
+            .size_of("gzip-vector"),
+        sent.len() as u64
+    );
 }

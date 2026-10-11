@@ -1499,6 +1499,120 @@ fn export_gpx(
     Ok(BulkExportResult::tally(exported, &skipped, total_bytes))
 }
 
+/// A point the GeoJSON export writes: one with both coordinates finite.
+fn is_finite_point(p: &GpsPoint) -> bool {
+    p.latitude.is_finite() && p.longitude.is_finite()
+}
+
+/// One activity as a GeoJSON `LineString` feature. Points with a non-finite
+/// coordinate are left out of the line.
+pub struct GeoJsonFeature<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
+    pub sport: &'a str,
+    pub date: &'a str,
+    pub distance: f64,
+    pub moving_time: i64,
+    pub points: &'a [GpsPoint],
+}
+
+/// Write one feature as compact JSON straight into `writer` and return the
+/// bytes written. Serde writes many short pieces, so `writer` should be
+/// buffered.
+///
+/// serde_json is built without `preserve_order`, so the export has always
+/// written its keys sorted. The structs below declare their fields in that
+/// order, which keeps the bytes the same.
+pub fn write_geojson_feature<W: Write>(
+    writer: &mut W,
+    feature: &GeoJsonFeature,
+) -> Result<u64, String> {
+    use serde::Serialize;
+
+    struct Coordinates<'a>(&'a [GpsPoint]);
+
+    impl Serialize for Coordinates<'_> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            serializer.collect_seq(
+                self.0
+                    .iter()
+                    .filter(|p| is_finite_point(p))
+                    .map(|p| [p.longitude, p.latitude]),
+            )
+        }
+    }
+
+    #[derive(Serialize)]
+    struct Geometry<'a> {
+        coordinates: Coordinates<'a>,
+        #[serde(rename = "type")]
+        kind: &'static str,
+    }
+
+    #[derive(Serialize)]
+    struct Properties<'a> {
+        date: &'a str,
+        distance: f64,
+        id: &'a str,
+        #[serde(rename = "movingTime")]
+        moving_time: i64,
+        name: &'a str,
+        sport: &'a str,
+    }
+
+    #[derive(Serialize)]
+    struct Feature<'a> {
+        geometry: Geometry<'a>,
+        properties: Properties<'a>,
+        #[serde(rename = "type")]
+        kind: &'static str,
+    }
+
+    struct Counted<'w, W> {
+        inner: &'w mut W,
+        bytes: u64,
+    }
+
+    impl<W: Write> Write for Counted<'_, W> {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let n = self.inner.write(buf)?;
+            self.bytes += n as u64;
+            Ok(n)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.inner.flush()
+        }
+    }
+
+    let value = Feature {
+        geometry: Geometry {
+            coordinates: Coordinates(feature.points),
+            kind: "LineString",
+        },
+        properties: Properties {
+            date: feature.date,
+            distance: feature.distance,
+            id: feature.id,
+            moving_time: feature.moving_time,
+            name: feature.name,
+            sport: feature.sport,
+        },
+        kind: "Feature",
+    };
+    let mut counted = Counted {
+        inner: writer,
+        bytes: 0,
+    };
+    serde_json::to_writer(&mut counted, &value).map_err(|e| {
+        if e.is_io() {
+            format!("Write failed: {}", e)
+        } else {
+            format!("JSON serialization failed: {}", e)
+        }
+    })?;
+    Ok(counted.bytes)
+}
+
 /// The geojson writer, taking the connection rather than the engine, so a
 /// background thread can run it on a connection of its own.
 fn export_geojson(
@@ -1605,14 +1719,7 @@ fn export_geojson(
             None => points,
         };
 
-        // Build coordinates array: [[lng, lat], ...]
-        let coords: Vec<[f64; 2]> = points
-            .iter()
-            .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
-            .map(|p| [p.longitude, p.latitude])
-            .collect();
-
-        if coords.is_empty() {
+        if !points.iter().any(is_finite_point) {
             skipped.push(SkippedActivity::new(
                 &activity_id,
                 SkipReason::Failed,
@@ -1621,35 +1728,23 @@ fn export_geojson(
             continue;
         }
 
-        let feature = serde_json::json!({
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": coords,
-            },
-            "properties": {
-                "id": activity_id,
-                "name": display_name,
-                "sport": sport,
-                "date": date_str.as_deref().unwrap_or(""),
-                "distance": distance.unwrap_or(0.0),
-                "movingTime": moving_time.unwrap_or(0),
-            }
-        });
-
-        let feature_json = serde_json::to_string(&feature)
-            .map_err(|e| format!("JSON serialization failed: {}", e))?;
-
         if !first {
             writer
                 .write_all(b",\n")
                 .map_err(|e| format!("Write failed: {}", e))?;
         }
-        writer
-            .write_all(feature_json.as_bytes())
-            .map_err(|e| format!("Write failed: {}", e))?;
+        let feature = GeoJsonFeature {
+            id: &activity_id,
+            name: display_name,
+            sport,
+            date: date_str.as_deref().unwrap_or(""),
+            distance: distance.unwrap_or(0.0),
+            moving_time: moving_time.unwrap_or(0),
+            points: &points,
+        };
+        let written = write_geojson_feature(&mut writer, &feature)?;
 
-        total_bytes += feature_json.len() as u64;
+        total_bytes += written;
         exported += 1;
         first = false;
     }

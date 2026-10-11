@@ -66,6 +66,13 @@ it('does nothing on a tap for a non-sensor tile', () => {
   expect(onEmptySensorTap).not.toHaveBeenCalled();
 });
 
+it('announces a tile as a button only when a tap does something', () => {
+  const { tree } = renderGrid({ ...METRICS, power: 200 });
+  expect(tree.getByTestId('data-field-heartrate').props.accessibilityRole).toBe('button');
+  expect(tree.getByTestId('data-field-power').props.accessibilityRole).toBeUndefined();
+  expect(tree.getByTestId('data-field-speed').props.accessibilityRole).toBeUndefined();
+});
+
 it('keeps the long press on an empty sensor tile for the field picker', () => {
   const { tree, onEmptySensorTap, onLongPressField } = renderGrid();
   fireEvent(tree.getByTestId('data-field-power'), 'longPress');

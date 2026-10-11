@@ -57,7 +57,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
     try {
       const result = await startOAuthFlow(OAUTH.UPGRADE_SCOPES);
 
-      if (result.type === 'success' && result.url) {
+      if (result.outcome === 'success') {
         const expectedPrefix = getAppRedirectUri();
         if (!result.url.startsWith(expectedPrefix)) {
           return fail(t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback' }));
@@ -95,7 +95,10 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         return { granted: true, error: null };
       }
 
-      // User cancelled - preserve API key auth
+      if (result.outcome === 'failed') {
+        return fail(t('login.oauthFailed'));
+      }
+      // The athlete cancelled, so the API key session stays as it was.
       return { granted: false, error: null };
     } catch (err) {
       log.warn(`Permission upgrade failed: ${err instanceof Error ? err.message : String(err)}`);

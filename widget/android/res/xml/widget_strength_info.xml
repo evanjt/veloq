@@ -14,4 +14,4 @@
   android:configure="__PKG__.widget.StrengthWidgetConfigureActivity"
   android:widgetFeatures="reconfigurable|configuration_optional"
   android:initialLayout="@layout/widget_strength"
-  android:previewLayout="@layout/widget_strength" />
+  android:previewLayout="@layout/widget_preview_strength" />

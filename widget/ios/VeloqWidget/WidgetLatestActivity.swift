@@ -9,12 +9,18 @@ import WidgetKit
 // data comes from the shared snapshot and nothing is computed here.
 
 struct LatestActivityProvider: TimelineProvider {
+  static func placeholderEntry() -> VeloqEntry {
+    VeloqEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> VeloqEntry {
-    VeloqEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func getSnapshot(in context: Context, completion: @escaping (VeloqEntry) -> Void) {
-    completion(VeloqEntry(date: Date(), snapshot: WidgetSnapshotStore.load()))
+    let snapshot = WidgetSample.snapshot(
+      stored: WidgetSnapshotStore.load(), isPreview: context.isPreview)
+    completion(VeloqEntry(date: Date(), snapshot: snapshot))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<VeloqEntry>) -> Void) {

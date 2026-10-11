@@ -170,10 +170,7 @@ export const mapPreviewColors = {
 export const mapLayerColors = {
   /** White casing drawn under every coloured line. */
   casing: '#FFFFFF',
-  /** Start and end of a track. */
-  start: 'rgba(34,197,94,0.75)',
-  end: 'rgba(239,68,68,0.75)',
-  /** Section creation handles, which sit above the trace and need more weight. */
+  /** Start and end markers: a track's endpoints and the section creation handles. */
   startSolid: 'rgba(34,197,94,0.9)',
   endSolid: 'rgba(239,68,68,0.9)',
   /** The one selected trace among many. */
@@ -448,10 +445,6 @@ export const colors = {
 
   // Workout step colors
   workoutCooldown: '#8B5CF6',
-
-  // Insight category colors
-  insightGold: '#D4AF37', // brand.gold - unified PR color
-  insightStrength: brand.tealLight, // teal for strength progression
 
   // Warning banner colors
   warningBannerBg: '#451A03',
@@ -1050,12 +1043,25 @@ export const zoneTextColorsDark = {
 // INSIGHT CATEGORY COLORS
 // =============================================================================
 
-export const insightCategoryColors: Record<string, string> = {
-  section_pr: colors.insightGold,
-  fitness_milestone: colors.success,
-  period_comparison: brand.blue,
-  strength_progression: colors.insightStrength,
-  strength_balance: colors.error,
-  hrv_trend: colors.formOptimal,
-  stale_pr: colors.warning,
+// One hue per category, drawn as the card's edge and as its history graphic
+// with nothing beside it to name it, so each step is a mark and clears 3:1 on
+// every surface of its own theme. A category is a topic rather than a judgement,
+// so none wears a polarity rung or the error tone: strength balance is violet
+// where it was red. A PR is the record rung, which is gold and off the chain.
+// The lowest, on backgroundAlt and surfaceCard, are strength progression's
+// light step at 3.37:1 and period comparison's dark step at 5.28:1.
+export const insightCategoryColors: Record<string, { light: string; dark: string }> = {
+  section_pr: verdict.record,
+  fitness_milestone: { light: '#1A8A44', dark: '#4ADE80' },
+  period_comparison: { light: brand.blueDark, dark: brand.blue },
+  strength_progression: { light: brand.tealLight, dark: brand.tealDark },
+  strength_balance: { light: '#7C3AED', dark: '#A78BFA' },
+  hrv_trend: { light: '#388E3C', dark: '#66BB6A' },
+  stale_pr: { light: '#B45309', dark: '#FBBF24' },
 };
+
+export function insightCategoryColor(category: string, isDark: boolean): string {
+  const tone = insightCategoryColors[category];
+  if (!tone) return isDark ? darkColors.primary : colors.primary;
+  return isDark ? tone.dark : tone.light;
+}

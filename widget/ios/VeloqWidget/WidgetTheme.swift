@@ -110,6 +110,8 @@ enum WidgetTheme {
     static let gap: CGFloat = 8
     static let heroLine: CGFloat = 44
     static let metricLine: CGFloat = 30
+    static let supportingRow: CGFloat = 40
+    static let supportingRowCaptioned: CGFloat = 52
   }
 
   enum TypeScale {
@@ -119,5 +121,12 @@ enum WidgetTheme {
     static let label: CGFloat = 12
     static let caption: CGFloat = 10
     static let floor: CGFloat = 8
+  }
+
+  enum Chart {
+    static let fatigueDash: [CGFloat] = [3, 2]
+    static let bandOpacity: Double = 0.3
+    static let bandAccentedOpacities: [Double] = [0.12, 0.3]
+    static let bandBoundary: CGFloat = 0.5
   }
 }

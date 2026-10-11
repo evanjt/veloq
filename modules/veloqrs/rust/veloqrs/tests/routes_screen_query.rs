@@ -558,6 +558,17 @@ fn set_record(db: &rusqlite::Connection, section_id: &str, activity_id: &str) {
     .expect("insert indicator");
 }
 
+/// A lap time on `activity_id`'s pass over the section. The fixture's passes
+/// carry none, and an untimed pass is not one the record rule judges.
+fn time_outing(db: &rusqlite::Connection, section_id: &str, activity_id: &str, lap_time: f64) {
+    db.execute(
+        "UPDATE section_activities SET lap_time = ?3
+         WHERE section_id = ?1 AND activity_id = ?2",
+        rusqlite::params![section_id, activity_id, lap_time],
+    )
+    .expect("time the outing");
+}
+
 fn row_flag(engine: &PersistentEngine, section_id: &str) -> bool {
     let page = engine.get_routes_screen_data(FfiRoutesScreenQuery {
         section_limit: 1_000,
@@ -579,6 +590,7 @@ fn a_section_whose_latest_outing_holds_its_record_is_flagged() {
     // `a0` is the newest activity in the fixture: the dates run backwards from
     // NOW as the index rises.
     let newest = section_travelled_by(&db, "a0");
+    time_outing(&db, &newest, "a0", 100.0);
     set_record(&db, &newest, "a0");
 
     assert!(
@@ -604,6 +616,7 @@ fn a_record_set_on_an_older_outing_is_not_flagged() {
         rusqlite::params![shared],
     )
     .expect("add an older traversal");
+    time_outing(&db, &shared, "a0", 250.0);
     set_record(&db, &shared, "a5");
 
     assert!(

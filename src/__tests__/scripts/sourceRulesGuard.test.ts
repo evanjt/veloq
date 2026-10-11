@@ -573,6 +573,73 @@ describe('dark-text-counterpart', () => {
   });
 });
 
+describe('dimmed-text', () => {
+  it('fails a style that sets a text colour and an opacity below 1', () => {
+    const root = fixture({
+      'src/features/a/Note.tsx':
+        'const s = StyleSheet.create({ note: { color: colors.textSecondary, opacity: 0.7 } });\n',
+    });
+
+    const { status, output } = runRule('dimmed-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Note.tsx:1  note');
+  });
+
+  it('fails a text colour built at an alpha, in a StyleSheet and inline', () => {
+    const root = fixture({
+      'src/features/a/Count.tsx': [
+        'const s = StyleSheet.create({',
+        '  count: { color: colorWithOpacity(ink.white, 0.7) },',
+        '});',
+        '<Text style={[s.count, { color: colorWithOpacity(colors.textPrimary, 0.6) }]} />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('dimmed-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Count.tsx:2  count');
+    expect(output).toContain('src/features/a/Count.tsx:4  (inline)');
+  });
+
+  it('passes a full-strength text token, a dimmed fill, and a colour field outside a style', () => {
+    const root = fixture({
+      'src/features/a/Card.tsx': [
+        'const s = StyleSheet.create({',
+        '  label: { color: colors.textSecondary },',
+        '  wash: { backgroundColor: colorWithOpacity(ink.black, 0.08), opacity: 0.5 },',
+        '  shadow: { color: colors.textOnDark, textShadowColor: colorWithOpacity(ink.black, 0.6) },',
+        '});',
+        'const series = [{ color: colorWithOpacity(colors.textPrimary, 0.4) }];',
+      ].join('\n'),
+    });
+
+    expect(runRule('dimmed-text', root).status).toBe(0);
+  });
+
+  it('passes the text of a disabled control, which WCAG exempts', () => {
+    const root = fixture({
+      'src/features/a/Row.tsx':
+        'const s = StyleSheet.create({ labelDisabled: { color: colors.textPrimary, opacity: 0.4 } });\n',
+    });
+
+    expect(runRule('dimmed-text', root).status).toBe(0);
+  });
+
+  it('fails a measured entry whose style has stopped dimming, so the measurement cannot go stale', () => {
+    const root = fixture({
+      'src/shared/app/DemoBanner.tsx':
+        'const s = StyleSheet.create({ subtext: { color: colors.textOnPrimary } });\n',
+    });
+
+    const { status, output } = runRule('dimmed-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('subtext no longer dims');
+  });
+});
+
 describe('metrics-one-writer', () => {
   it('fails a metrics write from the background insight task', () => {
     const root = fixture({
@@ -640,6 +707,42 @@ describe('one-library-open', () => {
 
   it('fails when the owner is gone', () => {
     const { status } = runRule('one-library-open', fixture({ 'src/a.ts': 'export {};\n' }));
+
+    expect(status).toBe(1);
+  });
+});
+
+describe('one-back', () => {
+  const OWNER = 'src/shared/app/navigation.ts';
+  const OWNED = { [OWNER]: "if (router.canGoBack()) router.back();\nelse router.replace('/');\n" };
+
+  it('fails a bare pop beside the owner, called or passed', () => {
+    const root = fixture({
+      ...OWNED,
+      'src/app/kiln.tsx': 'onDone: () => router.back(),\n',
+      'src/features/glaze/Sheet.tsx': '<Sheet onClose={router.back} />\n',
+    });
+
+    const { status, output } = runRule('one-back', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/app/kiln.tsx:1');
+    expect(output).toContain('src/features/glaze/Sheet.tsx:1');
+  });
+
+  it('passes the owner, a comment, a caller of goBack and the test tree', () => {
+    const root = fixture({
+      ...OWNED,
+      'src/shared/a.ts': '// `router.back()` on a root screen does nothing\n',
+      'src/app/kiln.tsx': 'onDone: () => goBack(),\n',
+      'src/__tests__/a.test.ts': 'expect(router.back).toHaveBeenCalled();\n',
+    });
+
+    expect(runRule('one-back', root).status).toBe(0);
+  });
+
+  it('fails when the owner is gone', () => {
+    const { status } = runRule('one-back', fixture({ 'src/a.ts': 'export {};\n' }));
 
     expect(status).toBe(1);
   });

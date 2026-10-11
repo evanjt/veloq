@@ -211,7 +211,7 @@ fn with_no_credential_nothing_is_requested_and_the_stored_rows_are_composed() {
 
     let refreshed = refresh(SHORT).expect("a snapshot");
 
-    any.assert_hits(0);
+    any.assert_calls(0);
     assert_eq!(refreshed.status, PullStatus::NoCredential);
     assert_eq!(fitness_of(&refreshed), 50.0);
     crate::persistence::clear_persistent_engine();
@@ -234,7 +234,7 @@ fn with_no_stored_context_there_is_nothing_to_write_and_nothing_is_requested() {
 
     assert_eq!(refresh(SHORT), None);
 
-    any.assert_hits(0);
+    any.assert_calls(0);
     crate::persistence::clear_persistent_engine();
 }
 

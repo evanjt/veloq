@@ -4,11 +4,16 @@
  * Expected behaviour: the space above the first card is the space between cards,
  * with the search section hidden or shown, and the space either side of a shown
  * search section is the same.
+ *
+ * Scenario: the system text size is past the dense cap, where the pinned cards
+ * alone can fill the window and leave the list no height.
+ * Expected behaviour: the cards scroll with the feed, above the search section,
+ * and the feed opens scrolled past both so the first activity is on screen.
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
@@ -16,6 +21,12 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 import FeedScreen from '@/app/(tabs)/index';
 
+const mockFontScale = { current: 1 };
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => ({ width: 430, height: 932, scale: 3, fontScale: mockFontScale.current }),
+}));
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
   cancelSyncRefresh: jest.fn(),
@@ -87,7 +98,8 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null }));
 
-function renderFeed() {
+function renderFeed(fontScale = 1) {
+  mockFontScale.current = fontScale;
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -120,5 +132,39 @@ describe('feed gap under the pinned cards', () => {
     const { pinnedBottom, searchTop, searchBottom } = renderFeed();
     expect(pinnedBottom + searchTop).toBe(CARD_MARGIN);
     expect(searchBottom).toBe(CARD_MARGIN);
+  });
+});
+
+describe('feed pinned cards at large text', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps the cards pinned above the list at the default size', () => {
+    renderFeed(1);
+    const list = screen.getByTestId('home-activity-list');
+    expect(within(list).queryByTestId('home-pinned-cards')).toBeNull();
+  });
+
+  it('scrolls the cards with the list past the dense cap', () => {
+    renderFeed(2);
+    const list = screen.getByTestId('home-activity-list');
+    expect(within(list).getByTestId('home-pinned-cards')).toBeTruthy();
+  });
+
+  it('opens scrolled past the cards and the search section together', () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    renderFeed(2);
+    fireEvent(screen.getByTestId('home-search-section'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 640, width: 430, height: 86 } },
+    });
+    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 726, animated: false });
+  });
+
+  it('opens scrolled past the search section alone while the cards are pinned', () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    renderFeed(1);
+    fireEvent(screen.getByTestId('home-search-section'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 86 } },
+    });
+    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 86, animated: false });
   });
 });

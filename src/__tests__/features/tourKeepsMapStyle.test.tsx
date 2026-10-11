@@ -1,5 +1,6 @@
 /**
- * Scenario: the App Tour's map slide is shown, and its Show Me is tapped.
+ * Scenario: the App Tour's map slide is shown over a library with activities,
+ * and its Show Me is tapped.
  *
  * Expected behaviour: the default map style stays what it was, light on a new
  * install and the athlete's own choice once they have made one. The slide
@@ -10,6 +11,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import { MapPreferencesSlide } from '@/features/settings/components/whatsNew/MapPreferencesSlide';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
+import { getTutorialSlides } from '@/features/settings/components/whatsNew/slides';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import {
   MapPreferencesProvider,
@@ -38,6 +40,13 @@ jest.mock('@/features/settings/components/MapStylePreviewPicker', () => ({
 jest.mock('@/features/settings/components/whatsNew/WhatsNewSlide', () => ({
   WhatsNewSlide: () => null,
 }));
+
+// The map slide's Show Me lands on the feed, so it waits for an activity.
+jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 1 }));
+
+const MAP_SLIDE = getTutorialSlides().findIndex(
+  (slide) => slide.titleKey === 'whatsNew.v022.mapStylesTitle'
+);
 
 const mockGetSetting = getSetting as jest.Mock;
 const mockSetSetting = setSetting as jest.Mock;
@@ -116,6 +125,12 @@ describe('Show Me on the tour map slide', () => {
     await waitFor(() => expect(current?.isLoaded).toBe(true));
     expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
 
+    expect(MAP_SLIDE).toBeGreaterThanOrEqual(0);
+    for (let step = 0; step < MAP_SLIDE; step++) {
+      await act(async () => {
+        fireEvent.press(screen.getByText('whatsNew.nextButton'));
+      });
+    }
     await act(async () => {
       fireEvent.press(screen.getByText('whatsNew.showMeButton'));
     });

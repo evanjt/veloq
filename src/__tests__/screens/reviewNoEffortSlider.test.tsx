@@ -1,7 +1,9 @@
 /**
- * Scenario: a GPS ride reaches the review screen.
+ * Scenario: a GPS ride reaches the review screen, and a manual or strength entry reaches it
+ * carrying the effort the athlete chose on the screen before.
  *
- * Expected behaviour: the screen offers no effort slider.
+ * Expected behaviour: the screen offers no effort slider, and an effort carried in hands its
+ * value to the save rather than dropping it.
  */
 import React from 'react';
 import { render } from '@testing-library/react-native';
@@ -12,7 +14,8 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-const mockParams: { request?: string } = {};
+let mockParams: Record<string, string> = {};
+const mockSaveArgs = jest.fn();
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -40,29 +43,84 @@ jest.mock('@/features/recording', () =>
 );
 jest.mock('@/features/recording/components/ReviewMapHero', () => ({ ReviewMapHero: () => null }));
 jest.mock('@/features/recording/hooks/useReviewSave', () => ({
-  useReviewSave: () => ({
-    isUploading: false,
-    isProcessing: false,
-    queuedMessage: null,
-    saveError: null,
-    handleSave: jest.fn(),
-    handleDiscard: jest.fn(),
-    clearSaveError: jest.fn(),
-  }),
+  useReviewSave: (args: unknown) => {
+    mockSaveArgs(args);
+    return {
+      isUploading: false,
+      isProcessing: false,
+      queuedMessage: null,
+      saveError: null,
+      handleSave: jest.fn(),
+      handleDiscard: jest.fn(),
+      clearSaveError: jest.fn(),
+    };
+  },
 }));
 
-beforeEach(() => {
-  mockPush.mockClear();
-  useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
-  useRecordingStore.getState().reset();
+function stoppedRide() {
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.getState().stopRecording();
   useRecordingStore.setState({ athleteId: 'i1' });
+}
+
+function manualEntry() {
+  useRecordingStore.getState().startRecording('WeightTraining', 'manual');
+  useRecordingStore.setState({ athleteId: 'i1' });
+}
+
+function savedEffort() {
+  return mockSaveArgs.mock.calls.at(-1)?.[0].rpe;
+}
+
+beforeEach(() => {
+  mockPush.mockClear();
+  mockSaveArgs.mockClear();
+  mockParams = {};
+  useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
+  useRecordingStore.getState().reset();
 });
 
 describe('review screen effort rating', () => {
   it('shows no effort slider for a GPS ride', () => {
+    stoppedRide();
     const review = render(<ReviewScreen />);
     expect(review.queryByTestId('review-rpe')).toBeNull();
+  });
+
+  it('saves no effort for a GPS ride', () => {
+    stoppedRide();
+    render(<ReviewScreen />);
+    expect(savedEffort()).toBeNull();
+  });
+
+  it('hands the effort a manual entry carries to the save', () => {
+    manualEntry();
+    mockParams = { manual: 'true', durationSeconds: '1800', rpe: '7' };
+    render(<ReviewScreen />);
+    expect(savedEffort()).toBe(7);
+  });
+
+  it.each([
+    ['absent', undefined],
+    ['empty', ''],
+    ['not a number', 'hard'],
+    ['below the scale', '0'],
+    ['above the scale', '11'],
+    ['fractional', '6.5'],
+  ])('saves no effort when the carried value is %s', (_label, rpe) => {
+    manualEntry();
+    mockParams = { manual: 'true', durationSeconds: '1800', ...(rpe === undefined ? {} : { rpe }) };
+    render(<ReviewScreen />);
+    expect(savedEffort()).toBeNull();
+  });
+
+  it('keeps the scale ends', () => {
+    manualEntry();
+    mockParams = { manual: 'true', durationSeconds: '1800', rpe: '1' };
+    render(<ReviewScreen />);
+    expect(savedEffort()).toBe(1);
+    mockParams = { ...mockParams, rpe: '10' };
+    render(<ReviewScreen />);
+    expect(savedEffort()).toBe(10);
   });
 });

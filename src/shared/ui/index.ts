@@ -10,8 +10,6 @@ export type {
   ToggleButtonProps,
   ToggleButtonRowProps,
 } from './Button';
-export { HoldButton } from './HoldButton';
-export type { HoldButtonProps } from './HoldButton';
 export { ChipSelector } from './ChipSelector';
 export type { ChipOption, ChipSelectorProps } from './ChipSelector';
 export { Card } from './Card';
@@ -21,8 +19,10 @@ export { ListSectionHeader } from './ListSectionHeader';
 export type { RowProps } from './Row';
 export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
+export { Stepper, stepValue } from './Stepper';
+export type { StepperProps, StepperScale } from './Stepper';
 export { EmptyState, ErrorStatePreset } from './EmptyState';
-export { DenseText, DENSE_TEXT_SCALE } from './DenseText';
+export { DenseText, DENSE_TEXT_SCALE, useLargeText } from './DenseText';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { OfflineBanner } from './OfflineBanner';
@@ -44,9 +44,15 @@ export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { ScreenScrollView, screenListInsets } from './ScreenScrollView';
+export { SheetScrollView } from './SheetScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
 export { pressable, pressRipple, pressRippleOver, PRESS_OPACITY } from './pressFeedback';
+export {
+  assistiveActions,
+  type AssistiveAction,
+  type AssistiveActionProps,
+} from './assistiveActions';
 export { CircleOptionRow, circleOptionSize } from './CircleOption';
 export type { CircleOption, CircleOptionRowProps } from './CircleOption';
 export { SearchBar, type SearchBarProps } from './SearchBar';

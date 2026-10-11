@@ -5,12 +5,16 @@ import XCTest
 @testable import VeloqWidget
 
 /// Scenario: every widget is drawn at every family it supports, in the smallest and the largest
-/// box an iPhone gives that family, in light and dark, with the sample library, with the longest
-/// words the locales have, with an empty library and with rides and no wellness reading.
+/// box an iPhone gives that family, in light, in dark and in the accented mode of the tinted and
+/// clear Home Screens, with the sample library, with the longest words the locales have, with an
+/// empty library and with rides and no wellness reading.
 ///
 /// Expected behaviour: no text is truncated, squeezed to fewer lines than it needs or pushed out
-/// of the widget, and an empty library draws the open-the-app prompt. Every placement is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a failure can
-/// be looked at rather than only read.
+/// of the widget, an empty library draws the open-the-app prompt, and a Summary row that lists
+/// form names its zone. Every placement is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a
+/// failure can be looked at rather than only read. An accented placement is saved as the system
+/// draws its one colour: every pixel the widget paints in white at the alpha it was painted
+/// with, on no ground of its own, so what is left is what the widget says without hue.
 ///
 /// Runs on the iOS simulator: `ImageRenderer` lays the views out with the platform's own text.
 @MainActor
@@ -24,6 +28,12 @@ final class WidgetCaptureTests: XCTestCase {
   private let widgets: [Widget] = [
     Widget(name: "summary", families: [.systemSmall, .systemMedium, .systemLarge]) {
       AnyView(VeloqWidgetEntryView(entry: VeloqEntry(date: $2, snapshot: $0), family: $1))
+    },
+    Widget(name: "summary-fitness", families: [.systemSmall, .systemMedium, .systemLarge]) {
+      AnyView(
+        VeloqWidgetEntryView(
+          entry: VeloqEntry(date: $2, snapshot: $0, placement: SummaryPlacement(hero: "fitness")),
+          family: $1))
     },
     Widget(name: "activity", families: [.systemSmall, .systemMedium]) {
       AnyView(LatestActivityView(entry: VeloqEntry(date: $2, snapshot: $0), family: $1))
@@ -81,22 +91,36 @@ final class WidgetCaptureTests: XCTestCase {
   /// turns off. Before iOS 17 there is none, so this is the tighter of the two.
   private let contentMargin: CGFloat = 16
 
+  /// The three ways a Home Screen draws a widget: in colour on a light or a dark ground, or in
+  /// one colour with no ground at all.
+  private enum Mode: String, CaseIterable {
+    case light
+    case dark
+    case accented
+  }
+
+  /// The texts a placement has to draw, besides drawing every text whole.
+  private func expected(_ widget: String, _ family: WidgetFamily, _ fixture: String) -> [String] {
+    if fixture == "empty" { return widget == "record" ? [] : ["empty title"] }
+    // A fitness hero moves form onto the row, which then names its zone.
+    if widget == "summary-fitness", family != .systemSmall { return ["metric caption"] }
+    return []
+  }
+
   func testEveryWidgetDrawsEveryTextWholeAtEveryFamily() throws {
     let out = try capturesDirectory()
     var failures: [String] = []
     for fixture in ["demo", "long-text", "empty", "no-wellness"] {
       let snapshot = try self.snapshot(fixture)
       for widget in widgets {
-        let expected = fixture == "empty" && widget.name != "record" ? "empty title" : nil
         for family in widget.families {
+          let expected = expected(widget.name, family, fixture)
           for box in boxes(family) {
-            for scheme in [ColorScheme.light, .dark] {
-              let name = [
-                widget.name, familyName(family), box.screen, fixture,
-                scheme == .dark ? "dark" : "light",
-              ].joined(separator: "-")
+            for mode in Mode.allCases {
+              let name = [widget.name, familyName(family), box.screen, fixture, mode.rawValue]
+                .joined(separator: "-")
               let view = widget.draw(snapshot, family, Date())
-              failures += capture(name, view, snapshot, box.size, scheme, out, expected)
+              failures += capture(name, view, snapshot, box.size, mode, out, expected)
             }
           }
         }
@@ -134,6 +158,70 @@ final class WidgetCaptureTests: XCTestCase {
         }
       ).count, 1)
     XCTAssertEqual(cuts(Color.clear), ["no text was measured"])
+  }
+
+  /// Scenario: the gallery, and the home screen while a widget loads, draw each widget from its
+  /// provider's placeholder, which WidgetKit redacts into the widget's shape.
+  ///
+  /// Expected behaviour: every placeholder carries the sample library, so every widget draws its
+  /// own shape at every family rather than the open-the-app prompt.
+  func testEveryPlaceholderDrawsTheSampleLibrary() {
+    let all: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge]
+    var placeholders: [(String, WidgetSnapshot?, [WidgetFamily], (WidgetFamily) -> AnyView)] = []
+    let summary = VeloqProvider.placeholderEntry()
+    placeholders.append(
+      ("summary", summary.snapshot, all, {
+        AnyView(VeloqWidgetEntryView(entry: summary, family: $0))
+      }))
+    let activity = LatestActivityProvider.placeholderEntry()
+    placeholders.append(
+      ("activity", activity.snapshot, [.systemSmall, .systemMedium], {
+        AnyView(LatestActivityView(entry: activity, family: $0))
+      }))
+    let insights = InsightsProvider.placeholderEntry()
+    placeholders.append(
+      ("insights", insights.snapshot, all, {
+        AnyView(InsightsWidgetView(entry: insights, family: $0))
+      }))
+    let strength = StrengthProvider.placeholderEntry()
+    placeholders.append(
+      ("strength", strength.snapshot, all, {
+        AnyView(StrengthWidgetView(entry: strength, family: $0))
+      }))
+    if #available(iOS 17.0, *) {
+      let summary = VeloqConfigProvider.placeholderEntry()
+      placeholders.append(
+        ("summary-configurable", summary.snapshot, all, {
+          AnyView(VeloqWidgetEntryView(entry: summary, family: $0))
+        }))
+      let insights = InsightsConfigProvider.placeholderEntry()
+      placeholders.append(
+        ("insights-configurable", insights.snapshot, all, {
+          AnyView(InsightsWidgetView(entry: insights, family: $0))
+        }))
+      let strength = StrengthConfigProvider.placeholderEntry()
+      placeholders.append(
+        ("strength-configurable", strength.snapshot, all, {
+          AnyView(StrengthWidgetView(entry: strength, family: $0))
+        }))
+    }
+
+    var failures: [String] = []
+    for (name, snapshot, families, draw) in placeholders {
+      if WidgetSnapshot.isEmpty(snapshot) {
+        failures.append("\(name): the placeholder carries no library")
+      }
+      for family in families {
+        let size = boxes(family)[0].size
+        let placed = draw(family)
+          .padding(contentMargin)
+          .frame(width: size.width, height: size.height)
+        if measure(placed, size).contains(where: { $0.name == "empty title" }) {
+          failures.append("\(name)-\(familyName(family)): draws the open-the-app prompt")
+        }
+      }
+    }
+    XCTAssert(failures.isEmpty, failures.joined(separator: "\n"))
   }
 
   // MARK: - drawing
@@ -184,28 +272,45 @@ final class WidgetCaptureTests: XCTestCase {
     }
   }
 
-  /// Draws one placement on the widget's own ground, saves it, and lists what it cuts off.
+  /// Draws one placement on the widget's own ground, or in accented mode on none, saves it, and
+  /// lists what it cuts off and which expected texts it does not draw.
   private func capture(
     _ name: String, _ widget: AnyView, _ snapshot: WidgetSnapshot, _ size: CGSize,
-    _ scheme: ColorScheme, _ out: URL, _ expected: String? = nil
+    _ mode: Mode, _ out: URL, _ expected: [String]
   ) -> [String] {
+    // The tinted and clear Home Screens draw over a dark ground.
+    let scheme: ColorScheme = mode == .light ? .light : .dark
     let palette = WidgetPalette.resolve(snapshot, scheme)
     let ground =
-      name.hasPrefix("record-")
-      ? (scheme == .dark
-        ? [WidgetTheme.Record.Dark.gradientStart, WidgetTheme.Record.Dark.gradientEnd]
-        : [WidgetTheme.Record.Light.gradientStart, WidgetTheme.Record.Light.gradientEnd])
-      : [palette.surface, palette.background]
+      mode == .accented
+      ? [Color.clear]
+      : name.hasPrefix("record-")
+        ? (scheme == .dark
+          ? [WidgetTheme.Record.Dark.gradientStart, WidgetTheme.Record.Dark.gradientEnd]
+          : [WidgetTheme.Record.Light.gradientStart, WidgetTheme.Record.Light.gradientEnd])
+        : [palette.surface, palette.background]
     let placed = widget
       .padding(contentMargin)
       .frame(width: size.width, height: size.height)
       .background(LinearGradient(colors: ground, startPoint: .top, endPoint: .bottom))
       .clipShape(RoundedRectangle(cornerRadius: WidgetTheme.Layout.radius * 1.4))
       .environment(\.colorScheme, scheme)
-    let fits = measure(placed, size, save: out.appendingPathComponent("\(name).png"))
+      .environment(\.widgetRenderingMode, mode == .accented ? .accented : .fullColor)
+    let drawn =
+      mode == .accented
+      ? AnyView(
+        ZStack {
+          // A backdrop only so the PNG can be looked at: the widget itself draws on none.
+          WidgetTheme.Dark.background
+          placed.hidden()
+          Color.white.mask(placed)
+        }
+        .frame(width: size.width, height: size.height))
+      : AnyView(placed)
+    let fits = measure(drawn, size, save: out.appendingPathComponent("\(name).png"))
     var found = cutOff(fits, in: size).map { "\(name): \($0)" }
-    if let expected, !fits.contains(where: { $0.name == expected }) {
-      found.append("\(name): draws no \(expected)")
+    for text in expected where !fits.contains(where: { $0.name == text }) {
+      found.append("\(name): draws no \(text)")
     }
     return found
   }

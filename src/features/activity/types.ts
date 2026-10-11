@@ -34,7 +34,7 @@ export interface Activity {
   // icu_hr_zone_times is flat array of seconds per HR zone
   icu_hr_zone_times?: number[] | undefined;
   // Zone thresholds
-  icu_power_zones?: number[] | undefined;
+  icu_power_zones?: number[] | undefined; // percent of icu_ftp, 999 for the open top
   icu_hr_zones?: number[] | undefined;
   // Training metrics
   icu_training_load?: number | undefined; // TSS

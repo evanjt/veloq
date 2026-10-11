@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colorWithOpacity(ink.white, 0.85),
+    color: colors.textOnDark,
   },
   activityDateLight: {
     color: colors.textSecondary,

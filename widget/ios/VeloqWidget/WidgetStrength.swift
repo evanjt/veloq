@@ -23,12 +23,18 @@ func strengthTimeline(_ entry: StrengthEntry) -> Timeline<StrengthEntry> {
 }
 
 struct StrengthProvider: TimelineProvider {
+  static func placeholderEntry() -> StrengthEntry {
+    StrengthEntry(date: Date(), snapshot: WidgetSample.snapshot)
+  }
+
   func placeholder(in context: Context) -> StrengthEntry {
-    StrengthEntry(date: Date(), snapshot: nil)
+    Self.placeholderEntry()
   }
 
   func getSnapshot(in context: Context, completion: @escaping (StrengthEntry) -> Void) {
-    completion(StrengthEntry(date: Date(), snapshot: WidgetSnapshotStore.load()))
+    let snapshot = WidgetSample.snapshot(
+      stored: WidgetSnapshotStore.load(), isPreview: context.isPreview)
+    completion(StrengthEntry(date: Date(), snapshot: snapshot))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<StrengthEntry>) -> Void) {

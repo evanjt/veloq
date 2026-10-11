@@ -6,27 +6,37 @@ export const ROUTES_LIST_ROUTE = '/insights?tab=routes';
 /** Fewest visits for a section or route to be worth opening: one attempt compares with nothing. */
 export const SHOW_ME_MIN_VISITS = 2;
 
-/** The athlete's section and route with the most visits, as the routes screen reads rank them. */
-export interface BusiestPlaces {
+/** What the library holds, as far as a tour Show Me needs to know. */
+export interface TourLibrary {
+  /** Whether the library holds at least one activity. */
+  hasActivities: boolean;
+  /** The athlete's section with the most visits, as the routes screen reads rank them. */
   sectionId?: string;
+  /** The athlete's route with the most activities. */
   routeId?: string;
+  /** Whether a finished section re-analysis left changes to preview. */
+  cutoverChanged: boolean;
 }
 
 /**
- * Where a slide's Show Me goes. The sections and routes slides open the athlete's own section or
- * route with the most visits, so the page the slide describes is one with attempts to compare.
- * With none, or while the read has nothing to give, they land on the list, which shows its own
- * empty or failed state.
+ * Where a slide's Show Me goes, or undefined when the slide offers none. A slide offers Show Me
+ * only once the screen it lands on holds something to try, so a tour opened over an empty or
+ * still-loading library never lands on an empty screen. The sections and routes slides open the
+ * athlete's own section or route with the most visits, so the page the slide describes is one with
+ * attempts to compare, and offer nothing while there is none.
  */
 export function resolveShowMeRoute(
   slide: WhatsNewSlideDefinition,
-  busiest: BusiestPlaces
+  library: TourLibrary
 ): string | undefined {
-  if (slide.showMeAction === 'openBusiestSection' && busiest.sectionId) {
-    return `/section/${busiest.sectionId}`;
+  if (slide.showMeRoute === undefined) return undefined;
+  if (slide.showMeWhen === 'hasActivities' && !library.hasActivities) return undefined;
+  if (slide.showMeWhen === 'cutoverChanged' && !library.cutoverChanged) return undefined;
+  if (slide.showMeAction === 'openBusiestSection') {
+    return library.sectionId ? `/section/${library.sectionId}` : undefined;
   }
-  if (slide.showMeAction === 'openBusiestRoute' && busiest.routeId) {
-    return `/route/${busiest.routeId}`;
+  if (slide.showMeAction === 'openBusiestRoute') {
+    return library.routeId ? `/route/${library.routeId}` : undefined;
   }
   return slide.showMeRoute;
 }

@@ -2611,6 +2611,112 @@ mod tests {
         }
     }
 
+    /// `(activity, sport, start_date, direction, lap_time, coverage)`.
+    type Outing<'a> = (&'a str, &'a str, i64, &'a str, Option<f64>, f64);
+
+    /// One section `s`, 1 km long, and the given outings on it. Only
+    /// `records` hold a `section_pr` indicator.
+    fn record_library(
+        outings: &[Outing<'_>],
+        records: &[&str],
+    ) -> crate::persistence::PersistentEngine {
+        let engine = crate::persistence::PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s', 'auto', 'S', 'Ride', '[]', 1000.0, 0, 1,
+                    '2026-01-01T00:00:00Z', 46.0, 46.1, 7.0, 7.1)",
+                [],
+            )
+            .unwrap();
+        for (activity, sport, date, direction, lap_time, coverage) in outings {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng,
+                        max_lng, start_date)
+                     VALUES (?1, ?2, 46.0, 46.1, 7.0, 7.1, ?3)",
+                    rusqlite::params![activity, sport, date],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, lap_time, coverage)
+                     VALUES ('s', ?1, ?2, 0, 30, ?3, ?4, ?5)",
+                    rusqlite::params![activity, direction, 1000.0 * coverage, lap_time, coverage],
+                )
+                .unwrap();
+        }
+        for activity in records {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_indicators (activity_id, indicator_type, target_id,
+                        target_name, direction, lap_time, trend, computed_at)
+                     VALUES (?1, 'section_pr', 's', 'S', 'same', 100.0, 1, 0)",
+                    [activity],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    fn latest_is_record(
+        engine: &crate::persistence::PersistentEngine,
+        sport: Option<&str>,
+    ) -> bool {
+        super::pooled::sections_where_latest_is_record(&engine.db, &["s"], sport).contains("s")
+    }
+
+    /// Scenario: a ride sets the record, then a walk clips part of the
+    /// section, a ride is saved with no lap time and another ride crosses only
+    /// a fifth of it, all later.
+    /// Expected behaviour: none of those can hold a record, so the record ride
+    /// is still the latest outing that counts and the row keeps its mark.
+    #[test]
+    fn outings_that_cannot_hold_a_record_do_not_take_the_mark_away() {
+        let engine = record_library(
+            &[
+                ("ride1", "Ride", 1_000, "same", Some(120.0), 1.0),
+                ("ride2", "Ride", 2_000, "same", Some(100.0), 1.0),
+                ("walk", "Walk", 3_000, "partial", Some(400.0), 0.2),
+                ("untimed", "Ride", 4_000, "same", None, 1.0),
+                ("clip", "Ride", 5_000, "same", Some(20.0), 0.2),
+            ],
+            &["ride2"],
+        );
+
+        assert!(latest_is_record(&engine, None));
+        assert!(latest_is_record(&engine, Some("Ride")));
+    }
+
+    /// Scenario: the latest ride is slower than an older one, and a run on
+    /// the same ground after it sets the run record.
+    /// Expected behaviour: with rides selected the row claims nothing, since
+    /// the run is not a ride; with no sport selected the run is the latest
+    /// outing and holds its record.
+    #[test]
+    fn the_mark_is_judged_within_the_selected_sport() {
+        let engine = record_library(
+            &[
+                ("ride1", "Ride", 1_000, "same", Some(100.0), 1.0),
+                ("ride2", "Ride", 2_000, "same", Some(120.0), 1.0),
+                ("run1", "Run", 3_000, "same", Some(300.0), 1.0),
+                ("run2", "Run", 4_000, "same", Some(280.0), 1.0),
+            ],
+            &["ride1", "run2"],
+        );
+
+        assert!(!latest_is_record(&engine, Some("Ride")));
+        assert!(latest_is_record(&engine, Some("Run")));
+        assert!(latest_is_record(&engine, None));
+    }
+
     /// Scenario: the DELETE behind a forced re-detect fails, after the config
     /// that provoked it has already been persisted.
     /// Expected behaviour: the evidence cache goes anyway, the processed set is
@@ -2842,14 +2948,21 @@ pub(crate) mod pooled {
         schema_info_value(conn, super::CATALOGUE_METHOD_KEY)
     }
 
+    /// Sections whose latest outing that could hold a record does hold one.
+    /// The candidates are the ones the record pass judges: complete, timed
+    /// traversals, in `sport` when one is selected, so a later fragment, an
+    /// untimed pass or another sport's outing neither takes the mark away nor
+    /// lends it.
     pub(crate) fn sections_where_latest_is_record(
         conn: &Connection,
         section_ids: &[&str],
+        sport: Option<&str>,
     ) -> std::collections::HashSet<String> {
         if section_ids.is_empty() {
             return std::collections::HashSet::new();
         }
         let placeholders = vec!["?"; section_ids.len()].join(",");
+        let sport_param = section_ids.len() + 1;
         let query = format!(
             "SELECT DISTINCT ai.target_id
              FROM activity_indicators ai
@@ -2859,19 +2972,25 @@ pub(crate) mod pooled {
                  SELECT sa.activity_id
                  FROM section_activities sa
                  JOIN activities a ON a.id = sa.activity_id
+                 JOIN sections s ON s.id = sa.section_id
                  WHERE sa.section_id = ai.target_id
                    AND sa.excluded = 0
+                   AND sa.lap_time IS NOT NULL
+                   AND (?{sport_param} IS NULL OR a.sport_type = ?{sport_param})
+                   {complete}
                  ORDER BY a.start_date DESC, sa.activity_id DESC
                  LIMIT 1
-               )"
+               )",
+            complete = crate::persistence::records::complete_traversal_clause("sa", "s"),
         );
         let Ok(mut stmt) = conn.prepare(&query) else {
             return std::collections::HashSet::new();
         };
-        let params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+        let mut params: Vec<&dyn rusqlite::types::ToSql> = section_ids
             .iter()
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
+        params.push(&sport);
         stmt.query_map(params.as_slice(), |row| row.get::<_, String>(0))
             .map(|rows| rows.filter_map(Result::ok).collect())
             .unwrap_or_default()

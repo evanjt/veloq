@@ -20,7 +20,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
@@ -46,7 +45,7 @@ import {
   type GroupingRoute,
 } from '@/features/routes';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack, tapBack } from '@/shared/app/navigation';
 
 /**
  * How many of today's routes are drawn. They arrive nearest the selected area
@@ -178,7 +177,7 @@ function RouteGroupingPreviewScreenContent() {
             );
             return;
           }
-          router.back();
+          goBack();
         },
       },
     ]);

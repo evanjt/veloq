@@ -32,7 +32,7 @@ fn test_track_unauthorized_stops_batch_dispatch() {
             .iter()
             .any(|result| result.error.as_deref() == Some("unauthorized"))
     );
-    let dispatched: usize = mocks.iter().map(httpmock::Mock::hits).sum();
+    let dispatched: usize = mocks.iter().map(httpmock::Mock::calls).sum();
     assert!(
         dispatched <= MAX_CONCURRENCY,
         "dispatched {dispatched} requests after a 401"
@@ -83,7 +83,7 @@ fn a_cancelled_run_stops_dispatching_and_counting() {
         ));
     }
 
-    let dispatched: usize = mocks.iter().map(httpmock::Mock::hits).sum();
+    let dispatched: usize = mocks.iter().map(httpmock::Mock::calls).sum();
     assert!(
         dispatched <= MAX_CONCURRENCY + 1,
         "dispatched {dispatched} requests after a cancel"

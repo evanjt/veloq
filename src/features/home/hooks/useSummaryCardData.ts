@@ -16,12 +16,11 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import type { TrendGlyph } from '@/shared/format/trend';
 import {
-  trendGlyph,
-  trendOfMetric,
-  type TrendGlyph,
-  type TrendMetric,
-} from '@/shared/format/trend';
+  summaryMetricLabel,
+  type SummaryTrendBaseline,
+} from '@/features/home/lib/summaryCardTrendLabel';
 
 /**
  * Supporting metric for SummaryCard display
@@ -31,6 +30,8 @@ interface SupportingMetric {
   value: string | number;
   color?: string | undefined;
   trend?: TrendGlyph | undefined;
+  /** What a screen reader hears: the value, and what its arrow was judged against. */
+  accessibilityLabel: string;
   /** The route and chart a tap opens, from the one table the hero reads too. */
   navigationTarget: string;
 }
@@ -49,6 +50,7 @@ export interface SummaryCardData {
   heroColor: string;
   heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
+  heroAccessibilityLabel: string;
 
   // Sparkline (fitness/form dual chart or HRV/RHR chart)
   fitnessData?: number[] | undefined;
@@ -97,6 +99,46 @@ const FEED_SPARKLINE_DAYS = 30;
 /** A critical speed the card can print, or null for none. */
 function measuredSpeed(speed: number | null | undefined): number | null {
   return speed != null && speed > 0 ? speed : null;
+}
+
+/** An earlier reading and the day it was read, as the engine dated it. */
+interface DayReading {
+  value: number;
+  date: number;
+}
+
+/** The reading an arrow was judged against, or none when the engine found none. */
+function dayReading(
+  value: number | null | undefined,
+  date: number | bigint | null | undefined
+): DayReading | undefined {
+  return value == null || date == null ? undefined : { value, date: Number(date) };
+}
+
+/** What each of the card's arrows was judged against, before formatting. */
+interface Baselines {
+  fitness?: DayReading | undefined;
+  form?: DayReading | undefined;
+  /** The fitness beside the earlier form, which a percentage form is read against. */
+  fitnessForForm?: number | undefined;
+  hrv?: DayReading | undefined;
+  rhr?: DayReading | undefined;
+  weight?: DayReading | undefined;
+  ftp?: DayReading | undefined;
+  thresholdPace?: DayReading | undefined;
+  css?: DayReading | undefined;
+  weekHours?: number | undefined;
+  weekCount?: number | undefined;
+}
+
+/** A dated baseline in the form the label names it, formatted as the value is. */
+function onDay(
+  reading: DayReading | undefined,
+  format: (value: number) => string | number | null = (value) => value
+): SummaryTrendBaseline | undefined {
+  if (!reading) return undefined;
+  const previous = format(reading.value);
+  return previous == null ? undefined : { kind: 'day', previous, date: reading.date };
 }
 
 /** What a metric with no reading behind it draws, everywhere on the card. */
@@ -180,13 +222,8 @@ export function useSummaryCardData(
       thresholdPaceTrend: undefined as TrendGlyph | undefined,
       css: null as number | null,
       cssTrend: undefined as TrendGlyph | undefined,
+      baselines: {} as Baselines,
     };
-
-    const getTrend = (
-      current: number | null,
-      prev: number | null,
-      metric: TrendMetric
-    ): TrendGlyph => trendGlyph(metric, trendOfMetric(metric, current, prev));
 
     // Use precomputed data from getStartupData if available
     let cardData = precomputedCardData;
@@ -211,6 +248,7 @@ export function useSummaryCardData(
     const { value: latestFtp, previous: prevFtp } = summaryCardFtp({
       trend: cardData.ftpTrend,
     });
+    const ftpTrend = cardData.ftpTrend;
 
     const runPaceTrend = cardData.runPaceTrend;
     const swimPaceTrend = cardData.swimPaceTrend;
@@ -221,6 +259,24 @@ export function useSummaryCardData(
     const w = cardData.wellness ?? defaults;
 
     return {
+      // What each arrow was judged against, as the engine read it, so the
+      // label can name it. Formatting waits for the athlete's units below.
+      baselines: {
+        fitness: dayReading(w.fitnessPrevious, w.fitnessPreviousDate),
+        form: dayReading(w.formPrevious, w.formPreviousDate),
+        fitnessForForm: w.fitnessPrevious,
+        hrv: dayReading(w.hrvPrevious, w.hrvPreviousDate),
+        rhr: dayReading(w.rhrPrevious, w.rhrPreviousDate),
+        weight: dayReading(w.weightPrevious, w.weightPreviousDate),
+        ftp: dayReading(prevFtp, ftpTrend?.previousDate),
+        thresholdPace: dayReading(
+          measuredSpeed(runPaceTrend?.previousPace),
+          runPaceTrend?.previousDate
+        ),
+        css: dayReading(measuredSpeed(swimPaceTrend?.previousPace), swimPaceTrend?.previousDate),
+        weekHours: prevWeekHours,
+        weekCount: cardData.prevWeek.count as number,
+      },
       fitness: w.fitness,
       fitnessTrend: w.fitnessTrend as TrendGlyph | undefined,
       form: w.form,
@@ -231,12 +287,13 @@ export function useSummaryCardData(
       rhrTrend: w.rhrTrend as TrendGlyph | undefined,
       weight: w.weight ?? null,
       weightTrend: w.weightTrend as TrendGlyph | undefined,
+      // The engine judged the week and FTP arrows too, on the same table.
       weekHours,
-      weekHoursTrend: getTrend(weekHours, prevWeekHours, 'weekHours'),
+      weekHoursTrend: cardData.weekHoursTrend as TrendGlyph | undefined,
       weekCount,
-      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 'weekCount'),
+      weekCountTrend: cardData.weekCountTrend as TrendGlyph | undefined,
       ftp: latestFtp,
-      ftpTrend: getTrend(latestFtp, prevFtp, 'ftp'),
+      ftpTrend: ftpTrend?.glyph as TrendGlyph | undefined,
       // Measured critical speed, the series the arrow and the widget read.
       // The arrow is the engine's, judged on pace in the sport's own unit:
       // judged here on m/s, a faster athlete drew a decline.
@@ -262,9 +319,66 @@ export function useSummaryCardData(
     ? formZoneTextColor(formZone, isDark)
     : verdictColor('positive', isDark);
 
+  // What a screen reader hears for a metric: its value, and beside an arrow
+  // what the arrow means and the reading it was judged against, formatted in
+  // the athlete's units as the value is.
+  const describe = useCallback(
+    (id: MetricId, value: string | number, trend: TrendGlyph | undefined): string => {
+      const b = quickStats.baselines;
+      const lastWeek = (previous: string | number | undefined): SummaryTrendBaseline | undefined =>
+        previous === undefined ? undefined : { kind: 'lastWeek', previous };
+      const spoken = (): { name: string; baseline: SummaryTrendBaseline | undefined } => {
+        switch (id) {
+          case 'fitness':
+            return { name: t('metrics.fitness'), baseline: onDay(b.fitness) };
+          case 'form':
+            return {
+              name: t('metrics.form'),
+              baseline: onDay(b.form, (v) => formatForm(v, b.fitnessForForm, asPercent)),
+            };
+          case 'hrv':
+            return { name: t('metrics.hrv'), baseline: onDay(b.hrv) };
+          case 'rhr':
+            return { name: t('metrics.rhr'), baseline: onDay(b.rhr) };
+          case 'weight':
+            return {
+              name: t('metrics.weight'),
+              baseline: onDay(b.weight, (v) => formatWeightCompact(v, isMetric)),
+            };
+          case 'ftp':
+            return { name: t('metrics.ftp'), baseline: onDay(b.ftp) };
+          case 'thresholdPace':
+            return {
+              name: t('metrics.pace'),
+              baseline: onDay(b.thresholdPace, (v) => formatPaceCompact(v, isMetric)),
+            };
+          case 'css':
+            return {
+              name: t('metrics.css'),
+              baseline: onDay(b.css, (v) => formatSwimPace(v, isMetric)),
+            };
+          case 'weekHours':
+            return {
+              name: t('metrics.week'),
+              baseline: lastWeek(b.weekHours === undefined ? undefined : `${b.weekHours}h`),
+            };
+          case 'weekCount':
+            return { name: t('metrics.activityCount'), baseline: lastWeek(b.weekCount) };
+          default: {
+            const unhandled: never = id;
+            return { name: String(unhandled), baseline: undefined };
+          }
+        }
+      };
+      const { name, baseline } = spoken();
+      return summaryMetricLabel(t, { name, value, metric: id, trend, baseline });
+    },
+    [quickStats.baselines, asPercent, isMetric, t]
+  );
+
   // Build hero metric data based on summaryCard preferences
-  const heroData = useMemo(
-    () =>
+  const heroData = useMemo(() => {
+    const hero =
       summaryCard.heroMetric === 'hrv'
         ? {
             value: quickStats.hrv ?? '-',
@@ -287,9 +401,13 @@ export function useSummaryCardData(
               label: t('metrics.fitness'),
               color: colors.fitnessBlue,
               trend: quickStats.fitnessTrend,
-            },
-    [summaryCard.heroMetric, quickStats, t, asPercent, formColor]
-  );
+            };
+    const heroId: MetricId =
+      summaryCard.heroMetric === 'hrv' || summaryCard.heroMetric === 'form'
+        ? summaryCard.heroMetric
+        : 'fitness';
+    return { ...hero, accessibilityLabel: describe(heroId, hero.value, hero.trend) };
+  }, [summaryCard.heroMetric, quickStats, t, asPercent, formColor, describe]);
 
   // Sparklines pulled from Rust (wellness persisted in SQLite via
   // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
@@ -339,14 +457,18 @@ export function useSummaryCardData(
     const metricIds = summaryCard.supportingMetrics
       .filter((id: MetricId) => id !== 'weight' || quickStats.weight !== null)
       .slice(0, 4);
-    return metricIds.map(
-      (metricId: MetricId): SupportingMetric => ({
-        ...supportingMetric(metricId),
+    return metricIds.map((metricId: MetricId): SupportingMetric => {
+      const shown = supportingMetric(metricId);
+      return {
+        ...shown,
+        accessibilityLabel: describe(metricId, shown.value, shown.trend),
         navigationTarget: summaryCardTarget(metricId),
-      })
-    );
+      };
+    });
 
-    function supportingMetric(metricId: MetricId): Omit<SupportingMetric, 'navigationTarget'> {
+    function supportingMetric(
+      metricId: MetricId
+    ): Omit<SupportingMetric, 'navigationTarget' | 'accessibilityLabel'> {
       switch (metricId) {
         case 'fitness':
           return {
@@ -439,6 +561,7 @@ export function useSummaryCardData(
     isMetric,
     asPercent,
     t,
+    describe,
   ]);
 
   // Stabilize references to prevent downstream re-renders when values are unchanged
@@ -475,6 +598,7 @@ export function useSummaryCardData(
       heroZone:
         summaryCard.heroMetric === 'form' && formZone ? t(`formZones.${formZone}`) : undefined,
       heroTrend: stableHeroData.trend,
+      heroAccessibilityLabel: stableHeroData.accessibilityLabel,
       fitnessData: stableFitnessData,
       fitnessDelta,
       fitnessRiseDays: stableRiseDays,

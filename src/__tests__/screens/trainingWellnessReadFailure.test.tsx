@@ -52,6 +52,7 @@ jest.mock('@/features/wellness', () => {
       isError: true,
       refetch: mockRefetch,
     }),
+    useWellnessCoverage: () => require('veloqrs').RangeCoverage.NotFetched,
   };
 });
 jest.mock('@/features/fitness/hooks', () => ({

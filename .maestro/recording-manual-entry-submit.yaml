@@ -87,8 +87,8 @@ onFlowComplete:
 - takeScreenshot: "screenshots/manual-entry-review"
 
 # Discard and return home
-- longPressOn:
-    id: "review-discard-button"
+- runFlow:
+    file: helpers/confirm-review-discard.yaml
 
 - extendedWaitUntil:
     visible:

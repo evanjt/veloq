@@ -19,7 +19,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
@@ -51,7 +50,7 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack, tapBack } from '@/shared/app/navigation';
 
 const PARAM_KEYS = [
   'proximityThreshold',
@@ -201,7 +200,7 @@ function DetectionPreviewScreenContent() {
             );
             return;
           }
-          router.back();
+          goBack();
         },
       },
     ]);

@@ -93,6 +93,7 @@ const toolingSuites = [
   'src/__tests__/lib/expoLocationAltitude.test.ts',
   'src/__tests__/lib/maestroDeepLinks.test.ts',
   'src/__tests__/lib/storeMetadataChangelog.test.ts',
+  'src/__tests__/lib/storePrivacyDeclarations.test.ts',
   'src/__tests__/plugins/withStoreKitConfiguration.test.ts',
   'src/__tests__/bugs/testFixturesOutsideTheTree.test.ts',
   'src/__tests__/bugs/testsNeverGitAgainstTheRepo.test.ts',

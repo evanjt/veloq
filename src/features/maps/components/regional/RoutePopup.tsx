@@ -1,10 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { Button, IconButton } from '@/shared/ui';
+import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 
 /** What the popup shows for a route, as the map read gives it. */
 export interface MapRouteSummary {
@@ -28,6 +29,8 @@ export const RoutePopup = memo(function RoutePopup({
 }: RoutePopupProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const titleRef = useRef<Text>(null);
+  useFocusOnAppear(titleRef, route.routeId);
 
   // The engine names every route it draws; the id stands in only for a read
   // that found no name.
@@ -36,7 +39,12 @@ export const RoutePopup = memo(function RoutePopup({
   return (
     <View testID="route-popup" style={[styles.popup, isDark && styles.popupDark, { bottom }]}>
       <View style={styles.popupInfo}>
-        <Text style={[styles.popupTitle, isDark && styles.popupTitleDark]} numberOfLines={1}>
+        <Text
+          ref={titleRef}
+          testID="route-popup-title"
+          style={[styles.popupTitle, isDark && styles.popupTitleDark]}
+          numberOfLines={1}
+        >
           {displayName}
         </Text>
         <Text style={[styles.popupDetail, isDark && styles.popupDetailDark]}>

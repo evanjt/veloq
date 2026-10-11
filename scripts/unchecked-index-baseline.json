@@ -5,7 +5,7 @@
   "scripts/lib": 45,
   "src/app": 4,
   "src/app/recording": 1,
-  "src/features/activity/components": 25,
+  "src/features/activity/components": 24,
   "src/features/activity/hooks": 7,
   "src/features/activity/lib": 6,
   "src/features/fitness/components": 12,
@@ -23,7 +23,7 @@
   "src/features/recording/lib": 22,
   "src/features/recording/lib/liveActivity": 2,
   "src/features/recording/stores": 2,
-  "src/features/routes/components": 14,
+  "src/features/routes/components": 8,
   "src/features/routes/components/section": 5,
   "src/features/routes/hooks": 2,
   "src/features/routes/lib": 9,
@@ -47,5 +47,5 @@
   "src/shared/demo/fitness": 1,
   "src/shared/geo": 11,
   "src/shared/theme": 1,
-  "src/shared/ui": 9
+  "src/shared/ui": 3
 }

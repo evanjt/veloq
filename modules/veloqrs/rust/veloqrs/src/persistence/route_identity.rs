@@ -235,9 +235,8 @@ impl PersistentEngine {
         codec::serialize(&self.route_identity).unwrap_or_default()
     }
 
-    /// The route registry as a version-tagged serde blob, or None on failure.
-    /// Written INSIDE the `save_groups` transaction so the registry commits
-    /// atomically with the groups it describes.
+    /// The registry this engine holds, as [`write_identity`] would store it.
+    #[cfg(test)]
     pub(crate) fn route_identity_blob(&self) -> Option<Vec<u8>> {
         identity_blob(&self.route_identity)
     }

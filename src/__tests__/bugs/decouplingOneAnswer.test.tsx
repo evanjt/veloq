@@ -45,6 +45,7 @@ const mockDescentStreams = {
 let mockActivities: Activity[] = [];
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [], isLoading: false }),
+  useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
   timeRangeToDays: () => 42,
 }));
 jest.mock('@/features/activity/hooks', () => ({
@@ -56,6 +57,10 @@ jest.mock('@/features/activity/hooks', () => ({
 jest.mock('@/shared/app/useSportSettings', () => ({
   useSportSettings: () => ({ data: undefined }),
   getSettingsForSport: () => undefined,
+}));
+// The rides are on the device, so the census calls the period downloaded.
+jest.mock('@/shared/native/useRangeCoverage', () => ({
+  useRangeCoverage: () => require('veloqrs').RangeCoverage.Loaded,
 }));
 jest.mock('@/features/fitness/hooks/useZoneDistribution', () => ({
   useZoneDistribution: () => ({ data: undefined }),
@@ -75,13 +80,14 @@ function FitnessDecouplingCard() {
       timeRange="1m"
       powerZones={undefined}
       hrZones={undefined}
-      zoneCoverage={data.zoneCoverage}
+      periodCoverage={data.periodCoverage}
       loadingActivities={false}
       hasActivities
       dominantZone={null}
       zonesExpanded={false}
       onZonesToggle={jest.fn()}
       eftpTrend={undefined}
+      eftpCoverage={data.eftpCoverage}
       ftpTrend={null}
       trendsExpanded={false}
       onTrendsToggle={jest.fn()}
@@ -133,6 +139,13 @@ describe('aerobic decoupling', () => {
     expect(tree.queryByText('stats.goodAerobicFitness')).toBeNull();
     expect(tree.queryByText('stats.needsImprovement')).toBeNull();
     expect(tree.queryByText('stats.targetLessThan5')).toBeNull();
+  });
+
+  it('heads the Fitness card with the title of the measurement inside it', () => {
+    const tree = render(<FitnessDecouplingCard />);
+
+    expect(tree.getAllByText('stats.aerobicDecoupling')).toHaveLength(2);
+    expect(tree.queryByText('statsScreen.decoupling')).toBeNull();
   });
 
   it('shows the empty state for a library whose rides carry no stored value', () => {

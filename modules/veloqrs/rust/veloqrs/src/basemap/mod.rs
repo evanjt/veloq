@@ -22,6 +22,7 @@
 
 mod bundled;
 mod c;
+mod encoding;
 mod fetch;
 mod geo;
 mod glyphs;
@@ -611,6 +612,7 @@ pub fn page_status(error: &TileFetchError) -> u16 {
         TileFetchError::Rejected { status: 404 } | TileFetchError::Empty => NO_TILE,
         TileFetchError::Rejected { .. }
         | TileFetchError::Unreachable(_)
+        | TileFetchError::Garbled(_)
         | TileFetchError::Store(_) => UPSTREAM_FAILED,
     }
 }
@@ -789,8 +791,8 @@ impl TileMiss {
         };
         let url = fill_template(&template, z, x, y);
         let fetcher = INTERACTIVE.as_ref().ok_or(UPSTREAM_FAILED)?;
-        let bytes = match fetcher.fetch(&url).await {
-            Ok(bytes) => bytes,
+        let sent = match fetcher.fetch_as_sent(&url).await {
+            Ok(sent) => sent,
             Err(e) => {
                 if matches!(e, TileFetchError::Rejected { status: 404 }) {
                     notfound::remember_refused(&source, z, x, y);
@@ -809,6 +811,27 @@ impl TileMiss {
             }
         };
 
+        // Decompressed before it is kept, so a body that will not decompress
+        // is neither drawn nor kept.
+        let tile = if encoding::is_gzip(&sent) {
+            match encoding::gunzip(&sent) {
+                Ok(tile) => Some(tile),
+                Err(e) => {
+                    log::warn!(
+                        "[basemap] {} {}/{}/{} did not decompress: {}",
+                        source,
+                        z,
+                        x,
+                        y,
+                        e
+                    );
+                    return Err(UPSTREAM_FAILED);
+                }
+            }
+        } else {
+            None
+        };
+
         store.record_fetch(&source);
         if let Err(e) = store_fetched(
             &store,
@@ -818,7 +841,7 @@ impl TileMiss {
             x,
             y,
             &extension_of(&url),
-            &bytes,
+            &sent,
         ) {
             // The tile is still good to draw even if it could not be kept.
             log::warn!(
@@ -830,7 +853,7 @@ impl TileMiss {
                 e
             );
         }
-        Ok(bytes)
+        Ok(tile.unwrap_or(sent))
     }
 
     /// Ask the host on the engine's runtime and hand the answer to `done`,

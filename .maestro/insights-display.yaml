@@ -29,23 +29,47 @@ tags:
 
 - takeScreenshot: "screenshots/insights-panel-loaded"
 
-# Tap first insight card
+# Open the first card from its title. The card's graphic opens the screen its
+# data came from, so a tap at the card's centre leaves the tab instead.
+- copyTextFrom:
+    id: "insight-title"
+    index: 0
+- evalScript: ${output.cardTitle = maestro.copiedText}
 - tapOn:
-    id: "insight-card-0"
-    optional: true
+    id: "insight-title"
+    index: 0
 
-# Verify detail sheet opened
+# The sheet draws the tapped card, not only its frame.
 - extendedWaitUntil:
     visible:
       id: "insight-detail-sheet"
     timeout: 5000
-    optional: true
-
-# Check for methodology section
-- assertVisible:
-    id: "methodology-section"
-    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "insight-detail-title"
+    timeout: 5000
+- copyTextFrom:
+    id: "insight-detail-title"
+- assertTrue:
+    condition: ${maestro.copiedText == output.cardTitle}
+    label: "The sheet's title is the tapped card's"
 
 - takeScreenshot: "screenshots/insights-detail-sheet"
+
+# Swipe inside the sheet: the first swipe lifts it to full height, the rest
+# scroll its body. A scroll from the screen's centre would start above a sheet
+# at half height.
+- repeat:
+    while:
+      notVisible:
+        id: "methodology-section"
+    times: 8
+    commands:
+      - swipe:
+          start: "50%,85%"
+          end: "50%,45%"
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "methodology-section"
 
 - takeScreenshot: "screenshots/insights-display-complete"

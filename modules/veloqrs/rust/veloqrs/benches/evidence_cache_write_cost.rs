@@ -14,6 +14,7 @@
 
 use std::time::Instant;
 
+use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
@@ -37,10 +38,20 @@ fn corpus(bucket_a: usize) -> Vec<LifecycleActivity> {
     .collect()
 }
 
+fn cache_bytes(dir: &TempDir) -> usize {
+    let conn = Connection::open(dir.path().join("evidence.db")).expect("open");
+    conn.query_row(
+        "SELECT length(cache) FROM evidence_cache WHERE id = 1",
+        [],
+        |r| Ok(r.get::<_, i64>(0)? as usize),
+    )
+    .unwrap_or(0)
+}
+
 #[test]
 #[ignore = "detects a whole corpus per size; run it deliberately"]
 fn what_an_apply_pays_to_write_the_evidence_cache() {
-    println!("activities  write_ms  ms/act");
+    println!("activities  write_ms  ms/act   bytes  bytes/act");
     for &bucket_a in SIZES {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("evidence.db");
@@ -84,6 +95,12 @@ fn what_an_apply_pays_to_write_the_evidence_cache() {
             .save_processed_activity_ids(&processed)
             .expect("save_processed_activity_ids");
 
-        println!("{count:>10}  {write:>8.1}  {:>6.3}", write / count as f64);
+        // The row each apply rewrites whole, so this is the bytes one apply writes.
+        let bytes = cache_bytes(&dir);
+        println!(
+            "{count:>10}  {write:>8.1}  {:>6.3}  {bytes:>6}  {:>9}",
+            write / count as f64,
+            bytes / count
+        );
     }
 }

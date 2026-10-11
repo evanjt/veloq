@@ -326,19 +326,41 @@ const NOTHING_WRITTEN: BackupRunResult = { wroteZip: false, carriers: {} };
  * both would pass `carriersToRun` and both would ask Rust for an archive. Rust
  * holds one backup handle and refuses the second outright. The second caller
  * joins the first instead.
+ *
+ * Back Up Now is the exception. A run that was not forced may reach only the
+ * owed carriers, or none, so a forced call that meets one waits for it and
+ * then runs its own. Forced calls arriving meanwhile share that one follow-up,
+ * and so does any trigger, since the follow-up reaches every carrier.
  */
-let inFlight: Promise<BackupRunResult> | null = null;
+let inFlight: { run: Promise<BackupRunResult>; forced: boolean } | null = null;
+let forcedFollowUp: Promise<BackupRunResult> | null = null;
+
+function startRun(force: boolean): Promise<BackupRunResult> {
+  const run = runBackupOnce(force).finally(() => {
+    inFlight = null;
+  });
+  inFlight = { run, forced: force };
+  return run;
+}
 
 /**
  * Write the record archive and hand it to every available carrier.
  * A run that is skipped resolves with nothing written.
  */
 export async function performBackup(force = false): Promise<BackupRunResult> {
-  if (inFlight) return inFlight;
-  inFlight = runBackupOnce(force).finally(() => {
-    inFlight = null;
-  });
-  return inFlight;
+  if (forcedFollowUp) return forcedFollowUp;
+  if (!inFlight) return startRun(force);
+  if (!force || inFlight.forced) return inFlight.run;
+  // The run in flight has cleared its slot by the time this continues, so the
+  // follow-up never asks Rust for a second archive beside it.
+  const follow = inFlight.run
+    .catch(() => undefined)
+    .then(() => {
+      forcedFollowUp = null;
+      return startRun(true);
+    });
+  forcedFollowUp = follow;
+  return follow;
 }
 
 async function runBackupOnce(force: boolean): Promise<BackupRunResult> {

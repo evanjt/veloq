@@ -2452,6 +2452,34 @@ mod tests {
         }
     }
 
+    /// Every installed device holds a registry written plain, before the
+    /// named encoding was compressed. It has to restore rather than reseed.
+    #[test]
+    fn a_registry_written_plain_by_an_earlier_build_reads_back() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_holding(&dir, sample_registry_section());
+        let plain = codec::tag_blob(
+            SECTION_IDENTITY_BLOB_VERSION,
+            rmp_serde::to_vec_named(&engine.identity).expect("encode"),
+        );
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at) VALUES (?, ?, datetime('now'))",
+                rusqlite::params![SECTION_IDENTITY_KEY, plain],
+            )
+            .expect("write the plain blob");
+        engine.identity = SectionIdentity::default();
+
+        assert!(engine.section_identity_restore());
+        let row = engine.identity.rows.get("s_1").expect("the row");
+        assert_eq!(row.section.elevation_gain_m, Some(12.0));
+        assert_eq!(row.section.version, 7);
+
+        let compressed = engine.section_identity_blob().expect("encode");
+        assert!(compressed.len() < plain.len());
+    }
+
     /// What the version byte is now standing in front of: the encoding this
     /// replaced could not read its own output for such a section.
     #[test]
@@ -2489,8 +2517,11 @@ mod tests {
     #[test]
     fn a_grave_costs_what_a_restore_reads_and_no_more() {
         const GRAVES: usize = 50;
+        // The named body is what a restore decodes and a clone copies. The
+        // stored row is deflated, which shrinks the ids below their own length.
+        let named = |identity: &SectionIdentity| rmp_serde::to_vec_named(identity).expect("encode");
         let mut identity = SectionIdentity::default();
-        let empty = identity_blob_for(&identity).expect("encode").len();
+        let empty = named(&identity).len();
         let mut id_bytes = 0;
         for i in 0..GRAVES {
             let pid = format!("s_{i}");
@@ -2501,7 +2532,7 @@ mod tests {
                 .graves
                 .insert(pid, IdentityRow { real_id, section }.into());
         }
-        let full = identity_blob_for(&identity).expect("encode").len();
+        let full = named(&identity).len();
 
         let per_grave = (full - empty - id_bytes) / GRAVES;
         assert!(

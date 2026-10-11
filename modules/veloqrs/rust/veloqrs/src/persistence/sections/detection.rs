@@ -1849,8 +1849,10 @@ pub struct EvidenceRow {
 /// Encode the cache and its folded-id shadow. No engine, so a caller holding
 /// the checkpoint can pay the encode on its own thread.
 ///
-/// This is the expensive half: about 13 MB and 60 ms at 1,000 activities, and
-/// the blob grows faster than per activity, so it is not extrapolated linearly.
+/// This is the expensive half: about 13 MB of named body and 60 ms at 1,000
+/// activities before the body is deflated, which adds to the time and writes
+/// a row about a fifth of the size at 480 activities. The blob grows faster
+/// than per activity, so it is not extrapolated linearly.
 /// `benches/evidence_cache_write_cost.rs` takes the figures. Run inside the
 /// engine lock it was that long a hold every two seconds for the length of a
 /// detect, and every screen read arriving during one waited it out.
@@ -1899,13 +1901,13 @@ impl PersistentEngine {
     /// never allowed to fail an apply that already saved its catalogue.
     ///
     /// Cost scales worse than the pool, so it is quoted at a size rather than
-    /// per activity. Measured on the lifecycle corpus in release, desktop:
-    /// 271 KB at 24 activities, 1.4 MB at 120 and 6.3 MB at 480, which is 11.3,
-    /// 11.6 and 13.2 KB each. The write itself is 0.7 to 0.9 ms at 24, 5.3 to
-    /// 8.6 at 120 and 25.7 to 28.8 at 480. A 1,000-activity library pays about
-    /// 13 MB and 60 ms per apply on this hardware. The apply already runs off
-    /// the main thread, and the alternative it buys back is a whole cold
-    /// rebatch.
+    /// per activity. Measured on the lifecycle corpus, the named body is 301 KB
+    /// at 24 activities, 2.0 MB at 120 and 7.6 MB at 480, and the deflated row
+    /// written is 79 KB, 435 KB and 1.5 MB, which is 3.3, 3.6 and 3.1 KB each.
+    /// Before the row was deflated its write took 0.7 to 0.9 ms at 24, 5.3 to
+    /// 8.6 at 120 and 25.7 to 28.8 at 480, in release on a desktop. The apply
+    /// already runs off the main thread, and the alternative it buys back is a
+    /// whole cold rebatch.
     ///
     /// `benches/evidence_cache_write_cost.rs` takes the write figures and
     /// `benches/evidence_cache_decode_cost.rs` the sizes and first-read cost.

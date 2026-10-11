@@ -1,5 +1,6 @@
 {
   "da": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Badminton": "Danish sport name or established sport loanword.",
@@ -59,6 +60,7 @@
     "strength.muscles.triceps": "Danish anatomical term or abbreviation with the same spelling.",
     "support.forum": "Danish word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -80,6 +82,7 @@
     "insights.verdict.neutral": "Danish word or phrase with the same spelling."
   },
   "de-CH": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activity.stats.wind": "German word or phrase with the same spelling.",
@@ -134,6 +137,7 @@
     "stats.tss": "Conventional training or recording abbreviation.",
     "support.forum": "German word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -153,6 +157,7 @@
     "insights.verdict.neutral": "German word or phrase with the same spelling."
   },
   "de-DE": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "about.version": "German word or phrase with the same spelling.",
     "activity.stats.fitnessCTL": "Established German loanword or technical term.",
     "activity.stats.formTSB": "Established German loanword or technical term.",
@@ -232,6 +237,7 @@
     "stats.tss": "Conventional training or recording abbreviation.",
     "support.forum": "German word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -251,6 +257,7 @@
     "insights.verdict.neutral": "German word or phrase with the same spelling."
   },
   "es-419": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Crossfit": "Spanish sport name or established sport loanword.",
@@ -542,6 +549,7 @@
     "systemSurfaces.sport": "French word or phrase with the same spelling.",
     "trainingScreen.sections": "French word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -560,6 +568,7 @@
     "units.seconds": "Conventional measurement unit symbol."
   },
   "it": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Badminton": "Italian sport name or established sport loanword.",
@@ -617,6 +626,7 @@
     "support.idea": "Italian word or phrase with the same spelling.",
     "systemSurfaces.sport": "Italian sport name or established sport loanword.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -659,6 +669,7 @@
     "stats.tss": "Conventional training or recording abbreviation.",
     "statsScreen.ftpLabel": "FTP abbreviation, numeric placeholder and watt symbol.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -672,6 +683,7 @@
     "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "nl": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
     "backup.carrierGoogleDrive": "Service and product names.",
     "maps.layerHeatmap": "Established Dutch loanword or technical term.",
@@ -767,6 +779,7 @@
     "systemSurfaces.sport": "Established Dutch loanword or technical term.",
     "trainingScreen.routes": "Dutch word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -839,6 +852,7 @@
     "strength.muscles.triceps": "Polish anatomical term or abbreviation with the same spelling.",
     "support.forum": "Polish word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -857,6 +871,7 @@
     "routes.errorDetailId": "Conventional abbreviation for identifier."
   },
   "pt-BR": {
+    "activity.ftp": "Conventional training or recording abbreviation.",
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Crossfit": "Brazilian Portuguese sport name or established sport loanword.",
@@ -909,6 +924,7 @@
     "strength.totalLabel": "Brazilian Portuguese word or phrase with the same spelling.",
     "systemSurfaces.insights": "Established Brazilian Portuguese loanword or technical term.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -983,6 +999,7 @@
     "strength.totalLabel": "Portuguese word or phrase with the same spelling.",
     "systemSurfaces.insights": "Established Portuguese loanword or technical term.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.kcal": "Conventional measurement unit symbol.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -1018,6 +1035,7 @@
     "stats.tss": "Conventional training or recording abbreviation.",
     "statsScreen.ftpLabel": "FTP abbreviation, numeric placeholder and watt symbol.",
     "units.bpm": "Conventional measurement unit symbol.",
+    "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.metresPerHour": "SI or imperial unit symbol, written the same in every language.",
     "units.ms": "International unit symbol.",

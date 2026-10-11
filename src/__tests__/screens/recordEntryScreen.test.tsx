@@ -6,18 +6,21 @@
  *
  * Expected behaviour: Start navigates to the armed recording screen and does
  * nothing else, the chips choose the sport it starts, and today's planned
- * workouts follow the engine's calendar announcement.
+ * workouts follow the engine's calendar announcement. The notification dialog
+ * is raised at most once ever, and while notifications or the lock-screen card
+ * are off one line says the ride's controls stay inside the app.
  */
 import React from 'react';
-import { Platform, StyleSheet, type ViewStyle } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet, type ViewStyle } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 
 import RecordScreen from '@/app/record';
 import { initialiseI18n } from '@/i18n';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
+import { isLiveActivitySupported } from '@/features/recording/lib/liveActivity/bridge';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTo } from '@/shared/app/navigation';
 import type { CalendarEvent } from '@/types';
@@ -38,8 +41,15 @@ jest.mock('@/shared/native/engine', () => ({
     },
   }),
 }));
-jest.mock('@/features/settings/lib/notificationService', () => ({
-  requestNotificationPermission: jest.fn(async () => true),
+jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
+  getPermissionsAsync: jest.fn(async () => ({ status: 'undetermined', canAskAgain: true })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+}));
+jest.mock('@/features/recording/lib/liveActivity/bridge', () => ({
+  ...jest.requireActual('@/features/recording/lib/liveActivity/bridge'),
+  isLiveActivityAvailable: jest.fn(() => true),
+  isLiveActivitySupported: jest.fn(() => true),
 }));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
@@ -57,7 +67,10 @@ jest.mock('@/shared/app/sheetRequest', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: ({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
+      options?.headerRight?.() ?? null,
+  },
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -113,13 +126,30 @@ beforeAll(async () => {
   await initialiseI18n('en-AU');
 });
 
+const askRequested = () => (Notifications.requestPermissionsAsync as jest.Mock).mock.calls.length;
+
+const initialisePreferences = useRecordingPreferences.getState().initialise;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+    status: 'undetermined',
+    canAskAgain: true,
+  });
+  (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({
+    status: 'granted',
+    canAskAgain: true,
+  });
   mockOpenedSheets.length = 0;
   for (const key of Object.keys(mockListeners)) delete mockListeners[key];
   mockEvents = [];
   useRecordingStore.getState().reset();
-  useRecordingPreferences.setState({ isLoaded: true, recentActivityTypes: [] });
+  useRecordingPreferences.setState({
+    isLoaded: true,
+    recentActivityTypes: [],
+    notificationsAsked: false,
+    initialise: initialisePreferences,
+  } as never);
   useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true, authMethod: 'apiKey' });
 });
 
@@ -146,16 +176,16 @@ describe('a Start tap is answered at once', () => {
     render(<RecordScreen />);
 
     await waitFor(() => expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled());
-    expect(requestNotificationPermission).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
 
     await act(async () => {
       answerLocation({ status: 'granted' });
     });
-    expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
 
     fireEvent.press(screen.getByTestId('record-start'));
     expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
-    expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
   });
 
   it('asks for nothing when a live session sends the athlete straight back to it', async () => {
@@ -163,20 +193,28 @@ describe('a Start tap is answered at once', () => {
     render(<RecordScreen />);
 
     await act(async () => {});
-    expect(requestNotificationPermission).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
     expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it('navigates to the armed recording screen and does nothing else', () => {
     render(<RecordScreen />);
-    (requestNotificationPermission as jest.Mock).mockClear();
+    const asksBefore = askRequested();
 
     fireEvent.press(screen.getByTestId('record-start'));
 
     expect(navigateTo).toHaveBeenCalledTimes(1);
     expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
-    expect(requestNotificationPermission).not.toHaveBeenCalled();
+    expect(askRequested()).toBe(asksBefore);
     expect(useRecordingStore.getState().status).toBe('idle');
+  });
+
+  it('names the header cog for the recording settings it opens', () => {
+    render(<RecordScreen />);
+
+    expect(screen.getByTestId('record-settings').props.accessibilityLabel).toBe(
+      'Recording Settings'
+    );
   });
 
   it('starts the sport the athlete last recorded, and says so on the button', () => {
@@ -244,6 +282,147 @@ describe('a Start tap is answered at once', () => {
     expect(screen.getByTestId('record-surface-manual')).toBeTruthy();
     fireEvent.press(screen.getByTestId('record-start'));
     expect(navigateTo).toHaveBeenCalledWith('/recording/Yoga?from=entry');
+  });
+});
+
+function notificationsAre(response: { status: string; canAskAgain: boolean }) {
+  (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue(response);
+  (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue(response);
+}
+
+describe('notifications on Android, which carry the ride outside the app', () => {
+  const platform = Platform.OS;
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+  afterEach(() => {
+    Platform.OS = platform;
+  });
+
+  it('raises the dialog once, not again on the next visit after a refusal', async () => {
+    notificationsAre({ status: 'denied', canAskAgain: true });
+
+    const first = render(<RecordScreen />);
+    await waitFor(() => expect(askRequested()).toBe(1));
+    first.unmount();
+
+    render(<RecordScreen />);
+    await act(async () => {});
+    expect(askRequested()).toBe(1);
+  });
+
+  it('asks nothing before the preferences load, or a restart would ask again', async () => {
+    notificationsAre({ status: 'denied', canAskAgain: true });
+    useRecordingPreferences.setState({ isLoaded: false });
+    useRecordingPreferences.setState({ initialise: jest.fn(async () => undefined) } as never);
+
+    render(<RecordScreen />);
+    await act(async () => {});
+    expect(askRequested()).toBe(0);
+  });
+
+  it('says what a refusal costs, and Allow raises the dialog again while it can', async () => {
+    notificationsAre({ status: 'denied', canAskAgain: true });
+    useRecordingPreferences.setState({ notificationsAsked: true } as never);
+    render(<RecordScreen />);
+
+    const notice = await screen.findByTestId('record-outside-app-notice');
+    expect(notice).toHaveTextContent(/outside the app/);
+    expect(askRequested()).toBe(0);
+
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      canAskAgain: true,
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Allow'));
+    });
+    expect(askRequested()).toBe(1);
+    await waitFor(() => expect(screen.queryByTestId('record-outside-app-notice')).toBeNull());
+  });
+
+  it('offers the app settings once the system will not ask again', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    notificationsAre({ status: 'denied', canAskAgain: false });
+    render(<RecordScreen />);
+
+    await screen.findByTestId('record-outside-app-notice');
+    expect(screen.queryByText('Allow')).toBeNull();
+    fireEvent.press(screen.getByText('Open settings'));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(askRequested()).toBe(0);
+    openSettings.mockRestore();
+  });
+
+  it('drops the line when the athlete comes back from settings having allowed them', async () => {
+    notificationsAre({ status: 'denied', canAskAgain: false });
+    render(<RecordScreen />);
+    await screen.findByTestId('record-outside-app-notice');
+
+    notificationsAre({ status: 'granted', canAskAgain: true });
+    const appStateListeners = (AppState.addEventListener as jest.Mock).mock.calls
+      .filter(([event]) => event === 'change')
+      .map(([, listener]) => listener as (state: string) => void);
+    await act(async () => {
+      for (const listener of appStateListeners) listener('active');
+    });
+
+    expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
+  });
+
+  it('shows nothing and asks nothing when notifications are allowed', async () => {
+    notificationsAre({ status: 'granted', canAskAgain: true });
+    render(<RecordScreen />);
+
+    await act(async () => {});
+    expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
+    expect(askRequested()).toBe(0);
+  });
+
+  it('never stands between the athlete and Start', async () => {
+    notificationsAre({ status: 'denied', canAskAgain: false });
+    render(<RecordScreen />);
+    await screen.findByTestId('record-outside-app-notice');
+
+    fireEvent.press(screen.getByTestId('record-start'));
+    expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
+  });
+});
+
+describe('the lock-screen card on iOS', () => {
+  const platform = Platform.OS;
+  beforeEach(() => {
+    Platform.OS = 'ios';
+    Object.defineProperty(Platform, 'isPad', { value: false, configurable: true });
+  });
+  afterEach(() => {
+    Platform.OS = platform;
+    Object.defineProperty(Platform, 'isPad', { value: false, configurable: true });
+    (isLiveActivitySupported as jest.Mock).mockReturnValue(true);
+  });
+
+  it('says the controls stay in the app when Live Activities are off', async () => {
+    (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
+    render(<RecordScreen />);
+
+    const notice = await screen.findByTestId('record-outside-app-notice');
+    expect(notice).toHaveTextContent(/lock screen/);
+    expect(screen.getByText('Open settings')).toBeTruthy();
+    expect(askRequested()).toBe(0);
+  });
+
+  it('shows nothing while the card is on', async () => {
+    render(<RecordScreen />);
+    await act(async () => {});
+    expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
+  });
+
+  it('shows nothing on a tablet, which has no lock-screen card to turn on', async () => {
+    Object.defineProperty(Platform, 'isPad', { value: true, configurable: true });
+    (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
+    render(<RecordScreen />);
+    await act(async () => {});
+    expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
   });
 });
 

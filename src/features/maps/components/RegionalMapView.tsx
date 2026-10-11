@@ -15,6 +15,7 @@ import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
+import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 import {
   useSectionAutoToggle,
@@ -425,6 +426,12 @@ export function RegionalMapView({
     setSectionChoices([]);
     setSelectedSectionId(sectionId);
   }, []);
+
+  // Back closes whichever popup or list opened last, before it switches tab.
+  useBackDismiss(!!selected, handleClosePopup);
+  useBackDismiss(!!selectedSection, () => setSelectedSectionId(null));
+  useBackDismiss(!!selectedRoute, () => setSelectedRouteId(null));
+  useBackDismiss(chosenSections.length > 1, () => setSectionChoices([]));
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;

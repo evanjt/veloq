@@ -28,8 +28,11 @@ interface FitnessTrendSectionsProps {
   timeRange: TimeRange;
   powerZones: ZoneDistribution[] | undefined;
   hrZones: ZoneDistribution[] | undefined;
-  /** Whether the period the zone charts are captioned with was downloaded. */
-  zoneCoverage: RangeCoverage;
+  /**
+   * Whether the period the zone charts are captioned with was downloaded. The
+   * decoupling ride is picked from the activities of the same period.
+   */
+  periodCoverage: RangeCoverage;
   loadingActivities: boolean;
   hasActivities: boolean;
   dominantZone: { name: string; percentage: number } | null;
@@ -37,6 +40,8 @@ interface FitnessTrendSectionsProps {
   onZonesToggle: (expanded: boolean) => void;
   // eFTP trend (cycling)
   eftpTrend: FtpTrendView | undefined;
+  /** Whether the wellness the eFTP trend is read from was downloaded. */
+  eftpCoverage: RangeCoverage;
   ftpTrend: TrendDirection | null;
   trendsExpanded: boolean;
   onTrendsToggle: (expanded: boolean) => void;
@@ -54,13 +59,14 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   timeRange,
   powerZones,
   hrZones,
-  zoneCoverage,
+  periodCoverage,
   loadingActivities,
   hasActivities,
   dominantZone,
   zonesExpanded,
   onZonesToggle,
   eftpTrend,
+  eftpCoverage,
   ftpTrend,
   trendsExpanded,
   onTrendsToggle,
@@ -118,7 +124,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                       data={powerZones}
                       type="power"
                       periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                      coverage={zoneCoverage}
+                      coverage={periodCoverage}
                     />
                   </View>
                 )}
@@ -127,7 +133,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                     data={hrZones}
                     type="hr"
                     periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                    coverage={zoneCoverage}
+                    coverage={periodCoverage}
                   />
                 </View>
               </>
@@ -175,6 +181,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   change={eftpTrend?.change}
                   changePercent={eftpTrend?.changePercent}
                   height={180}
+                  coverage={eftpCoverage}
                 />
               )}
             </View>
@@ -250,7 +257,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
         <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
           <CollapsibleSection
             testID="fitness-section-efficiency"
-            title={t('statsScreen.decoupling')}
+            title={t('stats.aerobicDecoupling')}
             icon="heart-flash"
             expanded={efficiencyExpanded}
             onToggle={onEfficiencyToggle}
@@ -269,7 +276,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <DecouplingChart source={decouplingSource} height={120} />
+                <DecouplingChart source={decouplingSource} height={120} coverage={periodCoverage} />
               )}
             </View>
           </CollapsibleSection>

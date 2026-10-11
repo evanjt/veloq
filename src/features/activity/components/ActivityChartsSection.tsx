@@ -36,7 +36,7 @@ import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import type { HrZoneBand, ActivityFitnessImpact } from 'veloqrs';
+import type { HrZoneBand, PowerZoneBand, ActivityFitnessImpact } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { IntervalsOutcome } from '../hooks/useActivities';
@@ -108,6 +108,8 @@ interface ActivityChartsSectionProps {
   newGround?: ActivityNewGround | undefined;
   /** The engine-resolved zone bands and time in each, from the detail screen read */
   hrZones?: HrZoneBand[] | undefined;
+  /** The engine-resolved power zone bands in watts and time in each, from the detail screen read */
+  powerZones?: PowerZoneBand[] | undefined;
   /** The screen's opening transition has ended, so the content below the top chart may mount */
   transitionSettled: boolean;
   onPointSelect: (index: number | null) => void;
@@ -139,6 +141,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   fitnessImpact,
   newGround,
   hrZones,
+  powerZones,
   transitionSettled,
   onPointSelect,
   onInteractionChange,
@@ -292,12 +295,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     return chips;
   }, [intervalsData, activity]);
 
-  // Each block is gated on the source it reads. Only the chart and the HR zones
-  // need a stream; the intervals and the power zones are persisted columns, so
-  // a streamless activity still has both.
+  // Each block is gated on the source it reads. Only the chart needs a stream;
+  // the intervals are a persisted column and both zone cards are the engine's
+  // bands, which come from the activity body when no stream was fetched.
   const hasIntervals = (intervalsData?.icu_intervals?.length ?? 0) > 0;
   const intervalsOwed = !hasIntervals && intervalsOutcome === 'pending';
-  const hasPowerZones = (activity.icu_zone_times?.length ?? 0) > 0;
+  const hasHrZones = (hrZones?.length ?? 0) > 0;
+  const hasPowerZones = (powerZones?.length ?? 0) > 0;
 
   return (
     <>
@@ -312,6 +316,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
           availableCharts.length > 0 ||
           hasIntervals ||
           intervalsOwed ||
+          hasHrZones ||
           hasPowerZones) && (
           <View style={styles.chartSection}>
             {!streamsDownloaded && (
@@ -429,7 +434,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* HR Zones Chart */}
-            {streams?.heartrate && streams.heartrate.length > 0 && (
+            {hasHrZones && (
               <View
                 testID="activity-zone-chart"
                 style={[styles.chartCard, isDark && styles.cardDark]}
@@ -441,10 +446,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* Power Zones Chart */}
-            {hasPowerZones && (
+            {powerZones && hasPowerZones && (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <ComponentErrorBoundary componentName="Power Zones Chart">
-                  <PowerZonesChart activity={activity} />
+                  <PowerZonesChart
+                    powerZones={powerZones}
+                    ftp={activity.icu_ftp}
+                    movingTime={activity.moving_time}
+                  />
                 </ComponentErrorBoundary>
               </View>
             )}

@@ -13,6 +13,12 @@
 // the role from the caller, which the caller is counted for.
 //
 // Not counted: `src/shared/ui/` and tests.
+//
+// Also refused, with no baseline and `src/shared/ui/` included: a press target with a role and no
+// name. Its opening tag holds no `accessibilityLabel`, `aria-label` or spread, and nothing between
+// it and its closing tag, a nested press target's own children aside, is a `Text` of any kind. A
+// screen reader announces it as "button" and nothing else, which is what an icon-only control
+// with a role and no label does.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -46,12 +52,59 @@ function openingTag(text, start) {
   return null;
 }
 
+const SPREAD = /\{\s*\.\.\.\w+\s*\}/;
+const NAMED = /\baccessibilityLabel\b|\baria-label\b/;
+const TEXT_CHILD = /<[\w.]*Text(?=[\s/>])/;
+const PRESS_TAG = /<\/?(?:TouchableOpacity|Pressable|AnimatedPressable)(?=[\s/>])/g;
+
+/**
+ * The children of the press target opening at `start`, with any nested press target's own
+ * children cut out, or null when its closing tag cannot be found. A self-closing tag has none.
+ */
+function ownChildren(text, start, tag) {
+  if (tag.trimEnd().endsWith('/')) return '';
+  const from = start + tag.length + 1;
+  let depth = 1;
+  let own = '';
+  let ownFrom = from;
+  PRESS_TAG.lastIndex = from;
+  for (let m = PRESS_TAG.exec(text); m !== null; m = PRESS_TAG.exec(text)) {
+    if (m[0].startsWith('</')) {
+      depth -= 1;
+      if (depth === 0) return own + text.slice(ownFrom, m.index);
+      if (depth === 1) ownFrom = m.index;
+      continue;
+    }
+    const inner = openingTag(text, m.index);
+    if (inner === null) return null;
+    PRESS_TAG.lastIndex = m.index + inner.length + 1;
+    if (inner.trimEnd().endsWith('/')) continue;
+    if (depth === 1) own += text.slice(ownFrom, m.index);
+    depth += 1;
+  }
+  return null;
+}
+
+/** The lines of press targets that carry a role and give a screen reader nothing to name them by. */
+function unnamedIn(text) {
+  const lines = [];
+  for (const match of text.matchAll(OPENING)) {
+    const tag = openingTag(text, match.index);
+    if (tag === null || !tag.includes('accessibilityRole')) continue;
+    if (NAMED.test(tag) || SPREAD.test(tag)) continue;
+    const children = ownChildren(text, match.index, tag);
+    if (children === null || TEXT_CHILD.test(children)) continue;
+    lines.push(text.slice(0, match.index).split('\n').length);
+  }
+  return lines;
+}
+
 function rolelessIn(text) {
   let n = 0;
   for (const match of text.matchAll(OPENING)) {
     const tag = openingTag(text, match.index);
     if (tag === null) continue;
-    if (tag.includes('accessibilityRole') || /\{\s*\.\.\.\w+\s*\}/.test(tag)) continue;
+    if (tag.includes('accessibilityRole') || SPREAD.test(tag)) continue;
     n += 1;
   }
   return n;
@@ -60,11 +113,15 @@ function rolelessIn(text) {
 const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 
 const counts = {};
+const unnamed = [];
 for (const file of tree.files(
   SRC,
   (rel) => /\.tsx?$/.test(rel) && !rel.split('/').includes('node_modules')
 )) {
   const rel = relative(ROOT, file).split('\\').join('/');
+  if (!rel.startsWith('src/__tests__/')) {
+    for (const line of unnamedIn(tree.text(file))) unnamed.push(`${rel}:${line}`);
+  }
   if (EXEMPT.some((prefix) => rel.startsWith(prefix))) continue;
   const hits = rolelessIn(tree.text(file));
   if (hits > 0) counts[rel] = hits;
@@ -78,6 +135,15 @@ if (WRITE) {
     `role-less pressable baseline written: ${total()} across ${Object.keys(counts).length} files`
   );
   process.exit(0);
+}
+
+if (unnamed.length > 0) {
+  console.error('A press target with a role and no name is announced as "button" alone. Give it');
+  console.error(
+    'an accessibilityLabel, or use IconButton from src/shared/ui, which requires one.\n'
+  );
+  for (const site of unnamed) console.error(`  ${site}`);
+  process.exit(1);
 }
 
 const baseline = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));

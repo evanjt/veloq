@@ -545,12 +545,15 @@ pub(crate) mod pooled {
         let prev_fatigue = load_baseline.and_then(|r| r.atl).map(f64::round);
         let prev_form = prev_fitness.zip(prev_fatigue).map(|(c, a)| c - a);
 
-        let prev_hrv =
-            baseline_on_or_before(&rows, &latest.date, DAY, |r| r.hrv).and_then(|r| r.hrv);
-        let prev_rhr = baseline_on_or_before(&rows, &latest.date, DAY, |r| r.resting_hr)
-            .and_then(|r| r.resting_hr);
-        let prev_weight =
-            baseline_on_or_before(&rows, &latest.date, WEEK, |r| r.weight).and_then(|r| r.weight);
+        let hrv_baseline = baseline_on_or_before(&rows, &latest.date, DAY, |r| r.hrv);
+        let rhr_baseline = baseline_on_or_before(&rows, &latest.date, DAY, |r| r.resting_hr);
+        let weight_baseline = baseline_on_or_before(&rows, &latest.date, WEEK, |r| r.weight);
+        let prev_hrv = hrv_baseline.and_then(|r| r.hrv);
+        let prev_rhr = rhr_baseline.and_then(|r| r.resting_hr);
+        let prev_weight = weight_baseline.and_then(|r| r.weight);
+        // The day a baseline was read, so a surface can say what an arrow
+        // compares against rather than leave "the day before" implied.
+        let read_on = |row: Option<&WellnessRow>| row.map(|r| super::date_epoch(&r.date));
 
         let both_loads = |r: &WellnessRow| r.ctl.zip(r.atl).map(|(c, _)| c);
         let fitness_basis = fitness.and(basis(&rows, &latest.date, DAY, |r| r.ctl));
@@ -581,6 +584,11 @@ pub(crate) mod pooled {
             form_previous: prev_form,
             hrv_previous: prev_hrv,
             rhr_previous: prev_rhr,
+            weight_previous: prev_weight,
+            load_previous_date: read_on(load_baseline),
+            hrv_previous_date: read_on(hrv_baseline),
+            rhr_previous_date: read_on(rhr_baseline),
+            weight_previous_date: read_on(weight_baseline),
             fitness_basis,
             fatigue_basis,
             form_basis,
@@ -749,6 +757,33 @@ pub(crate) mod pooled {
                 .format("%Y-%m-%d")
                 .to_string(),
         )
+    }
+
+    /// Whether a window of local days, inclusive at both ends, holds stored
+    /// wellness, holds none, or was never pulled.
+    ///
+    /// intervals.icu answers a row for every day from the athlete's first
+    /// through today, so a stored day inside the window is the window loaded.
+    /// A window with no row is empty only when wellness is stored for some
+    /// other day: with nothing stored at all, the sync has not pulled it, and
+    /// calling that empty is what tells a fresh device the athlete recorded
+    /// nothing. A read that fails is ignorance too.
+    pub(crate) fn coverage(conn: &Connection, oldest: &str, newest: &str) -> crate::RangeCoverage {
+        let counted: SqlResult<(bool, bool)> = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM wellness WHERE date BETWEEN ?1 AND ?2),
+                    EXISTS(SELECT 1 FROM wellness)",
+            params![oldest, newest],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+        match counted {
+            Ok((true, _)) => crate::RangeCoverage::Loaded,
+            Ok((false, true)) => crate::RangeCoverage::Empty,
+            Ok((false, false)) => crate::RangeCoverage::NotFetched,
+            Err(e) => {
+                log::warn!("veloqrs: [wellness] coverage read failed: {}", e);
+                crate::RangeCoverage::NotFetched
+            }
+        }
     }
 
     /// The newest stored wellness date, or `None` on an empty table.
@@ -1083,5 +1118,62 @@ mod tests {
         assert_eq!(finite(Some(42.0)), Some(42.0));
         assert_eq!(finite(Some(0.0)), Some(0.0));
         assert_eq!(finite(None), None);
+    }
+
+    fn stored_day(engine: &PersistentEngine, date: &str) {
+        engine
+            .db
+            .execute(
+                "INSERT INTO wellness (date, ctl, atl) VALUES (?1, 50.0, 40.0)",
+                params![date],
+            )
+            .expect("wellness day");
+    }
+
+    /// Scenario: a wellness chart with nothing to draw cannot tell a device that
+    /// never pulled wellness from a window the account holds nothing for.
+    ///
+    /// Expected behaviour: no stored wellness at all owes the download, a stored
+    /// day inside the window at either end loads it, and stored days only
+    /// outside it leave the window empty.
+    #[test]
+    fn wellness_coverage_separates_never_pulled_from_empty() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("wellness_coverage.db");
+        let engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("engine");
+        let coverage = |oldest: &str, newest: &str| pooled::coverage(&engine.db, oldest, newest);
+
+        assert_eq!(
+            coverage("2026-03-01", "2026-03-31"),
+            crate::RangeCoverage::NotFetched,
+            "nothing stored is a pull that has not happened"
+        );
+
+        stored_day(&engine, "2026-02-28");
+        stored_day(&engine, "2026-04-01");
+        assert_eq!(
+            coverage("2026-03-01", "2026-03-31"),
+            crate::RangeCoverage::Empty,
+            "days stored either side say the window itself holds nothing"
+        );
+
+        stored_day(&engine, "2026-03-31");
+        assert_eq!(
+            coverage("2026-03-01", "2026-03-31"),
+            crate::RangeCoverage::Loaded,
+            "the newest day of the window counts"
+        );
+        assert_eq!(
+            coverage("2026-02-28", "2026-02-28"),
+            crate::RangeCoverage::Loaded,
+            "a window of one day reads that day"
+        );
+        assert_eq!(
+            coverage("2026-01-01", "2026-02-27"),
+            crate::RangeCoverage::Empty
+        );
+
+        crate::persistence::read_cache::close();
     }
 }

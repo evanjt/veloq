@@ -8,6 +8,8 @@
  * missing prerequisite of the platform named, names the SSH remote when the
  * submodule cannot be fetched, never asks an iOS build for the Android
  * toolchain, refuses a call that names no platform, and does nothing in CI.
+ * A Node major other than the one `.nvmrc` pins is named as a warning that
+ * leaves the verdict alone, since CI builds under the pinned major.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -131,6 +133,43 @@ describe('check-toolchain', () => {
     const result = check(rustClone(APPLE, { xcode: false }), {}, ['--platform', 'ios']);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('xcodebuild not found');
+  });
+
+  const runningMajor = Number(process.versions.node.split('.')[0]);
+
+  it.each([['24'], ['v24.3.0\n'], ['lts/*']])(
+    'warns when the running Node major differs from an .nvmrc of %j, and still passes',
+    (pin) => {
+      const root = rustClone(APPLE);
+      const pinned = pin.replace(/\d+/, String(runningMajor + 1));
+      fs.writeFileSync(path.join(root, '.nvmrc'), pinned);
+      const result = check(root, {}, ['--platform', 'ios']);
+      expect(result.status).toBe(0);
+      if (/\d/.test(pin)) {
+        expect(result.stderr).toContain(
+          `Node ${process.version} is running, but .nvmrc pins Node ${runningMajor + 1}`
+        );
+      } else {
+        expect(result.stderr).toBe('');
+      }
+    }
+  );
+
+  it('says nothing when the running Node major is the pinned one', () => {
+    const root = rustClone(APPLE);
+    fs.writeFileSync(path.join(root, '.nvmrc'), `${runningMajor}\n`);
+    const result = check(root, {}, ['--platform', 'ios']);
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('names a Node mismatch beside the missing prerequisites it refuses', () => {
+    const root = freshClone();
+    fs.writeFileSync(path.join(root, '.nvmrc'), String(runningMajor + 1));
+    const result = check(root, {});
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`.nvmrc pins Node ${runningMajor + 1}`);
+    expect(result.stderr).toContain('cargo not found');
   });
 
   it.each([[[]], [['--platform']], [['--platform', 'windows']]])(

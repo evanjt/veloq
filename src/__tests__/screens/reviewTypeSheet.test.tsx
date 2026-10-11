@@ -19,7 +19,11 @@ const mockParams: { request?: string } = {};
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  router: {
+    push: (...a: unknown[]) => mockPush(...a),
+    canGoBack: () => true,
+    back: () => mockBack(),
+  },
   useLocalSearchParams: () => mockParams,
   Stack: { Screen: () => null },
 }));
@@ -33,7 +37,11 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), replaceTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({
+  navigateTo: jest.fn(),
+  replaceTo: jest.fn(),
+  goBack: jest.requireActual('@/shared/app/navigation').goBack,
+}));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
 jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides({

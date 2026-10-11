@@ -149,12 +149,14 @@ function FitnessScreenContent() {
   // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
   const {
     wellness,
+    wellnessCoverage,
     activities,
     dailyLoads,
     powerZones,
     hrZones,
-    zoneCoverage,
+    periodCoverage,
     eftpTrend,
+    eftpCoverage,
     eftpChanges,
     storedRunPace,
     storedSwimPace,
@@ -210,7 +212,7 @@ function FitnessScreenContent() {
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
-          <BestEffortsHeaderButton />
+          <BestEffortsHeaderButton period={timeRange} />
         </View>
         <View style={styles.skeletonContainer}>
           <ChartSkeleton height={180} />
@@ -229,7 +231,7 @@ function FitnessScreenContent() {
         {isFetching && !isRefreshing && (
           <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
         )}
-        <BestEffortsHeaderButton />
+        <BestEffortsHeaderButton period={timeRange} />
       </View>
 
       <ScrollView
@@ -265,6 +267,7 @@ function FitnessScreenContent() {
             // failed wellness read is named in this card and leaves them standing.
             <FitnessChartCard
               wellness={wellness ?? NO_WELLNESS}
+              wellnessCoverage={wellnessCoverage}
               activities={activities ?? NO_ACTIVITIES}
               dailyLoads={dailyLoads}
               eftpChanges={eftpChanges}
@@ -292,6 +295,7 @@ function FitnessScreenContent() {
             <View onLayout={(event) => onAnchorLayout('performance', event)}>
               <PerformanceCurveSection
                 sportMode={sportMode}
+                timeRange={timeRange}
                 days={days}
                 currentFTP={currentFTP}
                 thresholdPace={thresholdPace}
@@ -315,13 +319,14 @@ function FitnessScreenContent() {
                 timeRange={timeRange}
                 powerZones={powerZones}
                 hrZones={hrZones}
-                zoneCoverage={zoneCoverage}
+                periodCoverage={periodCoverage}
                 loadingActivities={loadingActivities}
                 hasActivities={!!activities}
                 dominantZone={dominantZone}
                 zonesExpanded={sections.expanded('zones')}
                 onZonesToggle={sections.onToggle('zones')}
                 eftpTrend={eftpTrend}
+                eftpCoverage={eftpCoverage}
                 ftpTrend={ftpTrend}
                 trendsExpanded={sections.expanded('trends')}
                 onTrendsToggle={sections.onToggle('trends')}

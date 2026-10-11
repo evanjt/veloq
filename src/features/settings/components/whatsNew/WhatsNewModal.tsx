@@ -27,10 +27,20 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { useCutoverSummary, useGroupSummaries, useSectionSummaries } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
-import { resolveShowMeRoute, SHOW_ME_MIN_VISITS } from '@/features/settings/lib/tourShowMe';
+import {
+  resolveShowMeRoute,
+  SHOW_ME_MIN_VISITS,
+  type TourLibrary,
+} from '@/features/settings/lib/tourShowMe';
+import { useActivityCount } from '@/shared/native/useActivityCount';
 import { TOUR_CARD_HEIGHT_RATIO, tourSlideAreaHeight } from '../../lib/tourSlideFit';
 import { tourResumeMotion } from '../../lib/tourResume';
-import { getAllSlides, getSlidesSince, type WhatsNewSlideDefinition } from './slides';
+import {
+  getAllSlides,
+  getSlidesSince,
+  getTutorialSlides,
+  type WhatsNewSlideDefinition,
+} from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 import { Button } from '@/shared/ui';
 
@@ -41,6 +51,7 @@ const ENTER_FADE_MS = 300;
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const ALL_SLIDES = getAllSlides();
+const TUTORIAL_SLIDES = getTutorialSlides();
 
 function withoutShowMe(slide: WhatsNewSlideDefinition): WhatsNewSlideDefinition {
   const {
@@ -85,9 +96,18 @@ export function WhatsNewModal() {
     sortBy: 'count',
     enabled: tourOpen,
   }).summaries[0]?.groupId;
+  const hasActivities = useActivityCount() > 0;
+  const library = useMemo<TourLibrary>(
+    () => ({
+      hasActivities,
+      sectionId: busiestSectionId,
+      routeId: busiestRouteId,
+      cutoverChanged,
+    }),
+    [hasActivities, busiestSectionId, busiestRouteId, cutoverChanged]
+  );
 
   const currentVersion = Constants.expoConfig?.version ?? '';
-  const allSlides = ALL_SLIDES;
   const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
 
   const hasAutoTriggered = useRef(false);
@@ -95,7 +115,7 @@ export function WhatsNewModal() {
     // Demo is not a sign-in: opening the tour there would mark it seen before the first real one.
     if (!isLoaded || !isAuthenticated || isDemoMode || hasAutoTriggered.current || tourState)
       return;
-    if (lastSeenVersion === null && allSlides.length > 0) {
+    if (lastSeenVersion === null) {
       hasAutoTriggered.current = true;
       startTour('tutorial');
     } else if (lastSeenVersion !== currentVersion && missedSlides.length > 0) {
@@ -112,21 +132,24 @@ export function WhatsNewModal() {
     lastSeenVersion,
     currentVersion,
     missedSlides.length,
-    allSlides.length,
     tourState,
     startTour,
     markSeen,
   ]);
 
   const tourSlides =
-    tourState?.mode === 'tutorial' ? allSlides : missedSlides.length > 0 ? missedSlides : allSlides;
+    tourState?.mode === 'tutorial'
+      ? TUTORIAL_SLIDES
+      : missedSlides.length > 0
+        ? missedSlides
+        : ALL_SLIDES;
   const slides = useMemo(
     () =>
       tourSlides.map(
         (slide): WhatsNewSlideDefinition =>
-          slide.showMeWhen === 'cutoverChanged' && !cutoverChanged ? withoutShowMe(slide) : slide
+          resolveShowMeRoute(slide, library) === undefined ? withoutShowMe(slide) : slide
       ),
-    [tourSlides, cutoverChanged]
+    [tourSlides, library]
   );
   const slideCount = slides.length;
 
@@ -211,15 +234,13 @@ export function WhatsNewModal() {
   const handleShowMe = useCallback(() => {
     const current = activeIndex.value;
     const slide = slides[current];
-    if (!slide?.showMeRoute) return;
+    const route = slide ? resolveShowMeRoute(slide, library) : undefined;
+    if (!slide || route === undefined) return;
 
-    const route =
-      resolveShowMeRoute(slide, { sectionId: busiestSectionId, routeId: busiestRouteId }) ??
-      slide.showMeRoute;
     const nextIndex = Math.min(current + 1, slideCount - 1);
     showMe(current, nextIndex, slide.showMeTip);
     navigateTab(route);
-  }, [activeIndex, slides, slideCount, showMe, busiestSectionId, busiestRouteId]);
+  }, [activeIndex, slides, slideCount, showMe, library]);
 
   const handleModeToggle = useCallback(() => {
     const newMode = tourState?.mode === 'tutorial' ? 'whatsNew' : 'tutorial';
@@ -271,7 +292,7 @@ export function WhatsNewModal() {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
-  const canToggleMode = missedSlides.length > 0 && allSlides.length > missedSlides.length;
+  const canToggleMode = missedSlides.length > 0;
 
   return (
     <Animated.View
@@ -301,7 +322,7 @@ export function WhatsNewModal() {
                   body={t(slide.bodyKey as never)}
                   availableHeight={slideAreaHeight}
                 >
-                  <slide.Component />
+                  {slide.Component && <slide.Component />}
                 </WhatsNewSlide>
               ))}
             </Animated.View>

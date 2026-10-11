@@ -10,9 +10,10 @@
 
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { act, render, fireEvent, screen } from '@testing-library/react-native';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
 import { controlHeight, layout } from '@/theme';
+import { stubHardwareBack } from '../../__shared__/hardwareBack';
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -134,6 +135,24 @@ describe('MapControlStack', () => {
     fireEvent.press(screen.getByTestId('map-layers'));
     fireEvent.press(screen.getByTestId('map-layers-backdrop'));
     expect(screen.queryByTestId('map-toggle-activities')).toBeNull();
+  });
+
+  it('closes the open menu on back, and leaves back alone once it is shut', () => {
+    const back = stubHardwareBack();
+    try {
+      renderStack();
+      expect(back.press()).toBe(false);
+
+      fireEvent.press(screen.getByTestId('map-layers'));
+      act(() => {
+        expect(back.press()).toBe(true);
+      });
+
+      expect(screen.queryByTestId('map-toggle-activities')).toBeNull();
+      expect(back.press()).toBe(false);
+    } finally {
+      back.restore();
+    }
   });
 
   it('lists only the layers that have something to show', () => {

@@ -33,7 +33,7 @@ it('shares one record archive for repeated taps while export is running', async 
   );
   const { result } = renderHook(() => useExportRecordBackup());
 
-  let first: Promise<void> = Promise.resolve();
+  let first: Promise<unknown> = Promise.resolve();
   await act(async () => {
     first = result.current.exportRecordBackup();
     void result.current.exportRecordBackup();

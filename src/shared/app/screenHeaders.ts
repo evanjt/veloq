@@ -14,6 +14,7 @@
 import type { ParseKeys } from 'i18next';
 
 import { colors, darkColors } from '@/theme';
+import { layout } from '@/theme/spacing';
 
 export interface ScreenHeader {
   /** i18n key for the title. Resolved in the layout, so the screen stays pure. */
@@ -119,8 +120,13 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/merge-confirm': [0.6, 1],
 };
 
-/** The stack options that make a listed route a sheet, or undefined for any other route. */
-export function sheetScreenOptions(name: string) {
+/**
+ * The stack options that make a listed route a sheet, or undefined for any other route.
+ *
+ * The grabber is iOS only. Android's sheet defaults to square top corners, so it takes
+ * Material's extra-large radius there, and iOS keeps the system's own corners.
+ */
+export function sheetScreenOptions(name: string, os: string) {
   const detents = SCREEN_SHEETS[name];
   if (!detents) return undefined;
   return {
@@ -128,7 +134,34 @@ export function sheetScreenOptions(name: string) {
     sheetGrabberVisible: true,
     sheetAllowedDetents: detents,
     headerShown: false,
+    ...(os === 'android' && { sheetCornerRadius: layout.borderRadiusXxl }),
   };
+}
+
+/** Whether a sheet route rests at more than one detent, so it can be dragged between them. */
+export function sheetHasDetents(name: string): boolean {
+  const detents = SCREEN_SHEETS[name];
+  return Array.isArray(detents) && detents.length > 1;
+}
+
+/**
+ * What the shared sheet frame adds around a sheet route's content.
+ *
+ * Android's stack sheet draws no drag handle, so the frame draws Material's on a sheet that
+ * can be dragged between detents, and none on one sized to its content. iOS draws its own
+ * grabber. The Android sheet runs under the navigation bar whatever its detents, so every
+ * one is padded by the bottom inset. On iOS a sheet sized to its content already ends above
+ * the home indicator, and only a resizable one, which reaches the screen's bottom edge, is
+ * padded.
+ */
+export function sheetFrame(
+  name: string,
+  os: string,
+  bottomInset: number
+): { handle: boolean; paddingBottom: number } {
+  const resizable = sheetHasDetents(name);
+  if (os === 'android') return { handle: resizable, paddingBottom: bottomInset };
+  return { handle: false, paddingBottom: resizable ? bottomInset : 0 };
 }
 
 /**

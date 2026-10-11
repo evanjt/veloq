@@ -12,9 +12,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { goBack } from '@/shared/app/navigation';
 import { getEngine } from '@/shared/native/engine';
 import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -217,7 +217,7 @@ export function useSectionActions({
             haptics.medium();
             try {
               await removeSection(id);
-              router.back();
+              goBack();
             } catch (error) {
               if (__DEV__) console.error('Failed to delete section:', error);
               Alert.alert(t('common.error'), t('sections.deleteFailed'));
@@ -328,7 +328,7 @@ export function useSectionActions({
           style: 'destructive',
           onPress: () => {
             getEngine()?.disableSection(id);
-            router.back();
+            goBack();
           },
         },
       ]);

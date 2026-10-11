@@ -25,11 +25,13 @@ import {
   slopToMinTapTarget,
 } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
+import { useBackDismiss } from '@/shared/app/useBackDismiss';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const GRADIENT_HEIGHT = 120;
 const NATIVE_BACK_CONTROL_SIZE = 40;
+const noop = () => {};
 
 export const heroTextStyles = StyleSheet.create({
   name: {
@@ -137,6 +139,8 @@ export interface HeroNameRowProps {
 
 export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: HeroNameRowProps) {
   const { t } = useTranslation();
+  // Back cancels the rename, as the cross does, rather than leaving the screen with the name half typed.
+  useBackDismiss(!!editable?.isEditing, editable?.onCancel ?? noop);
 
   return (
     <View style={styles.nameRow}>

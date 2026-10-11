@@ -7,6 +7,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { UploadOutcome } from 'veloqrs';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -217,6 +218,76 @@ describe('useReviewSave', () => {
     expect(mockUploadRecording).not.toHaveBeenCalled();
     expect(result.current.errorMessage).not.toBeNull();
     expect(result.current.canRetry).toBe(true);
+  });
+
+  describe('a failed save on a nearly full device', () => {
+    const MB = 1024 * 1024;
+
+    function freeSpace(bytes: number | Error) {
+      return jest
+        .spyOn(FileSystem, 'getFreeDiskStorageAsync')
+        .mockImplementation(async () => (bytes instanceof Error ? Promise.reject(bytes) : bytes));
+    }
+
+    it('names the space and offers to free it, keeping Retry', async () => {
+      freeSpace(10 * MB);
+      mockSaveRecording.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(result.current.errorMessage).toBe('recording.saveErrorNoSpace');
+      expect(result.current.lowStorage).toBe(true);
+      expect(result.current.canRetry).toBe(true);
+    });
+
+    it('names the space for a manual entry too', async () => {
+      freeSpace(10 * MB);
+      mockSaveRecording.mockResolvedValue(null);
+      useRecordingStore.setState({ status: 'recording', mode: 'manual' });
+
+      const { result } = renderHook(() => useReviewSave(makeArgs({ isManual: true })));
+      await act(() => result.current.handleSave());
+
+      expect(result.current.errorMessage).toBe('recording.saveErrorNoSpace');
+      expect(result.current.lowStorage).toBe(true);
+    });
+
+    it('keeps the plain message when the device has room', async () => {
+      freeSpace(4096 * MB);
+      mockSaveRecording.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(result.current.errorMessage).toBe('recording.saveError');
+      expect(result.current.lowStorage).toBe(false);
+    });
+
+    it('keeps the plain message when free space cannot be read', async () => {
+      freeSpace(new Error('no answer from the platform'));
+      mockSaveRecording.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(result.current.errorMessage).toBe('recording.saveError');
+      expect(result.current.lowStorage).toBe(false);
+    });
+
+    it('drops the space action once a retry saves', async () => {
+      freeSpace(10 * MB);
+      mockSaveRecording.mockResolvedValueOnce(null);
+      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+
+      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+      expect(result.current.lowStorage).toBe(true);
+
+      await act(() => result.current.handleSave());
+      expect(result.current.lowStorage).toBe(false);
+      expect(result.current.errorMessage).toBeNull();
+    });
   });
 
   it('skips upload entirely when auto-upload is off', async () => {

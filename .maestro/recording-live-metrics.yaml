@@ -82,8 +82,8 @@ onFlowComplete:
 - runFlow:
     file: helpers/end-recording.yaml
 
-- longPressOn:
-    id: "review-discard-button"
+- runFlow:
+    file: helpers/confirm-review-discard.yaml
 
 - extendedWaitUntil:
     visible:

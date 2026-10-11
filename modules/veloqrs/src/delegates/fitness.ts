@@ -25,6 +25,7 @@ import type {
   FfiWellnessSummary,
   FfiZoneDistribution,
 } from '../generated/veloqrs';
+import { RangeCoverage } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { present } from './optional';
 
@@ -122,6 +123,7 @@ export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
   if (!host.ready) {
     return {
       ftpTrend: EMPTY_FTP_TREND,
+      ftpTrendCoverage: RangeCoverage.NotFetched,
       runPaceTrend: EMPTY_PACE_TREND,
       swimPaceTrend: EMPTY_PACE_TREND,
     };
@@ -235,6 +237,13 @@ export interface WellnessDay {
   sportLoad: SportLoad[];
 }
 
+/** The stored days of a window and whether the window was pulled at all. */
+export interface WellnessDays {
+  /** Oldest first. */
+  days: WellnessDay[];
+  coverage: RangeCoverage;
+}
+
 export interface WellnessSparklines {
   fitness: number[];
   fatigue: number[];
@@ -295,17 +304,21 @@ function wellnessRowToFfi(r: WellnessRowInput): FfiWellnessRow {
 }
 
 /**
- * Stored wellness days over an inclusive date window, oldest first.
+ * Stored wellness days over an inclusive date window, oldest first, with
+ * whether the window was pulled at all.
  *
  * Typed, so nothing parses a body to draw a chart. A day synced before the
- * body column existed carries its columns and no per-sport breakdown.
+ * body column existed carries its columns and no per-sport breakdown. An
+ * engine that is not open yet answers `NotFetched`: nothing is known about the
+ * window, and `Empty` would be a claim.
  */
-export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDay[] {
-  if (!host.ready) return [];
-  const days =
-    host.timed('getWellnessDays', () => host.engine.fitness().getWellnessDays(oldest, newest)) ??
-    [];
-  return days.map((d) => present(d));
+export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDays {
+  if (!host.ready) return { days: [], coverage: RangeCoverage.NotFetched };
+  const window = host.timed('getWellnessDays', () =>
+    host.engine.fitness().getWellnessDays(oldest, newest)
+  );
+  if (!window) return { days: [], coverage: RangeCoverage.NotFetched };
+  return { days: window.days.map((d) => present(d)), coverage: window.coverage };
 }
 
 export function getWellnessLatestDate(host: DelegateHost): string | null {

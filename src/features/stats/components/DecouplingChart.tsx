@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
 import { Text } from 'react-native-paper';
+import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, typography, spacing } from '@/theme';
@@ -14,6 +15,12 @@ interface DecouplingChartProps {
   source: DecouplingSource | null;
   /** Height of the empty state */
   height?: number | undefined;
+  /**
+   * The census answer for the period the ride is picked from. `NotFetched`
+   * turns the empty state into "not downloaded". Absent, the chart claims
+   * nothing either way.
+   */
+  coverage?: RangeCoverage | undefined;
 }
 
 /**
@@ -21,7 +28,7 @@ interface DecouplingChartProps {
  * found again on its activity screen. It states the measurement and grades
  * nothing.
  */
-export function DecouplingChart({ source, height = 150 }: DecouplingChartProps) {
+export function DecouplingChart({ source, height = 150, coverage }: DecouplingChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
@@ -34,12 +41,23 @@ export function DecouplingChart({ source, height = 150 }: DecouplingChartProps) 
           </Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            {t('stats.noDecouplingData')}
-          </Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            {t('stats.completeDecouplingHint')}
-          </Text>
+          {coverage === RangeCoverage.NotFetched ? (
+            <Text
+              testID="decoupling-not-downloaded"
+              style={[styles.emptyText, isDark && styles.textDark]}
+            >
+              {t('stats.rangeNotDownloaded')}
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.emptyText, isDark && styles.textDark]}>
+                {t('stats.noDecouplingData')}
+              </Text>
+              <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+                {t('stats.completeDecouplingHint')}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     );

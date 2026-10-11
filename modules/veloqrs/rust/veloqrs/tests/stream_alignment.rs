@@ -181,12 +181,10 @@ fn transport_requests_gzip_and_decodes_it() {
     let mock = server.mock(|when, then| {
         when.method(GET)
             .path("/activity/77/streams.json")
-            .matches(|req| {
-                req.headers.as_ref().is_some_and(|h| {
-                    h.iter().any(|(k, v)| {
-                        k.eq_ignore_ascii_case("accept-encoding") && v.contains("gzip")
-                    })
-                })
+            .is_true(|req| {
+                req.headers_vec()
+                    .iter()
+                    .any(|(k, v)| k.eq_ignore_ascii_case("accept-encoding") && v.contains("gzip"))
             });
         then.status(200)
             .header("content-type", "application/json")

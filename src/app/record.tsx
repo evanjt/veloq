@@ -1,13 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-  Linking,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
@@ -26,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { canTurnOnLocationServices } from '@/shared/app/permissions/locationServices';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
@@ -33,10 +26,12 @@ import {
   defaultEntrySport,
   entrySportChips,
   recordingEntryHref,
+  locationServicesOffMessage,
   type EntryGpsState,
   useRecordingStore,
   useEntryLocation,
   BatteryOptimisationNudge,
+  OutsideAppNotice,
   RecordingGate,
   RecordingMap,
   useCanRecord,
@@ -47,7 +42,6 @@ import {
   sessionReturnRoute,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
-import { requestNotificationPermission } from '@/features/settings';
 import { getEngine } from '@/shared/native/engine';
 import { readPlannedWorkouts } from '@/features/home';
 import { navigateTo, replaceTo, tapTo } from '@/shared/app/navigation';
@@ -117,18 +111,6 @@ function RecordScreenContent() {
       useRecordingPreferences.getState().initialise();
     }
   }, [isLoaded]);
-
-  // Android 13+ suppresses the foreground-service notification without this.
-  // Asked here once the location question is behind the athlete, since Android
-  // shows one dialog at a time, and never by Start: a dialog raised by the tap
-  // lands over the recording it began. A denial never blocks the recording.
-  // A live session sends the athlete straight back to it, so it asks nothing.
-  const notificationsAsked = useRef(false);
-  useEffect(() => {
-    if (!gps.promptSettled || sessionStatus !== 'idle' || notificationsAsked.current) return;
-    notificationsAsked.current = true;
-    if (Platform.OS === 'android') requestNotificationPermission().catch(() => {});
-  }, [gps.promptSettled, sessionStatus]);
 
   // Crash recovery check
   useEffect(() => {
@@ -204,7 +186,9 @@ function RecordScreenContent() {
 
   const sportLabel = t(`activityTypes.${sport}` as never, sport) as string;
   const showGpsWarning =
-    mode === 'gps' && !gpsWarningDismissed && (gps.state === 'weak' || gps.state === 'none');
+    mode === 'gps' &&
+    !gpsWarningDismissed &&
+    (gps.state === 'weak' || gps.state === 'none' || gps.state === 'servicesOff');
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
@@ -226,7 +210,7 @@ function RecordScreenContent() {
               <IconButton
                 testID="record-settings"
                 onPress={() => tapTo('/recording-settings')}
-                accessibilityLabel={t('settings.title', 'Settings')}
+                accessibilityLabel={t('recording.settings')}
               >
                 <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
               </IconButton>
@@ -264,10 +248,17 @@ function RecordScreenContent() {
           {showGpsWarning && (
             <GpsWarningLine
               state={gps.state}
+              onTurnOnServices={gps.turnOnServices}
               onDismiss={() => setGpsWarningDismissed(true)}
               surface={surface}
             />
           )}
+          {/* Android 13+ drops the foreground-service notification without the
+              permission. The notice asks on arrival once the location question
+              is behind the athlete, and never by Start: a dialog raised by the
+              tap lands over the recording it began. A live session sends the
+              athlete straight back to it, so it asks nothing. */}
+          {sessionStatus === 'idle' && <OutsideAppNotice askOnArrival={gps.promptSettled} />}
           <BatteryOptimisationNudge />
         </View>
       </View>
@@ -423,6 +414,7 @@ const GPS_STATUS: Record<
   ready: { icon: 'crosshairs-gps', level: 'ok' },
   weak: { icon: 'crosshairs', level: 'warn' },
   none: { icon: 'crosshairs-off', level: 'bad' },
+  servicesOff: { icon: 'map-marker-off', level: 'bad' },
 };
 
 /** The GPS state as one word over the map, beside the ring it describes. */
@@ -435,6 +427,7 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
     ready: t('recording.gpsReady'),
     weak: t('recording.gpsWeak'),
     none: t('recording.gpsNone', 'Location denied'),
+    servicesOff: t('recording.gpsServicesOff'),
   }[state];
   return (
     <SignalStatus testID={testID} variant="chip" level={level} icon={icon} label={label}>
@@ -445,13 +438,20 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
   );
 }
 
-/** A weak fix or a denied location, as one dismissable line. */
+/**
+ * A weak fix, a denied location or the device's location switch off, as one
+ * dismissable line. The switch has its own action: Android turns it on from
+ * here, and iOS has no way in to it, so the line names where it is and offers
+ * no button, since the app's settings page does not hold it.
+ */
 function GpsWarningLine({
   state,
+  onTurnOnServices,
   onDismiss,
   surface,
 }: {
   state: EntryGpsState;
+  onTurnOnServices: () => Promise<void>;
   onDismiss: () => void;
   surface: string;
 }) {
@@ -459,6 +459,13 @@ function GpsWarningLine({
   const { isDark } = useTheme();
   const { icon, level } = GPS_STATUS[state];
   const tint = signalColor(level, isDark);
+  const canTurnOn = canTurnOnLocationServices();
+  const label =
+    state === 'servicesOff'
+      ? locationServicesOffMessage(t)
+      : state === 'none'
+        ? t('recording.gpsNone', 'Location denied')
+        : t('recording.gpsWeakWarning');
   return (
     <View style={[styles.warningLine, { backgroundColor: surface }]}>
       <View style={styles.warningBody}>
@@ -467,12 +474,17 @@ function GpsWarningLine({
           variant="line"
           level={level}
           icon={icon}
-          label={
-            state === 'none'
-              ? t('recording.gpsNone', 'Location denied')
-              : t('recording.gpsWeakWarning')
-          }
+          label={label}
         >
+          {state === 'servicesOff' && canTurnOn && (
+            <Button
+              testID="record-gps-turn-on"
+              onPress={() => void onTurnOnServices()}
+              label={t('recording.gpsServicesTurnOn')}
+              variant="ghost"
+              size="sm"
+            />
+          )}
           {state === 'none' && (
             <Button
               onPress={() => Linking.openSettings()}
