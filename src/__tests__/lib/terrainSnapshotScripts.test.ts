@@ -10,13 +10,25 @@ import { runInNewContext } from 'node:vm';
 
 import {
   buildRenderSnapshotScript,
+  snapshotRenderScript,
   SNAPSHOT_JPEG_QUALITY,
   QUALITY_CACHE_VERSION,
 } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import { SNAPSHOT_PHASES } from '@/features/maps/lib/snapshotTiming';
 import { TERRAIN_CACHE_VERSION } from '@/features/maps/lib/storage/terrainPreviewCache';
-import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import type {
+  SnapshotRequest,
+  SnapshotStylesHeld,
+} from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import { mapLayerColors } from '@/theme/colors';
+
+/**
+ * What one request runs on the page: the page's render function, as the
+ * worker page defines it at load, and then the request itself.
+ */
+function pageRender(request: SnapshotRequest, gen: number): string {
+  return `${snapshotRenderScript()}\n${buildRenderSnapshotScript(request, 0, gen)}`;
+}
 
 function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest {
   return {
@@ -39,26 +51,26 @@ describe('buildRenderSnapshotScript', () => {
 
     try {
       layers.casing = '#123456';
-      expect(buildRenderSnapshotScript(makeRequest(), 0, 1)).toContain('\'line-color\': "#123456"');
+      expect(snapshotRenderScript()).toContain('\'line-color\': "#123456"');
     } finally {
       layers.casing = casing;
     }
   });
 
   it('injects terrain, sky, and hillshade for 3D requests', () => {
-    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
-    expect(script).toContain("styleObj.sources['terrain'] = terrainSource");
-    expect(script).toContain('styleObj.sky = skyConfig');
-    expect(script).toContain("id: 'hillshading'");
-    expect(script).toContain('var isFlat = false');
+    const page = snapshotRenderScript();
+    expect(page).toContain("styleObj.sources['terrain'] = terrainSource");
+    expect(page).toContain('styleObj.sky = skyConfig');
+    expect(page).toContain("id: 'hillshading'");
+    expect(buildRenderSnapshotScript(makeRequest(), 0, 1)).toContain('"isFlat":false');
   });
 
   it('marks flat requests so terrain injection is skipped at runtime', () => {
-    const script = buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1);
-    expect(script).toContain('var isFlat = true');
+    expect(buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1)).toContain('"isFlat":true');
     // Terrain injection is behind the isFlat guard
-    expect(script).toContain('if (!isFlat) {');
-    expect(script).toContain('if (!isFlat && !isSatellite) {');
+    const page = snapshotRenderScript();
+    expect(page).toContain('if (!isFlat) {');
+    expect(page).toContain('if (!isFlat && !isSatellite) {');
   });
 
   it('applies the request camera verbatim, including pitch 0 for flat', () => {
@@ -73,25 +85,25 @@ describe('buildRenderSnapshotScript', () => {
   });
 
   it('tracks base mode so a flat/3D flip cannot reuse the fast path', () => {
-    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    const script = snapshotRenderScript();
     expect(script).toContain("var baseMode = isFlat ? 'flat' : '3d'");
     expect(script).toContain('window._currentBaseMode === baseMode');
     expect(script).toContain('window._currentBaseMode = baseMode');
   });
 
   it('keeps gap detection exclusive to 3D renders', () => {
-    const script = buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1);
+    const script = snapshotRenderScript();
     expect(script).toContain('if (ctx && !isFlat) {');
     expect(script).toContain('if (ctx && (!isFlat || isSatellite)) {');
   });
 
   it('always includes the route layers regardless of mode', () => {
-    for (const flat of [true, false]) {
-      const script = buildRenderSnapshotScript(makeRequest({ flat }), 0, 1);
-      expect(script).toContain("id: 'route-line'");
-      expect(script).toContain("id: 'route-outline'");
-      expect(script).toContain("id: 'start-end-fill'");
-    }
+    // One render function serves both modes, so the layers are in it once for
+    // the fast path and once for the full one.
+    const script = snapshotRenderScript();
+    expect(script.match(/id: 'route-line'/g)).toHaveLength(2);
+    expect(script.match(/id: 'route-outline'/g)).toHaveLength(2);
+    expect(script.match(/id: 'start-end-fill'/g)).toHaveLength(2);
   });
 });
 
@@ -107,7 +119,7 @@ describe('buildRenderSnapshotScript', () => {
  */
 describe('the snapshot encode', () => {
   it('encodes through the shared constant, not a literal in the script', () => {
-    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    const script = snapshotRenderScript();
 
     expect(script).toContain(`canvas.toDataURL('image/jpeg', ${SNAPSHOT_JPEG_QUALITY})`);
   });
@@ -139,20 +151,12 @@ describe('the stages a render stamps', () => {
   const stamped = (script: string) =>
     new Set(Array.from(script.matchAll(/\bphase\('([a-z]+)'\)/g), (m) => m[1]));
 
-  it('stamps exactly the stages the pool records', () => {
-    expect([...stamped(buildRenderSnapshotScript(makeRequest(), 0, 1))].sort()).toEqual(
-      [...SNAPSHOT_PHASES].sort()
-    );
-  });
-
-  it('stamps them on a flat render too', () => {
-    expect(
-      [...stamped(buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1))].sort()
-    ).toEqual([...SNAPSHOT_PHASES].sort());
+  it('stamps exactly the stages the pool records, in the one function both modes run', () => {
+    expect([...stamped(snapshotRenderScript())].sort()).toEqual([...SNAPSHOT_PHASES].sort());
   });
 
   it('carries them back on the message that carries the image', () => {
-    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    const script = snapshotRenderScript();
     expect(script).toContain('phases: window._phases');
   });
 
@@ -160,7 +164,7 @@ describe('the stages a render stamps', () => {
     // The fast path mounts no style, so its style stage is the camera jump
     // alone. A stamp only on the full path would read as the fast path
     // spending its whole elapsed settling.
-    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    const script = snapshotRenderScript();
     expect(script.match(/phase\('style'\)/g)).toHaveLength(2);
   });
 });
@@ -201,11 +205,7 @@ describe('tile counts belong to one render', () => {
         },
       };
       for (const generation of [1, 2]) {
-        const script = buildRenderSnapshotScript(
-          makeRequest({ mapStyle: 'dark', flat: true }),
-          0,
-          generation
-        );
+        const script = pageRender(makeRequest({ mapStyle: 'dark', flat: true }), generation);
         new Function('window', 'setInterval', 'setTimeout', 'requestAnimationFrame', script)(
           page,
           jest.fn(),
@@ -254,7 +254,7 @@ it.each([false, true])(
           }),
         },
       };
-      const script = buildRenderSnapshotScript(makeRequest({ mapStyle: 'dark', flat: true }), 0, 1);
+      const script = pageRender(makeRequest({ mapStyle: 'dark', flat: true }), 1);
       new Function(
         'window',
         'setInterval',
@@ -316,7 +316,7 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
       _rn_log: jest.fn(),
       ReactNativeWebView: { postMessage },
     };
-    runInNewContext(buildRenderSnapshotScript(makeRequest({ flat }), 0, 1), {
+    runInNewContext(pageRender(makeRequest({ flat }), 1), {
       window: page,
       Date,
       setTimeout,
@@ -365,5 +365,70 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
     result.page._snapshotGen++;
     jest.advanceTimersByTime(6000);
     expect(result.postMessage).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Scenario: a feed fill sends one request per preview to two worker pages, and
+ * every request carried the whole basemap style and the render code with it,
+ * about 68 K characters for a light preview, though the page lives for the
+ * whole feed and already held both.
+ *
+ * Expected behaviour: a page is given a style once. A request for a style it
+ * holds carries only the request, and a page that holds nothing, or holds a
+ * style that has since changed, is given it again.
+ */
+describe('a request to a worker page that holds its style', () => {
+  const registrations = (script: string) => script.match(/window\._styles\[/g)?.length ?? 0;
+
+  it('gives the page the style with its first request, once', () => {
+    const held: SnapshotStylesHeld = new Map();
+    const script = buildRenderSnapshotScript(makeRequest(), 0, 1, held);
+
+    expect(registrations(script)).toBe(1);
+    expect(script).toContain('layers');
+  });
+
+  it('sends only the request once the page holds the style', () => {
+    const held: SnapshotStylesHeld = new Map();
+    buildRenderSnapshotScript(makeRequest(), 0, 1, held);
+    const script = buildRenderSnapshotScript(makeRequest({ activityId: 'act-2' }), 0, 2, held);
+
+    expect(script.length).toBeLessThan(5000);
+    expect(registrations(script)).toBe(0);
+    expect(script).not.toContain('layers');
+  });
+
+  it('sends only the request for a held style in the other mode', () => {
+    const held: SnapshotStylesHeld = new Map();
+    buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1, held);
+
+    expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 2, held))).toBe(0);
+  });
+
+  it('gives the page each style it does not hold yet', () => {
+    const held: SnapshotStylesHeld = new Map();
+    buildRenderSnapshotScript(makeRequest(), 0, 1, held);
+
+    for (const mapStyle of ['dark', 'satellite'] as const) {
+      expect(registrations(buildRenderSnapshotScript(makeRequest({ mapStyle }), 0, 2, held))).toBe(
+        1
+      );
+    }
+    expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 3, held))).toBe(0);
+  });
+
+  it('gives a fresh page the style again', () => {
+    const held: SnapshotStylesHeld = new Map();
+    buildRenderSnapshotScript(makeRequest(), 0, 1, held);
+    held.clear();
+
+    expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 2, held))).toBe(1);
+  });
+
+  it('gives the page a style again when it differs from the one it holds', () => {
+    const held: SnapshotStylesHeld = new Map([['light', '{"version":8}']]);
+
+    expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 1, held))).toBe(1);
   });
 });

@@ -37,9 +37,13 @@ jest.mock('react-native-ble-plx', () => ({
     connectToDevice: mockConnectToDevice,
     cancelDeviceConnection: mockCancelDeviceConnection,
     onDeviceDisconnected: jest.fn(() => ({ remove: jest.fn() })),
+    onStateChange: jest.fn(() => ({ remove: jest.fn() })),
     stopDeviceScan: jest.fn(),
   })),
 }));
+
+// The manager constructs nothing unless the build carries the native module.
+require('react-native').NativeModules.BlePlx = {};
 
 const SENSOR = { id: 'hr-1', name: 'Chest strap', kinds: ['heartRate' as const] };
 

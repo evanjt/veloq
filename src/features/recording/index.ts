@@ -29,7 +29,7 @@ export { getTimeOfDayKey, useActivityNameGeneration } from './hooks/useActivityN
 export { useActivitySummary } from './hooks/useActivitySummary';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
-export { useDiscardWithAnimation } from './hooks/useDiscardWithAnimation';
+export { useDiscardRecording } from './hooks/useDiscardRecording';
 export { useEntryLocation } from './hooks/useEntryLocation';
 export { useGpsSessionEffect } from './hooks/useGpsSessionEffect';
 export { useGpsWarningClearEffect } from './hooks/useGpsWarningClearEffect';
@@ -61,6 +61,7 @@ export { ACTIVITY_CATEGORIES, getRecordingMode, screenRecordingMode } from './li
 export { installRecordingSession } from './lib/recordingSession';
 export { resumeStoppedRecording } from './lib/resumeStoppedRecording';
 export { sessionReturnRoute } from './lib/sessionReturnRoute';
+export { shareRecordingFit } from './lib/shareRecordingFit';
 export {
   adoptOwnerlessRecordingBackup,
   settleOwnerlessAdoptions,

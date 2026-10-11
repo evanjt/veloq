@@ -47,8 +47,8 @@ describe('a value interpolated into injected JavaScript', () => {
 
     it('reads the snapshot route colour back as the value it was given', () => {
       const script = buildRenderSnapshotScript(request, 0, 1);
-      const literal = /var routeColor = (.*);\n/.exec(script)![1];
-      expect(eval(`(${literal})`)).toBe(hostile);
+      const literal = /window\._renderSnapshot\((.*)\);\n/.exec(script)![1];
+      expect(eval(`(${literal})`).routeColor).toBe(hostile);
       expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
     });
 

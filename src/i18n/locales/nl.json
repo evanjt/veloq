@@ -79,11 +79,7 @@
       "formTSB": "Vorm (TSB)",
       "hrRecovery": "HF-herstel",
       "hrvToday": "HRV vandaag",
-      "intensityEasy": "Rustig",
       "intensityFactor": "Intensiteitsfactor",
-      "intensityHard": "Zwaar",
-      "intensityModerate": "Gemiddeld",
-      "intensityVeryHard": "Zeer zwaar",
       "max": "Max {{value}}",
       "maxLabel": "Max",
       "newGround": "Nieuw terrein",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "Authenticatie mislukt",
     "webdavTestMethodNotAllowed": "Controleer het formaat van je WebDAV-adres. De server accepteert PROPFIND niet op dit pad",
     "webdavTestStatus": "Server antwoordde met {{code}}",
-    "moreInfo": "Meer informatie",
+    "aboutTopic": "Over {{title}}",
     "sectionBackup": "Back-up",
     "sectionRestore": "Herstellen",
     "sectionDestinations": "Bestemmingen",
@@ -561,8 +557,18 @@
       "thisYear": "Dit jaar",
       "lastYear": "Vorig jaar"
     },
-    "noActivities": "Geen activiteiten gevonden",
     "noMatchingActivities": "Geen overeenkomende activiteiten",
+    "emptyLibrary": {
+      "pausedTitle": "Synchronisatie is gepauzeerd",
+      "pausedBody": "Je activiteiten staan op intervals.icu en worden gedownload zodra de synchronisatie verdergaat.",
+      "authExpiredTitle": "Log in om je activiteiten te downloaden",
+      "signInAgain": "Opnieuw inloggen",
+      "failedTitle": "Je activiteiten zijn niet gedownload",
+      "failedBody": "De laatste synchronisatie stopte voordat er iets binnenkwam.",
+      "emptyTitle": "Nog geen activiteiten",
+      "emptyBody": "Activiteiten komen uit je intervals.icu-account, of van een opname hier.",
+      "record": "Activiteit opnemen"
+    },
     "searchPlaceholder": "Activiteiten zoeken...",
     "streamConsentTitle": "Ontbrekende activiteitsgegevens downloaden?",
     "streamConsentBody_one": "Bij {{count}} activiteit ontbreken de reeksen voor hartslag, vermogen en cadans. Het downloaden gebruikt ongeveer {{megabytes}} MB aan data.",
@@ -600,7 +606,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Fitheidsgegevens laden mislukt",
     "fatigueDescription": "is een 7-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
     "fitnessAndFatigue": "Fitheid & Vermoeidheid",
     "fitnessDescription": "is een 42-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
@@ -859,8 +864,9 @@
       "ratioFormula": "verhouding = dominante gewogen sets / secundaire gewogen sets"
     },
     "viewInDetail": "Bekijk in detail",
+    "routesDisabledDescription": "Je secties blijven bewaard en openen weer zodra matching is ingeschakeld.",
     "routesDisabledLine1": "Routes & secties uitgeschakeld",
-    "routesDisabledLine2": "Tik om in te schakelen",
+    "routesDisabledLine2": "Routes & secties inschakelen",
     "strengthProgression": {
       "upTitle": "Volumegroei zichtbaar bij {{muscle}}",
       "downTitle": "Volume van {{muscle}} is afgenomen",
@@ -932,6 +938,12 @@
       "openFitness": "De fitnessgrafiek openen",
       "openStrength": "Krachttraining openen",
       "openDetail": "De details openen"
+    },
+    "verdict": {
+      "good": "Goed",
+      "warning": "Let op",
+      "concern": "Zorgwekkend",
+      "neutral": "Neutraal"
     }
   },
   "licenses": {
@@ -1202,6 +1214,7 @@
     "permissionExplanation": "Veloq heeft je toestemming nodig om activiteiten naar intervals.icu te uploaden",
     "permissionNeeded": "Toestemming nodig om activiteiten te uploaden",
     "rec": "REC",
+    "resumeLater": "Later",
     "resumePrevious": "Vorige opname hervatten?",
     "resumePreviousMessage": "Een opname gestart op {{startTime}} werd onderbroken na {{duration}} bewegingstijd. Verwijderen wist deze permanent.",
     "reviewActivity": "Activiteit bekijken",
@@ -1224,6 +1237,10 @@
     "settingsDataFields": "Gegevensvelden",
     "settingsUnits": "Eenheden",
     "slideToUnlock": "Schuif om te ontgrendelen",
+    "lockControls": "Bediening vergrendelen",
+    "unlockControls": "Bediening ontgrendelen",
+    "controlsLocked": "Bediening vergrendeld",
+    "controlsUnlocked": "Bediening ontgrendeld",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Activiteit starten",
     "status": {
@@ -1239,7 +1256,10 @@
     },
     "trimActivity": "Activiteit bijsnijden",
     "trimmed": "Bijgesneden",
-    "uploadErrorMessage": "Kan activiteit niet uploaden: {{error}}",
+    "uploadRejected": "intervals.icu heeft dit bestand geweigerd. De rit blijft bewaard in Mijn opnamen.",
+    "uploadMissing": "Het bestand van deze rit staat niet meer op het apparaat en kan dus niet worden geüpload.",
+    "uploadFailed": "Kan activiteit niet uploaden. Ze is opgeslagen op dit apparaat.",
+    "openInRecordings": "Openen in Mijn opnamen",
     "writePermissionNotGranted": "Schrijfrechten niet verleend",
     "writePermissionRequired": "Schrijfrechten vereist",
     "savedLocally": "Activiteit opgeslagen op dit apparaat. Je kunt deze altijd uploaden via Mijn opnamen.",
@@ -1589,6 +1609,7 @@
     "nameTaken": "Een ander gedeelte heeft al deze naam. Kies een andere naam.",
     "undoExcludeLap": "Ongedaan maken Ronde {{n}}",
     "excludeLapNumber": "Uitsluiten Ronde {{n}}",
+    "mergeFailed": "De secties konden niet worden samengevoegd.",
     "deleteFailed": "De sectie kon niet worden verwijderd."
   },
   "settings": {
@@ -1769,7 +1790,11 @@
     "sectionSameTraffic": "Gevoeligheid routesplitsing: {{value}}",
     "sectionParamPastClamp": "Hierboven maakt de detectie geen onderscheid meer tussen waarden.",
     "sectionParamPastRange": "Deze instellingen vallen buiten het geteste bereik.",
+    "sectionParamEditHint": "Voer een waarde in",
     "sectionParamRange": "Geteste bereik {{min}} tot {{max}}",
+    "sectionParamInvalid": "Voer een getal groter dan 0 in.",
+    "sectionParamInvalidWhole": "Voer een geheel getal van 1 of meer in.",
+    "groupingParamInvalidPercent": "Voer een percentage van 1 tot 100 in.",
     "sectionPresetDefault": "Standaard",
     "sectionPresetRelaxed": "Soepel",
     "sectionPresetStrict": "Streng",
@@ -1822,16 +1847,15 @@
     "elevationBackfillPaused": "Hoogtedownload gepauzeerd. Zet Route-matching aan om door te gaan.",
     "elevationBackfillSwitchedOff": "Hoogtedownload gestopt omdat Route-matching uitstaat.",
     "exportPrivacyTitle": "Thuis buiten exports houden",
-    "exportPrivacyDescription": "Knipt het begin en einde van elk spoor binnen {{radius}} m van thuis weg. Alleen de geëxporteerde kopie wordt ingekort.",
+    "exportPrivacyDescription": "Knipt het begin en einde van elk spoor binnen {{radius}} van thuis weg. Alleen de geëxporteerde kopie wordt ingekort.",
     "exportPrivacySuggested_one": "De meeste van je ritten starten vlak bij één plek, {{count}} ervan. {{share}}% van alle ritten-einden.",
     "exportPrivacySuggested_other": "De meeste van je ritten starten vlak bij één plek, {{count}} ervan. {{share}}% van alle ritten-einden.",
     "exportPrivacyConfirm": "Gebruik dit als thuis",
     "exportPrivacyNoSuggestion": "Nog niet genoeg ritten om te bepalen waar thuis is.",
     "exportPrivacyNeedsHome": "Uit tot er een thuis is ingesteld. Gebruik de voorgestelde plek hieronder of tik op de kaart.",
     "exportPrivacyNeedsHomeNoSuggestion": "Uit tot er een thuis is ingesteld.",
-    "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}} m. Er wordt niets verwijderd.",
+    "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}}. Er wordt niets verwijderd.",
     "exportPrivacyNothingTrimmed": "Er wordt niets ingekort. Exports bevatten het volledige spoor.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen.",
     "previewRouteGrouping": "Routegroepering voorbeeld",
     "groupingMatchShare": "Zelfde route bij {{percent}}% overlap",
@@ -1921,7 +1945,7 @@
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
     "year": "Jaar",
-    "atWeight": "bij {{kg}} kg"
+    "atWeight": "bij {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Aerobe efficiëntie",
@@ -2207,6 +2231,33 @@
       "noData": "Verbonden, geen gegevens",
       "reconnecting": "Opnieuw verbinden…",
       "disconnected": "Niet verbonden"
+    },
+    "purpose": "Bluetooth wordt gebruikt om hartslag-, vermogen- en cadanssensoren te vinden en te verbinden.",
+    "noneFound": "Geen sensoren gevonden",
+    "noneFoundHint": "Maak de sensor wakker door de band om te doen of de cranks te draaien, en houd hem bij de telefoon.",
+    "scanAgain": "Opnieuw zoeken",
+    "availability": {
+      "unsupportedTitle": "Dit apparaat heeft geen Bluetooth LE",
+      "unsupportedHint": "Hartslag-, vermogen- en cadanssensoren hebben Bluetooth LE nodig.",
+      "poweredOffTitle": "Bluetooth staat uit",
+      "poweredOffHint": "Zet Bluetooth aan om sensoren te vinden en te verbinden.",
+      "poweredOffHintIos": "Zet Bluetooth aan in het bedieningspaneel of in Instellingen om sensoren te vinden en te verbinden.",
+      "turnOn": "Bluetooth aanzetten",
+      "permissionTitle": "Bluetooth-toestemming nodig",
+      "permissionHint": "Geef toegang tot apparaten in de buurt om sensoren te vinden en te verbinden.",
+      "blockedHint": "Geef toegang tot apparaten in de buurt in Instellingen om sensoren te vinden en te verbinden.",
+      "locationPermissionTitle": "Locatietoestemming nodig",
+      "locationPermissionHint": "Op deze Android-versie is voor het zoeken naar Bluetooth-sensoren locatietoestemming nodig.",
+      "locationBlockedHint": "Op deze Android-versie is voor het zoeken naar Bluetooth-sensoren locatietoestemming nodig. Sta het toe in Instellingen.",
+      "allow": "Toestaan",
+      "locationOffTitle": "Locatie staat uit",
+      "locationOffHint": "Op deze Android-versie moet locatie aan staan om Bluetooth-sensoren te vinden.",
+      "openLocationSettings": "Locatie-instellingen openen"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth uit",
+      "permission": "Bluetooth-toestemming nodig",
+      "unsupported": "Bluetooth niet beschikbaar"
     }
   },
   "sectionHistory": {
@@ -2221,6 +2272,7 @@
     "current": "Huidig",
     "revert": "Terugzetten",
     "revertConfirm": "Versie {{version}} terugzetten als lijn van dit stuk? Detectie houdt hem vast tot je hem losmaakt.",
+    "revertFailed": "De versie kon niet worden teruggezet.",
     "unpin": "Losmaken",
     "showOnMap": "Toon op kaart",
     "hideOnMap": "Verberg",

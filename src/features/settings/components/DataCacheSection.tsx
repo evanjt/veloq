@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, Alert, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -26,7 +26,8 @@ import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
 import * as haptics from '@/shared/ui/haptics';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, layout } from '@/theme';
+import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
 
@@ -220,9 +221,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     <>
       {/* Data Cache Section - Consolidated */}
       <View onLayout={onLayout}>
-        <Text style={[styles.sectionLabel, isDark && styles.textSecondary]}>
-          {t('settings.dataCache').toUpperCase()}
-        </Text>
+        <ListSectionHeader>{t('settings.dataCache')}</ListSectionHeader>
       </View>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         <CacheManagementPanel
@@ -262,15 +261,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
   section: {
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
@@ -279,8 +269,5 @@ const styles = StyleSheet.create({
   },
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
 });

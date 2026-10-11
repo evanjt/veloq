@@ -602,9 +602,10 @@ pub(super) fn current_prs_on(
     section_id: &str,
 ) -> std::collections::BTreeMap<String, (String, f64)> {
     let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
+    let sport = crate::persistence::records::activity_sport_sql();
     let mut records = std::collections::BTreeMap::new();
     let Ok(mut stmt) = conn.prepare(&format!(
-        "SELECT COALESCE(am.sport_type, a.sport_type), sa.activity_id, sa.lap_time
+        "SELECT {sport}, sa.activity_id, sa.lap_time
          FROM section_activities sa
          JOIN activities a ON a.id = sa.activity_id
          LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id

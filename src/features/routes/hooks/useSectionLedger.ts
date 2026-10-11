@@ -5,11 +5,12 @@
  * unpin writes, and the caller re-reads the screen read that holds the result.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import type { FfiSectionEventDetails } from 'veloqrs';
+import type { FfiDepartedRide, FfiSectionEventDetails } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
 
@@ -35,7 +36,10 @@ export interface SectionLedger {
   versions: SectionGeometryVersion[];
   pinnedVersion: number | null;
   versionPolyline: (version: number) => RoutePoint[];
-  revert: (version: number) => boolean;
+  /** Resolves true once the version is the section's line, false when it was not written. */
+  revert: (version: number) => Promise<boolean>;
+  /** True while a revert runs; a second revert is refused until it ends. */
+  isReverting: boolean;
   unpin: () => boolean;
 }
 
@@ -68,6 +72,16 @@ export function useSectionLedger(
   bundled?: BundledLedger
 ): SectionLedger {
   const { t } = useTranslation();
+  const [isReverting, setIsReverting] = useState(false);
+  const revertInFlight = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const state = useMemo(() => {
     if (!bundled) return EMPTY;
@@ -113,12 +127,30 @@ export function useSectionLedger(
     [sectionId]
   );
 
+  // A revert re-matches every ride against the stored line, so it runs as an
+  // engine edit off the JS thread. One runs at a time, and a tap while it runs
+  // is refused rather than queued.
   const revert = useCallback(
-    (version: number): boolean => {
+    async (version: number): Promise<boolean> => {
       const engine = getEngine();
-      if (!engine || !sectionId) return false;
-      const departed = engine.revertSectionToVersion(sectionId, version);
-      if (!departed) return false;
+      if (!engine || !sectionId || revertInFlight.current) return false;
+      revertInFlight.current = true;
+      setIsReverting(true);
+
+      let departed: FfiDepartedRide[] | null = null;
+      try {
+        departed = await engine.runSectionBoundsEdit({ kind: 'revert', sectionId, version });
+      } catch {
+        departed = null;
+      } finally {
+        revertInFlight.current = false;
+        if (mounted.current) setIsReverting(false);
+      }
+
+      if (!departed) {
+        Alert.alert(t('common.error'), t('sectionHistory.revertFailed'));
+        return false;
+      }
       announceDepartedRides(departed, t);
       return true;
     },
@@ -131,5 +163,5 @@ export function useSectionLedger(
     return engine.unpinSection(sectionId);
   }, [sectionId]);
 
-  return { ...state, versionPolyline, revert, unpin };
+  return { ...state, versionPolyline, revert, isReverting, unpin };
 }

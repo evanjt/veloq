@@ -73,6 +73,7 @@ object InterruptedRideNotifier {
   private fun build(context: Context, notice: InterruptedRideNotice) =
     NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(smallIcon(context))
+      .setColor(colour(context))
       .setContentTitle(notice.title)
       .setContentText(notice.body)
       .setStyle(NotificationCompat.BigTextStyle().bigText(notice.body))
@@ -98,5 +99,12 @@ object InterruptedRideNotifier {
   private fun smallIcon(context: Context): Int {
     val id = context.resources.getIdentifier("notification_icon", "drawable", context.packageName)
     return if (id != 0) id else context.applicationInfo.icon
+  }
+
+  // The brand tint `expo-notifications` writes beside the icon at prebuild, as
+  // the other notifications read it.
+  private fun colour(context: Context): Int {
+    val id = context.resources.getIdentifier("notification_icon_color", "color", context.packageName)
+    return if (id != 0) context.getColor(id) else NotificationCompat.COLOR_DEFAULT
   }
 }

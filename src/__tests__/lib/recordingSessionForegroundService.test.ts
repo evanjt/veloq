@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { installRecordingSession } from '@/features/recording/lib/recordingSession';
+import { recording } from '@/theme';
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
   installRecordingNotificationActions: jest.fn(() => jest.fn()),
@@ -77,6 +78,17 @@ describe('the recording session and the foreground service', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
     expect(Location.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('tints the service notification in the recording tone', async () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+    expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        foregroundService: expect.objectContaining({ notificationColor: recording.light }),
+      })
+    );
   });
 
   /**

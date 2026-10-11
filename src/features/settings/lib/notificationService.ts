@@ -189,7 +189,7 @@ const handledResponseIds = new Set<string>();
  *
  * Exported so the four shapes can be tested against it.
  */
-export function routeFromNotificationData(data: unknown, coldStart = false): void {
+export function routeFromNotificationData(data: unknown): void {
   const target = tapTargetFromPushData(data);
   if (!target) return;
   const signedIn = getStoredCredentials().athleteId;
@@ -204,10 +204,8 @@ export function routeFromNotificationData(data: unknown, coldStart = false): voi
     router.navigate(target.path as never);
     return;
   }
-  // A cold start has nothing under the pushed screen, so back leaves the app
-  // rather than landing on the feed. Seating the tab group first is the same
-  // reset `AuthGate` does for its own stack. A warm tap already has a stack.
-  if (coldStart) router.replace('/(tabs)' as never);
+  // The root layout seats the tab group under every stack screen, a cold start's
+  // included, so back from the pushed screen lands on the feed.
   router.push(target.path as never);
 }
 
@@ -249,7 +247,7 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
     await ensureCredentialsHydrated();
-    routeFromNotificationData(data, true);
+    routeFromNotificationData(data);
   } catch (e) {
     log.warn('Could not read initial response:', e);
   }

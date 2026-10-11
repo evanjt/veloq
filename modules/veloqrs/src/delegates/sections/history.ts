@@ -4,13 +4,13 @@
  * The engine records every change a section goes through (formed, re-cut,
  * split, merged, dissolved, restored, reverted) with the geometry it had
  * and what was around the change. These read that ledger, draw a stored
- * version, and put one back.
+ * version, and unpin the section. Putting a version back is a section edit,
+ * run off the JS thread through `runSectionBoundsEdit`.
  */
 
 import { decodeCoords } from '../../coords';
 import type { LatLngShort } from '../../coords';
 import type {
-  FfiDepartedRide,
   FfiRetiredSection,
   FfiSectionChange,
   FfiSectionGeometryVersion,
@@ -49,25 +49,6 @@ export function getSectionGeometryVersionPolyline(
     host.engine.sections().getGeometryVersionCoords(sectionId, version)
   );
   return decodeCoords(coords).map((p) => ({ lat: p.latitude, lng: p.longitude }));
-}
-
-export function revertSectionToVersion(
-  host: DelegateHost,
-  sectionId: string,
-  version: number
-): FfiDepartedRide[] | null {
-  if (!host.ready) return null;
-  try {
-    const departed = host.timed('revertToVersion', () =>
-      host.engine.sections().revertToVersion(sectionId, version)
-    );
-    host.notifyAll('sections');
-    return departed;
-  } catch (e) {
-    // empty-on-error: a write; null is its failure and [] is no ride departing.
-    console.error('[Engine] revertSectionToVersion failed:', sectionId, version, e);
-    return null;
-  }
 }
 
 export function unpinSection(host: DelegateHost, sectionId: string): boolean {

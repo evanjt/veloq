@@ -49,4 +49,20 @@ describe('projectRouteToBox', () => {
   ])('returns [] for %s', (_label, c, w, h) => {
     expect(projectRouteToBox(c as typeof coords, w as number, h as number)).toEqual([]);
   });
+
+  it('projects a track longer than the spread argument limit', () => {
+    const n = 200_000;
+    const long = Array.from({ length: n }, (_, i) => ({
+      latitude: 46.5 + i * 1e-6,
+      longitude: 6.6 + Math.sin(i / 1000) * 0.01,
+    }));
+    const pts = projectRouteToBox(long, 48, 36, 2);
+    expect(pts).toHaveLength(n);
+    for (const p of [pts[0], pts[n >> 1], pts[n - 1]]) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+      expect(p.x).toBeGreaterThanOrEqual(2 - 0.001);
+      expect(p.x).toBeLessThanOrEqual(46 + 0.001);
+    }
+  });
 });

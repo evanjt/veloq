@@ -9,6 +9,7 @@ import {
 } from "./veloqrs-ffi";
 import {
   type FfiConverter,
+  type RustBufferAllocator,
   type UniffiByteArray,
   type UniffiGcObject,
   type UniffiHandle,
@@ -3273,6 +3274,12 @@ export type FfiActivityDetailData = {
    */
   routeGroups: Array<FfiRouteGroup>;
   /**
+   * The stored signature of that group's representative activity, delta+varint
+   * encoded: the line the Routes tab draws over the map. Empty when the
+   * activity is in no group or the representative has no signature.
+   */
+  representativeSignature: ArrayBuffer;
+  /**
    * Visible sections this activity traverses, most-visited first.
    *
    * The light record: the screen draws the line, the name and the counts
@@ -3350,6 +3357,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         activityCount: FfiConverterUInt32.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
         routeGroups: FfiConverterSequenceTypeFfiRouteGroup.readFromCursor(c),
+        representativeSignature: FfiConverterArrayBuffer.readFromCursor(c),
         matchedSections:
           FfiConverterSequenceTypeFfiSectionWithPolyline.readFromCursor(c),
         customSections: FfiConverterSequenceTypeFfiSection.readFromCursor(c),
@@ -3381,6 +3389,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         value.routeGroups,
         c,
       );
+      FfiConverterArrayBuffer.writeIntoCursor(value.representativeSignature, c);
       FfiConverterSequenceTypeFfiSectionWithPolyline.writeIntoCursor(
         value.matchedSections,
         c,
@@ -3422,6 +3431,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterSequenceTypeFfiRouteGroup.allocationSize(
           value.routeGroups,
         ) +
+        FfiConverterArrayBuffer.allocationSize(value.representativeSignature) +
         FfiConverterSequenceTypeFfiSectionWithPolyline.allocationSize(
           value.matchedSections,
         ) +
@@ -6411,6 +6421,55 @@ const FfiConverterTypeFfiReferenceSource = (() => {
 })();
 
 /**
+ * Typealias from the type name used in the UDL file to the custom type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ */
+export type FfiFloat32Array = Float32Array;
+
+// FfiConverter for FfiFloat32Array
+const FfiConverterTypeFfiFloat32Array = (() => {
+  type TsType = FfiFloat32Array;
+  type FfiType = Uint8Array;
+  const intermediateConverter = FfiConverterArrayBuffer;
+  class FFIConverter implements FfiConverter<FfiType, TsType> {
+    lift(value: FfiType): TsType {
+      const intermediate = intermediateConverter.lift(value);
+      return new Float32Array(intermediate);
+    }
+    lower(value: TsType, alloc: RustBufferAllocator): FfiType {
+      const intermediate = new Uint8Array(
+        value.buffer,
+        value.byteOffset,
+        value.byteLength,
+      ).slice().buffer;
+      return intermediateConverter.lower(intermediate, alloc);
+    }
+    readFromCursor(c: Cursor): TsType {
+      const intermediate = intermediateConverter.readFromCursor(c);
+      return new Float32Array(intermediate);
+    }
+    writeIntoCursor(value: TsType, c: Cursor): void {
+      const intermediate = new Uint8Array(
+        value.buffer,
+        value.byteOffset,
+        value.byteLength,
+      ).slice().buffer;
+      intermediateConverter.writeIntoCursor(intermediate, c);
+    }
+    allocationSize(value: TsType): number {
+      const intermediate = new Uint8Array(
+        value.buffer,
+        value.byteOffset,
+        value.byteLength,
+      ).slice().buffer;
+      return intermediateConverter.allocationSize(intermediate);
+    }
+  }
+
+  return new FFIConverter();
+})();
+
+/**
  * One lap's time against the reference along the section.
  */
 export type FfiLapDelta = {
@@ -6428,12 +6487,12 @@ export type FfiLapDelta = {
    * each grid point from the start of travel, zero at the first shared point and
    * NaN outside the covered range.
    */
-  deltaSecs: Array<number>;
+  deltaSecs: FfiFloat32Array;
   /**
    * The change in delta over each split, in travel order. NaN for a split
    * the lap does not fully cover.
    */
-  splitDeltaSecs: Array<number>;
+  splitDeltaSecs: FfiFloat32Array;
   /**
    * The delta at the end of the section, only for a lap that covers both
    * of its ends.
@@ -6466,8 +6525,8 @@ const FfiConverterTypeFfiLapDelta = (() => {
         activityId: FfiConverterString.readFromCursor(c),
         startIndex: FfiConverterUInt32.readFromCursor(c),
         activityDate: FfiConverterFloat64.readFromCursor(c),
-        deltaSecs: FfiConverterSequenceFloat32.readFromCursor(c),
-        splitDeltaSecs: FfiConverterSequenceFloat32.readFromCursor(c),
+        deltaSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
+        splitDeltaSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
         endDeltaSecs: FfiConverterOptionalFloat32.readFromCursor(c),
       };
     }
@@ -6475,8 +6534,8 @@ const FfiConverterTypeFfiLapDelta = (() => {
       FfiConverterString.writeIntoCursor(value.activityId, c);
       FfiConverterUInt32.writeIntoCursor(value.startIndex, c);
       FfiConverterFloat64.writeIntoCursor(value.activityDate, c);
-      FfiConverterSequenceFloat32.writeIntoCursor(value.deltaSecs, c);
-      FfiConverterSequenceFloat32.writeIntoCursor(value.splitDeltaSecs, c);
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.deltaSecs, c);
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.splitDeltaSecs, c);
       FfiConverterOptionalFloat32.writeIntoCursor(value.endDeltaSecs, c);
     }
     allocationSize(value: TypeName): number {
@@ -6484,8 +6543,8 @@ const FfiConverterTypeFfiLapDelta = (() => {
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterUInt32.allocationSize(value.startIndex) +
         FfiConverterFloat64.allocationSize(value.activityDate) +
-        FfiConverterSequenceFloat32.allocationSize(value.deltaSecs) +
-        FfiConverterSequenceFloat32.allocationSize(value.splitDeltaSecs) +
+        FfiConverterTypeFfiFloat32Array.allocationSize(value.deltaSecs) +
+        FfiConverterTypeFfiFloat32Array.allocationSize(value.splitDeltaSecs) +
         FfiConverterOptionalFloat32.allocationSize(value.endDeltaSecs)
       );
     }
@@ -6620,6 +6679,11 @@ export type FfiDirectionDeltas = {
    * Laps inside the range that could not be drawn, and why.
    */
   missing: Array<FfiLapDeltaMissing>;
+  /**
+   * The largest number of seconds any of `laps` is behind or ahead of the
+   * reference, 0 when none has a finite delta.
+   */
+  peakDeltaSecs: number;
 };
 
 /**
@@ -6648,6 +6712,7 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         referenceSource: FfiConverterTypeFfiReferenceSource.readFromCursor(c),
         laps: FfiConverterSequenceTypeFfiLapDelta.readFromCursor(c),
         missing: FfiConverterSequenceTypeFfiLapDeltaMissing.readFromCursor(c),
+        peakDeltaSecs: FfiConverterFloat32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -6661,6 +6726,7 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         value.missing,
         c,
       );
+      FfiConverterFloat32.writeIntoCursor(value.peakDeltaSecs, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6669,7 +6735,10 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
           value.referenceSource,
         ) +
         FfiConverterSequenceTypeFfiLapDelta.allocationSize(value.laps) +
-        FfiConverterSequenceTypeFfiLapDeltaMissing.allocationSize(value.missing)
+        FfiConverterSequenceTypeFfiLapDeltaMissing.allocationSize(
+          value.missing,
+        ) +
+        FfiConverterFloat32.allocationSize(value.peakDeltaSecs)
       );
     }
   }
@@ -17963,7 +18032,8 @@ export enum FfiUploadOutcome {
    */
   Retriable = 5,
   /**
-   * The request never reached intervals.icu.
+   * The request failed in transport. It may have reached intervals.icu, so
+   * the ride is looked for there before it is sent again.
    */
   Network = 6,
   /**
@@ -19478,6 +19548,7 @@ export enum FfiSectionBoundsEdit_Tags {
   Expand = "Expand",
   SetReference = "SetReference",
   ResetReference = "ResetReference",
+  Revert = "Revert",
 }
 /**
  * One edit to a section's line, each re-matching the section's rides.
@@ -19672,6 +19743,36 @@ export const FfiSectionBoundsEdit = (() => {
     }
   }
 
+  type Revert__interface = {
+    tag: FfiSectionBoundsEdit_Tags.Revert;
+    inner: Readonly<{ sectionId: string; version: number }>;
+  };
+  /**
+   * Put a stored geometry version back as the line and pin the section
+   * there. A retired section's version brings the section back.
+   */
+  class Revert_ extends UniffiEnum implements Revert__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiSectionBoundsEdit";
+    readonly tag = FfiSectionBoundsEdit_Tags.Revert;
+    readonly inner: Readonly<{ sectionId: string; version: number }>;
+    constructor(inner: { sectionId: string; version: number }) {
+      super("FfiSectionBoundsEdit", "Revert");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { sectionId: string; version: number }): Revert_ {
+      return new Revert_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Revert_ {
+      return obj.tag === FfiSectionBoundsEdit_Tags.Revert;
+    }
+  }
+
   function instanceOf(obj: any): obj is FfiSectionBoundsEdit {
     return obj[uniffiTypeNameSymbol] === "FfiSectionBoundsEdit";
   }
@@ -19683,6 +19784,7 @@ export const FfiSectionBoundsEdit = (() => {
     Expand: Expand_,
     SetReference: SetReference_,
     ResetReference: ResetReference_,
+    Revert: Revert_,
   });
 })();
 /**
@@ -19694,7 +19796,8 @@ export type FfiSectionBoundsEdit = InstanceType<
     | "Reset"
     | "Expand"
     | "SetReference"
-    | "ResetReference"]
+    | "ResetReference"
+    | "Revert"]
 >;
 
 // FfiConverter for enum FfiSectionBoundsEdit
@@ -19728,6 +19831,11 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
         case 5:
           return new FfiSectionBoundsEdit.ResetReference({
             sectionId: FfiConverterString.readFromCursor(c),
+          });
+        case 6:
+          return new FfiSectionBoundsEdit.Revert({
+            sectionId: FfiConverterString.readFromCursor(c),
+            version: FfiConverterFloat64.readFromCursor(c),
           });
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -19771,6 +19879,13 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
           FfiConverterString.writeIntoCursor(inner.sectionId, c);
           return;
         }
+        case FfiSectionBoundsEdit_Tags.Revert: {
+          c.writeI32(6);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.sectionId, c);
+          FfiConverterFloat64.writeIntoCursor(inner.version, c);
+          return;
+        }
         default:
           // Throwing from here means that FfiSectionBoundsEdit_Tags hasn't matched an ordinal.
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -19812,6 +19927,13 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
           const inner = value.inner;
           let size = 4;
           size += FfiConverterString.allocationSize(inner.sectionId);
+          return size;
+        }
+        case FfiSectionBoundsEdit_Tags.Revert: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.sectionId);
+          size += FfiConverterFloat64.allocationSize(inner.version);
           return size;
         }
         default:
@@ -20134,8 +20256,9 @@ export const UploadTransition = (() => {
     inner: Readonly<{ install: number; error: string }>;
   };
   /**
-   * The transport failed before intervals.icu was reached. The ride waits
-   * with its attempts intact, stamped so the backoff still applies.
+   * The transport failed, before or after the request reached
+   * intervals.icu. The ride waits with its attempts intact, stamped so the
+   * backoff still applies.
    */
   class HeldForNetwork_
     extends UniffiEnum
@@ -21913,13 +22036,18 @@ const FfiConverterTypeActivityManager = new FfiConverterObject(
  */
 export interface BasemapManagerLike {
   /**
-   * Drop every tile of one source.
+   * Drop every tile of one source. Async for the reason
+   * [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
    */
-  clearSourceTiles(source: string) /*throws*/ : number;
+  clearSourceTiles(
+    source: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<number>;
   /**
-   * Drop every basemap tile, pinned pre-seed included.
+   * Drop every basemap tile, pinned pre-seed included. Async for the
+   * reason [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
    */
-  clearTiles() /*throws*/ : number;
+  clearTiles(asyncOpts_?: { signal: AbortSignal }) /*throws*/ : Promise<number>;
   /**
    * Drop every tile that is not part of the pinned pre-seed, across every
    * source. Async for the reason [`set_budget`](Self::set_budget) is: it
@@ -22059,44 +22187,87 @@ export class BasemapManager
   }
 
   /**
-   * Drop every tile of one source.
+   * Drop every tile of one source. Async for the reason
+   * [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
    */
-  clearSourceTiles(source: string): number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
+  async clearSourceTiles(
+    source: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<number> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(source, nativeModule().rustbuffer_alloc),
-            callStatus,
           );
         },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_u32,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_u32,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_u32,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_u32,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterUInt32.lift.bind(FfiConverterUInt32),
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
-   * Drop every basemap tile, pinned pre-seed included.
+   * Drop every basemap tile, pinned pre-seed included. Async for the
+   * reason [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
    */
-  clearTiles(): number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
+  async clearTiles(asyncOpts_?: {
+    signal: AbortSignal;
+  }): Promise<number> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-            callStatus,
           );
         },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_u32,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_u32,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_u32,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_u32,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterUInt32.lift.bind(FfiConverterUInt32),
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -27086,16 +27257,6 @@ export interface SectionManagerLike {
     secondaryId: string,
   ) /*throws*/ : Array<FfiMergeDropped>;
   /**
-   * Merge two sections. Rebuilds the primary's traversals against its own line
-   * over the rides of both. A donor ride with no pass over that line leaves
-   * the section and stays in the library. Deletes secondary. Returns the
-   * primary section ID and the rides that left.
-   */
-  mergeSections(
-    primaryId: string,
-    secondaryId: string,
-  ) /*throws*/ : FfiMergeOutcome;
-  /**
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
    */
@@ -27104,13 +27265,10 @@ export interface SectionManagerLike {
     sectionId: string,
   ) /*throws*/ : boolean;
   removeNamedCorridor(intentId: string) /*throws*/ : void;
-  revertToVersion(
-    sectionId: string,
-    version: number,
-  ) /*throws*/ : Array<FfiDepartedRide>;
   /**
-   * Trim, reset or expand a section's bounds, or set or reset its
-   * reference, resolving with the rides the edit took out of it.
+   * Trim, reset or expand a section's bounds, set or reset its reference,
+   * or revert it to a stored version, resolving with the rides the edit
+   * took out of it.
    *
    * `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
    * tap may block. The write lock is still taken for the edit's length, so
@@ -27121,6 +27279,21 @@ export interface SectionManagerLike {
     edit: FfiSectionBoundsEdit,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<Array<FfiDepartedRide>>;
+  /**
+   * Merge two sections. Rebuilds the primary's traversals against its own line
+   * over the rides of both. A donor ride with no pass over that line leaves
+   * the section and stays in the library. Deletes secondary. Resolves with
+   * the primary section ID and the rides that left.
+   *
+   * It re-matches the rides of both sections, the work a bounds edit moves
+   * off the calling thread, so it runs the same way and under the same
+   * slot: one section edit at a time, a second refused until it ends.
+   */
+  runSectionMerge(
+    primaryId: string,
+    secondaryId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<FfiMergeOutcome>;
   /**
    * Mark or unmark a section as a lift.
    *
@@ -28025,40 +28198,6 @@ export class SectionManager
   }
 
   /**
-   * Merge two sections. Rebuilds the primary's traversals against its own line
-   * over the rides of both. A donor ride with no pass over that line leaves
-   * the section and stays in the library. Deletes secondary. Returns the
-   * primary section ID and the rides that left.
-   */
-  mergeSections(
-    primaryId: string,
-    secondaryId: string,
-  ): FfiMergeOutcome /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(primaryId, nativeModule().rustbuffer_alloc),
-          FfiConverterString.lower(
-            secondaryId,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeFfiMergeOutcome.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
    */
@@ -28106,34 +28245,10 @@ export class SectionManager
     );
   }
 
-  revertToVersion(
-    sectionId: string,
-    version: number,
-  ): Array<FfiDepartedRide> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(version, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   /**
-   * Trim, reset or expand a section's bounds, or set or reset its
-   * reference, resolving with the rides the edit took out of it.
+   * Trim, reset or expand a section's bounds, set or reset its reference,
+   * or revert it to a stored version, resolving with the rides the edit
+   * took out of it.
    *
    * `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
    * tap may block. The write lock is still taken for the edit's length, so
@@ -28176,6 +28291,75 @@ export class SectionManager
         /*liftFunc:*/ (__rb) => {
           try {
             return FfiConverterSequenceTypeFfiDepartedRide.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * Merge two sections. Rebuilds the primary's traversals against its own line
+   * over the rides of both. A donor ride with no pass over that line leaves
+   * the section and stays in the library. Deletes secondary. Resolves with
+   * the primary section ID and the rides that left.
+   *
+   * It re-matches the rides of both sections, the work a bounds edit moves
+   * off the calling thread, so it runs the same way and under the same
+   * slot: one section edit at a time, a second refused until it ends.
+   */
+  async runSectionMerge(
+    primaryId: string,
+    secondaryId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiMergeOutcome> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_run_section_merge(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              primaryId,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(
+              secondaryId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiMergeOutcome.lift(__rb);
           } finally {
             nativeModule().rustbuffer_free(__rb);
           }
@@ -32273,9 +32457,6 @@ const FfiConverterOptionalTypeFfiRequestBudget = new FfiConverterOptional(
   FfiConverterTypeFfiRequestBudget,
 );
 
-// FfiConverter for Array<number>
-const FfiConverterSequenceFloat32 = new FfiConverterArray(FfiConverterFloat32);
-
 // FfiConverter for number | undefined
 const FfiConverterOptionalFloat32 = new FfiConverterOptional(
   FfiConverterFloat32,
@@ -33313,7 +33494,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles() !==
-    63068
+    29274
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles",
@@ -33321,7 +33502,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles() !==
-    53056
+    28030
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles",
@@ -34496,14 +34677,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections() !==
-    17452
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section() !==
     1531
   ) {
@@ -34520,19 +34693,19 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version() !==
-    54321
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit() !==
-    42486
+    8713
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_merge() !==
+    29712
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_run_section_merge",
     );
   }
   if (
@@ -35440,6 +35613,7 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiFeedGroup,
     FfiConverterTypeFfiFitnessScreenData,
+    FfiConverterTypeFfiFloat32Array,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSort,

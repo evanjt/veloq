@@ -31,7 +31,7 @@ import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSync
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSyncState } from '@/shared/native/useSyncStatus';
+import { useSyncLastErrorReason, useSyncState } from '@/shared/native/useSyncStatus';
 import {
   useInfiniteActivities,
   useFeedSearch,
@@ -49,6 +49,7 @@ import {
   NotificationOptInCard,
   SupportCard,
   FeedFirstSyncStandby,
+  FeedEmptyLibrary,
   useSummaryCardData,
   useStartupData,
   feedEmptyState,
@@ -265,11 +266,14 @@ function FeedScreenContent() {
 
   // What the feed draws when it has no cards. A first launch is its own case:
   // the query resolves empty long before the first sync has stored anything,
-  // so every other loading state is already false by then.
+  // so every other loading state is already false by then. A first sync that
+  // stopped short is another: the engine's reason says why nothing arrived.
   const syncState = useSyncState();
+  const lastErrorReason = useSyncLastErrorReason();
   const emptyState = feedEmptyState({
     storedCount: filteredActivities.length,
     syncState: syncState ?? undefined,
+    lastErrorReason,
     isError: filtering ? search.isError : isError,
     isLoading: filtering ? search.isLoading : isLoading,
     hasFilter: filtering,
@@ -576,15 +580,15 @@ function FeedScreenContent() {
     ]
   );
 
-  const renderEmpty = useCallback(
+  const renderFilteredEmpty = useCallback(
     () => (
       <View testID="home-empty-state" style={styles.emptyContainer}>
         <Text style={[styles.emptyText, isDark && styles.textLight]}>
-          {filtering ? t('feed.noMatchingActivities') : t('feed.noActivities')}
+          {t('feed.noMatchingActivities')}
         </Text>
       </View>
     ),
-    [isDark, filtering, t]
+    [isDark, t]
   );
 
   const renderSkeletons = useCallback(
@@ -618,10 +622,26 @@ function FeedScreenContent() {
         return renderStandby();
       case 'skeletons':
         return renderSkeletons();
+      case 'paused':
+      case 'authExpired':
+      case 'failed':
+        return <FeedEmptyLibrary state={emptyState} onRetry={handleRefresh} />;
       default:
-        return renderEmpty();
+        return filtering ? (
+          renderFilteredEmpty()
+        ) : (
+          <FeedEmptyLibrary state="empty" onRetry={handleRefresh} />
+        );
     }
-  }, [emptyState, renderError, renderStandby, renderSkeletons, renderEmpty]);
+  }, [
+    emptyState,
+    filtering,
+    handleRefresh,
+    renderError,
+    renderStandby,
+    renderSkeletons,
+    renderFilteredEmpty,
+  ]);
 
   const loadingMore = filtering ? search.isFetchingNextPage : isFetchingNextPage;
   const renderFooter = useCallback(() => {

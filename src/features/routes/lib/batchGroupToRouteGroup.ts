@@ -7,7 +7,7 @@ import { toActivityType } from '@/features/routes/types';
 
 /**
  * Convert batch GroupWithPolyline to RouteGroup with pre-loaded representative points.
- * Avoids per-row useRepresentativeRoute FFI calls.
+ * The engine strides the row line to the thumbnail, so the row reads nothing more.
  */
 export function batchGroupToRouteGroup(group: GroupWithPolyline): RouteGroup {
   // Decode delta+varint encoded polyline to RoutePoint[]

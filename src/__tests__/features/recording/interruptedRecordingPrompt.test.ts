@@ -3,9 +3,10 @@
  * crash backup.
  *
  * Expected behaviour: the resume prompt names the ride from the backup it
- * loaded, Discard deletes that backup and Resume restores it. A file that
- * cannot be read raises nothing and is left where it is, and a session already
- * in memory is never offered its own backup.
+ * loaded, Discard deletes that backup and Resume restores it. Later, Android
+ * back and a scrim tap leave the backup and its notice for the next launch. A
+ * file that cannot be read raises nothing and is left where it is, and a
+ * session already in memory is never offered its own backup.
  */
 
 import { Alert } from 'react-native';
@@ -74,11 +75,16 @@ const twoHourRide: RecordingBackup = {
 };
 
 type AlertButton = { text?: string; style?: string; onPress?: () => unknown };
+type AlertOptions = { cancelable?: boolean; onDismiss?: () => void };
 
-function lastAlert(): { body: string; buttons: AlertButton[] } {
+function lastAlert(): { body: string; buttons: AlertButton[]; options?: AlertOptions } {
   const calls = (Alert.alert as jest.Mock).mock.calls;
-  const [, body, buttons] = calls[calls.length - 1];
-  return { body, buttons };
+  const [, body, buttons, options] = calls[calls.length - 1];
+  return { body, buttons, options };
+}
+
+function resumeButton(): AlertButton | undefined {
+  return lastAlert().buttons.find((b) => b.style === undefined);
 }
 
 beforeAll(async () => {
@@ -137,7 +143,7 @@ describe('the resume prompt on the record screen', () => {
     const buttons = lastAlert().buttons;
     useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true });
     buttons.find((b) => b.style === 'destructive')?.onPress?.();
-    await buttons.find((b) => b.style !== 'destructive')?.onPress?.();
+    await buttons.find((b) => b.style === undefined)?.onPress?.();
     expect(mockClearBackup).not.toHaveBeenCalled();
     expect(mockResume).not.toHaveBeenCalled();
   });
@@ -195,12 +201,43 @@ describe('the resume prompt on the record screen', () => {
     mockResume.mockResolvedValue('/recording/Ride');
     await promptInterruptedRecording();
 
-    await lastAlert()
-      .buttons.find((b) => b.style !== 'destructive')
-      ?.onPress?.();
+    await resumeButton()?.onPress?.();
 
     expect(mockClearBackup).not.toHaveBeenCalled();
     expect(mockNavigateTo).toHaveBeenCalledWith('/recording/Ride');
+  });
+
+  it('keeps the backup and its notice on Later, and offers the ride again next time', async () => {
+    await promptInterruptedRecording();
+    const later = lastAlert().buttons.find((b) => b.style === 'cancel');
+
+    expect(later).toBeDefined();
+    await later?.onPress?.();
+
+    expect(mockClearBackup).not.toHaveBeenCalled();
+    expect(mockClearNotice).not.toHaveBeenCalled();
+    expect(mockResume).not.toHaveBeenCalled();
+
+    await promptInterruptedRecording();
+
+    expect(Alert.alert).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets Android back and a scrim tap close it the way Later does', async () => {
+    await promptInterruptedRecording();
+    const options = lastAlert().options;
+
+    expect(options?.cancelable).toBe(true);
+    expect(options?.onDismiss).toBeInstanceOf(Function);
+    options?.onDismiss?.();
+
+    expect(mockClearBackup).not.toHaveBeenCalled();
+    expect(mockClearNotice).not.toHaveBeenCalled();
+    expect(mockResume).not.toHaveBeenCalled();
+
+    await promptInterruptedRecording();
+
+    expect(Alert.alert).toHaveBeenCalledTimes(2);
   });
 
   it('raises nothing for a backup it cannot read, and leaves the file alone', async () => {

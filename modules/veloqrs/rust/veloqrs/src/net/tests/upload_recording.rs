@@ -17,7 +17,17 @@ struct Fake {
     /// Who holds the credential once the post has gone out, for a sign-in
     /// that lands while the request is in flight.
     athlete_after_send: Option<Option<String>>,
-    answers: Mutex<Vec<FfiCallOutcome>>,
+    /// Each send's answer, and the id of the activity the server created for
+    /// it whatever the answer said, `None` when it created nothing.
+    answers: Mutex<Vec<(FfiCallOutcome, Option<String>)>>,
+    /// The activities intervals.icu holds, as the duplicate check lists them.
+    server: Mutex<Vec<ListedActivity>>,
+    /// Whether a manual create keeps the external id it was sent.
+    keeps_external_id: bool,
+    /// What looking for a landed activity answers instead of the server's
+    /// list, for a look that fails.
+    find_answer: Option<FfiCallOutcome>,
+    looked: Mutex<Vec<String>>,
     rpe_answer: FfiCallKind,
     sent: Mutex<Vec<String>>,
     /// The FIT path each file send was handed.
@@ -34,10 +44,30 @@ struct Fake {
 
 impl Fake {
     fn answering(answers: Vec<FfiCallOutcome>) -> Self {
+        Self::scripted(
+            answers
+                .into_iter()
+                .map(|reply| {
+                    let created = (reply.kind == FfiCallKind::Ok)
+                        .then(|| reply.id.clone())
+                        .flatten();
+                    (reply, created)
+                })
+                .collect(),
+        )
+    }
+
+    /// Each send answers its reply, and the server creates the activity named
+    /// beside it whatever the reply says.
+    fn scripted(answers: Vec<(FfiCallOutcome, Option<String>)>) -> Self {
         Self {
             athlete: Mutex::new(Some(ATHLETE.to_string())),
             athlete_after_send: None,
             answers: Mutex::new(answers.into_iter().rev().collect()),
+            server: Mutex::new(Vec::new()),
+            keeps_external_id: true,
+            find_answer: None,
+            looked: Mutex::new(Vec::new()),
             rpe_answer: FfiCallKind::Ok,
             sent: Mutex::new(Vec::new()),
             sent_paths: Mutex::new(Vec::new()),
@@ -67,7 +97,7 @@ impl Fake {
         self.sent.lock().unwrap().clone()
     }
 
-    fn answer(&self, ride: &FfiRecordingEntry) -> FfiCallOutcome {
+    fn answer(&self, ride: &FfiRecordingEntry, created: ListedActivity) -> FfiCallOutcome {
         self.sent.lock().unwrap().push(ride.id.clone());
         if let Some(during) = &self.during_send {
             during();
@@ -75,11 +105,33 @@ impl Fake {
         if let Some(after) = &self.athlete_after_send {
             *self.athlete.lock().unwrap() = after.clone();
         }
-        self.answers
+        let (reply, created_id) = self
+            .answers
             .lock()
             .unwrap()
             .pop()
-            .expect("a send the script did not expect")
+            .expect("a send the script did not expect");
+        if let Some(id) = created_id {
+            self.server
+                .lock()
+                .unwrap()
+                .push(ListedActivity { id, ..created });
+        }
+        reply
+    }
+
+    /// The activities the server holds, by id.
+    fn created(&self) -> Vec<String> {
+        self.server
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|a| a.id.clone())
+            .collect()
+    }
+
+    fn looked(&self) -> Vec<String> {
+        self.looked.lock().unwrap().clone()
     }
 }
 
@@ -90,12 +142,36 @@ impl Uplink for Fake {
 
     fn send_file(&self, ride: &FfiRecordingEntry) -> FfiCallOutcome {
         self.sent_paths.lock().unwrap().push(ride.fit_path.clone());
-        self.answer(ride)
+        let created = ListedActivity {
+            external_id: Some(ride.id.clone()),
+            activity_type: Some(ride.activity_type.clone()),
+            ..ListedActivity::default()
+        };
+        self.answer(ride, created)
     }
 
     fn send_manual(&self, ride: &FfiRecordingEntry, body: ManualActivityBody) -> FfiCallOutcome {
+        let created = ListedActivity {
+            external_id: body.external_id.clone().filter(|_| self.keeps_external_id),
+            start_date_local: Some(body.start_date_local.clone()),
+            activity_type: Some(body.activity_type.clone()),
+            ..ListedActivity::default()
+        };
         self.manual_bodies.lock().unwrap().push(body);
-        self.answer(ride)
+        self.answer(ride, created)
+    }
+
+    fn find_landed(
+        &self,
+        ride: &FfiRecordingEntry,
+        manual: Option<&ManualActivityBody>,
+    ) -> FfiCallOutcome {
+        self.looked.lock().unwrap().push(ride.id.clone());
+        if let Some(failed) = &self.find_answer {
+            return failed.clone();
+        }
+        let found = landed_match(&ride.id, manual, &self.server.lock().unwrap());
+        answer(FfiCallKind::Ok, found.as_deref(), None)
     }
 
     fn send_rpe(&self, intervals_id: &str, rpe: u32) -> FfiCallOutcome {
@@ -555,6 +631,11 @@ fn a_manual_entry_posts_its_stored_body() {
     assert_eq!(posted[0].moving_time, Some(1800));
     assert!(posted[0].trainer);
     assert!(!posted[0].commute);
+    assert_eq!(
+        posted[0].external_id.as_deref(),
+        Some("m1"),
+        "the entry is posted under its own id"
+    );
     assert_eq!(missing.outcome, FfiUploadOutcome::Missing);
     assert_eq!(row("m2").upload_status, "failed");
     assert_eq!(fake.sent(), vec!["m1"]);
@@ -616,6 +697,311 @@ fn a_stored_manual_body_omits_what_it_does_not_say() {
     assert_eq!(json["type"], "Yoga");
     assert_eq!(json["trainer"], false);
     assert_eq!(json["commute"], false);
+}
+
+/// A manual entry with its body on disk, recorded by the signed-in athlete.
+fn manual_entry(dir: &TempDir, id: &str, created_at: i64) -> FfiRecordingEntry {
+    let body_path = dir.path().join(format!("{id}.manual.json"));
+    std::fs::write(
+        &body_path,
+        r#"{"type":"Rowing","name":"Erg","start_date_local":"2026-01-02T07:00:00",
+            "elapsed_time":1800}"#,
+    )
+    .unwrap();
+    let mut entry = ride(dir, id, created_at);
+    entry.kind = "manual".into();
+    entry.fit_path = String::new();
+    entry.streams_path = Some(format!("file://{}", body_path.display()));
+    entry
+}
+
+fn in_doubt(id: &str) -> bool {
+    with_persistent_engine(|e| e.recording_upload_in_doubt(id).unwrap())
+        .unwrap()
+        .expect("the row")
+}
+
+/// An hour on, past any backoff a first attempt sets.
+fn an_hour_later() -> i64 {
+    NOW + 3_600_000
+}
+
+/// Scenario: a manual entry's create is applied by the server, but the answer
+/// is lost: once to a read timeout, once to a proxy's 502. The queue drains
+/// again once the backoff has run.
+/// Expected behaviour: the second drain finds the activity on the server and
+/// settles the ride as uploaded with its id, and the server holds one
+/// activity, never two.
+#[test]
+fn a_manual_entry_whose_create_landed_unanswered_is_not_posted_again() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_manual_unanswered.db");
+    let lost_answers = [
+        answer(FfiCallKind::Network, None, None),
+        http(502, "bad gateway"),
+    ];
+    for (i, lost) in lost_answers.into_iter().enumerate() {
+        let id = format!("m{i}");
+        let mut entry = manual_entry(&dir, &id, 1_000 + i as i64);
+        entry.rpe = Some(5);
+        insert(&entry);
+        let created = format!("i{}", 90 + i);
+        let fake = Fake::scripted(vec![
+            (lost, Some(created.clone())),
+            (landed("i-duplicate"), Some("i-duplicate".into())),
+        ]);
+
+        drain(&fake, &now);
+        drain(&fake, &an_hour_later);
+
+        assert_eq!(fake.sent(), vec![id.clone()], "{id} was posted again");
+        assert_eq!(fake.created(), vec![created.clone()], "{id}");
+        let settled = row(&id);
+        assert_eq!(settled.upload_status, "uploaded", "{id}");
+        assert_eq!(settled.intervals_activity_id, Some(created.clone()), "{id}");
+        assert!(!in_doubt(&id), "{id}");
+        assert_eq!(
+            *fake.rpe.lock().unwrap(),
+            vec![(created, 5)],
+            "the effort goes to the activity found"
+        );
+    }
+}
+
+/// Scenario: the server applies a manual create and drops the external id it
+/// was sent, and the answer is lost to a timeout.
+/// Expected behaviour: the next attempt finds the activity by its start and
+/// type, and posts nothing.
+#[test]
+fn a_landed_manual_entry_without_its_external_id_is_found_by_start_and_type() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_manual_no_external_id.db");
+    insert(&manual_entry(&dir, "m1", 1_000));
+    let mut fake = Fake::scripted(vec![(
+        answer(FfiCallKind::Network, None, None),
+        Some("i9".into()),
+    )]);
+    fake.keeps_external_id = false;
+
+    drain(&fake, &now);
+    drain(&fake, &an_hour_later);
+
+    assert_eq!(fake.sent(), vec!["m1"]);
+    assert_eq!(row("m1").intervals_activity_id.as_deref(), Some("i9"));
+}
+
+/// Scenario: a create times out without reaching the server, and the next
+/// attempt looks and finds nothing.
+/// Expected behaviour: the entry is posted again and lands, and the mark is
+/// gone once it has.
+#[test]
+fn a_ride_the_server_does_not_hold_is_sent_again_after_the_look() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_manual_not_landed.db");
+    insert(&manual_entry(&dir, "m1", 1_000));
+    let fake = Fake::scripted(vec![
+        (answer(FfiCallKind::Network, None, None), None),
+        (landed("i10"), Some("i10".into())),
+    ]);
+
+    drain(&fake, &now);
+    assert!(in_doubt("m1"), "a lost answer leaves the ride in doubt");
+    drain(&fake, &an_hour_later);
+
+    assert_eq!(fake.looked(), vec!["m1"]);
+    assert_eq!(fake.sent(), vec!["m1", "m1"]);
+    assert_eq!(fake.created(), vec!["i10"]);
+    let settled = row("m1");
+    assert_eq!(settled.upload_status, "uploaded");
+    assert_eq!(settled.intervals_activity_id.as_deref(), Some("i10"));
+    assert!(!in_doubt("m1"));
+}
+
+/// Scenario: a ride in doubt is due, and the look itself fails: once to the
+/// network, once to a 500, once to a 400.
+/// Expected behaviour: nothing is posted, the ride stays pending and in doubt,
+/// and the next attempt looks again.
+#[test]
+fn a_failed_look_sends_nothing_and_keeps_the_ride_in_doubt() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_look_failed.db");
+    let failures = [
+        (
+            answer(FfiCallKind::Network, None, None),
+            FfiUploadOutcome::Network,
+        ),
+        (http(500, "busy"), FfiUploadOutcome::Retriable),
+        (http(400, "bad window"), FfiUploadOutcome::Retriable),
+    ];
+    for (i, (failure, outcome)) in failures.into_iter().enumerate() {
+        let id = format!("m{i}");
+        insert(&manual_entry(&dir, &id, 1_000 + i as i64));
+        with_persistent_engine(|e| e.set_recording_upload_in_doubt(&id, true).unwrap()).unwrap();
+        let mut fake = Fake::answering(vec![]);
+        fake.find_answer = Some(failure);
+
+        let result = upload_ride(&id, false, &fake, &now);
+
+        assert_eq!(result.outcome, outcome, "{id}");
+        assert_eq!(fake.looked(), vec![id.clone()], "{id}");
+        assert!(fake.sent().is_empty(), "{id}");
+        assert_eq!(row(&id).upload_status, "pending", "{id}");
+        assert!(in_doubt(&id), "{id}");
+    }
+}
+
+/// Scenario: a ride's request is in flight, and the answers that follow: a
+/// rate limit and a rejection the server gave before acting, and a 408.
+/// Expected behaviour: the ride is in doubt while the request is out; a
+/// refusal settles it, so the next attempt posts without looking, and a 408
+/// leaves it in doubt.
+#[test]
+fn the_mark_is_written_before_the_request_and_cleared_by_a_refusal() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_mark_cleared.db");
+    let cases = [
+        (answer(FfiCallKind::RateLimited, None, Some(429)), false),
+        (http(400, "bad file"), false),
+        (http(403, "forbidden"), false),
+        (http(408, "timeout"), true),
+    ];
+    for (i, (reply, doubt_after)) in cases.into_iter().enumerate() {
+        let id = format!("r{i}");
+        insert(&ride(&dir, &id, 1_000 + i as i64));
+        let seen = std::sync::Arc::new(Mutex::new(None));
+        let mut fake = Fake::answering(vec![reply]);
+        let (seen_in, watched) = (seen.clone(), id.clone());
+        fake.during_send = Some(Box::new(move || {
+            *seen_in.lock().unwrap() = Some(in_doubt(&watched));
+        }));
+
+        upload_ride(&id, false, &fake, &now);
+
+        assert_eq!(*seen.lock().unwrap(), Some(true), "{id} in flight");
+        assert_eq!(in_doubt(&id), doubt_after, "{id} after");
+        assert!(fake.looked().is_empty(), "{id}");
+    }
+}
+
+/// Scenario: the app was killed while a ride was uploading.
+/// Expected behaviour: releasing it leaves it in doubt, so its next attempt
+/// looks for it before sending.
+#[test]
+fn a_ride_stranded_mid_upload_is_in_doubt() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_stranded_doubt.db");
+    let mut stranded = ride(&dir, "r1", 1_000);
+    stranded.upload_status = "uploading".into();
+    insert(&stranded);
+
+    with_persistent_engine(|e| e.release_stranded_uploads(NOW).unwrap()).unwrap();
+
+    assert!(in_doubt("r1"));
+}
+
+/// Scenario: a FIT upload's answer is lost after the server took it, and the
+/// server filed it under the file's name rather than the external id.
+/// Expected behaviour: the next attempt finds it by that name and sends
+/// nothing.
+#[test]
+fn a_landed_file_upload_is_found_by_its_file_name() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_file_landed_unanswered.db");
+    insert(&ride(&dir, "r1", 1_000));
+    let fake = Fake::scripted(vec![(
+        answer(FfiCallKind::Network, None, None),
+        Some("i9".into()),
+    )]);
+
+    drain(&fake, &now);
+    fake.server.lock().unwrap()[0].external_id = Some("r1.fit".into());
+    drain(&fake, &an_hour_later);
+
+    assert_eq!(fake.sent(), vec!["r1"]);
+    assert_eq!(row("r1").intervals_activity_id.as_deref(), Some("i9"));
+}
+
+fn listed(id: &str, external_id: Option<&str>, start: &str, kind: &str) -> ListedActivity {
+    ListedActivity {
+        id: id.into(),
+        external_id: external_id.map(str::to_string),
+        start_date_local: Some(start.into()),
+        activity_type: Some(kind.into()),
+    }
+}
+
+fn rowing_body() -> ManualActivityBody {
+    ManualActivityBody {
+        activity_type: "Rowing".into(),
+        name: "Erg".into(),
+        start_date_local: "2026-01-02T07:00:00".into(),
+        elapsed_time: 1800,
+        moving_time: None,
+        distance: None,
+        total_elevation_gain: None,
+        average_heartrate: None,
+        description: None,
+        trainer: false,
+        commute: false,
+        external_id: Some("m1".into()),
+    }
+}
+
+/// Scenario: the activities around a recording, as the server lists them.
+/// Expected behaviour: the ride's own external id matches in either form; an
+/// activity with no external id matches a manual entry on start and type; an
+/// activity another source filed, at the same start and type, never matches,
+/// and neither does anything for a file upload without its external id.
+#[test]
+fn a_landed_activity_is_matched_by_its_external_id_or_a_bare_start_and_type() {
+    let body = rowing_body();
+    let start = "2026-01-02T07:00:00";
+
+    let own = [listed("i1", Some("m1"), "2026-03-01T00:00:00", "Ride")];
+    assert_eq!(landed_match("m1", None, &own).as_deref(), Some("i1"));
+    let named = [listed("i2", Some("m1.fit"), start, "Rowing")];
+    assert_eq!(landed_match("m1", None, &named).as_deref(), Some("i2"));
+
+    let bare = [
+        listed("i3", None, "2026-01-02T07:00:00.000", "Rowing"),
+        listed("i4", Some(""), start, "Rowing"),
+    ];
+    assert_eq!(
+        landed_match("m1", Some(&body), &bare).as_deref(),
+        Some("i3")
+    );
+    assert_eq!(
+        landed_match("m1", None, &bare),
+        None,
+        "a file has no fallback"
+    );
+
+    let others = [
+        listed("i5", Some("98765432100"), start, "Rowing"),
+        listed("i6", None, start, "Run"),
+        listed("i7", None, "2026-01-02T07:00:01", "Rowing"),
+        listed("i8", Some("m10"), start, "Rowing"),
+    ];
+    assert_eq!(landed_match("m1", Some(&body), &others), None);
+    assert_eq!(landed_match("m1", Some(&body), &[]), None);
+}
+
+/// Scenario: the window a look lists, for a manual entry and for a ride.
+/// Expected behaviour: the day either side of the entry's own local start, or
+/// of the ride's start when it has no body.
+#[test]
+fn a_look_lists_the_day_either_side_of_the_start() {
+    let dir = TempDir::new().unwrap();
+    let mut entry = ride(&dir, "r1", 1_000);
+    entry.start_time = 1_767_225_600_000.0;
+    assert_eq!(
+        search_window(&entry, Some(&rowing_body())),
+        ("2026-01-01".to_string(), "2026-01-03".to_string())
+    );
+    assert_eq!(
+        search_window(&entry, None),
+        ("2025-12-31".to_string(), "2026-01-02".to_string())
+    );
 }
 
 /// Scenario: saving a ride wakes the schedule, which begins it before the

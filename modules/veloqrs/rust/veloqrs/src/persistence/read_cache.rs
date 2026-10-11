@@ -973,12 +973,13 @@ mod tests {
                         activity_id: format!("lap-{i}"),
                         start_index: 0,
                         activity_date: i as f64,
-                        delta_secs: vec![0.0; points],
-                        split_delta_secs: vec![0.0; points / 100],
+                        delta_secs: vec![0.0; points].into(),
+                        split_delta_secs: vec![0.0; points / 100].into(),
                         end_delta_secs: Some(0.0),
                     })
                     .collect(),
                 missing: Vec::new(),
+                peak_delta_secs: 0.0,
             }),
             reverse: None,
         }

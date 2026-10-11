@@ -2,8 +2,10 @@
  * Where each day sits in the contribution heatmap.
  *
  * The grid draws [`HEATMAP_WEEKS`] calendar weeks, newest column on the right,
- * one row per weekday with Sunday at the top. The newest column is the week
- * holding today, so its days after today are not drawn.
+ * one row per weekday with Monday at the top. A column is the Monday to Sunday
+ * week every weekly total counts, from `getMonday`, so the grid and the weekly
+ * charts agree on what a week held. The newest column is the week holding
+ * today, so its days after today are not drawn.
  *
  * Every reader of the grid's interval takes it from [`heatmapLayout`]: the
  * engine read, the intensities, the header count and range, the month labels,
@@ -11,7 +13,7 @@
  * by one, and the read reached a day further back than the first cell.
  */
 
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate, getMonday } from '@/shared/format/format';
 
 export const HEATMAP_WEEKS = 52;
 export const HEATMAP_CELL_SIZE = 10;
@@ -37,11 +39,11 @@ export interface HeatmapCell {
   /** Local calendar day, `YYYY-MM-DD`. */
   date: string;
   col: number;
-  /** The weekday, Sunday 0. */
+  /** The weekday, Monday 0 and Sunday 6. */
   row: number;
 }
 
-/** A month name over the first column whose Sunday falls in that month. */
+/** A month name over the first column whose Monday falls in that month. */
 export interface HeatmapMonthLabel {
   col: number;
   /** The first day of the month, for formatting its name. */
@@ -69,15 +71,14 @@ function addDays(from: Date, days: number): Date {
   return new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
 }
 
-/** The Sunday that opens a column. */
-function columnSunday(first: Date, col: number): Date {
+/** The Monday that opens a column. */
+function columnMonday(first: Date, col: number): Date {
   return addDays(first, col * 7);
 }
 
 export function heatmapLayout(now: Date): HeatmapLayout {
   const last = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const thisSunday = addDays(last, -last.getDay());
-  const first = addDays(thisSunday, -(HEATMAP_WEEKS - 1) * 7);
+  const first = addDays(getMonday(last), -(HEATMAP_WEEKS - 1) * 7);
 
   const cells: HeatmapCell[] = [];
   let januaryBoundary: HeatmapLayout['januaryBoundary'] = null;
@@ -94,15 +95,15 @@ export function heatmapLayout(now: Date): HeatmapLayout {
 
   const monthLabels: HeatmapMonthLabel[] = [];
   for (let col = 0; col < HEATMAP_WEEKS; col++) {
-    const sunday = columnSunday(first, col);
-    const previous = col > 0 ? columnSunday(first, col - 1) : null;
-    if (previous && previous.getMonth() === sunday.getMonth()) continue;
-    const month = sunday.getMonth();
+    const monday = columnMonday(first, col);
+    const previous = col > 0 ? columnMonday(first, col - 1) : null;
+    if (previous && previous.getMonth() === monday.getMonth()) continue;
+    const month = monday.getMonth();
     monthLabels.push({
       col,
-      date: new Date(sunday.getFullYear(), month, 1),
+      date: new Date(monday.getFullYear(), month, 1),
       month,
-      year: month === 0 ? sunday.getFullYear() : undefined,
+      year: month === 0 ? monday.getFullYear() : undefined,
     });
   }
   // Column 0 always opens a label, whatever part of its month is left. When
@@ -115,10 +116,10 @@ export function heatmapLayout(now: Date): HeatmapLayout {
   return { first, last, cells, monthLabels, januaryBoundary };
 }
 
-/** The year a column belongs to, by the Sunday that opens it. */
+/** The year a column belongs to, by the Monday that opens it. */
 export function columnYear(layout: HeatmapLayout, col: number): number {
   const clamped = Math.max(0, Math.min(HEATMAP_WEEKS - 1, col));
-  return columnSunday(layout.first, clamped).getFullYear();
+  return columnMonday(layout.first, clamped).getFullYear();
 }
 
 /** A cell's top-left corner. */

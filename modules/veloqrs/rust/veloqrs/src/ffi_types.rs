@@ -2461,6 +2461,10 @@ pub struct FfiActivityDetailData {
     /// minimum. At most one: the screen asks which group holds this activity,
     /// so the catalogue was what it searched rather than what it needed.
     pub route_groups: Vec<FfiRouteGroup>,
+    /// The stored signature of that group's representative activity, delta+varint
+    /// encoded: the line the Routes tab draws over the map. Empty when the
+    /// activity is in no group or the representative has no signature.
+    pub representative_signature: Vec<u8>,
     /// Visible sections this activity traverses, most-visited first.
     ///
     /// The light record: the screen draws the line, the name and the counts
@@ -2671,6 +2675,67 @@ pub enum FfiLapDeltaMissingReason {
     NotProjectable,
 }
 
+/// A run of 32-bit floats, held once and shared by every read that keeps it,
+/// so a clone copies a pointer and not the values. It crosses the bridge as
+/// its values in little-endian bytes and arrives as a `Float32Array`, so a
+/// long curve is one copy rather than a lift per value. Both platforms the
+/// app ships on are little-endian, which is the order a `Float32Array` reads.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FfiFloat32Array(std::sync::Arc<[f32]>);
+
+impl FfiFloat32Array {
+    pub fn to_le_bytes(&self) -> Vec<u8> {
+        self.0
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect()
+    }
+
+    /// `None` for bytes that are not a whole number of floats.
+    pub fn from_le_bytes(bytes: &[u8]) -> Option<Self> {
+        let floats = bytes.chunks_exact(4);
+        if !floats.remainder().is_empty() {
+            return None;
+        }
+        Some(Self(
+            floats
+                .map(|four| f32::from_le_bytes([four[0], four[1], four[2], four[3]]))
+                .collect(),
+        ))
+    }
+}
+
+impl std::ops::Deref for FfiFloat32Array {
+    type Target = [f32];
+
+    fn deref(&self) -> &[f32] {
+        &self.0
+    }
+}
+
+impl<'a> IntoIterator for &'a FfiFloat32Array {
+    type Item = &'a f32;
+    type IntoIter = std::slice::Iter<'a, f32>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl From<Vec<f32>> for FfiFloat32Array {
+    fn from(values: Vec<f32>) -> Self {
+        Self(values.into())
+    }
+}
+
+uniffi::custom_type!(FfiFloat32Array, Vec<u8>, {
+    lower: |floats| floats.to_le_bytes(),
+    try_lift: |bytes| match FfiFloat32Array::from_le_bytes(&bytes) {
+        Some(floats) => Ok(floats),
+        None => uniffi::deps::anyhow::bail!("{} bytes are not a run of f32", bytes.len()),
+    },
+});
+
 /// The distance-domain deltas of one sport's laps on a section, per direction.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionLapCurves {
@@ -2695,6 +2760,9 @@ pub struct FfiDirectionDeltas {
     pub laps: Vec<FfiLapDelta>,
     /// Laps inside the range that could not be drawn, and why.
     pub missing: Vec<FfiLapDeltaMissing>,
+    /// The largest number of seconds any of `laps` is behind or ahead of the
+    /// reference, 0 when none has a finite delta.
+    pub peak_delta_secs: f32,
 }
 
 /// One lap's time against the reference along the section.
@@ -2708,10 +2776,10 @@ pub struct FfiLapDelta {
     /// Seconds behind the reference (positive) or ahead of it (negative) at
     /// each grid point from the start of travel, zero at the first shared point and
     /// NaN outside the covered range.
-    pub delta_secs: Vec<f32>,
+    pub delta_secs: FfiFloat32Array,
     /// The change in delta over each split, in travel order. NaN for a split
     /// the lap does not fully cover.
-    pub split_delta_secs: Vec<f32>,
+    pub split_delta_secs: FfiFloat32Array,
     /// The delta at the end of the section, only for a lap that covers both
     /// of its ends.
     pub end_delta_secs: Option<f32>,

@@ -3,13 +3,7 @@ import { Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
 import { useSupportStore } from '@/shared/app/SupportStore';
@@ -58,19 +52,10 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
   const [tipsExpanded, setTipsExpanded] = useState(false);
-  const tipHeight = useSharedValue(0);
-
-  const tipAnimStyle = useAnimatedStyle(() => ({
-    height: tipHeight.value,
-    opacity: tipHeight.value > 0 ? 1 : 0,
-    overflow: 'hidden' as const,
-  }));
 
   const toggleTips = useCallback(() => {
-    const next = !tipsExpanded;
-    setTipsExpanded(next);
-    tipHeight.value = withTiming(next ? 64 : 0, { duration: 250 });
-  }, [tipsExpanded, tipHeight]);
+    setTipsExpanded((expanded) => !expanded);
+  }, []);
 
   const handleReview = useCallback(async () => {
     if (Platform.OS === 'android') {
@@ -188,28 +173,32 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           />
         </Pressable>
 
-        <Animated.View style={tipAnimStyle}>
-          {isAvailable ? (
-            <View testID="support-card-tip-buttons">
-              <TipButtons
-                products={products}
-                isPurchasing={isPurchasing}
-                onTip={handleTip}
-                isDark={isDark}
+        {/* Mounted only while open: the panel is as tall as its buttons at any text
+            size, and a collapsed one leaves no purchase button for a screen reader. */}
+        {tipsExpanded && (
+          <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)}>
+            {isAvailable ? (
+              <View testID="support-card-tip-buttons">
+                <TipButtons
+                  products={products}
+                  isPurchasing={isPurchasing}
+                  onTip={handleTip}
+                  isDark={isDark}
+                />
+              </View>
+            ) : (
+              <Button
+                testID="support-card-sponsor-button"
+                onPress={handleSponsor}
+                label={t('support.sponsorGitHub')}
+                variant="secondary"
+                icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
               />
-            </View>
-          ) : (
-            <Button
-              testID="support-card-sponsor-button"
-              onPress={handleSponsor}
-              label={t('support.sponsorGitHub')}
-              variant="secondary"
-              icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
-            />
-          )}
-        </Animated.View>
+            )}
+          </Animated.View>
+        )}
 
-        <View style={styles.dismissRow}>
+        <Animated.View layout={LinearTransition.duration(250)} style={styles.dismissRow}>
           <Button
             label={t('support.remindLater')}
             variant="ghost"
@@ -223,7 +212,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
             size="sm"
             onPress={handleNeverShow}
           />
-        </View>
+        </Animated.View>
       </Card>
     </Animated.View>
   );

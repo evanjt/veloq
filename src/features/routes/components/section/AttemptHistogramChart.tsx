@@ -1,14 +1,15 @@
 /**
  * Histogram plot of the engine's attempt-time bins for one direction.
  * Fastest attempts are at the left. Bars, ticks and marks are placed from the
- * engine's bins alone; nothing is binned here.
+ * engine's bins alone; nothing is binned here. The record's line is dashed and
+ * this activity's is solid, so the two read apart without their colours.
  */
 
 import React, { useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Rect } from '@shopify/react-native-skia';
+import { Canvas, DashPathEffect, Line, Rect, vec } from '@shopify/react-native-skia';
 
 import { useMetricSystem } from '@/shared/app';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
@@ -24,6 +25,12 @@ const CHART_INSET = 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const MARK_WIDTH = 2;
+const RECORD_DASH_ON = 4;
+const RECORD_DASH_OFF = 3;
+const RECORD_DASH = [RECORD_DASH_ON, RECORD_DASH_OFF];
+const KEY_DASH_COUNT = 3;
+/** The key's swatch is a short run of the mark's own dash pattern. */
+const KEY_STROKE_LENGTH = KEY_DASH_COUNT * RECORD_DASH_ON + (KEY_DASH_COUNT - 1) * RECORD_DASH_OFF;
 const GRID_THICKNESS = 1;
 
 export interface AttemptHistogramChartProps {
@@ -112,20 +119,20 @@ export function AttemptHistogramChart({
             />
           ))}
           {recordX !== null && (
-            <Rect
-              x={recordX - MARK_WIDTH / 2}
-              y={plotTop}
-              width={MARK_WIDTH}
-              height={plotHeight}
+            <Line
+              p1={vec(recordX, plotTop)}
+              p2={vec(recordX, plotTop + plotHeight)}
+              strokeWidth={MARK_WIDTH}
               color={palette.chartGoldMark}
-            />
+            >
+              <DashPathEffect intervals={RECORD_DASH} />
+            </Line>
           )}
           {highlightX !== null && (
-            <Rect
-              x={highlightX - MARK_WIDTH / 2}
-              y={plotTop}
-              width={MARK_WIDTH}
-              height={plotHeight}
+            <Line
+              p1={vec(highlightX, plotTop)}
+              p2={vec(highlightX, plotTop + plotHeight)}
+              strokeWidth={MARK_WIDTH}
               color={palette.chartGreenMark}
             />
           )}
@@ -156,6 +163,7 @@ export function AttemptHistogramChart({
       <View style={styles.key}>
         {highlightedTime != null && (
           <KeyEntry
+            testID="attempt-histogram-highlight-key"
             color={palette.chartGreenMark}
             label={t('sections.legendThisActivity')}
             isDark={isDark}
@@ -164,6 +172,7 @@ export function AttemptHistogramChart({
         <KeyEntry
           testID="attempt-histogram-record-key"
           color={palette.chartGoldMark}
+          dashed
           label={recordHeld ? t('sections.legendPr') : t('sections.best')}
           isDark={isDark}
         />
@@ -192,16 +201,30 @@ function KeyEntry({
   color,
   label,
   isDark,
+  dashed = false,
   testID,
 }: {
   color: string;
   label: string;
   isDark: boolean;
+  /** Draw the swatch as the dashed stroke its mark is drawn with. */
+  dashed?: boolean;
   testID?: string;
 }) {
   return (
     <View style={styles.keyEntry} testID={testID}>
-      <View style={[styles.keySwatch, { backgroundColor: color }]} />
+      {dashed ? (
+        <View testID="key-swatch-dashed" style={styles.keyStroke}>
+          {Array.from({ length: KEY_DASH_COUNT }, (_, i) => (
+            <View key={i} style={[styles.keyDash, { backgroundColor: color }]} />
+          ))}
+        </View>
+      ) : (
+        <View
+          testID="key-swatch-solid"
+          style={[styles.keyStroke, styles.keySolid, { backgroundColor: color }]}
+        />
+      )}
       <Text style={[styles.keyText, isDark && styles.axisLabelDark]}>{label}</Text>
     </View>
   );
@@ -249,10 +272,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xsPlus,
   },
-  keySwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: layout.borderRadiusFull,
+  keyStroke: {
+    width: KEY_STROKE_LENGTH,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  keySolid: {
+    height: MARK_WIDTH,
+  },
+  keyDash: {
+    width: RECORD_DASH_ON,
+    height: MARK_WIDTH,
   },
   keyText: {
     fontSize: typography.label.fontSize,

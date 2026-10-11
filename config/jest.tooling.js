@@ -72,6 +72,7 @@ const toolingSuites = [
   'src/__tests__/bugs/oneIndexReader.test.ts',
   'src/__tests__/bugs/oneObserverVtable.test.ts',
   'src/__tests__/bugs/pressFeedbackLint.test.ts',
+  'src/__tests__/bugs/privacyPageDisclosesCollection.test.ts',
   'src/__tests__/bugs/reachabilityAuditExitCode.test.ts',
   'src/__tests__/bugs/recordingFlowsCleanUpFirst.test.ts',
   'src/__tests__/bugs/recordingFlowsSurviveAutoPause.test.ts',

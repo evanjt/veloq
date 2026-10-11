@@ -28,3 +28,19 @@ export interface SensorConnection {
   kinds: SensorKind[];
   batteryPercent?: number;
 }
+
+/**
+ * Whether sensors can be reached at all, from the permission, the radio and
+ * the build. `unknown` until the manager has been constructed and the adapter
+ * has answered. `unauthorised` can be asked again, `blocked` only changes in
+ * the system settings, and `needsLocation` is Android 7 to 11 with location
+ * services off, where a scan finds nothing.
+ */
+export type SensorAvailability =
+  | 'unknown'
+  | 'unsupported'
+  | 'poweredOff'
+  | 'unauthorised'
+  | 'blocked'
+  | 'needsLocation'
+  | 'ready';

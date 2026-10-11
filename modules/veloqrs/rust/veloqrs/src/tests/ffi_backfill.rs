@@ -88,7 +88,7 @@ fn test_status_read_prices_the_owed_queue_at_rest() {
     assert_eq!(rest.stream_remaining, Some(2));
     assert_eq!(
         rest.stream_remaining_bytes,
-        Some(estimate_bytes(2400) as f64)
+        Some(estimate_bytes(0, 2400) as f64)
     );
 
     set_phase(STREAM_PHASE_FETCHING);

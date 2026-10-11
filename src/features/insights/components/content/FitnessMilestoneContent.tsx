@@ -15,6 +15,7 @@ import {
   typography,
 } from '@/theme';
 import type { Insight } from '@/types';
+import { verdictIcon, verdictRung } from '@/shared/format/trend';
 
 /** What each milestone compares, named as its card names it. */
 const CONTEXT_COPY = {
@@ -50,7 +51,12 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
 
   const changeStr = changePoint ? String(changePoint.value) : '';
   const changeUnit = changePoint?.unit ?? '';
-  const isPositive = changePoint?.context === 'good';
+  // The move the generator judged for this milestone, never the change row's
+  // own context, so the badge draws the one verdict the insight carries.
+  const trend = insight.supportingData?.trend;
+  const rung = trend ? verdictRung(trend.verdict) : 'neutral';
+  const glyph = trend ? verdictIcon(trend.verdict, trend.direction) : 'minus';
+  const rungColor = verdictColor(rung, isDark);
   // The unit says which estimate moved: watts are the daily eFTP, a pace per
   // 100 metres or yards is critical swim speed, a pace per kilometre or mile
   // critical speed.
@@ -65,7 +71,6 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const contextSummary = t(CONTEXT_COPY[kind].summary, summaryValues);
 
   const lineColor = isDark ? darkColors.border : colors.border;
-  const dotColor = verdictColor(isPositive ? 'positive' : 'negative', isDark);
 
   return (
     <View style={styles.container}>
@@ -80,23 +85,9 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
 
         {/* Change badge */}
         {changeStr ? (
-          <View
-            style={[
-              styles.changeBadge,
-              { backgroundColor: verdictFill(isPositive ? 'positive' : 'negative', isDark) },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={isPositive ? 'arrow-up' : 'arrow-down'}
-              size={16}
-              color={verdictColor(isPositive ? 'positive' : 'negative', isDark)}
-            />
-            <Text
-              style={[
-                styles.changeText,
-                { color: verdictColor(isPositive ? 'positive' : 'negative', isDark) },
-              ]}
-            >
+          <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
+            <MaterialCommunityIcons name={glyph} size={16} color={rungColor} />
+            <Text style={[styles.changeText, { color: rungColor }]}>
               {changeStr} {changeUnit}
             </Text>
           </View>
@@ -126,7 +117,11 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
         <View style={styles.timelineEntry}>
           <View style={styles.timelineDotColumn}>
             <View
-              style={[styles.timelineDot, styles.timelineDotCurrent, { backgroundColor: dotColor }]}
+              style={[
+                styles.timelineDot,
+                styles.timelineDotCurrent,
+                { backgroundColor: rungColor },
+              ]}
             />
           </View>
           <View style={styles.timelineContent}>
@@ -137,7 +132,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
               style={[
                 styles.timelineValue,
                 isDark && styles.timelineValueDark,
-                isPositive && { color: verdictColor('positive', isDark) },
+                rung === 'positive' && { color: rungColor },
               ]}
             >
               {String(currentPoint.value)}

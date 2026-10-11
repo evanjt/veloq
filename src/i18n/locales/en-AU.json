@@ -154,8 +154,16 @@
     "failedToLoad": "Couldn't load your activities",
     "firstSyncBody": "Only the first time, promise. The feed opens once your first activities land.",
     "firstSyncTitle": "Fetching your activities, hang tight",
-    "noActivities": "No activities to show, mate",
     "noMatchingActivities": "Nothing matching those filters",
+    "emptyLibrary": {
+      "pausedTitle": "Sync's having a breather",
+      "pausedBody": "Your activities are safe on intervals.icu and come down once sync gets going again.",
+      "authExpiredTitle": "Sign in to grab your activities",
+      "failedTitle": "Your activities haven't come through",
+      "failedBody": "The last sync pulled up before any arrived.",
+      "emptyTitle": "No activities yet, mate",
+      "emptyBody": "Activities come from your intervals.icu account, or record one right here."
+    },
     "streamConsentTitle": "Grab the missing activity data?",
     "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Grabbing it uses about {{megabytes}} MB of data.",
     "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence series. Grabbing them uses about {{megabytes}} MB of data."
@@ -164,9 +172,7 @@
     "noData": "No fitness data yet",
     "restDay": "Rest day, legend"
   },
-  "fitnessScreen": {
-    "failedToLoad": "Couldn't load fitness data"
-  },
+  "fitnessScreen": {},
   "login": {
     "connectionFailed": "Couldn't connect. Check your API key and have another go.",
     "createAccountHint": "Make a free account to keep track of your training.",

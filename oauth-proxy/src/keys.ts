@@ -13,9 +13,12 @@ export function stateKey(state: string): string {
   return `state:${state}`;
 }
 
-/** Rate-limit counter, one per client address. */
-export function rateKey(ip: string): string {
-  return `rate:${ip}`;
+/**
+ * Rate-limit counter, one per route and client address, so registering a state
+ * and redeeming a code each have their own budget.
+ */
+export function rateKey(route: "state" | "token", ip: string): string {
+  return `rate:${route}:${ip}`;
 }
 
 /** The PKCE exchange code a callback parks intervals.icu's code under. */

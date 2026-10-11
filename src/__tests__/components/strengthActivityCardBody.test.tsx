@@ -20,6 +20,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Medium: 'medium' },
 }));
 jest.mock('expo-router', () => ({
@@ -98,18 +99,21 @@ describe('the strength activity card body diagrams', () => {
 });
 
 describe('the strength activity card long-press', () => {
-  it.each(['ios', 'android'] as const)('fires one medium impact on %s', (os) => {
+  it.each([
+    ['ios', Haptics.impactAsync, 'medium'],
+    ['android', Haptics.performAndroidHapticsAsync, 'long-press'],
+  ] as const)('fires one medium haptic on %s', (os, call, constant) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
     mockAthlete = null;
-    (Haptics.impactAsync as jest.Mock).mockClear();
+    (call as jest.Mock).mockClear();
     try {
       draw();
 
       fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
 
-      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
-      expect(Haptics.impactAsync).toHaveBeenCalledWith('medium');
+      expect(call).toHaveBeenCalledTimes(1);
+      expect(call).toHaveBeenCalledWith(constant);
     } finally {
       Platform.OS = originalOS;
     }

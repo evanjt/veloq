@@ -166,19 +166,16 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   formulaText: {
-    fontFamily: 'monospace',
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.code,
     color: colors.textPrimary,
-    lineHeight: 20,
   },
   formulaTextDark: {
     color: darkColors.textPrimary,
   },
   // Algorithm description
   algorithmText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
-    lineHeight: 19,
   },
   algorithmTextDark: {
     color: darkColors.textSecondary,

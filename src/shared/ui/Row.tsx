@@ -11,24 +11,38 @@ interface RowBaseProps {
   testID?: string | undefined;
   /** Greys a pressable row and stops its press. */
   disabled?: boolean | undefined;
+  /**
+   * A control at the trailing edge, such as an info button. On a pressable row it
+   * sits beside the row's target rather than inside it, so a screen reader reaches
+   * the row and the accessory as two controls.
+   */
+  accessory?: React.ReactNode;
 }
 
 export type RowProps =
   | (RowBaseProps & { onPress?: undefined; accessibilityLabel?: undefined })
   | (RowBaseProps & { onPress: () => void; accessibilityLabel: string });
 
-export function Row({ children, testID, onPress, accessibilityLabel, disabled }: RowProps) {
+export function Row({
+  children,
+  testID,
+  onPress,
+  accessibilityLabel,
+  disabled,
+  accessory,
+}: RowProps) {
   const { isDark } = useTheme();
 
   if (!onPress) {
     return (
       <View testID={testID} style={styles.row}>
         {children}
+        {accessory}
       </View>
     );
   }
 
-  return (
+  const target = (
     <Pressable
       testID={testID}
       accessibilityRole="button"
@@ -37,7 +51,11 @@ export function Row({ children, testID, onPress, accessibilityLabel, disabled }:
       onPress={onPress}
       disabled={disabled}
       android_ripple={pressRipple}
-      style={pressable(disabled ? [styles.row, styles.disabled] : styles.row)}
+      style={pressable([
+        styles.row,
+        accessory != null && styles.besideAccessory,
+        disabled && styles.disabled,
+      ])}
     >
       {children}
       <MaterialCommunityIcons
@@ -47,6 +65,15 @@ export function Row({ children, testID, onPress, accessibilityLabel, disabled }:
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
     </Pressable>
+  );
+
+  if (accessory == null) return target;
+
+  return (
+    <View style={styles.withAccessory}>
+      {target}
+      {accessory}
+    </View>
   );
 }
 
@@ -58,6 +85,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: layout.minTapTarget,
+  },
+  besideAccessory: {
+    flex: 1,
+    paddingRight: 0,
+  },
+  withAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingRight: spacing.md,
   },
   disabled: {
     opacity: 0.5,

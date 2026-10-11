@@ -10,9 +10,10 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { formatDuration, formatPace, formatSwimPace, getIntlLocale } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { Card, pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
+import { DirectionArrow, directionWord } from './DirectionCue';
 
 const REVERSE_COLOR = colors.reverseDirection;
 
@@ -103,6 +104,13 @@ export function SectionStatsCards({
     return Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2024, i, 1)));
   }, []);
 
+  const formatBest = (entry: CalendarDirectionBest) =>
+    isSwimming
+      ? formatSwimPace(entry.bestPace, isMetric)
+      : isRunning
+        ? formatPace(entry.bestPace, isMetric)
+        : formatDuration(entry.bestTime);
+
   if (calendarSummary.years.length < 1) {
     return null;
   }
@@ -117,14 +125,8 @@ export function SectionStatsCards({
           const isYearExpanded = expandedYears.has(yearData.year);
           const yearFwd = yearData.forward;
           const yearRev = yearData.reverse;
-          const formatYearBest = (entry: typeof yearFwd) =>
-            entry
-              ? isSwimming
-                ? formatSwimPace(entry.bestPace, isMetric)
-                : isRunning
-                  ? formatPace(entry.bestPace, isMetric)
-                  : formatDuration(entry.bestTime)
-              : '';
+          const formatYearBest = (entry: CalendarDirectionBest | undefined) =>
+            entry ? formatBest(entry) : '';
           const isYearFwdPr =
             yearFwd && forwardPr && yearFwd.bestActivityId === forwardPr.bestActivityId;
           const isYearRevPr =
@@ -152,12 +154,22 @@ export function SectionStatsCards({
                   {yearFwd && yearRev ? (
                     <>
                       {`${t('sections.traversalsCount', { count: yearData.traversalCount })} · `}
-                      <Text style={{ color: activityColor }}>{'● '}</Text>
+                      <DirectionArrow
+                        direction="forward"
+                        color={activityColor}
+                        size={DIRECTION_ARROW_SIZE}
+                      />
+                      {` ${directionWord(t, 'forward')} `}
                       <Text testID={`year-best-forward-${yearData.year}`}>
                         {formatYearBest(yearFwd)}
                       </Text>
                       {'  '}
-                      <Text style={{ color: REVERSE_COLOR }}>{'● '}</Text>
+                      <DirectionArrow
+                        direction="reverse"
+                        color={REVERSE_COLOR}
+                        size={DIRECTION_ARROW_SIZE}
+                      />
+                      {` ${directionWord(t, 'reverse')} `}
                       <Text testID={`year-best-reverse-${yearData.year}`}>
                         {formatYearBest(yearRev)}
                       </Text>
@@ -171,20 +183,28 @@ export function SectionStatsCards({
                   {` · ${t('sections.calendarActivities', { count: yearData.activityCount })}`}
                 </Text>
                 {isYearFwdPr && (
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={14}
-                    color={activityColor}
-                    style={styles.calendarTrophy}
-                  />
+                  <View style={styles.calendarTrophy}>
+                    <MaterialCommunityIcons name="trophy" size={14} color={activityColor} />
+                    {yearRev && (
+                      <DirectionArrow
+                        direction="forward"
+                        color={activityColor}
+                        size={DIRECTION_ARROW_SIZE}
+                      />
+                    )}
+                  </View>
                 )}
                 {isYearRevPr && (
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={14}
-                    color={REVERSE_COLOR}
-                    style={styles.calendarTrophy}
-                  />
+                  <View style={styles.calendarTrophy}>
+                    <MaterialCommunityIcons name="trophy" size={14} color={REVERSE_COLOR} />
+                    {yearFwd && (
+                      <DirectionArrow
+                        direction="reverse"
+                        color={REVERSE_COLOR}
+                        size={DIRECTION_ARROW_SIZE}
+                      />
+                    )}
+                  </View>
                 )}
               </Pressable>
               {isYearExpanded &&
@@ -218,11 +238,13 @@ export function SectionStatsCards({
                               style={pressable(styles.calendarMonthEntry)}
                               android_ripple={pressRipple}
                               accessibilityRole="button"
-                              accessibilityLabel={fwd.bestActivityName}
+                              accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
                               onPress={() => tapTo(`/activity/${fwd.bestActivityId}`)}
                             >
-                              <View
-                                style={[styles.calendarDirDot, { backgroundColor: activityColor }]}
+                              <DirectionArrow
+                                direction="forward"
+                                color={activityColor}
+                                size={DIRECTION_ARROW_SIZE}
                               />
                               <Text
                                 style={[
@@ -231,11 +253,7 @@ export function SectionStatsCards({
                                   isMonthFwdYearBest && { fontWeight: '700' },
                                 ]}
                               >
-                                {isSwimming
-                                  ? formatSwimPace(fwd.bestPace, isMetric)
-                                  : isRunning
-                                    ? formatPace(fwd.bestPace, isMetric)
-                                    : formatDuration(fwd.bestTime)}
+                                {formatBest(fwd)}
                               </Text>
                               {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
                                 <MaterialCommunityIcons
@@ -272,11 +290,13 @@ export function SectionStatsCards({
                               style={pressable(styles.calendarMonthEntry)}
                               android_ripple={pressRipple}
                               accessibilityRole="button"
-                              accessibilityLabel={rev.bestActivityName}
+                              accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
                               onPress={() => tapTo(`/activity/${rev.bestActivityId}`)}
                             >
-                              <View
-                                style={[styles.calendarDirDot, { backgroundColor: REVERSE_COLOR }]}
+                              <DirectionArrow
+                                direction="reverse"
+                                color={REVERSE_COLOR}
+                                size={DIRECTION_ARROW_SIZE}
                               />
                               <Text
                                 style={[
@@ -285,11 +305,7 @@ export function SectionStatsCards({
                                   isMonthRevYearBest && { fontWeight: '700' },
                                 ]}
                               >
-                                {isSwimming
-                                  ? formatSwimPace(rev.bestPace, isMetric)
-                                  : isRunning
-                                    ? formatPace(rev.bestPace, isMetric)
-                                    : formatDuration(rev.bestTime)}
+                                {formatBest(rev)}
                               </Text>
                               {(isMonthRevYearBest || isMonthRevOverallPr) && (
                                 <MaterialCommunityIcons
@@ -366,6 +382,7 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
 
 const REFERENCE_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
 const STATS_ICON_SIZE = 20;
+const DIRECTION_ARROW_SIZE = 12;
 const STATS_LABEL_INSET = spacing.md + STATS_ICON_SIZE + spacing.xs;
 
 const styles = StyleSheet.create({
@@ -395,6 +412,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   calendarTrophy: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginLeft: spacing.xs,
   },
   calendarMonthRow: {
@@ -445,11 +464,6 @@ const styles = StyleSheet.create({
   },
   referenceTagDark: {
     color: colors.textOnDark,
-  },
-  calendarDirDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
   },
   calendarMonthTime: {
     fontSize: typography.bodySmall.fontSize,

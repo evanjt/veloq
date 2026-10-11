@@ -8,13 +8,14 @@
  * summary card full of zeros. Every other empty case reads as it did.
  */
 
-import { SyncState } from 'veloqrs';
+import { SyncErrorReason, SyncState } from 'veloqrs';
 
 import { feedEmptyState } from '@/features/home/lib/feedEmptyState';
 
 const base = {
   storedCount: 0,
   syncState: SyncState.Idle as SyncState | undefined,
+  lastErrorReason: null as SyncErrorReason | null,
   isError: false,
   isLoading: false,
   hasFilter: false,
@@ -71,5 +72,84 @@ describe('what an empty feed shows', () => {
 
   it('treats an unknown sync state as no sync, rather than standing by for ever', () => {
     expect(feedEmptyState({ ...base, syncState: undefined })).toBe('empty');
+  });
+});
+
+/**
+ * Scenario: the first sync did not fill the library. It was cancelled partway,
+ * intervals.icu refused the login or asked for a pause, or it never reached the
+ * server at all.
+ *
+ * Expected behaviour: the feed names the cause instead of saying the athlete
+ * has no activities, because their activities are on intervals.icu and only
+ * the sync failed to bring them.
+ */
+describe('why an empty library is empty', () => {
+  it('says the sync is paused while the engine holds it', () => {
+    expect(feedEmptyState({ ...base, syncState: SyncState.Paused })).toBe('paused');
+  });
+
+  it('says the sync is paused when intervals.icu asked it to wait', () => {
+    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.RateLimited })).toBe(
+      'paused'
+    );
+  });
+
+  it('asks for a sign in when the engine has parked on a refused credential', () => {
+    expect(feedEmptyState({ ...base, syncState: SyncState.AuthExpired })).toBe('authExpired');
+  });
+
+  it('asks for a sign in when the last sync was refused for its login', () => {
+    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Unauthorized })).toBe(
+      'authExpired'
+    );
+  });
+
+  it('says the sync failed when it settled with an error and stored nothing', () => {
+    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Server })).toBe('failed');
+  });
+
+  it('says the sync failed when it never reached intervals.icu', () => {
+    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Network })).toBe('failed');
+  });
+
+  it('stands by over a stale error once a new sync is running', () => {
+    expect(
+      feedEmptyState({
+        ...base,
+        syncState: SyncState.Syncing,
+        lastErrorReason: SyncErrorReason.Network,
+      })
+    ).toBe('standby');
+  });
+
+  it('keeps the skeletons over a stale error while the read has not answered', () => {
+    // The library may hold rows the read has not returned yet, and naming a
+    // failure over them would flash a cause that is not true.
+    expect(
+      feedEmptyState({ ...base, isLoading: true, lastErrorReason: SyncErrorReason.Network })
+    ).toBe('skeletons');
+  });
+
+  it('shows the cards whatever the last sync said', () => {
+    expect(
+      feedEmptyState({
+        ...base,
+        storedCount: 12,
+        syncState: SyncState.AuthExpired,
+        lastErrorReason: SyncErrorReason.Unauthorized,
+      })
+    ).toBe('none');
+  });
+
+  it("leaves a filter that matched nothing as the athlete's own empty result", () => {
+    expect(
+      feedEmptyState({
+        ...base,
+        hasFilter: true,
+        syncState: SyncState.Paused,
+        lastErrorReason: SyncErrorReason.Network,
+      })
+    ).toBe('empty');
   });
 });

@@ -94,11 +94,12 @@ export function useChartColors(): ChartColorScheme {
       sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
       weight: isDark ? darkColors.chartWeight : colors.chartWeight,
 
-      // Single-series curve charts, stable across themes
+      // Single-series curve charts, stable across themes. Each curve belongs to
+      // one sport and draws in that sport's colour, as every other screen does.
       ftp: colors.chartFtp,
-      powerCurve: colors.chartPowerCurve,
-      paceCurve: colors.chartPaceCurve,
-      swimCurve: colors.chartSwimCurve,
+      powerCurve: colors.ride,
+      paceCurve: colors.run,
+      swimCurve: colors.swim,
 
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,

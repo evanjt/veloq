@@ -45,3 +45,11 @@ export const MAP_SURFACE_READY_TIMEOUT_MS = 15000;
  * A pan over cached ground settles inside this, so it never flashes.
  */
 export const TILE_LOADING_INDICATOR_DELAY_MS = 400;
+
+/**
+ * How often the page redraws a growing line, such as the live recording track.
+ * Each redraw hands the whole line to MapLibre's worker, so redrawing on every
+ * GPS fix costs the square of the ride's length. Points arriving inside the
+ * window are kept and drawn together at its end.
+ */
+export const GROWING_LINE_REDRAW_MS = 3000;

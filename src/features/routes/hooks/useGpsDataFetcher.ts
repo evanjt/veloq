@@ -47,10 +47,23 @@ export interface GpsFetchResult {
 interface FetchDeps {
   /** Ref tracking if component is mounted */
   isMountedRef: React.MutableRefObject<boolean>;
-  /** Abort signal for cancellation */
+  /**
+   * Abort signal for cancellation. A sync reset aborts it and starts a newer
+   * run while this one is still going, so once it fires the run owns no
+   * progress and writes none.
+   */
   abortSignal: AbortSignal;
   /** Function to update progress state */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
+}
+
+/**
+ * Whether a run still owns the sync progress. The hook that runs the fetch
+ * stays mounted across a sync reset, so the mount alone does not say the run
+ * is current: the reset aborts it and a newer run takes the progress over.
+ */
+function ownership({ isMountedRef, abortSignal }: FetchDeps): () => boolean {
+  return () => isMountedRef.current && !abortSignal.aborted;
 }
 
 /**
@@ -61,13 +74,13 @@ interface FetchDeps {
  * map view picks up fresh tiles as they render.
  */
 async function waitForTilePass(
-  isMountedRef: React.MutableRefObject<boolean>,
+  owns: () => boolean,
   updateProgress?: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void,
   rangeStart = 75,
   rangeEnd = 100
 ): Promise<void> {
   await awaitTilePass((processed, total) => {
-    if (!updateProgress || !isMountedRef.current || total === 0) return;
+    if (!updateProgress || !owns() || total === 0) return;
     const tilePct = Math.min(100, Math.round((processed / total) * 100));
     updateProgress({
       status: 'computing',
@@ -114,13 +127,16 @@ export function useGpsDataFetcher() {
    */
   const fetchDemoGps = useCallback(
     async (candidates: ActivitySportMapping[], deps: FetchDeps): Promise<GpsFetchResult> => {
-      const { isMountedRef, abortSignal, updateProgress } = deps;
+      const { updateProgress } = deps;
+      const owns = ownership(deps);
+      const ending = (reason: GpsSyncEnding) =>
+        endGpsSync(reason, { updateProgress, owns: owns(), withGpsCount: candidates.length });
 
       // Capture sync generation at start - results will be discarded if it changes
       const startGeneration = getSyncGeneration();
 
       // Check for abort before starting
-      if (abortSignal.aborted) {
+      if (deps.abortSignal.aborted) {
         return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
       }
 
@@ -134,7 +150,7 @@ export function useGpsDataFetcher() {
       }
 
       // Update progress
-      if (isMountedRef.current) {
+      if (owns()) {
         updateProgress({
           status: 'fetching',
           completed: 0,
@@ -215,7 +231,7 @@ export function useGpsDataFetcher() {
         );
       }
 
-      if (ids.length > 0 && isMountedRef.current) {
+      if (ids.length > 0 && owns()) {
         // Check if sync generation has changed (reset occurred during fetch)
         const currentGeneration = getSyncGeneration();
         if (currentGeneration !== startGeneration) {
@@ -233,6 +249,7 @@ export function useGpsDataFetcher() {
 
         // Add to engine
         await nativeModule.engine.addActivities(ids, allCoords, offsets, sportTypes);
+        if (!owns()) return ending('cancelled');
 
         engine.triggerRefresh('activities');
 
@@ -266,7 +283,7 @@ export function useGpsDataFetcher() {
         let demoStillAnalysing = false;
         if (nativeModule.engine.getSectionDetectionProgress() != null) {
           const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
-            isActive: () => isMountedRef.current && !abortSignal.aborted,
+            isActive: owns,
             timeoutMs: DETECTION_FOREGROUND_MS,
             onProgress: (progress) =>
               updateProgress({
@@ -289,25 +306,25 @@ export function useGpsDataFetcher() {
           // a demo library whose sections are still moving as finished.
           demoStillAnalysing = outcome === 'timeout';
         }
+        if (!owns()) return ending('cancelled');
 
         engine.triggerRefresh('groups');
         engine.triggerRefresh('sections');
 
-        await waitForTilePass(isMountedRef, updateProgress);
+        await waitForTilePass(owns, updateProgress);
+        if (!owns()) return ending('cancelled');
 
         const message = demoStillAnalysing
           ? i18n.t('cache.syncedStillAnalysing', { count: ids.length })
           : i18n.t('cache.syncedDemoActivities', { count: ids.length });
-        if (isMountedRef.current) {
-          updateProgress({
-            status: 'complete',
-            completed: ids.length,
-            total: candidates.length,
-            percent: 100,
-            message,
-            analysingInBackground: demoStillAnalysing,
-          });
-        }
+        updateProgress({
+          status: 'complete',
+          completed: ids.length,
+          total: candidates.length,
+          percent: 100,
+          message,
+          analysingInBackground: demoStillAnalysing,
+        });
 
         return {
           syncedIds: ids,
@@ -317,7 +334,7 @@ export function useGpsDataFetcher() {
       }
 
       // Update progress to complete/idle when no valid GPS data found
-      if (isMountedRef.current) {
+      if (owns()) {
         updateProgress({
           status: 'idle',
           completed: 0,
@@ -365,14 +382,10 @@ export function useGpsDataFetcher() {
         );
       }
 
-      const { isMountedRef, abortSignal, updateProgress } = deps;
-
+      const { abortSignal, updateProgress } = deps;
+      const owns = ownership(deps);
       const ending = (reason: GpsSyncEnding) =>
-        endGpsSync(reason, {
-          updateProgress,
-          isMounted: isMountedRef.current,
-          withGpsCount: candidates.length,
-        });
+        endGpsSync(reason, { updateProgress, owns: owns(), withGpsCount: candidates.length });
 
       const nativeModule = getNativeModule();
       if (!nativeModule) {
@@ -382,12 +395,10 @@ export function useGpsDataFetcher() {
         return ending('no-engine');
       }
 
-      if (!isMountedRef.current || abortSignal.aborted) {
-        return ending('cancelled');
-      }
+      if (!owns()) return ending('cancelled');
 
       // Update progress
-      if (isMountedRef.current) {
+      if (owns()) {
         updateProgress({
           status: 'fetching',
           completed: 0,
@@ -406,7 +417,7 @@ export function useGpsDataFetcher() {
       }
 
       // Update initial progress
-      if (isMountedRef.current) {
+      if (owns()) {
         updateProgress({
           status: 'fetching',
           completed: 0,
@@ -443,7 +454,7 @@ export function useGpsDataFetcher() {
         // When off: download = 0-100%.
         const outcome = await pollDownloadProgress({
           read: runProgressReader(run, (r) => engine.getFetchRunProgress(r)),
-          isActive: () => isMountedRef.current && !abortSignal.aborted,
+          isActive: owns,
           onProgress: (progress) => {
             const completed = Math.min(progress.completed, activityIds.length);
             const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
@@ -479,6 +490,10 @@ export function useGpsDataFetcher() {
 
       const result = await runDownload(activityIds);
 
+      // A run a newer sync aborted while it waited is not a failure, and the
+      // progress it would write now belongs to that sync, whatever came back.
+      if (!owns()) return ending('cancelled');
+
       if (!result) {
         // The store thread died: the poll saw the download go inactive and the
         // engine held no result. Nothing was stored, so the run has to say so
@@ -508,11 +523,6 @@ export function useGpsDataFetcher() {
         );
       }
 
-      // Check mount state and abort signal
-      if (!isMountedRef.current || abortSignal.aborted) {
-        return ending('cancelled');
-      }
-
       // Check if sync generation has changed
       const currentGeneration = getSyncGeneration();
       if (currentGeneration !== startGeneration) {
@@ -529,7 +539,7 @@ export function useGpsDataFetcher() {
 
       const gapStart = Date.now();
 
-      if (result.syncedIds.length > 0 && isMountedRef.current) {
+      if (result.syncedIds.length > 0 && owns()) {
         // Yield so the sync banner can paint before the refresh notifications,
         // which synchronously re-render every subscriber.
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -571,7 +581,7 @@ export function useGpsDataFetcher() {
       let stillAnalysing = false;
 
       // API: detection 50-75%, tiles 75-100%
-      if (needsDetection && isMountedRef.current) {
+      if (needsDetection && owns()) {
         updateProgress({
           status: 'computing',
           completed: 0,
@@ -596,7 +606,7 @@ export function useGpsDataFetcher() {
         // runs for minutes; this keeps it honest.
         if (nativeModule.engine.getSectionDetectionProgress() != null) {
           const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
-            isActive: () => isMountedRef.current && !abortSignal.aborted,
+            isActive: owns,
             timeoutMs: DETECTION_FOREGROUND_MS,
             onProgress: (progress) =>
               updateProgress({
@@ -621,21 +631,22 @@ export function useGpsDataFetcher() {
           // with nothing on screen to say they would.
           stillAnalysing = outcome === 'timeout';
         }
+        if (!owns()) return ending('cancelled');
 
         engine.triggerRefresh('groups');
         engine.triggerRefresh('sections');
 
-        await waitForTilePass(isMountedRef, updateProgress);
+        await waitForTilePass(owns, updateProgress);
       }
 
       // Backfill: time streams for existing activities with NULL lap_time.
       // Handles upgrade from versions that didn't fetch them during sync.
       // Rust does the fetching and persisting and announces each stream; this
       // only waits for the drain.
-      if (isMountedRef.current && !abortSignal.aborted) {
+      if (owns()) {
         try {
           const { total, remaining } = await backfillTimeStreams((completed, streams) => {
-            if (!isMountedRef.current) return;
+            if (!owns()) return;
             updateProgress(timeStreamsProgress(completed, streams, i18n.t));
           }, abortSignal);
           if (__DEV__ && total > 0) {
@@ -650,21 +661,21 @@ export function useGpsDataFetcher() {
         }
       }
 
+      if (!owns()) return ending('cancelled');
+
       // Final progress update. The activities landed either way, so the sync
       // is complete; the analysis is what may not be.
       const synced = stillAnalysing
         ? i18n.t('cache.syncedStillAnalysing', { count: result.successCount })
         : i18n.t('cache.syncedActivities', { count: result.successCount });
-      if (isMountedRef.current) {
-        updateProgress({
-          status: 'complete',
-          completed: result.successCount,
-          total: candidates.length,
-          percent: 100,
-          message: synced,
-          analysingInBackground: stillAnalysing,
-        });
-      }
+      updateProgress({
+        status: 'complete',
+        completed: result.successCount,
+        total: candidates.length,
+        percent: 100,
+        message: synced,
+        analysingInBackground: stillAnalysing,
+      });
 
       return {
         syncedIds: result.syncedIds,

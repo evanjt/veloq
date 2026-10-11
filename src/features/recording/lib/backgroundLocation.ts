@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { AppState } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
-import { brand } from '@/theme';
+import { recording } from '@/theme';
 import { ensureCredentialsHydrated, useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import type { AutoPauseDetector } from './autoPause';
@@ -156,7 +156,7 @@ export async function startBackgroundLocation(options?: {
     foregroundService: {
       notificationTitle: options?.notificationTitle ?? 'Recording activity',
       notificationBody: options?.notificationBody ?? 'Veloq is tracking your location',
-      notificationColor: brand.tealLight,
+      notificationColor: recording.light,
     },
     activityType: Location.ActivityType.Fitness,
     showsBackgroundLocationIndicator: true,

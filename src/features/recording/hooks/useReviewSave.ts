@@ -20,10 +20,13 @@ import {
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
+import { shareRecordingFit } from '@/features/recording/lib/shareRecordingFit';
+import { engineErrorKey } from '@/shared/native/engineError';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { isOAuthConfigured } from '@/features/auth';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
+import * as haptics from '@/shared/ui/haptics';
 import type { ActivityType, RecordingLibraryEntry } from '@/types';
 import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
 
@@ -71,6 +74,8 @@ export interface UseReviewSave {
   isUploading: boolean;
   errorMessage: string | null;
   setErrorMessage: (message: string | null) => void;
+  /** The server's own words behind a refusal, shown beneath the message as its provenance. */
+  errorDetail: string | null;
   queuedMessage: string | null;
   showPermissionFix: boolean;
   setShowPermissionFix: (show: boolean) => void;
@@ -82,6 +87,13 @@ export interface UseReviewSave {
    * creating a duplicate entry.
    */
   canRetry: boolean;
+  /**
+   * The library entry intervals.icu refused. Sending the same bytes again
+   * cannot change the answer, so the ride is offered to open or share instead.
+   */
+  keptRecording: RecordingLibraryEntry | null;
+  /** Opens the share sheet on the refused ride's FIT file. */
+  shareKeptRecording: () => Promise<void>;
 }
 
 /**
@@ -94,7 +106,8 @@ export interface UseReviewSave {
  *
  * Upload outcomes only change the library entry's status:
  *   - permissionBlocked → OAuth upgrade offered; entry waits in the library
- *   - rejected          → surfaced to the user; manual retry from here or the library
+ *   - rejected          → kept in the library, offered to open or share; no retry
+ *   - missing           → the FIT is gone, so nothing can retry it
  *   - network/retriable → "saved, will upload later"; background processor retries
  */
 export function useReviewSave({
@@ -118,6 +131,8 @@ export function useReviewSave({
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [showPermissionFix, setShowPermissionFix] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [keptRecording, setKeptRecording] = useState<RecordingLibraryEntry | null>(null);
   const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
   const queryClient = useQueryClient();
   // The library entry created on the first save attempt; retries reuse it so a
@@ -212,6 +227,8 @@ export function useReviewSave({
     };
     setIsUploading(true);
     setErrorMessage(null);
+    setErrorDetail(null);
+    setKeptRecording(null);
     setQueuedMessage(null);
     setCanRetry(false);
     try {
@@ -261,6 +278,7 @@ export function useReviewSave({
           return;
         }
         savedEntryRef.current = entry;
+        haptics.success();
         // No streams, so no track and no detection: the row is the metadata the
         // feed and the week read.
         const engineActivityId = await writeProvisionalActivity(entry);
@@ -351,6 +369,7 @@ export function useReviewSave({
           return;
         }
         savedEntryRef.current = entry;
+        haptics.success();
         // The ride reaches the feed, the heatmap and the week from here. The
         // engine reads the track out of the FIT the save just wrote.
         const engineActivityId = await writeProvisionalActivity(entry);
@@ -424,13 +443,24 @@ export function useReviewSave({
           return;
 
         case UploadOutcome.Rejected:
+          setErrorMessage(
+            t(
+              'recording.uploadRejected',
+              'intervals.icu refused this file. The ride is kept in My Recordings.'
+            )
+          );
+          setErrorDetail(result.errorDetail ?? null);
+          setKeptRecording(savedEntryRef.current);
+          setIsUploading(false);
+          return;
+
         case UploadOutcome.Missing:
           setErrorMessage(
-            t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-              error: result.errorDetail ?? 'unknown',
-            })
+            t(
+              'recording.uploadMissing',
+              "This ride's file is no longer on the device, so it cannot be uploaded."
+            )
           );
-          setCanRetry(true);
           setIsUploading(false);
           return;
 
@@ -467,12 +497,9 @@ export function useReviewSave({
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setErrorMessage(
-        t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-          error: message,
-        })
-      );
+      log.warn('Save or upload threw', err);
+      setErrorMessage(t(engineErrorKey(err, 'recording.uploadFailed')));
+      setCanRetry(true);
       setIsUploading(false);
     } finally {
       settleIfLeft();
@@ -509,16 +536,23 @@ export function useReviewSave({
     }
   }, [upgradePermissions, handleSave]);
 
+  const shareKeptRecording = useCallback(async () => {
+    if (keptRecording) await shareRecordingFit(keptRecording);
+  }, [keptRecording]);
+
   return {
     handleSave,
     isUploading,
     errorMessage,
     setErrorMessage,
+    errorDetail,
     queuedMessage,
     showPermissionFix,
     setShowPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
     canRetry,
+    keptRecording,
+    shareKeptRecording,
   };
 }

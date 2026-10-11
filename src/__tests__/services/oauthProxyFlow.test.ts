@@ -252,6 +252,71 @@ describe('redeeming the code', () => {
   });
 });
 
+describe('the rate limit', () => {
+  const failingRateCounter = (env: ReturnType<typeof makeEnv>, op: 'get' | 'put') => {
+    const kv = env.OAUTH_STATES;
+    const refuseRate = (key: string) => {
+      if (key.startsWith('rate:')) throw new Error('429 Too Many Requests: one write per second');
+    };
+    if (op === 'get') {
+      kv.get.mockImplementation(async (key) => {
+        refuseRate(key);
+        return kv.entries.get(key) ?? null;
+      });
+    } else {
+      kv.put.mockImplementation(async (key, value) => {
+        refuseRate(key);
+        kv.entries.set(key, value);
+      });
+    }
+  };
+
+  it.each(['get', 'put'] as const)(
+    'lets a valid redemption through when the counter %s rejects',
+    async (op) => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const env = makeEnv();
+      const code = await signedInCode(env);
+      failingRateCounter(env, op);
+
+      const response = await redeem(env, code, VERIFIER);
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ access_token: TOKEN.access_token });
+    }
+  );
+
+  it.each(['get', 'put'] as const)('registers a state when the counter %s rejects', async (op) => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const env = makeEnv();
+    failingRateCounter(env, op);
+
+    const response = await worker.fetch(post('/oauth/state', { state: STATE }), env);
+
+    expect(response.status).toBe(200);
+    expect(env.OAUTH_STATES.entries.get(`state:${STATE}`)).toBe('valid');
+  });
+
+  it('keeps a separate budget for redemption, so registering states cannot spend it', async () => {
+    const env = makeEnv();
+    const code = await signedInCode(env);
+    for (let i = 1; i < 10; i++) await registerState(env, `${'r'.repeat(31)}${i}`);
+
+    const eleventh = await worker.fetch(post('/oauth/state', { state: 'q'.repeat(32) }), env);
+    const redemption = await redeem(env, code, VERIFIER);
+
+    expect(eleventh.status).toBe(429);
+    expect(redemption.status).toBe(200);
+  });
+
+  it('refuses the eleventh redemption in a window', async () => {
+    const env = makeEnv();
+    for (let i = 0; i < 10; i++) await redeem(env, `unknown-${i}`, VERIFIER);
+
+    expect((await redeem(env, 'unknown-10', VERIFIER)).status).toBe(429);
+  });
+});
+
 describe('the keys one namespace holds', () => {
   it('gives every key a prefix naming its kind, whatever state the client chooses', async () => {
     const env = makeEnv();

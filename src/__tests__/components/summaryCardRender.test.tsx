@@ -21,6 +21,7 @@ import {
   type MetricId,
 } from '@/features/settings/stores/summaryCardPreferences';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { colors } from '@/theme';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
@@ -92,6 +93,19 @@ describe('the fitness sparkline', () => {
 
     const hrv = await renderCard({ heroMetric: 'hrv', hrvData: [55, 57], rhrData: [48, 47] });
     expect(hrv.getByTestId('summary-card-hrv-sparkline')).toBeTruthy();
+  });
+});
+
+describe('the HRV hero', () => {
+  it('prints HRV and resting HR in the text tones of their series', async () => {
+    const card = await renderCard({
+      heroMetric: 'hrv',
+      hrvData: [55, 58, 61],
+      rhrData: [48, 47, 46],
+    });
+
+    expect(card.getByTestId('summary-card-hrv-value')).toHaveStyle({ color: colors.chartHrvText });
+    expect(card.getByTestId('summary-card-rhr-value')).toHaveStyle({ color: colors.chartRhrText });
   });
 });
 

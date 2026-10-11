@@ -2,8 +2,9 @@
  * Section bounds delegates.
  *
  * Geometry editing for existing sections: trim to a narrower sub-range, reset
- * back to the original polyline, expand to a user-supplied wider polyline, or
- * take another activity's line as the reference and hand it back.
+ * back to the original polyline, expand to a user-supplied wider polyline,
+ * take another activity's line as the reference and hand it back, or put a
+ * stored version back and pin the section there.
  * The edit runs in the engine off the JS thread, re-matches activities and
  * fans out change events via `notifyAll` once it has ended, because both
  * summaries and polylines can change. It resolves with the rides the edit took
@@ -29,7 +30,9 @@ export type SectionBoundsEdit =
     }
   /** The stretch of the activity's track that runs the line becomes the line. */
   | { kind: 'setReference'; sectionId: string; activityId: string }
-  | { kind: 'resetReference'; sectionId: string };
+  | { kind: 'resetReference'; sectionId: string }
+  /** A stored geometry version becomes the line, and the section is pinned to it. */
+  | { kind: 'revert'; sectionId: string; version: number };
 
 function toEngineEdit(edit: SectionBoundsEdit): FfiSectionBoundsEdit {
   switch (edit.kind) {
@@ -55,6 +58,11 @@ function toEngineEdit(edit: SectionBoundsEdit): FfiSectionBoundsEdit {
       });
     case 'resetReference':
       return FfiSectionBoundsEdit.ResetReference.new({ sectionId: edit.sectionId });
+    case 'revert':
+      return FfiSectionBoundsEdit.Revert.new({
+        sectionId: edit.sectionId,
+        version: edit.version,
+      });
     default:
       return edit satisfies never;
   }

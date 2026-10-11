@@ -1,0 +1,82 @@
+# Scroll one row of the preview parameter card into view, drag its slider and
+# check the caption moved. KEY names the parameter, NEXT the row below it or
+# `presets` for the last row, DIRECTION the way to drag. A slider clipped by the
+# card still reads as visible, so the row counts as in view only once its
+# caption and what lies under its slider both are. Each scroll step is about one
+# row: on a short screen with a result the card holds two rows, and a swipe to
+# the screen edge carries the middle row straight past the top. The steps start
+# at 54% and 62% of the screen height, which is inside the card on a
+# phone-sized screen.
+appId: com.veloq.app.dev
+---
+- repeat:
+    while:
+      notVisible:
+        id: "param-edit-${KEY}"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 54%
+          end: 50%, 62%
+          duration: 1000
+- runFlow:
+    when:
+      true: ${NEXT !== 'presets'}
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "param-edit-${NEXT}"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "param-edit-${NEXT}"
+- runFlow:
+    when:
+      true: ${NEXT === 'presets'}
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "preset-default"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "preset-default"
+- assertVisible:
+    id: "param-edit-${KEY}"
+- copyTextFrom:
+    id: "param-edit-${KEY}"
+- evalScript: ${output.captionBefore = maestro.copiedText}
+# A swipe direction is parsed before any script runs, so each way is literal.
+- runFlow:
+    when:
+      true: ${DIRECTION === 'RIGHT'}
+    commands:
+      - swipe:
+          from:
+            id: "param-slider-${KEY}"
+          direction: RIGHT
+          duration: 700
+- runFlow:
+    when:
+      true: ${DIRECTION === 'LEFT'}
+    commands:
+      - swipe:
+          from:
+            id: "param-slider-${KEY}"
+          direction: LEFT
+          duration: 700
+- copyTextFrom:
+    id: "param-edit-${KEY}"
+- assertTrue:
+    condition: ${maestro.copiedText != output.captionBefore}
+    label: "Dragging the ${KEY} slider changes its caption"

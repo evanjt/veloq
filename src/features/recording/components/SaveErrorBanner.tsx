@@ -12,6 +12,8 @@ import { GrantAccessButton } from './GrantAccessButton';
 export interface SaveErrorBannerProps {
   /** Error text to display. If falsy, the banner renders nothing. */
   errorMessage: string | null | undefined;
+  /** The server's own words behind the failure, shown smaller beneath the message. */
+  detail?: string | null | undefined;
   /** When true, show the "Grant Access" OAuth upgrade button */
   showPermissionFix: boolean;
   /** Spinner state for the upgrade button */
@@ -19,13 +21,17 @@ export interface SaveErrorBannerProps {
   /** Invoked when the user taps "Grant Access" */
   onUpgradePermissions: () => void;
   /**
-   * When provided, shows a "Retry" button for recoverable (server-rejected)
-   * failures. Omitted for permission and network errors, which have their own
-   * paths (OAuth upgrade / automatic queue).
+   * When provided, shows a "Retry" button for a failure the same attempt can
+   * get past. Omitted for a refusal, a missing file, and permission and network
+   * errors, which have their own paths (kept ride / OAuth upgrade / automatic queue).
    */
   onRetry?: (() => void) | undefined;
   /** Spinner state for the retry button */
   isRetrying?: boolean;
+  /** When provided, offers to open the kept ride in My Recordings. */
+  onOpenRecording?: (() => void) | undefined;
+  /** When provided, offers to share the kept ride's FIT file. */
+  onShareFit?: (() => void) | undefined;
 }
 
 /**
@@ -37,11 +43,14 @@ export interface SaveErrorBannerProps {
  */
 export function SaveErrorBanner({
   errorMessage,
+  detail,
   showPermissionFix,
   isOAuthLoading,
   onUpgradePermissions,
   onRetry,
   isRetrying = false,
+  onOpenRecording,
+  onShareFit,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -55,6 +64,9 @@ export function SaveErrorBanner({
       <Text style={[styles.errorBannerText, isDark && styles.errorBannerTextDark]}>
         {errorMessage}
       </Text>
+      {!!detail && (
+        <Text style={[styles.detailText, isDark && styles.detailTextDark]}>{detail}</Text>
+      )}
       {showPermissionFix && (
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
       )}
@@ -64,6 +76,23 @@ export function SaveErrorBanner({
           label={t('common.retry', 'Retry')}
           onPress={onRetry}
           loading={isRetrying}
+        />
+      )}
+      {onOpenRecording && (
+        <Button
+          testID="save-error-open-recording"
+          style={styles.retryButton}
+          label={t('recording.openInRecordings', 'Open in My Recordings')}
+          onPress={onOpenRecording}
+        />
+      )}
+      {onShareFit && (
+        <Button
+          testID="save-error-share-fit"
+          style={styles.retryButton}
+          variant="secondary"
+          label={t('recording.library.share', 'Share FIT file')}
+          onPress={onShareFit}
         />
       )}
     </View>
@@ -85,6 +114,15 @@ const styles = StyleSheet.create({
   },
   errorBannerTextDark: {
     color: darkColors.errorDeep,
+  },
+  detailText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  detailTextDark: {
+    color: darkColors.textSecondary,
   },
   retryButton: {
     marginTop: spacing.sm,

@@ -8,7 +8,9 @@ export {
   disconnectSensor,
   disconnectAllSensors,
   requestBlePermissions,
+  refreshBleAccess,
   isBleAvailable,
+  turnOnBluetooth,
 } from './lib/sensorManager';
 export { startSimulatedSensors, stopSimulatedSensors } from './lib/simulatedSensors';
 export type * from './types';

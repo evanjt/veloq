@@ -13,7 +13,7 @@
  *
  * The same transition announces the settled edge, because the sync holds an
  * exclusive slot while it runs and refuses everything else that asks for one,
- * and pushes a fresh snapshot to the home-screen widget.
+ * and asks for a fresh snapshot on the home-screen widget once the thread idles.
  *
  * The settle is not the only wake, though. Rust announces each activity step
  * as its rows land, and that is what the first launch's feed and preview fetch
@@ -29,7 +29,7 @@ import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
 
-import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
+import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
 import { cancelSyncRefresh } from './syncRefresh';
 
@@ -137,8 +137,10 @@ export function useEngineSync(): void {
     // The widget's other writers are backgrounding and the silent-push task, so
     // without this a foreground sync leaves the home screen on yesterday's
     // numbers. A sync that failed part-way still wrote what it did fetch, so the
-    // error path refreshes too.
-    updateWidgetSnapshot();
+    // error path refreshes too. It waits for the thread to idle: this effect
+    // has just woken every reader, and the write is the insights read, the
+    // ranking and the composition in one task.
+    scheduleWidgetSnapshot();
   }, [state, lastError]);
 
   useReconnect(retry);

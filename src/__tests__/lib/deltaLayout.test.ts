@@ -6,7 +6,12 @@
  * snaps to 100 m.
  */
 
-import { layoutDelta, pickEmphasisedLap, snapScrubIndex } from '@/features/routes/lib/deltaLayout';
+import {
+  layoutDelta,
+  pickEmphasisedLap,
+  scrubDeltaSecs,
+  snapScrubIndex,
+} from '@/features/routes/lib/deltaLayout';
 import type { FfiDirectionDeltas, FfiLapDelta } from 'veloqrs';
 
 const FRAME = { width: 220, height: 120, padding: { left: 10, right: 10, top: 10, bottom: 10 } };
@@ -18,18 +23,26 @@ function lap(id: string, date: number, deltaSecs: number[], extra: Partial<FfiLa
     activityId: id,
     startIndex: 0,
     activityDate: date,
-    deltaSecs,
-    splitDeltaSecs: [],
+    deltaSecs: Float32Array.from(deltaSecs),
+    splitDeltaSecs: new Float32Array(0),
     ...extra,
   } as FfiLapDelta;
 }
 
+/** The direction's laps with the peak the engine computes over them. */
 function deltas(laps: FfiLapDelta[]): FfiDirectionDeltas {
+  let peakDeltaSecs = 0;
+  for (const each of laps) {
+    for (const secs of each.deltaSecs) {
+      if (Number.isFinite(secs)) peakDeltaSecs = Math.max(peakDeltaSecs, Math.abs(secs));
+    }
+  }
   return {
     referenceActivityId: 'ref',
     referenceSource: 0,
     laps,
     missing: [],
+    peakDeltaSecs,
   } as FfiDirectionDeltas;
 }
 
@@ -97,6 +110,49 @@ describe('layoutDelta', () => {
 
     const plot = layoutDelta(deltas(laps), GRID_STEP_M, SECTION_LENGTH_M, FRAME, 'mid');
     expect(plot.laps.filter((l) => l.emphasised).map((l) => l.activityId)).toEqual(['mid']);
+  });
+
+  it('scales the y axis to the peak the engine computed for the direction', () => {
+    const direction = { ...deltas([lap('a', 1, [0, 2, 3])]), peakDeltaSecs: 9 };
+    const plot = layoutDelta(direction, GRID_STEP_M, SECTION_LENGTH_M, FRAME, undefined);
+
+    expect(plot.extentSecs).toBe(9);
+  });
+
+  describe('a 40 km curve on a 10 m grid', () => {
+    const POINTS = 4_001;
+    const values = Array.from({ length: POINTS }, (_, i) =>
+      i < 25 ? NaN : Math.sin(i / 7) * 20 + (i % 13) * 0.37
+    );
+    // A one-point surge well inside a pixel column.
+    values[2_002] = 55.5;
+    const long = lap('long', 1, values);
+    const plotWidth = FRAME.width - FRAME.padding.left - FRAME.padding.right;
+    const plot = layoutDelta(deltas([long]), 10, (POINTS - 1) * 10, FRAME, undefined);
+    const runs = subpaths(plot.laps[0]!.path);
+
+    it('draws at most two points a pixel column', () => {
+      const segments = runs.reduce((sum, run) => sum + run.length - 1, 0);
+      expect(segments).toBeLessThanOrEqual(2 * plotWidth);
+      expect(runs).toHaveLength(1);
+      expect(runs[0]![0]![0]).toBeCloseTo(plot.xForDistance(250));
+    });
+
+    it('keeps the extremes of every pixel column, so a surge stays on the plot', () => {
+      const ys = runs.flat().map(([, y]) => y!);
+      const surgeY = plot.zeroY - (55.5 / plot.extentSecs) * ((FRAME.height - 20) / 2);
+      expect(Math.min(...ys)).toBeCloseTo(surgeY);
+    });
+
+    it('reads the scrub from the full-resolution curve', () => {
+      for (const i of [30, 1_001, 2_002, 2_003, 4_000]) {
+        expect(scrubDeltaSecs(long, i)).toBe(long.deltaSecs[i]);
+      }
+      expect(scrubDeltaSecs(long, 2_002)).toBe(55.5);
+      expect(scrubDeltaSecs(long, 2_003)).toBe(Math.fround(values[2_003]!));
+      expect(scrubDeltaSecs(long, POINTS)).toBeUndefined();
+      expect(scrubDeltaSecs(undefined, 3)).toBeUndefined();
+    });
   });
 });
 

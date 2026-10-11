@@ -128,25 +128,64 @@ pub(crate) mod pooled {
         Ok(owed)
     }
 
-    /// The queue's length and the moving seconds it covers, read through the
-    /// same rows as the count so the two cannot describe different queues.
+    /// The queue's length and what it would download, read through the same
+    /// rows as the count so the two cannot describe different queues.
+    ///
+    /// An activity whose stored body lists requested series is counted as
+    /// those series times its samples: the clock's sample count, else the
+    /// track's, else its moving seconds. One with no body, no list, or a list
+    /// naming nothing requested is counted as moving seconds for the flat rate,
+    /// so it is never priced at nothing.
     pub(crate) fn backfill_estimate(
         conn: &Connection,
         attempt_limit: u32,
-    ) -> SqlResult<(usize, u64)> {
+    ) -> SqlResult<BackfillEstimate> {
         let window = retention_days(conn);
-        let (count, seconds): (i64, i64) = conn.query_row(
+        let (count, series_samples, unlisted_seconds): (i64, i64, i64) = conn.query_row(
             &format!(
                 "SELECT COUNT(*),
-                        COALESCE(SUM((SELECT m.moving_time FROM activity_metrics m
-                                       WHERE m.activity_id = a.id)), 0)
-                 {STREAM_GAP_FROM_WHERE}"
+                        COALESCE(SUM(CASE WHEN listed > 0 THEN listed * samples END), 0),
+                        COALESCE(SUM(CASE WHEN listed > 0 THEN 0 ELSE moving END), 0)
+                   FROM (SELECT
+                           (SELECT COUNT(*)
+                              FROM activity_bodies ab,
+                                   json_each(CASE WHEN json_valid(ab.raw) THEN ab.raw END,
+                                             '$.stream_types') st
+                             WHERE ab.activity_id = a.id
+                               AND st.type = 'text'
+                               AND instr(',' || ?3 || ',', ',' || st.value || ',') > 0)
+                             AS listed,
+                           COALESCE((SELECT t.point_count FROM time_streams t
+                                      WHERE t.activity_id = a.id),
+                                    g.point_count,
+                                    (SELECT m.moving_time FROM activity_metrics m
+                                      WHERE m.activity_id = a.id),
+                                    0) AS samples,
+                           COALESCE((SELECT m.moving_time FROM activity_metrics m
+                                      WHERE m.activity_id = a.id), 0) AS moving
+                         {STREAM_GAP_FROM_WHERE})"
             ),
-            params![attempt_limit, window],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            params![attempt_limit, window, DEFAULT_STREAM_TYPES],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
-        Ok((count.max(0) as usize, seconds.max(0) as u64))
+        Ok(BackfillEstimate {
+            owed: count.max(0) as usize,
+            series_samples: series_samples.max(0) as u64,
+            unlisted_seconds: unlisted_seconds.max(0) as u64,
+        })
     }
+}
+
+/// What the owed stream queue holds, in the units its price is set in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackfillEstimate {
+    /// Activities owed.
+    pub owed: usize,
+    /// The requested series each listed activity's body names, times its
+    /// samples, summed.
+    pub series_samples: u64,
+    /// Moving seconds of the activities whose body names no requested series.
+    pub unlisted_seconds: u64,
 }
 
 /// The rows the stream backfill still has to ask about, shared by the queue
@@ -868,7 +907,98 @@ mod tests {
             .store_activity_streams("stocked", &[series("heartrate", &[Some(120.0)])])
             .unwrap();
 
-        assert_eq!(pooled::backfill_estimate(&engine.db, 3).unwrap(), (2, 2400));
+        assert_eq!(
+            pooled::backfill_estimate(&engine.db, 3).unwrap(),
+            BackfillEstimate {
+                owed: 2,
+                series_samples: 0,
+                unlisted_seconds: 2400
+            }
+        );
+    }
+
+    /// The bytes the ask quotes for a queue of one owed activity: a 3,000 s
+    /// track recorded at `points` samples, whose stored body is `raw`.
+    fn priced_alone(points: usize, raw: Option<&str>) -> u64 {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "owed", 10);
+        track(&engine, "owed", points);
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics
+                     (activity_id, name, date, distance, moving_time, elapsed_time,
+                      elevation_gain, sport_type)
+                 VALUES ('owed', 'r', 0, 0, 3000, 3000, 0, 'Run')",
+                [],
+            )
+            .unwrap();
+        if let Some(raw) = raw {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_bodies (activity_id, date, raw) VALUES ('owed', 0, ?)",
+                    params![raw],
+                )
+                .unwrap();
+        }
+        let (owed, bytes) = crate::net::stream_backfill::queue_estimate(&engine.db).unwrap();
+        assert_eq!(owed, 1);
+        bytes
+    }
+
+    /// Scenario: the ask before a large download prices a library of runs
+    /// carrying power beside strength sessions carrying a heart rate, of the
+    /// same length.
+    ///
+    /// Expected behaviour: each activity is priced by the requested series its
+    /// stored body lists and the samples it holds, so the run costs at least
+    /// three times the session; a body that lists nothing requested, or no
+    /// body at all, falls back to the flat rate rather than to nothing.
+    #[test]
+    fn the_estimate_prices_each_activity_by_the_series_it_lists() {
+        use crate::net::stream_backfill::WIRE_BYTES_PER_MOVING_SECOND;
+        let flat = 3000 * WIRE_BYTES_PER_MOVING_SECOND;
+        let power = priced_alone(
+            3000,
+            Some(
+                r#"{"stream_types":["time","distance","latlng","velocity_smooth","heartrate",
+                    "watts","altitude","fixed_altitude","cadence","grade_smooth","temp",
+                    "w_bal","respiration"]}"#,
+            ),
+        );
+        let strength = priced_alone(
+            3000,
+            Some(r#"{"stream_types":["time","heartrate","temp"]}"#),
+        );
+
+        assert!(strength > 0);
+        assert!(
+            power >= 3 * strength,
+            "twelve requested series priced {power}, three priced {strength}"
+        );
+        assert_eq!(priced_alone(3000, None), flat, "no body");
+        assert_eq!(priced_alone(3000, Some("{}")), flat, "no list");
+        assert_eq!(
+            priced_alone(3000, Some(r#"{"stream_types":["respiration"]}"#)),
+            flat,
+            "a list naming nothing requested"
+        );
+        assert_eq!(priced_alone(3000, Some("not json")), flat, "a garbled body");
+    }
+
+    /// Scenario: two runs of the same length and series, one recorded every
+    /// second and one with smart recording.
+    ///
+    /// Expected behaviour: the price follows the samples the track holds, so
+    /// the run with a third of the samples costs a third as much.
+    #[test]
+    fn the_estimate_prices_the_samples_the_track_holds() {
+        let body = r#"{"stream_types":["time","latlng","heartrate","altitude"]}"#;
+        let every_second = priced_alone(3000, Some(body));
+        let smart = priced_alone(1000, Some(body));
+
+        assert_eq!(every_second, 3 * smart);
     }
 
     /// Scenario: a recorded ride with a track is saved under a `local-` key

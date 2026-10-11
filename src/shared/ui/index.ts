@@ -2,7 +2,6 @@ export { Shimmer, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
 export { BottomTabBar } from './BottomTabBar';
 export { useTabBarClearance } from './tabBarClearance';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
-export { AnimatedPressable } from './AnimatedPressable';
 export { Button, ToggleButton, ToggleButtonRow } from './Button';
 export type {
   ButtonProps,
@@ -11,11 +10,14 @@ export type {
   ToggleButtonProps,
   ToggleButtonRowProps,
 } from './Button';
+export { HoldButton } from './HoldButton';
+export type { HoldButtonProps } from './HoldButton';
 export { ChipSelector } from './ChipSelector';
 export type { ChipOption, ChipSelectorProps } from './ChipSelector';
 export { Card } from './Card';
 export type { CardProps, CardVariant, CardPadding } from './Card';
 export { Row } from './Row';
+export { ListSectionHeader } from './ListSectionHeader';
 export type { RowProps } from './Row';
 export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
@@ -44,10 +46,11 @@ export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { ScreenScrollView, screenListInsets } from './ScreenScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
-export { pressable, pressRipple, PRESS_OPACITY } from './pressFeedback';
+export { pressable, pressRipple, pressRippleOver, PRESS_OPACITY } from './pressFeedback';
 export { CircleOptionRow, circleOptionSize } from './CircleOption';
 export type { CircleOption, CircleOptionRowProps } from './CircleOption';
 export { SearchBar, type SearchBarProps } from './SearchBar';
+export { TextField, type TextFieldProps } from './TextField';
 export {
   ExplanationCard,
   type Explanation,

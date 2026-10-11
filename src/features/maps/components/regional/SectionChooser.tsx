@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
-import { Row, pressable, pressRipple } from '@/shared/ui';
+import { Row } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 
@@ -22,9 +22,9 @@ export function SectionChooser({ sections, onSelect, onClose }: SectionChooserPr
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay} testID="section-chooser">
+        {/* press-feedback: none, the scrim is the way out and not a control */}
         <Pressable
-          style={pressable(styles.backdrop)}
-          android_ripple={pressRipple}
+          style={styles.backdrop}
           onPress={onClose}
           accessibilityLabel={t('common.close')}
           accessibilityRole="button"

@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
-import { Rect } from '@shopify/react-native-skia';
+import { fireEvent, render, within } from '@testing-library/react-native';
+import { DashPathEffect, Line, Rect } from '@shopify/react-native-skia';
 
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
@@ -87,6 +87,28 @@ function captureRects() {
   });
   return drawn;
 }
+
+/** The Line props drawn on each render, so a test reads each mark's stroke. */
+function captureLines() {
+  const drawn: Record<string, unknown>[] = [];
+  const line = Line as unknown as {
+    render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
+  };
+  const original = line.render;
+  jest.spyOn(line, 'render').mockImplementation((props, ref) => {
+    drawn.push(props);
+    return original(props, ref);
+  });
+  return drawn;
+}
+
+/** The x a vertical mark is drawn at. */
+const markX = (mark: Record<string, unknown>) => (mark.p1 as { x: number }).x;
+
+const isDashed = (mark: Record<string, unknown>) =>
+  React.Children.toArray(mark.children as React.ReactNode).some(
+    (child) => React.isValidElement(child) && child.type === DashPathEffect
+  );
 
 const barsOf = (drawn: Record<string, unknown>[]) =>
   drawn.filter((r) => r.color === colors.primary);
@@ -194,18 +216,20 @@ describe('PerformanceChartPanel', () => {
 
   it('marks the highlighted attempt and the record on the histogram', () => {
     const drawn = captureRects();
+    const lines = captureLines();
     const tree = render(panel({ highlightedActivityId: 'act-0' }));
     drawn.length = 0;
+    lines.length = 0;
     fireEvent.press(tree.getByTestId('chart-plot-histogram'));
 
-    const green = drawn.filter((r) => r.color === colors.chartGreenMark);
-    const gold = drawn.filter((r) => r.color === colors.chartGoldMark);
+    const green = lines.filter((l) => l.color === colors.chartGreenMark);
+    const gold = lines.filter((l) => l.color === colors.chartGoldMark);
     expect(green).toHaveLength(1);
     expect(gold).toHaveLength(1);
     // 305 s and 310 s both fall in the first 30 s bin, 300 to 330.
     const [first] = barsOf(drawn);
     for (const mark of [green[0], gold[0]]) {
-      const centre = Number(mark.x) + Number(mark.width) / 2;
+      const centre = markX(mark);
       expect(centre).toBeGreaterThanOrEqual(Number(first.x));
       expect(centre).toBeLessThan(Number(first.x) + Number(first.width));
     }
@@ -228,6 +252,7 @@ describe('AttemptHistogramChart', () => {
 
   it('draws two bars in the ratio 3:2 with the attempt mark in the first bin', () => {
     const drawn = captureRects();
+    const lines = captureLines();
     render(
       <AttemptHistogramChart
         histogram={bins([3, 2], 300, 30)}
@@ -241,14 +266,42 @@ describe('AttemptHistogramChart', () => {
     const bars = barsOf(drawn);
     expect(bars).toHaveLength(2);
     expect(Number(bars[0].height) / Number(bars[1].height)).toBeCloseTo(3 / 2);
-    const green = drawn.find((r) => r.color === colors.chartGreenMark)!;
-    const gold = drawn.find((r) => r.color === colors.chartGoldMark)!;
-    expect(Number(green.x) + 1).toBeLessThan(Number(bars[0].x) + Number(bars[0].width));
-    expect(Number(gold.x) + 1).toBeGreaterThan(Number(bars[1].x));
+    const green = lines.find((l) => l.color === colors.chartGreenMark)!;
+    const gold = lines.find((l) => l.color === colors.chartGoldMark)!;
+    expect(markX(green)).toBeLessThan(Number(bars[0].x) + Number(bars[0].width));
+    expect(markX(gold)).toBeGreaterThan(Number(bars[1].x));
+  });
+
+  it('draws the record mark dashed and the attempt mark solid, and keys them the same way', () => {
+    const drawn = captureLines();
+    const tree = render(
+      <AttemptHistogramChart
+        histogram={bins([3, 2], 300, 30)}
+        activityType="Ride"
+        isDark={false}
+        highlightedTime={305}
+        recordTime={308}
+        recordHeld
+      />
+    );
+
+    const record = drawn.find((l) => l.color === colors.chartGoldMark);
+    const attempt = drawn.find((l) => l.color === colors.chartGreenMark);
+    expect(record).toBeDefined();
+    expect(attempt).toBeDefined();
+    expect(isDashed(record!)).toBe(true);
+    expect(isDashed(attempt!)).toBe(false);
+
+    const recordKey = within(tree.getByTestId('attempt-histogram-record-key'));
+    const attemptKey = within(tree.getByTestId('attempt-histogram-highlight-key'));
+    expect(recordKey.getByTestId('key-swatch-dashed')).toBeTruthy();
+    expect(recordKey.queryByTestId('key-swatch-solid')).toBeNull();
+    expect(attemptKey.getByTestId('key-swatch-solid')).toBeTruthy();
+    expect(attemptKey.queryByTestId('key-swatch-dashed')).toBeNull();
   });
 
   it('draws no mark for a time outside the bins', () => {
-    const drawn = captureRects();
+    const drawn = captureLines();
     render(
       <AttemptHistogramChart
         histogram={bins([3, 2], 300, 30)}

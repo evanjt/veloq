@@ -1,4 +1,9 @@
-const { withAndroidManifest, withDangerousMod, AndroidConfig } = require("expo/config-plugins");
+const {
+  withAndroidManifest,
+  withAppBuildGradle,
+  withDangerousMod,
+  AndroidConfig,
+} = require("expo/config-plugins");
 const fs = require("fs");
 const path = require("path");
 
@@ -11,7 +16,8 @@ const path = require("path");
  *     the widgets and the notification channel show before any snapshot exists
  *   - java/ Kotlin, with __PKG__ templated to the resolved variant package, written
  *     under the matching package path
- *   - an AppWidgetProvider <receiver> added to the manifest
+ *   - an AppWidgetProvider <receiver> added to the manifest, and the picker activities
+ *   - the Material components library, which the pickers compile against
  *
  * The package differs by variant (com.veloq.app vs com.veloq.app.dev, see app.config.js),
  * which is why the Kotlin uses a __PKG__ placeholder rather than a hardcoded package.
@@ -198,6 +204,11 @@ const INSIGHTS_CONFIGURE_ACTIVITY = ".widget.InsightsWidgetConfigureActivity";
 const STRENGTH_CONFIGURE_ACTIVITY = ".widget.StrengthWidgetConfigureActivity";
 const RECORD_CONFIGURE_ACTIVITY = ".widget.RecordWidgetConfigureActivity";
 
+// One theme for every picker, defined in widget/android/res: Material 3 in the brand colours with
+// no action bar, since the shared picker frame carries its own toolbar. Without it a picker takes
+// the application theme, an AppCompat one with no bar to show its title in.
+const CONFIGURE_THEME = "@style/Theme.Veloq.WidgetConfigure";
+
 function configureActivity(name) {
   return {
     $: {
@@ -206,6 +217,7 @@ function configureActivity(name) {
       "android:exported": "true",
       "android:excludeFromRecents": "true",
       "android:label": "@string/app_name",
+      "android:theme": CONFIGURE_THEME,
     },
     "intent-filter": [
       {
@@ -230,6 +242,30 @@ function applyActivities(app, includeRecord = INCLUDE_RECORD_WIDGET) {
   }
 }
 
+// The pickers' toolbar, ticks, radios and buttons are Material components. The library already
+// reaches the app's runtime classpath through other modules' `implementation` dependencies, which
+// do not put it on the app's compile classpath, so the app declares it itself at the version the
+// graph resolves.
+const MATERIAL_DEPENDENCY = "com.google.android.material:material:1.13.0";
+
+function applyMaterialDependency(contents) {
+  if (contents.includes("com.google.android.material:material:")) return contents;
+  if (!/^dependencies\s*\{/m.test(contents)) {
+    throw new Error("with-android-widget: app/build.gradle has no dependencies block");
+  }
+  return contents.replace(
+    /^dependencies\s*\{/m,
+    `dependencies {\n    implementation "${MATERIAL_DEPENDENCY}"`
+  );
+}
+
+function withMaterialComponents(config) {
+  return withAppBuildGradle(config, (mod) => {
+    mod.modResults.contents = applyMaterialDependency(mod.modResults.contents);
+    return mod;
+  });
+}
+
 function withWidgetReceiver(config) {
   return withAndroidManifest(config, (mod) => {
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
@@ -243,6 +279,7 @@ function withWidgetReceiver(config) {
 module.exports = function withAndroidWidget(config) {
   config = withWidgetReceiver(config);
   config = withWidgetSources(config);
+  config = withMaterialComponents(config);
   return config;
 };
 
@@ -250,4 +287,7 @@ module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyReceivers = applyReceivers;
 module.exports.applyActivities = applyActivities;
 module.exports.applyServices = applyServices;
+module.exports.applyMaterialDependency = applyMaterialDependency;
+module.exports.CONFIGURE_THEME = CONFIGURE_THEME;
+module.exports.MATERIAL_DEPENDENCY = MATERIAL_DEPENDENCY;
 module.exports.writeWidgetSources = writeWidgetSources;

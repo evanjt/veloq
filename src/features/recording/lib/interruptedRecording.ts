@@ -56,6 +56,9 @@ function canOpenBackup(backup: RecordingBackup): boolean {
  * loaded before the alert so the alert can name it, and an unreadable file can
  * be neither named nor resumed, so it raises nothing and stays on disk. A
  * backup of a ride the library already holds is deleted instead of offered.
+ * Later, Android back and a scrim tap close the alert and leave the backup and
+ * its notice untouched, since the backup is the only copy of the ride and the
+ * next launch offers it again.
  */
 export async function promptInterruptedRecording(): Promise<void> {
   if (useRecordingStore.getState().status !== 'idle') return;
@@ -69,23 +72,30 @@ export async function promptInterruptedRecording(): Promise<void> {
   if (!canOpenBackup(backup)) return;
 
   const t = i18n.t.bind(i18n);
-  Alert.alert(t('recording.resumePrevious'), interruptedRecordingMessage(backup), [
-    {
-      text: t('recording.discard'),
-      style: 'destructive',
-      onPress: () => {
-        if (!canOpenBackup(backup)) return;
-        void clearRecordingBackup(backup.athleteId, backup);
-        clearInterruptedRecordingNotice();
+  const keepForLater = () => {};
+  Alert.alert(
+    t('recording.resumePrevious'),
+    interruptedRecordingMessage(backup),
+    [
+      { text: t('recording.resumeLater'), style: 'cancel', onPress: keepForLater },
+      {
+        text: t('recording.discard'),
+        style: 'destructive',
+        onPress: () => {
+          if (!canOpenBackup(backup)) return;
+          void clearRecordingBackup(backup.athleteId, backup);
+          clearInterruptedRecordingNotice();
+        },
       },
-    },
-    {
-      text: t('recording.controls.resume'),
-      onPress: async () => {
-        if (!canOpenBackup(backup)) return;
-        const route = await resumeRecordingBackup();
-        if (route) navigateTo(route);
+      {
+        text: t('recording.controls.resume'),
+        onPress: async () => {
+          if (!canOpenBackup(backup)) return;
+          const route = await resumeRecordingBackup();
+          if (route) navigateTo(route);
+        },
       },
-    },
-  ]);
+    ],
+    { cancelable: true, onDismiss: keepForLater }
+  );
 }

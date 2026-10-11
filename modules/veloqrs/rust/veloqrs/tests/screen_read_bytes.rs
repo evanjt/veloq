@@ -181,11 +181,14 @@ impl Lowered {
     }
 }
 
-/// Lowers each named field of `$v` and the whole of it. A field left out of
-/// the list shows as a gap between the sum and the whole, which fails.
+/// Lowers each named field of `$v`, a `$ty`, and the whole of it. The record
+/// is rebuilt from the listed fields, so a field added to it and left out here
+/// fails to compile, naming the field. A gap between the sum and the whole
+/// fails too.
 macro_rules! lower {
-    ($v:expr; $($name:ident $(=> $rows:expr)?),* $(,)?) => {{
-        let v = $v;
+    ($ty:ident, $v:expr; $($name:ident $(=> $rows:expr)?),* $(,)?) => {{
+        let v: $ty = $v;
+        let v = $ty { $($name: v.$name),* };
         let fields = vec![$(Field {
             name: stringify!($name),
             bytes: lowered(v.$name.clone()),
@@ -198,12 +201,13 @@ macro_rules! lower {
 }
 
 fn activity_detail(v: FfiActivityDetailData) -> Lowered {
-    lower!(v;
+    lower!(FfiActivityDetailData, v;
         exercise_groups => |v: &FfiActivityDetailData| v.exercise_groups.len(),
         fitness_impact,
         activity_count,
         section_count,
         route_groups => |v: &FfiActivityDetailData| v.route_groups.len(),
+        representative_signature,
         matched_sections => |v: &FfiActivityDetailData| v.matched_sections.len(),
         custom_sections => |v: &FfiActivityDetailData| v.custom_sections.len(),
         encounters => |v: &FfiActivityDetailData| v.encounters.len(),
@@ -217,7 +221,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
 }
 
 fn section_detail(v: FfiSectionDetailData) -> Lowered {
-    lower!(v;
+    lower!(FfiSectionDetailData, v;
         activity_count,
         section,
         retirement,
@@ -235,7 +239,7 @@ fn section_detail(v: FfiSectionDetailData) -> Lowered {
 }
 
 fn performance(v: FfiSectionPerformanceData) -> Lowered {
-    lower!(v;
+    lower!(FfiSectionPerformanceData, v;
         sport_type,
         sport_counts => |v: &FfiSectionPerformanceData| v.sport_counts.len(),
         calendar_summary,
@@ -256,7 +260,7 @@ fn performance(v: FfiSectionPerformanceData) -> Lowered {
 }
 
 fn route_detail(v: FfiRouteDetailData) -> Lowered {
-    lower!(v;
+    lower!(FfiRouteDetailData, v;
         activity_count,
         group,
         groups => |v: &FfiRouteDetailData| v.groups.len(),
@@ -273,7 +277,7 @@ fn route_detail(v: FfiRouteDetailData) -> Lowered {
 }
 
 fn map_screen(v: FfiMapScreenData) -> Lowered {
-    lower!(v;
+    lower!(FfiMapScreenData, v;
         activity_count,
         available_sport_types => |v: &FfiMapScreenData| v.available_sport_types.len(),
         category_counts => |v: &FfiMapScreenData| v.category_counts.len(),
@@ -290,7 +294,7 @@ fn map_screen(v: FfiMapScreenData) -> Lowered {
 }
 
 fn routes_screen(v: FfiRoutesScreenData) -> Lowered {
-    lower!(v;
+    lower!(FfiRoutesScreenData, v;
         activity_count,
         group_count,
         section_count,
@@ -312,7 +316,7 @@ fn routes_screen(v: FfiRoutesScreenData) -> Lowered {
 }
 
 fn startup(v: FfiStartupData) -> Lowered {
-    lower!(v;
+    lower!(FfiStartupData, v;
         summary_card,
         preview_tracks => |v: &FfiStartupData| v.preview_tracks.len(),
         sparklines,
@@ -320,11 +324,11 @@ fn startup(v: FfiStartupData) -> Lowered {
 }
 
 fn fitness(v: FfiFitnessScreenData) -> Lowered {
-    lower!(v; ftp_trend, run_pace_trend, swim_pace_trend)
+    lower!(FfiFitnessScreenData, v; ftp_trend, run_pace_trend, swim_pace_trend)
 }
 
 fn best_efforts(v: FfiBestEffortsData) -> Lowered {
-    lower!(v;
+    lower!(FfiBestEffortsData, v;
         sports => |v: &FfiBestEffortsData| v.sports.len(),
         climbing => |v: &FfiBestEffortsData| v.climbing.len(),
     )

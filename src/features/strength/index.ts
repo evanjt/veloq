@@ -21,6 +21,7 @@ export {
 export { generateStrengthInsights } from './hooks/strengthInsights';
 export { STRENGTH_PERIODS, strengthPeriodOf } from './periods';
 
+export { BODY_INTRINSIC_W } from './lib/bodyScale';
 export { type MuscleSlug } from './lib/exerciseMuscleMap';
 export { MUSCLE_NAME_KEYS, muscleName, balancePairName } from './lib/muscleNames';
 export {

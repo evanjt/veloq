@@ -3,6 +3,7 @@ export {
   FormZoneChart,
   ActivityDotsChart,
   SeasonBestsSection,
+  BestEffortRow,
   ClimbingBestRows,
   ClimbingStatusNote,
   TimeRangeSelector,
@@ -30,6 +31,7 @@ export {
 
 export {
   getFormZone,
+  formZoneFromLoads,
   formatForm,
   formatEffortValue,
   formChartSeries,

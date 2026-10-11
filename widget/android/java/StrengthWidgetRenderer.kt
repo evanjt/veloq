@@ -48,6 +48,7 @@ object StrengthWidgetRenderer {
     minHeightDp: Int,
     window: String?,
   ): RemoteViews {
+    val p = WidgetPalette(context)
     val size = StrengthWidget.sizeFor(minWidthDp, minHeightDp)
     val narrow = size == SummarySize.SHORT || size == SummarySize.SMALL
     val v =
@@ -63,7 +64,7 @@ object StrengthWidgetRenderer {
         v, context.getString(R.string.widget_open_app), context.getString(R.string.widget_to_see_training))
       if (!narrow) bindRows(v, emptyList())
       v.setViewVisibility(R.id.str_age, View.VISIBLE)
-      WidgetRenderer.bindUpdatedAt(context, v, R.id.str_updated, null)
+      WidgetRenderer.bindUpdatedAt(p, v, R.id.str_updated, null)
       WidgetRenderer.bindRefresh(context, v, null)
       return v
     }
@@ -78,13 +79,13 @@ object StrengthWidgetRenderer {
       bindMessage(v, empty, null)
     } else {
       showBody(v, narrow, true)
-      bindBody(context, v, content, narrow, minWidthDp)
+      bindBody(context, p, v, content, narrow, minWidthDp)
     }
     if (!narrow) bindRows(v, content.top)
 
     // A host reapplies these views over the ones it shows, which a short placement left hidden.
     v.setViewVisibility(R.id.str_age, if (size == SummarySize.SHORT) View.GONE else View.VISIBLE)
-    WidgetRenderer.bindUpdatedAt(context, v, R.id.str_updated, snap)
+    WidgetRenderer.bindUpdatedAt(p, v, R.id.str_updated, snap)
     WidgetRenderer.bindRefresh(context, v, snap)
     return v
   }
@@ -118,6 +119,7 @@ object StrengthWidgetRenderer {
    */
   private fun bindBody(
     context: Context,
+    p: WidgetPalette,
     v: RemoteViews,
     content: StrengthContent,
     narrow: Boolean,
@@ -130,11 +132,14 @@ object StrengthWidgetRenderer {
     val d = context.resources.displayMetrics.density
     val heightPx = min(MAX_BODY_PX.toFloat(), 2 * slotDp.coerceAtLeast(16) * d).roundToInt()
 
-    val fill = WidgetRenderer.res(context, R.color.widget_body_fill)
-    val ramp = IntArray(RAMP.size) { WidgetRenderer.res(context, RAMP[it]) }
+    val fill = p.color(R.color.widget_body_fill)
+    val ramp = RAMP.map { p.color(it) }
     for (side in content.sides) {
       val id = if (side == BodyOutline.Side.FRONT) R.id.str_front else R.id.str_back
-      v.setImageViewBitmap(id, BodyBitmap.render(content, side, heightPx, fill, ramp))
+      p.bitmap(v, id) { dark ->
+        BodyBitmap.render(
+          content, side, heightPx, fill.pick(dark), IntArray(ramp.size) { ramp[it].pick(dark) })
+      }
     }
     if (!narrow) {
       v.setViewVisibility(

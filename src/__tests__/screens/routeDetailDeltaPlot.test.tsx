@@ -89,8 +89,11 @@ const lapDelta = (id: string, day: number, splits: number[]) => ({
   activityId: id,
   startIndex: 0,
   activityDate: FIRST + day * DAY,
-  deltaSecs: [0, ...splits.map((_, i) => splits.slice(0, i + 1).reduce((a, b) => a + b, 0))],
-  splitDeltaSecs: splits,
+  deltaSecs: Float32Array.from([
+    0,
+    ...splits.map((_, i) => splits.slice(0, i + 1).reduce((a, b) => a + b, 0)),
+  ]),
+  splitDeltaSecs: Float32Array.from(splits),
   endDeltaSecs: splits.reduce((a, b) => a + b, 0),
 });
 
@@ -103,6 +106,7 @@ const CURVES = {
     referenceSource: 0,
     laps: [lapDelta('q1', 0, [0, 0, 0]), lapDelta('q2', 1, [2, -1, 4])],
     missing: [],
+    peakDeltaSecs: 5,
   },
 };
 
@@ -187,7 +191,7 @@ describe('route page delta plot', () => {
 
     expect(screen.getByTestId('section-delta-chart')).toBeTruthy();
     expect(lastMapDeltaLine()).toEqual({
-      splits: [2, -1, 4],
+      splits: Float32Array.from([2, -1, 4]),
       splitStepM: 100,
       sectionLengthM: ROUTE_LENGTH_M,
       direction: 'forward',
@@ -229,7 +233,7 @@ describe('route page curves owed', () => {
     expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledTimes(1);
     expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledWith('grp-quarry', 0, undefined);
     fireEvent.press(screen.getByTestId('chart-plot-delta'));
-    expect(lastMapDeltaLine()?.splits).toEqual([2, -1, 4]);
+    expect(lastMapDeltaLine()?.splits).toEqual(Float32Array.from([2, -1, 4]));
   });
 
   it('fetches the missing streams and loads the curves only once they land', async () => {

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
 import {
-  getFormZone,
+  formZoneFromLoads,
   formatForm,
   FORM_ZONE_COLORS,
   formZoneTextColor,
@@ -88,11 +88,11 @@ const ReadinessRow = React.memo(function ReadinessRow({
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
   const { ctl, atl } = loads;
   const form = formFromLoads(ctl, atl);
-  const formZone = getFormZone(ctl - atl, ctl, asPercent);
+  const formZone = formZoneFromLoads(ctl, atl, asPercent);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : 'transparent';
   const formTextColor = formZone ? formZoneTextColor(formZone, isDark) : undefined;
   const formLabel = formZone ? formZoneLabel(formZone) : '';
-  const formValue = formatForm(form, ctl, asPercent);
+  const formValue = formatForm(form, Math.round(ctl), asPercent);
 
   return (
     <View style={styles.readinessRow}>

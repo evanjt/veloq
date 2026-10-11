@@ -184,6 +184,7 @@ pub(crate) mod laps {
                         sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.avg_power,
                         sa.coverage, sa.excluded";
         let excluded = rows.clause();
+        let activity_sport = crate::persistence::records::activity_sport_sql();
         match sport_type_filter {
             Some(sport) => read(
                 &format!(
@@ -191,7 +192,7 @@ pub(crate) mod laps {
                      FROM section_activities sa
                      JOIN activities a ON a.id = sa.activity_id
                      LEFT JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                     WHERE sa.section_id = ? AND COALESCE(am.sport_type, a.sport_type) = ? {excluded}
+                     WHERE sa.section_id = ? AND {activity_sport} = ? {excluded}
                      ORDER BY sa.activity_id, sa.start_index"
                 ),
                 &[&section_id, &sport],
@@ -223,16 +224,17 @@ pub(crate) mod laps {
     /// excluded is listed at none, so its laps can still be found and
     /// restored under its own chip.
     pub(crate) fn sports(conn: &Connection, section_id: &str) -> Vec<(String, u32)> {
-        let Ok(mut stmt) = conn.prepare(
-            "SELECT COALESCE(am.sport_type, a.sport_type),
+        let sport = crate::persistence::records::activity_sport_sql();
+        let Ok(mut stmt) = conn.prepare(&format!(
+            "SELECT {sport},
                     COUNT(DISTINCT CASE WHEN sa.excluded = 0 THEN sa.activity_id END) AS outings
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
              LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.section_id = ?
              GROUP BY 1
-             ORDER BY outings DESC, 1 ASC",
-        ) else {
+             ORDER BY outings DESC, 1 ASC"
+        )) else {
             return Vec::new();
         };
         stmt.query_map(params![section_id], |row| {

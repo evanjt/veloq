@@ -315,3 +315,178 @@ fn a_reference_edit_while_a_bounds_edit_runs_is_refused() {
     let info = sections.get_reference_info(id.clone()).expect("reference");
     assert_eq!(info.activity_id, "a0");
 }
+
+fn section_exists(section_id: &str) -> bool {
+    with_reader(|conn| {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sections WHERE id = ?)",
+            [section_id],
+            |row| row.get::<_, bool>(0),
+        )
+        .expect("query")
+    })
+    .expect("reader")
+}
+
+fn revert(section_id: &str, version: f64) -> FfiSectionBoundsEdit {
+    FfiSectionBoundsEdit::Revert {
+        section_id: section_id.into(),
+        version,
+    }
+}
+
+/// Scenario: the athlete trims a section, then puts its first stored version
+/// back through the one async edit.
+///
+/// Expected behaviour: the stored line is the chosen version's, and the
+/// section is pinned to that version.
+#[test]
+fn a_revert_runs_as_a_section_edit_and_pins_the_version() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    let sections = SectionManager::new();
+    let id = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("custom section");
+    let drawn = stored_polyline(&id);
+    crate::runtime::block_on(sections.run_section_bounds_edit(trim(&id, 1, 5))).expect("trim");
+    assert_ne!(stored_polyline(&id), drawn);
+
+    let versions = sections
+        .get_geometry_versions(id.clone())
+        .expect("versions");
+    assert!(versions.len() >= 2, "a trim stores a second version");
+    let first = versions
+        .iter()
+        .map(|v| v.version)
+        .fold(f64::INFINITY, f64::min);
+
+    let departed = crate::runtime::block_on(sections.run_section_bounds_edit(revert(&id, first)))
+        .expect("revert");
+    assert!(departed.is_empty(), "a0 still runs the drawn line");
+    assert_eq!(stored_polyline(&id), drawn);
+    assert_eq!(
+        sections.get_pinned_version(id.clone()).expect("pinned"),
+        Some(first)
+    );
+}
+
+/// Scenario: the athlete asks for a version the section never stored.
+///
+/// Expected behaviour: the edit resolves as an error, the line is unchanged,
+/// and the slot is free for the next edit.
+#[test]
+fn a_revert_to_a_missing_version_is_refused_and_frees_the_slot() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    let sections = SectionManager::new();
+    let id = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("custom section");
+    let before = stored_polyline(&id);
+
+    let refused = crate::runtime::block_on(sections.run_section_bounds_edit(revert(&id, 999.0)));
+    assert!(refused.is_err(), "no version 999 was stored");
+    assert_eq!(stored_polyline(&id), before);
+    assert_eq!(
+        sections.get_pinned_version(id.clone()).expect("pinned"),
+        None
+    );
+
+    crate::runtime::block_on(sections.run_section_bounds_edit(trim(&id, 0, 5)))
+        .expect("the slot is free after a refusal");
+}
+
+/// Scenario: the athlete merges one section into another through the async
+/// merge.
+///
+/// Expected behaviour: the secondary is gone, the primary is kept, and the
+/// outcome names the primary.
+#[test]
+fn a_merge_runs_off_the_thread_and_names_the_kept_section() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    let sections = SectionManager::new();
+    let primary = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("primary");
+    let secondary = sections
+        .create("Ride".into(), None, "a0".into(), 1, 6)
+        .expect("secondary");
+
+    let outcome =
+        crate::runtime::block_on(sections.run_section_merge(primary.clone(), secondary.clone()))
+            .expect("merge");
+    assert_eq!(outcome.section_id, primary);
+    assert!(outcome.departed.is_empty(), "a0 runs the kept line");
+    assert!(section_exists(&primary));
+    assert!(!section_exists(&secondary), "the secondary is deleted");
+
+    let refused = crate::runtime::block_on(sections.run_section_merge(primary.clone(), primary));
+    assert!(refused.is_err(), "a section does not merge with itself");
+    crate::runtime::block_on(sections.run_section_bounds_edit(trim(&outcome.section_id, 0, 5)))
+        .expect("the slot is free after a refused merge");
+}
+
+/// Scenario: a revert or a merge is issued while a bounds edit is waiting on
+/// the engine.
+///
+/// Expected behaviour: both are refused as busy without waiting, the
+/// secondary survives, and the running edit still completes.
+#[test]
+fn a_revert_or_merge_while_a_bounds_edit_runs_is_refused() {
+    let _guard = serial_global_state();
+    let _tmp = seeded_global_engine();
+    let sections = SectionManager::new();
+    let id = sections
+        .create("Ride".into(), None, "a0".into(), 0, 7)
+        .expect("custom section");
+    let other = sections
+        .create("Ride".into(), None, "a0".into(), 1, 6)
+        .expect("other section");
+
+    let first = crate::persistence::with_persistent_engine(|_held| {
+        let first_id = id.clone();
+        let first = std::thread::spawn(move || {
+            crate::runtime::block_on(
+                SectionManager::new().run_section_bounds_edit(trim(&first_id, 0, 5)),
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !SECTION_EDIT_IN_FLIGHT.load(Ordering::SeqCst) {
+            assert!(
+                Instant::now() < deadline,
+                "the first edit never took the slot"
+            );
+            std::thread::yield_now();
+        }
+
+        let reverted = crate::runtime::block_on(sections.run_section_bounds_edit(revert(&id, 1.0)));
+        assert!(
+            matches!(reverted, Err(VeloqError::Busy { .. })),
+            "a revert must be refused, got {reverted:?}"
+        );
+        let merged =
+            crate::runtime::block_on(sections.run_section_merge(id.clone(), other.clone()));
+        assert!(
+            matches!(merged, Err(VeloqError::Busy { .. })),
+            "a merge must be refused, got {merged:?}"
+        );
+        first
+    })
+    .expect("engine");
+
+    first
+        .join()
+        .expect("first edit thread")
+        .expect("first edit");
+    assert!(section_exists(&other), "a refused merge deletes nothing");
+    assert_eq!(
+        sections.get_pinned_version(id.clone()).expect("pinned"),
+        None
+    );
+    assert_eq!(
+        latitudes(&stored_polyline(&id)),
+        track_latitudes("a0")[0..=5]
+    );
+}

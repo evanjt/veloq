@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, StyleSheet, Switch, Alert, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, Row } from '@/shared/ui';
+import { Button, Card, ListSectionHeader, Row } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { SyncState, SyncStep } from 'veloqrs';
@@ -547,9 +547,7 @@ export function BackupSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('backup.sectionBackup').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('backup.sectionBackup')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row>
           <MaterialCommunityIcons name="cloud-sync-outline" size={22} color={iconColor} />
@@ -633,23 +631,23 @@ export function BackupSection() {
         </Row>
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('backup.sectionRestore').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('backup.sectionRestore')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row
           testID="backup-list-button"
           onPress={handleListBackups}
           accessibilityLabel={t('backup.restoreFromDestination')}
           disabled={loadingBackups || anyBusy}
+          accessory={
+            <InfoButton
+              testID="backup-info-restore"
+              title={t('backup.sectionRestore')}
+              message={info(t('backup.restoreInfo'), t('backup.manualRestorePath'))}
+            />
+          }
         >
           <MaterialCommunityIcons name="cloud-download-outline" size={22} color={iconColor} />
           <Text style={labelStyle}>{t('backup.restoreFromDestination')}</Text>
-          <InfoButton
-            testID="backup-info-restore"
-            title={t('backup.sectionRestore')}
-            message={info(t('backup.restoreInfo'), t('backup.manualRestorePath'))}
-          />
         </Row>
         {backendBackups?.every((group) => group.entries.length === 0) && (
           <Row>
@@ -796,9 +794,7 @@ export function BackupSection() {
         )}
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('backup.sectionDestinations').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row testID="backup-carrier-device">
           <MaterialCommunityIcons name="cellphone" size={22} color={iconColor} />
@@ -945,25 +941,25 @@ export function BackupSection() {
         </View>
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('backup.sectionExport').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('backup.sectionExport')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row
           testID="backup-export-button"
           onPress={exportRecordBackup}
           accessibilityLabel={dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           disabled={dbExporting}
+          accessory={
+            <InfoButton
+              testID="backup-info-export"
+              title={t('backup.exportBackup')}
+              message={t('backup.notEncryptedWarning')}
+            />
+          }
         >
           <MaterialCommunityIcons name="database-export-outline" size={22} color={iconColor} />
           <Text style={labelStyle}>
             {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
-          <InfoButton
-            testID="backup-info-export"
-            title={t('backup.exportBackup')}
-            message={t('backup.notEncryptedWarning')}
-          />
         </Row>
         {exportStillRunning && (
           <Row>

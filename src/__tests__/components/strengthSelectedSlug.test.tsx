@@ -34,7 +34,7 @@ const pair = (selectedSlug: string | null) => (
   <BodyPairWithLoupe
     data={DATA as never}
     gender="male"
-    scale={0.8}
+    maxScale={0.8}
     colors={['#111111']}
     selectedSlug={selectedSlug}
   />

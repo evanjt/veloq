@@ -14,6 +14,7 @@
 import { consoleBridgeScript, mapLibreHead, terrainVisibilityScript } from './shared';
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
 import { regionalSatelliteSourceIds } from '@/features/maps/components/mapStyles';
+import { snapshotRenderScript } from './terrainSnapshotScripts';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -220,6 +221,8 @@ ${terrainVisibilityScript()}
     };
 
 ${heartbeatScript()}
+
+${snapshotRenderScript()}
   </script>
 </body>
 </html>`;

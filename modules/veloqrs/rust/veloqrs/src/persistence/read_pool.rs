@@ -105,6 +105,19 @@ pub(crate) fn release_idle() {
     lock(&READ_POOL.idle).clear();
 }
 
+/// Drop every idle connection, move the generation and keep the binding.
+///
+/// A parked reader holds the file open and keeps its view of pages a wipe has
+/// just freed, so the wipe lets them go before it rebuilds the file. A reader
+/// mid-read finishes on its own connection, which the moved generation keeps
+/// from coming back to the pool.
+pub(crate) fn release_for_wipe() {
+    let mut idle = lock(&READ_POOL.idle);
+    READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
+    idle.clear();
+    super::settings_conn::forget();
+}
+
 /// The database the pool is bound to and the binding's generation, which
 /// moves on every bind and close. `None` while no engine is installed.
 pub(crate) fn binding() -> Option<(u64, String)> {
@@ -163,7 +176,7 @@ fn give_back(conn: Connection, generation: u64) {
 /// the engine opened it before this pool was bound, so a read-only open finds
 /// the shared-memory index rather than having to create one it has no
 /// permission to.
-fn open_reader(path: &str) -> rusqlite::Result<Connection> {
+pub(crate) fn open_reader(path: &str) -> rusqlite::Result<Connection> {
     let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY

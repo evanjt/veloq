@@ -27,6 +27,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
 }));
 
 const headerProps = {

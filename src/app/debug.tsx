@@ -806,12 +806,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: typography.bodyCompact.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textSecondary,
   },
   statValue: {
     fontSize: typography.bodyCompact.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
     fontWeight: '500',
   },
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderText: {
     fontSize: typography.label.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
@@ -847,7 +847,7 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     fontSize: typography.caption.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
   },
   methodCol: {
     flex: 1,
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
   },
   taskRunDetail: {
     fontSize: typography.label.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
   },
   actionButton: {
     marginTop: spacing.sm,

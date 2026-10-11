@@ -16,6 +16,7 @@ use rusqlite::Connection;
 
 use super::{
     begin_write, entered_background, is_suspended, prepare_for_suspension, resume_after_suspension,
+    write_or_defer,
 };
 use crate::objects::error::{VeloqError, with_engine};
 use crate::persistence::sections::conditioning::detection_suspended;
@@ -363,4 +364,71 @@ fn a_write_on_a_worker_connection_is_gated_like_the_engine_lock() {
         stored_setting(&path, "worker_conn").as_deref(),
         Some("landed")
     );
+}
+
+/// A write that answers whether it landed, counting its tries and sending
+/// each answer, so a test sees both how often it ran and whether it landed.
+fn counted_write(
+    lands: impl Fn() -> bool + Send + 'static,
+) -> (
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    mpsc::Receiver<bool>,
+    impl FnMut() -> bool + Send + 'static,
+) {
+    let tries = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (tx, rx) = mpsc::channel();
+    let counted = tries.clone();
+    let write = move || {
+        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let landed = lands();
+        let _ = tx.send(landed);
+        landed
+    };
+    (tries, rx, write)
+}
+
+#[test]
+fn a_write_a_suspension_refuses_lands_at_the_resume() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("suspension-deferred.db");
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+
+    let (tries, landed, write) = counted_write(|| with_persistent_engine(|_| ()).is_some());
+    write_or_defer(write);
+    assert_eq!(landed.recv_timeout(CEILING), Ok(false));
+    assert!(
+        landed.recv_timeout(Duration::from_millis(300)).is_err(),
+        "a refused write is kept, not retried while the engine is suspended"
+    );
+
+    resume_after_suspension();
+    assert_eq!(
+        landed.recv_timeout(CEILING),
+        Ok(true),
+        "the resume runs the kept write"
+    );
+    assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
+}
+
+#[test]
+fn a_write_refused_for_another_reason_is_dropped() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("suspension-dropped.db");
+
+    let (tries, landed, write) = counted_write(|| false);
+    write_or_defer(write);
+    assert_eq!(landed.recv_timeout(CEILING), Ok(false));
+    assert_eq!(
+        tries.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "a write no suspension refused is not asked again"
+    );
+
+    // A later suspension and resume does not bring it back.
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+    resume_after_suspension();
+    assert!(landed.recv_timeout(Duration::from_millis(300)).is_err());
+    assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
 }

@@ -96,6 +96,19 @@ pub(crate) fn decode_point_density(
     Ok(None)
 }
 
+/// The stamp a section row's `created_at` or `updated_at` takes for `at`:
+/// RFC 3339 in UTC with all nine digits of the fraction. Cut at its trailing
+/// zeros, a stamp is three or six bytes short one time in a thousand, which
+/// also sorts it out of place against its neighbours as text.
+pub(crate) fn stamp(at: chrono::DateTime<Utc>) -> String {
+    at.to_rfc3339_opts(chrono::SecondsFormat::Nanos, false)
+}
+
+/// [`stamp`] for the present moment.
+pub(crate) fn stamp_now() -> String {
+    stamp(Utc::now())
+}
+
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
 
@@ -2196,7 +2209,7 @@ impl PersistentEngine {
                 .created_at
                 .clone()
                 .or_else(|| existing_created.get(&section.id).cloned())
-                .unwrap_or_else(|| Utc::now().to_rfc3339());
+                .unwrap_or_else(stamp_now);
 
             // A section with no name stays unnamed: the insert trigger gives it
             // a number when it is new, and it keeps the one it held otherwise.
@@ -2463,6 +2476,28 @@ impl PersistentEngine {
 
 #[cfg(test)]
 mod tests {
+    /// A section's stamp is one width whatever the instant: the fraction is
+    /// never cut at its trailing zeros, so a read carrying it lowers the same
+    /// bytes from one run to the next.
+    #[test]
+    fn a_stamp_is_one_width_whatever_the_instant() {
+        use chrono::TimeZone;
+        let second = chrono::Utc.with_ymd_and_hms(2025, 9, 4, 6, 30, 0).unwrap();
+        let instants = [0, 123_000, 120_000_000, 123_456_789, 999_999_999]
+            .map(|nanos| second + chrono::Duration::nanoseconds(nanos));
+        let stamps = instants.map(super::stamp);
+        for (stamp, at) in stamps.iter().zip(instants) {
+            assert_eq!(
+                stamp.len(),
+                stamps[0].len(),
+                "{stamp} against {}",
+                stamps[0]
+            );
+            assert_eq!(chrono::DateTime::parse_from_rfc3339(stamp).unwrap(), at);
+        }
+        assert!(stamps.windows(2).all(|w| w[0] < w[1]), "{stamps:?}");
+    }
+
     /// A line running north from a fixed origin, one point every `spacing_m`
     /// metres, shifted `east_m` metres east and starting `start_index` points
     /// along it.
@@ -2849,7 +2884,8 @@ pub(crate) mod pooled {
         sport_type: Option<&str>,
         min_visits: Option<u32>,
     ) -> Vec<(Section, Vec<SectionPortion>)> {
-        let Ok(mut stmt) = conn.prepare(
+        let sport = crate::persistence::records::activity_sport_sql();
+        let Ok(mut stmt) = conn.prepare(&format!(
             "SELECT s.id FROM sections s
              WHERE s.section_type IN ('auto', 'custom')
                AND s.disabled = 0 AND s.superseded_by IS NULL
@@ -2858,7 +2894,7 @@ pub(crate) mod pooled {
                     JOIN activities a ON a.id = sa.activity_id
                     LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                     WHERE sa.section_id = s.id AND sa.excluded = 0
-                      AND COALESCE(am.sport_type, a.sport_type) = ?1
+                      AND {sport} = ?1
                ))
                AND (?2 = 0 OR EXISTS (SELECT 1 FROM section_pins p WHERE p.section_id = s.id)
                     OR (SELECT COUNT(DISTINCT sa.activity_id)
@@ -2866,9 +2902,9 @@ pub(crate) mod pooled {
                         JOIN activities a ON a.id = sa.activity_id
                         LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
                         WHERE sa.section_id = s.id AND sa.excluded = 0
-                          AND (?1 IS NULL OR COALESCE(am.sport_type, a.sport_type) = ?1)) >= ?2)
-             ORDER BY s.id",
-        ) else {
+                          AND (?1 IS NULL OR {sport} = ?1)) >= ?2)
+             ORDER BY s.id"
+        )) else {
             return Vec::new();
         };
         let ids: Vec<String> = stmt

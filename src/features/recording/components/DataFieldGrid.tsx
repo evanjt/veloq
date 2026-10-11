@@ -4,6 +4,7 @@ import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -58,6 +59,12 @@ interface DataFieldGridProps {
   onEmptySensorTap?: ((kind: SensorKind) => void) | undefined;
   style?: ViewStyle;
 }
+
+/**
+ * A live value never ellipsises: it shrinks to fit its cell, down to this
+ * fraction of its size, so the reading stays whole.
+ */
+const VALUE_MIN_FONT_SCALE = 0.5;
 
 const SENSOR_FIELD_KIND: Partial<Record<DataFieldType, SensorKind>> = {
   heartrate: 'heartRate',
@@ -153,6 +160,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
   onEmptySensorTap,
 }: DataFieldTileProps) {
   const handleLongPress = React.useCallback(() => {
+    haptics.light();
     onLongPressField?.(index, field);
   }, [onLongPressField, index, field]);
   const handleEmptyTap = React.useCallback(() => {
@@ -184,16 +192,29 @@ const DataFieldTile = React.memo(function DataFieldTile({
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
         style={[styles.value, { color: zoned ? hrZoneTextColor(zone, isDark) : textColor }]}
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={VALUE_MIN_FONT_SCALE}
       >
         {value}
       </Text>
-      <Text
-        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.label, { color: mutedColor }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      <View style={styles.labelRow}>
+        <Text
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+          style={[styles.label, { color: mutedColor }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        {zoned ? (
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.label, styles.zone, { color: hrZoneTextColor(zone, isDark) }]}
+            numberOfLines={1}
+          >
+            {`Z${zone}`}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   );
 });
@@ -230,11 +251,7 @@ function DataFieldGridInner({
             field={field}
             index={index}
             value={formatFieldValue(field, metrics, isMetric, activityType)}
-            label={
-              zone != null
-                ? `${t(`recording.fields.${field}`)} · Z${zone}`
-                : t(`recording.fields.${field}`)
-            }
+            label={t(`recording.fields.${field}`)}
             zone={zone}
             zoneColor={zone != null ? hrZone?.color : undefined}
             emptyKind={emptyKind}
@@ -270,9 +287,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    maxWidth: '100%',
+    marginTop: spacing.xxs,
+  },
   label: {
+    flexShrink: 1,
     fontSize: typography.caption.fontSize,
     fontWeight: '400',
-    marginTop: spacing.xxs,
+  },
+  zone: {
+    flexShrink: 0,
+    fontWeight: '700',
+    marginLeft: spacing.xs,
   },
 });

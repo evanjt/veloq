@@ -101,7 +101,8 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
         backgroundColor: 'transparent',
         borderColor: 'transparent',
         borderWidth: 0,
-        color: palette.primary,
+        // A label with no ground of its own is text on the page, so it takes the accent's text role.
+        color: palette.linkTeal,
       };
     case 'destructive':
       return {
@@ -176,8 +177,11 @@ export function Button({
           {icon}
           <Text
             testID={labelTestID ?? (testID && `${testID}-label`)}
-            numberOfLines={1}
-            style={[size === 'sm' ? styles.labelSm : styles.labelMd, { color: skin.color }]}
+            style={[
+              size === 'sm' ? styles.labelSm : styles.labelMd,
+              styles.label,
+              { color: skin.color },
+            ]}
           >
             {label}
           </Text>
@@ -353,6 +357,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  // A label wraps and the button grows at large text sizes rather than cutting
+  // its words; shrinking inside the row is what lets it wrap beside an icon.
+  label: {
+    flexShrink: 1,
+    textAlign: 'center',
   },
   labelSm: typography.bodySmall,
   labelMd: typography.bodyBold,

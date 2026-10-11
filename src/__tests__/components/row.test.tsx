@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 
+import { IconButton } from '@/shared/ui';
 import { Row } from '@/shared/ui/Row';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
 import { layout } from '@/theme';
@@ -24,6 +25,34 @@ describe('Row', () => {
       minHeight: layout.minTapTarget,
     });
     expect(getByTestId('row-chevron')).toBeTruthy();
+    fireEvent.press(row);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a trailing accessory a separate control beside a pressable row', () => {
+    const onPress = jest.fn();
+    const onAccessory = jest.fn();
+    const { getByRole } = render(
+      <Row
+        onPress={onPress}
+        accessibilityLabel="Open details"
+        accessory={
+          <IconButton accessibilityLabel="About details" onPress={onAccessory}>
+            <Text>i</Text>
+          </IconButton>
+        }
+      >
+        <Text>Details</Text>
+      </Row>
+    );
+
+    const row = getByRole('button', { name: 'Open details' });
+    const accessory = getByRole('button', { name: 'About details' });
+    expect(within(row).queryByRole('button', { name: 'About details' })).toBeNull();
+
+    fireEvent.press(accessory);
+    expect(onAccessory).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
     fireEvent.press(row);
     expect(onPress).toHaveBeenCalledTimes(1);
   });

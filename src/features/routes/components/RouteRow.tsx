@@ -15,7 +15,6 @@ import { Card } from '@/shared/ui/Card';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { formatDistance } from '@/shared/format/format';
-import { useRepresentativeRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
@@ -46,13 +45,10 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
 
-  // Use pre-loaded representative points if available, otherwise lazy-load.
-  const preloadedRepresentative =
-    isRouteGroup(route) && route.representativePoints?.length ? route.representativePoints : null;
-  const { points: lazyRepresentativePoints } = useRepresentativeRoute(
-    isRouteGroup(route) && !preloadedRepresentative ? route.id : null
-  );
-  const representativePoints = preloadedRepresentative ?? lazyRepresentativePoints;
+  // The routes screen read carries the row's line, already strided to the
+  // thumbnail, falling back to the representative's stored track when it has
+  // no signature. An empty line means the engine has none to draw.
+  const representativePoints = isRouteGroup(route) ? route.representativePoints : null;
 
   // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
   // This ensures reactivity when names change via the hook chain

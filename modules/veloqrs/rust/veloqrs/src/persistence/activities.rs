@@ -395,9 +395,10 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
                 reason
             );
         }
-        // Nothing draws a tile on demand, so what this deleted is a hole until
-        // a pass redraws it. A pass already running refuses this one and runs
-        // again when it ends, because the mark above moved under it.
+        // Only a deep tile is drawn when the map asks for it, so what this
+        // deleted below that is a hole until a pass redraws it. A pass already
+        // running refuses this one and runs again when it ends, because the
+        // mark above moved under it.
         crate::persistence::tiles::request_tile_pass(&tiles_path, install);
     });
 }
@@ -1439,23 +1440,6 @@ static CENSUS_ROW_OWED: LazyLock<String> = LazyLock::new(|| {
     )
 });
 
-/// A value no other census run shares, stamped on every row one run writes so
-/// the rows it did not write can be deleted afterwards.
-///
-/// `census_at` defaults to `datetime('now')`, which has one-second resolution,
-/// and two pulls inside one second would then be indistinguishable: the second
-/// would delete nothing, or the first's leftovers would survive. The counter
-/// rides on the wall clock so the column still reads as a time.
-fn census_run_stamp() -> String {
-    static RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    format!("{now}.{run}")
-}
-
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -1517,7 +1501,8 @@ impl PersistentEngine {
             }
         }
 
-        self.spatial_index = RTree::bulk_load(entries);
+        drop(stmt);
+        self.set_spatial_index(RTree::bulk_load(entries));
         Ok(())
     }
 
@@ -2043,7 +2028,7 @@ impl PersistentEngine {
             > 0;
         delete_activity_keyed_rows(&self.db, id, KeepAthleteRows::No)?;
         // Every activity after this one was measured against its ground.
-        super::new_ground::invalidate(&self.db)?;
+        super::new_ground::invalidate(&self.db, &mut self.new_ground)?;
         if let Some(date) = metric_date {
             super::schema::recompute_heatmap_day(&self.db, date)?;
         }
@@ -2197,6 +2182,7 @@ impl PersistentEngine {
             super::settings_keys::GEOCODING_ENABLED_AT,
             crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
             crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
+            crate::objects::sync::WELLNESS_ANSWERED_KEY,
         ];
         let mut stmt = tx.prepare("DELETE FROM settings WHERE key = ?")?;
         for key in library_keys {
@@ -2223,7 +2209,7 @@ impl PersistentEngine {
 
         self.activity_metadata.clear();
         self.activity_metrics.clear();
-        self.spatial_index = RTree::new();
+        self.set_spatial_index(RTree::new());
         self.signature_cache.clear();
         self.groups.clear();
         self.sections.clear();
@@ -2251,6 +2237,29 @@ impl PersistentEngine {
         // in `clear_all_background` once this lock is released.
         self.mark_heatmap_dirty();
 
+        Ok(())
+    }
+
+    /// Rebuild the file without its free pages and reset the log.
+    ///
+    /// A DELETE moves a page to the freelist with its bytes intact, so after
+    /// `clear` the previous athlete's library is still in the file for anyone
+    /// with a copy of it. VACUUM writes the rebuilt database through the log,
+    /// and the log keeps the frames holding the old pages until a checkpoint
+    /// resets it, so the truncating checkpoint comes after the VACUUM, never
+    /// before. Neither can run inside a transaction, and the checkpoint waits
+    /// out a reader through the busy timeout and reports it rather than
+    /// failing.
+    pub fn scrub_freed_pages(&self) -> SqlResult<()> {
+        self.db.execute_batch("VACUUM")?;
+        let busy: i64 = self
+            .db
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))?;
+        if busy != 0 {
+            log::warn!(
+                "veloqrs: [Engine] a reader held the log through the wipe's checkpoint; the next checkpoint resets it"
+            );
+        }
         Ok(())
     }
 
@@ -2307,7 +2316,7 @@ impl PersistentEngine {
         for id in &removed_ids {
             delete_activity_keyed_rows(&tx, id, KeepAthleteRows::Yes)?;
         }
-        super::new_ground::invalidate(&tx)?;
+        super::new_ground::invalidate(&tx, &mut self.new_ground)?;
         super::schema::recompute_all_heatmap(&tx)?;
         let activities_kept: u32 =
             tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
@@ -2867,7 +2876,14 @@ impl PersistentEngine {
                 bounds: m.bounds,
             })
             .collect();
-        self.spatial_index = RTree::bulk_load(entries);
+        self.set_spatial_index(RTree::bulk_load(entries));
+    }
+
+    /// Replace the index of every activity's bounds. The one write to it, so
+    /// the heatmap's lock-free copy moves with every change to the catalogue.
+    pub(super) fn set_spatial_index(&mut self, index: RTree<ActivityBoundsEntry>) {
+        self.spatial_index = Arc::new(index);
+        self.publish_heatmap_source();
     }
 
     // ========================================================================
@@ -2904,10 +2920,13 @@ impl PersistentEngine {
     /// downloaded. An id that leaves the account and returns is a new download
     /// either way, because its row went with the id.
     ///
-    /// Written as an upsert of the upstream fields against a per-run stamp,
-    /// then a delete of whatever this run did not stamp. `census_at`'s default
-    /// has one-second resolution, so the stamp is the run's own value rather
-    /// than a clock two pulls could share. Returns the transaction's result.
+    /// Written as an upsert that touches a row only when an upstream field
+    /// moved, then a delete of the athlete's rows whose ids the pull did not
+    /// carry. The pull is the whole history on every sync and nearly all of it
+    /// is unchanged, so rewriting every row to move a stamp cost one write per
+    /// activity under the write lock for nothing. `census_at` moves only with
+    /// the row, so it reads as when upstream last changed it here. Returns the
+    /// transaction's result.
     pub fn record_activity_census(
         &mut self,
         athlete_id: &str,
@@ -2916,22 +2935,28 @@ impl PersistentEngine {
         if athlete_id.is_empty() || entries.is_empty() {
             return Ok(());
         }
+        let ids = serde_json::to_string(&entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>())
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         let tx = self.db.transaction()?;
-        let stamp = census_run_stamp();
         let written = (|| -> SqlResult<()> {
             {
                 let mut stmt = tx.prepare(
                     "INSERT INTO activity_census
                          (athlete_id, intervals_id, start_date_local, created, icu_sync_date,
-                          has_latlng, has_series, census_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                          has_latlng, has_series)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                      ON CONFLICT(athlete_id, intervals_id) DO UPDATE SET
                          start_date_local = excluded.start_date_local,
                          created = excluded.created,
                          icu_sync_date = excluded.icu_sync_date,
                          has_latlng = excluded.has_latlng,
                          has_series = excluded.has_series,
-                         census_at = excluded.census_at",
+                         census_at = datetime('now')
+                     WHERE activity_census.start_date_local IS NOT excluded.start_date_local
+                        OR activity_census.created IS NOT excluded.created
+                        OR activity_census.icu_sync_date IS NOT excluded.icu_sync_date
+                        OR activity_census.has_latlng IS NOT excluded.has_latlng
+                        OR activity_census.has_series IS NOT excluded.has_series",
                 )?;
                 for entry in entries {
                     stmt.execute(params![
@@ -2942,13 +2967,14 @@ impl PersistentEngine {
                         entry.icu_sync_date,
                         entry.has_latlng,
                         entry.has_series,
-                        stamp
                     ])?;
                 }
             }
             tx.execute(
-                "DELETE FROM activity_census WHERE athlete_id = ?1 AND census_at IS NOT ?2",
-                params![athlete_id, stamp],
+                "DELETE FROM activity_census
+                 WHERE athlete_id = ?1
+                   AND intervals_id NOT IN (SELECT value FROM json_each(?2))",
+                params![athlete_id, ids],
             )?;
             Ok(())
         })();
@@ -5139,6 +5165,81 @@ mod tests {
             );
             std::thread::sleep(std::time::Duration::from_millis(20));
         }
+    }
+
+    /// A library whose ids and interval bodies carry `marker`, large enough to
+    /// spread over many pages of the file.
+    fn seed_marked_library(marker: &str) {
+        crate::persistence::with_persistent_engine(|e| {
+            for i in 0..50 {
+                let id = format!("{marker}-{i}");
+                e.add_activity(id.clone(), ride_points(), "Ride".into())
+                    .expect("activity stored");
+                let body = format!("{{\"note\":\"{}\"}}", marker.repeat(200));
+                e.set_interval_body(&id, &body)
+                    .expect("interval body stored");
+            }
+        })
+        .expect("engine");
+    }
+
+    fn file_holds(path: &std::path::Path, marker: &str) -> bool {
+        let bytes = std::fs::read(path).unwrap_or_default();
+        bytes
+            .windows(marker.len())
+            .any(|window| window == marker.as_bytes())
+    }
+
+    /// Scenario: athlete A signs out on a shared device. The wipe deletes
+    /// every row, but a DELETE only moves the pages to the freelist, and the
+    /// pages, plus the log frames that wrote them, still hold A's interval
+    /// bodies and activity ids, readable from a backup copy of the file.
+    ///
+    /// Expected behaviour: after the wipe neither the database nor its log
+    /// holds a byte of A's library, the file keeps no free pages, and the log
+    /// is empty or gone. An idle pooled reader is parked at the time, which is
+    /// the state the app is in whenever a screen has read.
+    #[test]
+    fn a_wipe_leaves_no_byte_of_the_previous_library_in_the_file() {
+        let _guard = crate::test_globals::serial_global_state();
+        let tmp = crate::test_globals::init_global_engine("wipe-bytes.db");
+        let db = tmp.path().join("wipe-bytes.db");
+        let wal = tmp.path().join("wipe-bytes.db-wal");
+        let marker = "QUOKKA-LEDGER-7731";
+        seed_marked_library(marker);
+        assert!(
+            crate::persistence::read_pool::with_read_conn(|_| ()).is_some(),
+            "a pooled reader is parked"
+        );
+        assert!(
+            file_holds(&db, marker) || file_holds(&wal, marker),
+            "the seed never reached the file, so the check proves nothing"
+        );
+
+        crate::persistence::clear_all_background(None)
+            .wait()
+            .expect("the wipe");
+
+        let (free, mode): (i64, String) =
+            crate::persistence::with_persistent_engine(|e| -> SqlResult<_> {
+                let free: i64 =
+                    e.db.query_row("PRAGMA freelist_count", [], |row| row.get(0))?;
+                let mode: String =
+                    e.db.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
+                Ok((free, mode))
+            })
+            .expect("engine")
+            .expect("pragmas");
+        let wal_len = std::fs::metadata(&wal).map(|m| m.len()).unwrap_or(0);
+        let db_held = file_holds(&db, marker);
+        let wal_held = file_holds(&wal, marker);
+        crate::persistence::clear_persistent_engine();
+
+        assert!(!db_held, "the database file still holds A's library");
+        assert!(!wal_held, "the log still holds A's library");
+        assert_eq!(free, 0, "the wipe left free pages in the file");
+        assert_eq!(wal_len, 0, "the log was not reset after the wipe");
+        assert_eq!(mode, "wal", "the rebuilt file left WAL mode");
     }
 
     /// Scenario: athlete A rode in Lausanne with the heatmap on. B signs in on

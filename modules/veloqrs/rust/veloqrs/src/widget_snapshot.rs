@@ -346,8 +346,10 @@ pub struct Latest {
     /// over none of the words.
     pub headline: Option<Headline>,
     /// "Load 62", absent when no load was recorded.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub load_text: Option<String>,
     /// "Section PRs 3", absent when it holds none.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub section_prs_text: Option<String>,
 }
 

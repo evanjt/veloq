@@ -6,6 +6,7 @@
   <color name="widget_text_primary">#18181B</color>
   <color name="widget_text_secondary">#52525B</color>
   <color name="widget_primary">#0D9488</color>
+  <color name="widget_text_on_primary">#18181B</color>
   <color name="widget_gold">#D4AF37</color>
   <color name="widget_blue">#3A7AB8</color>
   <color name="widget_fatigue">#A855F7</color>
@@ -40,8 +41,9 @@
   <color name="widget_strength_ramp_3">#5EEAD4</color>
   <color name="widget_strength_ramp_4">#2DD4BF</color>
   <color name="widget_strength_ramp_5">#0D9488</color>
-  <color name="widget_record_grad_start">#14B8A6</color>
-  <color name="widget_record_grad_end">#0D9488</color>
+  <color name="widget_record_grad_start">#C1121F</color>
+  <color name="widget_record_grad_end">#C1121F</color>
+  <color name="widget_record_accent">#C1121F</color>
   <color name="widget_record_foreground">#FFFFFF</color>
   <dimen name="widget_record_padding">4dp</dimen>
   <dimen name="widget_record_glyph">28dp</dimen>

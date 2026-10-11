@@ -50,6 +50,9 @@ pub enum FfiSectionBoundsEdit {
     /// Put back the line the section had before its reference was set, and
     /// hand the reference back to the detector.
     ResetReference { section_id: String },
+    /// Put a stored geometry version back as the line and pin the section
+    /// there. A retired section's version brings the section back.
+    Revert { section_id: String, version: f64 },
 }
 
 impl FfiSectionBoundsEdit {
@@ -76,6 +79,11 @@ impl FfiSectionBoundsEdit {
                 activity_id,
             } => engine.set_section_reference(section_id, activity_id),
             Self::ResetReference { section_id } => engine.reset_section_reference(section_id),
+            Self::Revert {
+                section_id,
+                version,
+            } => engine
+                .revert_section_to_version(section_id, crate::ffi_types::int_from_wire(*version)),
         }
     }
 }
@@ -89,21 +97,30 @@ static SECTION_EDIT_IN_FLIGHT: std::sync::atomic::AtomicBool =
 /// Run `edit` against the library open at `install`, holding `slot` until the
 /// edit ends. A library installed since, by a restore or a wipe, is not
 /// written, and the edit resolves as the closed engine's error.
-async fn bounds_edit_for(
-    install: u64,
-    edit: FfiSectionBoundsEdit,
-    slot: InFlight,
-) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
+async fn section_edit_for<T, F>(install: u64, slot: InFlight, edit: F) -> Result<T, VeloqError>
+where
+    T: Send + 'static,
+    F: FnOnce(&mut crate::persistence::PersistentEngine) -> Result<T, String> + Send + 'static,
+{
     crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
-        let done = edit
-            .apply(e)
-            .map(|departed| departed_rides(e, &departed))
-            .map_err(|msg| VeloqError::Database { msg });
+        let done = edit(e).map_err(|msg| VeloqError::Database { msg });
         drop(slot);
         done
     })
     .await
     .ok_or(VeloqError::NotInitialized)?
+}
+
+/// A bounds edit through `section_edit_for`, naming the rides it took out.
+async fn bounds_edit_for(
+    install: u64,
+    edit: FfiSectionBoundsEdit,
+    slot: InFlight,
+) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
+    section_edit_for(install, slot, move |e| {
+        edit.apply(e).map(|departed| departed_rides(e, &departed))
+    })
+    .await
 }
 
 #[derive(uniffi::Object)]
@@ -553,19 +570,6 @@ impl SectionManager {
         })
     }
 
-    fn revert_to_version(
-        &self,
-        section_id: String,
-        version: f64,
-    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
-        let version = crate::ffi_types::int_from_wire(version);
-        with_engine(|e| {
-            e.revert_section_to_version(&section_id, version)
-                .map(|departed| departed_rides(e, &departed))
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
-    }
-
     fn unpin(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.unpin_section_geometry(&section_id)
@@ -619,8 +623,9 @@ impl SectionManager {
         })?
     }
 
-    /// Trim, reset or expand a section's bounds, or set or reset its
-    /// reference, resolving with the rides the edit took out of it.
+    /// Trim, reset or expand a section's bounds, set or reset its reference,
+    /// or revert it to a stored version, resolving with the rides the edit
+    /// took out of it.
     ///
     /// `reset_bounds` alone is 128 to 246 ms on a handset, over the 100 ms a
     /// tap may block. The write lock is still taken for the edit's length, so
@@ -706,24 +711,28 @@ impl SectionManager {
 
     /// Merge two sections. Rebuilds the primary's traversals against its own line
     /// over the rides of both. A donor ride with no pass over that line leaves
-    /// the section and stays in the library. Deletes secondary. Returns the
-    /// primary section ID and the rides that left.
-    fn merge_sections(
+    /// the section and stays in the library. Deletes secondary. Resolves with
+    /// the primary section ID and the rides that left.
+    ///
+    /// It re-matches the rides of both sections, the work a bounds edit moves
+    /// off the calling thread, so it runs the same way and under the same
+    /// slot: one section edit at a time, a second refused until it ends.
+    pub async fn run_section_merge(
         &self,
         primary_id: String,
         secondary_id: String,
     ) -> Result<crate::FfiMergeOutcome, VeloqError> {
-        with_engine(|engine| {
+        let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
+        section_edit_for(crate::persistence::engine_install(), slot, move |engine| {
             let (section_id, departed) = engine
                 .merge_user_sections_reporting(&primary_id, &secondary_id)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
+                .map_err(|e| e.to_string())?;
             Ok(crate::FfiMergeOutcome {
                 section_id,
                 departed: departed_rides(engine, &departed),
             })
-        })?
+        })
+        .await
     }
 
     /// The donor rides a merge into `primary_id` would leave out of the section:

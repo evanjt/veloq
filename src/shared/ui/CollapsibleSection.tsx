@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,7 +10,8 @@ import Animated, {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { AnimatedPressable } from './AnimatedPressable';
+import * as haptics from './haptics';
+import { pressable, pressRipple } from './pressFeedback';
 
 interface CollapsibleSectionProps {
   /** Section title */
@@ -84,7 +85,10 @@ export function CollapsibleSection({
     transform: [{ rotate: `${interpolate(animation.value, [0, 1], [0, 180])}deg` }],
   }));
 
+  // An expand is a discrete toggle, so it ticks once on the press itself and
+  // never on touch-down, where a scroll may still take the touch.
   const handlePress = () => {
+    haptics.selection();
     onToggle(!expanded);
   };
 
@@ -97,15 +101,14 @@ export function CollapsibleSection({
 
   return (
     <View style={[styles.container, style]}>
-      <AnimatedPressable
+      <Pressable
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ expanded }}
         onPress={handlePress}
-        pressScale={0.99}
-        hapticType="light"
-        style={styles.header}
+        style={pressable(styles.header)}
+        android_ripple={pressRipple}
       >
         <View style={styles.headerLeft}>
           {icon && (
@@ -147,7 +150,7 @@ export function CollapsibleSection({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Animated.View>
-      </AnimatedPressable>
+      </Pressable>
 
       {showDivider && (
         <View

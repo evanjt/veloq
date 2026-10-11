@@ -14,6 +14,9 @@ import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 // Built from its code point so this file is not its own first offender.
 const EM_DASH = String.fromCharCode(0x2014);
+// A web page writes the same dash as a character reference, named or numeric.
+// Split at the ampersand for the same reason.
+const EM_DASH_REFERENCE = new RegExp('&' + '(?:mdash|#0*8212|#[xX]0*2014);', 'g');
 
 // Paths that may keep an em dash, each with the reason. Prefixes, not globs.
 const ALLOWED = [
@@ -65,7 +68,7 @@ for (const [file, bytes] of tracked) {
 
   const lines = bytes.toString('utf8').split('\n');
   lines.forEach((line, i) => {
-    const count = line.split(EM_DASH).length - 1;
+    const count = line.split(EM_DASH).length - 1 + (line.match(EM_DASH_REFERENCE) ?? []).length;
     if (count === 0) return;
     total += count;
     failures.push(`${file}:${i + 1}  ${line.trim()}`);

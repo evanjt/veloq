@@ -7,6 +7,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import { Card } from '@/shared/ui/Card';
+import { EngineReadFailureRetry } from '@/shared/ui/EngineReadFailureRetry';
 import type { DayLoad } from 'veloqrs';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
@@ -25,6 +26,9 @@ interface FitnessChartCardProps {
     values: { fitness: number; fatigue: number; form: number } | null
   ) => void;
   onInteractionChange: (isInteracting: boolean) => void;
+  /** What the wellness read threw, shown with a Retry in place of the charts. */
+  readError?: unknown;
+  onRetry?: () => void;
 }
 
 export const FitnessChartCard = React.memo(function FitnessChartCard({
@@ -36,9 +40,28 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
   sharedSelectedIdx,
   onDateSelect,
   onInteractionChange,
+  readError,
+  onRetry,
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+
+  if (readError != null && onRetry) {
+    return (
+      <View style={styles.chartFrame}>
+        <Card variant="flat">
+          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
+            {t('fitnessScreen.fitnessAndFatigue')}
+          </Text>
+          <EngineReadFailureRetry
+            error={readError}
+            onRetry={onRetry}
+            testID="fitness-chart-failed"
+          />
+        </Card>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.chartFrame}>

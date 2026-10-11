@@ -2,6 +2,7 @@ export { FitnessChart } from './FitnessChart';
 export { FormZoneChart } from './FormZoneChart';
 export { ActivityDotsChart } from './ActivityDotsChart';
 export { SeasonBestsSection } from './SeasonBestsSection';
+export { BestEffortRow } from './BestEffortRow';
 export { ClimbingBestRows } from './ClimbingBestRows';
 export { ClimbingStatusNote } from './ClimbingStatusNote';
 export { TimeRangeSelector } from './TimeRangeSelector';

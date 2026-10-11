@@ -264,10 +264,11 @@ impl RankPlan {
 
         let mut meta: HashMap<String, (String, Option<String>)> = HashMap::new();
         {
-            let mut stmt = conn.prepare(
-                "SELECT a.id, COALESCE(am.sport_type, a.sport_type), a.start_date
-                 FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id",
-            )?;
+            let sport = crate::persistence::records::activity_sport_sql();
+            let mut stmt = conn.prepare(&format!(
+                "SELECT a.id, {sport}, a.start_date
+                 FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id"
+            ))?;
             for r in stmt.query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,

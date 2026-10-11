@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Record glyph: teal ring with a filled centre, used on the large dashboard footer. -->
+<!-- Record glyph: a ring in the recording tone with a filled centre, used on the large dashboard footer. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
   <item>
     <shape android:shape="oval">
-      <stroke android:width="2dp" android:color="@color/widget_primary" />
+      <stroke android:width="2dp" android:color="@color/widget_record_accent" />
     </shape>
   </item>
   <item
@@ -12,7 +12,7 @@
     android:left="6dp"
     android:right="6dp">
     <shape android:shape="oval">
-      <solid android:color="@color/widget_primary" />
+      <solid android:color="@color/widget_record_accent" />
     </shape>
   </item>
 </layer-list>

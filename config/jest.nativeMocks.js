@@ -111,6 +111,7 @@ jest.mock("@shopify/react-native-skia", () => {
     Rect: mockView("Rect", "skia-rect"),
     RoundedRect: mockView("RoundedRect", "skia-rounded-rect"),
     Line: mockView("Line", "skia-line"),
+    DashPathEffect: mockView("DashPathEffect", "skia-dash-path-effect"),
     Text: mockView("Text", "skia-text"),
     LinearGradient: mockView("LinearGradient", "skia-linear-gradient"),
     Paint: mockView("Paint", "skia-paint"),

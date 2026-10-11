@@ -539,12 +539,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
     uniffiSelf: bigint,
     source: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
     uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_unpinned_tiles(
     uniffiSelf: bigint,
   ): bigint;
@@ -1298,12 +1296,6 @@ interface NativeModuleInterface {
     secondaryId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
-    uniffiSelf: bigint,
-    primaryId: Uint8Array,
-    secondaryId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
     uniffiSelf: bigint,
     activityId: Uint8Array,
@@ -1315,15 +1307,14 @@ interface NativeModuleInterface {
     intentId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
-    uniffiSelf: bigint,
-    sectionId: Uint8Array,
-    version: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_run_section_bounds_edit(
     uniffiSelf: bigint,
     edit: Uint8Array,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_run_section_merge(
+    uniffiSelf: bigint,
+    primaryId: Uint8Array,
+    secondaryId: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
     uniffiSelf: bigint,
@@ -2006,11 +1997,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_preview(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_merge(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_unpin(): number;

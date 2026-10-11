@@ -89,7 +89,6 @@ export const styles = StyleSheet.create({
   indoorTimer: {
     ...typography.heroNumber,
     marginTop: spacing.md,
-    fontVariant: ['tabular-nums'],
   },
   // Manual entry styles
   manualHeader: {
@@ -111,17 +110,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
-  fieldLabel: {
-    ...typography.caption,
+  field: {
     marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  input: {
-    ...typography.body,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   notesInput: {
     minHeight: 100,

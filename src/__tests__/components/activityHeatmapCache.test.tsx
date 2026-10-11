@@ -86,7 +86,7 @@ describe('ActivityHeatmap', () => {
 describe.each(CLOCK_EDGES)('ActivityHeatmap on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
-  it('asks for the drawn grid, from its first Sunday to today, and counts today', async () => {
+  it('asks for the drawn grid, from its first Monday to today, and counts today', async () => {
     heatmapDays.mockReturnValueOnce([
       { date: localDay(at), intensity: 3, maxDuration: 6000, activityCount: 1 },
     ]);
@@ -96,8 +96,8 @@ describe.each(CLOCK_EDGES)('ActivityHeatmap on %s', (_name, at) => {
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     const [startDate, endDate] = heatmapDays.mock.calls[0] as unknown as [string, string];
     expect(endDate).toBe(localDay(at));
-    // Fifty-one whole weeks before the Sunday that opens this week.
-    expect(startDate).toBe(localDay(at, -(51 * 7 + at.getDay())));
+    // Fifty-one whole weeks before the Monday that opens this week.
+    expect(startDate).toBe(localDay(at, -(51 * 7 + ((at.getDay() + 6) % 7))));
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
   });
 });
@@ -111,10 +111,10 @@ describe('ActivityHeatmap header', () => {
   beforeEach(() => jest.setSystemTime(new Date(2026, 5, 17, 12, 0)));
 
   it('counts activities, not active days, and only those inside the grid', async () => {
-    // Wednesday 17 June 2026: the grid opens on Sunday 22 June 2025, 360 days back.
+    // Wednesday 17 June 2026: the grid opens on Monday 23 June 2025, 359 days back.
     heatmapDays.mockReturnValueOnce([
-      { date: dayFrom(-361), intensity: 2, maxDuration: 3600, activityCount: 1 },
-      { date: dayFrom(-360), intensity: 1, maxDuration: 1800, activityCount: 1 },
+      { date: dayFrom(-360), intensity: 2, maxDuration: 3600, activityCount: 1 },
+      { date: dayFrom(-359), intensity: 1, maxDuration: 1800, activityCount: 1 },
       { date: dayFrom(-3), intensity: 0, maxDuration: 0, activityCount: 1 },
       { date: dayFrom(-1), intensity: 1, maxDuration: 1800, activityCount: 1 },
       { date: dayFrom(0), intensity: 3, maxDuration: 6000, activityCount: 2 },
@@ -138,9 +138,9 @@ describe('ActivityHeatmap header', () => {
   });
 
   it.each([
-    ['January', new Date(2026, 0, 15, 12, 0), 'Jan 19, 2025 to Jan 15, 2026'],
-    ['July', new Date(2026, 6, 15, 12, 0), 'Jul 20, 2025 to Jul 15, 2026'],
-    ['October', new Date(2026, 9, 15, 12, 0), 'Oct 19, 2025 to Oct 15, 2026'],
+    ['January', new Date(2026, 0, 15, 12, 0), 'Jan 20, 2025 to Jan 15, 2026'],
+    ['July', new Date(2026, 6, 15, 12, 0), 'Jul 21, 2025 to Jul 15, 2026'],
+    ['October', new Date(2026, 9, 15, 12, 0), 'Oct 20, 2025 to Oct 15, 2026'],
   ])('states the drawn range in %s', async (_name, at, range) => {
     jest.setSystemTime(at);
     heatmapDays.mockReturnValueOnce([
@@ -309,6 +309,6 @@ describe('ActivityHeatmap over a range never downloaded', () => {
     render(<ActivityHeatmap />, { wrapper });
 
     await waitFor(() => expect(engine.rangeCoverage).toHaveBeenCalled());
-    expect(engine.rangeCoverage).toHaveBeenCalledWith('2025-09-28', '2026-09-23');
+    expect(engine.rangeCoverage).toHaveBeenCalledWith('2025-09-29', '2026-09-23');
   });
 });

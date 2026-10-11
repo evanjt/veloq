@@ -11,12 +11,14 @@ import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatAxisDate, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { DirectionStats, ActivityType } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
 const REVERSE_COLOR = colors.reverseDirection;
+const DIRECTION_ARROW_SIZE = 12;
 
 export interface SectionInfoCardProps {
   /** The oldest included attempt in the range, as the engine dates it. */
@@ -30,7 +32,7 @@ export interface SectionInfoCardProps {
   /** The sport on screen, absent until the engine has answered. */
   sportType: string | undefined;
   isDark: boolean;
-  /** Colour of the forward direction's dot. */
+  /** Colour of the forward direction's arrow. */
   activityColor?: string;
   /** Streams are still downloading, so the card holds its place. */
   pending?: boolean;
@@ -92,7 +94,13 @@ export function SectionInfoCard({
   const reverseAvg = formatAvg(reverseStats);
   const bothDirections = (forwardBest || forwardAvg) && (reverseBest || reverseAvg);
 
-  const columns: { label: string; value: string; testID?: string; dotColor?: string }[] = [
+  const columns: {
+    label: string;
+    value: string;
+    testID?: string;
+    direction?: SectionDirection;
+    arrowColor?: string;
+  }[] = [
     {
       label: t('sections.firstVisited', 'First'),
       value: formatAxisDate(firstDate, false),
@@ -107,15 +115,23 @@ export function SectionInfoCard({
   const bestLabel = t('sections.best', 'Best');
   const avgLabel = t('sections.avg', 'Avg');
   if (bothDirections) {
-    const forwardDot = activityColor ?? colors.primary;
+    const forwardColor = activityColor ?? colors.primary;
     const entries = [
-      [bestLabel, forwardBest, 'section-best-forward', forwardDot],
-      [bestLabel, reverseBest, 'section-best-reverse', REVERSE_COLOR],
-      [avgLabel, forwardAvg, 'section-avg-forward', forwardDot],
-      [avgLabel, reverseAvg, 'section-avg-reverse', REVERSE_COLOR],
+      [bestLabel, forwardBest, 'section-best-forward', 'forward', forwardColor],
+      [bestLabel, reverseBest, 'section-best-reverse', 'reverse', REVERSE_COLOR],
+      [avgLabel, forwardAvg, 'section-avg-forward', 'forward', forwardColor],
+      [avgLabel, reverseAvg, 'section-avg-reverse', 'reverse', REVERSE_COLOR],
     ] as const;
-    for (const [label, value, testID, dotColor] of entries) {
-      if (value) columns.push({ label, value, testID, dotColor });
+    for (const [label, value, testID, direction, arrowColor] of entries) {
+      if (value) {
+        columns.push({
+          label: `${label} · ${directionWord(t, direction)}`,
+          value,
+          testID,
+          direction,
+          arrowColor,
+        });
+      }
     }
   } else {
     const best = forwardBest ?? reverseBest;
@@ -137,7 +153,13 @@ export function SectionInfoCard({
           {row.map((col, i) => (
             <View key={i} style={styles.column} testID={`section-summary-cell-${r}-${i}`}>
               <View style={styles.labelRow}>
-                {col.dotColor && <View style={[styles.dot, { backgroundColor: col.dotColor }]} />}
+                {col.direction && col.arrowColor && (
+                  <DirectionArrow
+                    direction={col.direction}
+                    color={col.arrowColor}
+                    size={DIRECTION_ARROW_SIZE}
+                  />
+                )}
                 <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
                   {col.label}
                 </Text>
@@ -176,11 +198,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xxs,
     marginBottom: spacing.xxs,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
   },
   label: {
     fontSize: typography.caption.fontSize,

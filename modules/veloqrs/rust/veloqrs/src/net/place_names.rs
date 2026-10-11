@@ -7,10 +7,14 @@
 //! bulk geocoding. A route or section that loops is named after its start,
 //! one that ends in another place after both, and one that ends in the place
 //! it started in without closing the loop after its start alone. A lookup
-//! the provider answers with no place or an error leaves the numbered label
-//! and is not asked again. A lookup that never reached the provider, because
-//! it could not be sent or the network was absent, leaves the item queued for
-//! the next pass, and no pass runs while the device is offline.
+//! the provider answers with no place, or with an error that is not a
+//! refusal, leaves the numbered label and is not asked again. A lookup that
+//! never reached the provider, because it could not be sent or the network
+//! was absent, leaves the item queued for the next pass, and no pass runs
+//! while the device is offline. A provider that throttles, blocks or fails (a
+//! 429, a 403 or a 5xx) has not answered either: the pass stops there, leaving
+//! that item and the rest queued, and the geocoder sends nothing until the
+//! refusal's cool-down ends.
 //!
 //! An item that existed before the switch is never queued, and one numbered
 //! since over rides that all started before it is never asked about. Either is
@@ -54,9 +58,10 @@ struct Plan {
 ///
 /// Sends nothing while the device is offline, while geocoding is off or
 /// before the app has stored the words a name is put together with. Stops at
-/// the first lookup that never reached the provider, so a missing endpoint, a
-/// dead network or a switch turned off mid-pass leaves the rest queued as they
-/// were.
+/// the first lookup that never reached the provider or that the provider
+/// refused, so a missing endpoint, a dead network, a switch turned off
+/// mid-pass or a provider asking to be left alone leaves the rest queued as
+/// they were.
 pub async fn name_queued<T: GeocodeTransport>(
     geocoder: &Geocoder<T>,
     endpoint: Option<&str>,
@@ -94,7 +99,7 @@ pub async fn name_queued<T: GeocodeTransport>(
         )
         .await
         {
-            Lookup::NotSent => return named,
+            Lookup::NotSent | Lookup::Refused => return named,
             Lookup::NoPlace | Lookup::Failed => None,
             Lookup::Place(name) => Some(name),
         };
@@ -121,7 +126,8 @@ pub async fn name_queued<T: GeocodeTransport>(
 /// The name for an item that starts at `start` and ends at `end`: after its
 /// start alone when it loops or ends in the place it started in, after both
 /// otherwise. A start that names no place or fails gives no name; an end that
-/// does leaves the name of the start.
+/// does leaves the name of the start. A lookup at either end that was never
+/// sent or was refused is what the whole comes to, so the item stays owed.
 async fn name_from_ends<T: GeocodeTransport>(
     geocoder: &Geocoder<T>,
     endpoint: Option<&str>,
@@ -147,7 +153,7 @@ async fn name_from_ends<T: GeocodeTransport>(
         .lookup(endpoint, end.latitude, end.longitude, &words.locale)
         .await
     {
-        Lookup::NotSent => Lookup::NotSent,
+        unsettled @ (Lookup::NotSent | Lookup::Refused) => unsettled,
         Lookup::Place(other) if other != place => Lookup::Place(words.journey(&place, &other)),
         Lookup::Place(_) | Lookup::NoPlace | Lookup::Failed => Lookup::Place(place),
     }
@@ -161,8 +167,8 @@ pub enum OnDemand {
     /// The provider answered and named no place. The item keeps what it
     /// showed.
     NoPlace,
-    /// The lookup could not be sent or came back with no answer. The item
-    /// keeps what it showed, and asking again may answer.
+    /// The lookup could not be sent, was refused or came back with no answer.
+    /// The item keeps what it showed, and asking again may answer.
     Failed,
     /// Geocoding is off, the athlete typed a name for the item, or it has no
     /// line to name it from. Nothing was sent.
@@ -216,7 +222,7 @@ pub async fn name_on_demand<T: GeocodeTransport>(
     {
         Lookup::Place(name) => name,
         Lookup::NoPlace => return OnDemand::NoPlace,
-        Lookup::NotSent | Lookup::Failed => return OnDemand::Failed,
+        Lookup::NotSent | Lookup::Refused | Lookup::Failed => return OnDemand::Failed,
     };
     let id = id.to_string();
     let kept = with_persistent_engine_blocking_for(install, move |engine| {

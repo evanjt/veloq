@@ -117,5 +117,10 @@
   },
   "sections": {
     "aerobicEfficiencyDetail": "{{efforts}} matched efforts, modeled change of {{hrChange}} bpm at average pace"
+  },
+  "sensors": {
+    "availability": {
+      "poweredOffHintIos": "Turn Bluetooth on in Control Center or Settings to find and connect sensors."
+    }
   }
 }

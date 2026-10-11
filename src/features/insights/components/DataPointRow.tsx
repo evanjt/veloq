@@ -1,26 +1,36 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
   spacing,
   opacity,
-  layout,
   typography,
   verdictColor,
   type VerdictRung,
 } from '@/theme';
 import type { DataPoint } from '@/types';
 
-/** The ladder rung each verdict a generator gives a value is drawn on. */
-const CONTEXT_RUNG: Record<NonNullable<DataPoint['context']>, VerdictRung> = {
-  good: 'positive',
-  warning: 'caution',
-  concern: 'negative',
-  neutral: 'neutral',
-};
+type Verdict = NonNullable<DataPoint['context']>;
+
+/**
+ * How each verdict a generator gives a value is drawn: its ladder rung, a
+ * glyph of its own so the verdict reads without its hue, and the word a
+ * screen reader says.
+ */
+const VERDICT_MARK = {
+  good: { rung: 'positive', glyph: 'check-circle', word: 'insights.verdict.good' },
+  warning: { rung: 'caution', glyph: 'alert', word: 'insights.verdict.warning' },
+  concern: { rung: 'negative', glyph: 'alert-octagon', word: 'insights.verdict.concern' },
+  neutral: { rung: 'neutral', glyph: 'minus', word: 'insights.verdict.neutral' },
+} as const satisfies Record<
+  Verdict,
+  { rung: VerdictRung; glyph: keyof typeof MaterialCommunityIcons.glyphMap; word: string }
+>;
 
 interface DataPointRowProps {
   dataPoint: DataPoint;
@@ -28,15 +38,21 @@ interface DataPointRowProps {
 
 export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: DataPointRowProps) {
   const { isDark } = useTheme();
-  const contextColor = dataPoint.context
-    ? verdictColor(CONTEXT_RUNG[dataPoint.context], isDark)
-    : undefined;
+  const { t } = useTranslation();
+  const mark = dataPoint.context ? VERDICT_MARK[dataPoint.context] : null;
+  const value = `${String(dataPoint.value)}${dataPoint.unit ? ` ${dataPoint.unit}` : ''}`;
+  const label = [dataPoint.label, value, mark ? t(mark.word) : null].filter(Boolean).join(', ');
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessible accessibilityLabel={label}>
       <View style={styles.row}>
-        {contextColor ? (
-          <View style={[styles.contextDot, { backgroundColor: contextColor }]} />
+        {mark ? (
+          <MaterialCommunityIcons
+            name={mark.glyph}
+            size={16}
+            color={verdictColor(mark.rung, isDark)}
+            style={styles.verdictGlyph}
+          />
         ) : null}
         <Text style={[styles.label, isDark && styles.labelDark]}>{dataPoint.label}</Text>
         <View style={styles.valueContainer}>
@@ -62,10 +78,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  contextDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
+  verdictGlyph: {
     marginRight: spacing.sm,
   },
   label: {

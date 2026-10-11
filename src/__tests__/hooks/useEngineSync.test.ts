@@ -18,7 +18,7 @@ import { FALLBACK_TICK_MS } from '@/shared/native/eventFallback';
 import { cancelSyncRefresh } from '@/shared/native/syncRefresh';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncSettled } from '@/shared/app/useRetryTriggers';
-import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
+import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import { StartOutcome, SyncState, type SyncStatus } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -53,15 +53,15 @@ jest.mock('@/shared/app/useRetryTriggers', () => {
 });
 
 jest.mock('@/features/home/lib/widgetBridge', () => ({
-  updateWidgetSnapshot: jest.fn(),
+  scheduleWidgetSnapshot: jest.fn(),
 }));
 
 jest.mock('@/shared/native/syncRefresh', () => ({ cancelSyncRefresh: jest.fn() }));
 
 const mockCancelSyncRefresh = cancelSyncRefresh as jest.MockedFunction<typeof cancelSyncRefresh>;
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
-const mockUpdateWidgetSnapshot = updateWidgetSnapshot as jest.MockedFunction<
-  typeof updateWidgetSnapshot
+const mockScheduleWidgetSnapshot = scheduleWidgetSnapshot as jest.MockedFunction<
+  typeof scheduleWidgetSnapshot
 >;
 
 /** The `syncReset` listeners the engine is holding, so a test can fire one. */
@@ -443,12 +443,12 @@ describe('useEngineSync', () => {
       stepItemsTotal: 0,
     };
     act(() => rerender(undefined));
-    expect(mockUpdateWidgetSnapshot).not.toHaveBeenCalled();
+    expect(mockScheduleWidgetSnapshot).not.toHaveBeenCalled();
 
     mockStatus = settled();
     act(() => rerender(undefined));
 
-    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+    expect(mockScheduleWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes the widget after a sync that settled with an error', () => {
@@ -470,7 +470,7 @@ describe('useEngineSync', () => {
     mockStatus = settled('connection reset');
     act(() => rerender(undefined));
 
-    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+    expect(mockScheduleWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the widget alone when no sync ever ran', () => {
@@ -481,7 +481,7 @@ describe('useEngineSync', () => {
     mockStatus = settled();
     act(() => rerender(undefined));
 
-    expect(mockUpdateWidgetSnapshot).not.toHaveBeenCalled();
+    expect(mockScheduleWidgetSnapshot).not.toHaveBeenCalled();
   });
 
   it('refreshes the widget once per sync, not once per settled render', () => {
@@ -502,7 +502,7 @@ describe('useEngineSync', () => {
     act(() => rerender(undefined));
     act(() => rerender(undefined));
 
-    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+    expect(mockScheduleWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
   /**

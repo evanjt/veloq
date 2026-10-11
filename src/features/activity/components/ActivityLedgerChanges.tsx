@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { ActivityLedgerChange } from 'veloqrs';
 import { tapTo } from '@/shared/app/navigation';
 import { getIntlLocale } from '@/shared/format/format';
 import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
-import { AnimatedPressable } from '@/shared/ui';
+import { Row } from '@/shared/ui';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
 interface ActivityLedgerChangesProps {
@@ -32,18 +31,22 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
         const kindLabel = FIXED_LABEL_LEDGER_KINDS.has(change.kind)
           ? t(`sectionHistory.kind_${change.kind}` as never)
           : null;
+        const name = change.sectionName ?? kindLabel ?? change.kind;
+        const date = ledgerDate(change.at).toLocaleDateString(locale, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
         return (
-          <AnimatedPressable
+          <Row
             key={`${change.eventId}-${change.relation}`}
             testID={`activity-ledger-change-${change.eventId}`}
-            style={styles.row}
             onPress={() => tapTo(`/section/${change.sectionId}`)}
-            accessibilityRole="button"
-            hapticFeedback={false}
+            accessibilityLabel={`${name}, ${date}`}
           >
             <View style={styles.rowText}>
               <Text style={[styles.name, textStyle]} numberOfLines={1}>
-                {change.sectionName ?? kindLabel ?? change.kind}
+                {name}
               </Text>
               {change.sectionName != null && kindLabel != null && (
                 <Text style={styles.detail}>{kindLabel}</Text>
@@ -51,20 +54,9 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
               {change.relation === 'fork_around' && (
                 <Text style={styles.detail}>{t('sectionHistory.forkAround')}</Text>
               )}
-              <Text style={styles.detail}>
-                {ledgerDate(change.at).toLocaleDateString(locale, {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </Text>
+              <Text style={styles.detail}>{date}</Text>
             </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </AnimatedPressable>
+          </Row>
         );
       })}
     </View>
@@ -77,7 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
   },
   cardDark: {
     backgroundColor: darkColors.surface,
@@ -89,18 +81,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   textDark: {
     color: darkColors.textPrimary,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
   rowText: {
     flex: 1,
-    marginRight: spacing.sm,
   },
   name: {
     fontSize: typography.bodyMedium.fontSize,

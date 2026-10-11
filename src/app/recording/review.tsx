@@ -1,12 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  Animated,
-  useWindowDimensions,
-} from 'react-native';
+import { View, StyleSheet, TextInput, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -15,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { replaceTo, tapBack } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { Button, HoldButton, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -25,7 +18,7 @@ import {
   useUploadPermissionStore,
   useReviewSave,
   useActivitySummary,
-  useDiscardWithAnimation,
+  useDiscardRecording,
   resumeStoppedRecording,
   useActivityNameGeneration,
   getTimeOfDayKey,
@@ -137,11 +130,14 @@ function ReviewScreenContent() {
     handleSave,
     isUploading,
     errorMessage,
+    errorDetail,
     queuedMessage,
     showPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
     canRetry,
+    keptRecording,
+    shareKeptRecording,
   } = useReviewSave({
     isManual,
     type,
@@ -161,8 +157,7 @@ function ReviewScreenContent() {
     if (!ownedReview && (foreignSession || (!isUploading && !queuedMessage))) replaceTo('/record');
   }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, queuedMessage]);
 
-  // Hold-to-discard extracted to useDiscardWithAnimation
-  const { discardAnim, handleDiscardPressIn, handleDiscardPressOut } = useDiscardWithAnimation();
+  const discardRecording = useDiscardRecording();
 
   const openSheet = useSheetOpener();
   const openTypePicker = useCallback(async () => {
@@ -332,11 +327,16 @@ function ReviewScreenContent() {
         {/* Error banner */}
         <SaveErrorBanner
           errorMessage={errorMessage}
+          detail={errorDetail}
           showPermissionFix={showPermissionFix}
           isOAuthLoading={isOAuthLoading}
           onUpgradePermissions={handleUpgradeToOAuth}
           onRetry={canRetry ? handleSave : undefined}
           isRetrying={isUploading}
+          onOpenRecording={
+            keptRecording ? () => replaceTo(`/recordings/${keptRecording.id}`) : undefined
+          }
+          onShareFit={keptRecording?.kind === 'fit' ? shareKeptRecording : undefined}
         />
 
         {/* Action Buttons */}
@@ -359,42 +359,12 @@ function ReviewScreenContent() {
             />
           )}
 
-          {/* Hold-to-discard */}
-          <Animated.View
+          <HoldButton
             testID="review-discard-button"
-            style={[
-              styles.dangerBtn,
-              {
-                borderColor: discardAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [colorWithOpacity(colors.error, 0.3), colors.error],
-                }),
-                borderWidth: 1,
-                overflow: 'hidden' as const,
-              },
-            ]}
-            onTouchStart={isProcessing ? undefined : handleDiscardPressIn}
-            onTouchEnd={handleDiscardPressOut}
-            onTouchCancel={handleDiscardPressOut}
-          >
-            <Animated.View
-              style={{
-                position: 'absolute' as const,
-                left: 0,
-                top: 0,
-                bottom: 0,
-                backgroundColor: colors.error,
-                opacity: 0.15,
-                width: discardAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-              }}
-            />
-            <Text style={[styles.dangerBtnText, isDark && styles.dangerBtnTextDark]}>
-              {t('recording.discard', 'Discard')}
-            </Text>
-          </Animated.View>
+            label={t('recording.discard', 'Discard')}
+            onConfirm={discardRecording}
+            disabled={isProcessing}
+          />
         </View>
       </ScreenScrollView>
     </View>
@@ -472,20 +442,6 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: spacing.lg,
     gap: spacing.sm,
-  },
-  dangerBtn: {
-    borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: layout.minTapTarget,
-  },
-  dangerBtnText: {
-    ...typography.bodyBold,
-    color: colors.errorDeep,
-  },
-  dangerBtnTextDark: {
-    color: darkColors.errorDeep,
   },
 });
 

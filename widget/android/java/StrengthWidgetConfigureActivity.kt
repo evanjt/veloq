@@ -1,6 +1,5 @@
 package __PKG__.widget
 
-import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
@@ -16,7 +15,7 @@ import __PKG__.R
  * Configuration is optional in the provider info, so an athlete who dismisses this keeps a widget
  * on the last 30 days.
  */
-class StrengthWidgetConfigureActivity : Activity() {
+class StrengthWidgetConfigureActivity : WidgetConfigureActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setResult(RESULT_CANCELED)
@@ -37,8 +36,7 @@ class StrengthWidgetConfigureActivity : Activity() {
       return
     }
 
-    setTitle(R.string.widget_strength_label)
-    setContentView(R.layout.widget_summary_configure)
+    showPicker(R.string.widget_strength_label, R.layout.widget_summary_configure)
     findViewById<TextView>(R.id.summary_configure_prompt).setText(R.string.widget_strength_choose)
     val list = findViewById<LinearLayout>(R.id.summary_configure_list)
     for (window in StrengthWidget.WINDOWS) {

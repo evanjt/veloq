@@ -38,6 +38,7 @@ const PALETTE_KEYS: ColourKey[] = [
   'textPrimary',
   'textSecondary',
   'primary',
+  'textOnPrimary',
   'gold',
   'blue',
   'fatigue',
@@ -96,14 +97,21 @@ ${swiftPalette('Dark', widgetPalette.dark)}
     enum Light {
       static let gradientStart = Color(hex: "${widgetRecord.light.gradientStart}")
       static let gradientEnd = Color(hex: "${widgetRecord.light.gradientEnd}")
+      static let accent = Color(hex: "${widgetRecord.light.accent}")
     }
 
     enum Dark {
       static let gradientStart = Color(hex: "${widgetRecord.dark.gradientStart}")
       static let gradientEnd = Color(hex: "${widgetRecord.dark.gradientEnd}")
+      static let accent = Color(hex: "${widgetRecord.dark.accent}")
     }
 
     static let foreground = Color(hex: "${widgetRecord.foreground}")
+
+    /// The record tone for the scheme a view is drawn in.
+    static func accent(_ scheme: ColorScheme) -> Color {
+      scheme == .dark ? Dark.accent : Light.accent
+    }
   }
 
   enum Layout {
@@ -144,6 +152,7 @@ function androidLight(): string {
 ${androidColors(widgetPalette.light)}
   <color name="widget_record_grad_start">${widgetRecord.light.gradientStart}</color>
   <color name="widget_record_grad_end">${widgetRecord.light.gradientEnd}</color>
+  <color name="widget_record_accent">${widgetRecord.light.accent}</color>
   <color name="widget_record_foreground">${widgetRecord.foreground}</color>
   <dimen name="widget_record_padding">${widgetRecord.padding}dp</dimen>
   <dimen name="widget_record_glyph">${widgetRecord.glyph}dp</dimen>
@@ -174,6 +183,7 @@ function androidNight(): string {
 ${androidColors(widgetPalette.dark)}
   <color name="widget_record_grad_start">${widgetRecord.dark.gradientStart}</color>
   <color name="widget_record_grad_end">${widgetRecord.dark.gradientEnd}</color>
+  <color name="widget_record_accent">${widgetRecord.dark.accent}</color>
 </resources>
 `;
 }

@@ -23,7 +23,7 @@ import {
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay } from '../lib/pinnedDay';
-import { formatForm, formZoneTextColor, getFormZone } from '../lib';
+import { formatForm, formZoneTextColor, formZoneFromLoads } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 
@@ -196,7 +196,7 @@ export const FitnessChart = React.memo(function FitnessChart({
     newest: chartData[chartData.length - 1],
   });
   const formZone = displayData
-    ? getFormZone(displayData.form, displayData.fitness, asPercent)
+    ? formZoneFromLoads(displayData.fitness, displayData.fatigue, asPercent)
     : null;
   const formText =
     (displayData ? formatForm(displayData.form, displayData.fitness, asPercent) : null) ?? '-';

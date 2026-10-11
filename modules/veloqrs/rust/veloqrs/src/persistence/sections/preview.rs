@@ -1171,11 +1171,12 @@ pub(crate) mod pooled {
     ) -> Option<Vec<PayloadSection>> {
         let mut boxes: Vec<(String, Bounds)> = Vec::new();
         let mut sports: HashMap<String, String> = HashMap::new();
-        if let Ok(mut stmt) = conn.prepare_cached(
-            "SELECT a.id, COALESCE(am.sport_type, a.sport_type),
+        let sport = crate::persistence::records::activity_sport_sql();
+        if let Ok(mut stmt) = conn.prepare_cached(&format!(
+            "SELECT a.id, {sport},
                     a.min_lat, a.max_lat, a.min_lng, a.max_lng
-             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id",
-        ) {
+             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id"
+        )) {
             let rows = stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
@@ -1326,12 +1327,13 @@ pub(crate) mod pooled {
     }
 
     pub(crate) fn preview_component(conn: &Connection, lat: f64, lng: f64) -> Option<Vec<String>> {
-        let Ok(mut stmt) = conn.prepare(
-            "SELECT a.id, COALESCE(am.sport_type, a.sport_type),
+        let sport = crate::persistence::records::activity_sport_sql();
+        let Ok(mut stmt) = conn.prepare(&format!(
+            "SELECT a.id, {sport},
                     a.min_lat, a.max_lat, a.min_lng, a.max_lng
              FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
-             WHERE a.min_lat IS NOT NULL",
-        ) else {
+             WHERE a.min_lat IS NOT NULL"
+        )) else {
             return None;
         };
         let rows = stmt

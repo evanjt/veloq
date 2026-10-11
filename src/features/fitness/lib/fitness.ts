@@ -39,6 +39,21 @@ export function getFormZone(
 }
 
 /**
+ * The band for one day's loads, judged on the form the app prints: rounded
+ * fitness minus rounded fatigue, against rounded fitness under the percentage
+ * setting. Zoning the unrounded difference can name the band across a
+ * boundary from the number shown beside it.
+ */
+export function formZoneFromLoads(
+  ctl?: number | null,
+  atl?: number | null,
+  asPercent?: boolean
+): FormZone | null {
+  const fitness = Number.isFinite(ctl as number) ? Math.round(ctl as number) : 0;
+  return getFormZone(formFromLoads(ctl, atl), fitness, asPercent);
+}
+
+/**
  * A form number as the athlete reads it, on the denominator getFormZone zones
  * it by: the integer percentage of fitness with a % suffix under the
  * percentage setting, the signed absolute TSB otherwise. A day with no fitness

@@ -763,9 +763,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_merge_preview(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -773,11 +770,11 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_sectionmanager_run_section_bounds_edit(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_run_section_merge(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
@@ -2037,9 +2034,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_merge_preview(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -2049,11 +2043,11 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit(
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_run_section_merge(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(

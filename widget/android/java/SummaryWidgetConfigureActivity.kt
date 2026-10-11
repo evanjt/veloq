@@ -1,15 +1,13 @@
 package __PKG__.widget
 
-import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
-import android.widget.CheckBox
 import android.widget.LinearLayout
-import android.widget.RadioButton
 import android.widget.RadioGroup
+import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.radiobutton.MaterialRadioButton
 import __PKG__.R
 
 /**
@@ -22,7 +20,7 @@ import __PKG__.R
  * Configuration is optional in the provider info, so an athlete who dismisses this keeps a widget
  * that follows the app's card, and a reconfigured one keeps what it had.
  */
-class SummaryWidgetConfigureActivity : Activity() {
+class SummaryWidgetConfigureActivity : WidgetConfigureActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setResult(RESULT_CANCELED)
@@ -43,8 +41,7 @@ class SummaryWidgetConfigureActivity : Activity() {
       return
     }
 
-    setTitle(R.string.widget_summary_label)
-    setContentView(R.layout.widget_summary_placement_configure)
+    showPicker(R.string.widget_summary_label, R.layout.widget_summary_placement_configure)
     val current = SummaryWidgetChoice.placementFor(this, widgetId)
     val followCard = getString(R.string.widget_summary_follow_card)
 
@@ -73,7 +70,7 @@ class SummaryWidgetConfigureActivity : Activity() {
     }
     val boxes =
       choices.map { choice ->
-        CheckBox(this).apply {
+        MaterialCheckBox(this).apply {
           text = choice.label
           isChecked = choice.id in ticked
           list.addView(this)
@@ -96,7 +93,7 @@ class SummaryWidgetConfigureActivity : Activity() {
     }
     holdToMax()
 
-    findViewById<Button>(R.id.summary_configure_save).setOnClickListener {
+    findViewById<View>(R.id.summary_configure_save).setOnClickListener {
       SummaryWidgetChoice.put(
         this,
         widgetId,
@@ -113,7 +110,7 @@ class SummaryWidgetConfigureActivity : Activity() {
   private fun addRadios(group: RadioGroup, labels: List<String>, checked: Int) {
     labels.forEach { label ->
       group.addView(
-        RadioButton(this).apply {
+        MaterialRadioButton(this).apply {
           id = View.generateViewId()
           text = label
         })

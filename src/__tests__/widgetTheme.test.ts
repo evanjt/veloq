@@ -1,14 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  bodyDiagram,
-  brand,
-  colors,
-  darkColors,
-  insightToneColor,
-  strengthRamp,
-} from '@/theme/colors';
+import { bodyDiagram, colors, darkColors, insightToneColor, strengthRamp } from '@/theme/colors';
 import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 
 // Scenario: the widget natives render only from these resolved palettes (via the
@@ -144,19 +137,12 @@ describe('widgetPalette', () => {
 });
 
 describe('widgetRecord', () => {
-  it('uses brand teal chrome with white foreground', () => {
-    expect(widgetRecord.light.gradientStart).toBe(brand.teal);
-    expect(widgetRecord.light.gradientEnd).toBe(brand.tealLight);
+  it('draws a white foreground, with dark chrome distinct from the light', () => {
     expect(widgetRecord.foreground).toBe(colors.textOnDark);
-  });
-
-  it('has a dark gradient distinct from the light one, from brand tokens', () => {
-    expect(widgetRecord.dark.gradientStart).toBe(brand.tealLight);
-    expect(widgetRecord.dark.gradientEnd).toBe(brand.tealHover);
     expect(widgetRecord.dark).not.toEqual(widgetRecord.light);
   });
 
-  it('writes the dark gradient to both platforms', () => {
+  it('writes the dark chrome and accent to both platforms', () => {
     const root = join(__dirname, '../..');
     const night = readFileSync(
       join(root, 'widget/android/res/values-night/widget_theme.xml'),
@@ -168,10 +154,18 @@ describe('widgetRecord', () => {
     expect(night).toContain(
       `<color name="widget_record_grad_end">${widgetRecord.dark.gradientEnd}</color>`
     );
+    expect(night).toContain(
+      `<color name="widget_record_accent">${widgetRecord.dark.accent}</color>`
+    );
 
     const swift = readFileSync(join(root, 'widget/ios/VeloqWidget/WidgetTheme.swift'), 'utf8');
     const dark = swift.match(/enum Record \{[\s\S]*?enum Dark \{([\s\S]*?)\}/)?.[1] ?? '';
-    expect(dark).toContain(`Color(hex: "${widgetRecord.dark.gradientStart}")`);
-    expect(dark).toContain(`Color(hex: "${widgetRecord.dark.gradientEnd}")`);
+    expect(dark).toContain(
+      `static let gradientStart = Color(hex: "${widgetRecord.dark.gradientStart}")`
+    );
+    expect(dark).toContain(
+      `static let gradientEnd = Color(hex: "${widgetRecord.dark.gradientEnd}")`
+    );
+    expect(dark).toContain(`static let accent = Color(hex: "${widgetRecord.dark.accent}")`);
   });
 });

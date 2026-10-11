@@ -6,6 +6,7 @@ export {
   NotificationOptInCard,
   SupportCard,
   FeedFirstSyncStandby,
+  FeedEmptyLibrary,
 } from './components';
 
 export {

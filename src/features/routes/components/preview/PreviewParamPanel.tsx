@@ -27,13 +27,14 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { PreviewParams } from 'veloqrs';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
-import { pressable, pressRipple } from '@/shared/ui';
+import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
@@ -104,10 +105,12 @@ export function PreviewParamPanel({
 
   const active = presetOf(params);
 
-  const row = (key: DetectionParamKey, label: string) => (
+  const distance = (key: DetectionParamKey) => formatDistance(params[key], isMetric);
+  const row = (key: DetectionParamKey, label: string, valueText: string) => (
     <ParamRow
       paramKey={key}
       label={label}
+      valueText={valueText}
       value={params[key]}
       onChange={set(key)}
       onRelease={release(key)}
@@ -125,28 +128,28 @@ export function PreviewParamPanel({
     >
       {row(
         'proximityThreshold',
-        t('settings.sectionProximity', {
-          distance: formatDistance(params.proximityThreshold, isMetric),
-        })
+        t('settings.sectionProximity', { distance: distance('proximityThreshold') }),
+        distance('proximityThreshold')
       )}
       {row(
         'minSectionLength',
-        t('settings.sectionMinLength', {
-          distance: formatDistance(params.minSectionLength, isMetric),
-        })
+        t('settings.sectionMinLength', { distance: distance('minSectionLength') }),
+        distance('minSectionLength')
       )}
       {row(
         'maxSectionLength',
-        t('settings.sectionMaxLength', {
-          distance: formatDistance(params.maxSectionLength, isMetric),
-        })
+        t('settings.sectionMaxLength', { distance: distance('maxSectionLength') }),
+        distance('maxSectionLength')
       )}
-      {row('minActivities', t('settings.sectionMinActivities', { count: params.minActivities }))}
+      {row(
+        'minActivities',
+        t('settings.sectionMinActivities', { count: params.minActivities }),
+        String(params.minActivities)
+      )}
       {row(
         'divergenceThreshold',
-        t('settings.sectionSameTraffic', {
-          value: params.divergenceThreshold.toFixed(2),
-        })
+        t('settings.sectionSameTraffic', { value: params.divergenceThreshold.toFixed(2) }),
+        params.divergenceThreshold.toFixed(2)
       )}
 
       <View style={styles.presetRow}>
@@ -159,13 +162,12 @@ export function PreviewParamPanel({
           {t('settings.sectionPresets')}
         </Text>
         {DETECTION_PRESET_NAMES.map((name) => (
-          <PresetChip
+          <ToggleButton
             key={name}
-            name={name}
+            testID={`preset-${name}`}
             label={t(PRESET_LABELS[name])}
-            active={active === name}
+            selected={active === name}
             onPress={() => settle({ ...DETECTION_PRESETS[name] })}
-            isDark={isDark}
             disabled={disabled}
           />
         ))}
@@ -183,6 +185,7 @@ const PRESET_LABELS = {
 function ParamRow({
   paramKey,
   label,
+  valueText,
   value,
   onChange,
   onRelease,
@@ -192,6 +195,8 @@ function ParamRow({
 }: {
   paramKey: DetectionParamKey;
   label: string;
+  /** The value as the athlete reads it, in their unit, for a screen reader. */
+  valueText: string;
   value: number;
   onChange: (v: number) => void;
   onRelease: (v: number) => void;
@@ -210,13 +215,17 @@ function ParamRow({
         disabled={disabled}
         testID={`param-edit-${paramKey}`}
         accessibilityRole="button"
-        style={pressable()}
+        accessibilityHint={t('settings.sectionParamEditHint')}
+        style={pressable(styles.editRow)}
         android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
+        <MaterialCommunityIcons name="pencil" size={typography.caption.fontSize} color={txt} />
       </Pressable>
       <Slider
         testID={`param-slider-${paramKey}`}
+        accessibilityLabel={label}
+        accessibilityValue={{ text: valueText }}
         style={styles.slider}
         disabled={disabled}
         value={value}
@@ -237,44 +246,6 @@ function ParamRow({
         </Text>
       )}
     </View>
-  );
-}
-
-function PresetChip({
-  name,
-  label,
-  active,
-  onPress,
-  isDark,
-  disabled = false,
-}: {
-  name: DetectionPresetName;
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  isDark: boolean;
-  disabled?: boolean;
-}) {
-  const border = isDark ? darkColors.border : colors.border;
-  const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      testID={`preset-${name}`}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled), selected: active }}
-      style={pressable([
-        styles.presetChip,
-        { borderColor: active ? brand.tealLight : border },
-        disabled && styles.presetChipDisabled,
-      ])}
-      android_ripple={pressRipple}
-    >
-      <Text style={[styles.presetChipLabel, { color: active ? brand.tealLight : txt }]}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -302,8 +273,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: PARAM_ROW_MIN_HEIGHT,
   },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: layout.minTapTarget,
+  },
   paramLabel: {
     ...typography.caption,
+    flexShrink: 1,
   },
   slider: {
     width: '100%',
@@ -317,16 +295,6 @@ const styles = StyleSheet.create({
     minHeight: PARAM_ROW_MIN_HEIGHT,
   },
   presetLabel: {
-    ...typography.caption,
-  },
-  presetChip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  presetChipDisabled: { opacity: 0.4 },
-  presetChipLabel: {
     ...typography.caption,
   },
 });

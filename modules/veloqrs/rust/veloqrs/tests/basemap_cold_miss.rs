@@ -130,3 +130,101 @@ fn a_host_that_failed_otherwise_is_asked_again() {
     ));
     failing.assert_hits(1);
 }
+
+/// Every miss in `lookups`, spawned at once, and their answers in order.
+fn spawn_all(lookups: Vec<TileLookup>) -> Vec<Result<Vec<u8>, u16>> {
+    let (tx, rx) = mpsc::channel();
+    let count = lookups.len();
+    for (i, lookup) in lookups.into_iter().enumerate() {
+        match lookup {
+            TileLookup::Miss(miss) => {
+                let tx = tx.clone();
+                miss.spawn(move |result| {
+                    let _ = tx.send((i, result));
+                });
+            }
+            TileLookup::Refused(status) => {
+                let _ = tx.send((i, Err(status)));
+            }
+            TileLookup::Ready(bytes) => {
+                let _ = tx.send((i, Ok(bytes)));
+            }
+        }
+    }
+    let mut answers: Vec<Option<Result<Vec<u8>, u16>>> = vec![None; count];
+    for _ in 0..count {
+        let (i, result) = rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("every miss completes");
+        answers[i] = Some(result);
+    }
+    answers.into_iter().map(Option::unwrap).collect()
+}
+
+/// Scenario: a fresh install pans over new ground on a source that names a
+/// TileJSON, with no template resolved yet.
+///
+/// Expected behaviour: no lookup asks any host, so the interceptor thread is
+/// never held. The misses resolve the TileJSON once between them on the
+/// engine's runtime, and every one of them is then filled.
+#[test]
+fn a_pan_with_no_template_held_resolves_the_tilejson_once_off_the_lookup() {
+    let _serial = super::serial_state();
+    let host = MockServer::start();
+    let tilejson = host.mock(|when, then| {
+        when.method(GET).path("/planet");
+        then.status(200).body(format!(
+            r#"{{"tiles":["{}"]}}"#,
+            host.url("/run-1/{z}/{x}/{y}.pbf")
+        ));
+    });
+    let tiles = host.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new(r"^/run-1/\d+/\d+/\d+\.pbf$").unwrap());
+        then.status(200).body("tile-bytes");
+    });
+    let tmp = TempDir::new().expect("tempdir");
+    store_at(&tmp);
+    veloqrs::basemap::forget_resolved_templates();
+    set_template("fresh-vector".to_string(), host.url("/planet"));
+
+    let lookups: Vec<_> = (0..12)
+        .map(|i| lookup_tile("fresh-vector", 14, 8000 + i, 5000))
+        .collect();
+    tilejson.assert_hits(0);
+
+    for answer in spawn_all(lookups) {
+        assert_eq!(answer, Ok(b"tile-bytes".to_vec()));
+    }
+    tilejson.assert_hits(1);
+    tiles.assert_hits(12);
+}
+
+/// Scenario: the same pan with the TileJSON host failing.
+///
+/// Expected behaviour: the TileJSON is asked for once, and every miss is
+/// answered 502 without another request.
+#[test]
+fn a_pan_with_no_template_held_and_the_tilejson_down_asks_once() {
+    let _serial = super::serial_state();
+    let host = MockServer::start();
+    let tilejson = host.mock(|when, then| {
+        when.method(GET).path("/planet");
+        then.status(502);
+    });
+    let tmp = TempDir::new().expect("tempdir");
+    store_at(&tmp);
+    veloqrs::basemap::forget_resolved_templates();
+    set_template("dark-vector".to_string(), host.url("/planet"));
+
+    let first = spawn_all(vec![lookup_tile("dark-vector", 14, 8000, 5000)]);
+    assert_eq!(first, vec![Err(502)]);
+
+    let rest: Vec<_> = (1..20)
+        .map(|i| lookup_tile("dark-vector", 14, 8000 + i, 5000))
+        .collect();
+    for answer in spawn_all(rest) {
+        assert_eq!(answer, Err(502));
+    }
+    tilejson.assert_hits(1);
+}

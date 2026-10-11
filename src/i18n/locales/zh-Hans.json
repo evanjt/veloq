@@ -79,11 +79,7 @@
       "formTSB": "状态 (TSB)",
       "hrRecovery": "心率恢复",
       "hrvToday": "今日心率变异性",
-      "intensityEasy": "轻松",
       "intensityFactor": "强度因子",
-      "intensityHard": "高强度",
-      "intensityModerate": "中等",
-      "intensityVeryHard": "极高强度",
       "max": "最大 {{value}}",
       "maxLabel": "最大值",
       "newGround": "新区域",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "身份验证失败",
     "webdavTestMethodNotAllowed": "请检查 WebDAV 地址格式。服务器在此路径不接受 PROPFIND",
     "webdavTestStatus": "服务器返回 {{code}}",
-    "moreInfo": "更多信息",
+    "aboutTopic": "关于{{title}}",
     "sectionBackup": "备份",
     "sectionRestore": "恢复",
     "sectionDestinations": "保存位置",
@@ -561,8 +557,18 @@
       "thisYear": "今年",
       "lastYear": "去年"
     },
-    "noActivities": "未找到活动",
     "noMatchingActivities": "无匹配活动",
+    "emptyLibrary": {
+      "pausedTitle": "同步已暂停",
+      "pausedBody": "你的活动在 intervals.icu 上，同步恢复后会下载。",
+      "authExpiredTitle": "登录以下载你的活动",
+      "signInAgain": "重新登录",
+      "failedTitle": "你的活动尚未下载",
+      "failedBody": "上次同步在任何活动到达前就停止了。",
+      "emptyTitle": "暂无活动",
+      "emptyBody": "活动来自你的 intervals.icu 账户，也可以在这里记录。",
+      "record": "记录活动"
+    },
     "searchPlaceholder": "搜索活动...",
     "streamConsentTitle": "下载缺失的活动数据？",
     "streamConsentBody_one": "有 {{count}} 项活动缺少心率、功率和踏频数据序列。下载约使用 {{megabytes}} MB 流量。",
@@ -600,7 +606,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "加载体能数据失败",
     "fatigueDescription": "是您训练负荷的 7 天指数加权移动平均值。",
     "fitnessAndFatigue": "体能与疲劳",
     "fitnessDescription": "是您训练负荷的 42 天指数加权移动平均值。",
@@ -859,8 +864,9 @@
       "ratioFormula": "比例 = 优势侧加权组数 / 次要侧加权组数"
     },
     "viewInDetail": "查看详情",
+    "routesDisabledDescription": "您的路段已保留，启用匹配后即可再次打开。",
     "routesDisabledLine1": "路线和路段已禁用",
-    "routesDisabledLine2": "点击启用",
+    "routesDisabledLine2": "启用路线和路段",
     "strengthProgression": {
       "upTitle": "{{muscle}}的训练量明显增长",
       "downTitle": "{{muscle}}的训练量有所回落",
@@ -932,6 +938,12 @@
       "openFitness": "打开体能图表",
       "openStrength": "打开力量训练",
       "openDetail": "打开详情"
+    },
+    "verdict": {
+      "good": "良好",
+      "warning": "注意",
+      "concern": "需关注",
+      "neutral": "中性"
     }
   },
   "licenses": {
@@ -1202,6 +1214,7 @@
     "permissionExplanation": "Veloq需要您的授权才能将活动上传到intervals.icu",
     "permissionNeeded": "上传活动需要授权",
     "rec": "录制",
+    "resumeLater": "稍后",
     "resumePrevious": "恢复之前的录制？",
     "resumePreviousMessage": "开始于 {{startTime}} 的录制在移动时间 {{duration}} 时中断。放弃将永久删除该录制。",
     "reviewActivity": "查看活动",
@@ -1224,6 +1237,10 @@
     "settingsDataFields": "数据字段",
     "settingsUnits": "单位",
     "slideToUnlock": "滑动解锁",
+    "lockControls": "锁定控件",
+    "unlockControls": "解锁控件",
+    "controlsLocked": "控件已锁定",
+    "controlsUnlocked": "控件已解锁",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "开始活动",
     "status": {
@@ -1239,7 +1256,10 @@
     },
     "trimActivity": "裁剪活动",
     "trimmed": "已裁剪",
-    "uploadErrorMessage": "无法上传活动：{{error}}",
+    "uploadRejected": "intervals.icu 拒绝了此文件。骑行已保留在我的录制中。",
+    "uploadMissing": "此骑行的文件已不在设备上，因此无法上传。",
+    "uploadFailed": "无法上传活动。它已保存在此设备上。",
+    "openInRecordings": "在我的录制中打开",
     "writePermissionNotGranted": "写入权限未授予",
     "writePermissionRequired": "需要写入权限",
     "savedLocally": "活动已保存到此设备。你可以随时在我的录制中上传。",
@@ -1589,6 +1609,7 @@
     "nameTaken": "已有其他路段使用此名称，请选择其他名称。",
     "undoExcludeLap": "撤销 第{{n}}圈",
     "excludeLapNumber": "排除 第{{n}}圈",
+    "mergeFailed": "无法合并路段。",
     "deleteFailed": "无法删除路段。"
   },
   "settings": {
@@ -1769,7 +1790,11 @@
     "sectionSameTraffic": "路线拆分灵敏度: {{value}}",
     "sectionParamPastClamp": "超过此处的数值，检测器不再加以区分。",
     "sectionParamPastRange": "这些设置超出了已测试的范围。",
+    "sectionParamEditHint": "输入数值",
     "sectionParamRange": "测试范围 {{min}} 至 {{max}}",
+    "sectionParamInvalid": "请输入大于 0 的数字。",
+    "sectionParamInvalidWhole": "请输入不小于 1 的整数。",
+    "groupingParamInvalidPercent": "请输入 1 到 100 之间的百分比。",
     "sectionPresetDefault": "默认",
     "sectionPresetRelaxed": "宽松",
     "sectionPresetStrict": "严格",
@@ -1822,16 +1847,15 @@
     "elevationBackfillPaused": "海拔下载已暂停。要继续，请开启路线匹配。",
     "elevationBackfillSwitchedOff": "路线匹配已关闭，海拔下载已停止。",
     "exportPrivacyTitle": "导出时不包含住所",
-    "exportPrivacyDescription": "裁去每条轨迹中距住所 {{radius}} 米以内的起点和终点。只有导出的副本会被缩短。",
+    "exportPrivacyDescription": "裁去每条轨迹中距住所 {{radius}} 以内的起点和终点。只有导出的副本会被缩短。",
     "exportPrivacySuggested_one": "你的大部分骑行都从同一个地方出发，其中 {{count}} 次。占所有骑行终点的{{share}}%。",
     "exportPrivacySuggested_other": "你的大部分骑行都从同一个地方出发，其中 {{count}} 次。占所有骑行终点的{{share}}%。",
     "exportPrivacyConfirm": "设为住所",
     "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。",
     "exportPrivacyNeedsHome": "设置住所之前保持关闭。请使用下方建议的位置，或点按地图。",
     "exportPrivacyNeedsHomeNoSuggestion": "设置住所之前保持关闭。",
-    "exportPrivacyCount": "在 {{radius}} 米范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
+    "exportPrivacyCount": "在 {{radius}} 范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
     "exportPrivacyNothingTrimmed": "不做任何裁剪，导出包含完整轨迹。",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "点按地图移动住所位置。",
     "previewRouteGrouping": "预览路线分组",
     "groupingMatchShare": "重合 {{percent}}% 即视为同一路线",
@@ -1921,7 +1945,7 @@
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
     "year": "年",
-    "atWeight": "按 {{kg}} kg"
+    "atWeight": "按 {{weight}}"
   },
   "statsScreen": {
     "decoupling": "有氧效率",
@@ -2207,6 +2231,33 @@
       "noData": "已连接，无数据",
       "reconnecting": "正在重新连接…",
       "disconnected": "未连接"
+    },
+    "purpose": "蓝牙用于查找并连接心率、功率和踏频传感器。",
+    "noneFound": "未找到传感器",
+    "noneFoundHint": "佩戴心率带或转动曲柄以唤醒传感器，并让它靠近手机。",
+    "scanAgain": "重新扫描",
+    "availability": {
+      "unsupportedTitle": "此设备不支持低功耗蓝牙",
+      "unsupportedHint": "心率、功率和踏频传感器需要低功耗蓝牙。",
+      "poweredOffTitle": "蓝牙已关闭",
+      "poweredOffHint": "打开蓝牙以查找并连接传感器。",
+      "poweredOffHintIos": "请在控制中心或设置中打开蓝牙，以查找并连接传感器。",
+      "turnOn": "打开蓝牙",
+      "permissionTitle": "需要蓝牙权限",
+      "permissionHint": "允许访问附近的设备，以查找并连接传感器。",
+      "blockedHint": "请在设置中允许访问附近的设备，以查找并连接传感器。",
+      "locationPermissionTitle": "需要位置权限",
+      "locationPermissionHint": "在此 Android 版本上，查找蓝牙传感器需要位置权限。",
+      "locationBlockedHint": "在此 Android 版本上，查找蓝牙传感器需要位置权限。请在设置中允许。",
+      "allow": "允许",
+      "locationOffTitle": "位置信息已关闭",
+      "locationOffHint": "在此 Android 版本上，查找蓝牙传感器需要打开位置信息。",
+      "openLocationSettings": "打开位置设置"
+    },
+    "issue": {
+      "bluetoothOff": "蓝牙已关闭",
+      "permission": "需要蓝牙权限",
+      "unsupported": "蓝牙不可用"
     }
   },
   "sectionHistory": {
@@ -2221,6 +2272,7 @@
     "current": "当前",
     "revert": "恢复",
     "revertConfirm": "将版本{{version}}恢复为该路段的线路？在你取消固定前，检测会一直保持它。",
+    "revertFailed": "无法恢复此版本。",
     "unpin": "取消固定",
     "showOnMap": "在地图上显示",
     "hideOnMap": "隐藏",

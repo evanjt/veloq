@@ -164,24 +164,30 @@ export function indexNewActivity(
   }
 }
 
-export function mergeSections(
+/**
+ * Merge the secondary section into the primary, off the JS thread: it
+ * re-matches the rides of both. It shares the one section-edit slot, so it is
+ * refused while another section edit runs. Resolves with the kept section and
+ * the rides that left it, or null when it failed or was refused.
+ */
+export async function runSectionMerge(
   host: DelegateHost,
   primaryId: string,
   secondaryId: string
-): FfiMergeOutcome | null {
+): Promise<FfiMergeOutcome | null> {
   if (!host.ready) return null;
   validateId(primaryId, 'primary section ID');
   validateId(secondaryId, 'secondary section ID');
   try {
-    const result = host.timed('mergeSections', () =>
-      host.engine.sections().mergeSections(primaryId, secondaryId)
+    const result = await host.timedAsync('runSectionMerge', () =>
+      host.engine.sections().runSectionMerge(primaryId, secondaryId)
     );
     host.notify('sections');
     host.notify('groups');
     return result;
   } catch (e) {
     // empty-on-error: a write; null is its failure and every outcome is a record.
-    console.error('[Engine] mergeSections failed:', e);
+    console.error('[Engine] runSectionMerge failed:', e);
     return null;
   }
 }

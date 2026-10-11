@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: typography.caption.fontSize,
-    fontFamily: 'monospace',
+    fontFamily: typography.code.fontFamily,
     flex: 1,
   },
 });

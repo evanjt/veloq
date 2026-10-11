@@ -79,11 +79,7 @@
       "formTSB": "Tagesform (TSB)",
       "hrRecovery": "Puls-Erholig",
       "hrvToday": "HRV hüt",
-      "intensityEasy": "Locker",
       "intensityFactor": "Intensität",
-      "intensityHard": "Hart",
-      "intensityModerate": "Moderat",
-      "intensityVeryHard": "Sehr hart",
       "max": "Maximum {{value}}",
       "maxLabel": "Max",
       "newGround": "Neues Terrain",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "Authentifizierung fehlgeschlagen",
     "webdavTestMethodNotAllowed": "Prüfe das Format deiner WebDAV-Adresse. Der Server akzeptiert PROPFIND auf diesem Pfad nicht",
     "webdavTestStatus": "Server antwortete mit {{code}}",
-    "moreInfo": "Mehr Informationen",
+    "aboutTopic": "Info zu {{title}}",
     "sectionBackup": "Sicherung",
     "sectionRestore": "Wiederherstellen",
     "sectionDestinations": "Ziele",
@@ -561,8 +557,10 @@
       "thisYear": "Dieses Jahr",
       "lastYear": "Letztes Jahr"
     },
-    "noActivities": "Nüüt da, gäll",
     "noMatchingActivities": "Nüüt passends gfunde",
+    "emptyLibrary": {
+      "emptyTitle": "Nonig nüüt da, gäll"
+    },
     "searchPlaceholder": "Sueche...",
     "streamConsentTitle": "Fehlendi Aktivitätsdate lade?",
     "streamConsentBody_one": "Bi {{count}} Aktivitäte fehled d Reihe für Herzfrequänz, Leischtig und Trittfrequänz. Dr Download bruucht öppe {{megabytes}} MB Date.",
@@ -600,7 +598,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Gopferteckel, hät nöd klappet!",
     "fatigueDescription": "isch en 7-Täg-Schnitt vo dim Training.",
     "fitnessAndFatigue": "Fitness & Müedigkeit",
     "fitnessDescription": "isch en 42-Täg-Schnitt vo dim Training.",
@@ -859,8 +856,9 @@
       "ratioFormula": "Verhältnis = dominante gewichtete Sätze / sekundäre gewichtete Sätze"
     },
     "viewInDetail": "Im Detail luege",
+    "routesDisabledDescription": "Dini Abschnitt bliibed gspeicheret und gönd wieder uf, sobald dr Abgliich iigschaltet isch.",
     "routesDisabledLine1": "Route & Abschnitt deaktiviert",
-    "routesDisabledLine2": "Tipp zum Aktiviere",
+    "routesDisabledLine2": "Route & Abschnitt iischalte",
     "strengthProgression": {
       "upTitle": "{{muscle}}-Volumen legt sichtbar zu",
       "downTitle": "{{muscle}}-Volumen hat nachgelassen",
@@ -932,6 +930,12 @@
       "openFitness": "Fitnäss-Diagramm uftue",
       "openStrength": "Chrafttraining uftue",
       "openDetail": "Details uftue"
+    },
+    "verdict": {
+      "good": "Gut",
+      "warning": "Achtung",
+      "concern": "Bedenklich",
+      "neutral": "Neutral"
     }
   },
   "licenses": {
@@ -1201,6 +1205,7 @@
     "permissionExplanation": "Veloq bruucht dini Erlaubnis zum Aktivitäte uf intervals.icu ufelade",
     "permissionNeeded": "Berächtigung zum Uflade vo Aktivitäte nötig",
     "rec": "REC",
+    "resumeLater": "Spöter",
     "resumePrevious": "Vorhärigi Ufnahm wiiterfahre?",
     "resumePreviousMessage": "E Ufnahm, gstartet am {{startTime}}, isch nach {{duration}} Bewegigszit unterbroche worde. Verwerfe löscht si für immer.",
     "reviewActivity": "Aktivität prüefe",
@@ -1223,6 +1228,10 @@
     "settingsDataFields": "Datefelder",
     "settingsUnits": "Einheite",
     "slideToUnlock": "Zum Entsperre schiebe",
+    "lockControls": "Steuerig sperre",
+    "unlockControls": "Steuerig entsperre",
+    "controlsLocked": "Steuerig gsperrt",
+    "controlsUnlocked": "Steuerig entsperrt",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Aktivität starte",
     "status": {
@@ -1238,7 +1247,10 @@
     },
     "trimActivity": "Aktivität zschnide",
     "trimmed": "Gekürzt",
-    "uploadErrorMessage": "Aktivität hät nöd chönne ueglade wärde: {{error}}",
+    "uploadRejected": "intervals.icu hät die Datei abglehnt. D Fahrt isch in Meine Aufzeichnungen gspeicheret.",
+    "uploadMissing": "D Datei vo dere Fahrt isch nüme uf em Gerät, drum chan sie nöd ueglade wärde.",
+    "uploadFailed": "D Aktivität hät nöd chönne ueglade wärde. Sie isch uf dem Gerät gspeicheret.",
+    "openInRecordings": "In Meine Aufzeichnungen öffne",
     "writePermissionNotGranted": "Schriibberächtigung nöd erteilt",
     "writePermissionRequired": "Schriibberächtigung nötig",
     "savedLocally": "Aktivität auf diesem Gerät gespeichert. Du kannst sie jederzeit über Meine Aufzeichnungen hochladen.",
@@ -1572,6 +1584,7 @@
     "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen.",
     "undoExcludeLap": "Rückgängig Runde {{n}}",
     "excludeLapNumber": "Ausschließen Runde {{n}}",
+    "mergeFailed": "D Abschnitt händ nöd chönne zämegfüegt wärde.",
     "deleteFailed": "De Abschnitt het nöd chönne glöscht wärde."
   },
   "settings": {
@@ -1752,7 +1765,11 @@
     "sectionSameTraffic": "Empfindlichkeit vo de Routeteilig: {{value}}",
     "sectionParamPastClamp": "Darüber hinaus unterscheidet die Erkennung die Werte nicht mehr.",
     "sectionParamPastRange": "Diese Einstellungen liegen außerhalb des getesteten Bereichs.",
+    "sectionParamEditHint": "Wert eingeben",
     "sectionParamRange": "Getesteter Bereich {{min}} bis {{max}}",
+    "sectionParamInvalid": "Gib e Zahl über 0 ii.",
+    "sectionParamInvalidWhole": "Gib e ganzi Zahl ab 1 ii.",
+    "groupingParamInvalidPercent": "Gib e Prozäntwärt vo 1 bis 100 ii.",
     "sectionPresetDefault": "Standard",
     "sectionPresetRelaxed": "Locker",
     "sectionPresetStrict": "Streng",
@@ -1805,16 +1822,15 @@
     "elevationBackfillPaused": "Höhendaten-Download pausiert. Zum Fortsetzen muss Route-Matching eingeschaltet sein.",
     "elevationBackfillSwitchedOff": "Höhendaten-Download gestoppt, weil Route-Matching ausgeschaltet ist.",
     "exportPrivacyTitle": "Zuhause aus Exporten heraushalten",
-    "exportPrivacyDescription": "Kürzt Anfang und Ende jeder Aufzeichnung im Umkreis von {{radius}} m um das Zuhause. Nur die exportierte Kopie wird gekürzt.",
+    "exportPrivacyDescription": "Kürzt Anfang und Ende jeder Aufzeichnung im Umkreis von {{radius}} um das Zuhause. Nur die exportierte Kopie wird gekürzt.",
     "exportPrivacySuggested_one": "Die meisten deiner Fahrten starten in der Nähe eines Ortes, {{count}} davon. {{share}} % aller Fahrtenden.",
     "exportPrivacySuggested_other": "Die meisten deiner Fahrten starten in der Nähe eines Ortes, {{count}} davon. {{share}} % aller Fahrtenden.",
     "exportPrivacyConfirm": "Als Zuhause verwenden",
     "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen.",
     "exportPrivacyNeedsHome": "Aus, bis ein Zuhause festgelegt ist. Nimm den vorgeschlagenen Ort unten oder tippe auf die Karte.",
     "exportPrivacyNeedsHomeNoSuggestion": "Aus, bis ein Zuhause festgelegt ist.",
-    "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}} m. Es wird nichts gelöscht.",
+    "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}}. Es wird nichts gelöscht.",
     "exportPrivacyNothingTrimmed": "Es wird nichts gekürzt. Exporte enthalten den vollständigen Track.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben.",
     "previewRouteGrouping": "Routengruppierung testen",
     "groupingMatchShare": "Gleiche Route bei {{percent}}% Überlappung",
@@ -1901,7 +1917,7 @@
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
     "year": "Jahr",
-    "atWeight": "bei {{kg}} kg"
+    "atWeight": "bei {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Aerobi Effizienz",
@@ -2176,6 +2192,33 @@
       "noData": "Verbunden, keine Daten",
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
+    },
+    "purpose": "Bluetooth wird verwendet, um Herzfrequenz-, Leistungs- und Trittfrequenzsensoren zu finden und zu verbinden.",
+    "noneFound": "Keine Sensoren gefunden",
+    "noneFoundHint": "Wecke den Sensor, indem du den Gurt anlegst oder die Kurbel drehst, und halte ihn in die Nähe des Telefons.",
+    "scanAgain": "Erneut suchen",
+    "availability": {
+      "unsupportedTitle": "Dieses Gerät hat kein Bluetooth LE",
+      "unsupportedHint": "Herzfrequenz-, Leistungs- und Trittfrequenzsensoren benötigen Bluetooth LE.",
+      "poweredOffTitle": "Bluetooth ist aus",
+      "poweredOffHint": "Schalte Bluetooth ein, um Sensoren zu finden und zu verbinden.",
+      "poweredOffHintIos": "Schalte Bluetooth im Kontrollzentrum oder in den Einstellungen ein, um Sensoren zu finden und zu verbinden.",
+      "turnOn": "Bluetooth einschalten",
+      "permissionTitle": "Bluetooth-Berechtigung erforderlich",
+      "permissionHint": "Erlaube den Zugriff auf Geräte in der Nähe, um Sensoren zu finden und zu verbinden.",
+      "blockedHint": "Erlaube den Zugriff auf Geräte in der Nähe in den Einstellungen, um Sensoren zu finden und zu verbinden.",
+      "locationPermissionTitle": "Standortberechtigung erforderlich",
+      "locationPermissionHint": "Auf dieser Android-Version braucht die Suche nach Bluetooth-Sensoren die Standortberechtigung.",
+      "locationBlockedHint": "Auf dieser Android-Version braucht die Suche nach Bluetooth-Sensoren die Standortberechtigung. Erlaube sie in den Einstellungen.",
+      "allow": "Erlauben",
+      "locationOffTitle": "Standort ist aus",
+      "locationOffHint": "Auf dieser Android-Version braucht die Suche nach Bluetooth-Sensoren einen eingeschalteten Standort.",
+      "openLocationSettings": "Standorteinstellungen öffnen"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth aus",
+      "permission": "Bluetooth-Berechtigung erforderlich",
+      "unsupported": "Bluetooth nicht verfügbar"
     }
   },
   "sectionHistory": {
@@ -2190,6 +2233,7 @@
     "current": "Aktuell",
     "revert": "Zurücksetzen",
     "revertConfirm": "Version {{version}} als Linie dieses Abschnitts zurücksetzen? Die Erkennung hält sie, bis du sie löst.",
+    "revertFailed": "D Version het nöd chönne zruggholt wärde.",
     "unpin": "Lösen",
     "showOnMap": "Auf Karte zeigen",
     "hideOnMap": "Ausblenden",

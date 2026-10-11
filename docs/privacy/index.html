@@ -320,7 +320,7 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 9 October 2026
+          Last updated: 10 October 2026
         </p>
 
         <div class="highlight-box">
@@ -384,13 +384,25 @@
         <p data-i18n="backup.contents">Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.</p>
         <p data-i18n="backup.off">Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.</p>
 
+        <h2 data-i18n="permissions.title">Device Permissions</h2>
+        <p data-i18n="permissions.intro">What each permission the app asks for is used for, and where the data goes:</p>
+        <ul>
+          <li data-i18n="permissions.location"><strong>Location</strong>. Records the GPS track of an activity you record, shows your position on the map, and sorts routes and sections by distance from you. While you record, Android runs a location foreground service with a notification and iOS keeps location on in the background, so the track continues with the screen off. Location is not read in the background when you are not recording. Positions stay on your device, except as described under Place names, and a recorded activity goes only to intervals.icu when it uploads</li>
+          <li data-i18n="permissions.bluetooth"><strong>Bluetooth</strong>. Connects heart rate, power and cadence sensors while you record, including with the screen off. Sensor readings are kept with the recording on your device and go only to intervals.icu with it</li>
+          <li data-i18n="permissions.camera"><strong>Camera</strong>. Only to scan a Nextcloud login QR code when you set up a backup server. No image is kept or sent</li>
+          <li data-i18n="permissions.notifications"><strong>Notifications</strong>. Shows a recording in progress and the activity insights generated on your device, and, if you opt in, the push notifications described below</li>
+        </ul>
+
+        <h2 data-i18n="purchases.title">Purchases</h2>
+        <p data-i18n="purchases.content">Optional tips are in-app purchases handled by Apple or Google billing. Veloq receives no payment details: the store tells the app only that a purchase completed.</p>
+
         <h2 data-i18n="thirdParty.title">Third-Party Services</h2>
 
         <h3 data-i18n="thirdParty.intervals.title">intervals.icu</h3>
         <p data-i18n="thirdParty.intervals.desc">Your fitness data source. See their <a href="https://intervals.icu/privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="https://forum.intervals.icu/tos" target="_blank">Terms of Service</a>.</p>
 
         <h3 data-i18n="thirdParty.maps.title">Map Tile Providers</h3>
-        <p data-i18n="thirdParty.maps.desc">Standard web requests, no personal data sent:</p>
+        <p data-i18n="thirdParty.maps.desc">Each tile request carries your device's IP address and the coordinates of the map area shown, with no account or athlete ID:</p>
         <ul>
           <li data-i18n="thirdParty.maps.base">Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)</li>
           <li data-i18n="thirdParty.maps.satellite">Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl) and Luxembourg (wmts1-4.geoportail.lu)</li>
@@ -437,7 +449,7 @@
         <h3 data-i18n="pushNotifications.whatStored.title">What is stored when you opt in</h3>
         <ul>
           <li data-i18n="pushNotifications.whatStored.item1">Your athlete ID and an Expo push token are stored on auth.veloq.fit (Cloudflare KV) with automatic 30-day expiry</li>
-          <li data-i18n="pushNotifications.whatStored.item2">This is the only data stored on our server, no activity data, GPS, fitness metrics, or personal information</li>
+          <li data-i18n="pushNotifications.whatStored.item2">Beyond the short-lived records listed under Cloudflare Workers, nothing else about you is kept on our server: no activity data, GPS or fitness metrics</li>
           <li data-i18n="pushNotifications.whatStored.item3">Your push token is re-registered each time you open the app (refreshing the 30-day TTL)</li>
         </ul>
 
@@ -460,7 +472,7 @@
 
         <h2 data-i18n="dataSharing.title">Data Sharing</h2>
         <p data-i18n="dataSharing.content">
-          None. The developer has no access to your data. Data flows between your device and intervals.icu, the map tile servers named above (no identifying data) and, only when you turn them on, push notifications and the backup destinations named above.
+          None. The developer has no access to your data. Data flows between your device and intervals.icu, the map tile servers named above (your IP address and the map area shown, no account) and, only when you turn them on, place names, push notifications and the backup destinations named above.
         </p>
 
         <h2 data-i18n="security.title">Security</h2>
@@ -469,7 +481,7 @@
           <li data-i18n="security.item2">HTTPS/TLS for all network requests</li>
           <li data-i18n="security.item3">OAuth state validation (CSRF protection)</li>
           <li data-i18n="security.item4">Webhook requests verified against a shared secret</li>
-          <li data-i18n="security.item5">No background telemetry or data collection</li>
+          <li data-i18n="security.item5">No background telemetry, analytics or crash reporting</li>
         </ul>
 
         <h2 data-i18n="disclaimer.title">Disclaimer</h2>
@@ -482,7 +494,7 @@
 
         <h2 data-i18n="children.title">Children's Privacy</h2>
         <p data-i18n="children.content">
-          Not intended for users under 13. No data is collected from any user.
+          Not intended for users under 13. Veloq's server keeps only what is listed above under Cloudflare Workers and Push Notifications, and the developer receives nothing else.
         </p>
 
         <h2 data-i18n="rights.title">Your Rights</h2>
@@ -542,7 +554,7 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 9 October 2026",
+          lastUpdated: "Last updated: 10 October 2026",
           overview:
             "Veloq keeps your data on your device and the developer never receives it. The app fetches your fitness data directly from intervals.icu and stores it locally for offline access. A copy leaves the device only when you turn on Automatic backup, tap Back Up Now, or export a backup yourself.",
           "authMethods.title": "Authentication Methods",
@@ -578,11 +590,19 @@
           "backup.export": "<strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes",
           "backup.contents": "Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.",
           "backup.off": "Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.",
+          "permissions.title": "Device Permissions",
+          "permissions.intro": "What each permission the app asks for is used for, and where the data goes:",
+          "permissions.location": "<strong>Location</strong>. Records the GPS track of an activity you record, shows your position on the map, and sorts routes and sections by distance from you. While you record, Android runs a location foreground service with a notification and iOS keeps location on in the background, so the track continues with the screen off. Location is not read in the background when you are not recording. Positions stay on your device, except as described under Place names, and a recorded activity goes only to intervals.icu when it uploads",
+          "permissions.bluetooth": "<strong>Bluetooth</strong>. Connects heart rate, power and cadence sensors while you record, including with the screen off. Sensor readings are kept with the recording on your device and go only to intervals.icu with it",
+          "permissions.camera": "<strong>Camera</strong>. Only to scan a Nextcloud login QR code when you set up a backup server. No image is kept or sent",
+          "permissions.notifications": "<strong>Notifications</strong>. Shows a recording in progress and the activity insights generated on your device, and, if you opt in, the push notifications described below",
+          "purchases.title": "Purchases",
+          "purchases.content": "Optional tips are in-app purchases handled by Apple or Google billing. Veloq receives no payment details: the store tells the app only that a purchase completed.",
           "thirdParty.title": "Third-Party Services",
           "thirdParty.intervals.title": "intervals.icu",
           "thirdParty.intervals.desc": 'Your fitness data source. See their <a href="https://intervals.icu/privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="https://forum.intervals.icu/tos" target="_blank">Terms of Service</a>.',
           "thirdParty.maps.title": "Map Tile Providers",
-          "thirdParty.maps.desc": "Standard web requests, no personal data sent:",
+          "thirdParty.maps.desc": "Each tile request carries your device's IP address and the coordinates of the map area shown, with no account or athlete ID:",
           "thirdParty.maps.base": "Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "3D terrain: AWS Terrain Tiles (s3.amazonaws.com)",
@@ -609,7 +629,7 @@
           "pushNotifications.intro": "Push notifications are strictly opt-in. They are disabled by default and only available to OAuth (connected) users. API key users are never prompted and no data is ever sent.",
           "pushNotifications.whatStored.title": "What is stored when you opt in",
           "pushNotifications.whatStored.item1": "Your athlete ID and an Expo push token are stored on auth.veloq.fit (Cloudflare KV) with automatic 30-day expiry",
-          "pushNotifications.whatStored.item2": "This is the only data stored on our server, no activity data, GPS, fitness metrics, or personal information",
+          "pushNotifications.whatStored.item2": "Beyond the short-lived records listed under Cloudflare Workers, nothing else about you is kept on our server: no activity data, GPS or fitness metrics",
           "pushNotifications.whatStored.item3": "Your push token is re-registered each time you open the app (refreshing the 30-day TTL)",
           "pushNotifications.howItWorks.title": "How notifications work",
           "pushNotifications.howItWorks.item1": "When intervals.icu detects a new activity, it sends a webhook event to auth.veloq.fit",
@@ -620,17 +640,17 @@
           "pushNotifications.disable.desc": "You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token when the request reaches the server; if it cannot (e.g. no internet), the app tells you, and this device may keep receiving notifications until the server data expires. In all cases, server data expires automatically after 30 days.",
           "thirdParty.noTracking": "No analytics, advertising, crash reporting, or tracking SDKs.",
           "dataSharing.title": "Data Sharing",
-          "dataSharing.content": "None. The developer has no access to your data. Data flows between your device and intervals.icu, the map tile servers named above (no identifying data) and, only when you turn them on, push notifications and the backup destinations named above.",
+          "dataSharing.content": "None. The developer has no access to your data. Data flows between your device and intervals.icu, the map tile servers named above (your IP address and the map area shown, no account) and, only when you turn them on, place names, push notifications and the backup destinations named above.",
           "security.title": "Security",
           "security.item1": "Credentials encrypted using platform secure storage",
           "security.item2": "HTTPS/TLS for all network requests",
           "security.item3": "OAuth state validation (CSRF protection)",
           "security.item4": "Webhook requests verified against a shared secret",
-          "security.item5": "No background telemetry or data collection",
+          "security.item5": "No background telemetry, analytics or crash reporting",
           "disclaimer.title": "Disclaimer",
           "disclaimer.content": 'Veloq is an independent, open-source project and is <strong>not affiliated with, endorsed by, or officially connected to intervals.icu</strong> in any way. For information about how intervals.icu handles your data, please refer to their <a href="https://intervals.icu/privacy-policy.html" target="_blank">privacy policy</a>.',
           "children.title": "Children's Privacy",
-          "children.content": "Not intended for users under 13. No data is collected from any user.",
+          "children.content": "Not intended for users under 13. Veloq's server keeps only what is listed above under Cloudflare Workers and Push Notifications, and the developer receives nothing else.",
           "rights.title": "Your Rights",
           "rights.item1": "<strong>View your data:</strong> All data is visible within the app",
           "rights.item2": "<strong>Delete your data:</strong> Uninstall the app or clear app data in device settings. A backup on a server, in a folder or in the device backup is deleted there",
@@ -646,7 +666,7 @@
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 9 de octubre de 2026",
+          lastUpdated: "Última actualización: 10 de octubre de 2026",
           overview:
             "Veloq guarda tus datos en tu dispositivo y el desarrollador nunca los recibe. La app obtiene tus datos de entrenamiento directamente de intervals.icu y los almacena localmente para acceso sin conexión. Una copia sale del dispositivo solo cuando activas la copia de seguridad automática, tocas Respaldar ahora o exportas una copia tú mismo.",
           "authMethods.title": "Métodos de Autenticación",
@@ -682,11 +702,19 @@
           "backup.export": "<strong>Exportar</strong>. Entrega una copia al menú de compartir, donde eliges adónde va",
           "backup.contents": "Respaldar ahora escribe una copia sea cual sea el ajuste de copia automática. Una copia contiene tus ajustes, incluido tu ID de atleta de intervals.icu y, si lo defines, tu ubicación de inicio de exportación, los nombres de tus rutas, las secciones que nombraste, recortaste o editaste con sus líneas de mapa, y tus pines, exclusiones e historial de secciones. No contiene credenciales, actividades, tracks GPS ni flujos de sensores. Una copia no está cifrada.",
           "backup.off": "Desactivar la copia automática detiene las copias nuevas. Las copias ya escritas permanecen donde están hasta que las borres allí, y la última permanece en la copia del dispositivo hasta que borres los datos de la app.",
+          "permissions.title": "Permisos del Dispositivo",
+          "permissions.intro": "Para qué se usa cada permiso que pide la app y adónde van los datos:",
+          "permissions.location": "<strong>Ubicación</strong>. Registra el track GPS de una actividad que grabas, muestra tu posición en el mapa y ordena rutas y secciones por distancia a ti. Mientras grabas, Android ejecuta un servicio de ubicación en primer plano con una notificación e iOS mantiene la ubicación activa en segundo plano, para que el track continúe con la pantalla apagada. La ubicación no se lee en segundo plano cuando no estás grabando. Las posiciones se quedan en tu dispositivo, salvo lo descrito en Nombres de lugares, y una actividad grabada va solo a intervals.icu cuando se sube",
+          "permissions.bluetooth": "<strong>Bluetooth</strong>. Conecta sensores de frecuencia cardíaca, potencia y cadencia mientras grabas, también con la pantalla apagada. Las lecturas de los sensores se guardan con la grabación en tu dispositivo y van solo a intervals.icu con ella",
+          "permissions.camera": "<strong>Cámara</strong>. Solo para escanear un código QR de inicio de sesión de Nextcloud cuando configuras un servidor de copias. No se guarda ni se envía ninguna imagen",
+          "permissions.notifications": "<strong>Notificaciones</strong>. Muestra una grabación en curso y los insights de actividad generados en tu dispositivo y, si las activas, las notificaciones push descritas abajo",
+          "purchases.title": "Compras",
+          "purchases.content": "Las propinas opcionales son compras dentro de la app gestionadas por la facturación de Apple o Google. Veloq no recibe ningún dato de pago: la tienda solo indica a la app que la compra se completó.",
           "thirdParty.title": "Servicios de Terceros",
           "thirdParty.intervals.title": "intervals.icu",
           "thirdParty.intervals.desc": 'Tu fuente de datos de fitness. Consulta su <a href="https://intervals.icu/privacy-policy.html" target="_blank">Política de Privacidad</a> y <a href="https://forum.intervals.icu/tos" target="_blank">Términos de Servicio</a>.',
           "thirdParty.maps.title": "Proveedores de Mapas",
-          "thirdParty.maps.desc": "Solicitudes web estándar, sin datos personales enviados:",
+          "thirdParty.maps.desc": "Cada solicitud de teselas lleva la dirección IP de tu dispositivo y las coordenadas de la zona del mapa mostrada, sin cuenta ni ID de atleta:",
           "thirdParty.maps.base": "Mapa base y oscuro: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Imágenes satelitales: EOX Sentinel-2 (tiles.maps.eox.at), y según la región " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "Terreno 3D: AWS Terrain Tiles (s3.amazonaws.com)",
@@ -713,7 +741,7 @@
           "pushNotifications.intro": "Las notificaciones push son estrictamente opcionales. Están desactivadas por defecto y solo disponibles para usuarios OAuth (conectados). Los usuarios con clave API nunca son solicitados y no se envía ningún dato.",
           "pushNotifications.whatStored.title": "Qué se almacena cuando activas las notificaciones",
           "pushNotifications.whatStored.item1": "Tu ID de atleta y un token push de Expo se almacenan en auth.veloq.fit (Cloudflare KV) con expiración automática de 30 días",
-          "pushNotifications.whatStored.item2": "Estos son los únicos datos almacenados en nuestro servidor, sin datos de actividad, GPS, métricas de fitness ni información personal",
+          "pushNotifications.whatStored.item2": "Aparte de los registros temporales indicados en Cloudflare Workers, nuestro servidor no guarda nada más sobre ti: ni datos de actividad, ni GPS, ni métricas de fitness",
           "pushNotifications.whatStored.item3": "Tu token push se re-registra cada vez que abres la app (renovando el TTL de 30 días)",
           "pushNotifications.howItWorks.title": "Cómo funcionan las notificaciones",
           "pushNotifications.howItWorks.item1": "Cuando intervals.icu detecta una nueva actividad, envía un evento webhook a auth.veloq.fit",
@@ -724,17 +752,17 @@
           "pushNotifications.disable.desc": "Puedes desactivar las notificaciones en cualquier momento en Ajustes. Desactivar envía una solicitud de eliminación a nuestro servidor. Si la solicitud falla (p. ej. sin internet), la app reintenta al abrirla de nuevo. Cerrar sesión también elimina tu token cuando la solicitud llega al servidor; si no puede (p. ej. sin internet), la app te avisa y este dispositivo puede seguir recibiendo notificaciones hasta que los datos del servidor expiren. En todos los casos, los datos del servidor expiran automáticamente después de 30 días.",
           "thirdParty.noTracking": "Sin análisis, publicidad, informes de errores ni SDKs de seguimiento.",
           "dataSharing.title": "Compartir Datos",
-          "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Los datos fluyen entre tu dispositivo e intervals.icu, los servidores de mapas indicados arriba (sin datos personales) y, solo cuando los activas, las notificaciones push y los destinos de copia de seguridad indicados arriba.",
+          "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Los datos fluyen entre tu dispositivo e intervals.icu, los servidores de mapas indicados arriba (tu dirección IP y la zona del mapa mostrada, sin cuenta) y, solo cuando los activas, los nombres de lugares, las notificaciones push y los destinos de copia de seguridad indicados arriba.",
           "security.title": "Seguridad",
           "security.item1": "Credenciales encriptadas usando almacenamiento seguro de la plataforma",
           "security.item2": "HTTPS/TLS para todas las solicitudes de red",
           "security.item3": "Validación de estado OAuth (protección CSRF)",
           "security.item4": "Las solicitudes de webhook se verifican con un secreto compartido",
-          "security.item5": "Sin telemetría en segundo plano ni recopilación de datos",
+          "security.item5": "Sin telemetría en segundo plano, análisis ni informes de errores",
           "disclaimer.title": "Aviso Legal",
           "disclaimer.content": 'Veloq es un proyecto independiente de código abierto y <strong>no está afiliado, respaldado ni conectado oficialmente con intervals.icu</strong> de ninguna manera. Para información sobre cómo intervals.icu maneja tus datos, consulta su <a href="https://intervals.icu/privacy-policy.html" target="_blank">política de privacidad</a>.',
           "children.title": "Privacidad de Menores",
-          "children.content": "No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.",
+          "children.content": "No está destinado a usuarios menores de 13 años. El servidor de Veloq conserva solo lo indicado arriba en Cloudflare Workers y Notificaciones Push, y el desarrollador no recibe nada más.",
           "rights.title": "Tus Derechos",
           "rights.item1": "<strong>Ver tus datos:</strong> Todos los datos son visibles dentro de la aplicación",
           "rights.item2": "<strong>Eliminar tus datos:</strong> Desinstala la aplicación o borra los datos de la app en la configuración del dispositivo. Una copia en un servidor, en una carpeta o en la copia del dispositivo se elimina allí",
@@ -750,7 +778,7 @@
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 9 octobre 2026",
+          lastUpdated: "Dernière mise à jour : 10 octobre 2026",
           overview:
             "Veloq garde vos données sur votre appareil et le développeur ne les reçoit jamais. L'app récupère vos données d'entraînement directement depuis intervals.icu et les stocke localement pour un accès hors ligne. Une copie ne quitte l'appareil que si vous activez la sauvegarde automatique, touchez Sauvegarder maintenant ou exportez vous-même une sauvegarde.",
           "authMethods.title": "Méthodes d'Authentification",
@@ -786,11 +814,19 @@
           "backup.export": "<strong>Export</strong>. Remet une sauvegarde à la feuille de partage, où vous choisissez sa destination",
           "backup.contents": "Sauvegarder maintenant écrit une sauvegarde quel que soit le réglage de sauvegarde automatique. Une sauvegarde contient vos réglages, dont votre ID d'athlète intervals.icu et, si vous en avez défini un, votre point de départ d'export, les noms de vos itinéraires, les sections que vous avez nommées, coupées ou modifiées avec leurs tracés, ainsi que vos épingles, exclusions et l'historique des sections. Elle ne contient ni identifiants, ni activités, ni traces GPS, ni flux de capteurs. Une sauvegarde n'est pas chiffrée.",
           "backup.off": "Désactiver la sauvegarde automatique arrête les nouvelles sauvegardes. Les copies déjà écrites restent où elles sont jusqu'à ce que vous les supprimiez là, et la dernière reste dans la sauvegarde de l'appareil jusqu'à l'effacement des données de l'app.",
+          "permissions.title": "Autorisations de l'Appareil",
+          "permissions.intro": "À quoi sert chaque autorisation demandée par l'app et où vont les données :",
+          "permissions.location": "<strong>Localisation</strong>. Enregistre la trace GPS d'une activité que vous enregistrez, affiche votre position sur la carte et trie les itinéraires et les sections selon leur distance. Pendant l'enregistrement, Android exécute un service de localisation au premier plan avec une notification et iOS garde la localisation active en arrière-plan, pour que la trace continue écran éteint. La localisation n'est pas lue en arrière-plan hors enregistrement. Les positions restent sur votre appareil, sauf comme décrit sous Noms de lieux, et une activité enregistrée ne va qu'à intervals.icu lors de son envoi",
+          "permissions.bluetooth": "<strong>Bluetooth</strong>. Connecte les capteurs de fréquence cardiaque, de puissance et de cadence pendant l'enregistrement, y compris écran éteint. Les mesures des capteurs sont conservées avec l'enregistrement sur votre appareil et ne vont qu'à intervals.icu avec lui",
+          "permissions.camera": "<strong>Caméra</strong>. Uniquement pour scanner un code QR de connexion Nextcloud lorsque vous configurez un serveur de sauvegarde. Aucune image n'est conservée ni envoyée",
+          "permissions.notifications": "<strong>Notifications</strong>. Affiche un enregistrement en cours et les insights d'activité générés sur votre appareil et, si vous les activez, les notifications push décrites plus bas",
+          "purchases.title": "Achats",
+          "purchases.content": "Les pourboires facultatifs sont des achats intégrés gérés par la facturation d'Apple ou de Google. Veloq ne reçoit aucune donnée de paiement : la boutique indique seulement à l'app que l'achat a abouti.",
           "thirdParty.title": "Services Tiers",
           "thirdParty.intervals.title": "intervals.icu",
           "thirdParty.intervals.desc": 'Votre source de données fitness. Voir leur <a href="https://intervals.icu/privacy-policy.html" target="_blank">Politique de Confidentialité</a> et <a href="https://forum.intervals.icu/tos" target="_blank">Conditions d\'Utilisation</a>.',
           "thirdParty.maps.title": "Fournisseurs de Tuiles Cartographiques",
-          "thirdParty.maps.desc": "Requêtes web standard, aucune donnée personnelle envoyée :",
+          "thirdParty.maps.desc": "Chaque requête de tuiles transmet l'adresse IP de votre appareil et les coordonnées de la zone de carte affichée, sans compte ni ID d'athlète :",
           "thirdParty.maps.base": "Carte de base et sombre: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
           "thirdParty.maps.satellite": "Imagerie satellite: EOX Sentinel-2 (tiles.maps.eox.at), et selon la région " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
           "thirdParty.maps.terrain": "Terrain 3D: AWS Terrain Tiles (s3.amazonaws.com)",
@@ -817,7 +853,7 @@
           "pushNotifications.intro": "Les notifications push sont strictement optionnelles. Elles sont désactivées par défaut et uniquement disponibles pour les utilisateurs OAuth (connectés). Les utilisateurs avec clé API ne sont jamais sollicités et aucune donnée n'est envoyée.",
           "pushNotifications.whatStored.title": "Ce qui est stocké lorsque vous activez les notifications",
           "pushNotifications.whatStored.item1": "Votre ID d'athlète et un jeton push Expo sont stockés sur auth.veloq.fit (Cloudflare KV) avec expiration automatique de 30 jours",
-          "pushNotifications.whatStored.item2": "Ce sont les seules données stockées sur notre serveur, aucune donnée d'activité, GPS, métriques de fitness ou information personnelle",
+          "pushNotifications.whatStored.item2": "Hormis les enregistrements temporaires indiqués sous Cloudflare Workers, notre serveur ne conserve rien d'autre à votre sujet : ni données d'activité, ni GPS, ni métriques de fitness",
           "pushNotifications.whatStored.item3": "Votre jeton push est ré-enregistré chaque fois que vous ouvrez l'app (renouvellement du TTL de 30 jours)",
           "pushNotifications.howItWorks.title": "Comment fonctionnent les notifications",
           "pushNotifications.howItWorks.item1": "Quand intervals.icu détecte une nouvelle activité, il envoie un événement webhook à auth.veloq.fit",
@@ -828,17 +864,17 @@
           "pushNotifications.disable.desc": "Vous pouvez désactiver les notifications à tout moment dans les Réglages. La désactivation envoie une demande de suppression à notre serveur. Si la demande échoue (par ex. pas d'internet), l'app réessaie à la prochaine ouverture. La déconnexion supprime également votre jeton. Dans tous les cas, les données du serveur expirent automatiquement après 30 jours.",
           "thirdParty.noTracking": "Pas d'analytique, publicité, rapports d'erreurs ou SDKs de suivi.",
           "dataSharing.title": "Partage de Données",
-          "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Les données transitent entre votre appareil et intervals.icu, les serveurs de tuiles cités plus haut (sans données personnelles) et, uniquement si vous les activez, les notifications push et les destinations de sauvegarde citées plus haut.",
+          "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Les données transitent entre votre appareil et intervals.icu, les serveurs de tuiles cités plus haut (votre adresse IP et la zone de carte affichée, sans compte) et, uniquement si vous les activez, les noms de lieux, les notifications push et les destinations de sauvegarde citées plus haut.",
           "security.title": "Sécurité",
           "security.item1": "Identifiants chiffrés via le stockage sécurisé de la plateforme",
           "security.item2": "HTTPS/TLS pour toutes les requêtes réseau",
           "security.item3": "Validation d'état OAuth (protection CSRF)",
           "security.item4": "Les requêtes webhook sont vérifiées avec un secret partagé",
-          "security.item5": "Pas de télémétrie en arrière-plan ni collecte de données",
+          "security.item5": "Pas de télémétrie en arrière-plan, d'analytique ni de rapports d'erreurs",
           "disclaimer.title": "Avertissement",
           "disclaimer.content": 'Veloq est un projet open-source indépendant et n\'est <strong>pas affilié, approuvé ou officiellement connecté à intervals.icu</strong> de quelque manière que ce soit. Pour plus d\'informations sur la façon dont intervals.icu gère vos données, veuillez consulter leur <a href="https://intervals.icu/privacy-policy.html" target="_blank">politique de confidentialité</a>.',
           "children.title": "Confidentialité des Enfants",
-          "children.content": "Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n'est collectée auprès d'aucun utilisateur.",
+          "children.content": "Non destiné aux utilisateurs de moins de 13 ans. Le serveur de Veloq ne conserve que ce qui est indiqué plus haut sous Cloudflare Workers et Notifications Push, et le développeur ne reçoit rien d'autre.",
           "rights.title": "Vos Droits",
           "rights.item1": "<strong>Voir vos données :</strong> Toutes les données sont visibles dans l'application",
           "rights.item2": "<strong>Supprimer vos données :</strong> Désinstallez l'application ou effacez les données dans les paramètres de l'appareil. Une sauvegarde sur un serveur, dans un dossier ou dans la sauvegarde de l'appareil est supprimée à cet endroit",

@@ -12,7 +12,6 @@ import { renderHook } from '@testing-library/react-native';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { colors } from '@/theme';
 import {
   getFormZone,
   FORM_ZONE_TEXT_COLORS,
@@ -38,12 +37,6 @@ function formStat(wellness?: WellnessData, isDark = false) {
     useActivityStats({ activity, wellness, isDark, ...settings })
   );
   return result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
-}
-
-function loadStat(intensity: number) {
-  const withLoad = { ...activity, icu_training_load: 60, icu_intensity: intensity } as Activity;
-  const { result } = renderHook(() => useActivityStats({ activity: withLoad, ...settings }));
-  return result.current.stats.find((s) => s.title === 'activity.stats.trainingLoad');
 }
 
 describe('the activity card form band', () => {
@@ -84,39 +77,84 @@ describe('the activity card form band', () => {
 });
 
 /**
- * Expected behaviour: the icon's colour bands the session and the context line
- * names the band, so neither the intensity nor the form zone reaches the
- * athlete through hue alone.
+ * Expected behaviour: the form card names the zone its colour shows, so the
+ * zone never reaches the athlete through hue alone.
  */
-describe('a card that colours by band also names it', () => {
+describe('the form card names its zone', () => {
+  it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', (tsb) => {
+    const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
+    expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
+  });
+});
+
+/**
+ * Expected behaviour: the training load, heart rate and conditions cards show
+ * the number and nothing the app judges about it. Each takes one colour
+ * whatever the value, and the load card states the intensity factor without a
+ * band word.
+ */
+describe('a card grades nothing the data source does not', () => {
+  function stats(fields: Partial<Activity>, isDark = false) {
+    const { result } = renderHook(() =>
+      useActivityStats({ activity: { ...activity, ...fields } as Activity, isDark, ...settings })
+    );
+    return result.current.stats;
+  }
+  const titled = (title: string, fields: Partial<Activity>, isDark = false) =>
+    stats(fields, isDark).find((s) => s.title === title);
+
   it('omits intensity when a stored activity has load but no intensity', () => {
-    const withLoad = { ...activity, icu_training_load: 60 } as Activity;
-    const { result } = renderHook(() => useActivityStats({ activity: withLoad, ...settings }));
-    const stat = result.current.stats.find((s) => s.title === 'activity.stats.trainingLoad');
+    const stat = titled('activity.stats.trainingLoad', { icu_training_load: 60 });
 
     expect(stat?.value).toBe('60');
     expect(stat?.context).toBeUndefined();
-    expect(stat?.color).toBe(colors.textSecondary);
     expect(
       stat?.details?.find((detail) => detail.label === 'activity.stats.intensityFactor')
     ).toBeUndefined();
   });
 
-  it.each([
-    [0, 'activity.stats.intensityEasy'],
-    [60, 'activity.stats.intensityEasy'],
-    [70, 'activity.stats.intensityEasy'],
-    [78, 'activity.stats.intensityModerate'],
-    [85, 'activity.stats.intensityModerate'],
-    [92, 'activity.stats.intensityHard'],
-    [100, 'activity.stats.intensityHard'],
-    [105, 'activity.stats.intensityVeryHard'],
-  ])('names the band for an IF of %d', (intensity, key) => {
-    expect(loadStat(intensity)?.context).toBe(`IF ${intensity}% · ${key}`);
+  it.each([false, true])('colours training load the same at every intensity (dark %s)', (dark) => {
+    const colours = [undefined, 0, 60, 78, 92, 100, 105, 140].map(
+      (intensity) =>
+        titled(
+          'activity.stats.trainingLoad',
+          { icu_training_load: 60, icu_intensity: intensity },
+          dark
+        )?.color
+    );
+    expect(colours[0]).toBeDefined();
+    expect(new Set(colours).size).toBe(1);
   });
 
-  it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', (tsb) => {
-    const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
-    expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
+  it.each([0, 60, 70, 78, 85, 92, 100, 105])(
+    'states an IF of %d with no band word',
+    (intensity) => {
+      const stat = titled('activity.stats.trainingLoad', {
+        icu_training_load: 60,
+        icu_intensity: intensity,
+      });
+      expect(stat?.context).toBe(`IF ${intensity}%`);
+    }
+  );
+
+  it.each([false, true])('colours heart rate the same at every share of max (dark %s)', (dark) => {
+    const colours = [0.5, 0.6, 0.8, 0.81, 0.9, 0.95, 1.05].map(
+      (share) =>
+        titled(
+          'activity.heartRate',
+          { average_heartrate: Math.round(settings.maxHR * share) },
+          dark
+        )?.color
+    );
+    expect(colours[0]).toBeDefined();
+    expect(new Set(colours).size).toBe(1);
+  });
+
+  it.each([false, true])('colours conditions the same at every temperature (dark %s)', (dark) => {
+    const colours = [-10, 0, 9, 10, 20, 28, 29, 40].map(
+      (temp) => titled('activity.stats.conditions', { average_temp: temp }, dark)?.color
+    );
+    expect(colours[0]).toBeDefined();
+    expect(new Set(colours).size).toBe(1);
   });
 });

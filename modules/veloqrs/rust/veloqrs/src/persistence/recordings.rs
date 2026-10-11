@@ -10,7 +10,7 @@
 //! reads and writes does, and splitting the two is how a load-modify-save over
 //! one AsyncStorage key came to need a promise chain around every access.
 
-use rusqlite::{Connection, Result as SqlResult, Row, params};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params};
 
 use super::PersistentEngine;
 
@@ -268,8 +268,9 @@ pub enum UploadTransition {
     PermissionBlocked { install: f64 },
     /// A credential was refused. The ride waits with its attempts intact.
     HeldForAuth { install: f64, error: String },
-    /// The transport failed before intervals.icu was reached. The ride waits
-    /// with its attempts intact, stamped so the backoff still applies.
+    /// The transport failed, before or after the request reached
+    /// intervals.icu. The ride waits with its attempts intact, stamped so the
+    /// backoff still applies.
     HeldForNetwork { install: f64, error: String },
     /// A manual retry, or a requeue after an upgrade: back to `pending` with a
     /// clean slate.
@@ -443,7 +444,7 @@ impl PersistentEngine {
                 intervals_activity_id,
                 ..
             } => conn.execute(
-                "UPDATE recordings SET upload_status = 'uploaded', intervals_activity_id = ?,                  last_error = NULL WHERE id = ? AND upload_status = ?",
+                "UPDATE recordings SET upload_status = 'uploaded', intervals_activity_id = ?,                  last_error = NULL, upload_in_doubt = 0 WHERE id = ? AND upload_status = ?",
                 params![intervals_activity_id, id, was],
             )?,
             UploadTransition::Failed { error, .. } => conn.execute(
@@ -670,7 +671,9 @@ impl PersistentEngine {
     /// retry does not look. The attempt is counted, the same as any other that
     /// did not report back: a kill that keeps happening would otherwise retry
     /// the same ride forever. After the last attempt it parks as `failed`,
-    /// which is still manually retriable, and the FIT is never deleted.
+    /// which is still manually retriable, and the FIT is never deleted. The
+    /// request may have landed before the kill, so the ride is left in doubt
+    /// and its next attempt looks for it on the server first.
     pub fn release_stranded_uploads(&self, now: i64) -> SqlResult<u32> {
         let changed = self.db.execute(
             &format!(
@@ -678,6 +681,7 @@ impl PersistentEngine {
              SET retry_count = retry_count + 1, \
                  last_attempt_at = ?, \
                  last_error = 'The app closed while this ride was uploading', \
+                 upload_in_doubt = 1, \
                  upload_status = CASE WHEN retry_count + 1 >= ? THEN 'failed' ELSE 'pending' END \
              WHERE {}",
                 UploadMove::ReleaseStranded.leaving_clause()
@@ -692,6 +696,30 @@ impl PersistentEngine {
         }
         crate::net::connectivity::nudge();
         Ok(changed as u32)
+    }
+
+    /// Whether an earlier attempt at the ride may have created its activity
+    /// without the answer saying so. `None` when no recording has the id.
+    pub fn recording_upload_in_doubt(&self, id: &str) -> SqlResult<Option<bool>> {
+        self.db
+            .query_row(
+                "SELECT upload_in_doubt FROM recordings WHERE id = ?",
+                [id],
+                |r| r.get::<_, i64>(0).map(|v| v != 0),
+            )
+            .optional()
+    }
+
+    /// Mark the ride as having an attempt whose outcome is unknown, before the
+    /// request goes out, or clear the mark once an answer or a look at the
+    /// server has settled it. Written ahead of the request, so an app killed
+    /// mid-request leaves the mark set.
+    pub fn set_recording_upload_in_doubt(&self, id: &str, in_doubt: bool) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET upload_in_doubt = ? WHERE id = ?",
+            params![in_doubt as i64, id],
+        )?;
+        Ok(())
     }
 
     /// After an OAuth write upgrade, the upgrading athlete's permission-blocked

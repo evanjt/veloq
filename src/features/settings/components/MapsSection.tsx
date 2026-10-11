@@ -11,7 +11,7 @@ import { formatElevation } from '@/shared/format/format';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { Row } from '@/shared/ui/Row';
-import { pressable, pressRipple } from '@/shared/ui';
+import { ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -250,9 +250,7 @@ export function MapsSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.maps').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.maps')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {mapsContent}
       </View>

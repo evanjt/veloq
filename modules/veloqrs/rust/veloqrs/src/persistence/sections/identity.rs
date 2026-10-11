@@ -1254,7 +1254,7 @@ impl ReplaySource<'_> {
                 // registry blob and the graves: created_at then survives
                 // carries, dissolves, and restores instead of re-stamping at
                 // every save.
-                section.created_at = Some(chrono::Utc::now().to_rfc3339());
+                section.created_at = Some(super::stamp_now());
                 IdentityRow { real_id, section }
             });
             new_rows.insert(pid, row);

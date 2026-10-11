@@ -20,7 +20,7 @@ import {
 } from '@/features/maps';
 import {
   ComponentErrorBoundary,
-  ErrorStatePreset,
+  EngineReadFailureRetry,
   useTabBarClearance,
   Shimmer,
   Button,
@@ -149,7 +149,11 @@ function MapScreenContent() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
+  const {
+    isError: isActivitiesError,
+    error: activitiesError,
+    refetch: refetchActivities,
+  } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     enabled: isAuthenticated,
@@ -266,17 +270,15 @@ function MapScreenContent() {
       );
     });
 
-  // Show error state if activities failed to load
-  if (isActivitiesError) {
-    return (
-      <View
-        testID="map-screen"
-        style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
-      >
-        <ErrorStatePreset onRetry={() => refetchActivities()} />
-      </View>
-    );
-  }
+  // The map draws what the engine already holds, so a failed read of the sync
+  // window is named over it rather than taking the map away.
+  const activitiesFailure = isActivitiesError ? (
+    <EngineReadFailureRetry
+      error={activitiesError}
+      onRetry={() => void refetchActivities()}
+      testID="map-activities-failed"
+    />
+  ) : null;
 
   // Show loading state if not ready
   if (!isReady) {
@@ -289,6 +291,7 @@ function MapScreenContent() {
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t('mapScreen.loadingActivities')}
         </Text>
+        {activitiesFailure}
         <View style={styles.loadingBannerContainer}>
           <SyncProgressBanner />
         </View>
@@ -346,6 +349,8 @@ function MapScreenContent() {
           >
             <View style={[styles.handle, isDark && styles.handleDark]} />
           </Pressable>
+
+          {activitiesFailure}
 
           {sheetExpanded && (
             <Animated.View

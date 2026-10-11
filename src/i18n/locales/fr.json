@@ -79,11 +79,7 @@
       "formTSB": "Forme (TSB)",
       "hrRecovery": "Récupération FC",
       "hrvToday": "VFC aujourd'hui",
-      "intensityEasy": "Facile",
       "intensityFactor": "Facteur d'intensité",
-      "intensityHard": "Difficile",
-      "intensityModerate": "Modéré",
-      "intensityVeryHard": "Très difficile",
       "max": "Max {{value}}",
       "maxLabel": "Max",
       "newGround": "Terrain inédit",
@@ -347,7 +343,7 @@
     "webdavTestUnauthorised": "Échec de l’authentification",
     "webdavTestMethodNotAllowed": "Vérifiez le format de votre adresse WebDAV. Le serveur n’accepte pas PROPFIND sur ce chemin",
     "webdavTestStatus": "Le serveur a répondu {{code}}",
-    "moreInfo": "Plus d'informations",
+    "aboutTopic": "À propos de {{title}}",
     "sectionBackup": "Sauvegarde",
     "sectionRestore": "Restaurer",
     "sectionDestinations": "Emplacements",
@@ -575,8 +571,18 @@
       "thisYear": "Cette année",
       "lastYear": "L'année dernière"
     },
-    "noActivities": "Aucune activité trouvée",
     "noMatchingActivities": "Aucune activité correspondante",
+    "emptyLibrary": {
+      "pausedTitle": "La synchronisation est en pause",
+      "pausedBody": "Vos activités sont sur intervals.icu et seront téléchargées à la reprise de la synchronisation.",
+      "authExpiredTitle": "Connectez-vous pour télécharger vos activités",
+      "signInAgain": "Se reconnecter",
+      "failedTitle": "Vos activités n'ont pas été téléchargées",
+      "failedBody": "La dernière synchronisation s'est arrêtée avant qu'aucune n'arrive.",
+      "emptyTitle": "Aucune activité pour l'instant",
+      "emptyBody": "Les activités viennent de votre compte intervals.icu, ou d'un enregistrement fait ici.",
+      "record": "Enregistrer une activité"
+    },
     "searchPlaceholder": "Rechercher des activités...",
     "streamConsentTitle": "Télécharger les données d'activité manquantes ?",
     "streamConsentBody_one": "Il manque les séries de fréquence cardiaque, de puissance et de cadence pour {{count}} activité. Le téléchargement utilise environ {{megabytes}} Mo de données.",
@@ -616,7 +622,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Échec du chargement des données de forme",
     "fatigueDescription": "est une moyenne mobile pondérée exponentiellement sur 7 jours de votre charge d'entraînement.",
     "fitnessAndFatigue": "Forme et fatigue",
     "fitnessDescription": "est une moyenne mobile pondérée exponentiellement sur 42 jours de votre charge d'entraînement.",
@@ -876,8 +881,9 @@
       "ratioFormula": "ratio = séries pondérées dominantes / séries pondérées secondaires"
     },
     "viewInDetail": "Voir en détail",
+    "routesDisabledDescription": "Vos sections sont conservées et s'ouvrent à nouveau dès que la détection est activée.",
     "routesDisabledLine1": "Parcours et sections désactivés",
-    "routesDisabledLine2": "Appuyez pour activer",
+    "routesDisabledLine2": "Activer les parcours et sections",
     "strengthProgression": {
       "upTitle": "Le volume de {{muscle}} progresse nettement",
       "downTitle": "Le volume de {{muscle}} a diminué",
@@ -949,6 +955,12 @@
       "openFitness": "Ouvrir le graphique de forme",
       "openStrength": "Ouvrir la musculation",
       "openDetail": "Ouvrir le détail"
+    },
+    "verdict": {
+      "good": "Bon",
+      "warning": "Attention",
+      "concern": "Préoccupant",
+      "neutral": "Neutre"
     }
   },
   "licenses": {
@@ -1220,6 +1232,7 @@
     "permissionExplanation": "Veloq a besoin de votre autorisation pour envoyer des activités sur intervals.icu",
     "permissionNeeded": "Autorisation requise pour envoyer des activités",
     "rec": "REC",
+    "resumeLater": "Plus tard",
     "resumePrevious": "Reprendre l'enregistrement précédent ?",
     "resumePreviousMessage": "Un enregistrement commencé le {{startTime}} a été interrompu après {{duration}} de temps de déplacement. L'abandonner le supprimera définitivement.",
     "reviewActivity": "Réviser l'activité",
@@ -1242,6 +1255,10 @@
     "settingsDataFields": "Champs de données",
     "settingsUnits": "Unités",
     "slideToUnlock": "Glissez pour déverrouiller",
+    "lockControls": "Verrouiller les commandes",
+    "unlockControls": "Déverrouiller les commandes",
+    "controlsLocked": "Commandes verrouillées",
+    "controlsUnlocked": "Commandes déverrouillées",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Démarrer l'activité",
     "status": {
@@ -1257,7 +1274,10 @@
     },
     "trimActivity": "Rogner l'activité",
     "trimmed": "Découpé",
-    "uploadErrorMessage": "Impossible d'envoyer l'activité : {{error}}",
+    "uploadRejected": "intervals.icu a refusé ce fichier. La sortie est conservée dans Mes enregistrements.",
+    "uploadMissing": "Le fichier de cette sortie n'est plus sur l'appareil, il ne peut donc pas être envoyé.",
+    "uploadFailed": "Impossible d'envoyer l'activité. Elle est enregistrée sur cet appareil.",
+    "openInRecordings": "Ouvrir dans Mes enregistrements",
     "writePermissionNotGranted": "Autorisation d'écriture non accordée",
     "writePermissionRequired": "Autorisation d'écriture requise",
     "savedLocally": "Activité enregistrée sur cet appareil. Vous pouvez la téléverser à tout moment depuis Mes enregistrements.",
@@ -1625,6 +1645,7 @@
     "nameTaken": "Une autre section porte déjà ce nom. Choisissez un autre nom.",
     "undoExcludeLap": "Annuler Tour {{n}}",
     "excludeLapNumber": "Exclure Tour {{n}}",
+    "mergeFailed": "Impossible de fusionner les sections.",
     "deleteFailed": "Impossible de supprimer la section."
   },
   "settings": {
@@ -1810,7 +1831,11 @@
     "sectionSameTraffic": "Sensibilité de découpage des itinéraires : {{value}}",
     "sectionParamPastClamp": "Au-delà, le détecteur ne distingue plus les valeurs.",
     "sectionParamPastRange": "Ces réglages sont en dehors de la plage testée.",
+    "sectionParamEditHint": "Saisir une valeur",
     "sectionParamRange": "Plage testée de {{min}} à {{max}}",
+    "sectionParamInvalid": "Veuillez saisir un nombre supérieur à 0.",
+    "sectionParamInvalidWhole": "Veuillez saisir un nombre entier, 1 ou plus.",
+    "groupingParamInvalidPercent": "Veuillez saisir un pourcentage de 1 à 100.",
     "sectionPresetDefault": "Par défaut",
     "sectionPresetRelaxed": "Souple",
     "sectionPresetStrict": "Sévère",
@@ -1869,7 +1894,7 @@
     "elevationBackfillPaused": "Téléchargement de l'altitude en pause. Activez Correspondance de parcours pour continuer.",
     "elevationBackfillSwitchedOff": "Téléchargement de l'altitude arrêté car Correspondance de parcours est désactivée.",
     "exportPrivacyTitle": "Garder votre domicile hors des exports",
-    "exportPrivacyDescription": "Rogne le début et la fin de chaque trace dans un rayon de {{radius}} m autour du domicile. Seule la copie exportée est raccourcie.",
+    "exportPrivacyDescription": "Rogne le début et la fin de chaque trace dans un rayon de {{radius}} autour du domicile. Seule la copie exportée est raccourcie.",
     "exportPrivacySuggested_one": "La plupart de vos sorties partent du même endroit, {{count}} d'entre elles. {{share}} % de toutes les fins de sortie.",
     "exportPrivacySuggested_many": "La plupart de vos sorties partent du même endroit, {{count}} d'entre elles. {{share}} % de toutes les fins de sortie.",
     "exportPrivacySuggested_other": "La plupart de vos sorties partent du même endroit, {{count}} d'entre elles. {{share}} % de toutes les fins de sortie.",
@@ -1877,9 +1902,8 @@
     "exportPrivacyNoSuggestion": "Pas encore assez de sorties pour situer le domicile.",
     "exportPrivacyNeedsHome": "Désactivé tant qu’aucun domicile n’est défini. Utilisez le lieu suggéré ci-dessous ou touchez la carte.",
     "exportPrivacyNeedsHomeNoSuggestion": "Désactivé tant qu’aucun domicile n’est défini.",
-    "exportPrivacyCount": "Raccourcit {{touched}} sorties sur {{total}} à {{radius}} m. Rien n'est supprimé.",
+    "exportPrivacyCount": "Raccourcit {{touched}} sorties sur {{total}} à {{radius}}. Rien n'est supprimé.",
     "exportPrivacyNothingTrimmed": "Rien n'est raccourci. Les exports contiennent la trace complète.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Touchez la carte pour déplacer le domicile.",
     "previewRouteGrouping": "Aperçu du regroupement des parcours",
     "groupingMatchShare": "Même parcours si {{percent}}% se recoupe",
@@ -1974,7 +1998,7 @@
     "vsPrevious6Months": "vs 6 mois précédents",
     "week": "Semaine",
     "year": "Année",
-    "atWeight": "à {{kg}} kg"
+    "atWeight": "à {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Efficacité aérobie",
@@ -2263,6 +2287,33 @@
       "noData": "Connecté, aucune donnée",
       "reconnecting": "Reconnexion…",
       "disconnected": "Non connecté"
+    },
+    "purpose": "Le Bluetooth sert à trouver et connecter les capteurs de fréquence cardiaque, de puissance et de cadence.",
+    "noneFound": "Aucun capteur trouvé",
+    "noneFoundHint": "Réveillez le capteur en portant la ceinture ou en tournant les manivelles, et gardez-le près du téléphone.",
+    "scanAgain": "Rechercher à nouveau",
+    "availability": {
+      "unsupportedTitle": "Cet appareil n'a pas de Bluetooth LE",
+      "unsupportedHint": "Les capteurs de fréquence cardiaque, de puissance et de cadence nécessitent le Bluetooth LE.",
+      "poweredOffTitle": "Le Bluetooth est désactivé",
+      "poweredOffHint": "Activez le Bluetooth pour trouver et connecter des capteurs.",
+      "poweredOffHintIos": "Activez le Bluetooth dans le Centre de contrôle ou les Réglages pour trouver et connecter des capteurs.",
+      "turnOn": "Activer le Bluetooth",
+      "permissionTitle": "Autorisation Bluetooth requise",
+      "permissionHint": "Autorisez l'accès aux appareils à proximité pour trouver et connecter des capteurs.",
+      "blockedHint": "Autorisez l'accès aux appareils à proximité dans les Réglages pour trouver et connecter des capteurs.",
+      "locationPermissionTitle": "Autorisation de localisation requise",
+      "locationPermissionHint": "Sur cette version d'Android, la recherche de capteurs Bluetooth nécessite l'autorisation de localisation.",
+      "locationBlockedHint": "Sur cette version d'Android, la recherche de capteurs Bluetooth nécessite l'autorisation de localisation. Autorisez-la dans les Réglages.",
+      "allow": "Autoriser",
+      "locationOffTitle": "La localisation est désactivée",
+      "locationOffHint": "Sur cette version d'Android, la recherche de capteurs Bluetooth nécessite que la localisation soit activée.",
+      "openLocationSettings": "Ouvrir les réglages de localisation"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth désactivé",
+      "permission": "Autorisation Bluetooth requise",
+      "unsupported": "Bluetooth indisponible"
     }
   },
   "sectionHistory": {
@@ -2277,6 +2328,7 @@
     "current": "Actuelle",
     "revert": "Rétablir",
     "revertConfirm": "Remettre la version {{version}} comme ligne de ce tronçon ? La détection la conservera jusqu'à ce que vous la libériez.",
+    "revertFailed": "Impossible de rétablir la version.",
     "unpin": "Libérer",
     "showOnMap": "Voir sur la carte",
     "hideOnMap": "Masquer",

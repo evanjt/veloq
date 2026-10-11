@@ -33,22 +33,30 @@ function lap(id: string, day: number, deltaSecs: number[], extra: Partial<FfiLap
     activityId: id,
     startIndex: 0,
     activityDate: 1_780_000_000 + day * DAY_SECS,
-    deltaSecs,
-    splitDeltaSecs: [],
+    deltaSecs: Float32Array.from(deltaSecs),
+    splitDeltaSecs: new Float32Array(0),
     endDeltaSecs: deltaSecs[deltaSecs.length - 1],
     ...extra,
   } as FfiLapDelta;
 }
 
+/** The direction's laps with the peak the engine computes over them. */
 function direction(
   laps: FfiLapDelta[],
   extra: Partial<FfiDirectionDeltas> = {}
 ): FfiDirectionDeltas {
+  let peakDeltaSecs = 0;
+  for (const each of laps) {
+    for (const secs of each.deltaSecs) {
+      if (Number.isFinite(secs)) peakDeltaSecs = Math.max(peakDeltaSecs, Math.abs(secs));
+    }
+  }
   return {
     referenceActivityId: 'ref',
     referenceSource: 0,
     laps,
     missing: [],
+    peakDeltaSecs,
     ...extra,
   } as FfiDirectionDeltas;
 }

@@ -124,8 +124,8 @@ describe.each(CLOCK_EDGES)('the training screen read on %s', (_name, at) => {
     const iso = (ts: number) => new Date(ts * 1000).toISOString();
     const year = at.getFullYear();
 
-    // Fifty-one whole weeks before the Sunday that opens this week, to today.
-    expect(windows.heatmapFirstDay).toBe(localDay(at, -(51 * 7 + at.getDay())));
+    // Fifty-one whole weeks before the Monday that opens this week, to today.
+    expect(windows.heatmapFirstDay).toBe(localDay(at, -(51 * 7 + ((at.getDay() + 6) % 7))));
     expect(windows.heatmapLastDay).toBe(localDay(at));
     expect(iso(windows.months.startTs)).toBe(`${year - 1}-01-01T00:00:00.000Z`);
     expect(iso(windows.months.endTs)).toBe(`${localDay(at)}T23:59:59.000Z`);

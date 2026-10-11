@@ -9,3 +9,11 @@
 # record factories and error classes do not satisfy and which nobody can fix by
 # hand in a file rewritten whole on every regeneration.
 strictTypeChecking = true
+
+# A run of floats crosses as its little-endian bytes. Lifting copies them once
+# out of the call's return into a buffer of their own, which starts on a float
+# boundary, and reads that buffer as floats with no lift per value.
+[bindings.typescript.customTypes.FfiFloat32Array]
+typeName = "Float32Array"
+lift = "new Float32Array({})"
+lower = "new Uint8Array({}.buffer, {}.byteOffset, {}.byteLength).slice().buffer"

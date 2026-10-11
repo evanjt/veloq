@@ -17,6 +17,12 @@
 // button. `// press-feedback: none, <why>` above the tag is that statement,
 // and the reason is for the next reader rather than for this script.
 // Rendered Touchable controls use the shared controls or pressable() instead.
+//
+// A press wrapper of its own skips that answer for every tag that renders it:
+// one sprang a 1 to 3 % shrink with no ripple on Android and buzzed on
+// touch-down, before a scroll could take the touch. So `AnimatedPressable` and
+// `Animated.createAnimatedComponent(Pressable)` are refused outside the files
+// that define the answer.
 
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +45,7 @@ function walk(dir) {
     const name = parts[parts.length - 1];
     if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__'))
       return false;
-    return /\.tsx$/.test(name) && !/\.(test|spec)\.tsx$/.test(name);
+    return /\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name) && !/\.d\.ts$/.test(name);
   });
 }
 
@@ -95,8 +101,23 @@ function saysWhatAPressLooksLike(node) {
   return false;
 }
 
+/** `Animated.createAnimatedComponent(Pressable)`, or the bare imported name. */
+function wrapsPressable(node) {
+  if (!ts.isCallExpression(node)) return false;
+  const callee = node.expression;
+  const name = ts.isIdentifier(callee)
+    ? callee.text
+    : ts.isPropertyAccessExpression(callee)
+      ? callee.name.text
+      : '';
+  if (name !== 'createAnimatedComponent') return false;
+  const [arg] = node.arguments;
+  return arg !== undefined && ts.isIdentifier(arg) && arg.text === 'Pressable';
+}
+
 const failures = [];
 const touchableFailures = [];
+const wrapperFailures = [];
 const touchableNames = new Set([
   'TouchableOpacity',
   'TouchableHighlight',
@@ -109,11 +130,23 @@ for (const file of walk(SRC)) {
   const source = tree.text(file);
   if (
     !source.includes('<Pressable') &&
+    !source.includes('AnimatedPressable') &&
+    !source.includes('createAnimatedComponent') &&
     ![...touchableNames].some((name) => source.includes(`<${name}`))
   )
     continue;
-  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
+  const at = (node) =>
+    `${relative(ROOT, file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
   const visit = (node) => {
+    if (
+      ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+        tagName(node) === 'AnimatedPressable') ||
+      wrapsPressable(node)
+    ) {
+      wrapperFailures.push(at(node));
+    }
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
       tagName(node) === 'Pressable' &&
@@ -154,6 +187,16 @@ if (touchableFailures.length > 0) {
   for (const f of touchableFailures) console.error(`  ${f}`);
 }
 
-if (failures.length > 0 || touchableFailures.length > 0) process.exit(1);
+if (wrapperFailures.length > 0) {
+  console.error(
+    `Press wrappers that skip the platform answer: ${wrapperFailures.length}. Render a Pressable with pressable() and android_ripple={pressRipple} instead.`
+  );
+  for (const f of wrapperFailures) console.error(`  ${f}`);
+}
 
-console.log('Press feedback guard: Pressable tags set feedback; no Touchable tags render.');
+if (failures.length > 0 || touchableFailures.length > 0 || wrapperFailures.length > 0)
+  process.exit(1);
+
+console.log(
+  'Press feedback guard: Pressable tags set feedback; no Touchable tags or press wrappers render.'
+);

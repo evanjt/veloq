@@ -418,15 +418,8 @@ fn carry_section_type(db: &Connection, row: &mut RecordRow) -> Result<(), String
 /// from what it places. A past catalogue state needs no table of its own, it is
 /// an `archived` row of `section_history` grounded on the version it names.
 pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
-    (
-        "settings",
-        "substr(key, 1, 2) <> '__' OR key LIKE '__activity_window_oldest:%' OR key IN (
-            '__athlete_id', '__match_min_match_pct', '__match_endpoint_threshold',
-            '__section_proximity_threshold', '__section_min_length',
-            '__section_min_activities', '__section_config_json', '__detection_enabled',
-            '__export_home_lat', '__export_home_lng', '__export_privacy_radius_m',
-            '__stream_retention_days', '__auto_backup_enabled')",
-    ),
+    // Which settings travel is `is_record_setting`, applied to every row read.
+    ("settings", "1 = 1"),
     ("route_names", "1 = 1"),
     (
         "sections",
@@ -448,6 +441,46 @@ pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
     ("section_numbers", "section_id NOT LIKE 'restored:%'"),
     ("route_numbers", "route_id NOT LIKE 'restored:%'"),
 ];
+
+/// The internal settings a record backup carries: the athlete's choices that
+/// happen to sit behind the `__` prefix. Every other `__` key is this
+/// library's own state, or a consent such as geocoding the athlete gives on
+/// each library, so neither a backup writes it nor a restore places it.
+const RECORD_INTERNAL_SETTINGS: &[&str] = &[
+    "__athlete_id",
+    "__match_min_match_pct",
+    "__match_endpoint_threshold",
+    "__section_proximity_threshold",
+    "__section_min_length",
+    "__section_min_activities",
+    "__section_config_json",
+    "__detection_enabled",
+    "__export_home_lat",
+    "__export_home_lng",
+    "__export_privacy_radius_m",
+    "__stream_retention_days",
+    "__auto_backup_enabled",
+];
+
+/// Whether a settings row under `key` belongs in a record backup. The writer
+/// and the restore both ask this, so a file the writer never produced cannot
+/// place a key the writer would have left out.
+pub(crate) fn is_record_setting(key: &str) -> bool {
+    !key.starts_with("__")
+        || key.starts_with(super::activities::ACTIVITY_WINDOW_KEY_PREFIX)
+        || RECORD_INTERNAL_SETTINGS.contains(&key)
+}
+
+/// Whether a row read from a library belongs in its record backup, past the
+/// table's own filter.
+fn carried(row: &RecordRow) -> bool {
+    row.table != "settings"
+        || row
+            .values
+            .get("key")
+            .and_then(Value::as_str)
+            .is_some_and(is_record_setting)
+}
 
 /// The row a converted `.veloq` file holds for a name it keeps by old id only.
 pub(crate) const LEGACY_SECTION_NAME: &str = "legacy_section_name";
@@ -485,7 +518,7 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
     };
     let mut entries = Vec::new();
     for &(table, filter) in RECORD_TABLES {
-        for mut row in rows(db, table, filter)? {
+        for mut row in rows(db, table, filter)?.into_iter().filter(carried) {
             row.ground = row_ground(db, &row)?;
             if table == "section_numbers" {
                 carry_section_type(db, &mut row)?;
@@ -514,7 +547,10 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
             .map(serde_json::to_string)
             .collect::<Result<_, _>>()
             .map_err(|e| e.to_string())?;
-        for row in owed.into_iter().filter(|row| travels(&row.table)) {
+        for row in owed
+            .into_iter()
+            .filter(|row| travels(&row.table) && carried(row))
+        {
             let key = serde_json::to_string(&row).map_err(|e| e.to_string())?;
             if seen.insert(key) {
                 entries.push(row);

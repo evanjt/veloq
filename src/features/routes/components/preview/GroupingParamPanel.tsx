@@ -15,6 +15,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -77,9 +78,8 @@ export function GroupingParamPanel({
   const matchLabel = t('settings.groupingMatchShare', {
     percent: params.minMatchPercentage,
   });
-  const endsLabel = t('settings.groupingEndsApart', {
-    distance: formatDistance(params.endpointThreshold, isMetric),
-  });
+  const endsApart = formatDistance(params.endpointThreshold, isMetric);
+  const endsLabel = t('settings.groupingEndsApart', { distance: endsApart });
 
   return (
     <View
@@ -89,6 +89,7 @@ export function GroupingParamPanel({
       <ParamRow
         paramKey="minMatchPercentage"
         label={matchLabel}
+        valueText={`${params.minMatchPercentage}%`}
         value={params.minMatchPercentage}
         onChange={set('minMatchPercentage')}
         onEdit={open('minMatchPercentage', matchLabel)}
@@ -98,6 +99,7 @@ export function GroupingParamPanel({
       <ParamRow
         paramKey="endpointThreshold"
         label={endsLabel}
+        valueText={endsApart}
         value={params.endpointThreshold}
         onChange={set('endpointThreshold')}
         onEdit={open('endpointThreshold', endsLabel)}
@@ -111,6 +113,7 @@ export function GroupingParamPanel({
 function ParamRow({
   paramKey,
   label,
+  valueText,
   value,
   onChange,
   onEdit,
@@ -119,6 +122,8 @@ function ParamRow({
 }: {
   paramKey: GroupingParamKey;
   label: string;
+  /** The value as the athlete reads it, in their unit, for a screen reader. */
+  valueText: string;
   value: number;
   onChange: (v: number) => void;
   onEdit: () => void;
@@ -136,12 +141,17 @@ function ParamRow({
         disabled={disabled}
         testID={`grouping-edit-${paramKey}`}
         accessibilityRole="button"
-        style={pressable()}
+        accessibilityHint={t('settings.sectionParamEditHint')}
+        style={pressable(styles.editRow)}
         android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
+        <MaterialCommunityIcons name="pencil" size={typography.caption.fontSize} color={txt} />
       </Pressable>
       <Slider
+        testID={`grouping-slider-${paramKey}`}
+        accessibilityLabel={label}
+        accessibilityValue={{ text: valueText }}
         style={styles.slider}
         disabled={disabled}
         value={value}
@@ -178,6 +188,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   paramRow: { justifyContent: 'center', minHeight: PARAM_ROW_MIN_HEIGHT },
-  paramLabel: { ...typography.caption },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: layout.minTapTarget,
+  },
+  paramLabel: { ...typography.caption, flexShrink: 1 },
   slider: { width: '100%' },
 });

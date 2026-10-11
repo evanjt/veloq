@@ -79,11 +79,7 @@
       "formTSB": "Form (TSB)",
       "hrRecovery": "HR Recovery",
       "hrvToday": "HRV today",
-      "intensityEasy": "Easy",
       "intensityFactor": "Intensity Factor",
-      "intensityHard": "Hard",
-      "intensityModerate": "Moderate",
-      "intensityVeryHard": "Very hard",
       "max": "Max {{value}}",
       "maxLabel": "Max",
       "newGround": "New ground",
@@ -346,7 +342,7 @@
     "webdavTestUnauthorised": "Authentication failed",
     "webdavTestMethodNotAllowed": "Check your WebDAV URL format. The server does not accept PROPFIND at this path",
     "webdavTestStatus": "Server returned {{code}}",
-    "moreInfo": "More information",
+    "aboutTopic": "About {{title}}",
     "sectionBackup": "Backup",
     "sectionRestore": "Restore",
     "sectionDestinations": "Destinations",
@@ -561,8 +557,18 @@
       "thisYear": "This year",
       "lastYear": "Last year"
     },
-    "noActivities": "No activities found",
     "noMatchingActivities": "No matching activities",
+    "emptyLibrary": {
+      "pausedTitle": "Sync is paused",
+      "pausedBody": "Your activities are on intervals.icu and download when the sync resumes.",
+      "authExpiredTitle": "Sign in to download your activities",
+      "signInAgain": "Sign in again",
+      "failedTitle": "Your activities have not downloaded",
+      "failedBody": "The last sync stopped before any arrived.",
+      "emptyTitle": "No activities yet",
+      "emptyBody": "Activities come from your intervals.icu account, or from recording one here.",
+      "record": "Record an activity"
+    },
     "searchPlaceholder": "Search activities...",
     "streamConsentTitle": "Download missing activity data?",
     "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Downloading it uses about {{megabytes}} MB of data.",
@@ -600,7 +606,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Failed to load fitness data",
     "fatigueDescription": "is a 7-day exponentially weighted moving average of your training load.",
     "fitnessAndFatigue": "Fitness & Fatigue",
     "fitnessDescription": "is a 42-day exponentially weighted moving average of your training load.",
@@ -859,8 +864,9 @@
     },
     "howCalculated": "How was this calculated?",
     "viewInDetail": "View in detail",
+    "routesDisabledDescription": "Your sections are kept and open again once matching is on.",
     "routesDisabledLine1": "Routes & Sections disabled",
-    "routesDisabledLine2": "Tap to enable",
+    "routesDisabledLine2": "Turn on routes and sections",
     "strengthProgression": {
       "upTitle": "{{muscle}} volume gain is visible",
       "downTitle": "{{muscle}} volume eased off",
@@ -932,6 +938,12 @@
       "openFitness": "Open the fitness chart",
       "openStrength": "Open strength training",
       "openDetail": "Open the detail"
+    },
+    "verdict": {
+      "good": "Good",
+      "warning": "Caution",
+      "concern": "Concern",
+      "neutral": "Neutral"
     }
   },
   "licenses": {
@@ -1202,6 +1214,7 @@
     "permissionExplanation": "Veloq needs your permission to upload activities to intervals.icu",
     "permissionNeeded": "Permission needed to upload activities",
     "rec": "REC",
+    "resumeLater": "Later",
     "resumePrevious": "Resume previous recording?",
     "resumePreviousMessage": "A recording started {{startTime}} was interrupted with {{duration}} of moving time. Discarding deletes it permanently.",
     "reviewActivity": "Review Activity",
@@ -1224,6 +1237,10 @@
     "settingsDataFields": "Data Fields",
     "settingsUnits": "Units",
     "slideToUnlock": "Slide to unlock",
+    "lockControls": "Lock controls",
+    "unlockControls": "Unlock controls",
+    "controlsLocked": "Controls locked",
+    "controlsUnlocked": "Controls unlocked",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start Activity",
     "status": {
@@ -1239,7 +1256,10 @@
     },
     "trimActivity": "Trim Activity",
     "trimmed": "Trimmed",
-    "uploadErrorMessage": "Could not upload activity: {{error}}",
+    "uploadRejected": "intervals.icu refused this file. The ride is kept in My Recordings.",
+    "uploadMissing": "This ride's file is no longer on the device, so it cannot be uploaded.",
+    "uploadFailed": "Could not upload the activity. It is saved on this device.",
+    "openInRecordings": "Open in My Recordings",
     "writePermissionNotGranted": "Write permission not granted",
     "writePermissionRequired": "Write permission required",
     "savedLocally": "Activity saved on this device. Upload it any time from My Recordings.",
@@ -1589,6 +1609,7 @@
     "nameTaken": "Another section already has this name. Choose a different name.",
     "undoExcludeLap": "Undo Lap {{n}}",
     "excludeLapNumber": "Exclude Lap {{n}}",
+    "mergeFailed": "The sections could not be merged.",
     "deleteFailed": "The section could not be deleted."
   },
   "settings": {
@@ -1769,7 +1790,11 @@
     "sectionSameTraffic": "Route split sensitivity: {{value}}",
     "sectionParamPastClamp": "The detector does not distinguish values past here.",
     "sectionParamPastRange": "These settings are outside the tested range.",
+    "sectionParamEditHint": "Type a value",
     "sectionParamRange": "Tested range {{min}} to {{max}}",
+    "sectionParamInvalid": "Enter a number above 0.",
+    "sectionParamInvalidWhole": "Enter a whole number, 1 or more.",
+    "groupingParamInvalidPercent": "Enter a percentage from 1 to 100.",
     "sectionPresetDefault": "Default",
     "sectionPresetRelaxed": "Relaxed",
     "sectionPresetStrict": "Strict",
@@ -1822,16 +1847,15 @@
     "elevationBackfillPaused": "Elevation download paused. Route Matching must be on to continue.",
     "elevationBackfillSwitchedOff": "Elevation download stopped because Route Matching is off.",
     "exportPrivacyTitle": "Leave home out of exports",
-    "exportPrivacyDescription": "Trims the start and end of each track within {{radius}} m of home. Only the exported copy is shortened.",
+    "exportPrivacyDescription": "Trims the start and end of each track within {{radius}} of home. Only the exported copy is shortened.",
     "exportPrivacySuggested_one": "Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.",
     "exportPrivacySuggested_other": "Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.",
     "exportPrivacyConfirm": "Use it as home",
     "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is.",
     "exportPrivacyNeedsHome": "Off until a home is set. Use the suggested place below, or tap the map.",
     "exportPrivacyNeedsHomeNoSuggestion": "Off until a home is set.",
-    "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
+    "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}}. Nothing is deleted.",
     "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Tap the map to move home.",
     "previewRouteGrouping": "Preview route grouping",
     "groupingMatchShare": "Same route if {{percent}}% overlaps",
@@ -1921,7 +1945,7 @@
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
     "year": "Year",
-    "atWeight": "at {{kg}} kg"
+    "atWeight": "at {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Aerobic Efficiency",
@@ -2207,6 +2231,33 @@
       "noData": "Connected, no data",
       "reconnecting": "Reconnecting…",
       "disconnected": "Not connected"
+    },
+    "purpose": "Bluetooth is used to find and connect heart rate, power and cadence sensors.",
+    "noneFound": "No sensors found",
+    "noneFoundHint": "Wake the sensor by wearing the strap or turning the cranks, and keep it near the phone.",
+    "scanAgain": "Scan again",
+    "availability": {
+      "unsupportedTitle": "This device has no Bluetooth LE",
+      "unsupportedHint": "Heart rate, power and cadence sensors need Bluetooth LE.",
+      "poweredOffTitle": "Bluetooth is off",
+      "poweredOffHint": "Turn Bluetooth on to find and connect sensors.",
+      "poweredOffHintIos": "Turn Bluetooth on in Control Centre or Settings to find and connect sensors.",
+      "turnOn": "Turn on Bluetooth",
+      "permissionTitle": "Bluetooth permission needed",
+      "permissionHint": "Allow access to nearby devices to find and connect sensors.",
+      "blockedHint": "Allow access to nearby devices in Settings to find and connect sensors.",
+      "locationPermissionTitle": "Location permission needed",
+      "locationPermissionHint": "On this version of Android, finding Bluetooth sensors needs the location permission.",
+      "locationBlockedHint": "On this version of Android, finding Bluetooth sensors needs the location permission. Allow it in Settings.",
+      "allow": "Allow",
+      "locationOffTitle": "Location is off",
+      "locationOffHint": "On this version of Android, finding Bluetooth sensors needs location turned on.",
+      "openLocationSettings": "Open location settings"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth off",
+      "permission": "Bluetooth permission needed",
+      "unsupported": "Bluetooth not available"
     }
   },
   "sectionHistory": {
@@ -2221,6 +2272,7 @@
     "current": "Current",
     "revert": "Revert",
     "revertConfirm": "Put version {{version}} back as this section's line? Detection holds it there until you unpin.",
+    "revertFailed": "The version could not be put back.",
     "unpin": "Unpin",
     "showOnMap": "Show on map",
     "hideOnMap": "Hide",

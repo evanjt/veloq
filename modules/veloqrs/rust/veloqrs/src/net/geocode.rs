@@ -4,9 +4,11 @@
 //! The only code in the app that sends a point to a geocoder. The provider's
 //! terms shape all of it: nothing is sent unless the athlete turned geocoding
 //! on, every request names the app, one runs at a time with at least a second
-//! between them across the whole engine, and every answer is kept so no cell
-//! is asked twice. Deliberately not the intervals.icu governor, whose budget
-//! belongs to the athlete's account and not to this provider.
+//! between them across the whole engine, every answer is kept so no cell is
+//! asked twice, and a throttle, a block or a server error stops every request
+//! until the wait it asked for, or a floor, has passed. Deliberately not the
+//! intervals.icu governor, whose budget belongs to the athlete's account and
+//! not to this provider.
 
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
@@ -68,6 +70,15 @@ const LOCALITY_FIELDS: &[&str] = &[
     "state",
 ];
 
+/// How long the geocoder sends nothing after its provider throttled, blocked
+/// or failed a request, when the refusal does not say how long to wait.
+pub const REFUSAL_FLOOR: Duration = Duration::from_secs(15 * 60);
+
+/// The longest a refusal holds the geocoder, whatever it asked for, so a
+/// date mistyped by the provider or a clock that jumped cannot silence it
+/// for good.
+pub const REFUSAL_LONGEST: Duration = Duration::from_secs(24 * 60 * 60);
+
 /// When the last request ended, held for the whole of the next one so a
 /// second lookup waits its turn. One for the engine, whichever geocoder asks.
 static LAST_REQUEST_ENDED: LazyLock<tokio::sync::Mutex<Option<Instant>>> =
@@ -80,8 +91,13 @@ pub enum GeocodeError {
     /// timeout. Asking again once the device is back online may be answered.
     #[error("geocoder unreachable: {0}")]
     Unreachable(String),
+    /// The provider answered with an HTTP error, and with how long it asked
+    /// to be left alone when it said.
     #[error("geocoder answered {status}")]
-    Rejected { status: u16 },
+    Rejected {
+        status: u16,
+        retry_after: Option<Duration>,
+    },
     /// The provider was reached and the exchange broke for another reason.
     #[error("geocoder request failed: {0}")]
     Broken(String),
@@ -133,8 +149,14 @@ impl GeocodeTransport for HttpTransport {
         let response = request.send().await.map_err(GeocodeError::from_transport)?;
         let status = response.status();
         if !status.is_success() {
+            let retry_after = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| retry_after_of(value, crate::persistence::attempts::now_ms()));
             return Err(GeocodeError::Rejected {
                 status: status.as_u16(),
+                retry_after,
             });
         }
         response.text().await.map_err(GeocodeError::from_transport)
@@ -229,7 +251,8 @@ impl<T: GeocodeTransport> Geocoder<T> {
     /// closed or when there is no endpoint. A cell already answered is answered
     /// from the device. Otherwise the request waits its turn behind any other
     /// in the engine, and an answer, a place or no place, is kept. A failed
-    /// request keeps nothing, so a later lookup can ask again.
+    /// request keeps nothing, so a later lookup can ask again, and a refused
+    /// one holds every lookup that would send until its cool-down ends.
     async fn place_name(
         &self,
         endpoint: Option<&str>,
@@ -239,7 +262,7 @@ impl<T: GeocodeTransport> Geocoder<T> {
     ) -> Option<String> {
         match self.lookup(endpoint, lat, lng, language).await {
             Lookup::Place(name) => Some(name),
-            Lookup::NoPlace | Lookup::NotSent | Lookup::Failed => None,
+            Lookup::NoPlace | Lookup::NotSent | Lookup::Refused | Lookup::Failed => None,
         }
     }
 
@@ -273,6 +296,12 @@ impl<T: GeocodeTransport> Geocoder<T> {
             Some(Held::Answered(name)) => return Lookup::from_kept(name),
             Some(Held::Owed) => {}
         }
+        // Read under the pacer too, so a lookup that waited behind a refused
+        // one sends nothing.
+        let now_ms = crate::persistence::attempts::now_ms();
+        if with_read_conn(|conn| refused_at(conn, now_ms)).flatten() != Some(false) {
+            return Lookup::Refused;
+        }
         if let Some(ended) = *last_ended {
             tokio::time::sleep_until((ended + PACE).into()).await;
         }
@@ -296,6 +325,28 @@ impl<T: GeocodeTransport> Geocoder<T> {
             Err(e @ GeocodeError::Unreachable(_)) => {
                 log::warn!("veloqrs: [Geocode] {e}");
                 return Lookup::NotSent;
+            }
+            Err(
+                e @ GeocodeError::Rejected {
+                    status,
+                    retry_after,
+                },
+            ) => {
+                log::warn!("veloqrs: [Geocode] {e}");
+                let now_ms = crate::persistence::attempts::now_ms();
+                let Some(until) = refusal_ends_at(status, retry_after, now_ms) else {
+                    return Lookup::Failed;
+                };
+                // Kept before the pacer is let go, so a lookup waiting behind
+                // this one finds the refusal rather than asking.
+                let held = with_persistent_engine_blocking_for(install, move |engine| {
+                    engine.set_setting(settings_keys::GEOCODER_REFUSED_UNTIL, &until.to_string())
+                })
+                .await;
+                if let Some(Err(e)) = held {
+                    log::warn!("veloqrs: [Geocode] keeping a refusal: {e}");
+                }
+                return Lookup::Refused;
             }
             Err(e) => {
                 log::warn!("veloqrs: [Geocode] {e}");
@@ -335,8 +386,12 @@ pub enum Lookup {
     /// there is no endpoint, or the network was absent. Asking later may
     /// still be answered.
     NotSent,
+    /// The provider throttled, blocked or failed this request or one before
+    /// it whose cool-down has not ended. Nothing more is sent until it ends,
+    /// and asking then may be answered.
+    Refused,
     /// A request reached the provider and came back with no answer: an HTTP
-    /// error or an answer that is not an address.
+    /// error that is not a refusal, or an answer that is not an address.
     Failed,
 }
 
@@ -344,6 +399,45 @@ impl Lookup {
     fn from_kept(name: Option<String>) -> Self {
         name.map_or(Self::NoPlace, Self::Place)
     }
+}
+
+/// When a lookup the provider answered with `status` may next send, in epoch
+/// milliseconds, or `None` when that status is an answer rather than a
+/// refusal. A throttle (429), a block (403) and a server error (5xx) are
+/// refusals: they hold for what the provider asked, else for
+/// [`REFUSAL_FLOOR`], and never longer than [`REFUSAL_LONGEST`].
+pub fn refusal_ends_at(status: u16, retry_after: Option<Duration>, now_ms: i64) -> Option<i64> {
+    if !matches!(status, 403 | 429 | 500..=599) {
+        return None;
+    }
+    let wait = retry_after.unwrap_or(REFUSAL_FLOOR).min(REFUSAL_LONGEST);
+    Some(now_ms.saturating_add(i64::try_from(wait.as_millis()).unwrap_or(i64::MAX)))
+}
+
+/// The wait a `Retry-After` value asks for: a count of seconds, or an HTTP
+/// date measured from `now_ms`. A date already past asks for none.
+pub fn retry_after_of(value: &str, now_ms: i64) -> Option<Duration> {
+    let value = value.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(Duration::from_secs(seconds));
+    }
+    let at = chrono::DateTime::parse_from_rfc2822(value).ok()?;
+    let wait_ms = at.timestamp_millis().saturating_sub(now_ms).max(0);
+    Some(Duration::from_millis(u64::try_from(wait_ms).unwrap_or(0)))
+}
+
+/// Whether a refusal still holds the geocoder at `now_ms`, or `None` when
+/// the setting could not be read. A held moment further off than the longest
+/// refusal was written by a clock that has since moved back, and holds nothing.
+fn refused_at(conn: &rusqlite::Connection, now_ms: i64) -> Option<bool> {
+    let longest = i64::try_from(REFUSAL_LONGEST.as_millis()).unwrap_or(i64::MAX);
+    let held = setting_from(conn, settings_keys::GEOCODER_REFUSED_UNTIL)
+        .map_err(|e| log::warn!("veloqrs: [Geocode] reading the refusal: {e}"))
+        .ok()?;
+    Some(
+        held.and_then(|raw| raw.parse::<i64>().ok())
+            .is_some_and(|until| now_ms < until && until - now_ms <= longest),
+    )
 }
 
 fn held_config() -> Option<ConfigCopy> {

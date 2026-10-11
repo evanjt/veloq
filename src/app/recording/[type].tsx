@@ -52,6 +52,7 @@ import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import type { ActivityType, DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 function RecordingScreenContent() {
   const recordingAthleteId = useRecordingStore((s) => s.athleteId);
@@ -121,6 +122,7 @@ function RecordingContent() {
   const backgroundTrackingFailed = useRecordingLiveStore((s) => s.backgroundTrackingFailed);
   const { t } = useTranslation();
   const { hasPermission, requestPermission } = useLocationPermission();
+  useAnnounceOnAppear(t(isLocked ? 'recording.controlsLocked' : 'recording.controlsUnlocked'));
 
   useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
 

@@ -515,7 +515,7 @@ describe('a review left after its upload failed', () => {
 
   it('still retries the upload from the same review', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValueOnce({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockRejectedValueOnce(new Error('socket closed'));
     const review = renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(review.result.current.canRetry).toBe(true);

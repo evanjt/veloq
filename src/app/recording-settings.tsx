@@ -1,7 +1,12 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import {
+  ListSectionHeader,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  useTabBarClearance,
+} from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -149,9 +154,9 @@ function RecordingSettingsScreenContent() {
       >
         {/* Upload Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+          <ListSectionHeader inset={false}>
             {t('recording.settingsUpload', 'Upload')}
-          </Text>
+          </ListSectionHeader>
           <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelBlock}>
@@ -202,9 +207,9 @@ function RecordingSettingsScreenContent() {
 
         {/* GPS & Battery Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+          <ListSectionHeader inset={false}>
             {t('recording.settingsGps', 'GPS & Battery')}
-          </Text>
+          </ListSectionHeader>
           <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
             <Text style={[styles.rowLabel, { color: textPrimary }]}>
               {t('recording.gpsMode', 'GPS accuracy')}
@@ -294,9 +299,7 @@ function RecordingSettingsScreenContent() {
 
         {/* Auto-Pause Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.settingsAutoPause')}
-          </Text>
+          <ListSectionHeader inset={false}>{t('recording.settingsAutoPause')}</ListSectionHeader>
 
           <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
             <View style={styles.switchRow}>
@@ -392,9 +395,7 @@ function RecordingSettingsScreenContent() {
 
         {/* Data Fields Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.settingsDataFields')}
-          </Text>
+          <ListSectionHeader inset={false}>{t('recording.settingsDataFields')}</ListSectionHeader>
 
           {FIELD_MODES.map((mode) => {
             const selectedFields = dataFields[mode] ?? [];
@@ -434,9 +435,7 @@ function RecordingSettingsScreenContent() {
 
         {/* Sensors Link */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('sensors.title', 'Sensors')}
-          </Text>
+          <ListSectionHeader inset={false}>{t('sensors.title', 'Sensors')}</ListSectionHeader>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
@@ -455,9 +454,7 @@ function RecordingSettingsScreenContent() {
 
         {/* Units Link */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.settingsUnits')}
-          </Text>
+          <ListSectionHeader inset={false}>{t('recording.settingsUnits')}</ListSectionHeader>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('settings.units')}
@@ -485,10 +482,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.label,
-    marginBottom: spacing.sm,
   },
   card: {
     borderRadius: layout.borderRadius,

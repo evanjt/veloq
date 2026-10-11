@@ -45,6 +45,7 @@ const SOURCES: Record<string, string> = {
   installRecordingSession: 'lib/recordingSession',
   resumeStoppedRecording: 'lib/resumeStoppedRecording',
   sessionReturnRoute: 'lib/sessionReturnRoute',
+  shareRecordingFit: 'lib/shareRecordingFit',
   promptInterruptedRecording: 'lib/interruptedRecording',
   armSystemRecordingPath: 'lib/armCountdown',
   canStartAfterScopeWarning: 'lib/armCountdown',

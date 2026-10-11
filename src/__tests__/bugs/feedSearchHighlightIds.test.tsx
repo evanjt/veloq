@@ -94,6 +94,8 @@ jest.mock('@/features/insights', () => ({ useInsights: () => ({ insights: [] }) 
 jest.mock('@/features/home', () => ({
   ...jest.requireActual('@/features/settings/stores/summaryCardPreferences'),
   feedEmptyState: jest.requireActual('@/features/home/lib/feedEmptyState').feedEmptyState,
+  FeedEmptyLibrary: jest.requireActual('@/features/home/components/FeedEmptyLibrary')
+    .FeedEmptyLibrary,
   summaryCardTarget: jest.requireActual('@/features/home/lib/summaryCardTargets').summaryCardTarget,
   useSummaryCardData: () => ({ showSparkline: false, refetch: mockSummaryRefetch }),
   useStartupData: () => ({ data: mockStartupData, refresh: mockRefreshStartupData }),

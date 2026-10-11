@@ -1,6 +1,8 @@
-# At phone-sized resolution, the preview card must still accept slider drags
-# and vertical scrolling after a result adds the diff and action rows, and the
-# last row must still drag once the card has scrolled to it.
+# At phone-sized resolution, every slider in the preview card must take a drag
+# inside the card's vertical scroll, before a run, with a run in flight, and
+# once a result adds the diff and action rows and the card has to scroll to
+# reach the lower rows. Each drag ends at the far end of its track, and the
+# second pass drags the other way, so every caption moves both times.
 appId: com.veloq.app.dev
 tags:
   - tier2
@@ -20,21 +22,38 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "preview-param-panel"
-- copyTextFrom:
-    id: "param-edit-proximityThreshold"
-- evalScript: ${output.proximityBefore = maestro.copiedText}
-- swipe:
-    from:
-      id: "param-slider-proximityThreshold"
-    direction: RIGHT
-    duration: 700
-- copyTextFrom:
-    id: "param-edit-proximityThreshold"
-- assertTrue:
-    condition: ${maestro.copiedText != output.proximityBefore}
-    label: "The first slider changes its caption"
-- tapOn:
-    id: "preview-run-button"
+# Each release regenerates on its own, so from the second drag on a run is in
+# flight. The first pass moves every value off its default.
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: proximityThreshold
+      NEXT: minSectionLength
+      DIRECTION: RIGHT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: minSectionLength
+      NEXT: maxSectionLength
+      DIRECTION: LEFT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: maxSectionLength
+      NEXT: minActivities
+      DIRECTION: LEFT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: minActivities
+      NEXT: divergenceThreshold
+      DIRECTION: RIGHT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: divergenceThreshold
+      NEXT: presets
+      DIRECTION: RIGHT
 - extendedWaitUntil:
     visible:
       id: "preview-keep-button"
@@ -42,27 +61,39 @@ tags:
 - assertVisible:
     id: "preview-param-panel"
 - takeScreenshot: "screenshots/preview-parameters-result"
-- swipe:
-    from:
-      id: "preview-param-panel"
-    direction: UP
-    duration: 700
-- assertVisible:
-    id: "param-edit-divergenceThreshold"
+# The second pass starts from the bottom of the card with a result on screen,
+# so the first row has to scroll back into view.
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: proximityThreshold
+      NEXT: minSectionLength
+      DIRECTION: LEFT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: minSectionLength
+      NEXT: maxSectionLength
+      DIRECTION: RIGHT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: maxSectionLength
+      NEXT: minActivities
+      DIRECTION: RIGHT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: minActivities
+      NEXT: divergenceThreshold
+      DIRECTION: LEFT
+- runFlow:
+    file: helpers/drag-preview-slider.yaml
+    env:
+      KEY: divergenceThreshold
+      NEXT: presets
+      DIRECTION: LEFT
 - takeScreenshot: "screenshots/preview-parameters-scrolled"
-- copyTextFrom:
-    id: "param-edit-divergenceThreshold"
-- evalScript: ${output.divergenceBefore = maestro.copiedText}
-- swipe:
-    from:
-      id: "param-slider-divergenceThreshold"
-    direction: RIGHT
-    duration: 700
-- copyTextFrom:
-    id: "param-edit-divergenceThreshold"
-- assertTrue:
-    condition: ${maestro.copiedText != output.divergenceBefore}
-    label: "The last slider still drags once the card has scrolled"
 - extendedWaitUntil:
     visible:
       id: "preview-discard-button"

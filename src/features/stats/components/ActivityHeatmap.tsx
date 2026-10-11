@@ -55,8 +55,8 @@ export interface ActivityHeatmapHandle {
 const INTENSITY_COLORS = contributionRamp.dark;
 const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
-/** The weekday rows that carry a name, Sunday 0, every other one so they fit. */
-const NAMED_ROWS = new Set([1, 3, 5]);
+/** The weekday rows that carry a name, Monday 0, every other one so they fit. */
+const NAMED_ROWS = new Set([0, 2, 4]);
 
 const CELL_SIZE = HEATMAP_CELL_SIZE;
 const GRID_WIDTH = HEATMAP_WEEKS * HEATMAP_PITCH;
@@ -65,10 +65,10 @@ const GRID_HEIGHT = 7 * HEATMAP_PITCH;
 const GUTTER_WIDTH = spacing.lg;
 const GUTTER_MARGIN = spacing.xs;
 
-/** A weekday's short name in the app language, Sunday 0. */
+/** A weekday's short name in the app language, Monday 0. */
 function weekdayName(row: number): string {
-  // 1 January 2023 was a Sunday.
-  return new Date(2023, 0, 1 + row).toLocaleDateString(getIntlLocale(), { weekday: 'short' });
+  // 2 January 2023 was a Monday.
+  return new Date(2023, 0, 2 + row).toLocaleDateString(getIntlLocale(), { weekday: 'short' });
 }
 
 /** The first column the viewport shows, from the scroll offset. */

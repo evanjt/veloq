@@ -113,26 +113,42 @@ pub const STREAM_PHASE_FAILED: &str = "failed";
 /// same figure as the history slider's large-download threshold.
 pub const STREAM_CONSENT_THRESHOLD: u32 = 500;
 
-/// Bytes on the wire per moving second of one full series request, measured
-/// against the live API with gzip (20.5, rounded up).
+/// Bytes on the wire, with gzip, per sample of each requested series an
+/// activity's body lists. Measured against the live API on 2026-10-10 over 33
+/// activities with a track, fetched with the full request: 2.75 pooled, 2.2 to
+/// 3.9 each. Counting the listed series absorbs the derived ones upstream
+/// serves without listing (`grade_smooth`, `w_bal`, `fixed_altitude`,
+/// `ga_velocity`), and counting samples rather than moving seconds absorbs the
+/// recording rate, which moved bytes per moving second from 0.5 to 3.3 over
+/// the same activities.
+pub const WIRE_BYTES_PER_SERIES_SAMPLE: f64 = 2.75;
+
+/// Bytes on the wire per moving second of one full series request, for an
+/// activity whose body says nothing about its series, measured against the
+/// live API with gzip (20.5, rounded up).
 pub const WIRE_BYTES_PER_MOVING_SECOND: u64 = 21;
 
 /// The settings row holding a recorded yes, so later automatic starts skip the
 /// ask.
 pub const STREAM_CONSENT_KEY: &str = "__stream_backfill_consent";
 
-/// What the stream pass would download, in the units the ask states.
-pub fn estimate_bytes(moving_seconds: u64) -> u64 {
-    moving_seconds.saturating_mul(WIRE_BYTES_PER_MOVING_SECOND)
+/// What the stream pass would download, in the units the ask states: the
+/// listed series' samples at the per-series rate, and the activities that list
+/// none at the flat rate.
+pub fn estimate_bytes(series_samples: u64, unlisted_seconds: u64) -> u64 {
+    let listed = (series_samples as f64 * WIRE_BYTES_PER_SERIES_SAMPLE).round() as u64;
+    listed.saturating_add(unlisted_seconds.saturating_mul(WIRE_BYTES_PER_MOVING_SECOND))
 }
 
 /// The owed queue's length and what downloading it would cost, from the one
 /// read of its rows. The ask before a large download and the status read at
 /// rest both price the queue here, so the card and the row cannot disagree.
 pub(crate) fn queue_estimate(conn: &rusqlite::Connection) -> rusqlite::Result<(u64, u64)> {
-    let (owed, moving_seconds) =
-        crate::persistence::streams::pooled::backfill_estimate(conn, STREAM_ATTEMPT_LIMIT)?;
-    Ok((owed as u64, estimate_bytes(moving_seconds)))
+    let queue = crate::persistence::streams::pooled::backfill_estimate(conn, STREAM_ATTEMPT_LIMIT)?;
+    Ok((
+        queue.owed as u64,
+        estimate_bytes(queue.series_samples, queue.unlisted_seconds),
+    ))
 }
 
 struct BackfillState {
@@ -1229,12 +1245,21 @@ mod tests {
 
     /// Scenario: the card shows the size of the download it asks about.
     ///
-    /// Expected behaviour: bytes are the queue's moving seconds times the
-    /// measured wire rate, so the figure and the pass's own total are one queue.
+    /// Expected behaviour: listed series' samples are priced at the per-series
+    /// rate and unlisted moving seconds at the flat rate, and the two add.
     #[test]
-    fn the_estimate_prices_moving_seconds_at_the_wire_rate() {
-        assert_eq!(estimate_bytes(0), 0);
-        assert_eq!(estimate_bytes(1000), 1000 * WIRE_BYTES_PER_MOVING_SECOND);
+    fn the_estimate_prices_samples_and_unlisted_seconds_at_their_rates() {
+        assert_eq!(estimate_bytes(0, 0), 0);
+        assert_eq!(estimate_bytes(0, 1000), 1000 * WIRE_BYTES_PER_MOVING_SECOND);
+        assert_eq!(
+            estimate_bytes(4000, 0),
+            (4000.0 * WIRE_BYTES_PER_SERIES_SAMPLE).round() as u64
+        );
+        assert_eq!(
+            estimate_bytes(4000, 1000),
+            estimate_bytes(4000, 0) + estimate_bytes(0, 1000)
+        );
+        assert_eq!(estimate_bytes(u64::MAX, u64::MAX), u64::MAX);
     }
 
     /// Scenario: the athlete answers the ask.

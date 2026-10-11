@@ -48,16 +48,19 @@ describe('label contrast', () => {
 
   for (const isDark of [false, true]) {
     const theme = isDark ? 'dark' : 'light';
-    it(`keeps every filled variant's label at 4.5:1 in the ${theme} theme`, () => {
+    it(`keeps every variant's label at 4.5:1 in the ${theme} theme, a transparent one on each ground it sits on`, () => {
       mockIsDark = isDark;
+      const palette = isDark ? darkColors : colors;
+      const pageGrounds = [palette.surface, palette.background, palette.backgroundAlt];
       for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
         const { getByTestId } = render(
           <Button label="x" variant={variant} onPress={() => {}} testID="b" />
         );
         const ground = styleOf(getByTestId('b')).backgroundColor as string;
-        if (ground === 'transparent') continue;
         const ink = styleOf(getByTestId('b-label')).color as string;
-        expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(4.5);
+        for (const under of ground === 'transparent' ? pageGrounds : [ground]) {
+          expect(contrastRatio(ink, under)).toBeGreaterThanOrEqual(4.5);
+        }
       }
     });
 
@@ -197,6 +200,21 @@ describe('Button', () => {
     expect(getByTestId('b').props.accessibilityRole).toBe('button');
     expect(getByTestId('b').props.accessibilityLabel).toBe('Save');
   });
+
+  it('wraps a long label inside its row and grows, rather than cutting it at large text', () => {
+    const label = 'Wiederherstellen aus einer gespeicherten Sicherungskopie jetzt';
+    for (const size of ['sm', 'md'] as const) {
+      const { getByTestId } = render(
+        <Button label={label} size={size} onPress={() => {}} testID="b" />
+      );
+      const text = getByTestId('b-label');
+
+      expect(text.props.numberOfLines).toBeUndefined();
+      expect(styleOf(text).flexShrink).toBe(1);
+      expect(styleOf(text).textAlign).toBe('center');
+      expect(styleOf(getByTestId('b')).height).toBeUndefined();
+    }
+  });
 });
 
 describe('ToggleButton', () => {
@@ -224,6 +242,14 @@ describe('ToggleButton', () => {
       expect(contrastRatio(selected, unselected)).toBeGreaterThanOrEqual(3);
     });
   }
+
+  it('keeps a chip label on one line, since chips sit in a horizontal row', () => {
+    const { getByTestId } = render(
+      <ToggleButton label="A long option label" count={3} onPress={() => {}} testID="t" />
+    );
+
+    expect(getByTestId('t-label').props.numberOfLines).toBe(1);
+  });
 
   it('reaches the tap target through hit slop like every other button', () => {
     const { getByTestId } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);

@@ -5,6 +5,7 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
+  BODY_INTRINSIC_W,
   BodyPairWithLoupe,
   StrengthBalanceScale,
   balancePairName,
@@ -40,9 +41,8 @@ const SPLIT_PAIRS: {
 ];
 
 const BODY_SCALE = 0.3;
-// The pair fills the width it is given, and each body is drawn 200 wide
-// before scaling, so the pair is held to the two bodies side by side.
-const BODY_PAIR_WIDTH = 2 * 200 * BODY_SCALE;
+// The pair fills the width it is given, so it is held to the two bodies side by side.
+const BODY_PAIR_WIDTH = 2 * BODY_INTRINSIC_W * BODY_SCALE;
 
 export function StrengthSlide() {
   const { t } = useTranslation();
@@ -56,7 +56,7 @@ export function StrengthSlide() {
         <BodyPairWithLoupe
           data={BODY_DATA}
           gender="male"
-          scale={BODY_SCALE}
+          maxScale={BODY_SCALE}
           colors={strengthRamp}
           defaultFill={isDark ? bodyDiagram.fillDark : bodyDiagram.fillLight}
         />

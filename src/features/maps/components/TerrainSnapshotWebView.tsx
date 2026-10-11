@@ -60,6 +60,7 @@ import {
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
+  type SnapshotStylesHeld,
 } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
@@ -271,6 +272,12 @@ interface WorkerState {
    * Cleared whenever the WebView goes, since a fresh page holds nothing.
    */
   lastRenderRef: { current: { mapStyle: string; flat: boolean } | null };
+  /**
+   * The basemap styles the page holds, so a request for one of them carries
+   * only the request. Emptied whenever the map comes up, since that is the
+   * first thing a fresh page says, and whenever the page says it lost one.
+   */
+  stylesHeld: SnapshotStylesHeld;
   /** Part of the WebView's key, moved when the page comes back in a new view. */
   viewGenerationRef: { current: number };
   /** The worker spent its renderer restarts, so it has no WebView and takes no work. */
@@ -318,6 +325,7 @@ export const TerrainSnapshotWebView = forwardRef<
         currentRequestRef: { current: null },
         mountedAtRef: { current: Date.now() },
         lastRenderRef: { current: null },
+        stylesHeld: new Map(),
         viewGenerationRef: { current: 0 },
         lostRef: { current: false },
         recovery: createRendererRecovery(`snapshot worker ${i}`, () => ({
@@ -683,6 +691,7 @@ export const TerrainSnapshotWebView = forwardRef<
               next
             )
           : null) ?? free[0];
+      if (!worker) break;
       if (drained > 0) {
         trace({ kind: 'drain', workerId: worker.id, detail: `${drained} cached` });
         queueCompletedRef.current += drained;
@@ -711,7 +720,7 @@ export const TerrainSnapshotWebView = forwardRef<
       // Inject render command - builds complete style with terrain, route, and markers
       // embedded, then applies atomically via single setStyle() call.
       worker.webViewRef.current?.injectJavaScript(
-        buildRenderSnapshotScript(request, workerId, gen)
+        buildRenderSnapshotScript(request, workerId, gen, worker.stylesHeld)
       );
 
       // Per-worker timeout fallback
@@ -809,6 +818,11 @@ export const TerrainSnapshotWebView = forwardRef<
         if (!worker) return;
         if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
         recordSnapshotTiming(SNAPSHOT_BOOT, worker.mountedAtRef.current, Date.now());
+        // A page that died or reloaded holds no style, and this message is
+        // the one thing every fresh page sends before it takes work. A map
+        // rebuilt in the same page still holds its styles, and giving them
+        // again costs one injection per style.
+        worker.stylesHeld.clear();
         worker.mapReadyRef.current = true;
         processNext();
       },
@@ -969,6 +983,8 @@ export const TerrainSnapshotWebView = forwardRef<
         recordSnapshotTiles(data.tileStats);
         if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
         worker.processingRef.current = false;
+        // The page did not have the style, so the retry gives it again.
+        if (data.styleMissing === true) worker.stylesHeld.clear();
 
         const currentRequest = worker.currentRequestRef.current;
         worker.currentRequestRef.current = null;

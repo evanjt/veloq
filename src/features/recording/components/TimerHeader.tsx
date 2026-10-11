@@ -96,7 +96,7 @@ function TimerHeaderInner({
             style={styles.lockChip}
             onPress={onLock}
             disabled={isLocked}
-            accessibilityLabel={t('recording.slideToUnlock', 'Slide to unlock')}
+            accessibilityLabel={t('recording.lockControls')}
           >
             <MaterialCommunityIcons
               name={isLocked ? 'lock' : 'lock-open-variant-outline'}

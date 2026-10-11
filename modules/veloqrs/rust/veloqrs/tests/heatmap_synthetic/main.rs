@@ -12,6 +12,9 @@ mod heatmap_idempotent;
 #[path = "../heatmap_parity.rs"]
 mod heatmap_parity;
 
+#[path = "../heatmap_tile_on_request.rs"]
+mod heatmap_tile_on_request;
+
 #[path = "../heatmap_tile_set.rs"]
 mod heatmap_tile_set;
 

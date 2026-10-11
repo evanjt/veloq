@@ -24,11 +24,22 @@ export const pressRipple = Platform.select({
 });
 
 /**
+ * The ripple for a `Pressable` whose child paints an opaque ground, such as a
+ * `Card`. A ripple is the view's background unless it is a foreground, so the
+ * plain one is drawn under the child and never seen.
+ */
+export const pressRippleOver = Platform.select({
+  android: { borderless: false, foreground: true },
+  default: undefined,
+});
+
+/**
  * The `style` a `Pressable` takes so its press is visible.
  *
  * Pass whatever the element already had: `style={pressable(styles.row)}`, or
  * `style={pressable()}` where it had none. Give `android_ripple={pressRipple}`
- * beside it when the element has a ground to draw one on.
+ * beside it when the element has a ground to draw one on, or
+ * `pressRippleOver` when its child covers that ground.
  */
 export function pressable(
   style?: StyleProp<ViewStyle>

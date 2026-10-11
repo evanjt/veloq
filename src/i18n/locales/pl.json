@@ -79,11 +79,7 @@
       "formTSB": "Forma (TSB)",
       "hrRecovery": "Regeneracja HR",
       "hrvToday": "HRV dzisiaj",
-      "intensityEasy": "Łatwy",
       "intensityFactor": "Współczynnik intensywności",
-      "intensityHard": "Ciężki",
-      "intensityModerate": "Umiarkowany",
-      "intensityVeryHard": "Bardzo ciężki",
       "max": "Maks {{value}}",
       "maxLabel": "Maks",
       "newGround": "Nowy teren",
@@ -354,7 +350,7 @@
     "webdavTestUnauthorised": "Uwierzytelnianie nie powiodło się",
     "webdavTestMethodNotAllowed": "Sprawdź format adresu WebDAV. Serwer nie obsługuje PROPFIND pod tą ścieżką",
     "webdavTestStatus": "Serwer zwrócił {{code}}",
-    "moreInfo": "Więcej informacji",
+    "aboutTopic": "Informacje: {{title}}",
     "sectionBackup": "Kopia zapasowa",
     "sectionRestore": "Przywracanie",
     "sectionDestinations": "Miejsca zapisu",
@@ -605,8 +601,18 @@
       "thisYear": "Ten rok",
       "lastYear": "Zeszły rok"
     },
-    "noActivities": "Nie znaleziono aktywności",
     "noMatchingActivities": "Brak pasujących aktywności",
+    "emptyLibrary": {
+      "pausedTitle": "Synchronizacja jest wstrzymana",
+      "pausedBody": "Twoje aktywności są w intervals.icu i zostaną pobrane, gdy synchronizacja zostanie wznowiona.",
+      "authExpiredTitle": "Zaloguj się, aby pobrać swoje aktywności",
+      "signInAgain": "Zaloguj się ponownie",
+      "failedTitle": "Twoje aktywności nie zostały pobrane",
+      "failedBody": "Ostatnia synchronizacja zatrzymała się, zanim dotarła jakakolwiek aktywność.",
+      "emptyTitle": "Jeszcze brak aktywności",
+      "emptyBody": "Aktywności pochodzą z Twojego konta intervals.icu lub z nagrania tutaj.",
+      "record": "Nagraj aktywność"
+    },
     "searchPlaceholder": "Szukaj aktywności...",
     "streamConsentTitle": "Pobrać brakujące dane aktywności?",
     "streamConsentBody_one": "W {{count}} aktywności brakuje serii tętna, mocy i kadencji. Pobranie zużyje około {{megabytes}} MB danych.",
@@ -648,7 +654,6 @@
   "fitnessScreen": {
     "atl": "ATL",
     "ctl": "CTL",
-    "failedToLoad": "Nie udało się wczytać danych kondycji",
     "fatigueDescription": "to 7-dniowa wykładniczo ważona średnia ruchoma obciążenia treningowego.",
     "fitnessAndFatigue": "Kondycja i zmęczenie",
     "fitnessDescription": "to 42-dniowa wykładniczo ważona średnia ruchoma obciążenia treningowego.",
@@ -921,8 +926,9 @@
       "ratioFormula": "stosunek = dominujące ważone serie / drugorzędne ważone serie"
     },
     "viewInDetail": "Zobacz szczegółowo",
+    "routesDisabledDescription": "Twoje odcinki są zachowane i otworzą się ponownie po włączeniu dopasowywania.",
     "routesDisabledLine1": "Trasy i odcinki wyłączone",
-    "routesDisabledLine2": "Dotknij, aby włączyć",
+    "routesDisabledLine2": "Włącz trasy i odcinki",
     "strengthProgression": {
       "upTitle": "Widoczny wzrost objętości dla {{muscle}}",
       "downTitle": "Objętość dla {{muscle}} spadła",
@@ -996,6 +1002,12 @@
       "openFitness": "Otwórz wykres kondycji",
       "openStrength": "Otwórz trening siłowy",
       "openDetail": "Otwórz szczegóły"
+    },
+    "verdict": {
+      "good": "Dobrze",
+      "warning": "Uwaga",
+      "concern": "Niepokojące",
+      "neutral": "Neutralnie"
     }
   },
   "licenses": {
@@ -1270,6 +1282,7 @@
     "permissionExplanation": "Veloq potrzebuje Twojej zgody na przesyłanie aktywności do intervals.icu",
     "permissionNeeded": "Wymagane uprawnienia do przesyłania aktywności",
     "rec": "REC",
+    "resumeLater": "Później",
     "resumePrevious": "Wznowić poprzednie nagrywanie?",
     "resumePreviousMessage": "Nagrywanie rozpoczęte {{startTime}} zostało przerwane po {{duration}} czasu w ruchu. Odrzucenie trwale je usunie.",
     "reviewActivity": "Przejrzyj aktywność",
@@ -1292,6 +1305,10 @@
     "settingsDataFields": "Pola danych",
     "settingsUnits": "Jednostki",
     "slideToUnlock": "Przesuń, aby odblokować",
+    "lockControls": "Zablokuj sterowanie",
+    "unlockControls": "Odblokuj sterowanie",
+    "controlsLocked": "Sterowanie zablokowane",
+    "controlsUnlocked": "Sterowanie odblokowane",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Rozpocznij aktywność",
     "status": {
@@ -1307,7 +1324,10 @@
     },
     "trimActivity": "Przytnij aktywność",
     "trimmed": "Przycięto",
-    "uploadErrorMessage": "Nie można przesłać aktywności: {{error}}",
+    "uploadRejected": "intervals.icu odrzucił ten plik. Trening pozostaje w Moich nagraniach.",
+    "uploadMissing": "Pliku tego treningu nie ma już na urządzeniu, więc nie można go przesłać.",
+    "uploadFailed": "Nie można przesłać aktywności. Jest zapisana na tym urządzeniu.",
+    "openInRecordings": "Otwórz w Moich nagraniach",
     "writePermissionNotGranted": "Uprawnienia do zapisu nie przyznane",
     "writePermissionRequired": "Wymagane uprawnienia do zapisu",
     "savedLocally": "Aktywność zapisana na tym urządzeniu. Możesz ją przesłać w dowolnym momencie z Moich nagrań.",
@@ -1703,6 +1723,7 @@
     "nameTaken": "Inny odcinek ma już tę nazwę. Wybierz inną nazwę.",
     "undoExcludeLap": "Cofnij Okrążenie {{n}}",
     "excludeLapNumber": "Wyklucz Okrążenie {{n}}",
+    "mergeFailed": "Nie udało się połączyć sekcji.",
     "deleteFailed": "Nie udało się usunąć sekcji."
   },
   "settings": {
@@ -1901,7 +1922,11 @@
     "sectionSameTraffic": "Czułość podziału tras: {{value}}",
     "sectionParamPastClamp": "Powyżej tej wartości detektor nie rozróżnia już wyników.",
     "sectionParamPastRange": "Te ustawienia są poza przetestowanym zakresem.",
+    "sectionParamEditHint": "Wpisz wartość",
     "sectionParamRange": "Przetestowany zakres od {{min}} do {{max}}",
+    "sectionParamInvalid": "Wpisz liczbę większą od 0.",
+    "sectionParamInvalidWhole": "Wpisz liczbę całkowitą, 1 lub więcej.",
+    "groupingParamInvalidPercent": "Wpisz wartość procentową od 1 do 100.",
     "sectionPresetDefault": "Domyślne",
     "sectionPresetRelaxed": "Swobodne",
     "sectionPresetStrict": "Rygorystyczne",
@@ -1970,7 +1995,7 @@
     "elevationBackfillPaused": "Pobieranie wysokości wstrzymane. Włącz Dopasowywanie tras, aby kontynuować.",
     "elevationBackfillSwitchedOff": "Pobieranie wysokości zatrzymane, ponieważ Dopasowywanie tras jest wyłączone.",
     "exportPrivacyTitle": "Nie eksportuj okolic domu",
-    "exportPrivacyDescription": "Przycina początek i koniec każdej trasy w promieniu {{radius}} m od domu. Skracana jest tylko wyeksportowana kopia.",
+    "exportPrivacyDescription": "Przycina początek i koniec każdej trasy w promieniu {{radius}} od domu. Skracana jest tylko wyeksportowana kopia.",
     "exportPrivacySuggested_one": "Większość twoich wyjazdów zaczyna się w jednym miejscu, {{count}} z nich. {{share}}% wszystkich końców wyjazdów.",
     "exportPrivacySuggested_few": "Większość twoich wyjazdów zaczyna się w jednym miejscu, {{count}} z nich. {{share}}% wszystkich końców wyjazdów.",
     "exportPrivacySuggested_many": "Większość twoich wyjazdów zaczyna się w jednym miejscu, {{count}} z nich. {{share}}% wszystkich końców wyjazdów.",
@@ -1979,9 +2004,8 @@
     "exportPrivacyNoSuggestion": "Za mało przejazdów, aby ustalić, gdzie jest dom.",
     "exportPrivacyNeedsHome": "Wyłączone, dopóki nie ustawisz domu. Użyj proponowanego miejsca poniżej lub dotknij mapy.",
     "exportPrivacyNeedsHomeNoSuggestion": "Wyłączone, dopóki nie ustawisz domu.",
-    "exportPrivacyCount": "Skraca {{touched}} z {{total}} przejazdów przy {{radius}} m. Nic nie jest usuwane.",
+    "exportPrivacyCount": "Skraca {{touched}} z {{total}} przejazdów przy {{radius}}. Nic nie jest usuwane.",
     "exportPrivacyNothingTrimmed": "Nic nie jest skracane. Eksporty zawierają pełny ślad.",
-    "exportPrivacyRadius": "{{metres}} m",
     "exportPrivacyMoveHint": "Dotknij mapy, aby przesunąć dom.",
     "previewRouteGrouping": "Podgląd grupowania tras",
     "groupingMatchShare": "Ta sama trasa przy {{percent}}% pokrycia",
@@ -2081,7 +2105,7 @@
     "vsPrevious6Months": "vs poprzednie 6 miesięcy",
     "week": "Tydzień",
     "year": "Rok",
-    "atWeight": "przy {{kg}} kg"
+    "atWeight": "przy {{weight}}"
   },
   "statsScreen": {
     "decoupling": "Efektywność aerobowa",
@@ -2387,6 +2411,33 @@
       "noData": "Połączono, brak danych",
       "reconnecting": "Ponowne łączenie…",
       "disconnected": "Nie połączono"
+    },
+    "purpose": "Bluetooth służy do wyszukiwania i łączenia czujników tętna, mocy i kadencji.",
+    "noneFound": "Nie znaleziono czujników",
+    "noneFoundHint": "Wybudź czujnik, zakładając pas lub obracając korbami, i trzymaj go blisko telefonu.",
+    "scanAgain": "Szukaj ponownie",
+    "availability": {
+      "unsupportedTitle": "To urządzenie nie ma Bluetooth LE",
+      "unsupportedHint": "Czujniki tętna, mocy i kadencji wymagają Bluetooth LE.",
+      "poweredOffTitle": "Bluetooth jest wyłączony",
+      "poweredOffHint": "Włącz Bluetooth, aby wyszukiwać i łączyć czujniki.",
+      "poweredOffHintIos": "Włącz Bluetooth w Centrum sterowania lub w Ustawieniach, aby wyszukiwać i łączyć czujniki.",
+      "turnOn": "Włącz Bluetooth",
+      "permissionTitle": "Wymagane uprawnienie Bluetooth",
+      "permissionHint": "Zezwól na dostęp do urządzeń w pobliżu, aby wyszukiwać i łączyć czujniki.",
+      "blockedHint": "Zezwól na dostęp do urządzeń w pobliżu w Ustawieniach, aby wyszukiwać i łączyć czujniki.",
+      "locationPermissionTitle": "Wymagane uprawnienie lokalizacji",
+      "locationPermissionHint": "W tej wersji Androida wyszukiwanie czujników Bluetooth wymaga uprawnienia lokalizacji.",
+      "locationBlockedHint": "W tej wersji Androida wyszukiwanie czujników Bluetooth wymaga uprawnienia lokalizacji. Zezwól na nie w Ustawieniach.",
+      "allow": "Zezwól",
+      "locationOffTitle": "Lokalizacja jest wyłączona",
+      "locationOffHint": "W tej wersji Androida wyszukiwanie czujników Bluetooth wymaga włączonej lokalizacji.",
+      "openLocationSettings": "Otwórz ustawienia lokalizacji"
+    },
+    "issue": {
+      "bluetoothOff": "Bluetooth wyłączony",
+      "permission": "Wymagane uprawnienie Bluetooth",
+      "unsupported": "Bluetooth niedostępny"
     }
   },
   "sectionHistory": {
@@ -2401,6 +2452,7 @@
     "current": "Bieżąca",
     "revert": "Przywróć",
     "revertConfirm": "Przywrócić wersję {{version}} jako linię tego odcinka? Wykrywanie utrzyma ją, aż ją odepniesz.",
+    "revertFailed": "Nie udało się przywrócić wersji.",
     "unpin": "Odepnij",
     "showOnMap": "Pokaż na mapie",
     "hideOnMap": "Ukryj",

@@ -4,7 +4,6 @@
 //! Uses an intensity buffer with additive accumulation and a colour gradient
 //! LUT to produce heatmap tiles with additive intensity.
 
-use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::path::{Path, PathBuf};
 use tracematch::GpsPoint;
@@ -344,6 +343,7 @@ pub(crate) mod work {
         static PIXELS: Cell<usize> = const { Cell::new(0) };
         static WALKS: Cell<usize> = const { Cell::new(0) };
         static PEAK_DECODED: Cell<usize> = const { Cell::new(0) };
+        static BUFFERS: Cell<usize> = const { Cell::new(0) };
     }
 
     /// The load holds `points` decoded GPS points at once.
@@ -354,6 +354,15 @@ pub(crate) mod work {
     /// The most decoded points held at once since the last call.
     pub(crate) fn take_peak_decoded() -> usize {
         PEAK_DECODED.with(|c| c.replace(0))
+    }
+
+    pub(crate) fn buffer_made() {
+        BUFFERS.with(|c| c.set(c.get() + 1));
+    }
+
+    /// The intensity buffers made since the last call.
+    pub(crate) fn take_buffers_made() -> usize {
+        BUFFERS.with(|c| c.replace(0))
     }
 
     pub(crate) fn walked() {
@@ -751,6 +760,8 @@ pub struct IntensityBuffer {
 
 impl IntensityBuffer {
     fn new(width: u32, height: u32) -> Self {
+        #[cfg(test)]
+        work::buffer_made();
         Self {
             data: vec![0u16; (width * height) as usize],
             width,
@@ -787,11 +798,9 @@ impl IntensityBuffer {
         self.data.iter().all(|&v| v == 0)
     }
 
-    /// Add another buffer's ink to this one, pixel by pixel.
-    fn absorb(&mut self, other: &Self) {
-        for (mine, theirs) in self.data.iter_mut().zip(&other.data) {
-            *mine = mine.saturating_add(*theirs);
-        }
+    /// Take every pixel's ink off, so the buffer can be drawn in again.
+    fn clear(&mut self) {
+        self.data.fill(0);
     }
 }
 
@@ -974,13 +983,13 @@ fn ink_pixel(
 // Gaussian Blur
 // ============================================================================
 
-/// Apply a 3x3 Gaussian blur to the intensity buffer.
-/// Used at lower zoom levels to soften the heatmap.
-fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
+/// Apply a 3x3 Gaussian blur to the intensity buffer, writing every pixel of
+/// `out`, which is the same size. Used at lower zoom levels to soften the
+/// heatmap.
+fn gaussian_blur_3x3(buf: &IntensityBuffer, out: &mut IntensityBuffer) {
     // 3x3 Gaussian kernel (sum = 16, use bit shift for speed)
     let kernel: [[u16; 3]; 3] = [[1, 2, 1], [2, 4, 2], [1, 2, 1]];
 
-    let mut out = IntensityBuffer::new(buf.width, buf.height);
     let w = buf.width as i32;
     let h = buf.height as i32;
 
@@ -998,7 +1007,6 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
                 ((sum >> 4).min(u16::MAX as u32)) as u16;
         }
     }
-    out
 }
 
 // ============================================================================
@@ -1081,38 +1089,32 @@ fn stroke_tracks(
     strokes
 }
 
-/// Tracks in one share of a tile's strokes. A tile holding more is stroked in
-/// shares the pool can take on several workers, so the few tiles over home
-/// ground, which hold most of the library, are not each left to one worker
-/// while the rest of the pool sits idle.
-const TRACKS_PER_SHARE: usize = 24;
-
-/// Every track's ink in one tile's buffer.
+/// The buffers a tile is drawn in, kept from one tile to the next.
 ///
-/// Shares are stroked into buffers of their own and then added together. Ink
-/// only ever adds, and a saturating sum of values that are never negative is
-/// the same whichever order and grouping it is taken in, so the buffer is the
-/// one a single worker stroking every track would leave.
-fn stroke_tile(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> IntensityBuffer {
-    if tracks.len() <= TRACKS_PER_SHARE {
-        let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-        stroke_tracks(&mut buf, z, x, y, tracks);
-        return buf;
+/// A pass draws a tile on every worker of the pool at once, so buffers made
+/// fresh for each tile are made thousands of times a pass and held once per
+/// worker. A worker that keeps one canvas for its run of tiles makes them
+/// once. Ink is cleared before every tile, so nothing one tile laid down shows
+/// through in the next.
+pub struct TileCanvas {
+    ink: IntensityBuffer,
+    /// Made the first time this canvas draws a zoom that is blurred.
+    blurred: Option<IntensityBuffer>,
+}
+
+impl TileCanvas {
+    pub fn new() -> Self {
+        Self {
+            ink: IntensityBuffer::new(TILE_SIZE, TILE_SIZE),
+            blurred: None,
+        }
     }
-    tracks
-        .par_chunks(TRACKS_PER_SHARE)
-        .fold(
-            || IntensityBuffer::new(TILE_SIZE, TILE_SIZE),
-            |mut buf, share| {
-                stroke_tracks(&mut buf, z, x, y, share);
-                buf
-            },
-        )
-        .reduce_with(|mut sum, part| {
-            sum.absorb(&part);
-            sum
-        })
-        .unwrap_or_else(|| IntensityBuffer::new(TILE_SIZE, TILE_SIZE))
+}
+
+impl Default for TileCanvas {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Generate a single heatmap tile from GPS tracks.
@@ -1137,15 +1139,39 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
 
 /// [`generate_heatmap_tile`] for tracks already placed on the map.
 pub fn draw_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> Option<Vec<u8>> {
-    let buf = stroke_tile(z, x, y, tracks);
+    draw_heatmap_tile_on(&mut TileCanvas::new(), z, x, y, tracks)
+}
+
+/// [`draw_heatmap_tile`] in a canvas the caller keeps between tiles.
+///
+/// The tracks are stroked one after another on the calling worker. A pass
+/// already has every worker drawing a tile of its own, and splitting one
+/// tile's tracks across the pool as well cost a fresh buffer per split.
+pub fn draw_heatmap_tile_on(
+    canvas: &mut TileCanvas,
+    z: u8,
+    x: u32,
+    y: u32,
+    tracks: &[&ProjectedTrack],
+) -> Option<Vec<u8>> {
+    canvas.ink.clear();
+    stroke_tracks(&mut canvas.ink, z, x, y, tracks);
 
     // Skip empty tiles entirely
-    if buf.is_empty() {
+    if canvas.ink.is_empty() {
         return None;
     }
 
     // Apply Gaussian blur only at lower zoom levels where density matters more than street detail.
-    let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
+    let buf = if z <= 9 {
+        let blurred = canvas
+            .blurred
+            .get_or_insert_with(|| IntensityBuffer::new(TILE_SIZE, TILE_SIZE));
+        gaussian_blur_3x3(&canvas.ink, blurred);
+        &*blurred
+    } else {
+        &canvas.ink
+    };
 
     // Each pixel becomes its index into the colour table, through the
     // zoom's u16 intensity -> u8 index table. Index 0 is the transparent
@@ -1701,42 +1727,33 @@ mod tests {
         }
     }
 
-    /// Scenario: a tile under home ground, where hundreds of rides cross the
-    /// same pixels often enough to saturate them.
+    /// Scenario: one worker draws a hundred tiles in a row, dense and blurred
+    /// ones among them, each crossed by more tracks than a pool would once
+    /// have split it into.
     ///
-    /// Expected behaviour: stroking the tile in shares leaves exactly the
-    /// buffer one pass over every track leaves, saturated pixels included.
+    /// Expected behaviour: the worker's canvas makes its two buffers once,
+    /// the ink and the blur, rather than fresh ones for every tile.
     #[test]
-    fn a_tile_stroked_in_shares_matches_one_stroked_whole() {
-        let zoom = 12;
-        let lat = 46.23;
-        let tx = lon_to_tile_x(7.35, zoom).floor() as u32;
-        let ty = lat_to_tile_y(lat, zoom).floor() as u32;
-        let rides: Vec<ProjectedTrack> = (0..150)
-            .map(|k| {
-                let k = f64::from(k);
-                // Twenty times back and forth over the same few hundred
-                // metres, every ride on the same line, so the middle pixels
-                // take far more ink than a pixel holds.
-                let track: Vec<GpsPoint> = (0..800)
-                    .map(|i| {
-                        let leg = f64::from(i % 40);
-                        let along = if (i / 40) % 2 == 0 { leg } else { 40.0 - leg };
-                        GpsPoint::new(lat, 7.35 + along * 0.000_2 + k * 0.000_001)
-                    })
-                    .collect();
-                ProjectedTrack::new(&track)
-            })
+    fn a_worker_makes_its_buffers_once_for_a_run_of_tiles() {
+        let (lat, lng) = (47.37, 8.55);
+        let tracks: Vec<ProjectedTrack> = corridors(120, lat, lng, 8_000.0)
+            .iter()
+            .map(|t| ProjectedTrack::new(t))
             .collect();
-        let tracks: Vec<&ProjectedTrack> = rides.iter().collect();
+        let tracks: Vec<&ProjectedTrack> = tracks.iter().collect();
 
-        let mut whole = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-        stroke_tracks(&mut whole, zoom, tx, ty, &tracks);
-        let shared = stroke_tile(zoom, tx, ty, &tracks);
+        work::take_buffers_made();
+        let mut canvas = TileCanvas::new();
+        let mut drawn = 0;
+        for i in 0..100 {
+            let z = [9, 12, 14, 8][i % 4];
+            let x = lon_to_tile_x(lng, z).floor() as u32;
+            let y = lat_to_tile_y(lat, z).floor() as u32;
+            drawn += usize::from(draw_heatmap_tile_on(&mut canvas, z, x, y, &tracks).is_some());
+        }
 
-        assert!(tracks.len() > 2 * TRACKS_PER_SHARE);
-        assert!(whole.data.contains(&u16::MAX), "no pixel saturated");
-        assert!(shared.data == whole.data);
+        assert_eq!(drawn, 100);
+        assert!(work::take_buffers_made() <= 2);
     }
 
     /// Forty rides crossing one point at every angle, each reaching
@@ -1755,8 +1772,15 @@ mod tests {
     /// The tile as it was encoded when every pixel was written out as RGBA:
     /// the colour of each pixel, and the PNG of that image.
     fn rgba_reference(z: u8, x: u32, y: u32, tracks: &[&ProjectedTrack]) -> (Vec<u8>, usize) {
-        let buf = stroke_tile(z, x, y, tracks);
-        let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
+        let mut ink = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+        stroke_tracks(&mut ink, z, x, y, tracks);
+        let buf = if z <= 9 {
+            let mut blurred = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+            gaussian_blur_3x3(&ink, &mut blurred);
+            blurred
+        } else {
+            ink
+        };
         let idx_lut = intensity_idx_lut_for_zoom(z);
         let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
         for y_px in 0..TILE_SIZE {
@@ -1840,6 +1864,127 @@ mod tests {
         assert!(!png_data.is_empty());
         // PNG magic bytes
         assert_eq!(&png_data[0..4], &[0x89, 0x50, 0x4E, 0x47]);
+    }
+
+    /// A straight track of 10 m steps, `length_m` long and centred on the point.
+    fn corridor(lat: f64, lng: f64, length_m: f64, bearing_deg: f64) -> Vec<GpsPoint> {
+        let n = (length_m / 10.0).ceil() as usize;
+        let br = bearing_deg.to_radians();
+        let d_lat = 10.0 * br.cos() / 111_320.0;
+        let d_lng = 10.0 * br.sin() / (111_320.0 * lat.to_radians().cos());
+        let half = n as f64 / 2.0;
+        (0..n)
+            .map(|i| {
+                let k = i as f64 - half;
+                GpsPoint::new(lat + d_lat * k, lng + d_lng * k)
+            })
+            .collect()
+    }
+
+    /// `count` corridors over the same ground, each turned and shifted a little.
+    fn corridors(count: usize, lat: f64, lng: f64, length_m: f64) -> Vec<Vec<GpsPoint>> {
+        (0..count)
+            .map(|i| {
+                let i = i as f64;
+                let bearing = 45.0 + i * (360.0 / count as f64) * 0.05;
+                corridor(
+                    lat + i * 0.000_02 - count as f64 * 0.000_01,
+                    lng + i * 0.000_03 - count as f64 * 0.000_015,
+                    length_m,
+                    bearing,
+                )
+            })
+            .collect()
+    }
+
+    /// Rides back and forth over the same few hundred metres often enough
+    /// that the middle pixels take more ink than a pixel holds.
+    fn saturating_rides(lat: f64, lng: f64) -> Vec<Vec<GpsPoint>> {
+        (0..150)
+            .map(|k| {
+                let k = f64::from(k);
+                (0..800)
+                    .map(|i| {
+                        let leg = f64::from(i % 40);
+                        let along = if (i / 40) % 2 == 0 { leg } else { 40.0 - leg };
+                        GpsPoint::new(lat, lng + along * 0.000_2 + k * 0.000_001)
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// FNV-1a over a tile's decoded pixels, or `None` for a tile not drawn.
+    fn pixel_digest(png: Option<Vec<u8>>) -> Option<u64> {
+        let png = png?;
+        let pixels = image::load_from_memory(&png).unwrap().to_rgba8();
+        Some(
+            pixels
+                .as_raw()
+                .iter()
+                .fold(0xcbf2_9ce4_8422_2325u64, |h, &b| {
+                    (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+                }),
+        )
+    }
+
+    /// Scenario: one worker draws a run of tiles back to back, dense and
+    /// sparse, blurred and sharp, saturated and empty, the way a pass hands
+    /// them out.
+    ///
+    /// Expected behaviour: every tile decodes to exactly the pixels it did when
+    /// each tile was drawn in buffers of its own, so nothing one tile laid down
+    /// shows through in the next.
+    #[test]
+    fn tiles_drawn_back_to_back_keep_their_pixels() {
+        let (lat, lng) = (47.37, 8.55);
+        let at = |z: u8| {
+            (
+                z,
+                lon_to_tile_x(lng, z).floor() as u32,
+                lat_to_tile_y(lat, z).floor() as u32,
+            )
+        };
+        let place = |tracks: &[Vec<GpsPoint>]| -> Vec<ProjectedTrack> {
+            tracks.iter().map(|t| ProjectedTrack::new(t)).collect()
+        };
+        let saturating = place(&saturating_rides(lat, lng));
+        let sparse = place(&[corridor(lat, lng, 20_000.0, 30.0)]);
+        let home = place(&corridors(60, lat, lng, 8_000.0));
+        let medium = place(&corridors(10, lat, lng, 1_500.0));
+        let block = place(&corridors(50, lat, lng, 250.0));
+
+        let run: [(&[ProjectedTrack], _); 8] = [
+            (&saturating, at(12)),
+            (&sparse, at(8)),
+            (&block, at(17)),
+            (&saturating, (12, 0, 0)),
+            (&home, at(9)),
+            (&medium, at(14)),
+            (&sparse, at(8)),
+            (&saturating, at(12)),
+        ];
+        let mut canvas = TileCanvas::new();
+        let digests: Vec<Option<u64>> = run
+            .iter()
+            .map(|(tracks, (z, x, y))| {
+                let tracks: Vec<&ProjectedTrack> = tracks.iter().collect();
+                pixel_digest(draw_heatmap_tile_on(&mut canvas, *z, *x, *y, &tracks))
+            })
+            .collect();
+
+        // Taken from tiles drawn each in buffers of their own.
+        let drawn_alone = [
+            Some(17_166_743_885_195_298_038),
+            Some(13_466_028_557_253_361_804),
+            Some(9_611_053_799_648_995_420),
+            None,
+            Some(1_418_176_144_483_572_282),
+            Some(14_453_261_032_681_244_101),
+            Some(13_466_028_557_253_361_804),
+            Some(17_166_743_885_195_298_038),
+        ];
+        assert_eq!(digests, drawn_alone);
     }
 
     #[test]

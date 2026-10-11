@@ -16,7 +16,8 @@
 //! lease release or bookkeeping write is lost. One asked for from any other
 //! thread is refused at once: that is the JavaScript thread or a native
 //! caller, and parking it could hold the main thread on the way back to the
-//! foreground.
+//! foreground. A write from such a thread that must still land, a lease
+//! release, goes through [`write_or_defer`], which keeps it for the resume.
 //!
 //! Nothing suspends unless the platform has said the app is in the background
 //! and no resume has come since. A suspension asked for late, after the app has
@@ -43,7 +44,13 @@ struct State {
     resumes: u64,
     detection: Option<DetectionSuspendGuard>,
     sync: Option<Interrupted>,
+    /// Writes a suspension refused that must still land, run by the next
+    /// resume before it restarts any work.
+    deferred: Vec<DeferredWrite>,
 }
+
+/// A write kept for the resume. It answers whether it landed.
+type DeferredWrite = Box<dyn FnMut() -> bool + Send>;
 
 static STATE: Mutex<State> = Mutex::new(State {
     background: false,
@@ -52,6 +59,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     resumes: 0,
     detection: None,
     sync: None,
+    deferred: Vec::new(),
 });
 
 /// Signalled when the last write in flight ends and on every resume.
@@ -148,6 +156,34 @@ pub(crate) fn try_begin_write() -> Option<WriteHold> {
     Some(hold())
 }
 
+/// Run `write`, and when a suspension refuses it, keep it for the next resume.
+///
+/// For a write that must not be lost to a suspension, a lease release above
+/// all: asked for on a thread that is not the engine's own and refused, the
+/// lease stays held for the rest of the process and every later claim on the
+/// key is answered busy. The resume runs what was kept on a thread of its own,
+/// before the work it restarts claims anything. `write` answers whether it
+/// landed. One refused for another reason, a closed engine or a replaced
+/// install, is dropped, which is what that refusal means anyway.
+pub(crate) fn write_or_defer(mut write: impl FnMut() -> bool + Send + 'static) {
+    loop {
+        let resumes = state().resumes;
+        if write() {
+            return;
+        }
+        let mut state = state();
+        if state.suspended {
+            state.deferred.push(Box::new(write));
+            return;
+        }
+        if state.resumes == resumes {
+            return;
+        }
+        // A resume came between the refusal and this look, so the refusal may
+        // have been the suspension's. Ask again.
+    }
+}
+
 /// Whether writes are stopped for a suspension.
 pub fn is_suspended() -> bool {
     SUSPENDED.load(Ordering::Acquire)
@@ -222,7 +258,7 @@ pub fn prepare_for_suspension(deadline: Duration) -> bool {
 /// Writes start again, the writers waiting on the suspension go on, and the
 /// sync it cut short starts again on a thread of its own.
 pub fn resume_after_suspension() {
-    let (detection, sync, was_suspended) = {
+    let (detection, sync, deferred, was_suspended) = {
         let mut state = state();
         state.background = false;
         state.resumes += 1;
@@ -230,13 +266,23 @@ pub fn resume_after_suspension() {
         state.suspended = false;
         SUSPENDED.store(false, Ordering::Release);
         CHANGED.notify_all();
-        (state.detection.take(), state.sync.take(), was_suspended)
+        (
+            state.detection.take(),
+            state.sync.take(),
+            std::mem::take(&mut state.deferred),
+            was_suspended,
+        )
     };
     drop(detection);
     if was_suspended {
         // Off the calling thread, which is the main thread on iOS: restarting
-        // the work may wait on the engine lock.
+        // the work may wait on the engine lock, and so may the kept writes.
         crate::threads::spawn_background("veloq-resume", move || {
+            // First, so a lease the suspension kept is free before the work
+            // below asks for it.
+            for write in deferred {
+                write_or_defer(write);
+            }
             crate::objects::sync::resume_sync_after_clear(sync);
             crate::persistence::sections::conditioning::condition_pending();
         });
@@ -280,6 +326,7 @@ pub(crate) fn reset() {
     state.suspended = false;
     state.detection = None;
     state.sync = None;
+    state.deferred.clear();
     state.resumes += 1;
     SUSPENDED.store(false, Ordering::Release);
     CHANGED.notify_all();

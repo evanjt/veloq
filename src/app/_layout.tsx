@@ -56,7 +56,7 @@ import { seedSyncRange } from '@/shared/app/syncRangeSeed';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
 import { pushPlaceNameWords } from '@/i18n/placeNameWords';
-import { lightTheme, darkTheme, colors, darkColors, typography } from '@/theme';
+import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
   ShaderWarmup,
   OfflineBanner,
@@ -132,6 +132,13 @@ installGlobalCrashHandler();
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behaviour)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
+
+/**
+ * Every stack screen has the tab group under it. A cold link (a notification, a
+ * widget, a Live Activity) would otherwise open its screen as the only route,
+ * so back on Android leaves the app and iOS draws no back control.
+ */
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
@@ -451,12 +458,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       // Defer navigation so Android finishes the current render pass before
       // the tab navigator is torn down. Without this delay, Android crashes
       // with NullPointerException in ViewGroup.dispatchGetDisplayList.
+      // The screens a cold link opened over the tab group are popped first, and
+      // the pass that runs on the tab group replaces it, so the login screen is
+      // the only route and back from it leaves the app. Issued together, the
+      // replace is resolved against the stack before the pop.
+      const onTabs = routeParts[0] === '(tabs)';
       const timer = setTimeout(() => {
-        router.replace('/login' as Href);
+        if (!onTabs && router.canGoBack()) router.dismissAll();
+        else router.replace('/login' as Href);
       }, 100);
       return () => clearTimeout(timer);
     } else if (isAuthenticated && inLoginScreen) {
       if (launchIdentityRef.current === 'pending') return undefined;
+      // The root layout seats the tab group under the login screen of a cold
+      // start, so the way in returns to it rather than stacking a second one.
+      const enterApp = () => router.dismissTo('/' as Href);
       const engine = getEngine();
       const currentAthleteId = useAuthStore.getState().athleteId;
       // Update athlete ID for this account, only on a library whose identity
@@ -467,7 +483,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           stampedId = engine.getSetting('__athlete_id');
         } catch {
           // An unreadable identity is not stamped over: the next launch reads it again.
-          router.replace('/' as Href);
+          enterApp();
           return undefined;
         }
         if (stampedId !== currentAthleteId) {
@@ -479,10 +495,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               if (cancelled) return;
               engine.setSetting('__athlete_id', currentAthleteId);
               rememberCachedAthleteId(currentAthleteId).catch(() => {});
-              router.replace('/' as Href);
+              enterApp();
             },
             () => {
-              if (!cancelled) router.replace('/' as Href);
+              if (!cancelled) enterApp();
             }
           );
           return () => {
@@ -493,7 +509,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         rememberCachedAthleteId(currentAthleteId).catch(() => {});
       }
       // Authenticated but on login screen - redirect to main app
-      router.replace('/' as Href);
+      enterApp();
     }
     return undefined;
   }, [isAuthenticated, isLoading, identitySettledRun, routeParts, router]);
@@ -505,8 +521,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
     if (routeParts.includes('login' as never) || heldRideChecked.current === athleteId) return;
     heldRideChecked.current = athleteId;
+    // The ride takes the place of a screen a cold link opened, and is pushed over
+    // the tab group, which a replace would take the place of.
+    const overStackScreen = routeParts.length > 0 && routeParts[0] !== '(tabs)';
     void resumeHeldRecordingForAthlete(athleteId).then((route) => {
-      if (route && useAuthStore.getState().athleteId === athleteId) router.replace(route as Href);
+      if (!route || useAuthStore.getState().athleteId !== athleteId) return;
+      if (overStackScreen) router.replace(route as Href);
+      else router.push(route as Href);
     });
   }, [athleteId, isAuthenticated, routeParts, router]);
 
@@ -648,7 +669,6 @@ export default function RootLayout() {
                           backgroundColor: isDark ? darkColors.surface : colors.surface,
                         },
                         headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
-                        headerTitleStyle: { fontSize: typography.cardTitle.fontSize },
                       }}
                     >
                       {Object.entries(SCREEN_HEADERS).map(([name, header]) => (

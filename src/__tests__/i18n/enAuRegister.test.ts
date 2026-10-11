@@ -100,7 +100,7 @@ const AUSTRALIAN_VOCABULARY = ['activityTypes.Soccer'];
 const MOST_SEEN = [
   'feed.firstSyncTitle',
   'feed.firstSyncBody',
-  'feed.noActivities',
+  'feed.emptyLibrary.emptyTitle',
   'feed.failedToLoad',
   'activity.noHeartRateData',
   'activityDetail.noRouteMatchDescription',

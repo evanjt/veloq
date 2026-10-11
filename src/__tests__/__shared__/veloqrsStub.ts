@@ -282,7 +282,7 @@ export const basemap = {
   getCacheSize: jest.fn(() => Promise.resolve(0)),
   getSourceSize: jest.fn(() => Promise.resolve(0)),
   setBudget: jest.fn(() => Promise.resolve(0)),
-  clearTiles: jest.fn(() => 0),
+  clearTiles: jest.fn(() => Promise.resolve(0)),
   clearUnpinnedTiles: jest.fn(() => Promise.resolve(0)),
   resetTileCounts: jest.fn(),
   tileCounts: jest.fn(() => []),

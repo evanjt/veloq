@@ -16,7 +16,6 @@
 //! same catalogue from the durable pool.
 
 use crate::objects::detection::{SlotWait, wait_on_slot};
-use crate::persistence::attempts::Release;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -228,15 +227,15 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     // conditioner back too: the pending count keeps standing and the next due
     // batch used to start another run at once, with nothing between a failing
     // detect and the next scan of the whole pool.
-    if crate::objects::detection::claim_detect_for(install).is_err() {
+    let Ok(claim) = crate::objects::detection::claim_detect_guarded(install) else {
         return false;
-    }
+    };
 
     let mut guard = SECTION_DETECTION_HANDLE
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     if guard.is_some() {
-        crate::objects::detection::settle_detect_for(install, Release::Deferred);
+        drop(claim);
         return false;
     }
 
@@ -252,7 +251,7 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     .flatten();
 
     let Some((spawn_install, handle)) = handle else {
-        crate::objects::detection::settle_detect_for(install, Release::Deferred);
+        drop(claim);
         return false;
     };
 
@@ -260,7 +259,7 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     // gives back a dead handle. Installing it would occupy the slot with a run
     // that never ran, and nothing failed, so the key goes back clean.
     if crate::persistence::sections::detection_was_refused(&handle) {
-        crate::objects::detection::settle_detect_for(install, Release::Deferred);
+        drop(claim);
         return false;
     }
 
@@ -268,6 +267,7 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     slot.mark_detect_claimed();
     crate::objects::detection::record_started_run(&slot);
     *guard = Some(handle);
+    claim.hand_over();
     drop(guard);
     slot.mark_installed(spawn_install);
 
@@ -547,7 +547,10 @@ mod tests {
             crate::objects::detection::claim_detect_for(install).is_ok(),
             "the completed conditioning run releases its own detect claim"
         );
-        crate::objects::detection::settle_detect_for(install, Release::Done);
+        crate::objects::detection::settle_detect_for(
+            install,
+            crate::persistence::attempts::Release::Done,
+        );
     }
 
     #[test]

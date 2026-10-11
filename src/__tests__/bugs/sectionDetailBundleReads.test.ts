@@ -7,6 +7,7 @@
  * no engine call of its own, and falls back to its own read when it has none.
  */
 
+import { Alert } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 import { useSectionLaps } from '@/features/routes/hooks/useSectionLaps';
 import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
@@ -24,7 +25,7 @@ const engine = {
   getSectionHistory: jest.fn(() => []),
   getSectionGeometryVersions: jest.fn(() => []),
   getPinnedSectionVersion: jest.fn(() => null),
-  revertSectionToVersion: jest.fn(() => [] as unknown[]),
+  runSectionBoundsEdit: jest.fn((): Promise<unknown[] | null> => Promise.resolve([])),
   unpinSection: jest.fn(() => true),
   // The real `useEngineRead` subscribes, so the stub answers that too.
   subscribe: () => () => {},
@@ -72,16 +73,20 @@ describe('the ledger comes from the bundle', () => {
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
-  it('leaves the ledger to the re-read bundle after a revert or an unpin', () => {
+  it('leaves the ledger to the re-read bundle after a revert or an unpin', async () => {
     const { result, rerender } = renderHook(
       ({ ledger }: { ledger: typeof bundled }) => useSectionLedger('sec1', ledger),
       { initialProps: { ledger: bundled } }
     );
 
-    act(() => {
-      expect(result.current.revert(1)).toBe(true);
+    await act(async () => {
+      expect(await result.current.revert(1)).toBe(true);
     });
-    expect(engine.revertSectionToVersion).toHaveBeenCalledWith('sec1', 1);
+    expect(engine.runSectionBoundsEdit).toHaveBeenCalledWith({
+      kind: 'revert',
+      sectionId: 'sec1',
+      version: 1,
+    });
     act(() => {
       expect(result.current.unpin()).toBe(true);
     });
@@ -101,12 +106,13 @@ describe('the ledger comes from the bundle', () => {
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
-  it('does not touch the engine for a revert it was not asked to make', () => {
-    engine.revertSectionToVersion.mockReturnValueOnce(null as never);
+  it('does not touch the engine for a revert it was not asked to make', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    engine.runSectionBoundsEdit.mockResolvedValueOnce(null);
     const { result } = renderHook(() => useSectionLedger('sec1', bundled));
 
-    act(() => {
-      expect(result.current.revert(1)).toBe(false);
+    await act(async () => {
+      expect(await result.current.revert(1)).toBe(false);
     });
     expect(result.current.pinnedVersion).toBe(2);
   });

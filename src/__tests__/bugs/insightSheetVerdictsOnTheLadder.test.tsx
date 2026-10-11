@@ -5,7 +5,8 @@
  * colour from the card that opened it, in either theme.
  *
  * Expected behaviour: each verdict on the sheet is the ladder's rung for it, in
- * the theme the athlete is in.
+ * the theme the athlete is in, and the comparison is tinted from the move the
+ * generator judged.
  */
 
 import React from 'react';
@@ -14,7 +15,7 @@ import { StyleSheet } from 'react-native';
 
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { DataPointRow } from '@/features/insights/components/DataPointRow';
-import type { DataPoint, InsightSupportingData } from '@/types';
+import type { DataPoint, InsightSupportingData, SupportingTrend } from '@/types';
 import { verdictColor, verdictFill } from '@/theme';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -24,7 +25,10 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 const mockTheme = { isDark: false };
 jest.mock('@/shared/app', () => ({ useTheme: () => mockTheme }));
 
-type Node = { type: unknown; props: { style?: unknown; children?: unknown } };
+type Node = {
+  type: { displayName?: string };
+  props: { style?: unknown; children?: unknown; color?: unknown };
+};
 
 /** Every background an element drew, flattened. */
 function drawn(element: React.ReactElement): string[] {
@@ -35,17 +39,24 @@ function drawn(element: React.ReactElement): string[] {
     .filter((colour): colour is string => typeof colour === 'string');
 }
 
-function row(context: DataPoint['context']): string[] {
-  return drawn(<DataPointRow dataPoint={{ label: 'Value', value: 1, context }} />);
+/** The colours of every icon a data row drew. */
+function row(context: DataPoint['context']): unknown[] {
+  const { UNSAFE_root } = render(
+    <DataPointRow dataPoint={{ label: 'Value', value: 1, context }} />
+  );
+  return (UNSAFE_root.findAll(() => true) as unknown as Node[])
+    .filter((n) => n.type.displayName === 'MaterialCommunityIcons')
+    .map((n) => n.props.color);
 }
 
-function comparison(context: DataPoint['context']): string[] {
+function comparison(trend: SupportingTrend): string[] {
   const data: InsightSupportingData = {
     comparisonData: {
       current: { label: 'Now', value: 2 },
       previous: { label: 'Then', value: 1 },
-      change: { label: 'Change', value: '+100%', context },
+      change: { label: 'Change', value: '+100%' },
     },
+    trend,
   };
   return drawn(<SupportingDataSection data={data} />);
 }
@@ -64,9 +75,9 @@ describe.each([false, true])('the insight sheet verdicts, dark %s', (isDark) => 
   });
 
   it.each([
-    ['good', 'positive'],
-    ['concern', 'negative'],
-  ] as const)('tints a %s comparison on the %s rung', (context, rung) => {
-    expect(comparison(context)).toContain(verdictFill(rung, isDark));
+    ['improved', 'positive'],
+    ['declined', 'negative'],
+  ] as const)('tints a comparison that %s on the %s rung', (verdict, rung) => {
+    expect(comparison({ direction: 'up', verdict })).toContain(verdictFill(rung, isDark));
   });
 });

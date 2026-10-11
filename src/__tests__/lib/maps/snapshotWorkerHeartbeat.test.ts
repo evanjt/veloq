@@ -15,7 +15,7 @@ import {
   buildSnapshotWorkerHtml,
   heartbeatScript,
 } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
-import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { bootWorkerPage } from '../../__shared__/snapshotWorkerPage';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 interface Harness {
@@ -168,6 +168,18 @@ describe('the worker page and the render script agree', () => {
   });
 
   it('a queued request is what starts it', () => {
-    expect(buildRenderSnapshotScript(request(), 2, 1)).toContain('window._heartbeat.start()');
+    jest.useFakeTimers();
+    try {
+      const page = bootWorkerPage();
+      const heartbeat = page.window._heartbeat as { isRunning: () => boolean };
+      expect(heartbeat.isRunning()).toBe(false);
+
+      page.render(request(), 1);
+
+      expect(heartbeat.isRunning()).toBe(true);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 });

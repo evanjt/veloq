@@ -9,7 +9,6 @@ import android.net.Uri
 import android.text.format.DateUtils
 import android.view.View
 import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
 import __PKG__.R
 import java.time.ZoneId
 import java.util.Locale
@@ -20,8 +19,9 @@ import kotlin.math.roundToInt
  * host-reported cell size and binds pre-formatted strings; no computation, no i18n. What each
  * size draws is decided in [SummaryWidget], so this only places it: the hero, its line and chart,
  * the supporting row on Medium and Large, and form over its five zones on Large. Dynamic colours
- * come from the generated `widget_*` resources (auto light/dark). Form values are coloured by the
- * snapshot's zone enum; the widget never derives TSB boundaries.
+ * come from the generated `widget_*` resources and go on through [WidgetPalette], which carries
+ * the light and the dark value of each. Form values are coloured by the snapshot's zone enum; the
+ * widget never derives TSB boundaries.
  *
  * The card opens Fitness; the age row's refresh control queues native work.
  */
@@ -37,25 +37,27 @@ object WidgetRenderer {
     placement: SummaryPlacement,
     widgetId: Int,
   ): RemoteViews {
-    if (snap == null || isEmpty(snap)) return renderEmptyPrompt(context)
+    val p = WidgetPalette(context)
+    if (snap == null || isEmpty(snap)) return renderEmptyPrompt(context, p)
     val card = SummaryWidget.card(snap, placement)
     return when (SummaryWidget.sizeFor(minWidthDp, minHeightDp)) {
-      SummarySize.LARGE -> renderLarge(context, snap, card, minWidthDp, widgetId)
-      SummarySize.MEDIUM -> renderMedium(context, snap, card, minWidthDp, widgetId)
-      SummarySize.SMALL -> renderSmall(context, snap, card, minWidthDp, widgetId)
-      SummarySize.SHORT -> renderShort(context, snap, card, widgetId)
+      SummarySize.LARGE -> renderLarge(context, p, snap, card, minWidthDp, widgetId)
+      SummarySize.MEDIUM -> renderMedium(context, p, snap, card, minWidthDp, widgetId)
+      SummarySize.SMALL -> renderSmall(context, p, snap, card, minWidthDp, widgetId)
+      SummarySize.SHORT -> renderShort(context, p, snap, card, widgetId)
     }
   }
 
   /** One row tall: the hero, its trend and its line, with no room left for the chart or the age. */
   private fun renderShort(
     context: Context,
+    p: WidgetPalette,
     snap: WidgetSnapshot,
     card: SummaryCard,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_small)
-    bindHero(context, v, snap, card)
+    bindHero(p, v, snap, card)
     v.setViewVisibility(R.id.sum_sparkline, View.GONE)
     v.setViewVisibility(R.id.small_age, View.GONE)
     bindFitnessTap(context, v, widgetId)
@@ -64,53 +66,56 @@ object WidgetRenderer {
 
   private fun renderSmall(
     context: Context,
+    p: WidgetPalette,
     snap: WidgetSnapshot,
     card: SummaryCard,
     minWidthDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_small)
-    bindHero(context, v, snap, card)
-    bindChart(context, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
+    bindHero(p, v, snap, card)
+    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
     // A host reapplies these views over the ones it shows, which a short placement left hidden.
     v.setViewVisibility(R.id.small_age, View.VISIBLE)
-    bindUpdatedAt(context, v, R.id.small_updated, snap)
+    bindUpdatedAt(p, v, R.id.small_updated, snap)
     bindRefresh(context, v, snap)
     return v
   }
 
   private fun renderMedium(
     context: Context,
+    p: WidgetPalette,
     snap: WidgetSnapshot,
     card: SummaryCard,
     minWidthDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_medium)
-    bindHero(context, v, snap, card)
-    bindSupporting(context, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
+    bindHero(p, v, snap, card)
+    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, v, R.id.sum_sparkline, snap, card, chartW, 48)
+    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartW, 48)
     bindFitnessTap(context, v, widgetId)
-    bindUpdatedAt(context, v, R.id.med_updated, snap)
+    bindUpdatedAt(p, v, R.id.med_updated, snap)
     bindRefresh(context, v, snap)
     return v
   }
 
   private fun renderLarge(
     context: Context,
+    p: WidgetPalette,
     snap: WidgetSnapshot,
     card: SummaryCard,
     minWidthDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_large)
-    bindHero(context, v, snap, card)
-    bindSupporting(context, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
+    bindHero(p, v, snap, card)
+    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, v, R.id.sum_sparkline, snap, card, chartW, 52)
-    bindFormZones(context, v, snap, chartWidthDp(minWidthDp, 300), 96)
+    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartW, 52)
+    bindFormZones(context, p, v, snap, chartWidthDp(minWidthDp, 300), 96)
 
     // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
     // with-android-widget.js writes this bool and drops that receiver together.
@@ -123,25 +128,25 @@ object WidgetRenderer {
       v.setViewVisibility(R.id.large_record, View.GONE)
     }
     bindFitnessTap(context, v, widgetId)
-    bindUpdatedAt(context, v, R.id.large_updated, snap)
+    bindUpdatedAt(p, v, R.id.large_updated, snap)
     bindRefresh(context, v, snap)
     return v
   }
 
-  private fun bindHero(context: Context, v: RemoteViews, snap: WidgetSnapshot, card: SummaryCard) {
-    val color = summaryColor(context, card.hero.colorKey, snap.form.zone)
+  private fun bindHero(p: WidgetPalette, v: RemoteViews, snap: WidgetSnapshot, card: SummaryCard) {
+    val color = summaryColor(p, card.hero.colorKey, snap.form.zone)
     v.setTextViewText(R.id.sum_label, card.hero.label)
     v.setTextViewText(R.id.sum_value, card.hero.value)
-    v.setTextColor(R.id.sum_value, color)
+    p.textColor(v, R.id.sum_value, color)
     v.setTextViewText(R.id.sum_trend, trendArrow(card.hero.trendDir))
-    v.setTextColor(R.id.sum_trend, trendColor(context, card.hero.verdict))
+    p.textColor(v, R.id.sum_trend, trendColor(card.hero.verdict))
     val line = SummaryWidget.heroLine(snap, card)
     if (line.isNullOrEmpty()) {
       v.setViewVisibility(R.id.sum_line, View.GONE)
     } else {
       v.setViewVisibility(R.id.sum_line, View.VISIBLE)
       v.setTextViewText(R.id.sum_line, line)
-      v.setTextColor(R.id.sum_line, color)
+      p.textColor(v, R.id.sum_line, color)
     }
   }
 
@@ -163,7 +168,7 @@ object WidgetRenderer {
 
   /** One cell per entry, a divider before every cell but the first, nothing for the rest. */
   private fun bindSupporting(
-    context: Context,
+    p: WidgetPalette,
     v: RemoteViews,
     snap: WidgetSnapshot,
     entries: List<SummaryEntry>,
@@ -176,9 +181,9 @@ object WidgetRenderer {
       if (entry == null) continue
       v.setTextViewText(ids.label, entry.label)
       v.setTextViewText(ids.value, entry.value)
-      v.setTextColor(ids.value, summaryColor(context, entry.colorKey, snap.form.zone))
+      p.textColor(v, ids.value, summaryColor(p, entry.colorKey, snap.form.zone))
       v.setTextViewText(ids.trend, trendArrow(entry.trendDir))
-      v.setTextColor(ids.trend, trendColor(context, entry.verdict))
+      p.textColor(v, ids.trend, trendColor(entry.verdict))
     }
   }
 
@@ -200,13 +205,13 @@ object WidgetRenderer {
    * asking for a redraw on a schedule, since nothing else redraws a widget whose
    * app is not running.
    */
-  internal fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
+  internal fun bindUpdatedAt(p: WidgetPalette, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
     // A sample library has no age to report: it is composed afresh for every
     // write, so the slot carries the words that say it is not the athlete's own.
     snap?.demoLabel?.let {
       v.setViewVisibility(id, View.VISIBLE)
       v.setTextViewText(id, it)
-      v.setTextColor(id, res(context, R.color.widget_text_secondary))
+      p.textColor(v, id, R.color.widget_text_secondary)
       return
     }
     val asOf = snap?.dataAsOfLabel
@@ -217,7 +222,7 @@ object WidgetRenderer {
       } else {
         v.setViewVisibility(id, View.VISIBLE)
         v.setTextViewText(id, asOf)
-        v.setTextColor(id, res(context, R.color.widget_text_secondary))
+        p.textColor(v, id, R.color.widget_text_secondary)
       }
       return
     }
@@ -232,8 +237,7 @@ object WidgetRenderer {
       }
     v.setViewVisibility(id, View.VISIBLE)
     v.setTextViewText(id, if (asOf == null) age else "$asOf · $age")
-    v.setTextColor(
-      id, res(context, if (stale) R.color.widget_warning else R.color.widget_text_secondary))
+    p.textColor(v, id, if (stale) R.color.widget_warning else R.color.widget_text_secondary)
   }
 
   /** The age and the action share a row; the action keeps a full finger-sized target. */
@@ -266,12 +270,13 @@ object WidgetRenderer {
    */
   private fun renderEmptyPrompt(
     context: Context,
+    p: WidgetPalette,
     layout: Int = R.layout.widget_activity_small,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, layout)
     v.setViewVisibility(R.id.act_name, View.VISIBLE)
     v.setTextViewText(R.id.act_name, context.getString(R.string.widget_open_app))
-    v.setTextColor(R.id.act_name, res(context, R.color.widget_text_primary))
+    p.textColor(v, R.id.act_name, R.color.widget_text_primary)
     v.setViewVisibility(R.id.act_sub, View.VISIBLE)
     v.setTextViewText(R.id.act_sub, context.getString(R.string.widget_to_see_training))
     v.setViewVisibility(R.id.act_preview, View.GONE)
@@ -292,19 +297,22 @@ object WidgetRenderer {
     minWidthDp: Int,
     minHeightDp: Int,
   ): RemoteViews {
+    val p = WidgetPalette(context)
     val size = LastActivityWidget.sizeFor(minWidthDp, minHeightDp)
     val narrow = size == SummarySize.SHORT || size == SummarySize.SMALL
     val layout = if (narrow) R.layout.widget_activity_small else R.layout.widget_activity_medium
     val content = snap?.let { LastActivityWidget.content(it, size) }
     val latest = snap?.latest
-    if (snap == null || content == null || latest == null) return renderEmptyPrompt(context, layout)
+    if (snap == null || content == null || latest == null) {
+      return renderEmptyPrompt(context, p, layout)
+    }
 
     val v = RemoteViews(context.packageName, layout)
     val d = context.resources.displayMetrics.density
-    val tint = tintOrDefault(context, latest.tintHex)
+    val tint = tintOrDefault(p, latest.tintHex)
 
     bindLine(v, R.id.act_name, content.name)
-    v.setTextColor(R.id.act_name, tint)
+    p.textColor(v, R.id.act_name, tint)
     // The tall size has the rows for a long name to wrap into rather than be cut short.
     v.setInt(R.id.act_name, "setMaxLines", if (size == SummarySize.LARGE) 4 else 2)
     v.setViewVisibility(
@@ -317,21 +325,21 @@ object WidgetRenderer {
     bindLine(v, R.id.act_load, content.load)
     bindLine(v, R.id.act_date, content.date)
     bindLine(v, R.id.act_demo, snap.demoLabel.takeUnless { size == SummarySize.SHORT })
-    bindFormChange(context, v, content.form)
+    bindFormChange(p, v, content.form)
 
     val columnDp = if (narrow) minWidthDp - 16 else (minWidthDp - 40) / 2
     if (content.dots.isEmpty()) {
       v.setViewVisibility(R.id.act_dots, View.GONE)
     } else {
-      val colors =
-        AttemptDotsBitmap.Colors(
-          earlier = res(context, R.color.widget_text_secondary),
-          record = res(context, R.color.widget_gold),
-          current = tint)
-      v.setImageViewBitmap(
-        R.id.act_dots,
+      val earlier = p.color(R.color.widget_text_secondary)
+      val record = p.color(R.color.widget_gold)
+      p.bitmap(v, R.id.act_dots) { dark ->
         AttemptDotsBitmap.render(
-          content.dots, (columnDp.coerceAtLeast(40) * d).roundToInt(), (10 * d).roundToInt(), colors))
+          content.dots,
+          (columnDp.coerceAtLeast(40) * d).roundToInt(),
+          (10 * d).roundToInt(),
+          AttemptDotsBitmap.Colors(earlier.pick(dark), record.pick(dark), tint.pick(dark)))
+      }
       v.setViewVisibility(R.id.act_dots, View.VISIBLE)
     }
 
@@ -340,13 +348,13 @@ object WidgetRenderer {
       v.setViewVisibility(R.id.act_preview, View.GONE)
     } else {
       val heightDp = (if (minHeightDp > 0) minHeightDp else 110) - 16
-      val bmp =
+      p.bitmap(v, R.id.act_preview) { dark ->
         RoutePreviewBitmap.render(
           preview,
           (columnDp.coerceAtLeast(60) * d).roundToInt(),
           (heightDp.coerceAtLeast(60) * d).roundToInt(),
-          tint)
-      v.setImageViewBitmap(R.id.act_preview, bmp)
+          tint.pick(dark))
+      }
       v.setViewVisibility(R.id.act_preview, View.VISIBLE)
     }
 
@@ -366,7 +374,7 @@ object WidgetRenderer {
   }
 
   /** Form before and after, each side in the colour of the zone it sits in. */
-  private fun bindFormChange(context: Context, v: RemoteViews, form: FormChange?) {
+  private fun bindFormChange(p: WidgetPalette, v: RemoteViews, form: FormChange?) {
     if (form == null) {
       v.setViewVisibility(R.id.act_form, View.GONE)
       return
@@ -375,9 +383,9 @@ object WidgetRenderer {
     v.setTextViewText(R.id.act_form_label, form.label)
     v.setTextViewText(R.id.act_form_arrow, "→")
     v.setTextViewText(R.id.act_form_before, form.before)
-    v.setTextColor(R.id.act_form_before, zoneTextColor(context, form.beforeZone))
+    p.textColor(v, R.id.act_form_before, zoneTextColor(form.beforeZone))
     v.setTextViewText(R.id.act_form_after, form.after)
-    v.setTextColor(R.id.act_form_after, zoneTextColor(context, form.afterZone))
+    p.textColor(v, R.id.act_form_after, zoneTextColor(form.afterZone))
   }
 
   // ---- intents ------------------------------------------------------------------
@@ -430,18 +438,19 @@ object WidgetRenderer {
   private fun chartWidthDp(minWidthDp: Int, fallbackDp: Int): Int =
     (if (minWidthDp > 0) minWidthDp else fallbackDp) - 32
 
-  private fun chartColors(context: Context) =
+  private fun chartColors(p: WidgetPalette, dark: Boolean) =
     FitnessChart.ChartColors(
-      fitness = res(context, R.color.widget_chart_fitness),
-      fatigue = res(context, R.color.widget_chart_fatigue),
-      casing = res(context, R.color.widget_chart_casing),
-      axisText = res(context, R.color.widget_text_secondary),
-      grid = res(context, R.color.widget_border),
+      fitness = p.color(R.color.widget_chart_fitness).pick(dark),
+      fatigue = p.color(R.color.widget_chart_fatigue).pick(dark),
+      casing = p.color(R.color.widget_chart_casing).pick(dark),
+      axisText = p.color(R.color.widget_text_secondary).pick(dark),
+      grid = p.color(R.color.widget_border).pick(dark),
     )
 
   /** The chart beside the hero, or nothing when the card hides it or the series is too short. */
   private fun bindChart(
     context: Context,
+    p: WidgetPalette,
     v: RemoteViews,
     id: Int,
     snap: WidgetSnapshot,
@@ -452,19 +461,22 @@ object WidgetRenderer {
     val d = context.resources.displayMetrics.density
     val w = (widthDp * d).roundToInt()
     val h = (heightDp * d).roundToInt()
-    val bmp =
-      when (val chart = SummaryWidget.chart(snap, card)) {
+    val chart = SummaryWidget.chart(snap, card)
+    val primary = p.color(R.color.widget_primary)
+    fun draw(dark: Boolean) =
+      when (chart) {
         is SummaryChart.Dual ->
-          FitnessChart.fitnessBitmap(chart.fitness, chart.fatigue, w, h, d, chartColors(context))
+          FitnessChart.fitnessBitmap(chart.fitness, chart.fatigue, w, h, d, chartColors(p, dark))
         is SummaryChart.Single ->
-          FitnessChart.singleBitmap(
-            chart.values, res(context, R.color.widget_primary), w, h, d, chartColors(context))
+          FitnessChart.singleBitmap(chart.values, primary.pick(dark), w, h, d, chartColors(p, dark))
         SummaryChart.None -> null
       }
-    if (bmp == null) {
+    // Whether a series draws at all does not depend on the theme, so the light one decides.
+    val light = draw(false)
+    if (light == null) {
       v.setViewVisibility(id, View.GONE)
     } else {
-      v.setImageViewBitmap(id, bmp)
+      p.bitmap(v, id) { dark -> if (dark) draw(true) ?: light else light }
       v.setViewVisibility(id, View.VISIBLE)
     }
   }
@@ -472,6 +484,7 @@ object WidgetRenderer {
   /** Form over its five zones under the card, hidden with its title when the snapshot has none. */
   private fun bindFormZones(
     context: Context,
+    p: WidgetPalette,
     v: RemoteViews,
     snap: WidgetSnapshot,
     widthDp: Int,
@@ -484,27 +497,27 @@ object WidgetRenderer {
       return
     }
     val d = context.resources.displayMetrics.density
-    val colors =
+    fun colors(dark: Boolean) =
       FitnessChart.ZoneColors(
         zones =
           mapOf(
-            "highRisk" to res(context, R.color.widget_form_high_risk),
-            "optimal" to res(context, R.color.widget_form_optimal),
-            "greyZone" to res(context, R.color.widget_form_grey_zone),
-            "fresh" to res(context, R.color.widget_form_fresh),
-            "transition" to res(context, R.color.widget_form_transition),
+            "highRisk" to p.color(R.color.widget_form_high_risk).pick(dark),
+            "optimal" to p.color(R.color.widget_form_optimal).pick(dark),
+            "greyZone" to p.color(R.color.widget_form_grey_zone).pick(dark),
+            "fresh" to p.color(R.color.widget_form_fresh).pick(dark),
+            "transition" to p.color(R.color.widget_form_transition).pick(dark),
           ),
-        line = res(context, R.color.widget_text_primary),
-        casing = res(context, R.color.widget_chart_casing),
-        axisText = res(context, R.color.widget_text_secondary),
+        line = p.color(R.color.widget_text_primary).pick(dark),
+        casing = p.color(R.color.widget_chart_casing).pick(dark),
+        axisText = p.color(R.color.widget_text_secondary).pick(dark),
       )
     v.setViewVisibility(R.id.sum_form_title, View.VISIBLE)
     v.setTextViewText(R.id.sum_form_title, snap.metricLabels["form"] ?: "Form")
     v.setViewVisibility(R.id.sum_form_zones, View.VISIBLE)
-    v.setImageViewBitmap(
-      R.id.sum_form_zones,
+    p.bitmap(v, R.id.sum_form_zones) { dark ->
       FitnessChart.formZonesBitmap(
-        chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, colors))
+        chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, colors(dark))
+    }
   }
 
   // ---- formatting -------------------------------------------------------------
@@ -517,47 +530,41 @@ object WidgetRenderer {
     }
 
   /** Coloured by the judgement the app made, never by the direction the number went. */
-  private fun trendColor(context: Context, verdict: String): Int {
-    val colorRes =
-      when (verdict) {
-        "improved" -> R.color.widget_trend_up
-        "declined" -> R.color.widget_trend_down
-        else -> R.color.widget_trend_flat
-      }
-    return res(context, colorRes)
-  }
+  private fun trendColor(verdict: String): Int =
+    when (verdict) {
+      "improved" -> R.color.widget_trend_up
+      "declined" -> R.color.widget_trend_down
+      else -> R.color.widget_trend_flat
+    }
 
   /**
    * Text: the hero value and the impact numbers, which the widget draws with no
    * zone label beside them, so the fill's 2.1:1 to 2.7:1 is all the reader gets.
    */
-  private fun zoneTextColor(context: Context, zone: String?): Int {
-    val colorRes =
-      when (zone) {
-        "highRisk" -> R.color.widget_form_high_risk_text
-        "optimal" -> R.color.widget_form_optimal_text
-        "greyZone" -> R.color.widget_form_grey_zone_text
-        "fresh" -> R.color.widget_form_fresh_text
-        "transition" -> R.color.widget_form_transition_text
-        else -> R.color.widget_text_primary
-      }
-    return res(context, colorRes)
-  }
-
-  private fun summaryColor(context: Context, colorKey: String, formZone: String?): Int =
-    when (colorKey) {
-      "blue" -> res(context, R.color.widget_blue)
-      "fatigue" -> res(context, R.color.widget_fatigue)
-      "formZone" -> zoneTextColor(context, formZone)
-      else -> res(context, R.color.widget_text_primary)
+  private fun zoneTextColor(zone: String?): Int =
+    when (zone) {
+      "highRisk" -> R.color.widget_form_high_risk_text
+      "optimal" -> R.color.widget_form_optimal_text
+      "greyZone" -> R.color.widget_form_grey_zone_text
+      "fresh" -> R.color.widget_form_fresh_text
+      "transition" -> R.color.widget_form_transition_text
+      else -> R.color.widget_text_primary
     }
 
-  internal fun res(context: Context, id: Int): Int = ContextCompat.getColor(context, id)
+  private fun summaryColor(p: WidgetPalette, colorKey: String, formZone: String?): ThemedColor =
+    p.color(
+      when (colorKey) {
+        "blue" -> R.color.widget_blue
+        "fatigue" -> R.color.widget_fatigue
+        "formZone" -> zoneTextColor(formZone)
+        else -> R.color.widget_text_primary
+      })
 
-  private fun tintOrDefault(context: Context, hex: String): Int =
+  /** An activity's own colour, the same in both themes; an unreadable one is the text colour. */
+  private fun tintOrDefault(p: WidgetPalette, hex: String): ThemedColor =
     try {
-      Color.parseColor(hex)
+      ThemedColor.fixed(Color.parseColor(hex))
     } catch (_: Exception) {
-      res(context, R.color.widget_text_primary)
+      p.color(R.color.widget_text_primary)
     }
 }

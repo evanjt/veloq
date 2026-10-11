@@ -1,3 +1,4 @@
+import { finiteExtent } from '@/shared/charts/extent';
 import type { LatLng } from './polyline';
 
 export type { LatLng };
@@ -27,10 +28,11 @@ export function projectRouteToBox(
 
   const xs = coords.map((c) => c.longitude * cosLat);
   const ys = coords.map((c) => c.latitude);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  const xExtent = finiteExtent(xs);
+  const yExtent = finiteExtent(ys);
+  if (!xExtent || !yExtent) return [];
+  const { min: minX, max: maxX } = xExtent;
+  const { min: minY, max: maxY } = yExtent;
   const spanX = maxX - minX || 1e-6;
   const spanY = maxY - minY || 1e-6;
 

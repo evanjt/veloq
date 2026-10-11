@@ -595,6 +595,23 @@ pub struct ManualActivityBody {
     pub trainer: bool,
     /// Always sent, defaulted false by the caller.
     pub commute: bool,
+    /// The recording's own id, so an entry whose create may have landed can
+    /// be found on the server before it is posted again.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+}
+
+/// One activity as the upload's duplicate check lists it: the four fields it
+/// matches a recording on and nothing else.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+pub struct ListedActivity {
+    pub id: String,
+    #[serde(default)]
+    pub external_id: Option<String>,
+    #[serde(default)]
+    pub start_date_local: Option<String>,
+    #[serde(rename = "type", default)]
+    pub activity_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -610,9 +627,25 @@ pub struct AthleteRecord {
 // Power / pace curves
 // ===========================================================================
 
-/// Find the oldest `start_date_local` in an activities list. Returns None for
-/// an empty list.
-pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
+/// One activity as the census pull asks for it, by its `fields=` list and
+/// nothing more. The pull carries the whole history on every sync, so it is
+/// decoded into these five fields rather than the full activity record.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+pub struct CensusRecord {
+    pub id: String,
+    #[serde(default)]
+    pub start_date_local: Option<String>,
+    #[serde(default)]
+    pub created: Option<String>,
+    #[serde(default)]
+    pub icu_sync_date: Option<String>,
+    #[serde(default)]
+    pub stream_types: Option<Vec<String>>,
+}
+
+/// Find the oldest `start_date_local` in the census pull. Returns None for an
+/// empty list.
+pub fn oldest_activity_date(activities: &[CensusRecord]) -> Option<String> {
     activities
         .iter()
         .filter_map(|a| a.start_date_local.clone())
@@ -665,24 +698,50 @@ pub struct ActivityCensusEntry {
     pub has_series: bool,
 }
 
-impl From<&ActivityRecord> for ActivityCensusEntry {
-    /// The census row an activity body names, the same reduction whether the
-    /// body came from the census pull or a single detail fetch.
-    fn from(record: &ActivityRecord) -> Self {
+impl ActivityCensusEntry {
+    /// The one reduction of an activity's upstream fields to its census row,
+    /// whether they came from the census pull or a single detail fetch.
+    fn reduce(
+        id: &str,
+        start_date_local: &Option<String>,
+        created: &Option<String>,
+        icu_sync_date: &Option<String>,
+        stream_types: Option<&[String]>,
+    ) -> Self {
         ActivityCensusEntry {
-            id: record.id.clone(),
-            start_date_local: record.start_date_local.clone(),
-            created: record.created.clone(),
-            icu_sync_date: record.icu_sync_date.clone(),
-            has_latlng: record
-                .stream_types
-                .as_ref()
-                .is_some_and(|types| types.iter().any(|t| t == "latlng")),
-            has_series: record
-                .stream_types
-                .as_deref()
-                .is_some_and(carries_a_storable_series),
+            id: id.to_string(),
+            start_date_local: start_date_local.clone(),
+            created: created.clone(),
+            icu_sync_date: icu_sync_date.clone(),
+            has_latlng: stream_types.is_some_and(|types| types.iter().any(|t| t == "latlng")),
+            has_series: stream_types.is_some_and(carries_a_storable_series),
         }
+    }
+}
+
+impl From<&ActivityRecord> for ActivityCensusEntry {
+    /// The census row an activity body names.
+    fn from(record: &ActivityRecord) -> Self {
+        Self::reduce(
+            &record.id,
+            &record.start_date_local,
+            &record.created,
+            &record.icu_sync_date,
+            record.stream_types.as_deref(),
+        )
+    }
+}
+
+impl From<&CensusRecord> for ActivityCensusEntry {
+    /// The census row the census pull names.
+    fn from(record: &CensusRecord) -> Self {
+        Self::reduce(
+            &record.id,
+            &record.start_date_local,
+            &record.created,
+            &record.icu_sync_date,
+            record.stream_types.as_deref(),
+        )
     }
 }
 
@@ -703,7 +762,7 @@ pub fn carries_a_storable_series(types: &[String]) -> bool {
 /// would download, and the same response that carries the oldest date carries
 /// every start date, so this costs no extra request. A record with no start
 /// date is skipped: it cannot be placed on the timeline either.
-pub fn activity_counts_by_year(activities: &[ActivityRecord]) -> BTreeMap<String, u32> {
+pub fn activity_counts_by_year(activities: &[CensusRecord]) -> BTreeMap<String, u32> {
     let mut counts = BTreeMap::new();
     for a in activities {
         let Some(date) = a.start_date_local.as_deref() else {
@@ -793,7 +852,7 @@ mod tests {
 
     #[test]
     fn year_counts_bucket_every_dated_activity() {
-        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+        let acts: Vec<CensusRecord> = serde_json::from_value(json!([
             {"id": "a", "start_date_local": "2024-06-20T07:00:00"},
             {"id": "b", "start_date_local": "2024-01-02T07:00:00"},
             {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
@@ -809,7 +868,7 @@ mod tests {
     fn year_counts_skip_what_cannot_be_placed() {
         // A row with no start date is already dropped by the window sync, and
         // a malformed one would bucket under a year that does not exist.
-        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+        let acts: Vec<CensusRecord> = serde_json::from_value(json!([
             {"id": "a"},
             {"id": "b", "start_date_local": "not-a-date"},
             {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
@@ -846,7 +905,7 @@ mod tests {
 
     #[test]
     fn oldest_date_is_min_start() {
-        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+        let acts: Vec<CensusRecord> = serde_json::from_value(json!([
             {"id": "a", "start_date_local": "2026-06-20T07:00:00"},
             {"id": "b", "start_date_local": "2024-01-02T07:00:00"},
             {"id": "c", "start_date_local": "2025-03-03T07:00:00"}

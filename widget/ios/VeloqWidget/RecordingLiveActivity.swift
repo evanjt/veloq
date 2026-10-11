@@ -81,7 +81,9 @@ struct VeloqRecordingLiveActivity: Widget {
         RecordingGlyph(isPaused: context.state.isPaused, isStale: context.isStale)
       }
       .widgetURL(URL(string: "veloq://record"))
-      .keylineTint(WidgetTheme.Record.Light.gradientStart)
+      // The island is always drawn on black, whatever the system scheme, so it
+      // takes the dark scheme's record tone.
+      .keylineTint(WidgetTheme.Record.Dark.accent)
     }
   }
 }
@@ -164,12 +166,13 @@ private struct RecordingClock: View {
 @available(iOS 16.2, *)
 private struct RecordingTrace: View {
   let trace: VeloqRecordingAttributes.ContentState.Trace
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     if trace.points.count >= 2 {
       RoutePreviewShape(points: trace.points, aspect: trace.aspect)
         .stroke(
-          WidgetTheme.Record.Light.gradientStart,
+          WidgetTheme.Record.accent(colorScheme),
           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
         )
     }
@@ -180,6 +183,7 @@ private struct RecordingTrace: View {
 private struct RecordingGlyph: View {
   let isPaused: Bool
   let isStale: Bool
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     if isStale {
@@ -187,7 +191,7 @@ private struct RecordingGlyph: View {
         .foregroundStyle(WidgetTheme.Light.gold)
     } else {
       Image(systemName: isPaused ? "pause.circle.fill" : "record.circle.fill")
-        .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.Light.gradientStart)
+        .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.accent(colorScheme))
     }
   }
 }
@@ -197,6 +201,7 @@ private struct RecordingGlyph: View {
 @available(iOS 16.2, *)
 private struct RecordingControl: View {
   let state: VeloqRecordingAttributes.ContentState
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     if #available(iOS 17.0, *) {
@@ -206,7 +211,7 @@ private struct RecordingControl: View {
           .frame(width: 44, height: 44)
       }
       .buttonStyle(.plain)
-      .tint(WidgetTheme.Record.Light.gradientStart)
+      .tint(WidgetTheme.Record.accent(colorScheme))
     } else {
       Link(destination: URL(string: "veloq://record")!) {
         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")

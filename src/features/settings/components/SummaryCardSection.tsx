@@ -14,7 +14,7 @@ import {
 } from '../stores/summaryCardPreferences';
 import { useSummaryCardData, SummaryCard } from '@/features/home';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { Row, ToggleButtonRow } from '@/shared/ui';
+import { ListSectionHeader, Row, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';
 
 const HERO_LABEL_KEYS = {
@@ -31,9 +31,7 @@ export function SummaryCardSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
-        {t('settings.summaryCard').toUpperCase()}
-      </Text>
+      <ListSectionHeader>{t('settings.summaryCard')}</ListSectionHeader>
       <View
         key={isDark ? 'dark' : 'light'}
         style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}

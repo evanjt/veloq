@@ -29,6 +29,7 @@ jest.mock('react-native-iap', () => ({
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
 }));
 
@@ -138,17 +139,20 @@ describe('the feed card draws no place line', () => {
 });
 
 describe('the feed card long-press', () => {
-  it.each(['ios', 'android'] as const)('fires one medium impact on %s', (os) => {
+  it.each([
+    ['ios', Haptics.impactAsync, 'medium'],
+    ['android', Haptics.performAndroidHapticsAsync, 'long-press'],
+  ] as const)('fires one medium haptic on %s', (os, call, constant) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
-    (Haptics.impactAsync as jest.Mock).mockClear();
+    (call as jest.Mock).mockClear();
     try {
       renderCard();
 
       fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
 
-      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
-      expect(Haptics.impactAsync).toHaveBeenCalledWith('medium');
+      expect(call).toHaveBeenCalledTimes(1);
+      expect(call).toHaveBeenCalledWith(constant);
     } finally {
       Platform.OS = originalOS;
     }
@@ -156,24 +160,24 @@ describe('the feed card long-press', () => {
 });
 
 describe('the feed card press', () => {
-  it.each(['ios', 'android'] as const)(
-    'fires one light impact and opens the activity on %s',
-    (os) => {
-      const originalOS = Platform.OS;
-      Platform.OS = os;
-      (Haptics.impactAsync as jest.Mock).mockClear();
-      (router.push as jest.Mock).mockClear();
-      try {
-        renderCard();
+  it.each([
+    ['ios', Haptics.impactAsync, 'light'],
+    ['android', Haptics.performAndroidHapticsAsync, 'context-click'],
+  ] as const)('fires one light haptic and opens the activity on %s', (os, call, constant) => {
+    const originalOS = Platform.OS;
+    Platform.OS = os;
+    (call as jest.Mock).mockClear();
+    (router.push as jest.Mock).mockClear();
+    try {
+      renderCard();
 
-        fireEvent.press(screen.getByTestId('activity-card-a1'));
+      fireEvent.press(screen.getByTestId('activity-card-a1'));
 
-        expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
-        expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
-        expect(router.push).toHaveBeenCalledWith('/activity/a1');
-      } finally {
-        Platform.OS = originalOS;
-      }
+      expect(call).toHaveBeenCalledTimes(1);
+      expect(call).toHaveBeenCalledWith(constant);
+      expect(router.push).toHaveBeenCalledWith('/activity/a1');
+    } finally {
+      Platform.OS = originalOS;
     }
-  );
+  });
 });

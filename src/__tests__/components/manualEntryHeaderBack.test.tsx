@@ -15,22 +15,26 @@ import { ManualEntryHeader } from '@/features/recording/components/ManualEntryHe
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
 }));
 
 describe('ManualEntryHeader back arrow', () => {
-  it.each(['ios', 'android'] as const)('fires one light impact and goes back on %s', (os) => {
+  it.each([
+    ['ios', Haptics.impactAsync, 'light'],
+    ['android', Haptics.performAndroidHapticsAsync, 'context-click'],
+  ] as const)('fires one light haptic and goes back on %s', (os, call, constant) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
-    (Haptics.impactAsync as jest.Mock).mockClear();
+    (call as jest.Mock).mockClear();
     (router.back as jest.Mock).mockClear();
     try {
       render(<ManualEntryHeader activityType="Run" textPrimary="#000" />);
 
       fireEvent.press(screen.UNSAFE_getByProps({ name: 'arrow-left' }));
 
-      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
-      expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
+      expect(call).toHaveBeenCalledTimes(1);
+      expect(call).toHaveBeenCalledWith(constant);
       expect(router.back).toHaveBeenCalledTimes(1);
     } finally {
       Platform.OS = originalOS;
