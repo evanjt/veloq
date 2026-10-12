@@ -241,20 +241,49 @@ export function largeTitleScreenOptions(
 }
 
 /**
- * The tint of the platform's back control. White over a dark map hero, the
- * theme's primary text on any screen with no hero, where white would vanish
- * on the page background.
+ * The chrome of a map-hero detail screen: the tint of the platform's back control, the status
+ * bar's glyph style and the header's background, answered together so they never disagree. Over
+ * the hero the bar is transparent and its glyphs white, held by the hero's top scrim on any
+ * basemap. Once the hero has scrolled away the page passes under the bar, so it takes the theme's
+ * surface and text, and the status bar the style that reads on that surface. A screen with no
+ * hero is in the scrolled state from the start.
  */
-export function overMapHeaderTint({ overHero, isDark }: { overHero: boolean; isDark: boolean }) {
-  if (overHero) return colors.textOnDark;
-  return isDark ? darkColors.textPrimary : colors.textPrimary;
+export function mapHeroChrome({
+  scrolledPastHero,
+  isDark,
+}: {
+  scrolledPastHero: boolean;
+  isDark: boolean;
+}): { tint: string; statusBarStyle: 'light' | 'dark'; headerBackgroundColor: string } {
+  if (!scrolledPastHero) {
+    return {
+      tint: colors.textOnDark,
+      statusBarStyle: 'light',
+      headerBackgroundColor: 'transparent',
+    };
+  }
+  return {
+    tint: isDark ? darkColors.textPrimary : colors.textPrimary,
+    statusBarStyle: isDark ? 'light' : 'dark',
+    headerBackgroundColor: isDark ? darkColors.surface : colors.surface,
+  };
+}
+
+/**
+ * Whether a hero at the top of a scroll view has scrolled out from under the header: true once
+ * its bottom edge reaches the header's bottom edge, `headerBottom` being the top inset plus the
+ * header's height.
+ */
+export function heroScrolledPast(offsetY: number, heroHeight: number, headerBottom: number) {
+  return offsetY >= heroHeight - headerBottom;
 }
 
 /** The stack header's own colours: the theme surface behind it, the theme text for its controls. */
 export function themeHeaderColors(isDark: boolean) {
+  const chrome = mapHeroChrome({ scrolledPastHero: true, isDark });
   return {
-    headerStyle: { backgroundColor: isDark ? darkColors.surface : colors.surface },
-    headerTintColor: overMapHeaderTint({ overHero: false, isDark }),
+    headerStyle: { backgroundColor: chrome.headerBackgroundColor },
+    headerTintColor: chrome.tint,
   };
 }
 
@@ -263,21 +292,26 @@ export function themeHeaderColors(isDark: boolean) {
  * nobody can see. The native stack hands a string `headerTitle` to the native item in place of
  * `title`, so neither this nor the route sets one, and the screen's `title` is its subject's name
  * once the read has it. Both screen readers then find the screen's name in its header and iOS
- * names the next screen's back control after it, while nothing is drawn over the hero.
+ * names the next screen's back control after it, while nothing is drawn over the hero. Once the
+ * hero has scrolled away the bar stays laid over the page, so nothing under it moves, and takes
+ * the colours `mapHeroChrome` gives that state.
  */
 export function overMapHeaderOptions({
   title,
   isDark,
+  scrolledPastHero = false,
 }: {
   title?: string | undefined;
   isDark: boolean;
+  scrolledPastHero?: boolean;
 }) {
+  const chrome = mapHeroChrome({ scrolledPastHero, isDark });
   return {
     headerTransparent: true,
     headerShadowVisible: false,
-    headerStyle: { backgroundColor: 'transparent' },
+    headerStyle: { backgroundColor: chrome.headerBackgroundColor },
     headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
-    headerTintColor: overMapHeaderTint({ overHero: true, isDark }),
+    headerTintColor: chrome.tint,
     ...(title !== undefined && { title }),
   };
 }

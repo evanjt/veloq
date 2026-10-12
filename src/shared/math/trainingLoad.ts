@@ -18,8 +18,8 @@ export function tsbFromLoads(ctl?: number | null, atl?: number | null): number |
  * display, so the two can differ by a unit.
  *
  * A missing or non-finite load reads as zero, because a chart draws a point
- * either way and a day with no CTL is a day with no fitness, not a day with
- * `-atl`.
+ * either way. A day with no CTL therefore has form `-atl`, matching fitness
+ * drawn at zero on that day.
  */
 export function formFromLoads(ctl?: number | null, atl?: number | null): number {
   const round = (v?: number | null) => (Number.isFinite(v as number) ? Math.round(v as number) : 0);

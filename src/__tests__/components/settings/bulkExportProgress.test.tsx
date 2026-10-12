@@ -79,3 +79,40 @@ it('says nothing about a size it does not have yet', async () => {
 
   expect(screen.queryByText(/B$/)).toBeNull();
 });
+
+it('exposes the running count as a progress bar a screen reader can read', async () => {
+  await render(
+    <BulkExportProgress
+      phase="generating"
+      format="gpx"
+      current={120}
+      total={490}
+      sizeBytes={0}
+      isDark={false}
+    />
+  );
+
+  expect(screen.getByRole('progressbar').props.accessibilityValue).toEqual({
+    min: 0,
+    max: 490,
+    now: 120,
+  });
+});
+
+it('marks the row busy before the worker reports a total', async () => {
+  await render(
+    <BulkExportProgress
+      phase="generating"
+      format="gpx"
+      current={0}
+      total={0}
+      sizeBytes={0}
+      isDark={false}
+    />
+  );
+
+  expect(screen.queryByRole('progressbar')).toBeNull();
+  expect(screen.getByTestId('bulk-export-spinner').props.accessibilityState).toEqual({
+    busy: true,
+  });
+});

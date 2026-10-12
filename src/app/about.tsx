@@ -1,12 +1,11 @@
 import React from 'react';
-import { View, Text, Pressable, Linking } from 'react-native';
+import { View, Text } from 'react-native';
 import {
+  ExternalLinkRow,
   ListSectionHeader,
   Row,
   ScreenSafeAreaView,
   ScreenScrollView,
-  pressable,
-  pressRipple,
 } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -18,45 +17,14 @@ import { INTERVALS_URLS } from '@/features/auth';
 import { DIVIDER_INSET } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
+import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
+import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 
 const VELOQ_URLS = {
   github: 'https://github.com/evanjt/veloq',
   license: 'https://github.com/evanjt/veloq/blob/main/LICENSE',
-  privacy: 'https://veloq.fit/privacy',
   tracematch: 'https://github.com/evanjt/tracematch',
 };
-
-interface LinkRowProps {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  url: string;
-  isDark: boolean;
-  testID?: string;
-}
-
-function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
-  const handlePress = () => {
-    Linking.openURL(url);
-  };
-
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      style={pressable(styles.linkRow)}
-      onPress={handlePress}
-      testID={testID}
-      android_ripple={pressRipple}
-    >
-      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
-      <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
-      <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
-    </Pressable>
-  );
-}
 
 function AboutScreenContent() {
   const { t } = useTranslation();
@@ -74,7 +42,8 @@ function AboutScreenContent() {
             </View>
             <Text style={[styles.appName, shared.text]}>Veloq</Text>
             <Text style={[styles.appVersion, shared.textSecondary]}>
-              {t('about.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+              {t('about.version')}{' '}
+              {formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit())}
             </Text>
             <Text style={[styles.appDescription, shared.textSecondary]}>
               {t('about.description')}
@@ -91,48 +60,43 @@ function AboutScreenContent() {
         {/* intervals.icu Links */}
         <ListSectionHeader>intervals.icu</ListSectionHeader>
         <View style={styles.section(isDark)}>
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-privacy"
             icon="shield-account"
             label={t('about.intervalsPrivacy')}
             url={INTERVALS_URLS.privacyPolicy}
-            isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-terms"
             icon="file-document"
             label={t('about.intervalsTerms')}
             url={INTERVALS_URLS.termsOfService}
-            isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-api-terms"
             icon="api"
             label={t('about.intervalsApiTerms')}
             url={INTERVALS_URLS.apiTerms}
-            isDark={isDark}
           />
         </View>
 
         {/* Veloq Links */}
         <ListSectionHeader>Veloq</ListSectionHeader>
         <View style={styles.section(isDark)}>
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-veloq-privacy"
             icon="shield-lock"
             label={t('about.veloqPrivacy')}
-            url={VELOQ_URLS.privacy}
-            isDark={isDark}
+            url={VELOQ_PRIVACY_URL}
           />
           <View style={styles.linkDivider(isDark)} />
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-license"
             icon="license"
             label={t('about.openSource')}
             url={VELOQ_URLS.license}
-            isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
           <Row
@@ -149,20 +113,18 @@ function AboutScreenContent() {
             <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
           </Row>
           <View style={styles.linkDivider(isDark)} />
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-source"
             icon="github"
             label={t('about.sourceCode')}
             url={VELOQ_URLS.github}
-            isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
-          <LinkRow
+          <ExternalLinkRow
             testID="about-link-tracematch"
             icon="code-braces"
             label={t('about.tracematchSource')}
             url={VELOQ_URLS.tracematch}
-            isDark={isDark}
           />
         </View>
 
@@ -259,13 +221,6 @@ const styles = {
     ...typography.bodySmall,
     lineHeight: 22,
     padding: spacing.md,
-  },
-  linkRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
   },
   linkText: {
     flex: 1,

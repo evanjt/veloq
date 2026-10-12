@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, Pressable, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +13,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { pressable, pressRipple, useTabBarClearance } from '@/shared/ui';
+import { pressable, pressRipple, useBottomClearance } from '@/shared/ui';
 import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
 import type { RecordingStatus } from '@/types';
 
@@ -52,8 +51,8 @@ export function RecordingReturnPill() {
 function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  // Floats absolute, so a safe area around it does not lift it by its padding.
+  const bottomClearance = useBottomClearance({ insetTaken: false });
   const activityType = useRecordingStore((s) => s.activityType);
   const { formattedElapsed } = useTimer();
   const paused = status === 'paused';
@@ -63,7 +62,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accent = paused ? (isDark ? darkColors.warningAmber : colors.warningAmber) : brand.teal;
-  const bottomOffset = tabBarClearance + insets.bottom + spacing.sm;
+  const bottomOffset = bottomClearance + spacing.sm;
 
   return (
     <Animated.View

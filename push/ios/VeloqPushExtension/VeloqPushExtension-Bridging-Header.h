@@ -4,9 +4,6 @@
 // JavaScript, no JSI and no JNI, and it links the static library directly
 // rather than through the `Veloqrs` pod, which depends on React.
 //
-// The push extension and the widget extension both compile against this
-// header: the widget's copy is written at prebuild.
-//
 // The extension uses these entries. A string answer hands ownership
 // over with it: give it back to
 // `veloq_push_string_free` and to nothing else.

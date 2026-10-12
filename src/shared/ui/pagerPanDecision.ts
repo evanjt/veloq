@@ -34,10 +34,12 @@ export function pagerPanDecision({
   translationX,
   screenWidth,
   isRTL,
-  edgeWidth = BACK_SWIPE_EDGE_WIDTH,
+  edgeWidth,
 }: PagerPanInput): PagerPanDecision {
   'worklet';
-  if (startsInBackSwipeEdge(startX, screenWidth, isRTL, edgeWidth)) return 'fail';
+  // A default is read before the body binds the captured names on the UI runtime.
+  const edge = edgeWidth ?? BACK_SWIPE_EDGE_WIDTH;
+  if (startsInBackSwipeEdge(startX, screenWidth, isRTL, edge)) return 'fail';
   if (Math.abs(translationX) <= PAGER_ACTIVATION_OFFSET) return 'wait';
   if (translationX > 0 && index <= 0) return 'fail';
   if (translationX < 0 && index >= tabCount - 1) return 'fail';

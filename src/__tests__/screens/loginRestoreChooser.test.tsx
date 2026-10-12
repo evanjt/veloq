@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { Alert, ScrollView } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -118,6 +119,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  jest.spyOn(Notice, 'showNotice');
   mockFiles.clear();
   await clearWebdavConfig();
 });
@@ -200,11 +202,8 @@ describe('restore from backup on the login screen', () => {
       expect.anything()
     );
     expect(mockFiles.get('file:///docs/veloq-held-import.zip')).toBe('UEsDBBQAAAAIAA');
-    expect(alert).toHaveBeenLastCalledWith(
-      i18n.t('backup.importBackup'),
-      i18n.t('backup.heldUntilSignIn'),
-      undefined,
-      expect.objectContaining({ cancelable: true })
+    expect(Notice.showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: i18n.t('backup.heldUntilSignIn') })
     );
     expect(alert).not.toHaveBeenCalledWith(
       i18n.t('backup.notRestoredTitle'),

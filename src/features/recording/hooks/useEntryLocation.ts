@@ -91,20 +91,29 @@ export function useEntryLocation(active: boolean): EntryLocation {
     };
   }, [active, permission]);
 
-  // iOS offers the Precise switch only in Settings, so an approximate grant is
-  // read again when the athlete comes back.
+  // Settings is where a refused grant is allowed, a granted one taken away and,
+  // on iOS, an approximate one made precise, so the grant is read again each
+  // time the athlete comes back. A read raises no dialog.
+  const answered = permission !== 'unknown';
   useEffect(() => {
-    if (!active || permission !== 'granted' || precision !== 'approximate') return undefined;
+    if (!active || !answered) return undefined;
+    let cancelled = false;
     const subscription = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return;
       readLocationGrant()
         .then((grant) => {
-          if (grant.granted) setPrecision(grant.precision);
+          if (cancelled) return;
+          const answer = answerOf(grant);
+          setPrecision(answer.precision);
+          setPermission(answer.permission);
         })
         .catch(() => {});
     });
-    return () => subscription.remove();
-  }, [active, permission, precision]);
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [active, answered]);
 
   const upgradePrecision = useCallback(() => {
     upgradeLocationPrecision()

@@ -53,6 +53,8 @@ export type ButtonSize = 'sm' | 'md';
 
 export interface ButtonProps {
   label: string;
+  /** What a screen reader says when the label alone does not name the action. */
+  accessibilityLabel?: string;
   onPress: () => void;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -128,6 +130,7 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
 
 export function Button({
   label,
+  accessibilityLabel,
   onPress,
   variant = 'primary',
   size = 'md',
@@ -156,7 +159,7 @@ export function Button({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{
         disabled,
         busy: loading,

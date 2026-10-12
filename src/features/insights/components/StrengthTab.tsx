@@ -25,7 +25,7 @@ import {
   ErrorState,
   ExplanationCard,
   ToggleButton,
-  useTabBarClearance,
+  useScrollEndInset,
 } from '@/shared/ui';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
@@ -54,7 +54,7 @@ export const StrengthTab = React.memo(function StrengthTab({
   linkedPeriod,
 }: StrengthTabProps) {
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset();
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const [period, setPeriod] = useState<StrengthPeriod>(linkedPeriod?.period ?? DEFAULT_PERIOD);
@@ -141,7 +141,7 @@ export const StrengthTab = React.memo(function StrengthTab({
     <ScrollView
       testID="strength-tab"
       style={styles.container}
-      contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance + 16 }]}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollEndInset + 16 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Period selector */}

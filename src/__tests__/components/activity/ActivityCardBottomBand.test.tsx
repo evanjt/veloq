@@ -38,7 +38,7 @@ jest.mock('expo-haptics', () => ({
 }));
 
 jest.mock('@/features/activity/components/ActivityCardContextMenu', () => ({
-  ActivityCardContextMenu: () => null,
+  ActivityCardContextMenu: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -145,24 +145,36 @@ describe('the feed card draws no place line', () => {
 });
 
 describe('the feed card long-press', () => {
-  it.each([
-    ['ios', Haptics.impactAsync, 'medium'],
-    ['android', Haptics.performAndroidHapticsAsync, 'long-press'],
-  ] as const)('fires one medium haptic on %s', async (os, call, constant) => {
+  const onOS = async (os: 'ios' | 'android', run: () => Promise<void>) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
-    (call as jest.Mock).mockClear();
     try {
+      await run();
+    } finally {
+      Platform.OS = originalOS;
+    }
+  };
+
+  it('fires one medium haptic on android', () =>
+    onOS('android', async () => {
+      (Haptics.performAndroidHapticsAsync as jest.Mock).mockClear();
       await renderCard();
 
       await fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
 
-      expect(call).toHaveBeenCalledTimes(1);
-      expect(call).toHaveBeenCalledWith(constant);
-    } finally {
-      Platform.OS = originalOS;
-    }
-  });
+      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledWith('long-press');
+    }));
+
+  it('leaves the hold to the system menu on ios', () =>
+    onOS('ios', async () => {
+      (Haptics.impactAsync as jest.Mock).mockClear();
+      await renderCard();
+
+      await fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
+
+      expect(Haptics.impactAsync).not.toHaveBeenCalled();
+    }));
 });
 
 describe('the feed card press', () => {

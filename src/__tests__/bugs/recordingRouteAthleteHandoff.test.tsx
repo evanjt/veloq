@@ -15,6 +15,7 @@ import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTo, replaceTo } from '@/shared/app/navigation';
+import { spacing } from '@/theme';
 import { inStack } from '../__shared__/testStack';
 
 let mockParams: Record<string, string | undefined> = { type: 'Ride' };
@@ -422,11 +423,11 @@ it('pads the review scroll content by nothing for a tab bar that does not draw o
   )!;
   const { paddingBottom } = StyleSheet.flatten(scroll.props.contentContainerStyle);
 
-  expect(paddingBottom).toBe(0);
+  expect(paddingBottom ?? 0).toBe(0);
 });
 
 it.each([0, 34])(
-  'gives the unlock track the whole bottom edge above a %i dp inset, with no tab bar to clear',
+  'clears a %i dp inset under the unlock track once, with a margin and no tab bar to clear',
   async (bottom) => {
     mockInsets.bottom = bottom;
     useRecordingStore.getState().startRecording('Ride', 'gps');
@@ -436,6 +437,6 @@ it.each([0, 34])(
       screen.getByTestId('recording-unlock-slot').props.style
     );
 
-    expect(paddingBottom).toBe(bottom);
+    expect(paddingBottom).toBe(Math.max(bottom, spacing.md));
   }
 );

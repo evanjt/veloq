@@ -23,7 +23,7 @@ jest.mock('react-native-iap', () => ({
 }));
 
 jest.mock('@/features/activity/components/ActivityCardContextMenu', () => ({
-  ActivityCardContextMenu: () => null,
+  ActivityCardContextMenu: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({

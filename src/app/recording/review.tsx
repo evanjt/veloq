@@ -11,10 +11,10 @@ import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, ScreenScrollView, StatusLine, TextField, useTabBarClearance } from '@/shared/ui';
+import { Button, ScreenScrollView, StatusLine, TextField } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 
 import {
   useRecordingStore,
@@ -25,6 +25,7 @@ import {
   resumeStoppedRecording,
   useActivityNameGeneration,
   useReviewDraft,
+  useRecordingLiveStore,
   getTimeOfDayKey,
   ReviewMapHero,
   ActivityStatsCard,
@@ -51,7 +52,6 @@ function ignoreBack(): void {}
 function ReviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
   const params = useLocalSearchParams<{
@@ -93,6 +93,11 @@ function ReviewScreenContent() {
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
   const savedToLibrary = useRecordingStore((s) => s.savedToLibrary);
+  // The stop handler's write failed and none has landed since, so an app kill
+  // here loses the ride. Saving is the only way to keep it.
+  const backupFailing = useRecordingLiveStore((s) => s.backupFailures > 0);
+  const unbackedRide =
+    !isManual && recordingStatus === 'stopped' && !savedToLibrary && backupFailing;
 
   const lastPoint = Math.max(0, (streams.latlng?.length ?? 0) - 1);
   const { initial: draft, edit: editDraft } = useReviewDraft(streams.latlng?.length ?? 0);
@@ -251,7 +256,7 @@ function ReviewScreenContent() {
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
-  const activityColor = getActivityColor(type);
+  const activityColor = getActivityInk(type, isDark);
   const isProcessing = isUploading;
   // The header back hides while a save is in flight, and Android's back control is held with it.
   useBackIntercept(
@@ -298,9 +303,7 @@ function ReviewScreenContent() {
       )}
 
       {/* Bottom sheet content */}
-      <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
-      >
+      <ScreenScrollView contentContainerStyle={styles.scrollContent}>
         {/* Activity Name */}
         <TextField
           testID="review-activity-name"
@@ -383,6 +386,29 @@ function ReviewScreenContent() {
           >
             {t('recording.savedLocallyNoScope')}
           </Text>
+        )}
+
+        {unbackedRide && (
+          <StatusLine
+            tone="error"
+            message={t('recording.reviewNoBackup')}
+            style={styles.noBackupBanner}
+            testID="review-no-backup"
+          >
+            <MaterialCommunityIcons
+              name="content-save-alert-outline"
+              size={18}
+              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            />
+            <Text
+              style={[
+                styles.queuedBannerText,
+                { color: isDark ? darkColors.warningAmber : colors.warningAmber },
+              ]}
+            >
+              {t('recording.reviewNoBackup')}
+            </Text>
+          </StatusLine>
         )}
 
         {/* Error banner */}
@@ -484,6 +510,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     backgroundColor: colorWithOpacity(colors.success, 0.1),
+    borderRadius: layout.borderRadiusSm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  noBackupBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colorWithOpacity(colors.warning, 0.15),
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,

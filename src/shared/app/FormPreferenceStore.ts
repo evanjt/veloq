@@ -15,6 +15,8 @@ interface FormPreferenceState {
   formAsPercent: boolean | null;
   /** Returns whether the value moved, which is what a rebuild keys on. */
   setFormAsPercent: (asPercent: boolean) => boolean;
+  /** Forgets the profile's answer, so the form reads as absolute until one is read. */
+  reset: () => void;
 }
 
 export const useFormPreference = create<FormPreferenceState>((set, get) => ({
@@ -24,6 +26,7 @@ export const useFormPreference = create<FormPreferenceState>((set, get) => ({
     set({ formAsPercent: asPercent });
     return true;
   },
+  reset: () => set({ formAsPercent: null }),
 }));
 
 /** The same answer for a caller that is not a component. */

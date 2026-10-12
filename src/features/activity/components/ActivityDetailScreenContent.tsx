@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text, Snackbar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import {
   BodyNotDownloaded,
   ScreenSafeAreaView,
   ComponentErrorBoundary,
   ErrorState,
+  showNotice,
   useHeroMapHeight,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -56,6 +57,7 @@ import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/stre
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHeaders';
+import { MapHeroStatusBar } from '@/shared/app/MapHeroStatusBar';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
@@ -128,9 +130,6 @@ export function ActivityDetailScreenContent({
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
-
-  // Snackbar for 3D camera override feedback
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -307,22 +306,20 @@ export function ActivityDetailScreenContent({
   const { on3DModeChange, onStyleChange, onCameraCapture, undoCameraCapture } =
     useActivityMapChoices(activity?.id);
 
-  // Save custom camera angle when user exits 3D mode
+  // Save custom camera angle when user exits 3D mode. Undo puts the activity's 3D mode and
+  // angle back to before it.
   const handleCameraCapture = useCallback(
     (camera: TerrainCamera) => {
       if (activity?.id) {
         onCameraCapture(camera);
-        setSnackbarVisible(true);
+        showNotice({
+          message: t('activityDetail.feedPreviewUpdated'),
+          action: { label: t('common.undo'), onPress: undoCameraCapture },
+        });
       }
     },
-    [activity?.id, onCameraCapture]
+    [activity?.id, onCameraCapture, undoCameraCapture, t]
   );
-
-  // Undo the capture: the activity's 3D mode and angle go back to before it
-  const handleUndoCameraOverride = useCallback(() => {
-    undoCameraCapture();
-    setSnackbarVisible(false);
-  }, [undoCameraCapture]);
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
   const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
@@ -408,6 +405,7 @@ export function ActivityDetailScreenContent({
         style={[styles.container, isDark && styles.containerDark]}
       >
         <Stack.Screen options={headerOptions} />
+        <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} />
         <ActivityDetailSkeleton activityId={id || ''} />
       </ScreenSafeAreaView>
     );
@@ -486,6 +484,7 @@ export function ActivityDetailScreenContent({
       style={[styles.container, isDark && styles.containerDark]}
     >
       <Stack.Screen options={headerOptions} />
+      {showsHero ? <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} /> : null}
 
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
       {isStrength && (
@@ -640,16 +639,6 @@ export function ActivityDetailScreenContent({
           />
         )}
       </SwipeableTabs>
-
-      {/* Snackbar: 3D camera override saved */}
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={4000}
-        action={{ label: t('common.undo'), onPress: handleUndoCameraOverride }}
-      >
-        {t('activityDetail.feedPreviewUpdated')}
-      </Snackbar>
     </View>
   );
 }

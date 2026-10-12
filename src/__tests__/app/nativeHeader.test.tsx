@@ -331,6 +331,18 @@ describe('map-hero detail header states', () => {
     expect(overMapHeaderOptions({ isDark: true }).headerTintColor).toBe(colors.textOnDark);
   });
 
+  it('takes the theme surface and text once the hero has scrolled away', () => {
+    expect(overMapHeaderOptions({ isDark: false, scrolledPastHero: true })).toMatchObject({
+      headerTransparent: true,
+      headerStyle: { backgroundColor: colors.surface },
+      headerTintColor: colors.textPrimary,
+    });
+    expect(overMapHeaderOptions({ isDark: true, scrolledPastHero: true })).toMatchObject({
+      headerStyle: { backgroundColor: darkColors.surface },
+      headerTintColor: darkColors.textPrimary,
+    });
+  });
+
   it('undoes every option the hero header sets, so neither state leaks into the other', () => {
     const hero = Object.keys(overMapHeaderOptions({ isDark: false })).sort();
     const noHero = Object.keys(noHeroHeaderOptions({ title: 'x', isDark: false }));

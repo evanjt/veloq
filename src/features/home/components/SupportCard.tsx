@@ -4,8 +4,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
+import { openExternal } from '@/shared/app/openExternal';
 import { useSupportStore } from '@/shared/app/SupportStore';
 import {
   GITHUB_ISSUES_URL,
@@ -58,17 +58,17 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
     setTipsExpanded((expanded) => !expanded);
   }, []);
 
-  const handleReview = useCallback(() => {
-    openStorePage({ review: true });
-    recordAction();
+  // Counted only once something opened: a tap that reached no store is not a review.
+  const handleReview = useCallback(async () => {
+    if (await openStorePage({ review: true })) recordAction();
   }, [recordAction]);
 
   const handleIdea = useCallback(() => {
-    WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`);
+    void openExternal(`${GITHUB_ISSUES_URL}?labels=enhancement`);
   }, []);
 
   const handleForum = useCallback(() => {
-    openForum();
+    void openForum();
   }, []);
 
   const handleTip = useCallback(
@@ -79,7 +79,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   );
 
   const handleSponsor = useCallback(() => {
-    WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL);
+    void openExternal(GITHUB_SPONSORS_URL);
     recordAction();
   }, [recordAction]);
 

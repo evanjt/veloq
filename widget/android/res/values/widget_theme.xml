@@ -48,7 +48,7 @@
   <dimen name="widget_record_padding">4dp</dimen>
   <dimen name="widget_record_glyph">28dp</dimen>
   <dimen name="widget_record_gap">2dp</dimen>
-  <dimen name="widget_record_text_min">8sp</dimen>
+  <dimen name="widget_record_text_min">9sp</dimen>
   <dimen name="widget_record_text_max">12sp</dimen>
   <dimen name="widget_record_label_height">16dp</dimen>
   <dimen name="widget_radius">16dp</dimen>
@@ -61,6 +61,7 @@
   <dimen name="widget_text_metric">22sp</dimen>
   <dimen name="widget_text_value">18sp</dimen>
   <dimen name="widget_text_label">12sp</dimen>
-  <dimen name="widget_text_caption">10sp</dimen>
-  <dimen name="widget_text_floor">8sp</dimen>
+  <dimen name="widget_text_caption">11sp</dimen>
+  <dimen name="widget_text_floor">9sp</dimen>
+  <item name="widget_text_scale_max" format="float" type="dimen">1.3</item>
 </resources>

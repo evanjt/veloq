@@ -8,7 +8,7 @@ import {
   ScreenSafeAreaView,
   EmptyState,
   ErrorState,
-  useTabBarClearance,
+  useScrollEndInset,
   screenListInsets,
 } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
@@ -17,7 +17,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration, getIntlLocale } from '@/shared/format/format';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   useRecordingLibrary,
   recordingActions,
@@ -30,7 +30,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const isMetric = useMetricSystem();
   const { entries, isLoading, error, refresh, uploadNow, uploadingId } = useRecordingLibrary();
 
@@ -76,7 +76,7 @@ function RecordingsLibraryScreenContent() {
             <MaterialCommunityIcons
               name={getActivityIcon(item.activityType)}
               size={26}
-              color={getActivityColor(item.activityType)}
+              color={getActivityInk(item.activityType, isDark)}
               style={styles.activityIcon}
             />
             <View style={styles.cardBody}>
@@ -118,7 +118,7 @@ function RecordingsLibraryScreenContent() {
         </View>
       );
     },
-    [meta, textPrimary, textSecondary, isMetric, t, uploadNow, uploadingId]
+    [meta, textPrimary, textSecondary, isMetric, isDark, t, uploadNow, uploadingId]
   );
 
   return (
@@ -148,7 +148,7 @@ function RecordingsLibraryScreenContent() {
               <PermissionUpgradeBanner />
             ) : null
           }
-          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarClearance }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: scrollEndInset }]}
           ListEmptyComponent={
             <EmptyState
               icon="record-circle-outline"

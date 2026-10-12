@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.text.format.DateUtils
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import __PKG__.R
@@ -284,7 +285,7 @@ object WidgetRenderer {
     v.setTextViewText(R.id.act_sub, context.getString(R.string.widget_to_see_training))
     v.setViewVisibility(R.id.act_preview, View.GONE)
     v.setViewVisibility(R.id.act_pr, View.GONE)
-    v.setOnClickPendingIntent(R.id.act_root, deepLink(context, "veloq://", 3))
+    v.setOnClickPendingIntent(android.R.id.background, deepLink(context, "veloq://", 3))
     return v
   }
 
@@ -364,7 +365,7 @@ object WidgetRenderer {
     }
 
     val url = latest.activityId?.let { "veloq://activity/$it" } ?: "veloq://"
-    v.setOnClickPendingIntent(R.id.act_root, deepLink(context, url, 3))
+    v.setOnClickPendingIntent(android.R.id.background, deepLink(context, url, 3))
     return v
   }
 
@@ -434,7 +435,7 @@ object WidgetRenderer {
   /** The card surface opens Fitness; an instance the host has not numbered yet gets no tap. */
   private fun bindFitnessTap(context: Context, v: RemoteViews, widgetId: Int) {
     if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
-    v.setOnClickPendingIntent(R.id.sum_root, deepLink(context, FITNESS_URL, 4))
+    v.setOnClickPendingIntent(android.R.id.background, deepLink(context, FITNESS_URL, 4))
   }
 
   // ---- shared binding helpers -------------------------------------------------
@@ -463,6 +464,7 @@ object WidgetRenderer {
     heightDp: Int,
   ) {
     val d = context.resources.displayMetrics.density
+    val label = axisLabelPx(context)
     val w = (widthDp * d).roundToInt()
     val h = (heightDp * d).roundToInt()
     val chart = SummaryWidget.chart(snap, card)
@@ -470,9 +472,11 @@ object WidgetRenderer {
     fun draw(dark: Boolean) =
       when (chart) {
         is SummaryChart.Dual ->
-          FitnessChart.fitnessBitmap(chart.fitness, chart.fatigue, w, h, d, chartColors(p, dark))
+          FitnessChart.fitnessBitmap(
+            chart.fitness, chart.fatigue, w, h, d, label, chartColors(p, dark))
         is SummaryChart.Single ->
-          FitnessChart.singleBitmap(chart.values, primary.pick(dark), w, h, d, chartColors(p, dark))
+          FitnessChart.singleBitmap(
+            chart.values, primary.pick(dark), w, h, d, label, chartColors(p, dark))
         SummaryChart.None -> null
       }
     // Whether a series draws at all does not depend on the theme, so the light one decides.
@@ -524,8 +528,20 @@ object WidgetRenderer {
     v.setContentDescription(R.id.sum_form_zones, snap.chartLabels.form)
     p.bitmap(v, R.id.sum_form_zones) { dark ->
       FitnessChart.formZonesBitmap(
-        chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, colors(dark))
+        chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, axisLabelPx(context),
+        colors(dark))
     }
+  }
+
+  /** A chart's axis labels at the caption size and the reader's font scale, up to the cap. */
+  private fun axisLabelPx(context: Context): Float {
+    val res = context.resources
+    val value = TypedValue()
+    res.getValue(R.dimen.widget_text_caption, value, true)
+    val caption = TypedValue.complexToFloat(value.data)
+    res.getValue(R.dimen.widget_text_scale_max, value, true)
+    return ChartText.axisLabelPx(
+      caption, res.displayMetrics.density, res.configuration.fontScale, value.float)
   }
 
   // ---- formatting -------------------------------------------------------------

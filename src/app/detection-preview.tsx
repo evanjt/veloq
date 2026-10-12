@@ -22,9 +22,14 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { Button, ErrorState, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
+import {
+  Button,
+  ErrorState,
+  ProgressBar,
+  ScreenSafeAreaView,
+  useBottomClearance,
+} from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   usePreviewDetect,
@@ -64,8 +69,7 @@ const PARAM_KEYS = [
 function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance({ insetTaken: true });
 
   const client = useMemo(() => getEngine(), []);
   const {
@@ -147,6 +151,12 @@ function DetectionPreviewScreenContent() {
   // The engine reports a percentage for a bounded job, so draw it. Clamped
   // because a phase that finishes ahead of its own estimate can overshoot.
   const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
+  const runLabel =
+    progress?.phase === 'loading'
+      ? t('settings.previewRunning', { count: progress.total })
+      : phaseKey
+        ? t(phaseKey)
+        : (progress?.phase ?? t('settings.previewRun'));
 
   // A held diff is about one area, so moving to another drops it. The run
   // itself keeps its result across a re-run of the same area, which is why
@@ -183,7 +193,7 @@ function DetectionPreviewScreenContent() {
     confirmAction({
       title: t('settings.previewKeepTitle'),
       message: t('settings.previewKeepWarning'),
-      confirmLabel: t('common.confirm'),
+      confirmLabel: t('settings.previewKeep'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
         const config = client?.getSectionConfig();
@@ -260,7 +270,7 @@ function DetectionPreviewScreenContent() {
       </View>
 
       <View
-        style={[styles.panel, { paddingBottom: insets.bottom + tabBarClearance }]}
+        style={[styles.panel, { paddingBottom: bottomClearance }]}
         testID="preview-control-panel"
       >
         {centresReadError !== undefined ? (
@@ -291,22 +301,17 @@ function DetectionPreviewScreenContent() {
             <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
               <ActivityIndicator size="small" color={textSecondary} />
               <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
-                {progress?.phase === 'loading'
-                  ? t('settings.previewRunning', { count: progress.total })
-                  : phaseKey
-                    ? t(phaseKey)
-                    : (progress?.phase ?? t('settings.previewRun'))}
+                {runLabel}
               </Text>
             </View>
-            <View style={[styles.progressTrack, { backgroundColor: border }]}>
-              <View
-                testID="preview-progress-fill"
-                style={[
-                  styles.progressFill,
-                  { backgroundColor: brand.tealLight, width: `${runPercent}%` },
-                ]}
-              />
-            </View>
+            <ProgressBar
+              done={runPercent}
+              total={100}
+              label={runLabel}
+              color={brand.tealLight}
+              testID="preview-progress"
+              fillTestID="preview-progress-fill"
+            />
             {lapsed && (
               <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
                 {t('settings.runSlow')}
@@ -414,16 +419,6 @@ const styles = StyleSheet.create({
   },
   pickerWrap: {
     marginHorizontal: -spacing.md,
-  },
-  progressTrack: {
-    height: 3,
-    borderRadius: layout.borderRadiusXs,
-    marginTop: spacing.xs,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: layout.borderRadiusXs,
   },
   runBtn: {
     flexDirection: 'row',

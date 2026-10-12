@@ -9,8 +9,9 @@
  */
 
 import React from 'react';
-import { Alert, Linking, type AlertButton } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import {
   PlaceNamesSwitch,
@@ -32,9 +33,13 @@ const mockEngine: {
   }),
 };
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('expo-web-browser', () => ({
+  ...jest.requireActual('expo-web-browser'),
+  openBrowserAsync: jest.fn(async () => undefined),
+}));
 
 let alertSpy: jest.SpyInstance;
-let openUrl: jest.SpyInstance;
+const openPage = WebBrowser.openBrowserAsync as jest.Mock;
 
 function lastAlert() {
   const [title, body, buttons, options] = alertSpy.mock.calls[alertSpy.mock.calls.length - 1] as [
@@ -65,12 +70,11 @@ beforeEach(() => {
   mockEngine.getGeocodingEnabled.mockClear();
   mockEngine.setGeocodingEnabled.mockClear();
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-  openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  openPage.mockClear();
 });
 
 afterEach(() => {
   alertSpy.mockRestore();
-  openUrl.mockRestore();
 });
 
 describe('the place names switch', () => {
@@ -141,7 +145,7 @@ describe('the place names switch', () => {
     await toggle(tree, true);
     await press('settings.placeNames.readPolicy');
 
-    expect(openUrl).toHaveBeenCalledWith(NOMINATIM_POLICY_URL);
+    expect(openPage).toHaveBeenCalledWith(NOMINATIM_POLICY_URL);
     expect(NOMINATIM_POLICY_URL).toBe('https://operations.osmfoundation.org/policies/nominatim/');
     expect(alertSpy).toHaveBeenCalledTimes(2);
     expect(mockEngine.setGeocodingEnabled).not.toHaveBeenCalled();

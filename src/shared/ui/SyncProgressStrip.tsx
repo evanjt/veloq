@@ -18,7 +18,6 @@ import Animated, {
   FadeOut,
   cancelAnimation,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -28,6 +27,7 @@ import { SyncState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
+import { useReduceMotion } from './reduceMotion';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -75,7 +75,7 @@ function useHeldLine(latest: SyncLine | null): SyncLine | null {
 }
 
 function SyncMark({ color }: { color: string }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotion();
   const turn = useSharedValue(0);
 
   useEffect(() => {

@@ -1,7 +1,6 @@
 import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { darkColors } from '@/theme';
+import { zoneColors, zoneColorsDark } from '@/theme';
 
 // Helper: encode a minimal protobuf for testing
 function encodeVarint(value: number): number[] {
@@ -146,29 +145,28 @@ describe('skyline zone colours', () => {
 
   it('selects palette by zone basis (power vs HR)', () => {
     const power = resolveColours(makeColorPayload([300, 120], [2, 6], 1), false);
-    expect(power).toEqual([POWER_ZONE_COLORS[1], POWER_ZONE_COLORS[5]]);
+    expect(power).toEqual([zoneColors.zone2, zoneColors.zone6]);
 
     const hr = resolveColours(makeColorPayload([300, 200], [1, 4], 2), false);
-    expect(hr).toEqual([HR_ZONE_COLORS[0], HR_ZONE_COLORS[3]]);
+    expect(hr).toEqual([zoneColors.zone1, zoneColors.zone4]);
   });
 
   it('keeps power Z7 in its palette colour in light mode', () => {
-    expect(resolveColours(makeColorPayload([300], [7], 1), false)).toEqual([POWER_ZONE_COLORS[6]]);
+    expect(resolveColours(makeColorPayload([300], [7], 1), false)).toEqual([zoneColors.zone7]);
   });
 
-  it('swaps power Z7 to the dark theme zone 7 but leaves HR Z5 untouched', () => {
-    expect(resolveColours(makeColorPayload([300], [7], 1), true)).toEqual([darkColors.zone7]);
-    expect(darkColors.zone7).not.toBe(POWER_ZONE_COLORS[6]);
-    expect(resolveColours(makeColorPayload([300], [5], 2), true)).toEqual([HR_ZONE_COLORS[4]]);
+  it('swaps Z7 to the dark zone fill on either basis but leaves HR Z5 untouched', () => {
+    expect(resolveColours(makeColorPayload([300], [7], 1), true)).toEqual([zoneColorsDark.zone7]);
+    expect(resolveColours(makeColorPayload([300], [7], 2), true)).toEqual([zoneColorsDark.zone7]);
+    expect(zoneColorsDark.zone7).not.toBe(zoneColors.zone7);
+    expect(resolveColours(makeColorPayload([300], [5], 2), true)).toEqual([zoneColors.zone5]);
   });
 
   it('clamps out-of-range zone numbers to the ends of the palette', () => {
     expect(resolveColours(makeColorPayload([300, 60], [10, 0], 1), false)).toEqual([
-      POWER_ZONE_COLORS[6],
-      POWER_ZONE_COLORS[0],
+      zoneColors.zone7,
+      zoneColors.zone1,
     ]);
-    expect(resolveColours(makeColorPayload([300], [7], 2), false)).toEqual([
-      HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1],
-    ]);
+    expect(resolveColours(makeColorPayload([300], [7], 2), false)).toEqual([zoneColors.zone7]);
   });
 });

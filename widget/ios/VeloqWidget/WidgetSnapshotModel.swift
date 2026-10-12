@@ -104,6 +104,9 @@ struct WidgetImpact: Codable {
   let formAfterText: String?
   let formBeforeZone: String?
   let formAfterZone: String?
+  /// The zones in words; nil in a snapshot written before the engine named them.
+  let formBeforeZoneText: String?
+  let formAfterZoneText: String?
   let ctlDelta: Double
   let atlDelta: Double
   let tssAdded: Double?
@@ -155,6 +158,9 @@ struct WidgetDisplay: Codable {
   let recordLabel: String?
   /// Nil in a snapshot written by an older build.
   let perWeekSuffix: String?
+  /// The refresh control's words, which say it opens the app. Nil in a snapshot written by an
+  /// older build, which then draws no control.
+  let openToRefreshLabel: String?
   let formZone: String?
   let impactLine: String?
   /// The words that say the numbers are as of the last sync. Present only on a

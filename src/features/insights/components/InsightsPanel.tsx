@@ -13,7 +13,7 @@ import {
   ExplanationCard,
   pressable,
   pressRipple,
-  useTabBarClearance,
+  useScrollEndInset,
 } from '@/shared/ui';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -55,7 +55,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   onInsightOpened,
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset();
   const { t } = useTranslation();
   const [debugOpen, setDebugOpen] = useState(false);
   const openSheet = useSheetOpener();
@@ -83,7 +83,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
     <View style={styles.container} testID="insights-panel">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: layout.screenPadding + tabBarClearance }}
+        contentContainerStyle={{ paddingBottom: layout.screenPadding + scrollEndInset }}
       >
         {__DEV__ ? (
           <Pressable

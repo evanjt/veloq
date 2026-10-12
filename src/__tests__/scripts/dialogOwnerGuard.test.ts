@@ -59,6 +59,28 @@ it.each([
   expect(result.output).toContain('bare error');
 });
 
+it.each([
+  "confirmAction({ title: 'Delete?', confirmLabel: t('common.confirm'), cancelLabel: 'Cancel', onConfirm });",
+  "confirmAction({ title: 'Delete?', confirmLabel: i18n.t('common.confirm'), cancelLabel: 'Cancel', onConfirm });",
+])('refuses a confirm button labelled with the generic word: %s', (line) => {
+  const result = check({ ...helper, 'src/features/Card.tsx': `export {};\n${line}\n` });
+  expect(result.failed).toBe(true);
+  expect(result.output).toContain('src/features/Card.tsx:2');
+  expect(result.output).toContain('name the action');
+});
+
+it('passes a confirm button that names its action', () => {
+  const result = check({
+    ...helper,
+    'src/features/Card.tsx': [
+      'export {};',
+      "confirmAction({ title: t('garden.prune'), confirmLabel: t('garden.prune'), cancelLabel: t('common.cancel'), onConfirm });",
+      '',
+    ].join('\n'),
+  });
+  expect(result).toEqual({ failed: false, output: '' });
+});
+
 it('passes a test file that spies on Alert', () => {
   const result = check({
     ...helper,

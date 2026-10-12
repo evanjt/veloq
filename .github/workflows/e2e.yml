@@ -79,6 +79,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+          TIERS: ${{ inputs.tier || 'tier0,tier1,tier2,tier3' }}
         with:
           api-level: 35
           arch: x86_64
@@ -110,7 +111,7 @@ jobs:
             # failures: 78 of 85 on 2026-09-13, 103 of 103 on 08-23. The script
             # tells a death from a failed step, restarts the device once and
             # gives those flows a clean shot.
-            .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug --include-tags="$TIERS" || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             adb devices -l > /tmp/device-state.txt 2>&1 || true
             pgrep -af qemu >> /tmp/device-state.txt 2>&1 || true
 

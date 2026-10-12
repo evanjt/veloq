@@ -107,9 +107,10 @@ fn feature(points: &[GpsPoint]) -> GeoJsonFeature<'_> {
         id: "lantern-7",
         name: "Harbour \"loop\"",
         sport: "Ride",
-        date: "2026-03-14T07:30:00",
-        distance: 12_345.5,
-        moving_time: 2_400,
+        date: Some("2026-03-14T07:30:00"),
+        distance: Some(12_345.5),
+        moving_time: Some(2_400),
+        trimmed: false,
         points,
     }
 }
@@ -142,26 +143,35 @@ fn a_feature_keeps_the_bytes_the_export_has_always_written() {
         concat!(
             r#"{"geometry":{"coordinates":[[151.25,-33.5],[151.123456,-33.000001]],"type":"LineString"},"#,
             r#""properties":{"date":"2026-03-14T07:30:00","distance":12345.5,"id":"lantern-7","#,
-            r#""movingTime":2400,"name":"Harbour \"loop\"","sport":"Ride"},"type":"Feature"}"#,
+            r#""movingTime":2400,"name":"Harbour \"loop\"","sport":"Ride","trimmed":false},"#,
+            r#""type":"Feature"}"#,
         )
     );
 }
 
+/// Zero is a measurement and an unknown is not, so the two read apart.
 #[test]
-fn an_empty_date_and_zero_figures_are_written_as_values() {
+fn an_unknown_date_and_figures_are_null_and_a_zero_stays_zero() {
     let points = vec![pt(1.0, 2.0)];
     let mut f = feature(&points);
-    f.date = "";
-    f.distance = 0.0;
-    f.moving_time = 0;
+    f.date = None;
+    f.distance = None;
+    f.moving_time = None;
     assert_eq!(
         written(&f),
         concat!(
             r#"{"geometry":{"coordinates":[[2.0,1.0]],"type":"LineString"},"#,
-            r#""properties":{"date":"","distance":0.0,"id":"lantern-7","movingTime":0,"#,
-            r#""name":"Harbour \"loop\"","sport":"Ride"},"type":"Feature"}"#,
+            r#""properties":{"date":null,"distance":null,"id":"lantern-7","movingTime":null,"#,
+            r#""name":"Harbour \"loop\"","sport":"Ride","trimmed":false},"type":"Feature"}"#,
         )
     );
+    f.distance = Some(0.0);
+    f.moving_time = Some(0);
+    f.trimmed = true;
+    let zero = written(&f);
+    assert!(zero.contains(r#""distance":0.0"#), "{zero}");
+    assert!(zero.contains(r#""movingTime":0,"#), "{zero}");
+    assert!(zero.contains(r#""trimmed":true"#), "{zero}");
 }
 
 #[test]

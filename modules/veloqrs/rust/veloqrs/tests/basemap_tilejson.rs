@@ -396,3 +396,38 @@ fn a_source_with_nothing_kept_reads_the_sidecar_once() {
         "a store set afresh did not read its own sidecar"
     );
 }
+
+/// A TileJSON that names a cleartext template would move every tile of the
+/// source onto plain HTTP for as long as it is held. It is refused as naming no
+/// template: with none held there is nothing to fill from, and with one held
+/// that one stands.
+#[test]
+fn a_tilejson_naming_a_cleartext_template_is_refused() {
+    const CLEARTEXT: &str =
+        r#"{"tiles": ["http://tiles.openfreemap.org/planet/x/{z}/{x}/{y}.pbf"]}"#;
+    let dir = TempDir::new().expect("tempdir");
+    let _serial = store_at(&dir);
+    planet();
+
+    let unheld = resolve_template_at("openfreemap", T0, |_url| Ok(CLEARTEXT.to_string()));
+    assert_eq!(unheld, None, "a cleartext template was taken");
+
+    veloqrs::basemap::forget_resolved_templates();
+    planet();
+    let held = resolve_template_at("openfreemap", T0 + 3_600, |_url| {
+        Ok(PLANET_TILEJSON.to_string())
+    });
+    assert_eq!(held.as_deref(), Some(SEPTEMBER));
+
+    let refreshed = resolve_template_at(
+        "openfreemap",
+        T0 + 3_600 + TEMPLATE_REFRESH.as_secs(),
+        |_url| Ok(CLEARTEXT.to_string()),
+    );
+    assert_eq!(
+        refreshed.as_deref(),
+        Some(SEPTEMBER),
+        "a cleartext refresh replaced the held template"
+    );
+    assert_eq!(tile_template_for("openfreemap").as_deref(), Some(SEPTEMBER));
+}

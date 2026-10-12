@@ -7,7 +7,14 @@
  */
 
 import React from 'react';
-import { Pressable, View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  View,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +33,7 @@ import {
   mapTextShadow,
   slopToMinTapTarget,
 } from '@/theme';
+import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
 import { pressable, pressRipple } from './pressFeedback';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
@@ -107,6 +115,13 @@ export function DetailHero({
   return (
     <View testID={containerTestID} style={[styles.heroSection, { height }]}>
       <View style={styles.mapContainer}>{children}</View>
+
+      {/* The leading edge belongs to the stack's back swipe on iOS. A touch that lands here hits a
+          plain view, so the map's pan never sees it and the ancestor's pop recogniser does. Android
+          has no edge swipe to give back, and a strip there would only take pan from the map. */}
+      {Platform.OS === 'ios' && (
+        <View testID="detail-hero-back-edge" accessible={false} style={styles.backSwipeEdge} />
+      )}
 
       <LinearGradient
         testID="detail-hero-top-scrim"
@@ -319,6 +334,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  backSwipeEdge: {
+    position: 'absolute',
+    start: 0,
+    top: 0,
+    bottom: 0,
+    width: BACK_SWIPE_EDGE_WIDTH,
   },
   topScrim: {
     position: 'absolute',

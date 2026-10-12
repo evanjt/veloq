@@ -14,6 +14,7 @@ import { render, waitFor } from '@testing-library/react-native';
 
 import { DataCacheSection } from '@/features/settings/components/DataCacheSection';
 import * as haptics from '@/shared/ui/haptics';
+import * as Notice from '@/shared/ui/Notice';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -174,15 +175,10 @@ describe('clearing the cache with the heatmap tiles', () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     await render(<DataCacheSection />);
 
+    const notice = jest.spyOn(Notice, 'showNotice');
     await confirmClearCache(alert);
 
-    await waitFor(() => expect(alert).toHaveBeenCalled());
-    expect(alert).toHaveBeenLastCalledWith(
-      'alerts.cacheCleared',
-      undefined,
-      undefined,
-      expect.objectContaining({ cancelable: true })
-    );
+    await waitFor(() => expect(notice).toHaveBeenCalledWith({ message: 'alerts.cacheCleared' }));
   });
 
   it('reports a map cache clear that left heatmap tiles on disk', async () => {
@@ -214,9 +210,10 @@ describe('clearing the cache with the heatmap tiles', () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     await render(<DataCacheSection />);
 
+    const notice = jest.spyOn(Notice, 'showNotice');
     await mockPanels.onClearMapCache?.();
     await confirmClearCache(alert);
-    await waitFor(() => expect(alert).toHaveBeenCalled());
+    await waitFor(() => expect(notice).toHaveBeenCalled());
 
     expect(basemap().clearTiles).not.toHaveBeenCalled();
   });
@@ -228,8 +225,9 @@ describe('clearing the cache with the heatmap tiles', () => {
     await mockPanels.onClearMapCache?.();
     expect(basemap().clearUnpinnedTiles).toHaveBeenCalledTimes(1);
 
+    const notice = jest.spyOn(Notice, 'showNotice');
     await confirmClearCache(alert);
-    await waitFor(() => expect(alert).toHaveBeenCalled());
+    await waitFor(() => expect(notice).toHaveBeenCalled());
     expect(basemap().clearUnpinnedTiles).toHaveBeenCalledTimes(2);
   });
 

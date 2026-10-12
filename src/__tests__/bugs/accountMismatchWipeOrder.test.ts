@@ -96,11 +96,13 @@ describe('Clear & Sync on the account mismatch prompt', () => {
     wipeSettles();
     await expect(resolved).resolves.toBe(true);
 
-    // The wipe resets the notification consent once the handle is back.
+    // The wipe resets the notification consent and the unit system the
+    // previous profile chose once the handle is back.
     expect(trace).toEqual([
       'wipe started',
       'wipe finished',
       'set veloq-notification-preferences',
+      'set veloq-resolved-unit-system',
       'set __athlete_id',
     ]);
     expect(mockEngine.setSetting).toHaveBeenCalledWith('__athlete_id', 'athlete-b');

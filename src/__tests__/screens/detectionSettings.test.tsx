@@ -1,6 +1,6 @@
 import React from 'react';
-import { AccessibilityInfo, Platform, View } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { AccessibilityInfo, Alert, Platform, View } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import DetectionSettingsScreen from '@/app/detection-settings';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
@@ -315,6 +315,27 @@ describe('a finished rescan', () => {
       mockRescan.failed = false;
     }
   });
+});
+
+/**
+ * Scenario: Reanalyse replaces every unaccepted auto-detected section.
+ * Expected behaviour: the confirm names the action rather than a generic
+ * Confirm, and is styled destructive so iOS paints it red.
+ */
+it('confirms Reanalyse with a destructive button that names the action', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  try {
+    const tree = await render(<DetectionSettingsScreen />);
+    await fireEvent.press(tree.getByTestId('detection-rescan-button'));
+
+    const buttons = alert.mock.calls[0][2] ?? [];
+    const positive = buttons[buttons.length - 1];
+    expect(positive.text).toBe('settings.reanalyzeSections');
+    expect(positive.style).toBe('destructive');
+    expect(buttons.map((button) => button.text)).not.toContain('common.confirm');
+  } finally {
+    alert.mockRestore();
+  }
 });
 
 function liveRegionOf(node: { props: Record<string, unknown>; parent: unknown }): unknown {

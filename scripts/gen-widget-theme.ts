@@ -20,6 +20,7 @@ import {
   widgetLayout,
   widgetPalette,
   widgetRecord,
+  widgetTextScale,
   widgetType,
   type WidgetPalette,
 } from '@/shared/theme/widgetTheme';
@@ -70,6 +71,8 @@ const PALETTE_KEYS: ColourKey[] = [
   'border',
   'bodyFill',
 ];
+
+const STEPS = Object.keys(widgetType) as (keyof typeof widgetType)[];
 
 const snake = (k: string) => k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
 
@@ -135,6 +138,30 @@ ${swiftPalette('Dark', widgetPalette.dark)}
     static let floor: CGFloat = ${widgetType.floor}
   }
 
+  /// One step of the type scale: its size at the default text size and the text style it
+  /// grows with at a larger one.
+  enum TypeStep: CaseIterable {
+${STEPS.map((k) => `    case ${k}`).join('\n')}
+
+    var size: CGFloat {
+      switch self {
+${STEPS.map((k) => `      case .${k}: return TypeScale.${k}`).join('\n')}
+      }
+    }
+
+    var style: Font.TextStyle {
+      switch self {
+${STEPS.map((k) => `      case .${k}: return .${widgetTextScale.styles[k]}`).join('\n')}
+      }
+    }
+  }
+
+  /// The largest text size the widgets and the Live Activity follow the reader to.
+  static let largestTextSize: DynamicTypeSize = .${widgetTextScale.iosLargest}
+
+  /// The most a step grows over its default size, whatever text size the reader picks.
+  static let maxTextScale: CGFloat = ${widgetTextScale.maxScale}
+
   enum Chart {
     static let fatigueDash: [CGFloat] = [${widgetChart.fatigueDash.join(', ')}]
     static let bandOpacity: Double = ${widgetChart.bandOpacity}
@@ -182,6 +209,7 @@ ${androidColors(widgetPalette.light)}
   <dimen name="widget_text_label">${widgetType.label}sp</dimen>
   <dimen name="widget_text_caption">${widgetType.caption}sp</dimen>
   <dimen name="widget_text_floor">${widgetType.floor}sp</dimen>
+  <item name="widget_text_scale_max" format="float" type="dimen">${widgetTextScale.maxScale}</item>
 </resources>
 `;
 }
@@ -194,6 +222,18 @@ ${androidColors(widgetPalette.dark)}
   <color name="widget_record_grad_start">${widgetRecord.dark.gradientStart}</color>
   <color name="widget_record_grad_end">${widgetRecord.dark.gradientEnd}</color>
   <color name="widget_record_accent">${widgetRecord.dark.accent}</color>
+</resources>
+`;
+}
+
+// From Android 12 the launcher owns the widget corner, so the radii alias its own dimens there and
+// the fixed tokens above stay the fallback below it.
+function androidV31(): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!-- ${GEN} -->
+<resources>
+  <dimen name="widget_radius">@android:dimen/system_app_widget_background_radius</dimen>
+  <dimen name="widget_radius_inner">@android:dimen/system_app_widget_inner_radius</dimen>
 </resources>
 `;
 }
@@ -223,6 +263,7 @@ function emit(rel: string, contents: string): void {
 emit('widget/ios/VeloqWidget/WidgetTheme.swift', iosFile());
 emit('widget/android/res/values/widget_theme.xml', androidLight());
 emit('widget/android/res/values-night/widget_theme.xml', androidNight());
+emit('widget/android/res/values-v31/widget_theme.xml', androidV31());
 
 if (CHECK) {
   if (stale.length > 0) {

@@ -1,10 +1,8 @@
 /**
  * Hook for getting theme-aware chart colors.
  *
- * Returns chart colors that automatically adjust for dark mode,
- * providing better visibility and contrast on dark backgrounds.
- *
- * Brand Identity: Gold (#D4AF37) + Blue (#5B9BD5)
+ * Returns chart colors that switch to the dark palette in dark mode.
+ * The palette and its roles are defined in `src/theme/colors.ts`.
  */
 
 import { useMemo } from 'react';

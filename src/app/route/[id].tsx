@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -41,6 +41,7 @@ import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
+import { MapHeroStatusBar, useHeroScrolledPast } from '@/shared/app/MapHeroStatusBar';
 import {
   Button,
   DetailHero,
@@ -48,7 +49,7 @@ import {
   HeroNameRow,
   HeroStatsRow,
   useHeroMapHeight,
-  useTabBarClearance,
+  useBottomClearance,
 } from '@/shared/ui';
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
@@ -89,7 +90,7 @@ function RouteDetailScreenContent() {
     activityId?: string;
   }>();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
   const mapHeight = useHeroMapHeight();
 
@@ -223,11 +224,14 @@ function RouteDetailScreenContent() {
 
   const heroTitle = routeGroup ? customName || routeGroup.name : undefined;
 
+  // Past the hero the page runs under the header, which then takes the theme's surface.
+  const { scrolledPastHero, onScroll: onHeroScroll } = useHeroScrolledPast(mapHeight);
+
   // A fallback state takes the opaque header, so the hero puts the transparent one back, named
   // after the route.
   const heroHeaderOptions = useMemo(
-    () => overMapHeaderOptions({ title: heroTitle, isDark }),
-    [heroTitle, isDark]
+    () => overMapHeaderOptions({ title: heroTitle, isDark, scrolledPastHero }),
+    [heroTitle, isDark, scrolledPastHero]
   );
 
   if (!routeGroup) {
@@ -251,12 +255,14 @@ function RouteDetailScreenContent() {
   return (
     <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
       <Stack.Screen options={heroHeaderOptions} />
-      <StatusBar barStyle="light-content" />
+      <MapHeroStatusBar scrolledPastHero={scrolledPastHero} isDark={isDark} />
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
+        contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onHeroScroll}
+        scrollEventThrottle={16}
       >
         {/* Hero Map Section */}
         <DetailHero

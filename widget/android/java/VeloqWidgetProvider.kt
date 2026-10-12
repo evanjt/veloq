@@ -66,6 +66,11 @@ class VeloqWidgetProvider : AppWidgetProvider() {
     SummaryWidgetChoice.forget(context, appWidgetIds)
   }
 
+  /** A launcher restoring widgets gives them new ids, and the choice has to follow. */
+  override fun onRestored(context: Context, oldWidgetIds: IntArray, newWidgetIds: IntArray) {
+    SummaryWidgetChoice.remap(context, oldWidgetIds, newWidgetIds)
+  }
+
   private fun update(
     context: Context,
     manager: AppWidgetManager,
@@ -73,10 +78,12 @@ class VeloqWidgetProvider : AppWidgetProvider() {
     id: Int,
   ) {
     val options = manager.getAppWidgetOptions(id)
-    val w = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-    val h = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+    val placement = SummaryWidgetChoice.placementFor(context, id)
     manager.updateAppWidget(
-      id, WidgetRenderer.render(context, snap, w, h, SummaryWidgetChoice.placementFor(context, id), id))
+      id,
+      WidgetLayouts.build(options, { SummaryWidget.sizeFor(it.widthDp, it.heightDp) }) {
+        WidgetRenderer.render(context, snap, it.widthDp, it.heightDp, placement, id)
+      })
   }
 
   companion object {

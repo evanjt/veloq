@@ -3,6 +3,7 @@ import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { getEngine } from '@/shared/native/engine';
 import { timeAppWork } from '@/shared/debug/renderTimer';
+import { useEngineOpenCount, useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { decodeCoords, SyncState } from 'veloqrs';
 import type {
@@ -123,31 +124,28 @@ function syncInFlight(): boolean {
  * and when it says it stored wellness. Neither channel's value means anything,
  * only that it moved.
  *
- * The engine handle is fixed at first load, and subscribing does not need an
- * open database: the subscription is a listener map, so it hears a launch sync
- * that settles after this screen mounts. A missing handle stays missing, so
- * there is nothing to wait for.
+ * Subscribing does not need an open database, since the subscription is a
+ * listener map, but it does need a handle. A handle that arrives after this
+ * screen mounts, or one a clear replaces, subscribes again, or the card never
+ * hears the sync it is waiting on.
  */
 function useEngineSignals(): { settled: number; wellnessStored: number } {
   const [settled, setSettled] = useState(0);
   const [wellnessStored, setWellnessStored] = useState(0);
+  const engine = useEngineReady();
 
   useEffect(() => {
-    const subscribeAll = (engine: NonNullable<ReturnType<typeof getEngine>>) => {
-      const offSettled = engine.subscribe('syncSettled', () => setSettled((n) => n + 1));
-      const offBody = engine.subscribe('bodyStored', (payload) => {
-        if ((payload as { kind?: string } | undefined)?.kind !== 'wellness') return;
-        setWellnessStored((n) => n + 1);
-      });
-      return () => {
-        offSettled?.();
-        offBody?.();
-      };
+    if (!engine) return undefined;
+    const offSettled = engine.subscribe('syncSettled', () => setSettled((n) => n + 1));
+    const offBody = engine.subscribe('bodyStored', (payload) => {
+      if ((payload as { kind?: string } | undefined)?.kind !== 'wellness') return;
+      setWellnessStored((n) => n + 1);
+    });
+    return () => {
+      offSettled?.();
+      offBody?.();
     };
-
-    const engine = getEngine();
-    return engine ? subscribeAll(engine) : undefined;
-  }, []);
+  }, [engine]);
 
   return { settled, wellnessStored };
 }
@@ -176,6 +174,7 @@ export function useStartupData(previewActivityIds: string[]): {
   // hero reads. Held until the settle, a first sync left the card on the zeros
   // of the read that ran before wellness landed.
   const { settled, wellnessStored } = useEngineSignals();
+  const opened = useEngineOpenCount();
   const idsKey = previewActivityIds.join(',');
 
   // Read inside the deferred task so a changed list does not re-key the effect
@@ -191,8 +190,13 @@ export function useStartupData(previewActivityIds: string[]): {
   // reset would spend a second read on the announcement that follows.
   const settleSeen = useRef(false);
 
+  // Whether any read has answered. Until one has, the card is blank, and a
+  // settle with nothing held back still has something to report.
+  const answered = useRef(false);
+
   const [data, setData] = useState<StartupResult | null>(null);
   const publish = useCallback((next: StartupResult) => {
+    answered.current = true;
     setData((previous) => ({
       ...next,
       previewTracks: retainUnchangedPreviewTracks(previous?.previewTracks, next.previewTracks),
@@ -241,9 +245,10 @@ export function useStartupData(previewActivityIds: string[]): {
       return undefined;
     }
     readThisSync.current = false;
-    // A settle with nothing held back has nothing new to report: the last read
-    // already saw whatever the sync landed.
-    if (!held.current) return undefined;
+    // A settle with nothing held back has nothing new to report when the last
+    // read already saw whatever the sync landed. When no read has answered,
+    // because the engine was not open or a read failed, the card is blank.
+    if (!held.current && answered.current) return undefined;
     held.current = false;
 
     return runWhenIdle(() => {
@@ -261,6 +266,16 @@ export function useStartupData(previewActivityIds: string[]): {
     }
     return readSoon();
   }, [wellnessStored, readSoon]);
+
+  // The first run is the mount, where the read above has already been scheduled.
+  const openSeen = useRef(false);
+  useEffect(() => {
+    if (!openSeen.current) {
+      openSeen.current = true;
+      return undefined;
+    }
+    return readSoon();
+  }, [opened, readSoon]);
 
   // A pull to refresh reads queries the card is not painted from, so without
   // this the card and the Fitness screen can disagree for as long as the feed

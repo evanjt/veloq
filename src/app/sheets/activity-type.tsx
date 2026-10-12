@@ -18,7 +18,7 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording';
 import type { ActivityType } from '@/types';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
@@ -135,7 +135,7 @@ function ActivityTypeSheetContent() {
               <MaterialCommunityIcons
                 name={getActivityIcon(item)}
                 size={22}
-                color={getActivityColor(item)}
+                color={getActivityInk(item, isDark)}
                 style={isRecording ? styles.iconRecording : undefined}
               />
               <Text style={[styles.label, { color: textPrimary }]}>

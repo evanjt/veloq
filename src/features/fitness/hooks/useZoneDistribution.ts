@@ -1,11 +1,7 @@
 import { useMemo } from 'react';
 import type { ZoneDistribution } from '@/types';
 import { useTranslation } from 'react-i18next';
-import {
-  POWER_ZONE_COLORS,
-  HR_ZONE_COLORS,
-  DEFAULT_ZONE_NAME_KEYS,
-} from '@/shared/app/useSportSettings';
+import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { trailingDaysWindow } from '@/features/fitness/lib/weekWindow';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -43,14 +39,11 @@ export function buildZoneDistribution(
   const totalSeconds = totals.reduce((sum, t) => sum + t, 0);
   if (totalSeconds === 0) return undefined;
 
-  const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-
   return totals.map((seconds, idx) => ({
     zone: idx + 1,
     name: names[idx] || defaultName(type, idx + 1) || `Z${idx + 1}`,
     seconds,
     percentage: Math.round((seconds / totalSeconds) * 100),
-    color: zoneColors[Math.min(idx, zoneColors.length - 1)],
   }));
 }
 

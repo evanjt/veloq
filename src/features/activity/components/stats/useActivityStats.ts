@@ -32,7 +32,7 @@ import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { colors, darkColors } from '@/theme';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
-import { formAsPercent } from '@/shared/app/FormPreferenceStore';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
 
 // Explanation keys for each metric - educational, not interpretive
@@ -93,6 +93,9 @@ export function useActivityStats({
   // theme's mark tone rather than the fill tone, which is 2.28:1 on white.
   const green = isDark ? darkColors.successDeep : colors.successDeep;
   const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
+  // Subscribed, so the form card follows the setting when the athlete record
+  // lands after this screen has mounted.
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
 
   // Build insightful stats (memoized to prevent rebuild on every render)
   const stats = useMemo(() => {
@@ -338,7 +341,6 @@ export function useActivityStats({
     if (wellness?.ctl != null && wellness?.atl != null) {
       const form = formFromLoads(wellness.ctl, wellness.atl);
       const fitness = Math.round(wellness.ctl);
-      const asPercent = formAsPercent();
       const formZone = formZoneFromLoads(wellness.ctl, wellness.atl, asPercent);
       const formColor = formZone
         ? formZoneTextColor(formZone, isDark)
@@ -456,6 +458,7 @@ export function useActivityStats({
     isMetric,
     maxHR,
     maxHrSource,
+    asPercent,
   ]);
 
   return { stats };

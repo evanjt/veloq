@@ -13,7 +13,7 @@ import ReviewScreen from '@/app/recording/review';
 import { ReviewMapHero } from '@/features/recording/components/ReviewMapHero';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { OVER_MAP_TITLE_COLOR, overMapHeaderTint } from '@/shared/app/screenHeaders';
+import { OVER_MAP_TITLE_COLOR, mapHeroChrome } from '@/shared/app/screenHeaders';
 
 const mockStackScreen = jest.fn();
 let mockUploading = false;
@@ -103,7 +103,7 @@ describe('GPS review header', () => {
       headerTransparent: true,
       headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
       headerLargeTitle: false,
-      headerTintColor: overMapHeaderTint({ overHero: true, isDark: false }),
+      headerTintColor: mapHeroChrome({ scrolledPastHero: false, isDark: false }).tint,
       headerBackVisible: true,
       gestureEnabled: true,
     });

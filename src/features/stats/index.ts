@@ -46,6 +46,8 @@ export {
   type IntervalBand,
   type BandColourToken,
   resolveBandColour,
+  resolveBandTextColour,
+  intervalBandToken,
   computeTimeAxisLabels,
   axisLabelsNeedDay,
   curveFreshness,

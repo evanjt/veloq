@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,7 @@ use serde_json::{Map, Value};
 use tracematch::GpsPoint;
 use tracematch::sections::{NamedCandidate, score_named_candidate, select_candidate, trim_core};
 
+use super::activities::names_upstream_activity;
 use super::{PersistentEngine, codec, sections};
 
 #[cfg(test)]
@@ -72,6 +73,10 @@ struct RecordPayload {
     #[serde(default)]
     athlete_id: Option<String>,
     entries: Vec<RecordRow>,
+    /// The intervals.icu id each device-minted key the entries name was
+    /// uploaded as. An older backup carries none.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    upstream_ids: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,6 +236,7 @@ impl PersistentEngine {
         for row in &payload.entries {
             check_record_row(row)?;
         }
+        let payload = self.resolve_uploaded_keys(payload)?;
         let payload = match paused_import_from_conn(&self.db)? {
             Some(paused) => {
                 if let (Some(earlier), Some(later)) = (&paused.athlete_id, &payload.athlete_id)
@@ -246,6 +252,7 @@ impl PersistentEngine {
                     version: payload.version,
                     athlete_id: payload.athlete_id.or(paused.athlete_id),
                     entries,
+                    upstream_ids: BTreeMap::new(),
                 }
             }
             None => payload,
@@ -256,6 +263,31 @@ impl PersistentEngine {
         )
         .map_err(|e| e.to_string())?;
         self.place_import(payload)
+    }
+
+    /// Name each uploaded recording by the id intervals.icu knows it by, unless
+    /// this library still holds it under its device key. After a wipe or on
+    /// another phone the sync stores the ride under the server's id, so a
+    /// record left on the device key would ask for a ride the server cannot
+    /// name and never place.
+    fn resolve_uploaded_keys(&self, mut payload: RecordPayload) -> Result<RecordPayload, String> {
+        let upstream: BTreeMap<String, String> = std::mem::take(&mut payload.upstream_ids)
+            .into_iter()
+            .filter(|(key, _)| !self.has_activity(key))
+            .collect();
+        if upstream.is_empty() {
+            return Ok(payload);
+        }
+        for row in &mut payload.entries {
+            let mut value = serde_json::to_value(&*row).map_err(|e| e.to_string())?;
+            for_each_activity_key(&mut value, &mut |key| {
+                if let Some(id) = upstream.get(key.as_str()) {
+                    key.clone_from(id);
+                }
+            });
+            *row = serde_json::from_value(value).map_err(|e| e.to_string())?;
+        }
+        Ok(payload)
     }
 
     /// Every record, the athlete id and the removal of the paused import commit
@@ -396,7 +428,7 @@ impl PersistentEngine {
     pub fn owed_record_activities(&self) -> Result<Vec<String>, String> {
         Ok(id_set_from_conn(&self.db, OWED_KEY)?
             .into_iter()
-            .filter(|id| !self.has_activity(id))
+            .filter(|id| names_upstream_activity(id) && !self.has_activity(id))
             .collect())
     }
 
@@ -436,7 +468,8 @@ impl PersistentEngine {
         let mut missing = BTreeSet::new();
         let mut numbered = BTreeSet::new();
         let mut routes_touched = false;
-        let unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
+        let mut unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
+        let unavailable_before = unavailable.len();
         let imported_names: BTreeSet<String> = entries
             .iter()
             .filter_map(|row| match row.table.as_str() {
@@ -458,8 +491,13 @@ impl PersistentEngine {
                 continue;
             }
             for id in record_activity_ids(&row) {
-                if !self.has_activity(&id) {
+                if self.has_activity(&id) {
+                    continue;
+                }
+                if names_upstream_activity(&id) {
                     missing.insert(id);
+                } else {
+                    unavailable.insert(id);
                 }
             }
             routes_touched |= matches!(row.table.as_str(), "route_names" | "route_numbers");
@@ -496,8 +534,17 @@ impl PersistentEngine {
         result.unplaced = (waiting + restored_unresolved_names) as u32;
         let mut owed = id_set_from_conn(&self.db, OWED_KEY)?;
         owed.extend(missing.iter().cloned());
+        // An earlier build owed device keys too, and the server never had them.
+        unavailable.extend(
+            owed.iter()
+                .filter(|id| !names_upstream_activity(id))
+                .cloned(),
+        );
         owed.retain(|id| !unavailable.contains(id) && !self.has_activity(id));
         self.write_id_set(OWED_KEY, &owed)?;
+        if unavailable.len() != unavailable_before {
+            self.write_id_set(UNAVAILABLE_KEY, &unavailable)?;
+        }
         if result.not_restored > 0 {
             let total = self.not_restored_history_count()? + result.not_restored;
             self.set_setting(NOT_RESTORED_KEY, &total.to_string())
@@ -1225,6 +1272,38 @@ fn record_activity_ids(row: &RecordRow) -> Vec<String> {
         }
     }
     ids
+}
+
+/// Visit every string in a serialised record row that can be an activity key,
+/// the ledger's details included whether they travel as an object or as JSON
+/// text. A section or route id is never a device key, so matching on the key
+/// itself is exact.
+pub(crate) fn for_each_activity_key(value: &mut Value, visit: &mut dyn FnMut(&mut String)) {
+    match value {
+        Value::String(text) => visit(text),
+        Value::Array(values) => {
+            for value in values {
+                for_each_activity_key(value, visit);
+            }
+        }
+        Value::Object(fields) => {
+            for (key, value) in fields.iter_mut() {
+                if key == "details"
+                    && let Value::String(raw) = value
+                    && let Ok(mut details) = serde_json::from_str::<Value>(raw)
+                {
+                    let before = details.clone();
+                    for_each_activity_key(&mut details, visit);
+                    if details != before {
+                        *raw = details.to_string();
+                    }
+                    continue;
+                }
+                for_each_activity_key(value, visit);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn collect_ledger_activity_ids(value: &Value, ids: &mut Vec<String>) {

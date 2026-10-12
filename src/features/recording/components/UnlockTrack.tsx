@@ -23,6 +23,7 @@ import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
+import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
@@ -64,8 +65,8 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
     if (hint === 0) return;
     haptics.light();
     Animated.sequence([
-      Animated.timing(translateX, { toValue: HINT_TRAVEL, duration: 150, useNativeDriver: true }),
-      Animated.spring(translateX, {
+      motionTiming(translateX, { toValue: HINT_TRAVEL, duration: 150, useNativeDriver: true }),
+      motionSpring(translateX, {
         toValue: 0,
         useNativeDriver: true,
         tension: 80,
@@ -94,7 +95,7 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
         if (threshold > 0 && gesture.dx >= threshold) {
           handleUnlock();
         } else {
-          Animated.spring(translateX, {
+          motionSpring(translateX, {
             toValue: 0,
             useNativeDriver: true,
             tension: 80,

@@ -15,6 +15,7 @@
       "ramp": "Stigningsrate",
       "rhr": "Ruehpuls"
     },
+    "openToRefreshLabel": "Öffne Veloq zum Aktualisieren",
     "perWeekSuffix": "/Woche",
     "recordLabel": "Rozpocznij aktywność",
     "refreshLabel": "Aktualisieren",
@@ -83,9 +84,11 @@
     "formAfter": 1571.0,
     "formAfterText": "+1571",
     "formAfterZone": "transition",
+    "formAfterZoneText": "Transizione",
     "formBefore": 1784.0,
     "formBeforeText": "+1784",
     "formBeforeZone": "transition",
+    "formBeforeZoneText": "Transizione",
     "tssAdded": 12345.0
   },
   "insights": [

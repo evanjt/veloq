@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +10,13 @@ import { colors, darkColors, spacing, layout, shadows, controlHeight, ink } from
 import { getActivityTypeConfig } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
-import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import {
+  type MapStyleType,
+  isDarkStyle,
+  getNextStyle,
+  getStyleIcon,
+  statusBarStyleForMap,
+} from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
@@ -594,6 +601,9 @@ export function RegionalMapView({
 
   return (
     <View style={styles.container}>
+      {/* The map is drawn under the status bar, so its glyphs follow the map style rather than
+          the app theme. The entry exists only while the tab is focused, so it leaves with it. */}
+      {isMapFocused && <StatusBar style={statusBarStyleForMap(mapStyle)} animated />}
       {!isMapFocused ? null : show3D ? (
         <ComponentErrorBoundary
           componentName="3D Map"

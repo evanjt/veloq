@@ -97,6 +97,13 @@ const CASES: Record<string, Case> = {
     violation: 'export const a = <Modal visible />;\n',
     baseline: true,
   },
+  'lint-reduce-motion': {
+    guard: 'lint-reduce-motion.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);\n',
+  },
   'lint-empty-state-styles': {
     guard: 'lint-empty-state-styles.mjs',
     tree: {},

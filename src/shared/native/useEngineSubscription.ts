@@ -173,6 +173,11 @@ export function engineReadState(open: boolean, initFailed: boolean): EngineReadS
   return initFailed ? 'failed' : 'closed';
 }
 
+/** The same answer outside React, for a reader that runs once rather than renders. */
+export function currentEngineReadState(): EngineReadState {
+  return engineReadState(isEngineReady(), useEngineStatus.getState().initFailed);
+}
+
 export function useEngineReadState(): EngineReadState {
   // The nonce moves when the engine opens or its handle is replaced, which is
   // when `isEngineReady` can change its answer.

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
+import { readLocationGrant } from '@/shared/app/permissions/locationGrant';
 import { debug } from '@/shared/debug/debug';
 
 import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
@@ -40,7 +41,7 @@ export function useAlwaysLocationPrompt(fromQuickStart: boolean, status: Recordi
       if (!earned) return;
       let granted = false;
       try {
-        granted = (await Location.getForegroundPermissionsAsync()).status === 'granted';
+        granted = (await readLocationGrant()).granted;
       } catch (e) {
         log.warn('Foreground status unavailable:', e);
       }

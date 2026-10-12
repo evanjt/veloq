@@ -48,11 +48,11 @@ beforeEach(() => {
 
 describe.each(['veloq-2026-10-01.zip', 'veloq-2026-08-01.veloqdb'])('restoring %s', (id) => {
   it('signed out, holds the download for sign-in and restores nothing now', async () => {
-    const notice = await restoreBackendEntry(backend, entry(id), t);
+    const outcome = await restoreBackendEntry(backend, entry(id), t);
 
     const [, dest] = download.mock.calls[0];
     expect(holdImportWhileSignedOut).toHaveBeenCalledWith(dest, id);
-    expect(notice).toEqual({ title: 'backup.importBackup', message: 'backup.heldUntilSignIn' });
+    expect(outcome).toBe('held');
     expect(restoreRecordBackup).not.toHaveBeenCalled();
     expect(restoreDatabaseBackup).not.toHaveBeenCalled();
     expect(FileSystem.deleteAsync).toHaveBeenCalledWith(dest, { idempotent: true });
@@ -61,9 +61,9 @@ describe.each(['veloq-2026-10-01.zip', 'veloq-2026-08-01.veloqdb'])('restoring %
   it('signed in, restores it at once', async () => {
     mockEngineState.ready = true;
 
-    const notice = await restoreBackendEntry(backend, entry(id), t);
+    const outcome = await restoreBackendEntry(backend, entry(id), t);
 
-    expect(notice).toEqual({ title: 'backup.restoreComplete', message: 'backup.recordRestored' });
+    expect(outcome).toBe('restored');
     const restored = id.endsWith('.zip') ? restoreRecordBackup : restoreDatabaseBackup;
     expect(restored).toHaveBeenCalledTimes(1);
   });

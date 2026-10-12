@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Alert, Platform, StyleSheet } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import { SyncState, SyncStep } from 'veloqrs';
 
 import { BackupSection } from '@/features/settings/components/BackupSection';
@@ -29,6 +30,7 @@ const mockListBackups = jest.fn(async () => [
   },
 ]);
 let mockGeneration = 0;
+let mockImporting = false;
 let mockWebdavUrl: string | null = null;
 let mockFolderName: string | null = null;
 let mockFailures: Record<string, { kind: string; status: number | null; at: number }> = {};
@@ -62,6 +64,22 @@ const DRIVE_BACKUPS = [
 const mockDriveSignIn = jest.fn(async (): Promise<string | null> => null);
 const mockDriveForget = jest.fn(async () => {});
 const mockCarrierSignedIn = jest.fn(async (_id: string) => ({ wroteZip: false, carriers: {} }));
+
+let mockIcloudSupported = false;
+let mockIcloudOn = true;
+let mockIcloudState = 'ready';
+const mockSetIcloudOn = jest.fn((on: boolean) => {
+  mockIcloudOn = on;
+});
+const mockIcloudList = jest.fn(async (): Promise<unknown[]> => ICLOUD_BACKUPS);
+const ICLOUD_BACKUPS = [
+  {
+    id: 'veloq-2026-10-03T06-00-00-000Z.zip',
+    timestamp: '2026-10-03T06:00:00.000Z',
+    sizeBytes: 2048,
+    appVersion: '',
+  },
+];
 
 jest.mock('@/features/settings/lib/autobackup/backends/googleDriveBackend', () => ({
   googleDriveBackend: {
@@ -135,7 +153,7 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
   useExportRecordBackup: () => ({ exportRecordBackup: jest.fn(), exporting: false }),
   useImportDatabaseBackup: () => ({
     importDatabaseBackup: () => mockImportBackup(),
-    importing: false,
+    importing: mockImporting,
   }),
   useBulkExport: () => ({
     exportAll: jest.fn(),
@@ -171,7 +189,22 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
     download: (id: string, path: string) => mockDownload(id, path),
   },
   failureMessageKey: (kind: string) =>
-    kind === 'auth' ? 'backup.backupFailedAuth' : 'backup.backupFailedFolder',
+    kind === 'auth'
+      ? 'backup.backupFailedAuth'
+      : kind === 'icloud_unavailable'
+        ? 'backup.backupFailedIcloud'
+        : 'backup.backupFailedFolder',
+  isIcloudSupported: () => mockIcloudSupported,
+  isIcloudBackupOn: () => mockIcloudOn,
+  setIcloudBackupOn: (on: boolean) => mockSetIcloudOn(on),
+  icloudBackupState: async () => (mockIcloudOn ? mockIcloudState : 'off'),
+  icloudBackend: {
+    id: 'icloud',
+    name: 'iCloud Drive',
+    isAvailable: async () => mockIcloudOn && mockIcloudState === 'ready',
+    listBackups: () => mockIcloudList(),
+    download: (id: string, path: string) => mockDownload(id, path),
+  },
   performBackup: jest.fn(async () => ({ wroteZip: true, carriers: {} })),
   localBackend: {
     id: 'local',
@@ -195,6 +228,13 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 }));
 
 beforeEach(() => {
+  jest.spyOn(Notice, 'showNotice');
+  mockIcloudSupported = false;
+  mockIcloudOn = true;
+  mockIcloudState = 'ready';
+  mockSetIcloudOn.mockClear();
+  mockIcloudList.mockReset();
+  mockIcloudList.mockResolvedValue(ICLOUD_BACKUPS);
   mockDriveSupported = false;
   mockDriveAccount = null;
   mockDriveSignIn.mockReset();
@@ -202,6 +242,7 @@ beforeEach(() => {
   mockDriveForget.mockClear();
   mockCarrierSignedIn.mockClear();
   mockGeneration = 0;
+  mockImporting = false;
   mockWebdavUrl = null;
   mockFolderName = null;
   mockFailures = {};
@@ -439,11 +480,9 @@ it('resumes the paused import on Try again and reads the list again', async () =
   });
 
   expect(resumeRecordImport).toHaveBeenCalledTimes(1);
-  expect(alert).toHaveBeenCalledWith(
-    'backup.restoreComplete',
-    'backup.recordRestored',
-    undefined,
-    expect.objectContaining({ cancelable: true })
+  expect(alert).not.toHaveBeenCalled();
+  expect(Notice.showNotice).toHaveBeenCalledWith(
+    expect.objectContaining({ message: 'backup.recordRestored' })
   );
   expect(screen.queryByTestId('backup-import-paused')).toBeNull();
 });
@@ -1262,6 +1301,136 @@ describe('the Google Drive destination', () => {
     expect(mockDriveForget).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
       'backup.carrierGoogleDriveNone'
+    );
+  });
+});
+
+it('names each bulk export pill by what it does, not only its format', async () => {
+  await render(<BackupSection />);
+
+  expect(
+    screen.getByRole('button', { name: 'export.exportAllAs:{"format":"GPX"}' }).props.testID
+  ).toBe('backup-export-gpx');
+  expect(
+    screen.getByRole('button', { name: 'export.exportAllAs:{"format":"GeoJSON"}' }).props.testID
+  ).toBe('backup-export-geojson');
+});
+
+it('marks the legacy import row busy while it imports', async () => {
+  mockImporting = true;
+  await render(<BackupSection />);
+
+  expect(screen.getByTestId('backup-import-button').props.accessibilityState).toEqual(
+    expect.objectContaining({ disabled: true, busy: true })
+  );
+});
+
+it('leaves the legacy import row neither busy nor disabled at rest', async () => {
+  await render(<BackupSection />);
+
+  const state = screen.getByTestId('backup-import-button').props.accessibilityState;
+  expect(state?.busy).toBeFalsy();
+  expect(state?.disabled).toBeFalsy();
+});
+
+describe('the iCloud Drive destination', () => {
+  it('is not offered off iPhone', async () => {
+    await render(<BackupSection />);
+    expect(screen.queryByTestId('backup-carrier-icloud')).toBeNull();
+  });
+
+  it('is on with nothing set up, and shows when it last took a backup', async () => {
+    mockIcloudSupported = true;
+    mockDestinationStamps = { icloud: Date.parse('2026-10-03T06:00:00.000Z') };
+    await render(<BackupSection />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('backup-icloud-switch').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('backup-carrier-last-icloud')).toHaveTextContent(
+      /backup\.lastBackup:/
+    );
+    expect(screen.queryByTestId('backup-icloud-unavailable')).toBeNull();
+  });
+
+  it('says why when the iPhone cannot write to iCloud, rather than skipping in silence', async () => {
+    mockIcloudSupported = true;
+    mockIcloudState = 'unavailable';
+    await render(<BackupSection />);
+
+    expect(await screen.findByTestId('backup-icloud-unavailable')).toHaveTextContent(
+      'backup.backupFailedIcloud'
+    );
+  });
+
+  it('turns off from its switch and leaves the backups to be listed', async () => {
+    mockIcloudSupported = true;
+    acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-icloud-switch'));
+    });
+    expect(mockSetIcloudOn).toHaveBeenCalledWith(false);
+    expect(screen.getByTestId('backup-icloud-switch').props.accessibilityState.checked).toBe(false);
+    expect(screen.queryByTestId('backup-carrier-last-icloud')).toBeNull();
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+    expect(screen.getByTestId('backup-group-icloud')).toBeTruthy();
+  });
+
+  it('lists its backups among the restore choices, and restores one', async () => {
+    mockIcloudSupported = true;
+    acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+    expect(screen.getByTestId('backup-group-icloud')).toBeTruthy();
+
+    await act(async () => {
+      await fireEvent.press(
+        screen.getByTestId('backup-entry-icloud-veloq-2026-10-03T06-00-00-000Z.zip')
+      );
+    });
+    expect(mockDownload).toHaveBeenCalledWith(
+      'veloq-2026-10-03T06-00-00-000Z.zip',
+      expect.stringMatching(/restore-selected-\d+\.zip$/)
+    );
+  });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])('with the destination on %s, reports a listing that failed %i times', async (on, times) => {
+    mockIcloudSupported = true;
+    mockIcloudOn = on;
+    mockIcloudList.mockRejectedValue(new Error('iCloud is not available'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+    expect(alert).toHaveBeenCalledTimes(times);
+  });
+
+  it('names iCloud Drive among the destinations a Back Up Now run wrote', async () => {
+    mockIcloudSupported = true;
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { icloud: { status: 'written' } },
+    });
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    expect(screen.getByTestId('backup-success-message')).toHaveTextContent(
+      /backup\.recordSavedIcloud/
     );
   });
 });

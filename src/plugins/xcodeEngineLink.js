@@ -1,6 +1,6 @@
 /**
- * Linking the Rust engine into an app extension, shared by the targets that
- * call it directly: the push extension and the widget extension.
+ * Linking the Rust engine into an app extension that calls it directly, the
+ * push extension, and taking it out of one that no longer does.
  *
  * An extension links the static library itself rather than through the
  * `Veloqrs` pod, which depends on React, and an extension has neither React
@@ -87,11 +87,44 @@ function ensureRustPhase(proj, targetUuid) {
   target.buildPhases.unshift(...target.buildPhases.splice(added, 1));
 }
 
-/** Link the engine into a target that exists, on a fresh project or a surviving one. */
-function linkEngine(proj, targetUuid, productName, bridgingHeader) {
-  ensureRustPhase(proj, targetUuid);
+/**
+ * Take the engine link out of a target an earlier prebuild linked: the phase
+ * that builds the library, the bridging header, the link flag and the search
+ * path to the archive. Every other setting and phase is left as it is. A
+ * target the prebuild survives keeps its settings, so a link that is no longer
+ * wanted has to be removed rather than merely not written.
+ */
+function unlinkEngine(proj, targetUuid, productName) {
+  const target = proj.pbxNativeTargetSection()[targetUuid];
+  const scripts = proj.hash.project.objects.PBXShellScriptBuildPhase ?? {};
+  const phases = target.buildPhases.filter(
+    (phase) => scripts[phase.value] && unquoted(scripts[phase.value].name) === RUST_PHASE
+  );
+  for (const phase of phases) {
+    delete scripts[phase.value];
+    delete scripts[`${phase.value}_comment`];
+  }
+  target.buildPhases = target.buildPhases.filter((phase) => !phases.includes(phase));
+
+  const flag = `-l${LIBRARY}`;
   for (const settings of targetBuildSettings(proj, productName)) {
-    applyEngineLinkSettings(settings, bridgingHeader);
+    delete settings.SWIFT_OBJC_BRIDGING_HEADER;
+    if (Array.isArray(settings.OTHER_LDFLAGS)) {
+      settings.OTHER_LDFLAGS = settings.OTHER_LDFLAGS.filter((value) => unquoted(value) !== flag);
+    } else if (settings.OTHER_LDFLAGS !== undefined) {
+      const words = unquoted(settings.OTHER_LDFLAGS)
+        .split(/\s+/)
+        .filter((word) => word && word !== flag);
+      settings.OTHER_LDFLAGS = `"${words.join(' ')}"`;
+    }
+    if (Array.isArray(settings.LIBRARY_SEARCH_PATHS)) {
+      settings.LIBRARY_SEARCH_PATHS = settings.LIBRARY_SEARCH_PATHS.filter(
+        (value) => unquoted(value) !== RUST_DIR
+      );
+    } else if (unquoted(settings.LIBRARY_SEARCH_PATHS).includes(RUST_DIR)) {
+      // The pod install's string insert can glue the Swift path onto this one.
+      settings.LIBRARY_SEARCH_PATHS = `"${unquoted(settings.LIBRARY_SEARCH_PATHS).replace(RUST_DIR, '')}"`;
+    }
   }
 }
 
@@ -101,7 +134,7 @@ module.exports = {
   RUST_DIR,
   applyEngineLinkSettings,
   ensureRustPhase,
-  linkEngine,
   targetBuildSettings,
+  unlinkEngine,
   unquoted,
 };

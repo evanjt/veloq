@@ -41,6 +41,7 @@ object FitnessChart {
     widthPx: Int,
     heightPx: Int,
     density: Float,
+    labelPx: Float,
     colors: ZoneColors,
   ): Bitmap {
     val w = max(1, widthPx)
@@ -51,7 +52,7 @@ object FitnessChart {
     val text =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = colors.axisText
-        textSize = 9f * density
+        textSize = labelPx
       }
     val bounds = chart.bands.dropLast(1).map { it.to }
     val gutter = (bounds.maxOfOrNull { text.measureText(it.roundToInt().toString()) } ?: 0f) + 4f * density
@@ -129,6 +130,7 @@ object FitnessChart {
     widthPx: Int,
     heightPx: Int,
     density: Float,
+    labelPx: Float,
     colors: ChartColors,
   ): Bitmap {
     val w = max(1, widthPx)
@@ -140,7 +142,7 @@ object FitnessChart {
     val all = fitness + fatigue
     val rawMin = all.min()
     val rawMax = all.max()
-    val plot = layoutPlot(canvas, w, h, density, colors, rawMin, rawMax)
+    val plot = layoutPlot(canvas, w, h, density, labelPx, colors, rawMin, rawMax)
 
     if (fatigue.size >= 2) {
       drawLine(canvas, plot, fatigue, colors.casing, 2f * density)
@@ -160,6 +162,7 @@ object FitnessChart {
     widthPx: Int,
     heightPx: Int,
     density: Float,
+    labelPx: Float,
     colors: ChartColors,
     fillAlpha: Int = 38,
   ): Bitmap {
@@ -169,7 +172,7 @@ object FitnessChart {
     if (values.size < 2) return bmp
     val canvas = Canvas(bmp)
 
-    val plot = layoutPlot(canvas, w, h, density, colors, values.min(), values.max())
+    val plot = layoutPlot(canvas, w, h, density, labelPx, colors, values.min(), values.max())
     drawFill(canvas, plot, values, lineColor, fillAlpha)
     drawLine(canvas, plot, values, colors.casing, 2f * density)
     drawLine(canvas, plot, values, lineColor, 1.5f * density)
@@ -196,6 +199,7 @@ object FitnessChart {
     w: Int,
     h: Int,
     density: Float,
+    labelPx: Float,
     colors: ChartColors,
     rawMin: Float,
     rawMax: Float,
@@ -203,7 +207,7 @@ object FitnessChart {
     val text =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = colors.axisText
-        textSize = 9f * density
+        textSize = labelPx
       }
     val grid =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {

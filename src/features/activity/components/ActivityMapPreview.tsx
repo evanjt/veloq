@@ -325,6 +325,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         testID={`activity-map-preview-ready-${activity.id}`}
       >
         <Image
+          accessibilityIgnoresInvertColors
           source={{ uri: terrainImageUri }}
           fadeDuration={0}
           style={styles.terrainImage}

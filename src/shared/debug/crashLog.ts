@@ -2,6 +2,9 @@
 // can share them, since the stores surface no crash reports for this app.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+
+import { crashLogHeader } from './crashProvenance';
 
 const CRASH_LOG_KEY = 'veloq-crash-log';
 const MAX_ENTRIES = 20;
@@ -22,6 +25,14 @@ export interface CrashEntry {
   fatal?: boolean | undefined;
 }
 
+/**
+ * A fatal crash is appended here synchronously, one JSON line each, since the
+ * default handler hands it to native, which ends the process before any queued
+ * storage call runs. The next load merges the lines into the log and deletes
+ * the file once they are stored.
+ */
+const FATAL_CRASH_FILE = 'veloq-fatal-crash.json';
+
 let currentScreen = 'unknown';
 let cache: CrashEntry[] | null = null;
 
@@ -38,7 +49,60 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** Rejects when storage cannot be read, and caches nothing then, so a failed read is never written over. */
+function fatalCrashUri(): string {
+  return `${FileSystem.documentDirectory}${FATAL_CRASH_FILE}`;
+}
+
+/**
+ * Appends, so a fatal no load has merged yet is never written over. Throws when
+ * the file cannot be written; the caller still has to reach the default handler.
+ */
+function writeFatalCrash(entry: CrashEntry) {
+  // Loaded here because the native File class is only defined where the module is.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { File } = require('expo-file-system') as typeof import('expo-file-system');
+  const uri = fatalCrashUri();
+  new File(uri).write(`${JSON.stringify(entry)}\n`, { append: true });
+}
+
+/** The fatals earlier processes wrote and no load has stored yet. A torn last line is skipped. */
+async function readFatalCrashes(): Promise<CrashEntry[]> {
+  let raw: unknown;
+  try {
+    raw = await FileSystem.readAsStringAsync(fatalCrashUri());
+  } catch {
+    return [];
+  }
+  if (typeof raw !== 'string') return [];
+  const entries: CrashEntry[] = [];
+  for (const line of raw.split('\n')) {
+    try {
+      const value: unknown = JSON.parse(line);
+      if (value && typeof value === 'object') entries.push(value as CrashEntry);
+    } catch {
+      // An empty or torn line holds nothing to keep.
+    }
+  }
+  return entries;
+}
+
+const sameEntry = (a: CrashEntry, b: CrashEntry) =>
+  a.ts === b.ts && a.source === b.source && a.message === b.message;
+
+/** Called once a write holding every line read from the file is stored, so each is merged once. */
+async function deleteFatalCrashes(): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(fatalCrashUri(), { idempotent: true });
+  } catch {
+    // A file left behind is merged once more and matched as already stored.
+  }
+}
+
+/**
+ * Rejects when storage cannot be read, or a pending fatal cannot be stored, and
+ * caches nothing then, so a failed read is never written over and the fatal
+ * file is kept for the next try.
+ */
 async function load(): Promise<CrashEntry[]> {
   if (cache) return cache;
   const raw = await AsyncStorage.getItem(CRASH_LOG_KEY);
@@ -51,6 +115,14 @@ async function load(): Promise<CrashEntry[]> {
       // A corrupt stored log is replaced by the next write.
     }
   }
+  const fatals = await readFatalCrashes();
+  const unmerged = fatals.filter((f) => !parsed.some((e) => sameEntry(e, f)));
+  if (unmerged.length) {
+    parsed = [...parsed, ...unmerged];
+    trimToRetention(parsed);
+    await AsyncStorage.setItem(CRASH_LOG_KEY, JSON.stringify(parsed));
+  }
+  if (fatals.length) await deleteFatalCrashes();
   cache = parsed;
   return cache;
 }
@@ -89,13 +161,20 @@ function stamp(entry: NewCrash): CrashEntry {
   };
 }
 
-/** The cache moves only once the write has succeeded, so a failed batch can be retried whole. */
-function appendEntries(added: CrashEntry[]): Promise<void> {
+/**
+ * The cache moves only once the write has succeeded, so a failed batch can be
+ * retried whole. `inFatalFile` says the batch was also written to the fatal
+ * file, which is then deleted once the batch is stored.
+ */
+function appendEntries(added: CrashEntry[], inFatalFile = false): Promise<void> {
   return enqueue(async () => {
-    const entries = [...(await load()), ...added];
+    const stored = await load();
+    // A fatal this process wrote to its file may already be in from that file.
+    const entries = [...stored, ...added.filter((a) => !stored.some((e) => sameEntry(e, a)))];
     trimToRetention(entries);
     await AsyncStorage.setItem(CRASH_LOG_KEY, JSON.stringify(entries));
     cache = entries;
+    if (inFatalFile) await deleteFatalCrashes();
   });
 }
 
@@ -107,10 +186,23 @@ export function recordCrashes(entries: NewCrash[]): Promise<void> {
   return appendEntries(entries.map(stamp));
 }
 
-// Fire-and-forget. A crash handler must never throw.
+/**
+ * Fire-and-forget. A crash handler must never throw. A fatal is also written
+ * synchronously, so it survives the process ending before the queued write.
+ */
 export function recordCrash(entry: NewCrash) {
   try {
-    appendEntries([stamp(entry)]).catch(() => {});
+    const stamped = stamp(entry);
+    let inFatalFile = false;
+    if (stamped.fatal) {
+      try {
+        writeFatalCrash(stamped);
+        inFatalFile = true;
+      } catch {
+        // The queued write below is the remaining chance to keep it.
+      }
+    }
+    appendEntries([stamped], inFatalFile).catch(() => {});
   } catch {
     // Recording the crash must never mask the crash itself.
   }
@@ -129,12 +221,14 @@ export async function clearCrashLog(): Promise<void> {
   await enqueue(async () => {
     cache = [];
     await AsyncStorage.removeItem(CRASH_LOG_KEY).catch(() => {});
+    await deleteFatalCrashes();
   });
 }
 
+/** The entries, newest first as given, under the header that names the build sending them. */
 export function formatCrashLog(entries: CrashEntry[]): string {
   if (!entries.length) return '';
-  return entries
+  const body = entries
     .map((e) => {
       const when = new Date(e.ts).toISOString();
       const tags = `${e.source}${e.fatal ? ', fatal' : ''}`;
@@ -142,6 +236,7 @@ export function formatCrashLog(entries: CrashEntry[]): string {
       return e.stack ? `${head}\n${e.message}\n${e.stack}` : `${head}\n${e.message}`;
     })
     .join('\n\n---\n\n');
+  return `${crashLogHeader()}\n\n---\n\n${body}`;
 }
 
 // Chains the existing global handler so RN's own reporting still runs.

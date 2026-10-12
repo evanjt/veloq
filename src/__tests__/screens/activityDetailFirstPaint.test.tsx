@@ -16,6 +16,7 @@ import { ACTIVITY_MAP_POSTER_TEST_ID } from '@/features/maps';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
   useLocalSearchParams: () => ({ id: 'act-1' }),
   router: { back: jest.fn(), push: jest.fn(), canGoBack: () => false },
   Stack: Object.assign(() => null, { Screen: () => null }),

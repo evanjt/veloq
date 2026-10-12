@@ -23,17 +23,16 @@ import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter } from '@/features/routes';
+import { DataRangeFooter, removeSectionWithUndo } from '@/features/routes';
 import {
   Button,
   composeAccessibilityLabel,
   EmptyState,
   pressable,
   pressRipple,
-  useTabBarClearance,
+  useBottomClearance,
   type AccessibleAction,
 } from '@/shared/ui';
-import { getEngine } from '@/shared/native/engine';
 import {
   groupSectionEncounters,
   type SectionEncounterGroup,
@@ -95,7 +94,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onRematch,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -156,10 +155,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     openSwipeableRef.current = sectionId;
   }, []);
 
-  const handleDisable = useCallback((sectionId: string) => {
-    swipeableRefs.current.get(sectionId)?.close();
-    getEngine()?.disableSection(sectionId);
-  }, []);
+  const handleDisable = useCallback(
+    (sectionId: string) => {
+      swipeableRefs.current.get(sectionId)?.close();
+      removeSectionWithUndo(sectionId, t);
+    },
+    [t]
+  );
 
   const handleDelete = useCallback(
     (group: SectionEncounterGroup) => {
@@ -678,7 +680,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           ListFooterComponent={renderSectionsListFooter}
           contentContainerStyle={[
             groups.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent,
-            { paddingBottom: spacing.xl + tabBarClearance },
+            { paddingBottom: spacing.xl + bottomClearance },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

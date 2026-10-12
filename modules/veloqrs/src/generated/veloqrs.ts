@@ -1338,6 +1338,11 @@ export type FetchAndStoreResult = {
    */
   failedIds: Array<string>;
   /**
+   * Activity IDs the request budget or a refusal held back. Nothing is
+   * wrong with them: they are still owed and a later run fetches them.
+   */
+  owedIds: Array<string>;
+  /**
    * Total number of activities processed
    */
   total: number;
@@ -1375,6 +1380,7 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
       return {
         syncedIds: FfiConverterSequenceString.readFromCursor(c),
         failedIds: FfiConverterSequenceString.readFromCursor(c),
+        owedIds: FfiConverterSequenceString.readFromCursor(c),
         total: FfiConverterUInt32.readFromCursor(c),
         successCount: FfiConverterUInt32.readFromCursor(c),
         totalPoints: FfiConverterUInt32.readFromCursor(c),
@@ -1383,6 +1389,7 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterSequenceString.writeIntoCursor(value.syncedIds, c);
       FfiConverterSequenceString.writeIntoCursor(value.failedIds, c);
+      FfiConverterSequenceString.writeIntoCursor(value.owedIds, c);
       FfiConverterUInt32.writeIntoCursor(value.total, c);
       FfiConverterUInt32.writeIntoCursor(value.successCount, c);
       FfiConverterUInt32.writeIntoCursor(value.totalPoints, c);
@@ -1391,6 +1398,7 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
       return (
         FfiConverterSequenceString.allocationSize(value.syncedIds) +
         FfiConverterSequenceString.allocationSize(value.failedIds) +
+        FfiConverterSequenceString.allocationSize(value.owedIds) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterUInt32.allocationSize(value.successCount) +
         FfiConverterUInt32.allocationSize(value.totalPoints)
@@ -31286,8 +31294,9 @@ export interface SyncManagerLike {
    * their age. A foreground passes false and they come at most once in six
    * hours; a pull to refresh and a saved recording pass true.
    *
-   * Inside a refusal's cooldown it answers `Held` with the time the
-   * cooldown ends, and the engine starts the sync itself at that time.
+   * Inside a refusal's cooldown, or before the install's own allowance
+   * frees for a run that stopped on it, it answers `Held` with the time it
+   * lifts, and the engine starts the sync itself at that time.
    */
   syncNow(force: boolean) /*throws*/ : FfiStartResult;
   /**
@@ -31628,8 +31637,9 @@ export class SyncManager
    * their age. A foreground passes false and they come at most once in six
    * hours; a pull to refresh and a saved recording pass true.
    *
-   * Inside a refusal's cooldown it answers `Held` with the time the
-   * cooldown ends, and the engine starts the sync itself at that time.
+   * Inside a refusal's cooldown, or before the install's own allowance
+   * frees for a run that stopped on it, it answers `Held` with the time it
+   * lifts, and the engine starts the sync itself at that time.
    */
   syncNow(force: boolean): FfiStartResult /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
@@ -36144,7 +36154,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
-    40242
+    36862
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",

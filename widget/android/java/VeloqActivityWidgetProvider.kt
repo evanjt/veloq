@@ -42,8 +42,10 @@ class VeloqActivityWidgetProvider : AppWidgetProvider() {
     id: Int,
   ) {
     val options = manager.getAppWidgetOptions(id)
-    val w = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-    val h = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-    manager.updateAppWidget(id, WidgetRenderer.renderActivity(context, snap, w, h))
+    manager.updateAppWidget(
+      id,
+      WidgetLayouts.build(options, { LastActivityWidget.sizeFor(it.widthDp, it.heightDp) }) {
+        WidgetRenderer.renderActivity(context, snap, it.widthDp, it.heightDp)
+      })
   }
 }

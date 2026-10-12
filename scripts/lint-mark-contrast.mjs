@@ -5,9 +5,10 @@
 // mark on top carries the contrast; as the mark itself they are not.
 //
 // So this guard holds the mark and leaves the ground alone: `color`,
-// `borderColor` and `tintColor` fail, `backgroundColor` does not. The light
-// palette already carries compliant tones for two of the three, `warningAmber`
-// at 7.09:1 and `errorDark` at 4.83:1, and `successDeep` is the green.
+// `iconColor`, `borderColor`, `tintColor` and `tint` fail, `backgroundColor`
+// does not. The light palette already carries compliant tones for two of the
+// three, `warningAmber` at 7.09:1 and `errorDark` at 4.83:1, and `successDeep`
+// is the green.
 //
 // A token routed through a local, a record entry or a name read out of one
 // (`const c = ok ? colors.success : colors.warning`) is followed to the
@@ -31,8 +32,11 @@ const SRC = join(ROOT, 'src');
 
 const EXEMPT = ['src/theme/colors.ts', 'src/theme/index.ts'];
 
-/** The property this line is setting, for the message. */
-const PROP = /\b(color|borderColor|tintColor)\b/;
+/** The props that draw a mark, set as an object key or as a JSX prop. */
+const MARK_PROP = '(?:color|iconColor|borderColor|tintColor|tint)';
+
+/** A line that sets a mark, read for a fill token written straight into it. */
+const PROP = new RegExp(`\\b${MARK_PROP}\\b`);
 
 const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 
@@ -55,8 +59,9 @@ function walk(dir) {
  * `textSecondaryDark` style is dark-only by convention and applied conditionally,
  * which is correct and is most of what a wider rule would flag.
  */
-const DARK_TONE =
-  /\b(?:color|borderColor|tintColor)\s*[:=]\s*darkColors\.(amberIcon|warningAmber|success|successDeep|warning|error|successLight|errorLight|warningLight)\b/;
+const DARK_TONE = new RegExp(
+  `\\b${MARK_PROP}\\s*[:=]\\s*darkColors\\.(amberIcon|warningAmber|success|successDeep|warning|error|successLight|errorLight|warningLight)\\b`
+);
 
 /** A style key ending in `Dark` is a dark-only entry, applied under `isDark`. */
 const DARK_KEY = /^\s*([A-Za-z0-9_]+):\s*\{\s*$/;
@@ -78,8 +83,6 @@ function unbranchedDarkTones(file, rel) {
   return out;
 }
 
-/** The props that draw a mark, set as an object key or as a JSX prop. */
-const MARK_PROP = '(?:color|iconColor|borderColor|tintColor|tint)';
 const FILL_TOKEN = /(?<![\w.])colors\.(success|warning)\b/;
 const DECL = /\b(?:const|let|var)\s+([A-Za-z_]\w*)\b[^=]*=\s*(\{)?/;
 

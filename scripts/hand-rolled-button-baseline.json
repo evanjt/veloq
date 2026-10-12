@@ -1,9 +1,8 @@
 {
   "src/app/(tabs)/insights/index.tsx": 1,
   "src/app/(tabs)/map.tsx": 1,
-  "src/app/about.tsx": 1,
   "src/app/debug.tsx": 1,
-  "src/app/licenses.tsx": 2,
+  "src/app/licenses.tsx": 1,
   "src/app/named-corridors.tsx": 1,
   "src/app/record.tsx": 2,
   "src/app/recording/review.tsx": 1,
@@ -15,7 +14,6 @@
   "src/app/sheets/merge-confirm.tsx": 1,
   "src/app/sheets/route-overlay.tsx": 2,
   "src/features/activity/components/ActivityCard.tsx": 6,
-  "src/features/activity/components/ActivityCardContextMenu.tsx": 6,
   "src/features/activity/components/ActivityChartsSection.tsx": 2,
   "src/features/activity/components/ActivityHeader.tsx": 1,
   "src/features/activity/components/ActivitySectionsSection.tsx": 1,

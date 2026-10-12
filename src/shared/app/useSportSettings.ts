@@ -8,8 +8,7 @@ import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { zoneColors } from '@/theme/colors';
-import type { SportSettings, Zone } from '@/types';
+import type { SportSettings } from '@/types';
 import { TIME } from '@/shared/app/time';
 
 function readSportSettings(): SportSettings[] {
@@ -47,23 +46,6 @@ export function getSettingsForSport(
   return settings.find((s) => s.types.includes(sportType));
 }
 
-/**
- * The intervals.icu zone ramp, seven steps: recovery, endurance, tempo,
- * threshold, VO2max, anaerobic, neuromuscular. Power uses all of it.
- */
-export const POWER_ZONE_COLORS: string[] = [
-  zoneColors.zone1,
-  zoneColors.zone2,
-  zoneColors.zone3,
-  zoneColors.zone4,
-  zoneColors.zone5,
-  zoneColors.zone6,
-  zoneColors.zone7,
-];
-
-/** Heart rate has seven zones, so it takes the whole ramp. */
-export const HR_ZONE_COLORS: string[] = POWER_ZONE_COLORS;
-
 /** Translation keys of the default zone names, Z1 first, by zone basis. */
 export const DEFAULT_ZONE_NAME_KEYS = {
   power: [
@@ -85,24 +67,3 @@ export const DEFAULT_ZONE_NAME_KEYS = {
     'zoneNames.hr7',
   ],
 } as const;
-
-// Default zone names if not provided
-export const DEFAULT_POWER_ZONES: Zone[] = [
-  { id: 1, name: 'Recovery', color: POWER_ZONE_COLORS[0] },
-  { id: 2, name: 'Endurance', color: POWER_ZONE_COLORS[1] },
-  { id: 3, name: 'Tempo', color: POWER_ZONE_COLORS[2] },
-  { id: 4, name: 'Threshold', color: POWER_ZONE_COLORS[3] },
-  { id: 5, name: 'VO2max', color: POWER_ZONE_COLORS[4] },
-  { id: 6, name: 'Anaerobic', color: POWER_ZONE_COLORS[5] },
-  { id: 7, name: 'Neuromuscular', color: POWER_ZONE_COLORS[6] },
-];
-
-export const DEFAULT_HR_ZONES: Zone[] = [
-  { id: 1, name: 'Recovery', color: HR_ZONE_COLORS[0] },
-  { id: 2, name: 'Aerobic', color: HR_ZONE_COLORS[1] },
-  { id: 3, name: 'Tempo', color: HR_ZONE_COLORS[2] },
-  { id: 4, name: 'SubThreshold', color: HR_ZONE_COLORS[3] },
-  { id: 5, name: 'SuperThreshold', color: HR_ZONE_COLORS[4] },
-  { id: 6, name: 'Aerobic Capacity', color: HR_ZONE_COLORS[5] },
-  { id: 7, name: 'Anaerobic', color: HR_ZONE_COLORS[6] },
-];

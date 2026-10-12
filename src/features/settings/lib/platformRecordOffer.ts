@@ -17,6 +17,7 @@ import { debug } from '@/shared/debug/debug';
 import { isPlatformRecordAnswered, markPlatformRecordAnswered } from './autobackup/autoBackup';
 import { checkRecordBackup, restoreRecordBackup } from './backup';
 import { inform } from '@/shared/ui/dialog';
+import { showRestoreNotice } from './restoreNotice';
 
 const log = debug.create('PlatformRecord');
 
@@ -40,7 +41,7 @@ export async function platformRecordToOffer(activityCount: number): Promise<stri
 async function restorePlatformRecord(uri: string, t: TFunction): Promise<void> {
   try {
     await restoreRecordBackup(uri);
-    inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
+    showRestoreNotice('restored', t);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     log.warn('Platform record restore refused:', message);

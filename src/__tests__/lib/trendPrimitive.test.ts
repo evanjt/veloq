@@ -41,6 +41,15 @@ describe('trendDirection', () => {
     expect(trendDirection(11, 10, 1)).toBe('up');
   });
 
+  it('reads a move on the deadband as a move when float subtraction lands just under it', () => {
+    // 70.3 - 70.0 is 0.29999999999999716 in binary floating point.
+    expect(trendOfMetric('weight', 70.3, 70.0)).toBe('up');
+    expect(trendOfMetric('weight', 70.6, 70.3)).toBe('up');
+    expect(trendOfMetric('weight', 70.0, 70.3)).toBe('down');
+    expect(trendOfMetric('weight', 70.29, 70.0)).toBe('flat');
+    expect(trendOfMetric('weight', 70.0, 70.0)).toBe('flat');
+  });
+
   it('reads a missing value on either side as flat', () => {
     expect(trendDirection(null, 10, 1)).toBe('flat');
     expect(trendDirection(10, undefined, 1)).toBe('flat');

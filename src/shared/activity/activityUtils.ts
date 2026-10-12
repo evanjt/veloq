@@ -8,7 +8,7 @@
 import type { Activity, ActivityType } from '@/types';
 import type { ComponentProps } from 'react';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
-import { activityTypeColors } from '@/theme';
+import { activityTypeColors, activityTypeInk, activityTypeInkDark } from '@/theme/colors';
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 /** Type for valid MaterialCommunityIcons names */
@@ -120,6 +120,21 @@ export function getActivityIcon(type: ActivityType | string): MaterialIconName {
  */
 export function getActivityColor(type: ActivityType): string {
   return activityTypeColors[type] || activityTypeColors.Other;
+}
+
+/**
+ * Get the colour an activity type's icon is drawn in on a surface of the theme
+ * on screen. Unlike `getActivityColor`, which is the sport hue for a fill or a
+ * map track, this tone clears 3:1 on every surface of its theme.
+ *
+ * ```ts
+ * getActivityInk('Run', false); // "#059669" (emerald-600)
+ * getActivityInk('Run', true);  // "#10B981" (emerald-500)
+ * ```
+ */
+export function getActivityInk(type: ActivityType, isDark: boolean): string {
+  const ink = isDark ? activityTypeInkDark : activityTypeInk;
+  return ink[type] ?? ink.Other ?? getActivityColor(type);
 }
 
 // The sport families are the engine's (`veloqrs/src/sport.rs`), generated

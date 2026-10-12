@@ -5,6 +5,9 @@
  * its content, otherwise the content sits under the title at rest. This sets that once for the
  * routes that take a large title in `screenHeaders`. Android has no such inset, so it gets none.
  *
+ * It owns the end of its content too: whatever bottom padding the caller gives, it adds the tab
+ * bar on a tab screen and, on Android, the navigation bar, so the last row scrolls clear of both.
+ *
  * It also owns how a form meets the keyboard, so the field being edited and the action under it
  * stay above it. iOS never resizes for the keyboard, so the scroll view insets itself for it.
  * Android draws edge to edge, so nothing resizes there either, and the scroll view is padded by
@@ -22,8 +25,11 @@ import {
   View,
   type KeyboardEvent,
   type ScrollViewProps,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollEndInset } from './tabBarClearance';
 
 /** Whether the keyboard has to be cleared by padding, read once like the defaults below. */
 const padsForKeyboard = Platform.OS === 'android';
@@ -114,15 +120,30 @@ function KeyboardPadding({ children }: { children: ReactNode }) {
   );
 }
 
-export const ScreenScrollView = forwardRef<ScrollView, ScrollViewProps>(
-  function ScreenScrollView(props, ref) {
-    return (
-      <KeyboardClearance>
-        <ScrollView ref={ref} {...screenListInsets} {...props} />
-      </KeyboardClearance>
-    );
-  }
-);
+/** A content style with its bottom padding grown by `extra`, read through the shorthands. */
+export function withEndPadding(style: StyleProp<ViewStyle>, extra: number): StyleProp<ViewStyle> {
+  if (extra === 0) return style;
+  const flat = StyleSheet.flatten(style) ?? {};
+  const own = flat.paddingBottom ?? flat.paddingVertical ?? flat.padding ?? 0;
+  return [style, { paddingBottom: (typeof own === 'number' ? own : 0) + extra }];
+}
+
+export const ScreenScrollView = forwardRef<ScrollView, ScrollViewProps>(function ScreenScrollView(
+  { contentContainerStyle, ...props },
+  ref
+) {
+  const endInset = useScrollEndInset();
+  return (
+    <KeyboardClearance>
+      <ScrollView
+        ref={ref}
+        {...screenListInsets}
+        {...props}
+        contentContainerStyle={withEndPadding(contentContainerStyle, endInset)}
+      />
+    </KeyboardClearance>
+  );
+});
 
 const styles = StyleSheet.create({
   // Grows and shrinks the way a scroll view does, so wrapping one changes no layout.

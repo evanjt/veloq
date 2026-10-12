@@ -29,6 +29,7 @@ jest.mock('veloqrs', () =>
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
   Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'grp-heath' }),
   router: { back: jest.fn(), push: jest.fn() },
@@ -438,7 +439,9 @@ describe('route page below the chart', () => {
     const screen = await render(<RouteDetailScreen />);
 
     await fireEvent.press(screen.getAllByTestId('calendar-reference-button')[0]);
-    const confirm = alert.mock.calls[0][2]?.find((button) => button.text === 'common.confirm');
+    const confirm = alert.mock.calls[0][2]?.find(
+      (button) => button.text === 'routes.setAsReference'
+    );
     confirm?.onPress?.();
 
     expect(alert).toHaveBeenCalledWith(

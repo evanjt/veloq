@@ -44,6 +44,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 let mockPageId = '';
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
   Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: mockPageId }),
   useFocusEffect: () => {},

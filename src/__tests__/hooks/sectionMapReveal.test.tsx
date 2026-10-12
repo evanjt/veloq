@@ -5,12 +5,22 @@
  *
  * Expected behaviour: a new drawing target scrolls the page back to the map.
  * Clearing the target, or leaving it unchanged on a re-render, does not move
- * the page.
+ * the page. With reduce motion on the page jumps rather than scrolls.
  */
 
 import { renderHook } from '@testing-library/react-native';
 
 import { useRevealMapOnDraw } from '@/features/routes/hooks/useRevealMapOnDraw';
+
+let mockReduceMotion = false;
+jest.mock('@/shared/ui/reduceMotion', () => ({
+  ...jest.requireActual('@/shared/ui/reduceMotion'),
+  isReduceMotionOn: () => mockReduceMotion,
+}));
+
+beforeEach(() => {
+  mockReduceMotion = false;
+});
 
 async function setup(initial: string | number | null | undefined) {
   const scrollTo = jest.fn();
@@ -52,5 +62,12 @@ describe('useRevealMapOnDraw', () => {
     await rerender({ target: null });
     await rerender({ target: undefined });
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('jumps to the top without animating with reduce motion on', async () => {
+    mockReduceMotion = true;
+    const { scrollTo, rerender } = await setup(null);
+    await rerender({ target: 'activity-1' });
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
   });
 });

@@ -242,8 +242,9 @@ impl From<&NetError> for SyncFailure {
     fn from(e: &NetError) -> Self {
         let reason = match e {
             NetError::Unauthorized => FfiSyncErrorReason::Unauthorized,
-            // The budget holding the work back reads to the athlete as the
-            // server asking for a pause, which is what it answers.
+            // A deferral reaches here only inside a refusal's cooldown, which
+            // is intervals.icu asking for a pause. The install's own allowance
+            // never does: `finish_refused` ends that run with nothing to report.
             NetError::RateLimited | NetError::Deferred { .. } => FfiSyncErrorReason::RateLimited,
             NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
             NetError::Transport(_) => FfiSyncErrorReason::Network,
@@ -388,6 +389,9 @@ struct SyncInner {
     last_error_reason: Option<FfiSyncErrorReason>,
     /// When the last run's refusal lifts, if it ended on one.
     retry_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// When the install's own allowance frees, if the last run stopped on it.
+    /// Not a refusal: nothing is shown for it, and a restart waits for it.
+    deferred_until: Option<chrono::DateTime<chrono::Utc>>,
     /// The install the running job claimed its slot against, so a clean finish
     /// stamps the library it ran for and never one that replaced it.
     install: Option<u64>,
@@ -441,6 +445,7 @@ impl Default for SyncInner {
             last_error: None,
             last_error_reason: None,
             retry_at: None,
+            deferred_until: None,
             install: None,
             running: false,
             cancel: false,
@@ -582,6 +587,7 @@ impl SyncService {
         inner.last_error = None;
         inner.last_error_reason = None;
         inner.retry_at = None;
+        inner.deferred_until = None;
         Ok(())
     }
 
@@ -706,8 +712,33 @@ impl SyncService {
 
     /// End the run on a refusal from intervals.icu or the request budget,
     /// recording when it lifts and asking the engine to resume the work then.
-    fn finish_refused(&self, transport: &Transport, step: FfiSyncStep, e: &NetError) {
-        let retry_at = transport.refusal_lifts_at(e, chrono::Utc::now());
+    ///
+    /// Only intervals.icu refusing, a 429 or the cooldown one left, is told to
+    /// the athlete as a pause. The install's own allowance holding the work
+    /// back is pacing, not a fault: the run ends with nothing to report, the
+    /// work stays owed, and a restart waits for the allowance to free. Such a
+    /// run still reports `earlier`, a step that failed before it stopped.
+    fn finish_refused(
+        &self,
+        transport: &Transport,
+        step: FfiSyncStep,
+        e: &NetError,
+        earlier: Option<SyncFailure>,
+    ) {
+        let now = chrono::Utc::now();
+        if let NetError::Deferred { until } = e
+            && transport.cooldown_until(now).is_none()
+        {
+            log::info!("[Sync] {step:?} step waits for the request allowance until {until}");
+            self.inner
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .deferred_until = Some(*until);
+            self.finish(SyncState::Idle, earlier, false);
+            crate::net::resume::resume_at(*until);
+            return;
+        }
+        let retry_at = transport.refusal_lifts_at(e, now);
         let failure = SyncFailure::from(e);
         log::info!(
             "[Sync] {:?} step refused, resuming at {:?}: {}",
@@ -819,6 +850,14 @@ impl SyncService {
 
     fn is_cancelled(&self) -> bool {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).cancel
+    }
+
+    /// When the install's own allowance frees, if the last run stopped on it.
+    fn deferred_until(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .deferred_until
     }
 
     pub fn snapshot(&self) -> FfiSyncStatus {
@@ -1781,7 +1820,7 @@ pub(crate) async fn perform_sync(
                 // A refusal speaks for every step after it, so the run ends
                 // here, sends nothing more and resumes when it lifts.
                 Err(e) if e.is_refusal() => {
-                    svc.finish_refused(&transport, $step, &e);
+                    svc.finish_refused(&transport, $step, &e, last_error);
                     return;
                 }
                 // A failed step is not a completed one, so the counter stays
@@ -2033,7 +2072,9 @@ pub(crate) async fn perform_window_sync(
                 );
             }
         }
-        Err(e) if e.is_refusal() => svc.finish_refused(&transport, FfiSyncStep::Activities, &e),
+        Err(e) if e.is_refusal() => {
+            svc.finish_refused(&transport, FfiSyncStep::Activities, &e, None)
+        }
         Err(e) => svc.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
     }
 }
@@ -4057,27 +4098,48 @@ pub struct SyncManager {
     pub(crate) _private: (),
 }
 
-/// Why the default sync must not start at `now`: a refusal's cooldown holds,
-/// and every step it would run is deferred. Held with the time it lifts, and
-/// nothing is asked of the budget, so the one probe a cooldown lets through is
-/// left for a user request.
+/// Why the default sync must not start at `now`, held with the time it lifts.
+///
+/// A refusal's cooldown, or the sync's own allowance spent, defers every step
+/// it would run. `deferred` is when the allowance that stopped the last run
+/// frees: a restart before then would spend the sync's requests only to stop
+/// at the same place, so it waits, unless the athlete asked for it with a pull
+/// to refresh, whose newest activities are the sync's own requests. Nothing is
+/// asked of the budget, so the one probe a cooldown lets through is left for a
+/// user request.
 fn sync_hold(
     governor: &crate::governor::Governor,
+    deferred: Option<chrono::DateTime<chrono::Utc>>,
+    force: bool,
     now: chrono::DateTime<chrono::Utc>,
 ) -> Option<FfiStartResult> {
     governor
-        .cooldown_until(now)
+        .deferred_until(crate::governor::Intent::Sync, now)
+        .or_else(|| deferred.filter(|until| !force && *until > now))
         .map(|until| FfiStartResult::backing_off(until.timestamp_millis()))
 }
 
 /// Start the default sync. The one dispatch both the FFI and a resume after
 /// a clear go through.
 ///
-/// Inside a refusal's cooldown it answers held with the time the cooldown
-/// ends and sends nothing: every foreground asks for a sync, and each of those
-/// would otherwise start a run whose every step is deferred.
+/// While [`sync_hold`] holds it answers held with the time the hold lifts and
+/// sends nothing: every foreground asks for a sync, and each of those would
+/// otherwise start a run whose steps are deferred.
 fn start_full_sync(force: bool) -> FfiStartResult {
-    if let Some(held) = sync_hold(&crate::governor::GOVERNOR, chrono::Utc::now()) {
+    if let Some(held) = sync_hold(
+        &crate::governor::GOVERNOR,
+        SYNC_SERVICE.deferred_until(),
+        force,
+        chrono::Utc::now(),
+    ) {
+        // A wake-up that came early for other work spent the one this start
+        // was owed, so it is asked for again.
+        if let Some(at) = held
+            .retry_at_ms
+            .and_then(|ms| chrono::DateTime::from_timestamp_millis(ms as i64))
+        {
+            crate::net::resume::resume_at(at);
+        }
         return held;
     }
     let (transport, athlete_id) = match SYNC_SERVICE.try_start_for(SyncRequest::Full { force }) {
@@ -4210,8 +4272,9 @@ impl SyncManager {
     /// their age. A foreground passes false and they come at most once in six
     /// hours; a pull to refresh and a saved recording pass true.
     ///
-    /// Inside a refusal's cooldown it answers `Held` with the time the
-    /// cooldown ends, and the engine starts the sync itself at that time.
+    /// Inside a refusal's cooldown, or before the install's own allowance
+    /// frees for a run that stopped on it, it answers `Held` with the time it
+    /// lifts, and the engine starts the sync itself at that time.
     fn sync_now(&self, force: bool) -> Result<FfiStartResult, VeloqError> {
         Ok(start_full_sync(force))
     }
@@ -6720,7 +6783,96 @@ mod tests {
             .cooldown_until(chrono::Utc::now())
             .expect("the refusal set a cooldown");
         let s = svc.snapshot();
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::RateLimited));
         assert_eq!(s.retry_at_ms, Some(until.timestamp_millis() as f64));
+    }
+
+    /// Scenario: the install's own sync allowance is spent when a run starts,
+    /// and intervals.icu has refused nothing.
+    ///
+    /// Expected behaviour: the run stops without sending and says nothing
+    /// about intervals.icu pausing it, and a restart is held until the
+    /// allowance frees rather than starting into the same deferral.
+    #[test]
+    fn a_deferral_by_the_install_allowance_ends_the_run_quietly_and_holds_the_restart() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        let server = MockServer::start();
+        let athlete = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200)
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
+        });
+        let one = crate::governor::Allowance {
+            per_fifteen_minutes: 1,
+            per_day: None,
+        };
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            crate::governor::Budget::with_allowances(crate::governor::BACKFILL_ALLOWANCE, one, 0),
+            None,
+            || 0.0,
+        ));
+        assert_eq!(
+            gov.admit(crate::governor::Intent::Sync, chrono::Utc::now()),
+            crate::governor::Admission::Admitted
+        );
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov.clone())
+                .expect("transport");
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport,
+            "i1".into(),
+            true,
+        ));
+
+        athlete.assert_calls(0);
+        let s = svc.snapshot();
+        assert_eq!(s.state, SyncState::Idle);
+        assert_eq!(s.last_error_reason, None, "{:?}", s.last_error);
+        assert_eq!(s.last_error, None);
+        assert_eq!(s.retry_at_ms, None, "the run read as a pause");
+
+        let now = chrono::Utc::now();
+        let until = gov
+            .deferred_until(crate::governor::Intent::Sync, now)
+            .expect("the allowance is still spent");
+        let held = sync_hold(&gov, svc.deferred_until(), false, now)
+            .expect("a restart inside the deferral is held");
+        assert_eq!(held.outcome, FfiStartOutcome::Held);
+        assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
+    }
+
+    /// Scenario: the last run stopped on the backfill's share while the sync's
+    /// own small requests still have room.
+    ///
+    /// Expected behaviour: a foreground or a wake-up before the share frees is
+    /// held, so it does not spend the sync's requests to reach the same
+    /// deferral. A pull to refresh still goes, since the newest activities are
+    /// the sync's own requests, and once the share frees nothing holds.
+    #[test]
+    fn a_restart_inside_the_last_runs_deferral_is_held_but_a_pull_goes() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            crate::governor::Budget::new(0),
+            None,
+            || 0.0,
+        );
+        let now = chrono::Utc::now();
+        let until = now + chrono::TimeDelta::minutes(10);
+
+        let held = sync_hold(&gov, Some(until), false, now).expect("the restart is held");
+        assert_eq!(held.outcome, FfiStartOutcome::Held);
+        assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
+        assert_eq!(
+            sync_hold(&gov, Some(until), true, now),
+            None,
+            "a pull was held"
+        );
+        assert_eq!(sync_hold(&gov, Some(until), false, until), None);
     }
 
     /// Scenario: the app comes to the foreground while a refusal's cooldown
@@ -6737,7 +6889,11 @@ mod tests {
             || 0.0,
         );
         let now = chrono::Utc::now();
-        assert_eq!(sync_hold(&gov, now), None, "nothing holds a fresh budget");
+        assert_eq!(
+            sync_hold(&gov, None, false, now),
+            None,
+            "nothing holds a fresh budget"
+        );
 
         let refused = crate::governor::RateBudget {
             retry_after_secs: Some(600),
@@ -6749,7 +6905,7 @@ mod tests {
             panic!("a long Retry-After sets a cooldown");
         };
 
-        let held = sync_hold(&gov, now).expect("a cooldown holds the sync");
+        let held = sync_hold(&gov, None, true, now).expect("a cooldown holds the sync");
         assert_eq!(held.outcome, FfiStartOutcome::Held);
         assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
         assert_eq!(

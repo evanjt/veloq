@@ -49,7 +49,7 @@ object InsightsWidgetRenderer {
     }
 
     val v = RemoteViews(context.packageName, R.layout.widget_insights)
-    v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, InsightsWidget.TAB_URL, 20))
+    v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, InsightsWidget.TAB_URL, 20))
 
     if (WidgetSnapshot.showsEmptyPrompt(snap) || snap == null || content == null) {
       bindMessage(
@@ -80,7 +80,7 @@ object InsightsWidgetRenderer {
     p.colorFilter(v, R.id.ins_dot0, p.color(toneColor(insight.tone)))
     v.setContentDescription(R.id.ins_dot0, insight.toneLabel)
     v.setTextViewText(R.id.ins_title0, insight.title)
-    v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, insight.url, 21))
+    v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, insight.url, 21))
     return v
   }
 
@@ -92,7 +92,7 @@ object InsightsWidgetRenderer {
     val v = RemoteViews(context.packageName, R.layout.widget_insights_short)
     v.setViewVisibility(R.id.ins_dot0, View.GONE)
     v.setTextViewText(R.id.ins_title0, text)
-    v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, url, 21))
+    v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, url, 21))
     return v
   }
 

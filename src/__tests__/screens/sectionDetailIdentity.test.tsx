@@ -31,6 +31,7 @@ jest.mock('expo-router', () => {
   };
   return {
     ...jest.requireActual('expo-router'),
+    useIsFocused: () => true,
     useLocalSearchParams: () => ({ id: 'sec-1' }),
     useFocusEffect: () => {},
     router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
@@ -59,7 +60,8 @@ jest.mock('@/shared/ui', () => ({
   Button: () => null,
   ErrorState: () => null,
   useHeroMapHeight: () => 300,
-  useTabBarClearance: () => 0,
+  useBottomClearance: () => 0,
+  useScrollEndInset: () => 0,
 }));
 jest.mock('@/features/settings', () => ({
   useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),

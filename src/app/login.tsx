@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,8 @@ import {
   TextLink,
 } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
+import { openExternal } from '@/shared/app/openExternal';
+import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -37,10 +39,6 @@ import {
   SessionExpiredNotice,
 } from '@/features/auth';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-
-const VELOQ_URLS = {
-  privacy: 'https://veloq.fit/privacy',
-};
 
 function LoginScreenContent() {
   const { t } = useTranslation();
@@ -107,23 +105,23 @@ function LoginScreenContent() {
   };
 
   const handleCreateAccount = () => {
-    Linking.openURL(INTERVALS_URLS.signup);
+    void openExternal(INTERVALS_URLS.signup);
   };
 
   const handleOpenVeloqPrivacy = () => {
-    Linking.openURL(VELOQ_URLS.privacy);
+    void openExternal(VELOQ_PRIVACY_URL);
   };
 
   const handleOpenIntervalsPrivacy = () => {
-    Linking.openURL(INTERVALS_URLS.privacyPolicy);
+    void openExternal(INTERVALS_URLS.privacyPolicy);
   };
 
   const handleOpenIntervalsTerms = () => {
-    Linking.openURL(INTERVALS_URLS.termsOfService);
+    void openExternal(INTERVALS_URLS.termsOfService);
   };
 
   const handleOpenDeveloperSettings = useCallback(() => {
-    Linking.openURL(INTERVALS_URLS.developerSettings);
+    void openExternal(INTERVALS_URLS.developerSettings);
   }, []);
 
   return (

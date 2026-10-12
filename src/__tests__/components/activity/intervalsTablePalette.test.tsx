@@ -1,18 +1,15 @@
 /**
  * Scenario: a work interval in zone 6 on rides of several cycling types, and
- * on a run. The heart-rate ladder is the power ladder's first five steps, so
- * zones 1 to 5 look the same from either and only a sixth or seventh zone
- * shows which ladder a row was coloured from.
- * Expected behaviour: every cycling type colours the zone label from the power
- * ladder's sixth step, whether or not the interval carries watts, and a run
- * clamps to the heart-rate ladder's fifth.
+ * on a run, in both themes.
+ * Expected behaviour: the zone label is the zone's text tone, never its fill,
+ * whether or not the interval carries watts.
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { IntervalsTable } from '@/features/activity/components/IntervalsTable';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
+import { zoneColour } from '@/theme/zoneColour';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 function interval(watts?: number): ActivityInterval {
@@ -33,14 +30,15 @@ function interval(watts?: number): ActivityInterval {
 
 async function zoneLabelColour(
   activityType: ActivityType,
-  watts?: number
+  watts?: number,
+  isDark = false
 ): Promise<string | undefined> {
   await render(
     <IntervalsTable
       intervals={[interval(watts)]}
       activityType={activityType}
       isMetric
-      isDark={false}
+      isDark={isDark}
     />
   );
   const label = screen.getByText('Z6');
@@ -50,17 +48,17 @@ async function zoneLabelColour(
 
 describe('the intervals table zone palette', () => {
   it.each(['Ride', 'GravelRide', 'MountainBikeRide', 'Handcycle', 'Velomobile', 'VirtualRide'])(
-    'colours a %s work interval with watts from the power ladder',
+    'colours a %s work interval with watts in the zone text tone',
     async (type) => {
-      expect(await zoneLabelColour(type as ActivityType, 250)).toBe(POWER_ZONE_COLORS[5]);
+      expect(await zoneLabelColour(type as ActivityType, 250)).toBe(zoneColour(6, false, 'text'));
     }
   );
 
-  it('keeps the power ladder on a ride with no watts at all', async () => {
-    expect(await zoneLabelColour('Ride', undefined)).toBe(POWER_ZONE_COLORS[5]);
+  it('keeps the zone text tone on a ride with no watts at all', async () => {
+    expect(await zoneLabelColour('Ride', undefined)).toBe(zoneColour(6, false, 'text'));
   });
 
-  it('colours a run from the heart-rate ladder', async () => {
-    expect(await zoneLabelColour('Run', undefined)).toBe(HR_ZONE_COLORS[5]);
+  it('colours a run in the zone text tone of the dark theme', async () => {
+    expect(await zoneLabelColour('Run', undefined, true)).toBe(zoneColour(6, true, 'text'));
   });
 });

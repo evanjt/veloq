@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -6,10 +6,12 @@ import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { tapTo } from '@/shared/app/navigation';
+import { replaceTo, tapTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
-import { useTabBarClearance } from '@/shared/ui';
+import { useBottomClearance } from '@/shared/ui';
 import {
+  parsePairedEventId,
+  parseRecordingType,
   screenRecordingMode,
   useRecordingStore,
   useRecordingLiveStore,
@@ -60,23 +62,29 @@ import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 const NO_HEADER = { headerShown: false };
 
 function RecordingScreenContent() {
+  const { type } = useLocalSearchParams<{ type: string }>();
+  // Any app or web page can open a recording link, so a sport the recorder does
+  // not know goes to the picker and starts nothing.
+  const activityType = parseRecordingType(type);
   const recordingAthleteId = useRecordingStore((s) => s.athleteId);
   const signedInAthleteId = useAuthStore((s) => s.athleteId);
+  useEffect(() => {
+    if (activityType === null) replaceTo('/record');
+  }, [activityType]);
+  if (activityType === null) return null;
   if (recordingAthleteId && recordingAthleteId !== signedInAthleteId) return null;
-  return <RecordingContent />;
+  return <RecordingContent activityType={activityType} />;
 }
 
-function RecordingContent() {
+function RecordingContent({ activityType }: { activityType: ActivityType }) {
   useRecordingKeepAwake();
 
   const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
-  const { type, pairedEventId, from } = useLocalSearchParams<{
-    type: string;
-    pairedEventId?: string;
-    from?: string;
-  }>();
+  const params = useLocalSearchParams<{ pairedEventId?: string; from?: string }>();
+  const pairedEventId = parsePairedEventId(params.pairedEventId);
+  const { from } = params;
 
   // Every one-tap surface deep-links here rather than to the picker, so the gate
   // the picker applies has to be applied here too or it is not a gate at all.
@@ -87,7 +95,6 @@ function RecordingContent() {
   const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
   const canRecordAfterWarning = canStartAfterScopeWarning(canRecord, reason, ridingWithoutScope);
 
-  const activityType = type as ActivityType;
   const status = useRecordingStore((s) => s.status);
   const storeMode = useRecordingStore((s) => s.mode);
   const storeActivityType = useRecordingStore((s) => s.activityType);
@@ -126,6 +133,7 @@ function RecordingContent() {
   const accuracy = useRecordingLiveStore((s) => s.accuracy);
   const autoPaused = useRecordingLiveStore((s) => s.autoPaused);
   const backgroundTrackingFailed = useRecordingLiveStore((s) => s.backgroundTrackingFailed);
+  const backupFailing = useRecordingLiveStore((s) => s.backupFailures > 0);
   const { t } = useTranslation();
   const { hasPermission, precision, requestPermission, upgradePrecision } = useLocationPermission();
   useAnnounceOnAppear(t(isLocked ? 'recording.controlsLocked' : 'recording.controlsUnlocked'));
@@ -170,7 +178,7 @@ function RecordingContent() {
   const openReview = useCallback(() => tapTo('/recording/review'), []);
   const openSensorPairing = useCallback(() => tapTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
-  const bottomPadding = insets.bottom + tabBarClearance;
+  const bottomPadding = bottomClearance;
   const unlockTrackStyle = useMemo(
     () => ({ paddingTop: spacing.sm, paddingBottom: bottomPadding }),
     [bottomPadding]
@@ -274,10 +282,7 @@ function RecordingContent() {
     return (
       <>
         {formHeader}
-        <StrengthSession
-          activityType={currentActivityType}
-          pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
-        />
+        <StrengthSession activityType={currentActivityType} pairedEventId={pairedEventId} />
       </>
     );
   }
@@ -286,10 +291,7 @@ function RecordingContent() {
     return (
       <>
         {formHeader}
-        <ManualEntry
-          activityType={currentActivityType}
-          pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
-        />
+        <ManualEntry activityType={currentActivityType} pairedEventId={pairedEventId} />
       </>
     );
   }
@@ -316,6 +318,7 @@ function RecordingContent() {
         backgroundTrackingWarning={
           backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
         }
+        backupWarning={backupFailing ? t('recording.backupFailing') : null}
         gpsWarning={gpsWarning}
         gpsWarningOpensSettings={gpsWarningOpensSettings}
         sensorIssue={sensorIssue}

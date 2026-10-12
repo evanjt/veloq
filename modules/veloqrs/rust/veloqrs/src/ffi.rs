@@ -111,6 +111,9 @@ pub struct FetchAndStoreResult {
     pub synced_ids: Vec<String>,
     /// Activity IDs that failed to fetch
     pub failed_ids: Vec<String>,
+    /// Activity IDs the request budget or a refusal held back. Nothing is
+    /// wrong with them: they are still owed and a later run fetches them.
+    pub owed_ids: Vec<String>,
     /// Total number of activities processed
     pub total: u32,
     /// Number successfully synced
@@ -469,6 +472,7 @@ pub fn start_fetch_and_store(
                 synced_ids: vec![],
                 total: activity_ids.len() as u32,
                 failed_ids: activity_ids,
+                owed_ids: vec![],
                 success_count: 0,
                 total_points: 0,
             },
@@ -598,6 +602,7 @@ fn start_fetch_and_store_run(
                 FetchAndStoreResult {
                     synced_ids: vec![],
                     failed_ids: vec![],
+                    owed_ids: vec![],
                     total: 0,
                     success_count: 0,
                     total_points: 0,
@@ -628,6 +633,7 @@ fn start_fetch_and_store_run(
         let storage_start = Instant::now();
         let mut synced_ids = Vec::new();
         let mut failed_ids = Vec::new();
+        let mut owed_ids = Vec::new();
         let mut total_points: usize = 0;
         let mut total_attached_portions: u32 = 0;
         let mut fetch_success_count = 0usize;
@@ -878,7 +884,16 @@ fn start_fetch_and_store_run(
                     crate::persistence::attempts::now_ms(),
                 );
             }
-            offered = pass_failed.iter().map(|(id, _)| id.clone()).collect();
+            // A track the budget held back is owed, not failed: it is neither
+            // re-offered in this run nor reported as missing.
+            offered = Vec::new();
+            for (id, error) in &pass_failed {
+                if crate::objects::tracks::held_back(error) {
+                    owed_ids.push(id.clone());
+                } else {
+                    offered.push(id.clone());
+                }
+            }
             if !retry {
                 failed_ids.append(&mut offered);
                 break 'passes;
@@ -1063,12 +1078,13 @@ fn start_fetch_and_store_run(
         );
 
         let success_count = synced_ids.len() as u32;
-        let total = (synced_ids.len() + failed_ids.len()) as u32;
+        let total = (synced_ids.len() + failed_ids.len() + owed_ids.len()) as u32;
 
         info!(
-            "[RUST: start_fetch_and_store] Storage complete: {} synced, {} failed, {} total points ({} ms)",
+            "[RUST: start_fetch_and_store] Storage complete: {} synced, {} failed, {} owed, {} total points ({} ms)",
             success_count,
             failed_ids.len(),
+            owed_ids.len(),
             total_points,
             elapsed_ms(storage_start)
         );
@@ -1104,6 +1120,7 @@ fn start_fetch_and_store_run(
             FetchAndStoreResult {
                 synced_ids,
                 failed_ids,
+                owed_ids,
                 total,
                 success_count,
                 total_points: total_points as u32,
@@ -2473,6 +2490,7 @@ mod fetch_and_store_results {
         FetchAndStoreResult {
             synced_ids: vec![synced.to_string()],
             failed_ids: vec![],
+            owed_ids: vec![],
             total: 1,
             success_count: 1,
             total_points: 100,

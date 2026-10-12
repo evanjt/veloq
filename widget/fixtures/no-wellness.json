@@ -15,6 +15,7 @@
       "ramp": "Ramp",
       "rhr": "RHR"
     },
+    "openToRefreshLabel": "Open Veloq to refresh",
     "perWeekSuffix": "/wk",
     "recordLabel": "Start Activity",
     "refreshLabel": "Refresh",

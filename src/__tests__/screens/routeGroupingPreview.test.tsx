@@ -333,7 +333,7 @@ describe('applying the setting', () => {
       text: string;
       onPress?: () => void;
     }[];
-    buttons.find((b) => b.text === 'Confirm')?.onPress?.();
+    buttons.find((b) => b.text === 'Keep')?.onPress?.();
   };
 
   beforeEach(() => {

@@ -7,13 +7,17 @@ import { ActivitySectionsSection } from '@/features/activity/components/Activity
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
 
 const mockSectionInlinePlot = jest.fn((_props: unknown) => null);
-const mockDisableSection = jest.fn();
+const mockDisableSection = jest.fn(() => true);
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: (props: unknown) => mockSectionInlinePlot(props),
 }));
-jest.mock('@/features/routes', () => ({ DataRangeFooter: () => null }));
+jest.mock('@/features/routes', () => ({
+  DataRangeFooter: () => null,
+  removeSectionWithUndo: jest.requireActual('@/features/routes/lib/sectionVisibility')
+    .removeSectionWithUndo,
+}));
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({ disableSection: mockDisableSection }),
 }));

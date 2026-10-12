@@ -18,7 +18,7 @@
  */
 
 import { secretsMatch } from "./secrets";
-import { dedupeKey, exchangeKey, rateKey, stateKey } from "./keys";
+import { dedupeKey, exchangeKey, type RateRoute, rateKey, stateKey } from "./keys";
 import { authoriseDevice, type DeviceAuth, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
@@ -86,7 +86,7 @@ const STATE_TTL_SECONDS = 300;
 const EXCHANGE_CODE_TTL_SECONDS = 120;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -145,7 +145,7 @@ export default {
 
       // Webhook receiver for intervals.icu events
       if (path === "/webhook/intervals" && request.method === "POST") {
-        return await handleIntervalsWebhook(request, env);
+        return await handleIntervalsWebhook(request, env, ctx);
       }
 
       return new Response("Not Found", { status: 404 });
@@ -166,7 +166,7 @@ export default {
  * limiter could not count it costs more than one uncounted request.
  */
 async function checkRateLimit(
-  route: "state" | "token",
+  route: RateRoute,
   request: Request,
   env: Env
 ): Promise<boolean> {
@@ -633,6 +633,11 @@ async function handleDeviceRegister(
   request: Request,
   env: Env
 ): Promise<Response> {
+  // Spent before the credential is forwarded to intervals.icu, so no address
+  // can make the proxy send lookups at any volume.
+  if (!(await checkRateLimit("device-register", request, env))) {
+    return deviceRateLimited();
+  }
   try {
     const body = (await request.json()) as {
       athleteId?: string;
@@ -721,6 +726,11 @@ async function handleDeviceUnregister(
   request: Request,
   env: Env
 ): Promise<Response> {
+  // Its own budget, so registrations that spent theirs still let the
+  // unregister at sign-out through.
+  if (!(await checkRateLimit("device-unregister", request, env))) {
+    return deviceRateLimited();
+  }
   try {
     const body = (await request.json()) as {
       athleteId?: string;
@@ -759,7 +769,8 @@ async function handleDeviceUnregister(
  */
 async function handleIntervalsWebhook(
   request: Request,
-  env: Env
+  env: Env,
+  ctx?: ExecutionContext
 ): Promise<Response> {
   if (!env.WEBHOOK_SECRET) {
     console.error("WEBHOOK_SECRET not configured");
@@ -788,88 +799,126 @@ async function handleIntervalsWebhook(
       return jsonResponse({ success: true }); // Nothing to process
     }
 
-    // Process each event (with deduplication)
-    const pushPromises: Promise<void>[] = [];
+    // An event is claimed as seen before its pushes go out, so a redelivery
+    // racing this one sends nothing twice. A failure before any push is sent
+    // releases the claim, so the sender's retry delivers that event, and only
+    // fails that event: the others in the batch still go out and stay seen.
+    // The response waits for every push and prune, so returning cancels none.
+    const skipDedupe = (payload as { skip_dedupe?: boolean }).skip_dedupe === true;
+    const deliveries: Promise<void>[] = [];
+    let failed = 0;
 
     for (const event of payload.events) {
       if (!event.athlete_id || !event.type) continue;
       if (!PROCESSED_EVENTS.has(event.type)) continue;
-      // The guard narrows the field here and not inside the prune closure below.
-      const athleteId = event.athlete_id;
-
-      // Deduplicate: skip if we already processed this event recently.
-      // Bypass with `"skip_dedupe": true` at the top of the webhook body for
-      // test iteration (curl loop against the same activity_id).
-      const skipDedupe = (payload as { skip_dedupe?: boolean }).skip_dedupe === true;
-      if (!skipDedupe) {
-        const seen = dedupeKey(event.athlete_id, event.type, event.activity?.id);
-        const alreadyProcessed = await env.OAUTH_STATES.get(seen);
-        if (alreadyProcessed) continue;
-        await env.OAUTH_STATES.put(seen, "1", { expirationTtl: 300 });
+      try {
+        const sent = await startEventPushes(
+          env,
+          {
+            athlete_id: event.athlete_id,
+            type: event.type,
+            timestamp: event.timestamp,
+            activity: event.activity,
+          },
+          skipDedupe
+        );
+        if (sent) deliveries.push(sent);
+      } catch (err) {
+        failed += 1;
+        console.error(`Webhook event ${event.type} failed:`, err);
       }
-
-      // Look up device tokens for this athlete
-      const key = `athlete:${event.athlete_id}`;
-      const tokens = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-      if (!tokens || tokens.length === 0) continue;
-
-      // The visible title and body go to iOS only, where the notification
-      // service extension rewrites them in place. `buildPushMessages` drops
-      // them for an Android token: there the OS draws the placeholder under a
-      // tag of its own and the native worker's entry stands beside it rather
-      // than replacing it. The data payload wakes the handler on both, which
-      // posts the enriched notification itself.
-      // The guard above narrows the fields, not the payload object itself.
-      const pushData = pushDataFor({
-        type: event.type,
-        athlete_id: event.athlete_id,
-        activity: event.activity,
-      });
-      const visible = visibleContentForEvent(event.type, event.activity?.id);
-      const perDeviceResults = tokens.map((device) =>
-        sendExpoPush(device.token, pushData, visible, device.platform)
-          .then((alive) => ({ token: device.token, alive }))
-          .catch((err) => {
-            console.error(`Push failed for ${device.platform}:`, err);
-            // Transient transport error, keep the token (don't prune).
-            return { token: device.token, alive: true };
-          })
-      );
-
-      // Schedule the prune after this athlete's pushes settle. Captured
-      // locally so it doesn't await the outer pushPromises array.
-      pushPromises.push(
-        (async () => {
-          const results = await Promise.all(perDeviceResults);
-          const dead = results.filter((r) => !r.alive).map((r) => r.token);
-          if (dead.length === 0) return;
-          const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-          const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
-          if (surviving.length === 0) {
-            await env.DEVICE_TOKENS.delete(key);
-          } else {
-            await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
-              expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
-            });
-          }
-          for (const token of dead) {
-            await clearTokenOwner(env, athleteId, token);
-          }
-          console.log(
-            `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`
-          );
-        })()
-      );
     }
 
-    // Wait for all per-athlete prune blocks (which themselves wait on pushes)
-    await Promise.allSettled(pushPromises);
+    const settled = Promise.allSettled(deliveries);
+    ctx?.waitUntil(settled);
+    await settled;
 
+    if (failed > 0) {
+      return jsonResponse({ error: "Processing failed" }, 500);
+    }
     return jsonResponse({ success: true });
   } catch (err) {
     console.error("Webhook processing error:", err);
     return jsonResponse({ error: "Processing failed" }, 500);
   }
+}
+
+/**
+ * Claim one webhook event and start its pushes. Returns the promise of the
+ * pushes and the dead-token prune behind them, or null when there is nothing
+ * to send. Throws when the event could not be started, after releasing its
+ * claim so a redelivery is not skipped as already processed.
+ */
+async function startEventPushes(
+  env: Env,
+  event: { athlete_id: string; type: string; timestamp?: string; activity?: { id?: string } },
+  skipDedupe: boolean
+): Promise<Promise<void> | null> {
+  const athleteId = event.athlete_id;
+
+  // Deduplicate: skip if we already processed this event recently.
+  // Bypass with `"skip_dedupe": true` at the top of the webhook body for
+  // test iteration (curl loop against the same activity_id).
+  const seen = skipDedupe ? null : dedupeKey(athleteId, event.type, event.activity?.id, event.timestamp);
+  if (seen) {
+    if (await env.OAUTH_STATES.get(seen)) return null;
+    await env.OAUTH_STATES.put(seen, "1", { expirationTtl: 300 });
+  }
+
+  // Look up device tokens for this athlete
+  const key = `athlete:${athleteId}`;
+  let tokens: DeviceToken[] | null;
+  try {
+    tokens = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+  } catch (err) {
+    if (seen) await env.OAUTH_STATES.delete(seen).catch(() => {});
+    throw err;
+  }
+  if (!tokens || tokens.length === 0) return null;
+
+  // The visible title and body go to iOS only, where the notification
+  // service extension rewrites them in place. `buildPushMessages` drops
+  // them for an Android token: there the OS draws the placeholder under a
+  // tag of its own and the native worker's entry stands beside it rather
+  // than replacing it. The data payload wakes the handler on both, which
+  // posts the enriched notification itself.
+  const pushData = pushDataFor(event);
+  const visible = visibleContentForEvent(event.type, event.activity?.id);
+  const perDeviceResults = tokens.map((device) =>
+    sendExpoPush(device.token, pushData, visible, device.platform)
+      .then((alive) => ({ token: device.token, alive }))
+      .catch((err) => {
+        console.error(`Push failed for ${device.platform}:`, err);
+        // Transient transport error, keep the token (don't prune).
+        return { token: device.token, alive: true };
+      })
+  );
+
+  // The prune runs once this athlete's pushes settle. The pushes have gone
+  // out by then, so a failed prune leaves the event seen: the dead token
+  // reports itself again on the next push.
+  return (async () => {
+    const results = await Promise.all(perDeviceResults);
+    const dead = results.filter((r) => !r.alive).map((r) => r.token);
+    if (dead.length === 0) return;
+    const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+    const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
+    if (surviving.length === 0) {
+      await env.DEVICE_TOKENS.delete(key);
+    } else {
+      await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
+        expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+      });
+    }
+    for (const token of dead) {
+      await clearTokenOwner(env, athleteId, token);
+    }
+    console.log(
+      `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`
+    );
+  })().catch((err) => {
+    console.error(`Dead-token prune failed for ${key}:`, err);
+  });
 }
 
 /**
@@ -937,6 +986,12 @@ function deviceAuthRefusal(auth: Exclude<DeviceAuth, { ok: true }>): Response {
   if (auth.status === 429 && auth.retryAfter) {
     response.headers.set("Retry-After", auth.retryAfter);
   }
+  return response;
+}
+
+function deviceRateLimited(): Response {
+  const response = jsonResponse({ error: "Too many requests" }, 429);
+  response.headers.set("Retry-After", String(RATE_LIMIT_WINDOW_SECONDS));
   return response;
 }
 

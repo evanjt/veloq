@@ -5,6 +5,7 @@ import { enableFreeze } from 'react-native-screens';
 import { LogBox, AppState, Platform, View, ActivityIndicator } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
+import { ForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
@@ -66,6 +67,7 @@ import {
   SyncErrorBanner,
   TrackFetchNotice,
   BottomTabBar,
+  NoticeHost,
   GlobalErrorBoundary,
 } from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
@@ -80,17 +82,14 @@ import {
   onAppForeground,
   initWebdavConfig,
   MapPreferencesProvider,
-  getNotificationPreferences,
-  useNotificationPreferences,
-  refreshPushTokenRegistration,
   reconcilePushRegistrationOnLaunch,
+  reconcilePushRegistrationOnForeground,
   WhatsNewModal,
   TourReturnPill,
   initialiseNotifications,
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
-  hasNotificationPermission,
 } from '@/features/settings';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -122,6 +121,7 @@ import { releaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
 import { sheetScreenLayout } from '@/shared/ui/SheetFrame';
+import { ReduceMotionSync } from '@/shared/ui/reduceMotion';
 
 const log = debug.create('RootLayout');
 enableFreeze(true);
@@ -424,23 +424,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           });
         }
 
-        // Sync notification state: if OS permission was revoked while backgrounded,
-        // disable notifications in the app store and unregister the push token
-        const prefs = getNotificationPreferences();
-        if (prefs.enabled) {
-          hasNotificationPermission().then((granted) => {
-            if (!granted) {
-              useNotificationPreferences.getState().setEnabled(false);
-              return;
-            }
-            // Keep the server-side token registration (30-day TTL) fresh.
-            // Throttled to once a day inside the helper.
-            const athleteId = useAuthStore.getState().athleteId;
-            if (athleteId) {
-              refreshPushTokenRegistration(athleteId).catch(() => {});
-            }
-          });
-        }
+        void reconcilePushRegistrationOnForeground();
       }
     });
     return () => sub.remove();
@@ -633,7 +617,9 @@ export default function RootLayout() {
 
   return (
     <GlobalErrorBoundary>
+      <ForcedRenderCrash />
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <ReduceMotionSync />
         <QueryProvider>
           <NetworkProvider>
             <TopSafeAreaProvider startupErrorShown={startupError !== null}>
@@ -699,6 +685,7 @@ export default function RootLayout() {
                       </Stack>
                     </NavigationThemeProvider>
                     <BottomTabBar />
+                    <NoticeHost />
                   </AuthGate>
                 </PaperProvider>
               </MapPreferencesProvider>

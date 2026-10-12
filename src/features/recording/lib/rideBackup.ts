@@ -2,11 +2,23 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBackup';
 import { BACKUP_INTERVAL_MS } from './constants';
+import type { RecordingBackup } from '../types';
 
 // When the live ride last went to disk, in epoch milliseconds. Background
 // batches throttle on it, so a write from the foreground timer counts too. Only
 // a write that landed counts: a failed one leaves the next batch free to retry.
 let lastWrittenAt: number | null = null;
+
+/**
+ * Write the ride on screen to its crash backup and record whether it landed.
+ * Every write of that ride goes through here, so a full disk shows on the
+ * live and review screens rather than only in a log.
+ */
+export async function persistRideBackup(backup: RecordingBackup): Promise<boolean> {
+  const saved = await saveRecordingBackup(backup);
+  useRecordingLiveStore.getState().recordBackupWrite(saved);
+  return saved;
+}
 
 /**
  * Write the live ride to its crash backup. `at` is the time the write stands
@@ -18,7 +30,7 @@ export async function writeRideBackup(at: number = Date.now()): Promise<boolean>
     autoPaused: useRecordingLiveStore.getState().autoPaused,
   });
   if (!backup) return false;
-  const saved = await saveRecordingBackup(backup);
+  const saved = await persistRideBackup(backup);
   if (saved) lastWrittenAt = at;
   return saved;
 }
@@ -44,5 +56,5 @@ export async function writeReviewedRideBackup(): Promise<boolean> {
   if (state.status !== 'stopped' || state.savedToLibrary) return false;
   const backup = buildRecordingBackup(state);
   if (!backup) return false;
-  return saveRecordingBackup(backup);
+  return persistRideBackup(backup);
 }

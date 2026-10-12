@@ -14,8 +14,10 @@ export function startsInBackSwipeEdge(
   x: number,
   screenWidth: number,
   isRTL: boolean,
-  edgeWidth: number = BACK_SWIPE_EDGE_WIDTH
+  edgeWidth?: number
 ): boolean {
   'worklet';
-  return isRTL ? x > screenWidth - edgeWidth : x < edgeWidth;
+  // A default is read before the body binds the captured names on the UI runtime.
+  const edge = edgeWidth ?? BACK_SWIPE_EDGE_WIDTH;
+  return isRTL ? x > screenWidth - edge : x < edge;
 }

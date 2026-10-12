@@ -12,6 +12,7 @@ import React, { ReactNode } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScreenSafeAreaEdges } from '@/shared/app/TopSafeAreaContext';
+import { BottomInsetTaken } from './tabBarClearance';
 
 interface ScreenSafeAreaViewProps {
   children: ReactNode;
@@ -35,7 +36,9 @@ export function ScreenSafeAreaView({
 
   return (
     <SafeAreaView edges={edges} style={style} testID={testID}>
-      {children}
+      <BottomInsetTaken.Provider value={edges.includes('bottom')}>
+        {children}
+      </BottomInsetTaken.Provider>
     </SafeAreaView>
   );
 }

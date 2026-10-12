@@ -9,7 +9,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { EmptyState, ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -22,7 +22,6 @@ import { tapTo } from '@/shared/app/navigation';
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const locale = getIntlLocale();
 
   const readRetired = useEngineRead(['sections', 'detectionApplied']);
@@ -40,10 +39,7 @@ function SectionRetiredScreenContent() {
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: layout.screenPadding + tabBarClearance },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: layout.screenPadding }]}
         testID="section-retired-list"
       >
         {engineState !== 'ready' ? (

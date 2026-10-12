@@ -39,7 +39,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSheetParams,
 }));
 jest.mock('@/features/activity', () => ({
-  ActivityCardContextMenu: () => null,
+  ActivityCardContextMenu: ({ children }: { children: React.ReactNode }) => children,
   SkylineBar: () => null,
 }));
 jest.mock('react-native-body-highlighter', () => ({

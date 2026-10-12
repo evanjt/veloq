@@ -13,7 +13,7 @@ import { View } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { getVisibleRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
 
 export function RecordingTitle() {
@@ -40,7 +40,7 @@ export function RecordingTitle() {
       <MaterialCommunityIcons
         name={getActivityIcon(entry.activityType)}
         size={22}
-        color={getActivityColor(entry.activityType)}
+        color={getActivityInk(entry.activityType, isDark)}
       />
       <Text
         numberOfLines={1}

@@ -64,8 +64,13 @@ pub(crate) fn failure_release(error: &str) -> Release {
 /// the request back, so a retry now is wasted and the failure says nothing
 /// about the activity.
 pub(crate) fn network_absent(error: &str) -> bool {
-    error.starts_with("transport error")
-        || error.starts_with(crate::net::transport::DEFERRED_ERROR_PREFIX)
+    error.starts_with("transport error") || held_back(error)
+}
+
+/// Whether the request budget, or the cooldown after a refusal, held the
+/// download back. Nothing was sent, so the track is owed rather than failed.
+pub(crate) fn held_back(error: &str) -> bool {
+    error.starts_with(crate::net::transport::DEFERRED_ERROR_PREFIX)
 }
 
 /// The ids a run still asks the server about: those not already refused for

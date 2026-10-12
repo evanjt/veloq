@@ -12,7 +12,6 @@ describe('buildZoneDistribution', () => {
     expect(rows.map((r) => r.seconds)).toEqual([100, 100, 100, 100, 100, 400, 100]);
     expect(rows.map((r) => r.percentage)).toEqual([10, 10, 10, 10, 10, 40, 10]);
     expect(rows[4].name).not.toBe('Max');
-    expect(rows.every((r) => typeof r.color === 'string' && r.color.length > 0)).toBe(true);
   });
 
   it('keeps all seven power zones', () => {

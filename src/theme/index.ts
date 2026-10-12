@@ -11,7 +11,12 @@ export {
   glows,
   opacity,
   activityTypeColors,
+  activityTypeInk,
+  activityTypeInkDark,
   zoneColors,
+  zoneColorsDark,
+  zoneTextColors,
+  zoneTextColorsDark,
   colorWithOpacity,
   insightCategoryColors,
   insightCategoryColor,
@@ -54,6 +59,7 @@ export {
   sectionPaletteIndex,
   sectionPaletteExpression,
 } from './colors';
+export { zoneColour, type ZoneColourRole } from './zoneColour';
 export { themePalette, themedStyles, type Palette } from './palette';
 export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';

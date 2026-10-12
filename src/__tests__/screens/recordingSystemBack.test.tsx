@@ -22,11 +22,6 @@ let mockUploading = false;
 
 jest.unmock('expo-router');
 jest.unmock('expo-router/react-navigation');
-// The router test library swaps reanimated for its mock, which has no useReducedMotion.
-jest.mock('react-native-reanimated/mock', () => ({
-  ...jest.requireActual('react-native-reanimated/mock'),
-  useReducedMotion: () => false,
-}));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,

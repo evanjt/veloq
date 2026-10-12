@@ -13,7 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
-import { getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, mapLayerColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
@@ -52,6 +52,7 @@ export function RoutePerformanceSection({
   } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
+  const activityInk = getActivityInk(activityType, isDark);
   const [trendDisplay, setTrendDisplay] = useState({ visible: false, reverse: false });
   const onTrendChange = useCallback((visible: boolean, direction: 'forward' | 'reverse') => {
     setTrendDisplay((current) =>
@@ -128,8 +129,8 @@ export function RoutePerformanceSection({
         style={pressable(styles.header)}
         android_ripple={pressRipple}
       >
-        <View style={[styles.iconBadge, { borderColor: activityColor }]}>
-          <MaterialCommunityIcons name="map-marker-path" size={12} color={activityColor} />
+        <View style={[styles.iconBadge, { borderColor: activityInk }]}>
+          <MaterialCommunityIcons name="map-marker-path" size={12} color={activityInk} />
         </View>
         <View style={styles.headerInfo}>
           <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>

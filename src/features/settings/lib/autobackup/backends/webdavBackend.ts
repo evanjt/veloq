@@ -7,7 +7,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import type { BackupBackend, BackupEntry } from './types';
+import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import {
   getWebdavConfig,
   webdavConfigProblem,
@@ -205,8 +205,8 @@ export const webdavBackend: BackupBackend = {
         if (!metaUrl) continue;
         const metaRes = await fetchWithDeadline(metaUrl, { headers }, NET_DEADLINE_MS.transfer);
         if (!metaRes.ok) continue;
-        const meta = (await metaRes.json()) as BackupEntry;
-        entries.push(meta);
+        const meta = backupEntryFromSidecar(await metaRes.json());
+        if (meta) entries.push(meta);
       } catch {
         // Skip corrupt metadata
       }
@@ -285,13 +285,21 @@ export const webdavBackend: BackupBackend = {
   },
 };
 
-/** Extract href values from a PROPFIND XML response. */
+/**
+ * Extract href values from a PROPFIND XML response. The server picks the
+ * prefix it binds DAV: to, so any prefix matches. An href that does not
+ * decode is skipped rather than failing the whole listing.
+ */
 function extractHrefs(xml: string): string[] {
   const hrefs: string[] = [];
-  const regex = /<(?:d:|D:)?href>([^<]+)<\/(?:d:|D:)?href>/gi;
+  const regex = /<(?:[\w.-]+:)?href\b[^>]*>([^<]+)<\/(?:[\w.-]+:)?href>/gi;
   let match;
   while ((match = regex.exec(xml)) !== null) {
-    hrefs.push(decodeURIComponent(match[1]));
+    try {
+      hrefs.push(decodeURIComponent(match[1]));
+    } catch {
+      // Malformed percent-encoding names no file this app wrote.
+    }
   }
   return hrefs;
 }

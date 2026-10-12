@@ -432,3 +432,191 @@ fn a_write_refused_for_another_reason_is_dropped() {
     assert!(landed.recv_timeout(Duration::from_millis(300)).is_err());
     assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
 }
+
+/// Tracks long enough that writing the archive takes far longer than the
+/// suspension takes to land, so the export is mid-run when it does.
+const EXPORT_TRACKS: usize = 200;
+const EXPORT_TRACK_POINTS: usize = 2_000;
+
+fn export_track(seed: usize) -> Vec<crate::GpsPoint> {
+    (0..EXPORT_TRACK_POINTS)
+        .map(|i| {
+            crate::GpsPoint::new(
+                46.0 + seed as f64 * 0.001 + i as f64 * 0.000_01,
+                7.0 + (i as f64 * 0.37).sin() * 0.001,
+            )
+        })
+        .collect()
+}
+
+/// Every entry of an archive, by name.
+fn archive_entries(path: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
+    use std::io::Read;
+    let mut archive = zip::ZipArchive::new(std::fs::File::open(path).unwrap()).unwrap();
+    (0..archive.len())
+        .map(|i| {
+            let mut entry = archive.by_index(i).unwrap();
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).unwrap();
+            (entry.name().to_string(), bytes)
+        })
+        .collect()
+}
+
+/// Whether some connection holds a read mark on the write-ahead log, asked
+/// without waiting so a held mark answers busy rather than being waited out.
+fn a_reader_holds_the_log(path: &Path) -> bool {
+    let probe = Connection::open(path).expect("a probing connection");
+    probe.busy_timeout(Duration::ZERO).expect("busy timeout");
+    let busy: i64 = probe
+        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))
+        .expect("checkpoint");
+    busy != 0
+}
+
+fn wait_for_visited(
+    progress: &crate::persistence::export::BulkExportProgress,
+    at_least: u32,
+) -> u32 {
+    let give_up = Instant::now() + CEILING;
+    loop {
+        let (visited, _) = progress.read();
+        if visited >= at_least {
+            return visited;
+        }
+        assert!(
+            Instant::now() < give_up,
+            "the export never reached {at_least}"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+
+#[test]
+fn suspension_pauses_a_bulk_export_with_no_read_left_open() {
+    use crate::persistence::export::BulkExportFormat;
+
+    let _guard = serial_global_state();
+    // The library is an engine of the test's own. The resume conditions the
+    // process-wide engine, which is left empty so no detection run follows.
+    let _global = init_global_engine("suspension-export-global.db");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let path = tmp.path().join("suspension-export.db");
+    let mut engine = crate::PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    for i in 0..EXPORT_TRACKS {
+        engine
+            .add_activity(format!("trail-{i:03}"), export_track(i), "Hike".into())
+            .unwrap();
+    }
+    // Leave a frame in the log, so the export reads through it and holds a
+    // mark there for as long as its read lasts.
+    assert!(
+        !a_reader_holds_the_log(&path),
+        "test premise: no reader yet"
+    );
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch("CREATE TABLE log_frame (id INTEGER)")
+        .unwrap();
+
+    let interrupted = tmp.path().join("interrupted.zip");
+    let handle =
+        engine.bulk_export_background(BulkExportFormat::Gpx, interrupted.to_str().unwrap());
+    let progress = handle.progress_handle();
+    wait_for_visited(&progress, 20);
+
+    entered_background();
+    assert!(
+        prepare_for_suspension(Duration::from_secs(5)),
+        "the export lets go of its read for the suspension"
+    );
+    assert!(
+        !a_reader_holds_the_log(&path),
+        "no read is left open on the library while suspended"
+    );
+    let (paused_at, _) = progress.read();
+    assert!(
+        (paused_at as usize) < EXPORT_TRACKS,
+        "test premise: the export is mid-run when suspended, at {paused_at}"
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(
+        progress.read().0,
+        paused_at,
+        "the export does not go on while suspended"
+    );
+
+    resume_after_suspension();
+    let result = handle
+        .recv_blocking()
+        .expect("the export answers")
+        .expect("the export completes");
+    assert_eq!(progress.read().0 as usize, EXPORT_TRACKS);
+    assert_eq!(result.exported as usize, EXPORT_TRACKS);
+
+    let whole = tmp.path().join("whole.zip");
+    engine
+        .bulk_export_gpx(whole.to_str().unwrap())
+        .expect("an uninterrupted export");
+    assert_eq!(
+        archive_entries(&interrupted),
+        archive_entries(&whole),
+        "the paused export writes the archive an uninterrupted one does"
+    );
+}
+
+#[test]
+fn suspension_waits_for_a_read_in_flight_and_holds_back_the_next() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("suspension-read.db");
+    entered_background();
+
+    let (inside_tx, inside_rx) = mpsc::channel();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let (second_tx, second_rx) = mpsc::channel();
+    let reader = crate::threads::spawn_named("veloq-test-read", move || {
+        let first = super::begin_read().expect("the engine is not suspended yet");
+        inside_tx.send(()).unwrap();
+        go_rx.recv().unwrap();
+        drop(first);
+        // An engine thread asking again while suspended waits for the resume.
+        let second = super::begin_read();
+        second_tx.send(second.is_some()).unwrap();
+    });
+    inside_rx.recv_timeout(CEILING).unwrap();
+
+    let (quiet_tx, quiet_rx) = mpsc::channel();
+    std::thread::spawn(move || quiet_tx.send(prepare_for_suspension(CEILING)).unwrap());
+    wait_until_suspended();
+    assert!(
+        quiet_rx.recv_timeout(Duration::from_millis(200)).is_err(),
+        "the suspension waits while a read is in flight"
+    );
+    go_tx.send(()).unwrap();
+    assert_eq!(quiet_rx.recv_timeout(CEILING), Ok(true));
+    assert!(
+        second_rx.recv_timeout(Duration::from_millis(200)).is_err(),
+        "a read asked for while suspended does not start"
+    );
+
+    resume_after_suspension();
+    assert_eq!(second_rx.recv_timeout(CEILING), Ok(true));
+    reader.join().unwrap();
+}
+
+#[test]
+fn a_read_from_a_caller_while_suspended_is_refused() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("suspension-read-refuse.db");
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+
+    let refused = std::thread::spawn(|| super::begin_read().is_none())
+        .join()
+        .unwrap();
+    assert!(
+        refused,
+        "a caller's thread is never parked on the suspension"
+    );
+    resume_after_suspension();
+}

@@ -2,7 +2,8 @@
 <!-- Insights widget one row tall: the first insight's tone mark and title, the title shrunk to the
      row rather than cut short, since a row has no room for the subtitle or the age line. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/ins_root"
+  android:id="@android:id/background"
+  android:clipToOutline="true"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="horizontal"

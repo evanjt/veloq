@@ -69,6 +69,7 @@ export const WIDGET_STRING_KEYS = [
   'recording.startActivity',
   'systemSurfaces.refresh',
   'systemSurfaces.refreshing',
+  'systemSurfaces.openToRefresh',
   'metrics.eftp',
   'metrics.pace',
   'metrics.css',

@@ -1,6 +1,5 @@
 {
   "about": {
-    "description": "Un cliente móvil rápido y offline-first para intervals.icu con enfoque en mapas y analítica visual.",
     "intervalsTerms": "Términos del servicio de intervals.icu",
     "mapAttribution": "Teselas de mapa proporcionadas por OpenStreetMap, swisstopo, IGN, USGS, EOX. Datos del mapa copyright contribuidores de OpenStreetMap.",
     "mapData": "Datos del mapa",

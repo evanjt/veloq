@@ -59,7 +59,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       processedData.map((zone) => ({
         key: zone.zone,
         label: `Z${zone.zone}`,
-        colour: zone.color,
+        zone: zone.zone,
         percent: zone.percentage,
         primary: formatDurationHuman(zone.seconds),
         secondary: zone.name,

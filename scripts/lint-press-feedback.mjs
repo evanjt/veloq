@@ -101,6 +101,17 @@ function saysWhatAPressLooksLike(node) {
   return false;
 }
 
+/** An icon glyph, `MaterialCommunityIcons` or `ChevronIcon`, named directly rather than as a member. */
+function isIcon(node) {
+  return ts.isIdentifier(node.tagName) && /Icons?$/.test(node.tagName.text);
+}
+
+function takesPress(node) {
+  return node.attributes.properties.some(
+    (prop) => ts.isJsxAttribute(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'onPress'
+  );
+}
+
 /** `Animated.createAnimatedComponent(Pressable)`, or the bare imported name. */
 function wrapsPressable(node) {
   if (!ts.isCallExpression(node)) return false;
@@ -118,6 +129,7 @@ function wrapsPressable(node) {
 const failures = [];
 const touchableFailures = [];
 const wrapperFailures = [];
+const iconFailures = [];
 const touchableNames = new Set([
   'TouchableOpacity',
   'TouchableHighlight',
@@ -132,6 +144,7 @@ for (const file of walk(SRC)) {
     !source.includes('<Pressable') &&
     !source.includes('AnimatedPressable') &&
     !source.includes('createAnimatedComponent') &&
+    !source.includes('onPress') &&
     ![...touchableNames].some((name) => source.includes(`<${name}`))
   )
     continue;
@@ -165,6 +178,14 @@ for (const file of walk(SRC)) {
         `${relative(ROOT, file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
       );
     }
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      isIcon(node) &&
+      takesPress(node) &&
+      !declaredSilent(sf, node)
+    ) {
+      iconFailures.push(at(node));
+    }
     ts.forEachChild(node, visit);
   };
   visit(sf);
@@ -194,9 +215,21 @@ if (wrapperFailures.length > 0) {
   for (const f of wrapperFailures) console.error(`  ${f}`);
 }
 
-if (failures.length > 0 || touchableFailures.length > 0 || wrapperFailures.length > 0)
+if (iconFailures.length > 0) {
+  console.error(
+    `Icons that take a press themselves: ${iconFailures.length}. A glyph shows nothing when pressed; render IconButton from '@/shared/ui' instead.`
+  );
+  for (const f of iconFailures) console.error(`  ${f}`);
+}
+
+if (
+  failures.length > 0 ||
+  touchableFailures.length > 0 ||
+  wrapperFailures.length > 0 ||
+  iconFailures.length > 0
+)
   process.exit(1);
 
 console.log(
-  'Press feedback guard: Pressable tags set feedback; no Touchable tags or press wrappers render.'
+  'Press feedback guard: Pressable tags set feedback; no Touchable tags, press wrappers or pressed icons render.'
 );

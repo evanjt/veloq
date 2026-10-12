@@ -13,12 +13,16 @@ enum LastActivitySize {
 }
 
 /// The form change an activity made, as the engine worded it, with the zone each side sits in.
+/// The zones are named in words as well as coloured: the after zone always, the before zone only
+/// when the activity moved form out of it.
 struct LastActivityForm {
   let label: String
   let before: String
   let after: String
   let beforeZone: String?
   let afterZone: String?
+  let beforeZoneText: String?
+  let afterZoneText: String?
 }
 
 /// One attempt dot: an earlier attempt, the record, or the latest (which may be the record too).
@@ -99,9 +103,13 @@ enum LastActivityWidgetModel {
     guard let impact = snapshot.impact,
       let before = impact.formBeforeText, let after = impact.formAfterText
     else { return nil }
+    let afterZoneText = nonEmpty(impact.formAfterZoneText)
     return LastActivityForm(
       label: snapshot.display.metricLabels.form, before: before, after: after,
-      beforeZone: impact.formBeforeZone, afterZone: impact.formAfterZone)
+      beforeZone: impact.formBeforeZone, afterZone: impact.formAfterZone,
+      beforeZoneText: afterZoneText != nil && impact.formBeforeZone != impact.formAfterZone
+        ? nonEmpty(impact.formBeforeZoneText) : nil,
+      afterZoneText: afterZoneText)
   }
 
   private static func nonEmpty(_ text: String?) -> String? {

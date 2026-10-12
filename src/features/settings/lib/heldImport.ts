@@ -24,6 +24,7 @@ import {
   restoreRecordBackup,
 } from './backup';
 import { inform } from '@/shared/ui/dialog';
+import { showRestoreNotice } from './restoreNotice';
 
 const log = debug.create('HeldImport');
 
@@ -44,7 +45,11 @@ async function exists(uri: string): Promise<boolean> {
   return info.exists;
 }
 
-async function discardHeld(): Promise<void> {
+/**
+ * Delete the held import, if any. Demo entry and the library wipe call it too,
+ * since a held backup restores into whoever signs in next.
+ */
+export async function discardHeldImport(): Promise<void> {
   for (const name of [HELD_LEGACY_JSON, HELD_RECORD_ZIP]) {
     const uri = heldUri(name);
     if (uri) await FileSystem.deleteAsync(uri, { idempotent: true });
@@ -88,7 +93,7 @@ export async function holdImportWhileSignedOut(
       encoding: FileSystem.EncodingType.UTF8,
     });
     convertLegacyBackupToRecord(json);
-    await discardHeld();
+    await discardHeldImport();
     await FileSystem.writeAsStringAsync(jsonUri, json, { encoding: FileSystem.EncodingType.UTF8 });
     return true;
   }
@@ -101,7 +106,7 @@ export async function holdImportWhileSignedOut(
     } else {
       await convertLegacyDatabaseFile(fileUri, recordUri);
     }
-    await discardHeld();
+    await discardHeldImport();
     await FileSystem.moveAsync({ from: recordUri, to: zipUri });
   } finally {
     await FileSystem.deleteAsync(recordUri, { idempotent: true }).catch(() => {});
@@ -138,7 +143,7 @@ async function applyHeld(t: TFunction): Promise<boolean> {
     // file has had its one restore.
     const message = error instanceof Error ? error.message : '';
     log.warn('Held import not restored:', message);
-    await discardHeld().catch(() => {});
+    await discardHeldImport().catch(() => {});
     markPlatformRecordAnswered();
     inform({
       title: t('backup.notRestoredTitle'),
@@ -149,11 +154,11 @@ async function applyHeld(t: TFunction): Promise<boolean> {
     return true;
   }
   if (unplaced === null) return false;
-  await discardHeld().catch((error) => log.warn('Held import not deleted:', error));
+  await discardHeldImport().catch((error) => log.warn('Held import not deleted:', error));
   // The athlete chose this backup, which answers the one restore a first
   // signed-in launch offers.
   markPlatformRecordAnswered();
-  inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
+  showRestoreNotice('restored', t);
   return true;
 }
 

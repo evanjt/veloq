@@ -5,7 +5,7 @@
  */
 
 import { colors, darkColors, zoneColors, colorWithOpacity } from '@/theme/colors';
-import { hrZoneTextColor } from '@/features/recording/lib/hrZoneTextColor';
+import { zoneColour } from '@/theme/zoneColour';
 
 function rgb(value: string): [number, number, number] {
   const rgba = value.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/);
@@ -35,20 +35,20 @@ function ratio(a: [number, number, number], b: [number, number, number]): number
 
 const FILLS = Object.values(zoneColors);
 
-describe('hrZoneTextColor', () => {
+describe('zone text tones', () => {
   it.each([
     ['light', false, colors.background, 0.18],
     ['dark', true, darkColors.background, 0.28],
   ])('clears 4.5:1 on every zone tint in %s mode', (_name, isDark, ground, alpha) => {
     FILLS.forEach((fill, i) => {
       const tint = over(colorWithOpacity(fill, alpha as number), ground as string);
-      const tone = rgb(hrZoneTextColor(i + 1, isDark as boolean));
+      const tone = rgb(zoneColour(i + 1, isDark as boolean, 'text'));
       expect(ratio(tone, tint)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
   it('clamps a zone outside the ramp to its ends', () => {
-    expect(hrZoneTextColor(0, false)).toBe(hrZoneTextColor(1, false));
-    expect(hrZoneTextColor(9, true)).toBe(hrZoneTextColor(7, true));
+    expect(zoneColour(0, false, 'text')).toBe(zoneColour(1, false, 'text'));
+    expect(zoneColour(9, true, 'text')).toBe(zoneColour(7, true, 'text'));
   });
 });

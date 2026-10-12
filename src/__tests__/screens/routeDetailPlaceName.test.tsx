@@ -24,6 +24,7 @@ jest.mock('veloqrs', () =>
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
   Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'r_9' }),
   router: { back: jest.fn() },
@@ -65,7 +66,8 @@ jest.mock('@/shared/ui', () => {
     HeroStatsRow: () => null,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     useHeroMapHeight: () => 300,
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
   };
 });
 

@@ -52,6 +52,7 @@ import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions
 import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { removeSectionWithUndo, restoreSection } from '@/features/routes/lib/sectionVisibility';
 import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 
 const log = debug.create('SectionsList');
@@ -370,7 +371,7 @@ export const SectionsList = memo(function SectionsList({
     confirmAction({
       title: t('sections.acceptAllSections'),
       message: t('sections.acceptAllConfirm', { count: unacceptedAutoCount }),
-      confirmLabel: t('common.confirm'),
+      confirmLabel: t('sections.acceptAllSections'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
         // A failure is said as one, never as a count of none accepted.
@@ -484,23 +485,16 @@ export const SectionsList = memo(function SectionsList({
     openSwipeableRef.current = id;
   }, []);
 
-  // Handle remove/restore action for auto sections
+  // Remove or restore an auto section. Removal keeps it, so it runs at once with Undo.
   const handleToggleHide = useCallback(
     (item: FrequentSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
       if (item.disabled || item.supersededBy) {
-        getEngine()?.enableSection(item.id);
+        restoreSection(item.id, t);
       } else {
-        confirmAction({
-          title: t('sections.removeSection'),
-          message: t('sections.removeSectionConfirm'),
-          confirmLabel: t('common.remove'),
-          cancelLabel: t('common.cancel'),
-          destructive: true,
-          onConfirm: () => getEngine()?.disableSection(item.id),
-        });
+        removeSectionWithUndo(item.id, t);
       }
     },
     [t]

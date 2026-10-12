@@ -42,6 +42,16 @@ pub fn is_local_activity_key(activity_id: &str) -> bool {
     activity_id.starts_with(LOCAL_KEY_PREFIX)
 }
 
+/// The prefix the seeded demo corpora give their activity keys.
+pub const DEMO_KEY_PREFIX: &str = "demo-";
+
+/// Whether intervals.icu can know an activity by this key. A device-minted
+/// key and a seeded demo key name nothing upstream, so asking for either
+/// spends a request to learn nothing.
+pub fn names_upstream_activity(activity_id: &str) -> bool {
+    !is_local_activity_key(activity_id) && !activity_id.starts_with(DEMO_KEY_PREFIX)
+}
+
 /// A key for a ride the device recorded and no server has named.
 ///
 /// `activities.id` holds both these and intervals.icu's own ids, so the two

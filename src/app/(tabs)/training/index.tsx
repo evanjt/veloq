@@ -8,7 +8,6 @@ import {
   ScreenScrollView,
   CardHeader,
   ErrorState,
-  useTabBarClearance,
   Shimmer,
   IconButton,
   ToggleButton,
@@ -28,7 +27,7 @@ import { getSmoothingDescription, type SmoothingWindow } from '@/shared/math/smo
 import { logScreenRender } from '@/shared/debug/renderTimer';
 
 import { queryKeys } from '@/shared/query/queryKeys';
-import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
+import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -53,9 +52,8 @@ function HealthScreenContent() {
   const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { notice, requestRefresh } = useSyncRefreshNotice();
+  const { requestRefresh } = useSyncRefreshNotice();
   const { isDark, colors: themeColors } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
@@ -170,10 +168,7 @@ function HealthScreenContent() {
         ref={scrollRef}
         onScrollBeginDrag={onScrollBeginDrag}
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: layout.screenPadding + tabBarClearance },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: layout.screenPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -276,7 +271,6 @@ function HealthScreenContent() {
           </View>
         )}
       </ScreenScrollView>
-      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

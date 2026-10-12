@@ -1318,7 +1318,7 @@ describe('banner-live-region', () => {
     'src/features/auth/components/SessionExpiredNotice.tsx',
     'src/features/settings/components/BackupSection.tsx',
     'src/features/settings/components/WebdavConfigForm.tsx',
-    'src/features/settings/components/RecordingPermissionSection.tsx',
+    'src/features/recording/components/UploadPermissionNotice.tsx',
     'src/shared/ui/EmptyState.tsx',
     'src/shared/ui/ErrorState.tsx',
     'src/shared/ui/BodyNotDownloaded.tsx',
@@ -1462,6 +1462,68 @@ describe('selected-state-accessibility', () => {
     const root = fixture({ [CHIP[0]]: ok });
 
     expect(runRule('selected-state-accessibility', root).status).toBe(1);
+  });
+});
+
+describe('invert-colors-opt-out', () => {
+  const EXEMPT = 'src/features/maps/components/TerrainSnapshotWebView.tsx';
+  const worker = '<View style={hidden}><WebView source={{ html }} /></View>\n';
+
+  it('fails a map WebView and a URI image with no opt-out, naming each line', () => {
+    const root = fixture({
+      [EXEMPT]: worker,
+      'src/features/garden/Plot.tsx':
+        '<View style={a}>\n  <WebView source={{ html }} />\n</View>\n',
+      'src/features/garden/Gardener.tsx': '<Image source={{ uri: photoUrl }} style={a} />\n',
+    });
+
+    const { status, output } = runRule('invert-colors-opt-out', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/garden/Plot.tsx:2');
+    expect(output).toContain('src/features/garden/Gardener.tsx:1');
+  });
+
+  it('passes an opt-out on the element or on a container around it', () => {
+    const root = fixture({
+      [EXEMPT]: worker,
+      'src/features/garden/Plot.tsx':
+        '<View accessibilityIgnoresInvertColors>\n  <Inner>\n    <WebView source={{ html }} />\n  </Inner>\n</View>\n',
+      'src/features/garden/Gardener.tsx':
+        '<Image accessibilityIgnoresInvertColors source={{ uri: photoUrl }} />\n',
+    });
+
+    expect(runRule('invert-colors-opt-out', root).status).toBe(0);
+  });
+
+  it('passes a bundled image, which is drawn art rather than a photo', () => {
+    const root = fixture({
+      [EXEMPT]: worker,
+      'src/features/garden/Badge.tsx': "<Image source={require('./badge.png')} />\n",
+    });
+
+    expect(runRule('invert-colors-opt-out', root).status).toBe(0);
+  });
+
+  it('does not count an opt-out on a sibling', () => {
+    const root = fixture({
+      [EXEMPT]: worker,
+      'src/features/garden/Plot.tsx':
+        '<View>\n  <View accessibilityIgnoresInvertColors />\n  <WebView source={{ html }} />\n</View>\n',
+    });
+
+    expect(runRule('invert-colors-opt-out', root).status).toBe(1);
+  });
+
+  it('fails when the exempt snapshot worker is gone, so the exemption cannot outlive it', () => {
+    const root = fixture({
+      'src/features/garden/Plot.tsx': '<View accessibilityIgnoresInvertColors />\n',
+    });
+
+    const { status, output } = runRule('invert-colors-opt-out', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain(EXEMPT);
   });
 });
 

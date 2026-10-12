@@ -417,6 +417,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // The engine usually does not exist yet on first entry; the layout init
     // effect seeds again once it does.
     seedDemoEngine();
+    // Demo launches skip the held import, so it would wait through the demo
+    // and restore into whichever athlete signs in after it.
+    const { discardHeldImport } = require('@/features/settings/lib/heldImport');
+    discardHeldImport().catch(() => {});
   },
 
   exitDemoMode: async () => {

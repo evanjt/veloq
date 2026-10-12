@@ -61,11 +61,22 @@ object SummaryWidgetChoice {
     editor.apply()
   }
 
-  private fun heroKey(widgetId: Int) = "hero_$widgetId"
+  /** A restored widget keeps its placement under its new id. */
+  fun remap(context: Context, oldIds: IntArray, newIds: IntArray) {
+    WidgetIdRemap.rewrite(prefs(context), listOf(HERO, SPARKLINE, SUPPORTING), oldIds, newIds)
+  }
 
-  private fun sparklineKey(widgetId: Int) = "sparkline_$widgetId"
+  private const val HERO = "hero_"
 
-  private fun supportingKey(widgetId: Int) = "supporting_$widgetId"
+  private const val SPARKLINE = "sparkline_"
+
+  private const val SUPPORTING = "supporting_"
+
+  private fun heroKey(widgetId: Int) = "$HERO$widgetId"
+
+  private fun sparklineKey(widgetId: Int) = "$SPARKLINE$widgetId"
+
+  private fun supportingKey(widgetId: Int) = "$SUPPORTING$widgetId"
 
   private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

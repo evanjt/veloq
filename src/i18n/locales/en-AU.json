@@ -39,7 +39,6 @@
     "signInRequired": "Sign in first, then import the backup.",
     "heldUntilSignIn": "This backup gets restored once you sign in.",
     "importError": "Couldn't import the backup.",
-    "restoreComplete": "All restored, legend",
     "lastBackupNever": "No backup made yet",
     "carrierDeviceDescription": "Your device backup looks after this. Nothing to set up here.",
     "carrierFolderNone": "No folder picked yet",
@@ -72,7 +71,8 @@
     "invalidQrCode": "That's not a Nextcloud QR code",
     "cameraPermissionNeeded": "Needs camera access to scan QR codes",
     "fillAllFields": "Fill in all the fields, please",
-    "webdavInvalidUrl": "That's not a valid server address"
+    "webdavInvalidUrl": "That's not a valid server address",
+    "webdavSaveFailed": "Couldn't save the server details on this device"
   },
   "bestEffortsScreen": {
     "climbingOwed": "Climbing bests are still being worked out."
@@ -144,7 +144,7 @@
   "errorState": {
     "defaultTitle": "Strewth, something went wrong",
     "unableToLoad": "Couldn't load {{componentName}}",
-    "closeAndReopen": "Close the app and open it again to keep going.",
+    "libraryUnaffected": "Your activities on this device are all good.",
     "restartHint": "Have another go, or restart the app",
     "unableToDisplayChart": "Can't show this chart"
   },
@@ -214,6 +214,7 @@
     "gpsAcquiring": "Hunting for GPS…",
     "gpsAlertMessage": "Can't get a GPS fix. Head somewhere with a clear view of the sky.",
     "gpsTrackingError": "Couldn't start GPS tracking. Try pausing and resuming.",
+    "backupFailing": "Couldn't back up the recording. Free up storage so a crash can't lose it.",
     "gpsWaiting": "Waiting on a GPS signal. Head outdoors for a better fix.",
     "gpsWeakWarning": "GPS signal's weak, so the recording might be a bit off",
     "hrInvalid": "Pop in a valid heart rate (30-250).",
@@ -261,7 +262,6 @@
     "detectionPausedElevation": "Detection's paused while elevation comes down",
     "detectionHeldElevationWaiting_one": "Detection is waiting on elevation for {{count}} activity track. Veloq has another go when you're online.",
     "detectionHeldElevationWaiting_other": "Detection is waiting on elevation for {{count}} activity tracks. Veloq has another go when you're online.",
-    "removeSectionConfirm": "This section won't turn up in activity details or insights. You can bring it back from the sections list.",
     "noActivitiesFound": "No activities here yet",
     "sectionNotFound": "Can't find that section",
     "setReferenceError": "Couldn't set the reference. The section or activity may have changed. Have another go.",
@@ -314,7 +314,7 @@
     "cutoverFailed": "The section rebuild didn't finish. Your sections are unchanged and it has another go next launch.",
     "previewFailed": "The preview couldn't finish.",
     "runSlow": "This is taking a bit longer than usual. It's still going.",
-    "stillRunning": "Still going. You can leave this screen.",
+    "stillRunning": "Still going. Keep Veloq open until it finishes.",
     "previewSuspended": "Elevation update in progress. Try again in a tick.",
     "previewRefusedBusy": "A preview's already running.",
     "previewRefusedFailed": "The preview couldn't get going.",

@@ -35,6 +35,7 @@ import { pressable, pressRipple } from '@/shared/ui';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
 import { pageAccessibility } from './pagerAccessibility';
+import { isReduceMotionOn } from './reduceMotion';
 import { composeAccessibilityLabel } from './accessibilityLabel';
 
 // Gesture thresholds
@@ -245,7 +246,7 @@ export function SwipeableTabs({
       screenWidth,
       contentWidth + spacing.md * 2
     );
-    scrollRef.current?.scrollTo({ x, animated: true });
+    scrollRef.current?.scrollTo({ x, animated: !isReduceMotionOn() });
   }, [scrolls, activeTab, getTabIndex, tabOffsets, tabWidths, contentWidth, screenWidth]);
 
   // Memoize pan gesture to prevent recreation on every render

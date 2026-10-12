@@ -4,7 +4,9 @@
  * review is a stack screen where the tab bar does not draw.
  *
  * Expected behaviour: rendered on iOS under a bottom safe area, the scroll view lets the system
- * inset its content and adds no bottom padding of its own.
+ * inset its content and adds no bottom padding of its own. Android insets no scroll view and the
+ * app draws edge to edge, so there the scroll view pads its end by the navigation bar, and the
+ * hold-to-discard at the end of the form scrolls clear of it.
  */
 
 import React from 'react';
@@ -26,9 +28,10 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
+let mockBottomInset = 34;
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
-  useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
+  useSafeAreaInsets: () => ({ top: 47, bottom: mockBottomInset, left: 0, right: 0 }),
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -55,6 +58,12 @@ jest.mock('@/features/recording/hooks/useReviewSave', () => ({
   }),
 }));
 
+const platform = Platform.OS;
+afterEach(() => {
+  Platform.OS = platform;
+  mockBottomInset = 34;
+});
+
 beforeEach(() => {
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   useRecordingStore.getState().reset();
@@ -75,6 +84,15 @@ describe('review screen scroll view', () => {
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(0);
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom ?? 0).toBe(0);
+  });
+
+  it('pads the end of the form by the navigation bar on Android', async () => {
+    Platform.OS = 'android';
+    mockBottomInset = 48;
+    const { UNSAFE_getAllByType } = await render(inStack(<ReviewScreen />));
+
+    const scroll = UNSAFE_getAllByType(ScrollView)[0];
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(48);
   });
 });

@@ -17,6 +17,7 @@
       "ramp": "Ramp",
       "rhr": "RHR"
     },
+    "openToRefreshLabel": "Open Veloq to refresh",
     "perWeekSuffix": "/wk",
     "recordLabel": "Start Activity",
     "refreshLabel": "Refresh",
@@ -85,9 +86,11 @@
     "formAfter": -6.0,
     "formAfterText": "-6",
     "formAfterZone": "greyZone",
+    "formAfterZoneText": "Grey Zone",
     "formBefore": -5.0,
     "formBeforeText": "-5",
     "formBeforeZone": "greyZone",
+    "formBeforeZoneText": "Grey Zone",
     "tssAdded": 88.0
   },
   "insights": [

@@ -7,6 +7,7 @@
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -52,6 +53,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Notice, 'showNotice');
   mockEngineState.ready = true;
   (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
     canceled: false,
@@ -190,11 +192,8 @@ describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
       );
       expect(restoreBackup).not.toHaveBeenCalled();
       expect(restoreDatabaseBackup).not.toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenLastCalledWith(
-        i18n.t('backup.importBackup'),
-        i18n.t('backup.heldUntilSignIn'),
-        undefined,
-        expect.objectContaining({ cancelable: true })
+      expect(Notice.showNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ message: i18n.t('backup.heldUntilSignIn') })
       );
       expect(Alert.alert).not.toHaveBeenCalledWith(
         i18n.t('backup.notRestoredTitle'),

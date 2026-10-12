@@ -120,6 +120,11 @@ pub const TREND_METRICS: &[TrendMetric] = &[
     },
 ];
 
+/// How far under a deadband a difference may land and still count as on it,
+/// which absorbs float subtraction error and is far below any reading's
+/// precision.
+const DEADBAND_TOLERANCE: f64 = 1e-9;
+
 /// The glyph a surface draws for a move of `current` against `baseline`, or
 /// `None` when there is nothing to compare with.
 ///
@@ -136,8 +141,10 @@ pub fn glyph(name: &str, current: Option<f64>, baseline: Option<f64>) -> Option<
     // quantities: that one takes a fraction of a baseline, this one takes the
     // metric's own units. The inclusive rule is what the summary card has
     // always drawn, and moving the boundary would silently retract arrows.
+    // The tolerance keeps that boundary when subtraction lands a hair under
+    // it, as 70.3 - 70.0 does, and a reading that did not change stays flat.
     let moved = current - baseline;
-    let direction = if moved.abs() < m.deadband {
+    let direction = if moved == 0.0 || moved.abs() < m.deadband - DEADBAND_TOLERANCE {
         0
     } else if moved > 0.0 {
         1
@@ -193,6 +200,35 @@ mod tests {
         let m = metric("weekSets").expect("weekSets is in the table");
         assert_eq!(m.polarity, Polarity::None);
         assert_eq!(m.deadband, 1.0);
+    }
+
+    #[test]
+    fn a_move_on_the_deadband_is_a_move_when_float_subtraction_lands_under_it() {
+        // 70.3 - 70.0 is 0.29999999999999716 in f64, and 80.4 - 80.1 is just over.
+        assert_eq!(
+            glyph("weight", Some(70.3), Some(70.0)).as_deref(),
+            Some("↑")
+        );
+        assert_eq!(
+            glyph("weight", Some(70.6), Some(70.3)).as_deref(),
+            Some("↑")
+        );
+        assert_eq!(
+            glyph("weight", Some(80.4), Some(80.1)).as_deref(),
+            Some("↑")
+        );
+        assert_eq!(
+            glyph("weight", Some(70.0), Some(70.3)).as_deref(),
+            Some("↓")
+        );
+        assert_eq!(
+            glyph("weight", Some(70.29), Some(70.0)).as_deref(),
+            Some("→")
+        );
+        assert_eq!(
+            glyph("weight", Some(70.0), Some(70.0)).as_deref(),
+            Some("→")
+        );
     }
 
     #[test]

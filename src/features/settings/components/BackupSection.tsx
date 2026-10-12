@@ -2,7 +2,15 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, ListSectionHeader, Row, StatusLine, SwitchRow } from '@/shared/ui';
+import {
+  Button,
+  Card,
+  ListSectionHeader,
+  ProgressRow,
+  Row,
+  StatusLine,
+  SwitchRow,
+} from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { SyncState, SyncStep } from 'veloqrs';
@@ -32,11 +40,17 @@ import {
   getBackupFolderName,
   forgetBackupFolder,
   getWebdavConfig,
+  icloudBackend,
+  icloudBackupState,
+  isIcloudBackupOn,
+  isIcloudSupported,
+  setIcloudBackupOn,
   type BackupDestination,
   type BackupFailure,
   type BackupRunResult,
   type BackupBackend,
   type BackupEntry,
+  type IcloudBackupState,
 } from '@/features/settings/lib/autobackup';
 import {
   discardRecordImport,
@@ -54,10 +68,11 @@ import {
 import { onBackupCarrierSignedIn } from '@/features/settings/lib/autobackup/autoBackup';
 import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
 import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { InfoButton } from './InfoButton';
 import { BulkExportProgress } from './BulkExportProgress';
+import { BULK_EXPORT_FORMAT_NAME } from '@/features/settings/lib/bulkExportFormat';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { WebdavConfigForm } from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
@@ -65,6 +80,7 @@ import { formatFileSize, getIntlLocale } from '@/shared/format/format';
 import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
 import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { showRestoreNotice } from '@/features/settings/lib/restoreNotice';
 
 /** The entries one carrier listed, restored through that carrier. */
 interface CarrierEntries {
@@ -80,6 +96,8 @@ function carrierName(t: TFunction, id: string): string {
       return t('backup.carrierFolder');
     case 'googleDrive':
       return t('backup.carrierGoogleDrive');
+    case 'icloud':
+      return t('backup.carrierIcloud');
     case 'local':
       return t('backup.carrierOlderOnDevice');
     default:
@@ -128,6 +146,7 @@ function describeBackupRun(
     ...(carriers?.googleDrive?.status === 'written'
       ? [t('backup.recordSavedGoogleDrive', { destination: destinations.googleDrive })]
       : []),
+    ...(carriers?.icloud?.status === 'written' ? [t('backup.recordSavedIcloud')] : []),
   ];
   const missed: BackupRunStatus['carriers'] = [];
   for (const [id, outcome] of Object.entries(carriers ?? {})) {
@@ -254,6 +273,9 @@ export function BackupSection() {
     driveSupported ? getGoogleDriveAccount() : null
   );
   const [signingInToDrive, setSigningInToDrive] = useState(false);
+  const icloudSupported = isIcloudSupported();
+  const [icloudOn, setIcloudOn] = useState(() => icloudSupported && isIcloudBackupOn());
+  const [icloudState, setIcloudState] = useState<IcloudBackupState | null>(null);
   // Moves when a sign-in clears a carrier's failure or pays a copy it was owed,
   // which no backup on this screen did.
   const [carrierGeneration, setCarrierGeneration] = useState(0);
@@ -300,9 +322,10 @@ export function BackupSection() {
         webdav: webdavSet ? getDestinationLastBackup('webdav') : null,
         folder: folderName ? getDestinationLastBackup('folder') : null,
         googleDrive: driveAccount ? getDestinationLastBackup('googleDrive') : null,
-      })) ?? { device: null, webdav: null, folder: null, googleDrive: null },
+        icloud: icloudOn ? getDestinationLastBackup('icloud') : null,
+      })) ?? { device: null, webdav: null, folder: null, googleDrive: null, icloud: null },
     // A carrier set up or removed changes which stamp applies.
-    [readBackupState, webdavSet, folderName, driveAccount]
+    [readBackupState, webdavSet, folderName, driveAccount, icloudOn]
   );
   // A failure the user has to act on survives leaving the screen, so an
   // unattended backup that was rejected is not invisible.
@@ -321,6 +344,19 @@ export function BackupSection() {
       active = false;
     };
   }, [driveSupported]);
+  // Whether iCloud can be written to is the phone's to say, and is read again
+  // whenever the athlete turns the destination back on.
+  useEffect(() => {
+    let active = true;
+    if (icloudSupported) {
+      icloudBackupState().then((state) => {
+        if (active) setIcloudState(state);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [icloudSupported, icloudOn]);
   useEffect(() => {
     let active = true;
     getUnplacedBackupRecords()
@@ -387,13 +423,18 @@ export function BackupSection() {
         ...(webdavSet ? [webdavBackend] : []),
         ...(folderName ? [folderBackend] : []),
         ...(driveAccount ? [googleDriveBackend] : []),
+        ...(icloudSupported ? [icloudBackend] : []),
         localBackend,
       ];
       const groups: CarrierEntries[] = [];
       let firstError: unknown = null;
       for (const backend of candidates) {
+        // iCloud is listed even while turned off, since the backups an earlier
+        // install wrote are still there, and only a destination that is on
+        // reports that it cannot be reached.
+        const listedWhenOff = backend.id === icloudBackend.id;
         try {
-          if (!(await backend.isAvailable())) {
+          if (!listedWhenOff && !(await backend.isAvailable())) {
             if (backend.id !== 'local') throw new Error(t('backup.destinationUnavailable'));
             continue;
           }
@@ -401,7 +442,7 @@ export function BackupSection() {
           // Older backups on this device are listed only when there are any.
           if (entries.length > 0 || backend.id !== 'local') groups.push({ backend, entries });
         } catch (error) {
-          firstError ??= error;
+          if (!listedWhenOff || icloudOn) firstError ??= error;
         }
       }
       setBackendBackups(groups);
@@ -411,7 +452,7 @@ export function BackupSection() {
     } finally {
       setLoadingBackups(false);
     }
-  }, [webdavSet, folderName, driveAccount, describeBackupError, t]);
+  }, [webdavSet, folderName, driveAccount, icloudSupported, icloudOn, describeBackupError, t]);
 
   const handleRestoreEntry = useCallback(
     async (backend: BackupBackend, entry: BackupEntry) => {
@@ -428,8 +469,7 @@ export function BackupSection() {
       }
       setRestoringEntry(entry.id);
       try {
-        const notice = await restoreBackendEntry(backend, entry, t);
-        inform({ title: notice.title, message: notice.message });
+        showRestoreNotice(await restoreBackendEntry(backend, entry, t), t);
         setBackendBackups(null);
       } catch (error) {
         inform({
@@ -454,7 +494,7 @@ export function BackupSection() {
     try {
       const result = await resumeRecordImport();
       if (result) {
-        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
+        showRestoreNotice('restored', t);
       }
     } catch {
       inform({ title: t('backup.notRestoredTitle'), message: t('backup.importPausedError') });
@@ -563,6 +603,13 @@ export function BackupSection() {
   const handleGoogleDriveSignOut = useCallback(() => {
     forgetGoogleDrive().catch(() => {});
     setDriveAccount(null);
+    setBackendBackups(null);
+  }, []);
+
+  // Turning iCloud off leaves its backups where they are.
+  const handleToggleIcloud = useCallback((value: boolean) => {
+    setIcloudBackupOn(value);
+    setIcloudOn(value);
     setBackendBackups(null);
   }, []);
 
@@ -748,6 +795,7 @@ export function BackupSection() {
           onPress={handleImportBackup}
           accessibilityLabel={dbImporting ? t('backup.importing') : t('backup.importBackup')}
           disabled={dbImporting}
+          busy={dbImporting}
         >
           <MaterialCommunityIcons name="database-import-outline" size={22} color={iconColor} />
           <Text style={labelStyle}>
@@ -791,29 +839,16 @@ export function BackupSection() {
             {divider}
             <Row testID="backup-restore-fetch">
               <MaterialCommunityIcons name="download-outline" size={22} color={iconColor} />
-              <View style={styles.fill}>
-                <Text style={labelStyle}>{t('backup.unplacedActivityPending')}</Text>
-                {fetchTotal > 0 && (
-                  <>
-                    <View
-                      testID="backup-restore-fetch-progress"
-                      accessibilityRole="progressbar"
-                      accessibilityValue={{ min: 0, max: fetchTotal, now: fetchDone }}
-                      style={[styles.fetchTrack, isDark && styles.fetchTrackDark]}
-                    >
-                      <View
-                        style={[
-                          styles.fetchFill,
-                          { width: `${Math.round((fetchDone / fetchTotal) * 100)}%` },
-                        ]}
-                      />
-                    </View>
-                    <Text testID="backup-restore-fetch-counts" style={detailStyle}>
-                      {`${fetchDone}/${fetchTotal}`}
-                    </Text>
-                  </>
-                )}
-              </View>
+              <ProgressRow
+                label={t('backup.unplacedActivityPending')}
+                done={fetchDone}
+                total={fetchTotal}
+                counts={`${fetchDone}/${fetchTotal}`}
+                countsTestID="backup-restore-fetch-counts"
+                barTestID="backup-restore-fetch-progress"
+                labelStyle={labelStyle}
+                detailStyle={detailStyle}
+              />
             </Row>
           </>
         )}
@@ -877,6 +912,39 @@ export function BackupSection() {
             )}
           />
         </Row>
+        {icloudSupported && (
+          <>
+            {divider}
+            <View testID="backup-carrier-icloud">
+              <SwitchRow
+                icon="apple-icloud"
+                title={t('backup.carrierIcloud')}
+                description={t('backup.carrierIcloudDescription')}
+                value={icloudOn}
+                onValueChange={handleToggleIcloud}
+                testID="backup-icloud-switch"
+              />
+              {icloudOn && (
+                <View style={styles.failure}>
+                  {icloudState === 'unavailable' ? (
+                    <Text testID="backup-icloud-unavailable" style={errorLine}>
+                      {t(failureMessageKey('icloud_unavailable'))}
+                    </Text>
+                  ) : (
+                    <DestinationLastBackup
+                      at={destinationStamps.icloud}
+                      testID="backup-carrier-last-icloud"
+                    />
+                  )}
+                  <CarrierFailure
+                    failure={carrierFailures.icloud}
+                    testID="backup-carrier-failure-icloud"
+                  />
+                </View>
+              )}
+            </View>
+          </>
+        )}
         {divider}
         <View testID="backup-carrier-folder">
           <Row>
@@ -1043,14 +1111,20 @@ export function BackupSection() {
               <Text style={labelStyle}>{t('export.bulkExport', { count: totalActivities })}</Text>
               <Button
                 testID="backup-export-gpx"
-                label="GPX"
+                label={BULK_EXPORT_FORMAT_NAME.gpx}
+                accessibilityLabel={t('export.exportAllAs', {
+                  format: BULK_EXPORT_FORMAT_NAME.gpx,
+                })}
                 variant="secondary"
                 size="sm"
                 onPress={exportAll}
               />
               <Button
                 testID="backup-export-geojson"
-                label="GeoJSON"
+                label={BULK_EXPORT_FORMAT_NAME.geojson}
+                accessibilityLabel={t('export.exportAllAs', {
+                  format: BULK_EXPORT_FORMAT_NAME.geojson,
+                })}
                 variant="secondary"
                 size="sm"
                 onPress={exportAllGeoJson}
@@ -1106,18 +1180,5 @@ const styles = StyleSheet.create({
   },
   errorDark: {
     color: darkColors.errorDeep,
-  },
-  fetchTrack: {
-    height: spacing.xs,
-    borderRadius: layout.borderRadiusXs,
-    overflow: 'hidden',
-    backgroundColor: colors.border,
-  },
-  fetchTrackDark: {
-    backgroundColor: darkColors.border,
-  },
-  fetchFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
   },
 });

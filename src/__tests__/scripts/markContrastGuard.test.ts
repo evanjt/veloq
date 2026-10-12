@@ -81,6 +81,16 @@ it('fails a fill token passed as iconColor', () => {
   expect(output).toContain('Mark.tsx:2');
 });
 
+it.each([
+  ['iconColor', '<IconButton icon="check" iconColor={colors.success} />;'],
+  ['tint', 'const a = { tint: colors.warning };'],
+])('fails a fill token written straight into %s', (_prop, line) => {
+  const { status, output } = runOn(`${line}\n`);
+
+  expect(status).toBe(1);
+  expect(output).toContain('Mark.tsx:1');
+});
+
 it('leaves a fill token used only as a ground alone', () => {
   const { status } = runOn(
     [

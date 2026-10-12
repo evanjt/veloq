@@ -61,6 +61,8 @@ import { getCrashLog, recordCrash } from '@/shared/debug/crashLog';
 import { getMapCameraState, saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { useSensorStore } from '@/features/sensors/store';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { resolveIsMetric, useUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { formAsPercent, useFormPreference } from '@/shared/app/FormPreferenceStore';
 import {
   MapPreferencesProvider,
   useMapPreferences,
@@ -866,7 +868,9 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'Documents/veloq-held-import.veloq or .zip, a backup picked or downloaded while signed out',
     writers: ['src/features/settings/lib/heldImport.ts'],
     holds: "a backup's record or an older backup's names and settings, waiting for a sign-in",
-    kept: 'it exists only while nobody is signed in, so the wipe meets it only for the athlete picking it, at their sign-in or a demo entry, and the first signed-in launch restores and deletes it',
+    wiped: {
+      files: ['file:///docs/veloq-held-import.veloq', 'file:///docs/veloq-held-import.zip'],
+    },
   },
   {
     confirm: [],
@@ -1094,13 +1098,6 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'memory-probe.jsonl, in the App Group on iOS, written only by a probe build',
-    writers: ['widget/ios/probe/MemoryProbe.swift'],
-    holds: 'the device model, boot time and memory readings, and whether the keychain answered',
-    kept: 'it holds no athlete data, and only a build with the probe flag on writes it; the probe is removed once its readings are recorded',
-  },
-  {
-    confirm: [],
     where: "the Android launcher's dynamic record shortcuts",
     writers: ['modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt'],
     holds: 'the sports most recently recorded',
@@ -1236,7 +1233,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     confirm: ['backupSetup'],
     where:
-      "the backup backend, toggle, last run, last failure, the carriers still owed and each destination's last backup",
+      "the backup backend, toggle, last run, last failure, the carriers still owed, each destination's last backup and the iCloud Drive switch",
     writers: ['src/features/settings/lib/autobackup/autoBackup.ts'],
     holds: "where and when the athlete's records were sent",
     wiped: {
@@ -1247,6 +1244,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
         '__last_backup_failure',
         '__backup_owed_carriers',
         '__last_backup_by_destination',
+        '__backup_icloud_enabled',
       ],
     },
   },
@@ -1336,10 +1334,10 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'veloq-crash-log in AsyncStorage',
+    where: 'veloq-crash-log in AsyncStorage, and the fatal crash file beside it',
     writers: ['src/shared/debug/crashLog.ts'],
     holds: 'error messages and stacks, which can carry a name or an id',
-    wiped: { storage: ['veloq-crash-log'] },
+    wiped: { storage: ['veloq-crash-log'], files: ['file:///docs/veloq-fatal-crash.json'] },
   },
   {
     confirm: [],
@@ -1713,5 +1711,43 @@ describe('the stores the wipe empties', () => {
     expect(
       Object.keys(JSON.parse(mockSettings.get('veloq-map-activity-overrides') ?? '{}'))
     ).toEqual(['b1']);
+  });
+
+  it("forgets the units and form denominator lifted off the previous athlete's profile", async () => {
+    // The device locale is the mocked en-US, so the locale's answer is imperial
+    // and the profile's is metric.
+    useUnitPreference.setState({ unitPreference: 'auto' });
+    useUnitPreference.getState().setIntervalsPreferences({
+      measurementPreference: 'meters',
+      fahrenheit: false,
+      windSpeed: 'KMH',
+    });
+    useFormPreference.getState().setFormAsPercent(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolveIsMetric()).toBe(true);
+    expect(mockSettings.get('veloq-resolved-unit-system')).toBe('metric');
+
+    await wipeLibrary();
+
+    expect(useUnitPreference.getState().intervalsPreferences).toBeNull();
+    expect(resolveIsMetric()).toBe(false);
+    expect(mockSettings.get('veloq-resolved-unit-system')).toBe('imperial');
+    expect(useFormPreference.getState().formAsPercent).toBeNull();
+    expect(formAsPercent()).toBe(false);
+  });
+
+  it('keeps the units the athlete chose on this device', async () => {
+    useUnitPreference.setState({ unitPreference: 'metric' });
+    useUnitPreference.getState().setIntervalsPreferences({
+      measurementPreference: 'feet',
+      fahrenheit: true,
+      windSpeed: 'MPH',
+    });
+
+    await wipeLibrary();
+
+    expect(useUnitPreference.getState().unitPreference).toBe('metric');
+    expect(resolveIsMetric()).toBe(true);
+    useUnitPreference.setState({ unitPreference: 'auto' });
   });
 });

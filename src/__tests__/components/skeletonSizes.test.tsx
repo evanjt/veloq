@@ -27,7 +27,7 @@ describe('skeleton sizes', () => {
     await render(<ActivityCardSkeleton />);
     const outer = StyleSheet.flatten(screen.getByTestId('activity-card-skeleton').props.style);
     const shimmer = StyleSheet.flatten(
-      screen.getByTestId('activity-card-skeleton-fill').props.style
+      screen.getByTestId('activity-card-skeleton-fill', { includeHiddenElements: true }).props.style
     );
     expect(outer.marginHorizontal).toBe(CARD_MARGIN);
     expect(outer.marginBottom).toBe(CARD_MARGIN);

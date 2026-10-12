@@ -72,6 +72,11 @@
 //   runtimes   no step pins an action at a version whose runtime is Node 20,
 //              which the runner has deprecated and forces onto Node 24, a sha
 //              pin judged by the tag in its trailing comment
+//   splice     no `run:` body and no action's `script:` input expands
+//              `inputs.*`, `github.event.*` or `github.head_ref` in place,
+//              since the runner pastes the value into the shell text before
+//              it starts and a dispatch or pull request value runs as commands;
+//              the step passes it through `env:` and reads it quoted instead
 //
 // Usage: node scripts/lint-workflows.mjs [--root <dir>]
 
@@ -369,8 +374,23 @@ function checkPinned(file, where, uses) {
   }
 }
 
+/** Caller-controlled text, which an expression pastes into the script verbatim. */
+const SPLICED = /\$\{\{[^}]*?\b(inputs\.[\w-]+|github\.event\.[\w.-]+|github\.head_ref)\b/g;
+
+function checkSpliced(file, where, field, body) {
+  const names = [...new Set([...text(body).matchAll(SPLICED)].map((m) => m[1]))];
+  if (names.length === 0) return;
+  fail(
+    file,
+    where,
+    `${field} expands ${names.join(', ')} into the shell text, so the value runs as commands. Pass it through the step's env: and read it as a quoted variable.`
+  );
+}
+
 function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
   checkPinned(file, where, step.uses);
+  checkSpliced(file, where, 'run:', step.run);
+  checkSpliced(file, where, 'script:', step.with?.script);
   const uses = action(step);
   const w = step.with ?? {};
   const build = nativeBuild(step.run);

@@ -15,11 +15,10 @@ import { useNotificationPreferences } from '@/features/settings/stores/Notificat
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/features/settings/lib/notificationService', () => ({
-  hasNotificationPermission: jest.fn().mockResolvedValue(true),
-  requestNotificationPermission: jest.fn().mockResolvedValue(true),
-  registerForPushNotifications: jest.fn().mockResolvedValue(undefined),
-  unregisterFromPushNotifications: jest.fn().mockResolvedValue(undefined),
+jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
+  getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted', canAskAgain: true }),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted', canAskAgain: true }),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) =>

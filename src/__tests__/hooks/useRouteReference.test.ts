@@ -34,7 +34,7 @@ describe('useRouteReference', () => {
     const setRouteRepresentative = jest.fn().mockReturnValue(true);
     jest.mocked(getEngine).mockReturnValue({ setRouteRepresentative } as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      buttons?.find((button) => button.text === 'common.confirm')?.onPress?.();
+      buttons?.find((button) => button.text === 'routes.setAsReference')?.onPress?.();
     });
     const { result, rerender } = await renderHook(
       ({ representativeId }: { representativeId: string }) =>

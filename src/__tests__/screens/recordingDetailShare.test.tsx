@@ -46,6 +46,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
   useHeroMapHeight: () => 300,
+  useScrollEndInset: () => 0,
   EmptyState: ({ title }: { title: string }) => {
     const { Text } = require('react-native');
     return <Text>{title}</Text>;

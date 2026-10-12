@@ -18,6 +18,7 @@ import {
 import { holdImportWhileSignedOut, isHeldWhileSignedOut } from '@/features/settings/lib/heldImport';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { showRestoreNotice } from '../lib/restoreNotice';
 
 /** Ask before a backup replaces stored preferences and names. */
 export function confirmLegacyImport(copy: {
@@ -155,7 +156,7 @@ export function useImportDatabaseBackup() {
 
       // Signed out, an older backup waits for the sign-in that lets it land.
       if (await holdImportWhileSignedOut(fileUri, fileName)) {
-        inform({ title: t('backup.importBackup'), message: t('backup.heldUntilSignIn') });
+        showRestoreNotice('held', t);
         return { success: false, activityCount: 0 };
       }
 
@@ -174,8 +175,7 @@ export function useImportDatabaseBackup() {
           return { success: false, activityCount: 0, error: legacyResult.error ?? message };
         }
 
-        const messages = [t('backup.recordRestored')];
-        inform({ title: t('backup.restoreComplete'), message: messages.join('\n') });
+        showRestoreNotice('restored', t);
 
         return {
           success: true,
@@ -185,14 +185,14 @@ export function useImportDatabaseBackup() {
 
       if (fileName.endsWith('.zip')) {
         await restoreRecordBackup(fileUri);
-        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
+        showRestoreNotice('restored', t);
         return { success: true, activityCount: 0 };
       }
 
       const restoreResult = await restoreDatabaseBackup(fileUri);
 
       if (restoreResult.success) {
-        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
+        showRestoreNotice('restored', t);
       } else {
         inform({
           title: t('backup.notRestoredTitle'),

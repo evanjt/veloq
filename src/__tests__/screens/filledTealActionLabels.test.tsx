@@ -34,7 +34,8 @@ jest.mock('@/shared/ui', () => ({
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
   ErrorState: () => null,
-  useTabBarClearance: () => 0,
+  useBottomClearance: () => 0,
+  useScrollEndInset: () => 0,
   useHeroMapHeight: () => 300,
 }));
 const mockOpenEngine = { id: 'open-handle' };

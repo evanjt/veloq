@@ -27,8 +27,18 @@ jest.mock('@/features/activity', () => {
   const { Text } = require('react-native');
   return {
     ...jest.requireActual('@/features/activity/lib/activityCardA11yLabel'),
-    ActivityCardContextMenu: ({ visible }: { visible: boolean }) =>
-      visible ? <Text testID="card-menu">menu</Text> : null,
+    ActivityCardContextMenu: ({
+      visible,
+      children,
+    }: {
+      visible: boolean;
+      children: React.ReactNode;
+    }) => (
+      <>
+        {children}
+        {visible ? <Text testID="card-menu">menu</Text> : null}
+      </>
+    ),
     SkylineBar: () => null,
   };
 });

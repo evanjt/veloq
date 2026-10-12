@@ -23,6 +23,9 @@ import { TREND_DEADBAND, TREND_POLARITY, type TrendMetric } from './trendTable.g
 export { TREND_DEADBAND, TREND_POLARITY };
 export type { TrendMetric };
 
+/** How far under a deadband a difference may land and still count as on it. */
+const DEADBAND_TOLERANCE = 1e-9;
+
 /** Which way a number moved, or that it did not move enough to say. */
 export type TrendDirection = 'up' | 'down' | 'flat';
 
@@ -48,7 +51,8 @@ export function trendDirection(
   if (current == null || baseline == null) return 'flat';
   if (!Number.isFinite(current) || !Number.isFinite(baseline)) return 'flat';
   const delta = current - baseline;
-  if (Math.abs(delta) < deadband) return 'flat';
+  // A move of exactly the deadband is a move, and 70.3 - 70 lands a hair under it.
+  if (delta === 0 || Math.abs(delta) < deadband - DEADBAND_TOLERANCE) return 'flat';
   return delta > 0 ? 'up' : 'down';
 }
 

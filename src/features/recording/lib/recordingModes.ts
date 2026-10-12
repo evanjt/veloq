@@ -68,7 +68,24 @@ export const RECORDING_MODE_MAP: Record<ActivityType, RecordingMode> = Object.fr
 ]) as Record<ActivityType, RecordingMode>;
 
 export function getRecordingMode(type: ActivityType): RecordingMode {
-  return RECORDING_MODE_MAP[type] ?? 'manual';
+  return Object.hasOwn(RECORDING_MODE_MAP, type) ? RECORDING_MODE_MAP[type] : 'manual';
+}
+
+/**
+ * The sport a recording link names, or null when the recorder does not know
+ * it. Any app or web page can open a recording link, so the sport is checked
+ * against the map's own keys and never against what its prototype carries.
+ */
+export function parseRecordingType(raw: string | string[] | undefined): ActivityType | null {
+  if (typeof raw !== 'string' || !Object.hasOwn(RECORDING_MODE_MAP, raw)) return null;
+  return raw as ActivityType;
+}
+
+/** The planned event a recording link pairs with, when it names a positive whole number. */
+export function parsePairedEventId(raw: string | string[] | undefined): number | undefined {
+  if (typeof raw !== 'string' || !/^[1-9][0-9]*$/.test(raw)) return undefined;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) ? id : undefined;
 }
 
 /**

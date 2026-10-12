@@ -75,7 +75,7 @@ struct RoutePreviewView: View {
         .stroke(tint, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
     } else {
       Image(systemName: "map")
-        .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
+        .widgetFont(.metric, weight: .semibold)
         .foregroundColor(tint)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -101,6 +101,7 @@ struct LatestActivityView: View {
         EmptyWidgetView(palette: palette)
       }
     }
+    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -153,10 +154,11 @@ struct LatestActivityView: View {
         HStack(spacing: 4) {
           Text(name)
             .measuredText("activity name")
-            .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+            .widgetFont(.label, weight: .semibold)
             .foregroundColor(tint)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
+              .widgetAccentable()
               .spoken("record", latest.prLabel)
           }
         }
@@ -164,16 +166,15 @@ struct LatestActivityView: View {
       if let label = content.heroLabel {
         Text(label)
           .measuredText("hero label")
-          .font(.system(size: WidgetTheme.TypeScale.caption))
+          .widgetFont(.caption)
           .foregroundColor(palette.textSecondary)
       }
       if let hero = content.hero {
         Text(hero)
           .measuredText("hero")
-          .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
+          .widgetFont(.metric, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .lineLimit(1)
-          .minimumScaleFactor(0.7)
       }
       if let detail = content.detail {
         captionLine("detail", detail, palette)
@@ -192,7 +193,7 @@ struct LatestActivityView: View {
       if let load = content.load {
         Text(load)
           .measuredText("load")
-          .font(.system(size: WidgetTheme.TypeScale.label))
+          .widgetFont(.label)
           .foregroundColor(palette.textPrimary)
       }
       if let form = content.form {
@@ -208,13 +209,38 @@ struct LatestActivityView: View {
   private func captionLine(_ name: String, _ text: String, _ palette: WidgetPalette) -> some View {
     Text(text)
       .measuredText(name)
-      .font(.system(size: WidgetTheme.TypeScale.label))
+      .widgetFont(.label)
       .foregroundColor(palette.textSecondary)
+      // The fallback this column is chosen from gives way a line at a time, so a line it keeps
+      // takes every line it wraps to.
+      .fixedSize(horizontal: false, vertical: true)
   }
 
-  /// Form before and after, each side in the colour of the zone it sits in. The figures keep their
-  /// width and a long word for form wraps beside them.
+  /// Form before and after, each side in the colour of the zone it sits in, with the zones in
+  /// words, so the line says the same where colour is lost: the zone form ended in, or both when
+  /// the activity moved it from one to another. The words follow the figures on their row where
+  /// they fit and go under them where they do not. The figures keep their width and a long word
+  /// for form wraps beside them.
   private func formLine(_ form: LastActivityForm, _ palette: WidgetPalette) -> some View {
+    let zone = form.afterZoneText.map { after in
+      Text(verbatim: form.beforeZoneText.map { "\($0) → \(after)" } ?? after)
+        .measuredText("form zone")
+        .font(.system(size: WidgetTheme.TypeScale.caption))
+        .foregroundColor(palette.textSecondary)
+    }
+    return ViewThatFits(in: .horizontal) {
+      HStack(alignment: .firstTextBaseline, spacing: 4) {
+        formFigures(form, palette).fixedSize()
+        zone?.fixedSize()
+      }
+      VStack(alignment: .leading, spacing: 0) {
+        formFigures(form, palette)
+        zone
+      }
+    }
+  }
+
+  private func formFigures(_ form: LastActivityForm, _ palette: WidgetPalette) -> some View {
     HStack(alignment: .firstTextBaseline, spacing: 4) {
       Text(form.label).measuredText("form label").foregroundColor(palette.textSecondary)
       Group {
@@ -226,7 +252,7 @@ struct LatestActivityView: View {
       }
       .fixedSize()
     }
-    .font(.system(size: WidgetTheme.TypeScale.label))
+    .widgetFont(.label)
   }
 
   private func activityURL(_ latest: WidgetLatest) -> URL? {
@@ -238,6 +264,9 @@ struct LatestActivityView: View {
 /// Every attempt at the route as a dot, oldest first. An earlier attempt is a small dot, the record
 /// a gold one and the latest the full size in the activity's colour, ringed when it is also the
 /// record. The row shrinks until all of them fit the width.
+///
+/// The record takes the widget's accent while the other dots stay default, and the ring stands
+/// clear of the dot it rings, so it still reads where both are drawn in one colour.
 struct AttemptDotsView: View {
   let dots: [LastActivityDot]
   let tint: Color
@@ -263,15 +292,19 @@ struct AttemptDotsView: View {
   @ViewBuilder
   private func dot(_ dot: LastActivityDot, full: CGFloat) -> some View {
     let diameter = dot.current || dot.record ? full : full * 0.7
-    Circle()
-      .fill(dot.record ? palette.gold : dot.current ? tint : palette.textSecondary)
-      .overlay {
-        if dot.current && dot.record {
-          Circle().strokeBorder(tint, lineWidth: full * 0.18)
+    Group {
+      if dot.current && dot.record {
+        ZStack {
+          Circle().strokeBorder(tint, lineWidth: full * 0.15)
+          Circle().fill(palette.gold).padding(full * 0.3)
         }
+      } else {
+        Circle().fill(dot.record ? palette.gold : dot.current ? tint : palette.textSecondary)
       }
-      .frame(width: diameter, height: diameter)
-      .frame(width: full, height: full)
+    }
+    .widgetAccentable(dot.record)
+    .frame(width: diameter, height: diameter)
+    .frame(width: full, height: full)
   }
 }
 
@@ -285,7 +318,7 @@ struct DemoLabelLine: View {
     if let label = snapshot?.display.demoLabel {
       Text(label)
         .measuredText("demo label")
-        .font(.system(size: WidgetTheme.TypeScale.caption))
+        .widgetFont(.caption)
         .foregroundColor(palette.textSecondary)
         .lineLimit(1)
     }

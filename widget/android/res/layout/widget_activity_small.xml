@@ -4,7 +4,8 @@
      instead. The padding is the gap token all round because a 2x2 placement is barely taller than
      its lines. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/act_root"
+  android:id="@android:id/background"
+  android:clipToOutline="true"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="vertical"

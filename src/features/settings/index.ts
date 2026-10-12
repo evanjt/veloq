@@ -49,7 +49,10 @@ export {
 export { initialiseWhatsNewStore } from './stores/WhatsNewStore';
 export { onAppForeground, initWebdavConfig } from './lib/autobackup';
 export { refreshPushTokenRegistration, registerPushToken } from './lib/pushTokenRegistration';
-export { reconcilePushRegistrationOnLaunch } from './lib/reconcilePushRegistration';
+export {
+  reconcilePushRegistrationOnLaunch,
+  reconcilePushRegistrationOnForeground,
+} from './lib/reconcilePushRegistration';
 export { withDatabaseSnapshot } from './lib/clearSnapshot';
 export { useGpxExport, useImportDatabaseBackup } from './hooks/exportIndex';
 export { WhatsNewModal, TourReturnPill } from './components/whatsNew';
@@ -78,7 +81,6 @@ export {
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
-  hasNotificationPermission,
   requestNotificationPermission,
   presentActivityNotification,
 } from './lib/notificationService';

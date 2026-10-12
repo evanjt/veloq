@@ -27,7 +27,7 @@
  * no line here. So a group added tomorrow has to be classified before it lands.
  */
 
-import { insightCategoryColors } from './colors';
+import { activityTypeInk, activityTypeInkDark, insightCategoryColors } from './colors';
 
 /** What kind of thing a group holds, and therefore how it is measured. */
 export type GroupKind = 'pair' | 'mark' | 'series';
@@ -230,10 +230,13 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   },
   errorScreen: {
     kind: 'pair',
-    reason: 'the crash screen paints before any theme is mounted, so it carries its own ground',
+    reason:
+      'the crash screen paints before any theme is mounted, so it carries its own ground, per mode',
     pairs: [
-      { ground: 'bg', on: ['title', 'detail', 'message'], bar: 'text' },
-      { ground: 'bg', on: ['action'], bar: 'text' },
+      { ground: 'light.bg', on: ['light.title', 'light.detail', 'light.message'], bar: 'text' },
+      { ground: 'light.bg', on: ['light.action'], bar: 'text' },
+      { ground: 'dark.bg', on: ['dark.title', 'dark.detail', 'dark.message'], bar: 'text' },
+      { ground: 'dark.bg', on: ['dark.action'], bar: 'text' },
     ],
   },
   bodyDiagram: {
@@ -298,14 +301,31 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason: 'one hue per activity type, every site labelling or icon-ing it as well',
   },
+  activityTypeInk: {
+    kind: 'mark',
+    reason: 'the activity-type hue as an icon on a light surface, held to 3:1',
+    marks: [{ paths: Object.keys(activityTypeInk), theme: 'light' }],
+  },
+  activityTypeInkDark: {
+    kind: 'mark',
+    reason: 'the activity-type hue as an icon on a dark surface, held to 3:1',
+    marks: [{ paths: Object.keys(activityTypeInkDark), theme: 'dark' }],
+  },
   zoneColors: {
     kind: 'series',
     reason: "intervals.icu's own zone ladder, with the zone number beside every use",
   },
+  zoneColorsDark: {
+    kind: 'mark',
+    reason: 'the zone ladder as a bar, dot or skyline step on a dark ground, held to 3:1',
+    marks: [
+      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
+    ],
+  },
   zoneTextColors: {
     kind: 'mark',
     reason:
-      'the zone ladder as text on the light zone tint, held to 4.5:1 by hrZoneTextColor.test.ts',
+      'the zone ladder as text on the light zone tint, held to 4.5:1 by zoneTextOnTint.test.ts',
     marks: [
       { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'light' },
     ],
@@ -313,7 +333,7 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   zoneTextColorsDark: {
     kind: 'mark',
     reason:
-      'the zone ladder as text on the dark zone tint, held to 4.5:1 by hrZoneTextColor.test.ts',
+      'the zone ladder as text on the dark zone tint and every dark surface, held to 4.5:1 by zoneTextOnTint.test.ts and zoneColour.test.ts',
     marks: [
       { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
     ],

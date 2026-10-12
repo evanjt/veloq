@@ -6,6 +6,7 @@ import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
 import { DEFAULT_DATA_FIELDS, fieldsForMode, placeFieldInSlot } from '../lib/dataFields';
+import { parseRecordingType } from '../lib/recordingModes';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
 
@@ -69,6 +70,15 @@ interface RecordingPreferencesState {
   markNotificationsAsked: () => void;
 }
 
+/** The sports in a stored list the recorder knows, in order, so a junk entry is not kept for good. */
+function knownSports(stored: unknown): ActivityType[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((t: unknown) => {
+    const sport = typeof t === 'string' ? parseRecordingType(t) : null;
+    return sport === null ? [] : [sport];
+  });
+}
+
 export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
   recordedActivityTypes: [],
@@ -90,12 +100,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
-        const recentActivityTypes = Array.isArray(parsed.recentActivityTypes)
-          ? parsed.recentActivityTypes
-          : [];
-        const storedRecorded = Array.isArray(parsed.recordedActivityTypes)
-          ? parsed.recordedActivityTypes
-          : [];
+        const recentActivityTypes = knownSports(parsed.recentActivityTypes);
+        const storedRecorded = knownSports(parsed.recordedActivityTypes);
         const recordedActivityTypes = [
           ...storedRecorded,
           ...recentActivityTypes.filter((t) => !storedRecorded.includes(t)),
@@ -157,6 +163,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   },
 
   addRecentType: (type) => {
+    if (parseRecordingType(type) === null) return;
     set((state) => {
       const filtered = state.recentActivityTypes.filter((t) => t !== type);
       const updated = [type, ...filtered].slice(0, 4);

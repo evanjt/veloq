@@ -211,7 +211,22 @@ fn test_route_stats_average_only_counted_timed_attempts() {
     assert_eq!(stats.avg_time, Some(1025.0));
     assert_eq!(stats.count, 2);
     assert_eq!(stats.outside_band_count, 1);
-    assert_eq!(stats.avg_speed, Some((5.0 + 5000.0 / 1050.0) / 2.0));
+    assert_eq!(stats.avg_speed, Some(10_000.0 / 2050.0));
+}
+
+#[test]
+fn route_average_speed_is_counted_distance_over_counted_time() {
+    let attempts = vec![
+        attempt("quick", "Run", 5000.0, 1000),
+        attempt("slow", "Run", 5200.0, 1300),
+    ];
+
+    let stats = page(&attempts, &[], "quick")
+        .forward_stats
+        .expect("forward stats");
+    let speed = stats.avg_speed.expect("average speed");
+
+    assert!((speed - 10_200.0 / 2300.0).abs() < 1e-9, "got {speed}");
 }
 
 #[test]

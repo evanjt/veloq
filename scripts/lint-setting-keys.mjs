@@ -37,6 +37,7 @@ const ENGINE_ONLY_KEYS = new Map([
   ['__last_backup_by_destination', 'Engine backup history, per destination'],
   ['__backup_folder', 'Engine-only backup folder grant, bound to this device'],
   ['__backup_folder_name', 'Engine-only backup folder grant, bound to this device'],
+  ['__backup_icloud_enabled', 'Engine-only backup preference: the iCloud destination switch'],
   ['__platform_record_answered', 'Engine library restore marker'],
   ['__section_health_check_done', 'Engine library health check stamp'],
   ['__place_name_words', 'Engine naming words, pushed from the resolved language on every launch'],

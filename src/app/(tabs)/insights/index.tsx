@@ -40,7 +40,7 @@ import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { progressLine } from '@/features/maps';
 import { useDebugStore } from '@/features/settings';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
+import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import {
   colors,
   colorWithOpacity,
@@ -95,7 +95,7 @@ function strengthPeriodLinkOf(param: string | undefined): { period: StrengthPeri
 
 function InsightsScreenContent() {
   useTabFirstFrame('/insights');
-  const { notice, requestRefresh } = useSyncRefreshNotice();
+  const { requestRefresh } = useSyncRefreshNotice();
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('InsightsScreen');
   useEffect(() => {
@@ -618,7 +618,6 @@ function InsightsScreenContent() {
       >
         {tabPages}
       </SwipeableTabs>
-      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

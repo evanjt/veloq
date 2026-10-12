@@ -1,6 +1,6 @@
 //! Record-only backup payload and its ZIP container.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -48,6 +48,11 @@ pub(crate) struct RecordPayload {
     pub(crate) version: u32,
     pub(crate) athlete_id: Option<String>,
     pub(crate) entries: Vec<RecordRow>,
+    /// The intervals.icu id each device-minted key the entries name was
+    /// uploaded as, so a restore where the sync stored the ride under that id
+    /// places the record on it.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) upstream_ids: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -509,6 +514,47 @@ fn setting(db: &Connection, key: &str) -> Result<Option<String>, String> {
     .map_err(|e| e.to_string())
 }
 
+/// The upload id of every device-minted key the entries name. A key never
+/// uploaded has none and is left out.
+fn upstream_ids(
+    db: &Connection,
+    entries: &[RecordRow],
+) -> Result<BTreeMap<String, String>, String> {
+    let mut keys = BTreeSet::new();
+    for row in entries {
+        let mut value = serde_json::to_value(row).map_err(|e| e.to_string())?;
+        super::record_restore::for_each_activity_key(&mut value, &mut |key| {
+            if super::activities::is_local_activity_key(key) {
+                keys.insert(key.clone());
+            }
+        });
+    }
+    let mut sources = Vec::new();
+    for (table, key_column) in [("activities", "id"), ("activity_bodies", "activity_id")] {
+        if table_exists(db, table)? && column_exists(db, table, "intervals_id")? {
+            sources.push(format!(
+                "SELECT intervals_id FROM {table} WHERE {key_column} = ?1 AND intervals_id IS NOT NULL"
+            ));
+        }
+    }
+    let mut upstream = BTreeMap::new();
+    if sources.is_empty() {
+        return Ok(upstream);
+    }
+    let sql = format!("{} LIMIT 1", sources.join(" UNION ALL "));
+    let mut statement = db.prepare(&sql).map_err(|e| e.to_string())?;
+    for key in keys {
+        let id: Option<String> = statement
+            .query_row([&key], |row| row.get(0))
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if let Some(id) = id {
+            upstream.insert(key, id);
+        }
+    }
+    Ok(upstream)
+}
+
 /// Read only the athlete's decisions from one consistent SQLite snapshot.
 pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, String> {
     let mut athlete_id = if table_exists(db, "settings")? {
@@ -557,10 +603,12 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
             }
         }
     }
+    let upstream_ids = upstream_ids(db, &entries)?;
     Ok(RecordPayload {
         version: RECORD_VERSION,
         athlete_id,
         entries,
+        upstream_ids,
     })
 }
 
@@ -648,14 +696,21 @@ fn write_record_from_database(
     source_path: &str,
     dest_path: &str,
 ) -> Result<(), String> {
-    let db = Connection::open_with_flags(source_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(|e| e.to_string())?;
-    db.busy_timeout(std::time::Duration::from_secs(5))
-        .map_err(|e| e.to_string())?;
-    db.execute_batch("BEGIN DEFERRED")
-        .map_err(|e| e.to_string())?;
-    let payload = collect_record_payload(&db)?;
-    db.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+    let payload = {
+        // Taken before the connection opens so it drops after it closes: the
+        // read is one snapshot, and the suspension waits for it to end.
+        let _read = super::suspension::begin_read()
+            .ok_or_else(|| "The backup was refused while the engine is suspended".to_string())?;
+        let db = Connection::open_with_flags(source_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|e| e.to_string())?;
+        db.busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(|e| e.to_string())?;
+        db.execute_batch("BEGIN DEFERRED")
+            .map_err(|e| e.to_string())?;
+        let payload = collect_record_payload(&db)?;
+        db.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+        payload
+    };
     write_record_zip_for(install, &payload, dest_path)
 }
 

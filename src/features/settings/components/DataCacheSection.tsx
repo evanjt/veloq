@@ -31,6 +31,7 @@ import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { showNotice } from '@/shared/ui/Notice';
 
 interface DataCacheSectionProps {
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -203,7 +204,9 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           if (!tilesCleared) {
             inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
           } else {
-            inform({ title: cleared ? t('alerts.cacheCleared') : t('settings.stillRunning') });
+            showNotice({
+              message: cleared ? t('alerts.cacheCleared') : t('settings.stillRunning'),
+            });
           }
         } catch (error) {
           // Which failure it was, where the engine said. "Not open yet" and

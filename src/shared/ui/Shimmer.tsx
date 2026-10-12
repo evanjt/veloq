@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, DimensionValue } from 'react-native';
+import { View, StyleSheet, ViewStyle, DimensionValue, type StyleProp } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -67,16 +68,50 @@ export function Shimmer({
   );
 }
 
+/**
+ * A skeleton reads as one busy progress element that says it is loading. Its
+ * grey blocks sit in a hidden wrapper, since hiding them on the root would
+ * hide the root as well, so none of them is a focus stop of its own.
+ */
+function SkeletonFrame({
+  testID,
+  style,
+  children,
+}: {
+  testID?: string;
+  style?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View
+      testID={testID}
+      style={style}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={t('common.loading')}
+      accessibilityState={{ busy: true }}
+    >
+      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 // Pre-built skeleton patterns
 export function ActivityCardSkeleton() {
   const { isDark } = useTheme();
 
   return (
-    <View testID="activity-card-skeleton" style={[styles.activityCard, isDark && styles.cardDark]}>
+    <SkeletonFrame
+      testID="activity-card-skeleton"
+      style={[styles.activityCard, isDark && styles.cardDark]}
+    >
       <View testID="activity-card-skeleton-fill" style={{ height: CARD_HEIGHT }}>
         <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
       </View>
-    </View>
+    </SkeletonFrame>
   );
 }
 
@@ -88,7 +123,7 @@ export function ChartSkeleton({
   animated?: boolean;
 }) {
   return (
-    <View>
+    <SkeletonFrame>
       <View style={styles.chartHeader}>
         <Shimmer width={140} height={20} borderRadius={layout.borderRadiusXs} animated={animated} />
         <Shimmer width={80} height={16} borderRadius={layout.borderRadiusXs} animated={animated} />
@@ -100,7 +135,7 @@ export function ChartSkeleton({
         style={{ marginTop: spacing.smPlus }}
         animated={animated}
       />
-    </View>
+    </SkeletonFrame>
   );
 }
 

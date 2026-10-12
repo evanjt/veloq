@@ -5,7 +5,9 @@
 // hangs when it is dismissed. The helpers pass the dismissal and the order.
 // A failure notice titled with the bare generic word tells the athlete nothing
 // about what failed, so `t('common.error')` and `t('alerts.error')` are refused
-// as the title of a dialog. Tests may call `Alert` to spy on it.
+// as the title of a dialog. A confirm button labelled with the generic
+// `t('common.confirm')` does not say what pressing it does, so the label names
+// the action instead. Tests may call `Alert` to spy on it.
 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +22,7 @@ const tree = treeView(root, ['src']);
 const OWNER = 'src/shared/ui/dialog.ts';
 const HELPERS = new Set(['inform', 'confirmAction', 'chooseAction']);
 const GENERIC_TITLES = new Set(['common.error', 'alerts.error']);
+const GENERIC_LABELS = new Set(['common.confirm']);
 const failures = [];
 
 function isAlertCall(node) {
@@ -37,15 +40,15 @@ function calleeName(node) {
   return null;
 }
 
-/** `t('common.error')` or `i18n.t('alerts.error')`. */
-function isGenericTitle(node) {
+/** `t('common.error')` or `i18n.t('alerts.error')`, for the keys in `keys`. */
+function isTranslationOf(node, keys) {
   return (
     node !== undefined &&
     ts.isCallExpression(node) &&
     calleeName(node.expression) === 't' &&
     node.arguments.length > 0 &&
     ts.isStringLiteralLike(node.arguments[0]) &&
-    GENERIC_TITLES.has(node.arguments[0].text)
+    keys.has(node.arguments[0].text)
   );
 }
 
@@ -60,13 +63,15 @@ function check(file, source) {
       const args = node.arguments[0];
       if (args && ts.isObjectLiteralExpression(args)) {
         for (const property of args.properties) {
-          if (
-            ts.isPropertyAssignment(property) &&
-            ts.isIdentifier(property.name) &&
-            property.name.text === 'title' &&
-            isGenericTitle(property.initializer)
-          ) {
+          if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.name)) continue;
+          const name = property.name.text;
+          if (name === 'title' && isTranslationOf(property.initializer, GENERIC_TITLES)) {
             failures.push(`${at(property)}: title the dialog for what failed, not a bare error`);
+          } else if (
+            name === 'confirmLabel' &&
+            isTranslationOf(property.initializer, GENERIC_LABELS)
+          ) {
+            failures.push(`${at(property)}: name the action on the confirm button, not Confirm`);
           }
         }
       }
@@ -91,7 +96,7 @@ if (!files.some((file) => relative(root, file) === OWNER)) {
 for (const file of files) {
   if (relative(root, file) === OWNER) continue;
   const source = tree.text(file);
-  if (!source || !/Alert|common\.error|alerts\.error/.test(source)) continue;
+  if (!source || !/Alert|common\.error|alerts\.error|common\.confirm/.test(source)) continue;
   check(file, source);
 }
 if (failures.length > 0) {

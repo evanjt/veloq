@@ -11,8 +11,13 @@
  */
 
 import { Alert } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 
-import { applyHeldImport, holdImportWhileSignedOut } from '@/features/settings/lib/heldImport';
+import {
+  applyHeldImport,
+  discardHeldImport,
+  holdImportWhileSignedOut,
+} from '@/features/settings/lib/heldImport';
 
 const mockFiles = new Map<string, string>();
 const mockEngineState = { ready: false };
@@ -202,15 +207,14 @@ describe('a record zip picked or downloaded while signed out', () => {
     const [held] = heldFiles();
     mockEngineState.ready = true;
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreRecordBackup).toHaveBeenCalledWith(held);
-    expect(alert).toHaveBeenCalledWith(
-      'backup.restoreComplete',
-      'backup.recordRestored',
-      undefined,
-      expect.objectContaining({ cancelable: true })
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'backup.recordRestored' })
     );
     expect(heldFiles()).toEqual([]);
   });
@@ -221,15 +225,14 @@ describe('the first signed-in launch', () => {
     await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq');
     mockEngineState.ready = true;
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreBackup).toHaveBeenCalledWith(LEGACY_JSON);
-    expect(alert).toHaveBeenCalledWith(
-      'backup.restoreComplete',
-      'backup.recordRestored',
-      undefined,
-      expect.objectContaining({ cancelable: true })
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'backup.recordRestored' })
     );
     expect(mockMarkAnswered).toHaveBeenCalledTimes(1);
     expect(heldFiles()).toEqual([]);
@@ -242,15 +245,14 @@ describe('the first signed-in launch', () => {
     const [held] = heldFiles();
     mockEngineState.ready = true;
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreRecordBackup).toHaveBeenCalledWith(held);
-    expect(alert).toHaveBeenCalledWith(
-      'backup.restoreComplete',
-      'backup.recordRestored',
-      undefined,
-      expect.objectContaining({ cancelable: true })
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'backup.recordRestored' })
     );
     expect(heldFiles()).toEqual([]);
   });
@@ -278,6 +280,7 @@ describe('the first signed-in launch', () => {
     mockEngineState.ready = true;
     mockRestoreBackup.mockRejectedValueOnce(new Error('database or disk is full'));
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     expect(await applyHeldImport(t)).toBe(true);
 
@@ -287,12 +290,7 @@ describe('the first signed-in launch', () => {
       undefined,
       expect.objectContaining({ cancelable: true })
     );
-    expect(alert).not.toHaveBeenCalledWith(
-      'backup.restoreComplete',
-      expect.anything(),
-      undefined,
-      expect.anything()
-    );
+    expect(notice).not.toHaveBeenCalled();
   });
 
   it('keeps the held file while the engine is still closed', async () => {
@@ -314,11 +312,39 @@ describe('the first signed-in launch', () => {
   it('restores once when two launches ask at the same moment', async () => {
     await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq');
     mockEngineState.ready = true;
-    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     await Promise.all([applyHeldImport(t), applyHeldImport(t)]);
 
     expect(mockRestoreBackup).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(notice).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Scenario: a backup is held on the login screen, and then the phone goes to
+ * demo mode or through a library wipe before anyone signs in.
+ *
+ * Expected behaviour: discarding the held import deletes either held file, so
+ * the next athlete's first signed-in launch has nothing to restore.
+ */
+describe('discarding a held import', () => {
+  it('deletes a held .veloq file and a held record zip', async () => {
+    await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq');
+    mockFiles.set('file:///docs/veloq-held-import.zip', RECORD_ZIP);
+    expect(heldFiles()).toHaveLength(2);
+
+    await discardHeldImport();
+
+    expect(heldFiles()).toEqual([]);
+    mockEngineState.ready = true;
+    expect(await applyHeldImport(t)).toBe(false);
+    expect(mockRestoreBackup).not.toHaveBeenCalled();
+    expect(mockRestoreRecordBackup).not.toHaveBeenCalled();
+  });
+
+  it('resolves when nothing is held', async () => {
+    await expect(discardHeldImport()).resolves.toBeUndefined();
+    expect(heldFiles()).toEqual([]);
   });
 });

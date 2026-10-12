@@ -1,95 +1,72 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, Share, Platform } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Share, Platform } from 'react-native';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings';
-import { type MapStyleType, resolveTerrain3D, type TerrainCamera } from '@/features/maps';
+import { type MapStyleType, resolveTerrain3D } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
-import { getActivityIcon } from '@/shared/activity/activityUtils';
-import {
-  colors,
-  darkColors,
-  spacing,
-  brand,
-  shadows,
-  mapStyleSwatch,
-  mapStyleSwatchIcon,
-  layout,
-  typography,
-  ink,
-  colorWithOpacity,
-} from '@/theme';
 import type { Activity } from '@/types';
-import { IconButton, pressable, pressRipple, Switch } from '@/shared/ui';
+import {
+  ContextMenu,
+  contextMenuHoldIsNative,
+  type ContextMenuAction,
+  type ContextMenuEntry,
+} from '@/shared/ui/ContextMenu';
 import { tapTo } from '@/shared/app/navigation';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivityShare');
 
 interface ActivityCardContextMenuProps {
   visible: boolean;
   onDismiss: () => void;
   activity: Activity;
+  /** Whether the card draws a map; only then does the menu offer its style, 3D and reset. */
+  hasMap: boolean;
+  /** The card the menu belongs to. */
+  children: React.ReactElement;
 }
 
 const MAP_STYLES: {
   key: MapStyleType;
-  icon: string;
-  bg: string;
+  icon: ContextMenuAction['icon'];
+  systemIcon: ContextMenuAction['systemIcon'];
   labelKey: 'settings.light' | 'settings.dark' | 'settings.satellite';
 }[] = [
-  {
-    key: 'light',
-    icon: 'white-balance-sunny',
-    bg: mapStyleSwatch.light,
-    labelKey: 'settings.light',
-  },
-  { key: 'dark', icon: 'weather-night', bg: mapStyleSwatch.dark, labelKey: 'settings.dark' },
+  { key: 'light', icon: 'white-balance-sunny', systemIcon: 'sun.max', labelKey: 'settings.light' },
+  { key: 'dark', icon: 'weather-night', systemIcon: 'moon', labelKey: 'settings.dark' },
   {
     key: 'satellite',
     icon: 'satellite-variant',
-    bg: mapStyleSwatch.satellite,
+    systemIcon: 'globe.americas',
     labelKey: 'settings.satellite',
   },
 ];
 
-// Mounted only while the menu is open, so a closed card reads no track. It
-// shows the verdict the card's preview renders, from the query that preview
-// shares.
-function Terrain3DSwitch({
-  activity,
-  mode,
-  savedCamera,
-  onValueChange,
-  accessibilityLabel,
-}: {
-  activity: Activity;
-  mode: ReturnType<ReturnType<typeof useMapPreferences>['getTerrain3DMode']>;
-  savedCamera: TerrainCamera | null;
-  onValueChange: (value: boolean) => void;
-  accessibilityLabel: string;
-}) {
+// The 3D item shows the verdict the card's preview renders, from the query that
+// preview shares. Where the popup is drawn only while open, the track is read
+// only then; the system menu is declared before the hold, so it reads it always.
+function useTerrain3DShown(
+  activity: Activity,
+  enabled: boolean,
+  mode: Parameters<typeof resolveTerrain3D>[0]['mode'],
+  override: Parameters<typeof resolveTerrain3D>[0]['override']
+): boolean {
   const { coordinates, altitude } = useMapPreviewCoordinates(
     activity.id,
-    !!activity.stream_types?.includes('latlng')
+    enabled && !!activity.stream_types?.includes('latlng')
   );
-  const lngLatCoords = useMemo(
-    () => coordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
-    [coordinates]
-  );
-  const is3DOn = useMemo(
+  return useMemo(
     () =>
       resolveTerrain3D({
         mode,
-        coordinates: lngLatCoords,
+        coordinates: coordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
         altitude,
         gain: activity.total_elevation_gain,
         distance: activity.distance,
-        override: savedCamera,
+        override,
       }).show3D,
-    [mode, lngLatCoords, altitude, activity.total_elevation_gain, activity.distance, savedCamera]
-  );
-  return (
-    <Switch value={is3DOn} onValueChange={onValueChange} accessibilityLabel={accessibilityLabel} />
+    [mode, coordinates, altitude, activity.total_elevation_gain, activity.distance, override]
   );
 }
 
@@ -97,9 +74,10 @@ export function ActivityCardContextMenu({
   visible,
   onDismiss,
   activity,
+  hasMap,
+  children,
 }: ActivityCardContextMenuProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const {
     getStyleForActivity,
     getTerrain3DMode,
@@ -110,8 +88,13 @@ export function ActivityCardContextMenu({
   } = useMapPreferences();
 
   const currentStyle = getStyleForActivity(activity.type, activity.id);
-  const currentTerrain = getTerrain3DMode(activity.type, activity.id);
   const hasOverride = hasActivityOverride(activity.id);
+  const is3DOn = useTerrain3DShown(
+    activity,
+    hasMap && (visible || contextMenuHoldIsNative()),
+    getTerrain3DMode(activity.type, activity.id),
+    getActivityCamera(activity.id) ?? null
+  );
 
   const handleStyleSelect = useCallback(
     (style: MapStyleType) => {
@@ -121,12 +104,10 @@ export function ActivityCardContextMenu({
     [activity.id, setActivityOverride]
   );
 
-  const handleToggle3D = useCallback(
-    (value: boolean) => {
-      setActivityOverride(activity.id, { terrain3D: value });
-    },
-    [activity.id, setActivityOverride]
-  );
+  const handleToggle3D = useCallback(() => {
+    haptics.selection();
+    setActivityOverride(activity.id, { terrain3D: !is3DOn });
+  }, [activity.id, is3DOn, setActivityOverride]);
 
   const handleReset = useCallback(() => {
     haptics.light();
@@ -134,263 +115,99 @@ export function ActivityCardContextMenu({
   }, [activity.id, clearActivityOverride]);
 
   const handleShare = useCallback(async () => {
-    onDismiss();
     const url = `https://intervals.icu/activities/${activity.id}`;
+    // Closing the sheet resolves, so a rejection is always a sheet that failed to open.
+    // iOS reads the email subject from the options and ignores the title.
     try {
-      await Share.share({
-        message: Platform.OS === 'ios' ? activity.name : `${activity.name}\n${url}`,
-        url: Platform.OS === 'ios' ? url : undefined,
-        title: activity.name,
-      });
-    } catch {
-      // User cancelled or error
+      await Share.share(
+        {
+          message: Platform.OS === 'ios' ? activity.name : `${activity.name}\n${url}`,
+          url: Platform.OS === 'ios' ? url : undefined,
+          title: activity.name,
+        },
+        { subject: activity.name }
+      );
+    } catch (error) {
+      log.warn('the share sheet did not open:', error);
     }
-  }, [activity.id, activity.name, onDismiss]);
+  }, [activity.id, activity.name]);
 
-  const handleViewDetails = useCallback(() => {
-    onDismiss();
-    tapTo(`/activity/${activity.id}`);
-  }, [activity.id, onDismiss]);
+  const href = `/activity/${activity.id}` as const;
 
-  const iconName = getActivityIcon(activity.type);
-  const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const dividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.08);
+  const entries = useMemo((): ContextMenuEntry[] => {
+    const list: ContextMenuEntry[] = [
+      {
+        key: 'details',
+        label: t('activity.viewDetails'),
+        icon: 'information-outline',
+        systemIcon: 'info.circle',
+        onPress: () => tapTo(href),
+      },
+      {
+        key: 'share',
+        label: t('activity.share'),
+        icon: 'share-variant',
+        systemIcon: 'square.and.arrow.up',
+        onPress: () => void handleShare(),
+      },
+    ];
+    if (!hasMap) return list;
+    list.push(
+      {
+        key: 'mapStyle',
+        label: t('activity.mapStyle'),
+        icon: 'layers-outline',
+        systemIcon: 'map',
+        items: MAP_STYLES.map(({ key, icon, systemIcon, labelKey }) => ({
+          key,
+          label: t(labelKey),
+          icon,
+          systemIcon,
+          checked: currentStyle === key,
+          onPress: () => handleStyleSelect(key),
+        })),
+      },
+      {
+        key: 'terrain3D',
+        label: t('activity.terrainRow'),
+        icon: 'terrain',
+        systemIcon: 'mountain.2',
+        checked: is3DOn,
+        onPress: handleToggle3D,
+      }
+    );
+    if (hasOverride) {
+      list.push({
+        key: 'reset',
+        label: t('activity.resetToDefault'),
+        icon: 'undo',
+        systemIcon: 'arrow.uturn.backward',
+        onPress: handleReset,
+      });
+    }
+    return list;
+  }, [
+    t,
+    href,
+    handleShare,
+    hasMap,
+    currentStyle,
+    handleStyleSelect,
+    is3DOn,
+    handleToggle3D,
+    hasOverride,
+    handleReset,
+  ]);
 
-  // iOS presents the transparent modal over the feed without removing it, so the card
-  // marks itself modal to keep VoiceOver inside the menu.
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      {/* press-feedback: none, the scrim is the way out and not a control */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common.close')}
-        style={styles.overlay}
-        onPress={onDismiss}
-      >
-        {/* press-feedback: none, this only stops the scrim taking the tap */}
-        <Pressable
-          testID="activity-card-context-menu"
-          accessibilityViewIsModal
-          accessibilityRole="none"
-          accessible={false}
-          style={[styles.card, { backgroundColor: bgColor }]}
-          onPress={() => {}}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <MaterialCommunityIcons name={iconName} size={18} color={mutedColor} />
-            <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
-              {activity.name}
-            </Text>
-            <IconButton onPress={onDismiss} accessibilityLabel={t('common.close')}>
-              <MaterialCommunityIcons name="close" size={20} color={mutedColor} />
-            </IconButton>
-          </View>
-
-          {/* Map Style Selector */}
-          <View style={styles.styleSection}>
-            <Text style={[styles.sectionLabel, { color: mutedColor }]}>
-              {t('activity.mapStyle')}
-            </Text>
-            <View style={styles.styleRow}>
-              {MAP_STYLES.map(({ key, icon, bg, labelKey }) => {
-                const isSelected = currentStyle === key;
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(labelKey)}
-                    accessibilityState={{ selected: isSelected }}
-                    key={key}
-                    onPress={() => handleStyleSelect(key)}
-                    style={pressable(styles.styleOption)}
-                    android_ripple={pressRipple}
-                  >
-                    <View
-                      style={[
-                        styles.styleCircle,
-                        { backgroundColor: bg },
-                        isSelected && styles.styleCircleSelected,
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-                        size={22}
-                        color={key === 'light' ? mapStyleSwatchIcon.light : mapStyleSwatchIcon.dark}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.styleLabel,
-                        { color: isSelected ? textColor : mutedColor },
-                        isSelected && styles.styleLabelSelected,
-                      ]}
-                    >
-                      {t(labelKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* 3D Toggle */}
-          <View style={[styles.toggleRow, { borderColor: dividerColor }]}>
-            <Text style={[styles.toggleLabel, { color: textColor }]}>
-              {t('activity.terrainRow')}
-            </Text>
-            <Terrain3DSwitch
-              activity={activity}
-              mode={currentTerrain}
-              savedCamera={getActivityCamera(activity.id) ?? null}
-              onValueChange={handleToggle3D}
-              accessibilityLabel={t('activity.terrainRow')}
-            />
-          </View>
-
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-
-          {/* Actions */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('activity.share')}
-            style={pressable(styles.actionRow)}
-            android_ripple={pressRipple}
-            onPress={handleShare}
-          >
-            <MaterialCommunityIcons name="share-variant" size={20} color={mutedColor} />
-            <Text style={[styles.actionText, { color: textColor }]}>{t('activity.share')}</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('activity.viewDetails')}
-            style={pressable(styles.actionRow)}
-            android_ripple={pressRipple}
-            onPress={handleViewDetails}
-          >
-            <MaterialCommunityIcons name="information-outline" size={20} color={mutedColor} />
-            <Text style={[styles.actionText, { color: textColor }]}>
-              {t('activity.viewDetails')}
-            </Text>
-          </Pressable>
-
-          {/* Reset to Default */}
-          {hasOverride && (
-            <>
-              <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.resetToDefault')}
-                style={pressable(styles.actionRow)}
-                android_ripple={pressRipple}
-                onPress={handleReset}
-              >
-                <MaterialCommunityIcons name="undo" size={20} color={mutedColor} />
-                <Text style={[styles.actionText, { color: mutedColor }]}>
-                  {t('activity.resetToDefault')}
-                </Text>
-              </Pressable>
-            </>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <ContextMenu
+      title={activity.name}
+      href={href}
+      entries={entries}
+      visible={visible}
+      onDismiss={onDismiss}
+    >
+      {children}
+    </ContextMenu>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    width: 300,
-    borderRadius: layout.borderRadius,
-    paddingVertical: spacing.md,
-    ...shadows.modal,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  title: {
-    flex: 1,
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  styleSection: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.smPlus,
-  },
-  sectionLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-  },
-  styleRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-  },
-  styleOption: {
-    alignItems: 'center',
-    gap: spacing.xsPlus,
-  },
-  styleCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: layout.borderRadiusFull,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  styleCircleSelected: {
-    borderColor: brand.teal,
-  },
-  styleLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
-  },
-  styleLabelSelected: {
-    fontWeight: '600',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  toggleLabel: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '500',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.smPlus,
-    gap: spacing.smPlus,
-  },
-  actionText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '400',
-  },
-});

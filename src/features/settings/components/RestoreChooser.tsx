@@ -1,9 +1,10 @@
 /**
  * The ways a library comes back, offered wherever a restore is: a file, a
- * WebDAV server entered inline, Veloq's own Google Drive folder on Android, and
- * a line on the phone's own backup, which the app can neither list nor fetch
- * because the platform returns it only while a new phone is set up. Signed out,
- * a chosen backup is held for the sign-in.
+ * WebDAV server entered inline, Veloq's own Google Drive folder on Android,
+ * Veloq's own iCloud Drive folder on iPhone, and a line on the phone's own
+ * backup, which the app can neither list nor fetch because the platform returns
+ * it only while a new phone is set up. Signed out, a chosen backup is held for
+ * the sign-in.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -23,10 +24,12 @@ import {
   isGoogleDriveSupported,
   signInToGoogleDrive,
 } from '../lib/autobackup/backends/googleDriveBackend';
+import { icloudBackend, isIcloudSupported } from '../lib/autobackup/backends/icloudBackend';
 import { describeBackupFailure } from '../lib/backupFailure';
 import { restoreBackendEntry } from '../lib/restoreBackendEntry';
 import { WebdavConfigForm } from './WebdavConfigForm';
 import { inform } from '@/shared/ui/dialog';
+import { showRestoreNotice } from '../lib/restoreNotice';
 
 interface RestoreChooserProps {
   /** A backup was restored, or held for the sign-in. */
@@ -45,6 +48,8 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
   const [driveAccount, setDriveAccount] = useState<string | null>(null);
   const [driveEntries, setDriveEntries] = useState<BackupEntry[] | null>(null);
   const [driveListing, setDriveListing] = useState(false);
+  const [icloudEntries, setIcloudEntries] = useState<BackupEntry[] | null>(null);
+  const [icloudListing, setIcloudListing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const running = useRef(false);
 
@@ -104,6 +109,23 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
     }
   }, [t]);
 
+  // Nothing to sign in to: the iPhone's own iCloud account holds the folder,
+  // and an install that was deleted and put back finds it again.
+  const handleIcloud = useCallback(async () => {
+    setIcloudListing(true);
+    try {
+      setIcloudEntries(await icloudBackend.listBackups());
+    } catch (error) {
+      const described = describeBackupFailure(error);
+      inform({
+        title: t('backup.notListedTitle'),
+        message: described.kind === 'key' ? t(described.key) : described.message,
+      });
+    } finally {
+      setIcloudListing(false);
+    }
+  }, [t]);
+
   const handleRestore = useCallback(
     async (backend: BackupBackend, entry: BackupEntry) => {
       if (running.current) return;
@@ -119,8 +141,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       }
       setRestoring(entry.id);
       try {
-        const notice = await restoreBackendEntry(backend, entry, t);
-        inform({ title: notice.title, message: notice.message });
+        showRestoreNotice(await restoreBackendEntry(backend, entry, t), t);
         onRestored?.();
       } catch (error) {
         inform({
@@ -216,6 +237,36 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
               })}
               variant="ghost"
               onPress={() => handleRestore(googleDriveBackend, entry)}
+              loading={restoring === entry.id}
+              disabled={busy}
+            />
+          ))}
+        </>
+      )}
+      {isIcloudSupported() && (
+        <>
+          <Button
+            testID="restore-chooser-icloud"
+            label={t('backup.restoreFromIcloud')}
+            variant="secondary"
+            onPress={handleIcloud}
+            loading={icloudListing}
+            disabled={busy}
+          />
+          {icloudEntries?.length === 0 && (
+            <Text testID="restore-chooser-icloud-none" style={[styles.detail, secondary]}>
+              {t('backup.noBackupsAtDestination')}
+            </Text>
+          )}
+          {icloudEntries?.map((entry) => (
+            <Button
+              key={entry.id}
+              testID={`restore-chooser-entry-${icloudBackend.id}-${entry.id}`}
+              label={t('backup.restoreDatedBackup', {
+                date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
+              })}
+              variant="ghost"
+              onPress={() => handleRestore(icloudBackend, entry)}
               loading={restoring === entry.id}
               disabled={busy}
             />

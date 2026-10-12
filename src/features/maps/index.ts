@@ -37,7 +37,13 @@ export {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from './components/TerrainSnapshotWebView';
-export { getNextStyle, getStyleIcon, isDarkStyle, type MapStyleType } from './components/mapStyles';
+export {
+  getNextStyle,
+  getStyleIcon,
+  isDarkStyle,
+  statusBarStyleForMap,
+  type MapStyleType,
+} from './components/mapStyles';
 export { SyncProgressBanner, TimelineSlider } from './components/timeline';
 export { useEngineMapActivities } from './hooks/useEngineMapActivities';
 export {

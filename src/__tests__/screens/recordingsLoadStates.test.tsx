@@ -43,7 +43,8 @@ jest.mock('@/shared/ui', () => {
     }) => (
       <View testID={hasNativeHeader ? 'under-native-header' : 'own-top-inset'}>{children}</View>
     ),
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
     useHeroMapHeight: () => 300,
     screenListInsets: {},
     EmptyState: ({

@@ -23,6 +23,18 @@ export interface BackupEntry {
   athleteId?: string | null;
 }
 
+/**
+ * A parsed metadata sidecar as a backup entry, or null when it lacks the
+ * string id and timestamp a listing sorts and restores by. A sidecar is read
+ * from storage the app does not control, so its shape is checked, not assumed.
+ */
+export function backupEntryFromSidecar(value: unknown): BackupEntry | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const entry = value as Partial<BackupEntry>;
+  if (typeof entry.id !== 'string' || typeof entry.timestamp !== 'string') return null;
+  return entry as BackupEntry;
+}
+
 export interface BackupBackend {
   /** Unique backend identifier (e.g., 'local', 'webdav') */
   id: string;

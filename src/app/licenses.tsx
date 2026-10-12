@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Pressable, View, Text, StyleSheet, Linking, LayoutAnimation } from 'react-native';
+import { Pressable, View, Text, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { openExternal } from '@/shared/app/openExternal';
 import {
+  CollapsibleSection,
   IconButton,
   ScreenSafeAreaView,
   ScreenScrollView,
@@ -169,6 +172,11 @@ const LICENSE_DATA: LicenseSection[] = [
         name: 'react-native-ble-plx',
         license: 'Apache-2.0',
         repository: 'https://github.com/dotintent/react-native-ble-plx',
+      },
+      {
+        name: 'react-native-cloud-storage',
+        license: 'MIT',
+        repository: 'https://github.com/kuatsu/react-native-cloud-storage',
       },
       {
         name: 'react-native-iap',
@@ -456,66 +464,47 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
   'Public Domain': `This data is in the public domain and free to use without restriction.`,
 };
 
-interface CollapsibleSectionProps {
+interface LicenseSectionCardProps {
   section: LicenseSection;
   isDark: boolean;
-  testID?: string;
+  testID: string;
 }
 
-function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps) {
+function LicenseSectionCard({ section, isDark, testID }: LicenseSectionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const themeColors = isDark ? darkColors : colors;
 
-  const toggleExpanded = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(!expanded);
-  };
-
   return (
-    <View testID={testID} style={styles.sectionContainer(isDark)}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={section.titleKey ? t(section.titleKey) : section.title}
-        accessibilityState={{ expanded }}
-        style={pressable(styles.sectionHeader)}
-        onPress={toggleExpanded}
-        android_ripple={pressRipple}
-      >
-        <View style={styles.sectionTitleRow}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-            {section.titleKey ? t(section.titleKey) : section.title}
+    <CollapsibleSection
+      testID={testID}
+      title={section.titleKey ? t(section.titleKey) : section.title}
+      expanded={expanded}
+      onToggle={setExpanded}
+      style={styles.sectionContainer(isDark)}
+      headerRight={
+        <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
+          {section.entries.length}
+        </Text>
+      }
+    >
+      <View style={styles.sectionContent}>
+        {section.description && (
+          <Text style={[styles.sectionDescription, { color: themeColors.textSecondary }]}>
+            {section.description}
           </Text>
-          <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
-            {section.entries.length}
-          </Text>
-        </View>
-        <MaterialCommunityIcons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={24}
-          color={themeColors.textSecondary}
-        />
-      </Pressable>
-
-      {expanded && (
-        <View style={styles.sectionContent}>
-          {section.description && (
-            <Text style={[styles.sectionDescription, { color: themeColors.textSecondary }]}>
-              {section.description}
-            </Text>
-          )}
-          {section.entries.map((entry, index) => (
-            <LicenseEntryRow
-              key={entry.name}
-              testID={`license-entry-${index}`}
-              entry={entry}
-              isDark={isDark}
-              isLast={index === section.entries.length - 1}
-            />
-          ))}
-        </View>
-      )}
-    </View>
+        )}
+        {section.entries.map((entry, index) => (
+          <LicenseEntryRow
+            key={entry.name}
+            testID={`license-entry-${index}`}
+            entry={entry}
+            isDark={isDark}
+            isLast={index === section.entries.length - 1}
+          />
+        ))}
+      </View>
+    </CollapsibleSection>
   );
 }
 
@@ -533,12 +522,11 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
 
   const handlePress = () => {
     if (entry.repository) {
-      Linking.openURL(entry.repository);
+      void openExternal(entry.repository);
     }
   };
 
   const toggleLicense = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowLicense(!showLicense);
   };
 
@@ -568,6 +556,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
         </Pressable>
         {entry.repository && (
           <IconButton
+            accessibilityRole="link"
             accessibilityLabel={`${t('licenses.openRepository')}: ${entry.name}`}
             onPress={handlePress}
           >
@@ -585,11 +574,11 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
         </Text>
       )}
       {showLicense && licenseText && (
-        <View style={styles.licenseTextContainer(isDark)}>
+        <Animated.View entering={FadeIn} style={styles.licenseTextContainer(isDark)}>
           <Text style={[styles.licenseText, { color: themeColors.textSecondary }]}>
             {licenseText}
           </Text>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -612,7 +601,7 @@ function LicensesScreenContent() {
 
         {/* License sections */}
         {LICENSE_DATA.map((section, index) => (
-          <CollapsibleSection
+          <LicenseSectionCard
             key={section.title}
             testID={`license-section-${index}`}
             section={section}
@@ -650,23 +639,9 @@ const styles = {
     borderRadius: layout.borderRadius,
     overflow: 'hidden' as const,
   }),
-  sectionHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    padding: spacing.md,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    ...typography.body,
-    fontWeight: '600' as const,
-  },
   entryCount: {
     ...typography.caption,
+    marginRight: spacing.sm,
     backgroundColor: colorWithOpacity(colors.neutralLine, 0.2),
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,

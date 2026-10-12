@@ -31,6 +31,7 @@ jest.mock('expo-router', () => {
   };
   return {
     ...jest.requireActual('expo-router'),
+    useIsFocused: () => true,
     useLocalSearchParams: () => ({ id: 'r_9' }),
     router: { back: jest.fn() },
     Stack,
@@ -70,7 +71,8 @@ jest.mock('@/shared/ui', () => {
     HeroStatsRow: () => null,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     useHeroMapHeight: () => 300,
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
   };
 });
 

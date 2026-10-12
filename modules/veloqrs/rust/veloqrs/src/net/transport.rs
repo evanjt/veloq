@@ -300,6 +300,16 @@ impl Transport {
         self.governor.refusal_lifts_at(now)
     }
 
+    /// Until when a refusal from intervals.icu holds every request at `now`,
+    /// or `None` when none does. A deferral outside one is the install's own
+    /// allowance, not intervals.icu.
+    pub fn cooldown_until(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.governor.cooldown_until(now)
+    }
+
     fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
     }

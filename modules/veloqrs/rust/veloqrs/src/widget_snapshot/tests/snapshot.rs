@@ -567,6 +567,30 @@ fn zones_the_impact_before_and_after_values_independently() {
 }
 
 #[test]
+fn names_the_impact_zones_in_the_athletes_language() {
+    let mut raw = make_raw();
+    sparklines_mut(&mut raw).form = vec![-2, 0, 2, 4, 6, 0, 10];
+    let impact = compose_raw(&raw).impact.expect("an impact");
+    // 0 yesterday, 10 today.
+    assert_eq!(impact.form_before_zone_text.as_deref(), Some("Grey Zone"));
+    assert_eq!(impact.form_after_zone_text.as_deref(), Some("Fresh"));
+    let json = serde_json::to_value(&impact).unwrap();
+    assert_eq!(json["formBeforeZoneText"], "Grey Zone");
+    assert_eq!(json["formAfterZoneText"], "Fresh");
+}
+
+#[test]
+fn names_no_impact_zone_when_the_day_has_no_fitness_under_the_percentage_setting() {
+    let mut raw = make_raw();
+    raw.form_as_percent = true;
+    sparklines_mut(&mut raw).fitness = vec![66, 67, 68, 69, 70, 71, 0];
+    let impact = compose_raw(&raw).impact.expect("an impact");
+    assert_eq!(impact.form_after_zone, None);
+    assert_eq!(impact.form_after_zone_text, None);
+    assert!(impact.form_before_zone_text.is_some());
+}
+
+#[test]
 fn defaults_the_latest_record_flag_to_false_and_passes_an_engine_record_through() {
     assert!(!snapshot().latest.unwrap().is_pr);
     let mut raw = make_raw();

@@ -167,7 +167,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   fatigue: 'ground',
   fitnessBlue: 'ground',
   fatiguePurple: 'ground',
-  zone7: 'ground',
 
   // Chart series and overlays. I170 read every one of these against 1.4.11:
   // the lines sit between labelled axes with the value printed at the crosshair,

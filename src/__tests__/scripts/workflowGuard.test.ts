@@ -831,6 +831,76 @@ describe('runner images', () => {
   });
 });
 
+describe('caller text spliced into a shell', () => {
+  const JEST_RUN = '      - run: npm test\n';
+
+  it('refuses a dispatch input expanded inside a run body', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/test.yml',
+        JEST_RUN,
+        '      - name: Jest shard\n        run: npm test -- --shard=${{ inputs.shard }}\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest step Jest shard)');
+    expect(output).toContain('inputs.shard');
+  });
+
+  it('refuses event text and the head ref inside a multi-line run body', () => {
+    for (const expression of [
+      '${{ github.event.pull_request.title }}',
+      '${{github.head_ref}}',
+      '${{ github.event.inputs.tier }}',
+    ]) {
+      const output = refused(
+        withEdit(
+          '.github/workflows/test.yml',
+          JEST_RUN,
+          `      - name: Jest\n        run: |\n          echo start\n          npm test -- ${expression}\n`
+        )
+      );
+      expect(output).toContain('.github/workflows/test.yml (job jest step Jest)');
+    }
+  });
+
+  it("refuses an input expanded inside an action's script", () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/test.yml',
+        JEST_RUN,
+        `      - name: Emulator suite\n        uses: example-org/emulator-runner@${PIN}\n        with:\n          script: |\n            ./run.sh --include-tags=\${{ inputs.tier || 'tier0' }}\n`
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest step Emulator suite)');
+    expect(output).toContain('inputs.tier');
+  });
+
+  it('refuses an input expanded inside a composite action run body', () => {
+    const output = refused(
+      withEdit(
+        '.github/actions/npm-ci/action.yml',
+        'run: npm ci',
+        'run: npm ci ${{ inputs.flags }}'
+      )
+    );
+    expect(output).toContain('.github/actions/npm-ci/action.yml');
+    expect(output).toContain('inputs.flags');
+  });
+
+  it('accepts the same values passed through env and read as quoted variables', () => {
+    const { status } = runGuard(
+      fixture(
+        withEdit(
+          '.github/workflows/test.yml',
+          JEST_RUN,
+          `      - name: Jest\n        env:\n          TIERS: \${{ inputs.tier || 'tier0' }}\n          TITLE: \${{ github.event.pull_request.title }}\n        run: npm test -- --tiers="$TIERS" --title="$TITLE"\n`
+        )
+      )
+    );
+    expect(status).toBe(0);
+  });
+});
+
 describe('cancelled pushes to main', () => {
   it('refuses a workflow that cancels main for a newer push', () => {
     const output = refused(

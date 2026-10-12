@@ -14,6 +14,7 @@ import React from 'react';
 import { AppState, Linking, Platform, StyleSheet, type ViewStyle } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
+import { SafeAreaInsetsContext, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 
 import RecordScreen from '@/app/record';
@@ -505,5 +506,26 @@ describe("today's planned workout", () => {
 
     expect(outer.borderRadius).toBe(inner.borderRadius);
     expect(outer.overflow).toBe('hidden');
+  });
+});
+
+describe('the bottom edge', () => {
+  it('clears the home indicator once, through the safe area alone', async () => {
+    await render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, left: 0, right: 0, bottom: 34 }}>
+        <RecordScreen />
+      </SafeAreaInsetsContext.Provider>
+    );
+
+    const safeArea = screen.UNSAFE_getByType(SafeAreaView);
+    const fromSafeArea = safeArea.props.edges.includes('bottom') ? 34 : 0;
+    let node = screen.getByTestId('record-start').parent;
+    let fromPanel: number | undefined;
+    while (node && fromPanel === undefined) {
+      const padding = StyleSheet.flatten(node.props.style)?.paddingBottom;
+      if (typeof padding === 'number') fromPanel = padding;
+      node = node.parent;
+    }
+    expect((fromPanel ?? 0) + fromSafeArea).toBe(34);
   });
 });

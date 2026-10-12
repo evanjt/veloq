@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useSportPreference, type PrimarySport } from '@/features/fitness';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
@@ -16,7 +16,6 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function DisplaySettingsScreenContent() {
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const themePreference = useThemePreferenceStore((s) => s.preference);
   const primarySport = useSportPreference((s) => s.primarySport);
   const setPrimarySport = useSportPreference((s) => s.setPrimarySport);
@@ -28,7 +27,7 @@ function DisplaySettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}>
+      <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <DisplaySettings
           themePreference={themePreference}
           onThemeChange={(v) => setThemePreference(v as ThemePreference)}

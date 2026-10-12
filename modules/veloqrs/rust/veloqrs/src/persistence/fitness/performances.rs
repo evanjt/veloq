@@ -13,6 +13,26 @@ use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentEngine;
 
+/// Direction stats over the counted attempts, each a (time, distance) pair.
+/// The average speed is total distance over total time, so it agrees with the
+/// average time and distance shown beside it, for a route and a section alike.
+fn direction_stats(
+    counted: &[(f64, f64)],
+    last_activity: Option<i64>,
+    outside_band_count: u32,
+) -> DirectionStats {
+    let count = counted.len() as u32;
+    let total_time = counted.iter().map(|(time, _)| time).sum::<f64>();
+    let total_distance = counted.iter().map(|(_, distance)| distance).sum::<f64>();
+    DirectionStats {
+        avg_time: (count > 0).then(|| total_time / f64::from(count)),
+        last_activity,
+        count,
+        avg_speed: (total_time > 0.0).then(|| total_distance / total_time),
+        outside_band_count,
+    }
+}
+
 /// Attempts on a route and where one of them sits among them.
 /// The count is the comparable performances; the percentile is the
 /// share of those slower than `current_activity_id`, `None` when it is not one
@@ -68,7 +88,7 @@ pub(crate) fn direction_best_laps(
 pub(crate) mod laps {
     use rusqlite::{Connection, params};
 
-    use crate::{DirectionStats, SectionLap, SectionPerformanceRecord, SectionPerformanceResult};
+    use crate::{SectionLap, SectionPerformanceRecord, SectionPerformanceResult};
 
     /// One stored traversal of a section, as the computation needs it.
     pub(crate) struct Portion {
@@ -418,11 +438,9 @@ pub(crate) mod laps {
 
         let mut best_fwd: Option<(usize, f64, f64)> = None;
         let mut best_rev: Option<(usize, f64, f64)> = None;
-        let mut fwd_times: Vec<f64> = Vec::new();
-        let mut fwd_distance = 0.0;
+        let mut fwd_laps: Vec<(f64, f64)> = Vec::new();
         let mut fwd_last_date: Option<i64> = None;
-        let mut rev_times: Vec<f64> = Vec::new();
-        let mut rev_distance = 0.0;
+        let mut rev_laps: Vec<(f64, f64)> = Vec::new();
         let mut rev_last_date: Option<i64> = None;
 
         for (i, record) in records.iter().enumerate() {
@@ -433,23 +451,12 @@ pub(crate) mod laps {
                 if !lap.counts_for_record(section_distance) {
                     continue;
                 }
-                let (times, distance, last_date, best) = if lap.direction == "reverse" {
-                    (
-                        &mut rev_times,
-                        &mut rev_distance,
-                        &mut rev_last_date,
-                        &mut best_rev,
-                    )
+                let (laps, last_date, best) = if lap.direction == "reverse" {
+                    (&mut rev_laps, &mut rev_last_date, &mut best_rev)
                 } else {
-                    (
-                        &mut fwd_times,
-                        &mut fwd_distance,
-                        &mut fwd_last_date,
-                        &mut best_fwd,
-                    )
+                    (&mut fwd_laps, &mut fwd_last_date, &mut best_fwd)
                 };
-                times.push(lap.time);
-                *distance += lap.distance;
+                laps.push((lap.time, lap.distance));
                 *last_date = Some(
                     last_date.map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                 );
@@ -468,28 +475,15 @@ pub(crate) mod laps {
                 r
             })
         };
-        // The average speed is the counted laps' own distance over their own
-        // time.
-        let stats_of = |times: &[f64], distance: f64, last: Option<i64>| {
-            if times.is_empty() {
-                return None;
-            }
-            let count = times.len() as u32;
-            let total_time = times.iter().sum::<f64>();
-            Some(DirectionStats {
-                avg_time: Some(total_time / count as f64),
-                last_activity: last,
-                count,
-                avg_speed: (total_time > 0.0).then(|| distance / total_time),
-                outside_band_count: 0,
-            })
+        let stats_of = |laps: &[(f64, f64)], last: Option<i64>| {
+            (!laps.is_empty()).then(|| super::direction_stats(laps, last, 0))
         };
 
         SectionPerformanceResult {
             best_forward_record: best_in(best_fwd, "same"),
             best_reverse_record: best_in(best_rev, "reverse"),
-            forward_stats: stats_of(&fwd_times, fwd_distance, fwd_last_date),
-            reverse_stats: stats_of(&rev_times, rev_distance, rev_last_date),
+            forward_stats: stats_of(&fwd_laps, fwd_last_date),
+            reverse_stats: stats_of(&rev_laps, rev_last_date),
             records,
         }
     }
@@ -1599,25 +1593,12 @@ fn route_direction_stats(
         .into_iter()
         .filter(|p| p.moving_time > 0 && p.distance > 0.0 && !p.outside_distance_band)
         .collect();
-    if counted.is_empty() {
-        return Some(DirectionStats {
-            avg_time: None,
-            avg_speed: None,
-            last_activity: None,
-            count: 0,
-            outside_band_count,
-        });
-    }
-    let count = counted.len() as u32;
-    Some(DirectionStats {
-        avg_time: Some(
-            counted.iter().map(|p| p.moving_time as f64).sum::<f64>() / f64::from(count),
-        ),
-        avg_speed: Some(counted.iter().map(|p| p.speed).sum::<f64>() / f64::from(count)),
-        last_activity: counted.iter().map(|p| p.date).max(),
-        count,
-        outside_band_count,
-    })
+    let laps: Vec<(f64, f64)> = counted
+        .iter()
+        .map(|p| (f64::from(p.moving_time), p.distance))
+        .collect();
+    let last_activity = counted.iter().map(|p| p.date).max();
+    Some(direction_stats(&laps, last_activity, outside_band_count))
 }
 
 /// What a route with no group answers: nothing, rather than a shape with

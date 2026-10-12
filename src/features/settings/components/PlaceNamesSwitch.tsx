@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
+import { openExternal } from '@/shared/app/openExternal';
 import { getPlaceNamesEnabled, setPlaceNamesEnabled } from '@/shared/native/placeNames';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -26,7 +27,7 @@ function presentNotice(t: TFunction, onAccept: () => void): void {
       {
         label: t('settings.placeNames.readPolicy'),
         onPress: () => {
-          Linking.openURL(NOMINATIM_POLICY_URL);
+          void openExternal(NOMINATIM_POLICY_URL);
           presentNotice(t, onAccept);
         },
       },

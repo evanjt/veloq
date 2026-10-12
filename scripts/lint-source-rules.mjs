@@ -60,6 +60,62 @@ function propertyName(property) {
   return null;
 }
 
+// Files whose WebViews never reach the screen, with the invert opt-out rule
+// below giving the reason.
+const INVERT_EXEMPT = ['src/features/maps/components/TerrainSnapshotWebView.tsx'];
+
+const INVERT_OPT_OUT = 'accessibilityIgnoresInvertColors';
+
+function jsxAttribute(element, name) {
+  return element.attributes.properties.find(
+    (attr) => ts.isJsxAttribute(attr) && ts.isIdentifier(attr.name) && attr.name.text === name
+  );
+}
+
+/** Whether an `Image`'s `source` is an object literal carrying a `uri`. */
+function sourcesUri(element) {
+  const source = jsxAttribute(element, 'source');
+  const expression = source?.initializer?.expression;
+  return (
+    expression !== undefined &&
+    ts.isObjectLiteralExpression(expression) &&
+    expression.properties.some((property) => propertyName(property) === 'uri')
+  );
+}
+
+/**
+ * Every `<WebView>`, and every `<Image>` whose source is a URI, that neither
+ * carries the invert opt-out nor sits inside an element that does.
+ */
+function invertUnprotectedSites(file, text) {
+  const sf = ts.createSourceFile('x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sites = [];
+  const protectedBy = (node) => {
+    for (let at = node; at; at = at.parent) {
+      const element = ts.isJsxElement(at) ? at.openingElement : at;
+      if (
+        (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) &&
+        jsxAttribute(element, INVERT_OPT_OUT)
+      )
+        return true;
+    }
+    return false;
+  };
+  const visit = (node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(sf);
+      const shown = tag === 'WebView' || (tag === 'Image' && sourcesUri(node));
+      if (shown && !protectedBy(node)) {
+        const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+        sites.push(`${file}:${line + 1}  <${tag}> inverts under Smart Invert`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return sites;
+}
+
 const COLOUR_PROPERTY = /^(?:color|backgroundColor|border\w*Color)$/;
 
 /**
@@ -1305,7 +1361,7 @@ const RULES = {
         'src/features/auth/components/SessionExpiredNotice.tsx',
         'src/features/settings/components/BackupSection.tsx',
         'src/features/settings/components/WebdavConfigForm.tsx',
-        'src/features/settings/components/RecordingPermissionSection.tsx',
+        'src/features/recording/components/UploadPermissionNotice.tsx',
         'src/shared/ui/EmptyState.tsx',
         'src/shared/ui/ErrorState.tsx',
         'src/shared/ui/BodyNotDownloaded.tsx',
@@ -1402,6 +1458,29 @@ const RULES = {
       return out;
     },
     fix: 'add accessibilityRole and accessibilityState={{ selected }} to the pressable',
+  },
+
+  // iOS Smart Invert inverts every view that does not opt out, so a map or a
+  // photo becomes a negative: satellite imagery, the terrain drape, route and
+  // heatmap hues, faces. Every on-screen map WebView and every `Image` drawn
+  // from a URI carries `accessibilityIgnoresInvertColors`, on itself or on an
+  // element around it. The snapshot workers are never seen, since they render
+  // behind the content at near-zero opacity, and their output reaches the
+  // screen through an `Image` this holds.
+  'invert-colors-opt-out': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const file of INVERT_EXEMPT) {
+        if (!sources.has(file)) out.push(`${file}  is gone: remove it from the exemptions`);
+      }
+      for (const [file, text] of sources) {
+        if (!file.endsWith('.tsx') || TESTS.test(file) || INVERT_EXEMPT.includes(file)) continue;
+        out.push(...invertUnprotectedSites(file, text));
+      }
+      return out;
+    },
+    fix: 'set accessibilityIgnoresInvertColors on the WebView or Image, or on the View around it',
   },
 
   // A point leaves the device for a place name only through the engine's one

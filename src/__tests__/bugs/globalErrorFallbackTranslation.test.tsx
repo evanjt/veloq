@@ -34,8 +34,9 @@ describe('the global error fallback', () => {
     const { getByText } = await renderFallback();
 
     expect(getByText(i18n.t('emptyState.error.title'))).toBeTruthy();
-    expect(getByText(i18n.t('errorState.closeAndReopen'))).toBeTruthy();
-    expect(i18n.t('errorState.closeAndReopen')).not.toBe('errorState.closeAndReopen');
+    expect(getByText(i18n.t('errorState.libraryUnaffected'))).toBeTruthy();
+    expect(getByText(i18n.t('common.retry'))).toBeTruthy();
+    expect(i18n.t('errorState.libraryUnaffected')).not.toBe('errorState.libraryUnaffected');
   });
 
   it('uses English before translation initialisation', async () => {
@@ -44,7 +45,7 @@ describe('the global error fallback', () => {
     const { getByText } = await renderFallback();
 
     expect(getByText('Something went wrong')).toBeTruthy();
-    expect(getByText('Close and reopen the app to continue.')).toBeTruthy();
+    expect(getByText('Your activities on this device are unaffected.')).toBeTruthy();
   });
 
   it('uses English when translation throws', async () => {
@@ -56,7 +57,7 @@ describe('the global error fallback', () => {
     const { getByText } = await renderFallback();
 
     expect(getByText('Something went wrong')).toBeTruthy();
-    expect(getByText('Close and reopen the app to continue.')).toBeTruthy();
+    expect(getByText('Your activities on this device are unaffected.')).toBeTruthy();
   });
 
   it('uses English when translation returns its key', async () => {
@@ -66,6 +67,6 @@ describe('the global error fallback', () => {
     const { getByText } = await renderFallback();
 
     expect(getByText('Something went wrong')).toBeTruthy();
-    expect(getByText('Close and reopen the app to continue.')).toBeTruthy();
+    expect(getByText('Your activities on this device are unaffected.')).toBeTruthy();
   });
 });

@@ -130,6 +130,8 @@ export type {
 export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewRefusalKey } from './lib/previewRefusal';
+export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
+export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
 export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';

@@ -1,9 +1,11 @@
 //! Where the time in `insights_data` actually goes.
 //!
-//! The whole bundle measured 27.8 ms on the handset, with the split left
-//! open. Three parts of it scale with sections times traversals rather
-//! than with the window asked for: the per-sport summary scan, the junction
-//! query behind the recent-PR loop, and the per-sport ranked join. Rewriting
+//! The whole bundle measured 27.8 ms on the handset before it carried each
+//! card's series, and 32 to 49 ms mean, 64 ms at most, after, over a
+//! 257-activity, 62-section library on a debug app with a release engine.
+//! Three parts of it scale with sections times traversals rather than with
+//! the window asked for: the per-sport summary scan, the junction query
+//! behind the recent-PR loop, and the per-sport ranked join. Rewriting
 //! any of them means growing or changing the read, so the split comes first.
 //!
 //! Desktop timings are not handset timings. What transfers is the ratio
@@ -271,6 +273,29 @@ fn insights_data_split_by_part() {
         (hrv + changes + stale).as_secs_f64() * 1000.0
     );
     let _ = stale_rows;
+
+    // The weekly bars behind the period comparison: the chronic span cut into
+    // four weeks, then last week whole, each one period read of its own.
+    let (_, weekly) = time("  get_period_stats x5 (the weekly bars)", || {
+        let step = (p.prev_start - p.chronic_start) as i64 / 4;
+        let mut bounds: Vec<(i64, i64)> = (0..4)
+            .map(|w| {
+                let from = p.chronic_start as i64 + w * step;
+                let to = if w == 3 {
+                    p.prev_start as i64
+                } else {
+                    from + step
+                };
+                (from, to)
+            })
+            .collect();
+        bounds.push((p.prev_start as i64, p.current_start as i64));
+        bounds
+            .into_iter()
+            .map(|(from, to)| engine.get_period_stats(from, to))
+            .collect::<Vec<_>>()
+    });
+    let _ = weekly;
 
     println!(
         "\n{} summaries over the outing floor, {} of them travelled in the last seven days, \

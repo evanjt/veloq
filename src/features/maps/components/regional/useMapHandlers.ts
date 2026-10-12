@@ -31,6 +31,7 @@ import {
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { tapTo } from '@/shared/app/navigation';
+import { motionTiming } from '@/shared/ui/reduceMotion';
 
 /** The ease onto a cluster whose leaves never arrived. */
 const CLUSTER_EXPAND_DURATION_MS = 400;
@@ -516,7 +517,7 @@ export function useMapHandlers({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    Animated.timing(bearingAnim, {
+    motionTiming(bearingAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,

@@ -13,15 +13,15 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { NotificationSection } from '@/features/settings/components/NotificationSection';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/features/settings/lib/notificationService', () => ({
-  hasNotificationPermission: jest.fn().mockResolvedValue(true),
-  requestNotificationPermission: jest.fn().mockResolvedValue('granted'),
-  registerForPushNotifications: jest.fn().mockResolvedValue(undefined),
-  unregisterFromPushNotifications: jest.fn().mockResolvedValue(undefined),
+const mockGetPermissions = jest.fn();
+const mockRequestPermissions = jest.fn();
+jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
+  getPermissionsAsync: () => mockGetPermissions(),
+  requestPermissionsAsync: () => mockRequestPermissions(),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) =>
@@ -59,7 +59,8 @@ function lastAlert() {
 beforeEach(() => {
   setEnabled.mockReset();
   acceptPrivacy.mockReset();
-  (requestNotificationPermission as jest.Mock).mockClear();
+  mockGetPermissions.mockReset().mockResolvedValue({ status: 'denied', canAskAgain: true });
+  mockRequestPermissions.mockReset().mockResolvedValue({ status: 'granted', canAskAgain: true });
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   givenFirstRun();
 });
@@ -91,7 +92,7 @@ describe('the notification privacy notice', () => {
     });
 
     expect(acceptPrivacy).toHaveBeenCalledTimes(1);
-    expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(mockRequestPermissions).toHaveBeenCalledTimes(1);
     expect(setEnabled).toHaveBeenCalledWith(true);
   });
 
@@ -106,7 +107,7 @@ describe('the notification privacy notice', () => {
     });
 
     expect(acceptPrivacy).not.toHaveBeenCalled();
-    expect(requestNotificationPermission).not.toHaveBeenCalled();
+    expect(mockRequestPermissions).not.toHaveBeenCalled();
     expect(setEnabled).not.toHaveBeenCalled();
   });
 });
@@ -114,7 +115,7 @@ describe('the notification privacy notice', () => {
 describe('notifications refused for good', () => {
   beforeEach(() => {
     useNotificationPreferences.setState({ privacyAccepted: true } as never);
-    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce('blocked');
+    mockGetPermissions.mockResolvedValue({ status: 'denied', canAskAgain: false });
   });
 
   it('leaves the switch off and says so, with the settings page one tap away', async () => {

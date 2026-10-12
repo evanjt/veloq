@@ -22,6 +22,7 @@ const COMPONENTS = new Set([
   'StatusSlot',
   'TimerHeader',
   'UnlockTrack',
+  'UploadPermissionNotice',
   'WorkoutGuide',
 ]);
 
@@ -41,6 +42,8 @@ const SOURCES: Record<string, string> = {
   recordingEntryHref: 'lib/recordEntry',
   ACTIVITY_CATEGORIES: 'lib/recordingModes',
   getRecordingMode: 'lib/recordingModes',
+  parsePairedEventId: 'lib/recordingModes',
+  parseRecordingType: 'lib/recordingModes',
   screenRecordingMode: 'lib/recordingModes',
   ALL_DATA_FIELDS: 'lib/dataFields',
   fieldsForMode: 'lib/dataFields',

@@ -92,7 +92,7 @@ describe('the app fallback', () => {
     expect(liveRegionOf(title)).toBe('assertive');
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(
-      expect.stringMatching(/Something went wrong.*Close and reopen/)
+      expect.stringMatching(/Something went wrong.*unaffected/)
     );
   });
 });

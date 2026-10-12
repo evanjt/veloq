@@ -68,6 +68,7 @@ export const CONFIGURATION = [
   'app.config.js',
   'scripts/lib/app-identity.js',
   'src/plugins',
+  'src/theme/appColours.json',
 ];
 
 const PLATFORMS = {

@@ -8,12 +8,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as WebBrowser from 'expo-web-browser';
+import { openExternal } from '@/shared/app/openExternal';
 import { colors, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
@@ -69,20 +69,14 @@ export function InsightfulStats({
   );
 
   // Open activity in intervals.icu website
-  const openInIntervalsICU = useCallback(async () => {
-    const url = `https://intervals.icu/activities/${activity.id}`;
-    try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch {
-      // Fallback to Linking if WebBrowser fails
-      Linking.openURL(url);
-    }
+  const openInIntervalsICU = useCallback(() => {
+    void openExternal(`https://intervals.icu/activities/${activity.id}`);
   }, [activity.id]);
 
   if (stats.length === 0) return null;
 
   return (
-    <View style={styles.frame}>
+    <View style={styles.frame} testID="activity-stats-grid">
       <Card
         variant="raised"
         title={t('activity.activityStats')}

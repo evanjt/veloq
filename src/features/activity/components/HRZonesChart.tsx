@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { MaxHrSource, type HrZoneBand } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
 import { formatHeartRateRange } from '@/shared/format/format';
@@ -52,7 +51,6 @@ export function HRZonesChart({ hrZones, maxHR, maxHrSource, movingTime }: HRZone
         seconds: band.seconds,
         percent: band.percent,
       }))}
-      colours={HR_ZONE_COLORS}
       formatRange={formatHeartRateRange}
       chartName="Heart Rate Zones"
     />

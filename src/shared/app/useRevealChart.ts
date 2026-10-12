@@ -13,6 +13,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { LayoutChangeEvent, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 
+import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
+
 export function useRevealChart<Chart extends string, Anchor extends string>(
   chart: Chart | null,
   anchorOf: (chart: Chart) => Anchor,
@@ -32,7 +34,7 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
 
   const scrollToAnchor = useCallback((anchor: Anchor) => {
     const y = anchors.current.get(anchor);
-    if (y !== undefined) scrollRef.current?.scrollTo({ y, animated: true });
+    if (y !== undefined) scrollRef.current?.scrollTo({ y, animated: !isReduceMotionOn() });
   }, []);
 
   useEffect(() => {

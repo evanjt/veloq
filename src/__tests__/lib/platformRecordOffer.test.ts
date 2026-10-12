@@ -14,6 +14,7 @@
  */
 
 import { Alert } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import {
@@ -65,17 +66,16 @@ describe('the record zip a device backup brings back', () => {
   it('is restored through the record importer on an empty library with no prompt', async () => {
     expect(await platformRecordToOffer(0)).toBe('file:///docs/veloq-decisions.zip');
     const alert = jest.spyOn(Alert, 'alert');
+    const notice = jest.spyOn(Notice, 'showNotice');
 
     await applyPlatformRecord(0, t);
     await settle();
 
     expect(restore).toHaveBeenCalledWith('file:///docs/veloq-decisions.zip');
-    expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert).toHaveBeenCalledWith(
-      'backup.restoreComplete',
-      'backup.recordRestored',
-      undefined,
-      expect.objectContaining({ cancelable: true })
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).toHaveBeenCalledTimes(1);
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'backup.recordRestored' })
     );
     expect(await platformRecordToOffer(0)).toBeNull();
   });

@@ -10,6 +10,7 @@ import { StatusLine } from './StatusLine';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { tapBack } from '@/shared/app/navigation';
+import { shareCrashLog } from '@/shared/app/supportLinks';
 import { isTabBarRoute } from './tabBarClearance';
 
 interface Props {
@@ -108,6 +109,14 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
         )}
         <Button label={t('common.retry')} size="sm" onPress={onRetry} style={styles.button} />
       </View>
+      <Button
+        testID="error-share-crash-log"
+        label={t('support.shareCrashLog')}
+        variant="ghost"
+        size="sm"
+        onPress={() => void shareCrashLog(t)}
+        style={styles.shareButton}
+      />
     </StatusLine>
   );
 }
@@ -143,5 +152,8 @@ const styles = StyleSheet.create({
   },
   button: {
     minWidth: 100,
+  },
+  shareButton: {
+    marginTop: spacing.md,
   },
 });

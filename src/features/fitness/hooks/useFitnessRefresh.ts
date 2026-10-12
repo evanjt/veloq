@@ -15,7 +15,7 @@ type Refetcher = () => Promise<unknown>;
 export function useFitnessRefresh(refetchWellness: Refetcher) {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { notice, requestRefresh } = useSyncRefreshNotice();
+  const { requestRefresh } = useSyncRefreshNotice();
 
   const onRefresh = useMemo(
     () =>
@@ -40,5 +40,5 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
     [refetchWellness, queryClient, requestRefresh]
   );
 
-  return { isRefreshing, onRefresh, notice };
+  return { isRefreshing, onRefresh };
 }
