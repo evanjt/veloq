@@ -23,6 +23,7 @@ const GATE = path.join(REPO, 'scripts/lib/ios-gate.js');
 const {
   chooseSimulator,
   junitFlows,
+  prune,
   recordProblems,
   stampProblem,
 } = require('../../../scripts/lib/ios-gate.js');
@@ -150,6 +151,152 @@ describe('a gate record', () => {
   it('is refused when a step failed, naming it', () => {
     const record = { ...green, failedStep: 'prebuild' };
     expect(recordProblems(record, SHA).join('\n')).toMatch(/prebuild/);
+  });
+});
+
+/**
+ * The Mac's disk fills with the screen recordings every UI test run leaves in
+ * the simulator's test manager container, and with a DerivedData tree per
+ * build. The prune step frees the old ones for the gate alone and touches
+ * nothing that belongs to the simulator's apps or to another workspace.
+ */
+describe('the prune step', () => {
+  const NOW = Date.parse('2026-06-15T12:00:00Z');
+  const HOUR = 3600 * 1000;
+  const DAY = 24 * HOUR;
+  let home: string;
+  let gateTree: string;
+
+  function plist(entries: Record<string, string>, dates: Record<string, string> = {}) {
+    const keys = [
+      ...Object.entries(entries).map(([k, v]) => `<key>${k}</key>\n<string>${v}</string>`),
+      ...Object.entries(dates).map(([k, v]) => `<key>${k}</key>\n<date>${v}</date>`),
+    ];
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<plist version="1.0">',
+      '<dict>',
+      ...keys,
+      '</dict>',
+      '</plist>',
+      '',
+    ].join('\n');
+  }
+
+  function write(file: string, body: string | Buffer, ageMs?: number) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, body);
+    if (ageMs !== undefined) {
+      const at = new Date(NOW - ageMs);
+      fs.utimesSync(file, at, at);
+    }
+    return file;
+  }
+
+  function container(kind: string, id: string, identifier: string) {
+    const dir = path.join(
+      home,
+      'Library/Developer/CoreSimulator/Devices',
+      UDID,
+      'data/Containers/Data',
+      kind,
+      id
+    );
+    write(
+      path.join(dir, '.com.apple.mobile_container_manager.metadata.plist'),
+      plist({ MCMMetadataIdentifier: identifier })
+    );
+    return dir;
+  }
+
+  function derived(name: string, workspace: string, ageMs: number) {
+    const dir = path.join(home, 'Library/Developer/Xcode/DerivedData', name);
+    const accessed = new Date(NOW - ageMs).toISOString().replace(/\.\d+Z$/, 'Z');
+    write(
+      path.join(dir, 'info.plist'),
+      plist({ WorkspacePath: workspace }, { LastAccessedDate: accessed })
+    );
+    write(path.join(dir, 'Build/Products/app.bin'), Buffer.alloc(1000));
+    return dir;
+  }
+
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-gate-prune-'));
+    gateTree = path.join(home, 'veloq-gate');
+    fs.mkdirSync(gateTree);
+  });
+  afterEach(() => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  it('frees old recordings and all but the two newest gate builds, and nothing else', () => {
+    const daemon = container('InternalDaemon', 'C0FFEE01', 'com.apple.testmanagerd');
+    const old = write(
+      path.join(daemon, 'Attachments/run-a/screen.mov'),
+      Buffer.alloc(5000),
+      3 * DAY
+    );
+    const fresh = write(path.join(daemon, 'Attachments/run-b/screen.mov'), Buffer.alloc(700), HOUR);
+    const app = container('Application', 'BEEF0001', 'com.veloq.app');
+    const appFile = write(path.join(app, 'Documents/routes.db'), Buffer.alloc(300), 30 * DAY);
+    const otherDaemon = container('InternalDaemon', 'C0FFEE02', 'com.apple.other');
+    const otherFile = write(
+      path.join(otherDaemon, 'Attachments/keep.mov'),
+      Buffer.alloc(100),
+      30 * DAY
+    );
+
+    const workspace = path.join(gateTree, 'ios/VeloqDev.xcworkspace');
+    const oldest = derived('VeloqDev-aaaa', workspace, 9 * DAY);
+    const middle = derived('Veloq-bbbb', workspace, 5 * DAY);
+    const newest = derived('VeloqDev-cccc', workspace, DAY);
+    const elsewhere = derived(
+      'VeloqDev-dddd',
+      '/Users/someone/veloq/ios/VeloqDev.xcworkspace',
+      40 * DAY
+    );
+    // A sibling tree whose path starts with the gate's is another workspace.
+    const sibling = derived('VeloqDev-eeee', `${gateTree}-old/ios/VeloqDev.xcworkspace`, 40 * DAY);
+
+    const freed = prune({ home, simulator: UDID, gate: gateTree, now: NOW });
+
+    expect(fs.existsSync(old)).toBe(false);
+    expect(fs.existsSync(fresh)).toBe(true);
+    expect(fs.existsSync(appFile)).toBe(true);
+    expect(fs.existsSync(otherFile)).toBe(true);
+    expect(fs.existsSync(oldest)).toBe(false);
+    for (const kept of [middle, newest, elsewhere, sibling]) expect(fs.existsSync(kept)).toBe(true);
+    expect(fs.existsSync(path.join(gateTree, '.metadata_never_index'))).toBe(true);
+
+    expect(freed.attachments).toEqual({ files: 1, bytes: 5000 });
+    expect(freed.derivedData.removed).toEqual([oldest]);
+    expect(freed.derivedData.bytes).toBeGreaterThanOrEqual(1000);
+    expect(freed.bytes).toBe(freed.attachments.bytes + freed.derivedData.bytes);
+  });
+
+  it('frees nothing on a second run', () => {
+    const daemon = container('InternalDaemon', 'C0FFEE01', 'com.apple.testmanagerd');
+    write(path.join(daemon, 'Attachments/screen.mov'), Buffer.alloc(5000), 3 * DAY);
+    const workspace = path.join(gateTree, 'ios/VeloqDev.xcworkspace');
+    for (const [name, age] of [
+      ['VeloqDev-aaaa', 9 * DAY],
+      ['VeloqDev-bbbb', 5 * DAY],
+      ['VeloqDev-cccc', DAY],
+    ] as const) {
+      derived(name, workspace, age);
+    }
+
+    expect(prune({ home, simulator: UDID, gate: gateTree, now: NOW }).bytes).toBeGreaterThan(0);
+    expect(prune({ home, simulator: UDID, gate: gateTree, now: NOW }).bytes).toBe(0);
+  });
+
+  it('frees nothing when the simulator has no test manager container or DerivedData', () => {
+    container('Application', 'BEEF0001', 'com.veloq.app');
+
+    const freed = prune({ home, simulator: UDID, gate: gateTree, now: NOW });
+
+    expect(freed.bytes).toBe(0);
+    expect(fs.existsSync(path.join(gateTree, '.metadata_never_index'))).toBe(true);
   });
 });
 
@@ -372,6 +519,8 @@ describe('scripts/ios-gate.sh', () => {
     expect(r.flows.failed).toEqual([]);
     expect(r.flows.passed).toEqual(expect.arrayContaining(['smoke', 'recording-start-stop']));
     expect(r.tools).toMatchObject({ xcode: expect.stringContaining('26.2'), cocoapods: '1.16.2' });
+    expect(r.pruned).toMatchObject({ bytes: 0 });
+    expect(fs.existsSync(`${f.remote}-gate/.metadata_never_index`)).toBe(true);
 
     const calls = fs.readFileSync(path.join(f.fake, 'calls.log'), 'utf8');
     expect(calls).toMatch(/npx expo prebuild --platform ios --clean/);

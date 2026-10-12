@@ -18,6 +18,9 @@ struct TextFit: Equatable {
   let wrapped: CGSize
   /// All of it on one line at full size.
   let single: CGSize
+  /// Every line at full size, wrapped at the width it was given divided by the smallest scale it
+  /// may shrink to: the same lines it would wrap to at that scale, at full size.
+  let shrunk: CGSize
   let lineLimit: Int?
   let minimumScaleFactor: CGFloat
 }
@@ -67,14 +70,23 @@ private struct MeasuredText: ViewModifier {
                   .fixedSize()
                   .background(
                     GeometryReader { single in
-                      Color.clear.preference(
-                        key: TextFitKey.self,
-                        value: [
-                          TextFit(
-                            name: name, frame: box.frame(in: .named(TextFit.space)),
-                            wrapped: wrapped.size, single: single.size, lineLimit: lineLimit,
-                            minimumScaleFactor: minimumScaleFactor)
-                        ])
+                      content
+                        .lineLimit(nil)
+                        .minimumScaleFactor(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: box.size.width / max(minimumScaleFactor, 0.01))
+                        .background(
+                          GeometryReader { shrunk in
+                            Color.clear.preference(
+                              key: TextFitKey.self,
+                              value: [
+                                TextFit(
+                                  name: name, frame: box.frame(in: .named(TextFit.space)),
+                                  wrapped: wrapped.size, single: single.size,
+                                  shrunk: shrunk.size, lineLimit: lineLimit,
+                                  minimumScaleFactor: minimumScaleFactor)
+                              ])
+                          })
                     })
               }
             )

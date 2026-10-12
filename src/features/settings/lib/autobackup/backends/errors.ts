@@ -18,6 +18,7 @@ export type BackupFailureKind =
   | 'server'
   | 'transport'
   | 'folder_unavailable'
+  | 'icloud_unavailable'
   | 'unverified';
 
 const PERMANENT_KINDS: readonly BackupFailureKind[] = [
@@ -26,6 +27,7 @@ const PERMANENT_KINDS: readonly BackupFailureKind[] = [
   'quota',
   'path',
   'folder_unavailable',
+  'icloud_unavailable',
 ];
 
 export class BackupTransferError extends Error {
@@ -99,6 +101,7 @@ export type BackupFailureMessageKey =
   | 'backup.backupFailedServer'
   | 'backup.backupFailedTransport'
   | 'backup.backupFailedFolder'
+  | 'backup.backupFailedIcloud'
   | 'backup.backupFailedUnverified';
 
 const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
@@ -109,6 +112,7 @@ const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   server: 'backup.backupFailedServer',
   transport: 'backup.backupFailedTransport',
   folder_unavailable: 'backup.backupFailedFolder',
+  icloud_unavailable: 'backup.backupFailedIcloud',
   unverified: 'backup.backupFailedUnverified',
 };
 

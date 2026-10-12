@@ -20,17 +20,20 @@ interface RowBaseProps {
 }
 
 /**
- * What pressing a row does. `navigate` opens another screen, sheet or page and
- * draws the disclosure chevron; `act` runs something where the row stands and
- * draws none, so a destructive row is marked by its colour and words alone.
+ * What pressing a row does. `navigate` opens another screen or sheet and draws
+ * the disclosure chevron; `external` leaves the app for a web page, is announced
+ * as a link and draws the open-in-new glyph; `act` runs something where the row
+ * stands and draws none, so a destructive row is marked by its colour and words
+ * alone.
  */
-export type RowBehaviour = 'navigate' | 'act';
+export type RowBehaviour = 'navigate' | 'external' | 'act';
 
 export type RowProps =
   | (RowBaseProps & {
       onPress?: undefined;
       accessibilityLabel?: undefined;
       accessibilityValue?: undefined;
+      busy?: undefined;
       behaviour?: undefined;
     })
   | (RowBaseProps & {
@@ -42,6 +45,8 @@ export type RowProps =
       accessibilityLabel: string;
       /** The row's current value or state, read after its name. */
       accessibilityValue?: string | undefined;
+      /** The row's own action is running. */
+      busy?: boolean | undefined;
       behaviour: RowBehaviour;
     });
 
@@ -54,8 +59,10 @@ export function Row({
   disabled,
   accessory,
   behaviour,
+  busy,
 }: RowProps) {
   const { isDark } = useTheme();
+  const glyphColour = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   if (!onPress) {
     return (
@@ -69,10 +76,12 @@ export function Row({
   const target = (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      accessibilityRole={behaviour === 'external' ? 'link' : 'button'}
       accessibilityLabel={accessibilityLabel}
       accessibilityValue={accessibilityValue ? { text: accessibilityValue } : undefined}
-      accessibilityState={disabled ? { disabled: true } : undefined}
+      accessibilityState={
+        disabled || busy ? { disabled: !!disabled, ...(busy && { busy: true }) } : undefined
+      }
       onPress={onPress}
       disabled={disabled}
       android_ripple={pressRipple}
@@ -88,7 +97,14 @@ export function Row({
           testID="row-chevron"
           name="chevron-right"
           size={20}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          color={glyphColour}
+        />
+      ) : behaviour === 'external' ? (
+        <MaterialCommunityIcons
+          testID="row-external"
+          name="open-in-new"
+          size={18}
+          color={glyphColour}
         />
       ) : null}
     </Pressable>

@@ -46,6 +46,7 @@ export function ActivityDetailSkeleton({
       <View testID="activity-detail-skeleton-hero" style={{ height: mapHeight }}>
         {posterUri ? (
           <Image
+            accessibilityIgnoresInvertColors
             testID={ACTIVITY_MAP_POSTER_TEST_ID}
             source={{ uri: posterUri }}
             fadeDuration={0}

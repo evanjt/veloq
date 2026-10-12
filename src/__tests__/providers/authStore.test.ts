@@ -11,6 +11,7 @@
 
 import { Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { waitFor } from '@testing-library/react-native';
 import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
@@ -416,6 +417,21 @@ describe('AuthStore', () => {
       useAuthStore.getState().enterDemoMode();
 
       expect(useAuthStore.getState().athlete).toBeNull();
+    });
+
+    it('enterDemoMode() discards a backup held for the next sign-in', async () => {
+      useAuthStore.getState().enterDemoMode();
+
+      await waitFor(() => {
+        expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+          'file:///docs/veloq-held-import.veloq',
+          expect.anything()
+        );
+        expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+          'file:///docs/veloq-held-import.zip',
+          expect.anything()
+        );
+      });
     });
 
     it('exitDemoMode() resets to unauthenticated', async () => {

@@ -35,7 +35,7 @@ import {
   pressRipple,
 } from '@/shared/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
+import { intervalChips } from '../lib/intervalChips';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type { HrZoneBand, PowerZoneBand, ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
@@ -235,71 +235,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const openChartFullscreen = useCallback(() => setIsChartFullscreen(true), []);
   const closeChartFullscreen = useCallback(() => setIsChartFullscreen(false), []);
 
-  // Zone summary for intervals bar
+  // The key above the intervals table, one chip per zone or role in its band's fill.
   const intervalZoneSummary = useMemo(() => {
     if (!intervalsData?.icu_intervals || !activity) return [];
-    const zoneColors = measuresPower(activity.type) ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-
-    type ChipInfo = {
-      label: string;
-      color: string;
-      count: number;
-      totalTime: number;
-    };
-    const chips: ChipInfo[] = [];
-    const chipMap = new Map<string, number>();
-
-    for (const interval of intervalsData.icu_intervals) {
-      const isWork = interval.type === 'WORK';
-      const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
-      const isWarmup = interval.type === 'WARMUP';
-      const isCooldown = interval.type === 'COOLDOWN';
-
-      let label: string;
-      let color: string;
-      let key: string;
-
-      if (isWork && interval.zone != null && interval.zone >= 1) {
-        key = `Z${interval.zone}`;
-        label = `Z${interval.zone}`;
-        color = zoneColors[Math.min(interval.zone - 1, zoneColors.length - 1)];
-      } else if (isWork) {
-        key = 'WORK';
-        label = 'W';
-        color = colors.primary;
-      } else if (isRecovery) {
-        key = 'REC';
-        label = 'Rec';
-        // The chip keys the band, which draws recovery in the neutral grey.
-        color = colors.chartBandNeutral;
-      } else if (isWarmup) {
-        key = 'WU';
-        label = 'WU';
-        color = colors.chartBandWarmup;
-      } else if (isCooldown) {
-        key = 'CD';
-        label = 'CD';
-        color = colors.chartBandCooldown;
-      } else {
-        key = interval.type;
-        label = interval.type.slice(0, 3);
-        color = colors.chartBandNeutral;
-      }
-
-      // An interval with no moving time still counts as one, it just adds
-      // nothing to the total.
-      const movingTime = interval.moving_time ?? 0;
-      const idx = chipMap.get(key);
-      if (idx !== undefined) {
-        chips[idx].count++;
-        chips[idx].totalTime += movingTime;
-      } else {
-        chipMap.set(key, chips.length);
-        chips.push({ label, color, count: 1, totalTime: movingTime });
-      }
-    }
-    return chips;
-  }, [intervalsData, activity]);
+    const scale = measuresPower(activity.type) ? 'power' : 'hr';
+    return intervalChips(intervalsData.icu_intervals, scale, isDark);
+  }, [intervalsData, activity, isDark]);
 
   // Each block is gated on the source it reads. Only the chart needs a stream;
   // the intervals are a persisted column and both zone cards are the engine's

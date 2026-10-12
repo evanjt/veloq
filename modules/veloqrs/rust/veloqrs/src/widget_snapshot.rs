@@ -443,6 +443,11 @@ pub struct Impact {
     pub form_before_zone: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub form_after_zone: Option<&'static str>,
+    /// The zones' names in the athlete's language, so the line carries them in words.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_before_zone_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_after_zone_text: Option<String>,
     pub ctl_delta: f64,
     pub atl_delta: f64,
     pub tss_added: Option<f64>,
@@ -488,6 +493,10 @@ pub struct Display {
     /// The widget refresh control's spoken labels in the athlete's language.
     pub refresh_label: String,
     pub refreshing_label: String,
+    /// The iOS widget refresh control's words. The extension cannot hold the
+    /// engine in its memory, so the control opens the app, whose foreground
+    /// sync rewrites the snapshot, and it says that rather than "refresh".
+    pub open_to_refresh_label: String,
     pub per_week_suffix: String,
     pub form_zone: String,
     pub impact_line: Option<String>,
@@ -622,15 +631,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         && [fitness, fatigue, form, hrv, rhr]
             .iter()
             .all(|s| s.is_empty());
-    let impact = compose_impact(
-        clock,
-        fitness,
-        fatigue,
-        form,
-        latest.as_ref(),
-        as_percent,
-        w,
-    );
+    let impact = compose_impact(ctx, clock, fitness, fatigue, form, latest.as_ref(), w);
     let today_zone = form_zone(
         f64::from(form.last().copied().unwrap_or(0)),
         Some(f64::from(fitness.last().copied().unwrap_or(0))),
@@ -1253,6 +1254,7 @@ fn display(
         record_label: translate(ctx, "recording.startActivity").to_string(),
         refresh_label: translate(ctx, "systemSurfaces.refresh").to_string(),
         refreshing_label: translate(ctx, "systemSurfaces.refreshing").to_string(),
+        open_to_refresh_label: translate(ctx, "systemSurfaces.openToRefresh").to_string(),
         per_week_suffix: translate(ctx, "fitnessScreen.perWeek").to_string(),
         form_zone: zone.map_or(String::new(), |z| translate(ctx, &zone_key(z)).to_string()),
     }
@@ -1946,15 +1948,16 @@ fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportS
 }
 
 fn compose_impact(
+    ctx: &WidgetContext,
     clock: Clock,
     fitness: &[i32],
     fatigue: &[i32],
     form: &[i32],
     latest: Option<&Latest>,
-    as_percent: bool,
     w: Option<&WidgetWellnessSummary>,
 ) -> Option<Impact> {
     let latest = latest?;
+    let as_percent = ctx.form_as_percent;
     if form.len() < 2 || fitness.len() < 2 || fatigue.len() < 2 {
         return None;
     }
@@ -1976,13 +1979,18 @@ fn compose_impact(
     let form_after = at(form, day);
     let form_before = at(form, day - 1);
     let today = w.filter(|_| days_back == 0);
+    let form_before_zone = form_zone(form_before, Some(at(fitness, day - 1)), as_percent);
+    let form_after_zone = form_zone(form_after, Some(at(fitness, day)), as_percent);
+    let zone_text = |zone: Option<&str>| zone.map(|z| translate(ctx, &zone_key(z)).to_string());
     Some(Impact {
         form_before,
         form_after,
         form_before_text: form_text(form_before, at(fitness, day - 1), as_percent),
         form_after_text: form_text(form_after, at(fitness, day), as_percent),
-        form_before_zone: form_zone(form_before, Some(at(fitness, day - 1)), as_percent),
-        form_after_zone: form_zone(form_after, Some(at(fitness, day)), as_percent),
+        form_before_zone,
+        form_after_zone,
+        form_before_zone_text: zone_text(form_before_zone),
+        form_after_zone_text: zone_text(form_after_zone),
         ctl_delta: today.map_or_else(
             || delta(fitness),
             |w| change_from(w.fitness, w.fitness_previous).unwrap_or(0.0),

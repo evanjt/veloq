@@ -12,7 +12,7 @@ import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { RecordFAB } from '@/features/recording/components/RecordFAB';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
+import { BottomInsetTaken, TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
 import { brand, colors, darkColors, recording, spacing } from '@/theme';
 
 /** WCAG 2.2 AA for a graphical object, which is what a glyph on a fill is. */
@@ -41,7 +41,7 @@ jest.mock('@/shared/app', () => ({
 // The barrel reaches the engine through SyncErrorBanner, which has no native
 // module under Jest. Only the clearance is wanted here.
 jest.mock('@/shared/ui', () => ({
-  useTabBarClearance: jest.requireActual('@/shared/ui/tabBarClearance').useTabBarClearance,
+  useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
 }));
 
 jest.mock('expo-router', () => ({
@@ -114,6 +114,17 @@ describe('the record button reads as recording', () => {
 
   it('floats above the tab bar on the feed, by the inset plus the bar', async () => {
     expect((await fabStyle(false)).bottom).toBe(24 + TAB_BAR_SAFE_PADDING + spacing.md);
+  });
+
+  it('keeps the inset inside the feed safe area, whose padding does not lift a floating view', async () => {
+    const { getByTestId } = await render(
+      <BottomInsetTaken.Provider value>
+        <RecordFAB />
+      </BottomInsetTaken.Provider>
+    );
+    expect(StyleSheetFlatten(getByTestId('record-fab').props.style).bottom).toBe(
+      24 + TAB_BAR_SAFE_PADDING + spacing.md
+    );
   });
 
   it('stays hidden while a session is running', async () => {

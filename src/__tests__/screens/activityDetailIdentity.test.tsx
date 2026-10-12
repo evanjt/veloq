@@ -38,6 +38,7 @@ jest.mock('expo-router', () => {
   };
   return {
     ...jest.requireActual('expo-router'),
+    useIsFocused: () => true,
     useLocalSearchParams: () => mockSearchParams,
     router: { back: jest.fn(), push: jest.fn() },
     Stack,

@@ -1,0 +1,144 @@
+/**
+ * Scenario: a worklet runs on the UI runtime from the code string the worklets
+ * plugin writes, which binds the names it captured from `this.__closure` at the
+ * top of its body. A parameter default is evaluated before the body runs, so a
+ * default that names a captured constant throws a ReferenceError there, and the
+ * throw on the UI thread kills a release build. Jest otherwise runs a worklet as
+ * plain JavaScript, where the module scope is still in reach and it passes.
+ *
+ * Expected behaviour: every worklet in the app runs from its UI-runtime code.
+ */
+import { transformSync, parseSync, traverse, types as t } from '@babel/core';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { BACK_SWIPE_EDGE_WIDTH, startsInBackSwipeEdge } from '@/shared/ui/backSwipeEdge';
+import { PAGER_ACTIVATION_OFFSET } from '@/shared/ui/pagerPanDecision';
+
+const root = join(__dirname, '..', '..', '..');
+
+/** The UI-runtime code of each worklet in `file`, keyed by the worklet's name. */
+function uiRuntimeCode(file: string): Map<string, string> {
+  const source = readFileSync(join(root, file), 'utf8');
+  const out = transformSync(source, {
+    filename: join(root, file),
+    babelrc: false,
+    configFile: false,
+    presets: [['@babel/preset-typescript', { isTSX: file.endsWith('.tsx'), allExtensions: true }]],
+    plugins: ['react-native-worklets/plugin'],
+  });
+  const codes = new Map<string, string>();
+  const ast = parseSync(out!.code!, {
+    filename: 'out.tsx',
+    babelrc: false,
+    configFile: false,
+    parserOpts: { plugins: ['jsx'] },
+  });
+  traverse(ast!, {
+    VariableDeclarator(path) {
+      const { id, init } = path.node;
+      if (!t.isIdentifier(id) || !id.name.endsWith('_init_data')) return;
+      if (!t.isObjectExpression(init)) return;
+      for (const prop of init.properties) {
+        if (
+          t.isObjectProperty(prop) &&
+          t.isIdentifier(prop.key, { name: 'code' }) &&
+          t.isStringLiteral(prop.value)
+        ) {
+          const name = /^function (\w+)/.exec(prop.value.value)?.[1] ?? id.name;
+          codes.set(name, prop.value.value);
+        }
+      }
+    },
+  });
+  return codes;
+}
+
+/** Builds a worklet from its UI-runtime code with the closure the plugin would hand it. */
+function onUiRuntime<A extends unknown[], R>(
+  code: string,
+  closure: Record<string, unknown>
+): (...args: A) => R {
+  const fn = new Function(`return (${code});`)() as (...args: A) => R;
+  return (...args: A) => fn.apply({ __closure: closure }, args);
+}
+
+/** Names a worklet's parameters read that only its body binds from the closure. */
+function closureNamesReadByParameters(code: string): string[] {
+  const ast = parseSync(`(${code})`, { babelrc: false, configFile: false });
+  const fn = (ast!.program.body[0] as t.ExpressionStatement).expression as t.FunctionExpression;
+  const first = fn.body.body[0];
+  const captured = new Set<string>();
+  if (
+    t.isVariableDeclaration(first) &&
+    t.isMemberExpression(first.declarations[0]?.init) &&
+    t.isIdentifier((first.declarations[0].init as t.MemberExpression).property, {
+      name: '__closure',
+    }) &&
+    t.isObjectPattern(first.declarations[0].id)
+  ) {
+    for (const prop of first.declarations[0].id.properties) {
+      if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) captured.add(prop.key.name);
+    }
+  }
+  const read = new Set<string>();
+  const visit = (node: t.Node | null | undefined): void => {
+    if (!node || typeof node !== 'object') return;
+    if (t.isIdentifier(node) && captured.has(node.name)) read.add(node.name);
+    for (const key of t.VISITOR_KEYS[node.type] ?? []) {
+      const child = (node as unknown as Record<string, unknown>)[key];
+      for (const c of Array.isArray(child) ? child : [child]) visit(c as t.Node);
+    }
+  };
+  for (const param of fn.params) visit(param);
+  return [...read];
+}
+
+function filesWithWorklets(): string[] {
+  return readdirSync(join(root, 'src'), { recursive: true, encoding: 'utf8' })
+    .map((f) => join('src', f))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !f.includes('__tests__'))
+    .filter((f) => readFileSync(join(root, f), 'utf8').includes("'worklet'"));
+}
+
+describe('worklets on the UI runtime', () => {
+  it('decides a tab pager pan without reaching module scope', () => {
+    const code = uiRuntimeCode('src/shared/ui/pagerPanDecision.ts').get(
+      'pagerPanDecision_pagerPanDecisionTs1'
+    );
+    expect(code).toBeDefined();
+    const decide = onUiRuntime<[object], string>(code!, {
+      BACK_SWIPE_EDGE_WIDTH,
+      startsInBackSwipeEdge,
+      PAGER_ACTIVATION_OFFSET,
+    });
+    const pan = { index: 1, tabCount: 3, translationX: -40, screenWidth: 400, isRTL: false };
+    expect(decide({ ...pan, startX: 200 })).toBe('activate');
+    expect(decide({ ...pan, startX: BACK_SWIPE_EDGE_WIDTH - 1 })).toBe('fail');
+  });
+
+  it('tests a touch against the back-swipe strip without reaching module scope', () => {
+    const code = uiRuntimeCode('src/shared/ui/backSwipeEdge.ts').get(
+      'startsInBackSwipeEdge_backSwipeEdgeTs1'
+    );
+    expect(code).toBeDefined();
+    const starts = onUiRuntime<[number, number, boolean], boolean>(code!, {
+      BACK_SWIPE_EDGE_WIDTH,
+    });
+    expect(starts(BACK_SWIPE_EDGE_WIDTH - 1, 400, false)).toBe(true);
+    expect(starts(BACK_SWIPE_EDGE_WIDTH, 400, false)).toBe(false);
+    expect(starts(400 - BACK_SWIPE_EDGE_WIDTH + 1, 400, true)).toBe(true);
+  });
+
+  it('gives no worklet a parameter default that reads a captured name', () => {
+    const offenders: string[] = [];
+    for (const file of filesWithWorklets()) {
+      for (const [name, code] of uiRuntimeCode(file)) {
+        for (const read of closureNamesReadByParameters(code)) {
+          offenders.push(`${file}: ${name} defaults a parameter to ${read}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

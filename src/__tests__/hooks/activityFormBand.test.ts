@@ -7,7 +7,7 @@
  * number is text, so it takes the text variant and not the band fill.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -54,6 +54,29 @@ describe('the activity card form band', () => {
       const stat = await formStat({ ctl: 100.49, atl: 95.49 } as WellnessData);
       expect(stat?.value).toBe('+5%');
       expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS.fresh);
+    } finally {
+      useFormPreference.setState({ formAsPercent: null });
+    }
+  });
+
+  it('follows the percentage setting when it changes after mount', async () => {
+    useFormPreference.setState({ formAsPercent: false });
+    try {
+      const wellness = { ctl: 40, atl: 54 } as WellnessData;
+      const { result } = await renderHook(() =>
+        useActivityStats({ activity, wellness, ...settings })
+      );
+      const form = () => result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
+      expect(form()?.value).toBe('-14');
+      expect(form()?.context).toBe(formZoneLabel('optimal'));
+
+      await act(async () => {
+        useFormPreference.getState().setFormAsPercent(true);
+      });
+
+      expect(form()?.value).toBe('-35%');
+      expect(form()?.context).toBe(formZoneLabel('highRisk'));
+      expect(form()?.color).toBe(FORM_ZONE_TEXT_COLORS.highRisk);
     } finally {
       useFormPreference.setState({ formAsPercent: null });
     }

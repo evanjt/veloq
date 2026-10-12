@@ -11,7 +11,7 @@
  */
 import React from 'react';
 import { Modal } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
@@ -126,5 +126,66 @@ describe('the tour as a modal', () => {
     fireEvent(pager(), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     expect(pager().props.accessibilityValue).toMatchObject({ now: 1 });
     expect(useWhatsNewStore.getState().tourState).not.toBeNull();
+  });
+});
+
+function layOutFooter(row: number, widths: { skip: number; showMe: number; next: number }) {
+  const layout = (width: number) => ({
+    nativeEvent: { layout: { x: 0, y: 0, width, height: 40 } },
+  });
+  // The footer pads its row by 24 on each side.
+  fireEvent(screen.getByTestId('whats-new-footer'), 'layout', layout(row + 48));
+  fireEvent(screen.getByTestId('whats-new-skip-slot'), 'layout', layout(widths.skip));
+  fireEvent(screen.getByTestId('whats-new-show-me-slot'), 'layout', layout(widths.showMe));
+  fireEvent(screen.getByTestId('whats-new-next-slot'), 'layout', layout(widths.next));
+}
+
+describe('the tour footer on a narrow card', () => {
+  it('keeps Skip, Show me and Next in one row when they fit', () => {
+    openTour();
+    layOutFooter(248, { skip: 52, showMe: 96, next: 60 });
+
+    expect(screen.queryByTestId('whats-new-show-me-row')).toBeNull();
+    const row = within(screen.getByTestId('whats-new-nav-row'));
+    expect(row.getByTestId('whats-new-skip')).toBeTruthy();
+    expect(row.getByTestId('whats-new-show-me')).toBeTruthy();
+    expect(row.getByTestId('whats-new-next')).toBeTruthy();
+  });
+
+  it('puts Show me in a row of its own above Skip and Next when the labels do not fit', () => {
+    openTour();
+    layOutFooter(208, { skip: 106, showMe: 100, next: 62 });
+
+    const showMeRow = screen.getByTestId('whats-new-show-me-row');
+    expect(within(showMeRow).getByTestId('whats-new-show-me')).toBeTruthy();
+    expect(within(showMeRow).queryByTestId('whats-new-skip')).toBeNull();
+    expect(within(showMeRow).queryByTestId('whats-new-next')).toBeNull();
+
+    const navRow = screen.getByTestId('whats-new-nav-row');
+    expect(within(navRow).getByTestId('whats-new-skip')).toBeTruthy();
+    expect(within(navRow).getByTestId('whats-new-next')).toBeTruthy();
+    expect(within(navRow).queryByTestId('whats-new-show-me')).toBeNull();
+
+    const footer = screen.getByTestId('whats-new-footer');
+    const order = footer.children.map((child) =>
+      typeof child === 'string' ? child : child.props.testID
+    );
+    expect(order.indexOf('whats-new-show-me-row')).toBeLessThan(order.indexOf('whats-new-nav-row'));
+
+    fireEvent.press(screen.getByTestId('whats-new-show-me'));
+    expect(useWhatsNewStore.getState().tourState?.exploring).toBe(true);
+  });
+
+  it('keeps the stacked footer, and Done in it, on the last slide', () => {
+    openTour();
+    layOutFooter(208, { skip: 106, showMe: 100, next: 62 });
+    fireEvent.press(screen.getByTestId('whats-new-next'));
+    fireEvent.press(screen.getByTestId('whats-new-next'));
+
+    expect(screen.getByTestId('whats-new-show-me-row')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('whats-new-nav-row')).getByTestId('whats-new-done')
+    ).toBeTruthy();
+    expect(screen.queryByTestId('whats-new-skip')).toBeNull();
   });
 });

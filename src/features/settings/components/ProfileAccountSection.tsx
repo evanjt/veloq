@@ -2,7 +2,6 @@ import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
@@ -12,6 +11,7 @@ import { clearAccountData, clearAuthOnly, wipeConfirmMessage } from '@/shared/st
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
+import { ExternalLinkRow } from '@/shared/ui/ExternalLinkRow';
 import * as haptics from '@/shared/ui/haptics';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { useExportRecordBackup } from '../hooks/useBackup';
@@ -190,6 +190,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
         {hasValidProfileUrl && !profileImageError ? (
           <Image
+            accessibilityIgnoresInvertColors
             source={{ uri: profileUrl }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
@@ -244,17 +245,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       {isDemo ? (
         <Row>{profile}</Row>
       ) : (
-        <Row
-          behaviour="navigate"
-          accessibilityLabel={athlete?.name || t('settings.athleteFallback', 'Athlete')}
-          onPress={() =>
-            WebBrowser.openBrowserAsync(
-              `https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`
-            )
-          }
+        <ExternalLinkRow
+          url={`https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`}
+          label={athlete?.name || t('settings.athleteFallback', 'Athlete')}
         >
           {profile}
-        </Row>
+        </ExternalLinkRow>
       )}
 
       {/* Logout row - keeps cached data for instant re-login */}

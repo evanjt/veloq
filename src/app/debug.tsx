@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, RefreshControl, Platform, Share } from 'react-native';
 import Constants from 'expo-constants';
-import { Button, ScreenScrollView, useTabBarClearance, pressable, pressRipple } from '@/shared/ui';
+import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -390,7 +390,6 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
 
 function DebugScreenContent() {
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -481,7 +480,7 @@ function DebugScreenContent() {
     >
       <ScreenScrollView
         style={[styles.container, isDark && styles.containerDark]}
-        contentContainerStyle={[styles.content, { paddingBottom: spacing.md + tabBarClearance }]}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.md }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Engine Stats */}

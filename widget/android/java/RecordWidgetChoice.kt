@@ -26,7 +26,14 @@ object RecordWidgetChoice {
     editor.apply()
   }
 
-  private fun key(widgetId: Int) = "sport_url_$widgetId"
+  /** A restored widget keeps its sport under its new id. */
+  fun remap(context: Context, oldIds: IntArray, newIds: IntArray) {
+    WidgetIdRemap.rewrite(prefs(context), listOf(PREFIX), oldIds, newIds)
+  }
+
+  private const val PREFIX = "sport_url_"
+
+  private fun key(widgetId: Int) = "$PREFIX$widgetId"
 
   private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

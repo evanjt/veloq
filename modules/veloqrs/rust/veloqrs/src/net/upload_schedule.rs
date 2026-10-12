@@ -66,16 +66,34 @@ pub fn schedule_loop(
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Holds the single-worker slot. Release is structural, so a worker that
+/// panics frees the slot as it unwinds and the next `start_or_wake` starts a
+/// fresh one.
+struct RunGuard(&'static AtomicBool);
+
+impl Drop for RunGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+impl RunGuard {
+    fn claim(latch: &'static AtomicBool) -> Option<Self> {
+        latch
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| RunGuard(latch))
+    }
+}
+
 /// Start the worker if it is not running, and wake it either way.
 ///
 /// Idempotent: the app calls it when the engine is ready and again after the
 /// athlete grants write permission.
 pub fn start_or_wake() {
-    if RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
-    {
-        crate::threads::spawn_named("veloq-upsched", || {
+    if let Some(slot) = RunGuard::claim(&RUNNING) {
+        crate::threads::spawn_named("veloq-upsched", move || {
+            let _slot = slot;
             schedule_loop(
                 || chrono::Utc::now().timestamp_millis(),
                 || {
@@ -219,5 +237,21 @@ mod tests {
         assert_eq!(r.order, "s");
         let r = run(1_000, |_| Some(0), |_| true, 3);
         assert_eq!(r.order, "s", "nothing drained while offline");
+    }
+
+    #[test]
+    fn a_worker_that_panics_frees_the_slot_for_the_next_start() {
+        static LATCH: AtomicBool = AtomicBool::new(false);
+        let held = RunGuard::claim(&LATCH).expect("the slot starts free");
+        assert!(RunGuard::claim(&LATCH).is_none(), "one worker at a time");
+        let worker = std::thread::spawn(move || {
+            let _held = held;
+            panic!("the drain failed");
+        });
+        assert!(worker.join().is_err());
+        assert!(
+            RunGuard::claim(&LATCH).is_some(),
+            "the unwound worker released the slot"
+        );
     }
 }

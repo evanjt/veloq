@@ -1,7 +1,8 @@
 #!/bin/sh
 # The Mac's half of the iOS gate, which `ios-gate.sh` copies over and runs.
 #
-# Builds the pushed sha in one gate worktree beside the repository, refuses a
+# Builds the pushed sha in one gate worktree beside the repository, after
+# freeing the old test recordings and gate DerivedData the runs leave, refuses a
 # tree whose stamp is not that sha, installs the app on the booted simulator,
 # runs tier0 with the map and navigation packs and one recording start and stop,
 # and writes `record.json` to `<repository>-gate-out/<sha>/`. A step that fails
@@ -52,7 +53,7 @@ tree_stamp() {
 
 record() {
   node "$gatejs" record --out "$out/record.json" --sha "$sha" --branch "$branch" \
-    --simulator "$udid" "$@"
+    --simulator "$udid" --pruned "$out/pruned.json" "$@"
 }
 
 current=""
@@ -82,7 +83,7 @@ checkout() {
   git -C "$repo" worktree prune
   if [ -e "$gate/.git" ]; then
     git -C "$gate" checkout --quiet --force --detach "$sha"
-    git -C "$gate" clean -q -ffdx -e node_modules -e target
+    git -C "$gate" clean -q -ffdx -e node_modules -e target -e .metadata_never_index
   else
     git -C "$repo" worktree add --quiet --detach "$gate" "$sha"
   fi
@@ -115,6 +116,10 @@ tracematch() {
   git -C "$path" checkout --quiet --detach "$pin"
 }
 
+prune() {
+  node "$gatejs" prune --simulator "$udid" --gate "$gate" --out "$out/pruned.json"
+}
+
 flows() {
   set +e
   MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test .maestro/ \
@@ -127,6 +132,7 @@ flows() {
 
 echo "ios-gate: $sha on simulator $udid"
 step checkout checkout
+step prune prune
 step stamp check_stamp
 step tracematch tracematch
 step npm-ci npm ci

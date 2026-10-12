@@ -27,7 +27,6 @@ interface ZoneTimeCardProps {
   zoneTotalLabel: (duration: string) => string;
   movingTime: number;
   bands: readonly ZoneTimeBand[];
-  colours: readonly string[];
   /** The range a zone covers with its unit once, the upper edge null for an open top zone */
   formatRange: (min: number, max: number | null) => string;
   chartName: string;
@@ -41,7 +40,6 @@ export function ZoneTimeCard({
   zoneTotalLabel,
   movingTime,
   bands,
-  colours,
   formatRange,
   chartName,
 }: ZoneTimeCardProps) {
@@ -54,7 +52,7 @@ export function ZoneTimeCard({
   const histogram: ZoneBand[] = bands.map((band) => ({
     key: `Z${band.zone}`,
     label: `Z${band.zone}`,
-    colour: colours[band.zone - 1] ?? colours[colours.length - 1],
+    zone: band.zone,
     percent: band.percent,
     primary: formatDurationHuman(band.seconds),
     secondary: formatRange(band.min, band.max ?? null),

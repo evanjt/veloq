@@ -183,9 +183,9 @@ export const widgetRecord = {
   glyph: 28,
   gap: spacing.xxs,
   /** The label shrinks between these sizes to fit a translation on one line. */
-  textMin: 8,
+  textMin: 9,
   textMax: 12,
-  /** One line at `textMax`, fixed so the glyph and label centre together in a larger cell. */
+  /** One line at `textMax`, the least the label's box is, which grows with the font scale. */
   labelHeight: 16,
 } as const;
 
@@ -211,18 +211,40 @@ export const widgetLayout = {
 } as const;
 
 /**
- * Widget type scale in pt. Mirrors the design-system metric/label sizes but kept as
- * plain numbers so the node codegen needn't import `@/theme/typography` (which pulls
- * in react-native).
+ * Widget type scale in pt (sp on Android) at the default text size. Mirrors the
+ * design-system metric/label sizes but kept as plain numbers so the node codegen needn't
+ * import `@/theme/typography` (which pulls in react-native). No step is under 11, the
+ * smallest text the platform guidance sets on a widget.
  */
 export const widgetType = {
   hero: 32,
   metric: 22,
   value: 18,
   label: 12,
-  caption: 10,
+  caption: 11,
   /** The smallest a line shrinks to when it is fitted to its box rather than cut off. */
-  floor: 8,
+  floor: 9,
+} as const;
+
+/**
+ * How the widget type follows the reader's text size. Each step grows with the iOS text
+ * style nearest its default size. The widgets and the Live Activity are data-dense, so they
+ * follow the setting up to `maxScale` times each step's default size and no further, on iOS
+ * and in the labels Android paints into a chart bitmap, which the system cannot scale.
+ * `iosLargest` is the largest standard iOS size whose body text stays inside that; the
+ * caption styles grow faster than body, so each step is capped at `maxScale` as well.
+ */
+export const widgetTextScale = {
+  styles: {
+    hero: 'largeTitle',
+    metric: 'title2',
+    value: 'body',
+    label: 'caption',
+    caption: 'caption2',
+    floor: 'caption2',
+  } satisfies Record<keyof typeof widgetType, string>,
+  iosLargest: 'xxLarge',
+  maxScale: 1.3,
 } as const;
 
 /**

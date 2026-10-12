@@ -75,7 +75,8 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorState: () => null,
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
     Shimmer: () => null,
     pressable: (style: unknown) => style,
   };

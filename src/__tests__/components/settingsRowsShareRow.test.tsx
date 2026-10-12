@@ -6,7 +6,8 @@
  *
  * Expected behaviour: each list row renders the shared Row, whose root is at
  * least the tap-target height and has no border. A row that opens another
- * screen draws the shared chevron and nothing else draws one; a row that acts
+ * screen draws the shared chevron and nothing else draws one; a row that
+ * leaves for a web page draws the open-in-new glyph instead; a row that acts
  * where it stands, above all a destructive one, draws none.
  */
 
@@ -162,8 +163,10 @@ describe('chevrons on the settings screens', () => {
     }
   });
 
-  it('draws the shared chevron on the subscription row of Support', async () => {
-    expectOnlyRowChevrons(await render(<SupportSection />), 1);
+  it('draws no chevron on Support, whose subscription row leaves for a web page', async () => {
+    const tree = await render(<SupportSection />);
+    expectOnlyRowChevrons(tree, 0);
+    expect(tree.getAllByTestId('row-external')).toHaveLength(1);
   });
 
   it('draws the shared chevron on the recordings, sensors, units and tile slot rows', async () => {
@@ -183,9 +186,10 @@ describe('account rows', () => {
     useAuthStore.setState({ authMethod: 'apiKey' });
   });
 
-  it('marks the profile row as navigation and neither sign-out row', async () => {
+  it('marks the profile row as a web page and neither sign-out row as anything', async () => {
     const tree = await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />);
-    expectOnlyRowChevrons(tree, 1);
+    expectOnlyRowChevrons(tree, 0);
+    expect(tree.getAllByTestId('row-external')).toHaveLength(1);
     for (const id of ['settings-logout-button', 'settings-logout-clear-button']) {
       const row = tree.getByTestId(id);
       expect(row.findAll((node) => node.props.testID === 'row-chevron')).toHaveLength(0);

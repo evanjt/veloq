@@ -5,7 +5,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import {
   ScreenSafeAreaView,
   screenListInsets,
-  useTabBarClearance,
+  useScrollEndInset,
   ChartSkeleton,
   ExplanationCard,
   Spinner,
@@ -41,7 +41,6 @@ import {
 } from '@/shared/app/fitnessEntry';
 import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { SyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 
 const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
 const NO_WELLNESS: NonNullable<ReturnType<typeof useFitnessScreenData>['wellness']> = [];
@@ -85,7 +84,7 @@ function FitnessScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const shared = createSharedStyles(isDark);
   // A card that summarised a window links here with it, so the screen opens on
   // that window rather than on its own default, mounted or not. A metric
@@ -192,7 +191,7 @@ function FitnessScreenContent() {
     if (wellness) logMemory('FitnessScreen:wellnessLoaded');
   }, [wellness]);
   // Handle pull-to-refresh - invalidate all fitness-related queries
-  const { isRefreshing, onRefresh, notice } = useFitnessRefresh(refetch);
+  const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
   // Memoized derivations (FTP trend, dominant zone)
   const { ftpTrend, dominantZone } = useFitnessComputations({
@@ -245,7 +244,7 @@ function FitnessScreenContent() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: layout.screenPadding + tabBarClearance },
+          { paddingBottom: layout.screenPadding + scrollEndInset },
         ]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
@@ -389,7 +388,6 @@ function FitnessScreenContent() {
           </>
         )}
       </ScrollView>
-      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

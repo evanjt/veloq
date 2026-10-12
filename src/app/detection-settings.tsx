@@ -5,13 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
-import {
-  Button,
-  ScreenSafeAreaView,
-  ScreenScrollView,
-  useTabBarClearance,
-  StatusLine,
-} from '@/shared/ui';
+import { Button, ScreenSafeAreaView, ScreenScrollView, StatusLine } from '@/shared/ui';
 import {
   BackgroundJobsActivityBar,
   CutoverStatus,
@@ -29,7 +23,6 @@ import { confirmAction } from '@/shared/ui/dialog';
 function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
@@ -57,8 +50,9 @@ function DetectionSettingsScreenContent() {
     confirmAction({
       title: t('settings.reanalyzeSections'),
       message: t('settings.reanalyzeWarning'),
-      confirmLabel: t('common.confirm'),
+      confirmLabel: t('settings.reanalyzeSections'),
       cancelLabel: t('common.cancel'),
+      destructive: true,
       onConfirm: () => forceRescan(),
     });
   }, [t, forceRescan]);
@@ -69,10 +63,7 @@ function DetectionSettingsScreenContent() {
       testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScreenScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <BackgroundJobsActivityBar />
         <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
           <SwitchRow

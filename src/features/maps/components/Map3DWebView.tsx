@@ -838,7 +838,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }, [initialPitch, terrainExaggeration, pageEpoch]);
 
     return (
-      <View style={styles.container}>
+      <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
           <WebView
             key={viewKey}

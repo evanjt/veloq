@@ -43,7 +43,7 @@ function attributes(xml: string): Record<string, string> {
 }
 
 function ids(xml: string): Set<string> {
-  return new Set([...xml.matchAll(/@\+id\/(\w+)/g)].map((m) => m[1]));
+  return new Set([...xml.matchAll(/@(?:\+id|android:id)\/(\w+)/g)].map((m) => m[1]));
 }
 
 describe('the Strength widget in the Android gallery', () => {
@@ -96,7 +96,7 @@ describe('the Strength widget in the Android gallery', () => {
     const layout = (name: string) =>
       ids(fs.readFileSync(path.join(main, 'res', 'layout', `${name}.xml`), 'utf8'));
     const shared = [
-      'str_root',
+      'background',
       'str_label',
       'str_front',
       'str_back',

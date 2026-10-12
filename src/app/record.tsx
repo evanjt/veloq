@@ -6,7 +6,7 @@ import {
   IconButton,
   ToggleButton,
   ScreenSafeAreaView,
-  useTabBarClearance,
+  useBottomClearance,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -15,12 +15,11 @@ import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { canTurnOnLocationServices } from '@/shared/app/permissions/locationServices';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   getRecordingMode,
   defaultEntrySport,
@@ -68,8 +67,7 @@ const NO_TRACK: [number, number][] = [];
 function RecordScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance({ insetTaken: true });
   const { canRecord, reason } = useCanRecord();
   const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
   const continueWithoutScope = useUploadPermissionStore((s) => s.continueWithoutScope);
@@ -275,7 +273,7 @@ function RecordScreenContent() {
           {
             backgroundColor: surface,
             borderTopColor: border,
-            paddingBottom: insets.bottom + tabBarClearance,
+            paddingBottom: bottomClearance,
           },
         ]}
       >
@@ -292,7 +290,7 @@ function RecordScreenContent() {
             <MaterialCommunityIcons
               name={getActivityIcon(event.type as ActivityType)}
               size={24}
-              color={getActivityColor(event.type as ActivityType)}
+              color={getActivityInk(event.type as ActivityType, isDark)}
               style={styles.eventIcon}
             />
             <View style={styles.eventDetails}>
@@ -335,7 +333,7 @@ function RecordScreenContent() {
                   <MaterialCommunityIcons
                     name={getActivityIcon(type)}
                     size={18}
-                    color={getActivityColor(type)}
+                    color={getActivityInk(type, isDark)}
                   />
                 }
               />
@@ -389,6 +387,7 @@ function SportSurface({
   textSecondary: string;
 }) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   return (
     <View
       testID={`record-surface-${mode}`}
@@ -397,7 +396,7 @@ function SportSurface({
       <MaterialCommunityIcons
         name={getActivityIcon(sport)}
         size={64}
-        color={getActivityColor(sport)}
+        color={getActivityInk(sport, isDark)}
       />
       <Text style={[styles.sportSurfaceTitle, { color: textPrimary }]}>
         {t(`activityTypes.${sport}` as never, sport) as string}

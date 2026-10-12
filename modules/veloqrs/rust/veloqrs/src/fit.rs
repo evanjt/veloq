@@ -60,7 +60,7 @@ pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitPa
     if data.is_empty() {
         return Err(FitParseError::Empty);
     }
-    let records = decode(data).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    let records = decode(data)?;
     Ok(sets_from_records(&records))
 }
 
@@ -70,11 +70,27 @@ pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitPa
 /// written with a single slot arrived as `"squat"` while the same field written
 /// with three slots arrived as numbers. The numbers are what the category and
 /// set type tables below key on, whichever way the device wrote the field.
-fn decode(data: &[u8]) -> fitparser::Result<Vec<fitparser::FitDataRecord>> {
+///
+/// The file comes from outside, so a malformed one has to settle as an error.
+/// The decoder slices the header to the size the file's first byte claims, so a
+/// claim past the end of the file is refused before it is called, and any other
+/// panic inside it is caught and returned as a decode error.
+fn decode(data: &[u8]) -> Result<Vec<fitparser::FitDataRecord>, FitParseError> {
+    let claimed = data.first().map_or(0, |&size| usize::from(size));
+    if data.len() < claimed {
+        return Err(FitParseError::Decode(format!(
+            "header claims {claimed} bytes in a {}-byte file",
+            data.len()
+        )));
+    }
     let options = [fitparser::de::DecodeOption::ReturnNumericEnumValues]
         .into_iter()
         .collect();
-    fitparser::de::from_reader_with_options(&mut Cursor::new(data), &options)
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        fitparser::de::from_reader_with_options(&mut Cursor::new(data), &options)
+    }))
+    .map_err(|_| FitParseError::Decode("decoder panicked".to_string()))?
+    .map_err(|e| FitParseError::Decode(e.to_string()))
 }
 
 /// The positions a FIT file records, in order, in degrees.
@@ -87,7 +103,7 @@ pub fn parse_fit_track(data: &[u8]) -> Result<Vec<crate::GpsPoint>, FitParseErro
     if data.is_empty() {
         return Err(FitParseError::Empty);
     }
-    let records = decode(data).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    let records = decode(data)?;
     let mut track = Vec::new();
     for record in &records {
         if record.kind() != fitparser::profile::MesgNum::Record {
@@ -430,6 +446,37 @@ pub(crate) mod tests {
     fn an_unreadable_fit_is_an_error_not_an_empty_track() {
         assert!(super::parse_fit_track(&[]).is_err());
         assert!(super::parse_fit_track(b"not a fit file").is_err());
+    }
+
+    /// A header that claims 255 bytes in a 20-byte file, with a set and with a
+    /// zero header CRC, the two branches the decoder slices the header on.
+    fn oversized_headers() -> [Vec<u8>; 2] {
+        let header = |crc: [u8; 2]| {
+            let mut data = vec![255, 0x20, 0x54, 0x08, 0, 0, 0, 0, b'.', b'F', b'I', b'T'];
+            data.extend_from_slice(&crc);
+            data.extend_from_slice(&[0; 6]);
+            data
+        };
+        [header([0x12, 0x34]), header([0, 0])]
+    }
+
+    /// Scenario: an uploaded file's header claims more bytes than the file
+    /// holds. The batch that downloads strength sets walks every activity in one
+    /// job, so a panic here stops it at the same activity on every retry.
+    ///
+    /// Expected behaviour: each parser returns a decode error and does not panic.
+    #[test]
+    fn a_header_larger_than_the_file_is_a_decode_error_not_a_panic() {
+        for data in oversized_headers() {
+            assert!(matches!(
+                super::parse_fit_strength_sets(&data),
+                Err(super::FitParseError::Decode(_))
+            ));
+            assert!(matches!(
+                super::parse_fit_track(&data),
+                Err(super::FitParseError::Decode(_))
+            ));
+        }
     }
 
     use super::*;

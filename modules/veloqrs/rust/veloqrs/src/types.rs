@@ -226,9 +226,7 @@ pub struct DirectionStats {
     pub last_activity: Option<i64>,
     /// Number of traversals in this direction
     pub count: u32,
-    /// Average speed across all traversals in this direction (m/s).
-    /// Populated by route performance queries; section performance queries
-    /// currently leave it as None.
+    /// Counted distance over counted time in this direction (m/s).
     #[serde(default)]
     pub avg_speed: Option<f64>,
     /// Timed route attempts outside the distance band, absent from the averages.

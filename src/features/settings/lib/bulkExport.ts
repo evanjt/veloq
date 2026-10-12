@@ -255,7 +255,7 @@ function completed(written: ExportResult, kind: BulkExportKind): BulkExportOutco
 }
 
 async function shareAndDelete(destination: Destination): Promise<void> {
-  await shareExistingFile(destination.uri, destination.mimeType, destination.uti);
+  await shareExistingFile(destination.uri, destination.mimeType, { uti: destination.uti });
   await FileSystem.deleteAsync(destination.uri, { idempotent: true });
 }
 

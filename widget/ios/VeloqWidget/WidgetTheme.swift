@@ -119,9 +119,48 @@ enum WidgetTheme {
     static let metric: CGFloat = 22
     static let value: CGFloat = 18
     static let label: CGFloat = 12
-    static let caption: CGFloat = 10
-    static let floor: CGFloat = 8
+    static let caption: CGFloat = 11
+    static let floor: CGFloat = 9
   }
+
+  /// One step of the type scale: its size at the default text size and the text style it
+  /// grows with at a larger one.
+  enum TypeStep: CaseIterable {
+    case hero
+    case metric
+    case value
+    case label
+    case caption
+    case floor
+
+    var size: CGFloat {
+      switch self {
+      case .hero: return TypeScale.hero
+      case .metric: return TypeScale.metric
+      case .value: return TypeScale.value
+      case .label: return TypeScale.label
+      case .caption: return TypeScale.caption
+      case .floor: return TypeScale.floor
+      }
+    }
+
+    var style: Font.TextStyle {
+      switch self {
+      case .hero: return .largeTitle
+      case .metric: return .title2
+      case .value: return .body
+      case .label: return .caption
+      case .caption: return .caption2
+      case .floor: return .caption2
+      }
+    }
+  }
+
+  /// The largest text size the widgets and the Live Activity follow the reader to.
+  static let largestTextSize: DynamicTypeSize = .xxLarge
+
+  /// The most a step grows over its default size, whatever text size the reader picks.
+  static let maxTextScale: CGFloat = 1.3
 
   enum Chart {
     static let fatigueDash: [CGFloat] = [3, 2]

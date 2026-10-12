@@ -44,6 +44,11 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   setWebdavConfig: jest.fn(),
   testWebdavConnection: jest.fn(),
   webdavUrlProblem: () => null,
+  isIcloudSupported: () => false,
+  isIcloudBackupOn: () => false,
+  setIcloudBackupOn: jest.fn(),
+  icloudBackupState: async () => 'unsupported',
+  icloudBackend: { id: 'icloud', name: 'iCloud Drive' },
 }));
 
 // Rows owned elsewhere, which reach the map and the camera.

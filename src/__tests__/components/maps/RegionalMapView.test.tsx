@@ -41,6 +41,16 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   }),
 }));
 
+const mockStatusBarStyles: string[] = [];
+
+jest.mock('expo-status-bar', () => ({
+  ...jest.requireActual('expo-status-bar'),
+  StatusBar: ({ style }: { style: string }) => {
+    mockStatusBarStyles.push(style);
+    return null;
+  },
+}));
+
 const SECTION = {
   id: 'sec-1',
   sectionType: 'auto',
@@ -287,6 +297,38 @@ describe('RegionalMapView', () => {
       </SafeAreaProvider>
     );
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+  });
+
+  /**
+   * Scenario: in the light app theme the athlete cycles the map from the light
+   * style through dark to satellite and back, all drawn under the status bar.
+   *
+   * Expected behaviour: the status bar takes light glyphs over the dark style
+   * and the imagery, dark ones over the light style, and sets nothing once the
+   * tab loses focus.
+   */
+  it('sets the status bar style from the map style while the tab is focused', async () => {
+    mockStatusBarStyles.length = 0;
+    const view = await renderRegional();
+    expect(mockStatusBarStyles.at(-1)).toBe('dark');
+
+    const toggleStyle = screen.getByLabelText('maps.toggleStyle');
+    await act(async () => fireEvent.press(toggleStyle));
+    expect(mockStatusBarStyles.at(-1)).toBe('light');
+    await act(async () => fireEvent.press(toggleStyle));
+    expect(mockStatusBarStyles.at(-1)).toBe('light');
+    await act(async () => fireEvent.press(toggleStyle));
+    expect(mockStatusBarStyles.at(-1)).toBe('dark');
+
+    mockPathname = '/activity/a1';
+    mockStatusBarStyles.length = 0;
+    await view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+    expect(mockStatusBarStyles).toEqual([]);
+    mockPathname = '/map';
   });
 
   /**

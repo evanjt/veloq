@@ -42,8 +42,18 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => ({
 jest.mock('@/features/activity/components/ActivityCardContextMenu', () => {
   const { Text } = require('react-native');
   return {
-    ActivityCardContextMenu: ({ visible }: { visible: boolean }) =>
-      visible ? <Text testID="card-menu">menu</Text> : null,
+    ActivityCardContextMenu: ({
+      visible,
+      children,
+    }: {
+      visible: boolean;
+      children: React.ReactNode;
+    }) => (
+      <>
+        {children}
+        {visible ? <Text testID="card-menu">menu</Text> : null}
+      </>
+    ),
   };
 });
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());

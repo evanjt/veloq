@@ -18,7 +18,7 @@ import {
   ErrorState,
   ComponentErrorBoundary,
   ActivityCardSkeleton,
-  useTabBarClearance,
+  useScrollEndInset,
   canDrawProfilePhoto,
   IconButton,
   useLargeText,
@@ -29,7 +29,8 @@ import { RestoreOfferCard, StreamConsentCard, useDashboardPreferences } from '@/
 import { tapTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onPullRefresh } from '@/shared/ui/haptics';
-import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
+import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
+import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -131,10 +132,10 @@ function FeedScreenContent() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const listContentStyle = useMemo(
-    () => ({ paddingBottom: spacing.xl + tabBarClearance }),
-    [tabBarClearance]
+    () => ({ paddingBottom: spacing.xl + scrollEndInset }),
+    [scrollEndInset]
   );
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -321,7 +322,7 @@ function FeedScreenContent() {
     engine: engineState,
   });
   const standingBy = emptyState === 'standby';
-  const { notice, requestRefresh } = useSyncRefreshNotice();
+  const { requestRefresh } = useSyncRefreshNotice();
 
   // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
   // on the filtered list would re-read the bundle on every search keystroke,
@@ -379,7 +380,7 @@ function FeedScreenContent() {
             setTimeout(() => {
               listRef.current?.scrollToOffset({
                 offset: hiddenHeadHeight.current,
-                animated: true,
+                animated: !isReduceMotionOn(),
               });
             }, 100);
           }
@@ -569,6 +570,7 @@ function FeedScreenContent() {
           >
             {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
               <Image
+                accessibilityIgnoresInvertColors
                 source={{ uri: profileUrl }}
                 style={StyleSheet.absoluteFill}
                 resizeMode="cover"
@@ -861,7 +863,6 @@ function FeedScreenContent() {
           <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
         </ComponentErrorBoundary>
       )}
-      <SyncRefreshNotice message={notice} />
     </ScreenSafeAreaView>
   );
 }

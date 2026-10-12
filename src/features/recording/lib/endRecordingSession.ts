@@ -1,7 +1,5 @@
-import {
-  buildRecordingBackup,
-  saveRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
+import { persistRideBackup } from '@/features/recording/lib/rideBackup';
+import { buildRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -31,7 +29,7 @@ export async function endRecordingSession(): Promise<void> {
   store.stopRecording();
 
   const backup = buildRecordingBackup(useRecordingStore.getState());
-  if (backup) await saveRecordingBackup(backup);
+  if (backup) await persistRideBackup(backup);
 
   // The backup is written first and the navigation cannot undo it. A press on
   // the notification arrives through a broadcast receiver, which can run with

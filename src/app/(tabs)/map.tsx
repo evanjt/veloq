@@ -21,7 +21,7 @@ import {
 import {
   ComponentErrorBoundary,
   ErrorState,
-  useTabBarClearance,
+  useBottomClearance,
   Shimmer,
   Button,
   pressable,
@@ -125,7 +125,7 @@ function MapScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
 
   // Attribution text from map (updated dynamically)
@@ -313,7 +313,7 @@ function MapScreenContent() {
           layout={LinearTransition.duration(SHEET_FADE_MS)}
           style={[
             styles.infoBar,
-            { paddingBottom: tabBarClearance + 16 },
+            { paddingBottom: bottomClearance + spacing.md },
             isDark && styles.infoBarDark,
           ]}
         >

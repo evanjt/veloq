@@ -68,6 +68,7 @@ struct VeloqWidgetEntryView: View {
     )
     .environment(\.snapshotNow, entry.date)
     .widgetURL(SummaryDeepLink.fitness)
+    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -138,11 +139,12 @@ struct RecordWidgetView: View {
       .unspoken()
       Text("Record")
         .measuredText("record")
-        .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+        .widgetFont(.value, weight: .semibold)
         .foregroundColor(WidgetTheme.Record.foreground)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .widgetURL(url)
+    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: colorScheme == .dark

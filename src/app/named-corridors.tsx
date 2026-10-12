@@ -18,7 +18,6 @@ import {
   pressRipple,
   ScreenSafeAreaView,
   ScreenScrollView,
-  useTabBarClearance,
 } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -65,7 +64,6 @@ function FootprintPreview({
 function NamedCorridorsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const locale = getIntlLocale();
   const { corridors, state, remove } = useNamedCorridors();
 
@@ -91,10 +89,7 @@ function NamedCorridorsScreenContent() {
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: layout.screenPadding + tabBarClearance },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: layout.screenPadding }]}
         testID="named-corridors-list"
       >
         {state !== 'ready' ? (

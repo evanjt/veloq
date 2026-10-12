@@ -3,7 +3,8 @@
      every attempt as a dot and the section records. A taller placement also fills the load, the
      form before and after, and the date. The renderer hides what a size or a snapshot lacks. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/act_root"
+  android:id="@android:id/background"
+  android:clipToOutline="true"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="horizontal"

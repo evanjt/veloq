@@ -86,6 +86,7 @@ describe.each([
 });
 
 describe.each([
+  [50.5, 45.6, '+5', 'Fresh'],
   [60.4, 70.45, '-10', 'Grey Zone'],
   [60.4, 90.45, '-30', 'Optimal'],
 ])('ctl %d and atl %d near a zone boundary', (ctl, atl, shown, zoneLabel) => {
@@ -95,8 +96,9 @@ describe.each([
 
   it('the Today banner names the zone of the form it prints', async () => {
     const tree = await render(<TodayBanner form={{ ctl, atl }} />);
+    const escaped = shown.replace(/[+]/g, '\\+');
     expect(
-      tree.getByText(new RegExp(`^${zoneLabel} \u00B7 activity\\.stats\\.formTSB ${shown}$`))
+      tree.getByText(new RegExp(`^${zoneLabel} \u00B7 activity\\.stats\\.formTSB ${escaped}$`))
     ).toBeTruthy();
   });
 });

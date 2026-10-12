@@ -326,8 +326,9 @@ async function clearBasemapTiles(): Promise<void> {
  *   the device backup would carry to the next phone, and the temporary file or
  *   conversion copy the engine leaves beside it when killed before the rename
  * - Every backup file: the local backups and old database copies, which the
- *   login screen offers to whoever opens an empty library, and the restore
- *   copies in the cache
+ *   login screen offers to whoever opens an empty library, the restore
+ *   copies in the cache, and a backup held on the login screen for the next
+ *   sign-in
  * - The derived-data clear's rollback copy of the library, which a clear
  *   killed part way leaves beside the database
  * - The quarantined copy of a database that would not open, which launch
@@ -386,6 +387,7 @@ export async function wipeLibrary(): Promise<void> {
   const { clearWebdavConfig } = require('@/features/settings/lib/autobackup/webdavConfig');
   const { forgetBackupCarrier } = require('@/features/settings/lib/autobackup/autoBackup');
   const { deleteBackupFiles } = require('@/features/settings/lib/autobackup/backends/localBackend');
+  const { discardHeldImport } = require('@/features/settings/lib/heldImport');
   const {
     useNotificationPreferences,
   } = require('@/features/settings/stores/NotificationPreferencesStore');
@@ -452,12 +454,15 @@ export async function wipeLibrary(): Promise<void> {
     () => forgetStoredActivityCount(),
     () => forgetInsightFingerprint(),
     () => deleteBackupFiles(),
+    () => discardHeldImport(),
     () => deleteCachedAthleteFiles(),
     () => clearWebdavConfig(),
     () => clearPendingApiKey(),
     () => releasePushRegistration(),
   ]);
   const { useInsightsStore } = require('@/features/insights/store');
+  const { useUnitPreference } = require('@/shared/app/UnitPreferenceStore');
+  const { useFormPreference } = require('@/shared/app/FormPreferenceStore');
   // One at a time and in this order, each still run when the one before fails.
   for (const step of [
     // Once the token is released, so no push for this athlete lands after it.
@@ -481,6 +486,10 @@ export async function wipeLibrary(): Promise<void> {
       if (useAuthStore.getState().authMethod) useUploadPermissionStore.setState({ isLoaded: true });
     },
     () => useInsightsStore.getState().reset(),
+    // The demo profile carries neither preference, so nothing would replace
+    // the previous athlete's.
+    () => useUnitPreference.getState().reset(),
+    () => useFormPreference.getState().reset(),
   ]) {
     await settleWipeSteps([step]);
   }

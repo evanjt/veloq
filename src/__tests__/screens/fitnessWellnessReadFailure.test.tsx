@@ -39,16 +39,14 @@ jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
   return {
     ScreenSafeAreaView: View,
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
     ChartSkeleton: View,
     ExplanationCard: View,
   };
 });
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: (Component: unknown) => Component,
-}));
-jest.mock('@/shared/native/useSyncRefreshNotice', () => ({
-  SyncRefreshNotice: () => null,
 }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: {} }),
@@ -79,7 +77,7 @@ jest.mock('@/features/fitness', () => {
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
     resolveThresholdPace: () => null,
-    useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn(), notice: null }),
+    useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
       wellness: undefined,

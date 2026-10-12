@@ -24,7 +24,6 @@
     "ActivityManager.getPreviewTrack",
     "DetectionManager.forceRedetect",
     "FitnessManager.getIntervalBody",
-    "SectionManager.disable",
     "SyncManager.syncActivitiesWindow",
     "SyncManager.syncActivityDetail",
     "SyncManager.syncActivityIntervals",

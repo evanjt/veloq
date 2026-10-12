@@ -78,7 +78,6 @@ const CONFIRMATION_NAMES: Record<string, RegExp[]> = {
 const SHORT_VOICE = [
   'activity.noDataAvailable',
   'activityDetail.noMatchedSections',
-  'backup.restoreComplete',
   'fitness.restDay',
   'routes.noRoutesYet',
   'settings.noData',
@@ -124,7 +123,6 @@ const MOST_SEEN = [
   'systemSurfaces.insightsEmpty',
   'systemSurfaces.recordDescription',
   'settings.syncStep.activities',
-  'backup.restoreComplete',
   'support.thankYou',
 ];
 

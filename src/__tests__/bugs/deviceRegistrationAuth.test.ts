@@ -233,3 +233,97 @@ it('does not register a token after the OAuth session ends during token lookup',
     global.fetch = oldFetch;
   }
 });
+
+/**
+ * Scenario: the device routes forward the caller's credential to intervals.icu
+ * on every request, so with no limit in front of them one address can make the
+ * proxy send any volume of lookups from the egress real registrations share.
+ *
+ * Expected behaviour: each address has a per-route budget on the device routes,
+ * spent before the credential is looked up, apart from the sign-in routes' own.
+ */
+describe('the device routes rate-limit each address before the lookup', () => {
+  const worker = require('../../../oauth-proxy/src/worker').default as {
+    fetch: (request: Request, env: unknown) => Promise<Response>;
+  };
+  const BUDGET = 10;
+  const originalFetch = global.fetch;
+
+  function memoryKv() {
+    const entries = new Map<string, string>();
+    return {
+      entries,
+      get: jest.fn(async (key: string, format?: string) => {
+        const value = entries.get(key) ?? null;
+        return format === 'json' && value ? JSON.parse(value) : value;
+      }),
+      put: jest.fn(async (key: string, value: string) => {
+        entries.set(key, value);
+      }),
+      delete: jest.fn(async (key: string) => {
+        entries.delete(key);
+      }),
+    };
+  }
+
+  let lookups: jest.Mock;
+
+  function makeEnv() {
+    lookups = jest.fn(async () => new Response(JSON.stringify({ id: OWN })));
+    global.fetch = lookups as unknown as typeof fetch;
+    return { DEVICE_TOKENS: memoryKv(), OAUTH_STATES: memoryKv() };
+  }
+
+  function deviceRequest(method: 'POST' | 'DELETE', ip = '203.0.113.7') {
+    const path = method === 'POST' ? 'register' : 'unregister';
+    return new Request(`https://auth.veloq.fit/devices/${path}`, {
+      method,
+      headers: { Authorization: 'Bearer guessed', 'CF-Connecting-IP': ip },
+      body: JSON.stringify({ athleteId: OWN, token: 'ExponentPushToken[x]', platform: 'android' }),
+    });
+  }
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it.each(['POST', 'DELETE'] as const)(
+    'answers %s past the budget with 429 and no intervals.icu request',
+    async (method) => {
+      const env = makeEnv();
+      for (let i = 0; i < BUDGET; i++) {
+        expect((await worker.fetch(deviceRequest(method), env)).status).toBe(200);
+      }
+      const refused = await worker.fetch(deviceRequest(method), env);
+      expect(refused.status).toBe(429);
+      expect(refused.headers.get('Retry-After')).toBe('60');
+      expect(lookups).toHaveBeenCalledTimes(BUDGET);
+    }
+  );
+
+  it('counts each address on its own', async () => {
+    const env = makeEnv();
+    for (let i = 0; i < BUDGET; i++) await worker.fetch(deviceRequest('POST'), env);
+    expect((await worker.fetch(deviceRequest('POST', '198.51.100.2'), env)).status).toBe(200);
+  });
+
+  it('still lets the sign-out unregister through after registrations spent their budget', async () => {
+    const env = makeEnv();
+    for (let i = 0; i < BUDGET + 1; i++) await worker.fetch(deviceRequest('POST'), env);
+    expect((await worker.fetch(deviceRequest('DELETE'), env)).status).toBe(200);
+  });
+
+  it('leaves the sign-in budget untouched', async () => {
+    const env = makeEnv();
+    for (let i = 0; i < BUDGET + 1; i++) await worker.fetch(deviceRequest('POST'), env);
+    const state = await worker.fetch(
+      new Request('https://auth.veloq.fit/oauth/state', {
+        method: 'POST',
+        headers: { 'CF-Connecting-IP': '203.0.113.7' },
+        body: JSON.stringify({ state: 'x'.repeat(43), code_challenge: 'y'.repeat(43) }),
+      }),
+      env
+    );
+    expect(state.status).not.toBe(429);
+  });
+});

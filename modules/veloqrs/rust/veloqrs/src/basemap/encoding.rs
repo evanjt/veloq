@@ -20,11 +20,26 @@ pub(crate) fn is_gzip(bytes: &[u8]) -> bool {
     bytes.starts_with(&GZIP_MAGIC)
 }
 
-/// A gzip stream decompressed.
+/// A gzip stream decompressed, refused once it inflates past
+/// [`MAX_TILE_BYTES`](super::fetch::MAX_TILE_BYTES).
 pub(crate) fn gunzip(bytes: &[u8]) -> std::io::Result<Vec<u8>> {
-    let mut out = Vec::with_capacity(bytes.len() * 2);
-    flate2::read::GzDecoder::new(bytes).read_to_end(&mut out)?;
-    Ok(out)
+    gunzip_at_most(bytes, super::fetch::MAX_TILE_BYTES)?.ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "inflates past the tile size cap",
+        )
+    })
+}
+
+/// A gzip stream decompressed, or `None` when it inflates past `cap` bytes.
+/// Decompression stops one byte past the cap, so a small stream that inflates
+/// to gigabytes never holds more than that.
+pub(crate) fn gunzip_at_most(bytes: &[u8], cap: usize) -> std::io::Result<Option<Vec<u8>>> {
+    let mut out = Vec::with_capacity((bytes.len() * 2).min(cap));
+    flate2::read::GzDecoder::new(bytes)
+        .take(cap as u64 + 1)
+        .read_to_end(&mut out)?;
+    Ok((out.len() <= cap).then_some(out))
 }
 
 /// A kept body as the map draws it, or `None` when it is a gzip stream that

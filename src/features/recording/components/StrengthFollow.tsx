@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
-import { Button, useTabBarClearance } from '@/shared/ui';
+import { Button, useBottomClearance } from '@/shared/ui';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
@@ -43,8 +42,7 @@ function Follow({
 }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
   const themeColors = isDark ? darkColors : colors;
   useRecordingKeepAwake();
 
@@ -156,7 +154,7 @@ function Follow({
       <View
         style={{
           paddingHorizontal: spacing.md,
-          paddingBottom: insets.bottom + tabBarClearance,
+          paddingBottom: bottomClearance,
           paddingTop: spacing.sm,
         }}
       >

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { ScreenSafeAreaView, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
@@ -9,13 +9,12 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function AccountScreenContent() {
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const { data: athleteRow } = useAthlete();
   const athlete = athleteRow ?? undefined;
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}>
+      <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <ProfileAccountSection athlete={athlete} />
       </ScreenScrollView>
     </ScreenSafeAreaView>

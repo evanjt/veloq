@@ -183,6 +183,29 @@ it('ignores Touchable tags in tests and mocks', () => {
   expect(runGuard(root).status).toBe(0);
 });
 
+it('refuses an icon that takes a press itself, which shows nothing on either platform', () => {
+  const root = fixture({
+    'src/features/x/Header.tsx': [
+      '<MaterialCommunityIcons name="close" size={24} onPress={close} />',
+      '<MaterialIcons name="close" />',
+    ].join('\n'),
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Header.tsx:1');
+  expect(output).not.toContain('src/features/x/Header.tsx:2');
+});
+
+it("leaves a text field's icon, which the field draws as a button", () => {
+  const root = fixture({
+    'src/shared/ui/Field.tsx': '<PaperTextInput.Icon icon="eye" onPress={toggle} />\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
 it('refuses a press wrapper that skips the platform answer', () => {
   const root = fixture({
     'src/features/x/Header.tsx': '<AnimatedPressable onPress={toggle} />\n',

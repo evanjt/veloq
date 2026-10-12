@@ -16,13 +16,13 @@ import Animated, {
   withTiming,
   runOnJS,
   Easing,
-  useReducedMotion,
   type SharedValue,
 } from 'react-native-reanimated';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
+import { useReduceMotion } from '@/shared/ui/reduceMotion';
 import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -35,7 +35,12 @@ import {
   type TourLibrary,
 } from '@/features/settings/lib/tourShowMe';
 import { useActivityCount } from '@/shared/native/useActivityCount';
-import { TOUR_CARD_HEIGHT_RATIO, tourSlideAreaHeight } from '../../lib/tourSlideFit';
+import {
+  TOUR_CARD_HEIGHT_RATIO,
+  TOUR_FOOTER_GAP,
+  tourFooterLayout,
+  tourSlideAreaHeight,
+} from '../../lib/tourSlideFit';
 import { tourResumeMotion } from '../../lib/tourResume';
 import {
   getAllSlides,
@@ -77,7 +82,7 @@ export function WhatsNewModal() {
   const slideAreaHeight = tourSlideAreaHeight(overlayHeight || windowHeight, chromeHeight);
   const contentWidth = windowWidth - MODAL_HORIZONTAL_PADDING * 2;
   const swipeThreshold = windowWidth * SWIPE_THRESHOLD_RATIO;
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotion();
   const isLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
   const tourState = useWhatsNewStore((s) => s.tourState);
@@ -460,7 +465,8 @@ function DotIndicator({
 }
 
 // A button that does not apply to the slide in view is not rendered, so it is never
-// pressed or focused unseen.
+// pressed or focused unseen. When Skip, Show Me and Next do not fit side by side at
+// their natural widths, Show Me takes a full-width row above the other two.
 function NavigationButtons({
   index,
   slides,
@@ -486,33 +492,98 @@ function NavigationButtons({
 }) {
   const isLast = index === slideCount - 1;
   const canShowMe = !!slides[index]?.showMeRoute;
+  const { fontScale } = useWindowDimensions();
 
-  return (
-    <View style={styles.nav}>
-      <View style={styles.navLeft}>
-        {!isLast && <Button label={skipLabel} onPress={onSkip} variant="ghost" size="sm" />}
-      </View>
+  const [rowWidth, setRowWidth] = useState(0);
+  const [skipWidth, setSkipWidth] = useState(0);
+  const [nextWidth, setNextWidth] = useState(0);
+  // Stacked, Show Me is stretched to the row, so its natural width is the one last
+  // measured in a row, for as long as its label and the text size are unchanged.
+  const showMeKey = `${showMeLabel}|${fontScale}`;
+  const [showMeMeasure, setShowMeMeasure] = useState({ key: '', width: 0 });
+  const showMeWidth = showMeMeasure.key === showMeKey ? showMeMeasure.width : 0;
 
-      {canShowMe && (
+  const stacked =
+    canShowMe &&
+    tourFooterLayout(rowWidth, { skip: skipWidth, showMe: showMeWidth, next: nextWidth }) ===
+      'stacked';
+
+  const skipSlot = (
+    <View
+      testID="whats-new-skip-slot"
+      style={styles.navLeft}
+      onLayout={(event: LayoutChangeEvent) => setSkipWidth(event.nativeEvent.layout.width)}
+    >
+      {!isLast && (
         <Button
-          label={showMeLabel}
-          onPress={onShowMe}
+          testID="whats-new-skip"
+          label={skipLabel}
+          onPress={onSkip}
           variant="ghost"
           size="sm"
-          icon={<Text>→</Text>}
         />
       )}
+    </View>
+  );
 
-      <View style={styles.navRight}>
-        {isLast ? (
-          <Button label={doneLabel} onPress={onSkip} size="sm" />
-        ) : (
-          <Button label={nextLabel} onPress={onNext} variant="ghost" size="sm" />
-        )}
+  const nextSlot = (
+    <View
+      testID="whats-new-next-slot"
+      style={styles.navRight}
+      onLayout={(event: LayoutChangeEvent) => setNextWidth(event.nativeEvent.layout.width)}
+    >
+      {isLast ? (
+        <Button testID="whats-new-done" label={doneLabel} onPress={onSkip} size="sm" />
+      ) : (
+        <Button
+          testID="whats-new-next"
+          label={nextLabel}
+          onPress={onNext}
+          variant="ghost"
+          size="sm"
+        />
+      )}
+    </View>
+  );
+
+  const showMeSlot = canShowMe && (
+    <View
+      testID="whats-new-show-me-slot"
+      style={stacked ? undefined : styles.navSlot}
+      onLayout={(event: LayoutChangeEvent) => {
+        if (!stacked) setShowMeMeasure({ key: showMeKey, width: event.nativeEvent.layout.width });
+      }}
+    >
+      <Button
+        testID="whats-new-show-me"
+        label={showMeLabel}
+        onPress={onShowMe}
+        variant="ghost"
+        size="sm"
+        icon={<Text>→</Text>}
+      />
+    </View>
+  );
+
+  return (
+    <View
+      testID="whats-new-footer"
+      style={styles.nav}
+      onLayout={(event: LayoutChangeEvent) =>
+        setRowWidth(Math.max(0, event.nativeEvent.layout.width - NAV_HORIZONTAL_PADDING * 2))
+      }
+    >
+      {stacked && <View testID="whats-new-show-me-row">{showMeSlot}</View>}
+      <View testID="whats-new-nav-row" style={styles.navRow}>
+        {skipSlot}
+        {!stacked && showMeSlot}
+        {nextSlot}
       </View>
     </View>
   );
 }
+
+const NAV_HORIZONTAL_PADDING = spacing.lg;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -551,17 +622,28 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   nav: {
+    paddingHorizontal: NAV_HORIZONTAL_PADDING,
+    paddingBottom: spacing.lg,
+    gap: TOUR_FOOTER_GAP,
+  },
+  navRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    gap: TOUR_FOOTER_GAP,
+  },
+  // Each button keeps its natural width in the row, so what is measured is never a
+  // squeezed width.
+  navSlot: {
+    flexShrink: 0,
   },
   navLeft: {
+    flexShrink: 0,
     minWidth: 60,
     alignItems: 'flex-start',
   },
   navRight: {
+    flexShrink: 0,
     minWidth: 80,
     alignItems: 'flex-end',
   },

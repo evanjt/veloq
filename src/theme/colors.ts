@@ -8,6 +8,8 @@
  * Aesthetic: Premium/Luxury, Whoop-inspired, Dark-mode-first
  */
 
+import appColours from './appColours.json';
+
 /**
  * Creates a color with opacity from a hex color
  */
@@ -35,11 +37,14 @@ export const ink = {
 // BRAND SIGNATURE COLORS
 // =============================================================================
 
+// The app colour and the light primary are also drawn by native code before
+// any JavaScript runs, on the adaptive icon, the splash and the notification
+// accent, so they live in a file app.config.js and the icon generator also read.
 export const brand = {
   // Teal - Primary (buttons, links, CTAs)
   // Mode-aware: use teal.light for light mode, teal.dark for dark mode
   teal: '#14B8A6', // Teal-500 - base
-  tealLight: '#0D9488', // Teal-600 - for light mode (darker for contrast on white)
+  tealLight: appColours.notificationAccent, // Teal-600 - for light mode (darker for contrast on white)
   tealDark: '#2DD4BF', // Teal-400 - for dark mode (lighter for contrast on dark)
   tealHover: '#0F766E', // Teal-700 - light mode hover
   tealHoverDark: '#14B8A6', // Teal-500 - dark mode hover
@@ -50,9 +55,9 @@ export const brand = {
   goldDark: '#B8942F',
 
   // Blue - Secondary (charts, data visualization)
-  blue: '#5B9BD5',
+  blue: appColours.appColour,
   blueLight: '#7DB3E3',
-  blueDark: '#3A7AB8',
+  blueDark: appColours.appColourDeep,
 } as const;
 
 // Strength volume heatmap: 5-step teal ramp (light to saturated).
@@ -234,9 +239,10 @@ export const colors = {
   secondary: brand.blueDark, // Darker blue for light mode
   secondaryLight: brand.blue,
 
-  // The sync pill's fill, the app colour of the icon and splash, kept here so
-  // it changes in one place. White on brand.blue itself is 2.96:1, under the
-  // 4.5:1 text owes, so it takes the blue's darker step, which holds 4.51:1.
+  // The sync pill's fill, the app colour of the icon and splash, which
+  // appColours.json holds for native code and this palette alike. White on
+  // brand.blue itself is 2.96:1, under the 4.5:1 text owes, so it takes the
+  // blue's darker step, which holds 4.51:1.
   appColourPillBackground: brand.blueDark,
 
   // Surfaces
@@ -709,13 +715,22 @@ export const contributionRamp = {
 } as const;
 
 // The crash screen paints itself before any theme provider is mounted, so it
-// carries its own dark chrome rather than reading one.
+// carries its own chrome, one set per mode, chosen from the system appearance.
 export const errorScreen = {
-  bg: '#1A1A1A',
-  title: '#FFFFFF',
-  detail: '#999999',
-  message: '#FF6B6B',
-  action: '#0D9488',
+  light: {
+    bg: '#FAFAFA',
+    title: '#18181B',
+    detail: '#52525B',
+    message: '#B91C1C',
+    action: '#0F766E',
+  },
+  dark: {
+    bg: '#1A1A1A',
+    title: '#FFFFFF',
+    detail: '#999999',
+    message: '#FF6B6B',
+    action: '#0D9488',
+  },
 } as const;
 
 // Muscle body diagram: the base fill under the volume ramp, one per mode, and
@@ -863,9 +878,6 @@ export const darkColors = {
   success: '#4ADE80',
   warning: '#FBBF24',
   error: '#F87171',
-
-  // Zone overrides for dark mode
-  zone7: '#B0B0B0', // Zone 7 visibility override (light gray on dark bg)
 
   // Chart colors for dark mode (optimised for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
@@ -1065,6 +1077,35 @@ export const activityTypeColors: Record<string, string> = {
   Other: '#71717A', // Zinc-500
 };
 
+// The sport hue as an icon drawn straight on a surface, a mark that owes 3:1
+// on every surface of its theme. The hue is kept where it already clears that,
+// and a type that does not takes the next tone of its own family: deeper on
+// the light surfaces, lighter on the dark ones. The fills, map tracks and
+// widget tints keep `activityTypeColors`, since they sit on other grounds.
+// Worst light surface: Run, Hike and the water sports 3.37:1 or more, the
+// rest 3.31:1 or more. Worst dark surface: MountainBikeRide 3.03:1, the
+// racket family 3.02:1, GravelRide 4.25:1, WeightTraining 3.50:1.
+export const activityTypeInk: Record<string, string> = {
+  ...activityTypeColors,
+  EBikeRide: '#3B82F6', // Blue-500
+  Run: '#059669', // Emerald-600
+  VirtualRun: '#059669',
+  Swim: '#0891B2', // Cyan-600
+  Hike: '#8B5CF6', // Violet-500
+  Rowing: '#0D9488', // Teal-600
+  Kayaking: '#0D9488',
+  Canoeing: '#0D9488',
+  Snowboard: '#0284C7', // Sky-600
+  AlpineSki: '#0284C7',
+  BackcountrySki: '#0284C7',
+};
+
+export const activityTypeInkDark: Record<string, string> = {
+  ...activityTypeColors,
+  GravelRide: '#3B82F6', // Blue-500
+  WeightTraining: '#6366F1', // Indigo-500
+};
+
 // =============================================================================
 // TRAINING ZONE COLORS
 // =============================================================================
@@ -1077,6 +1118,18 @@ export const zoneColors = {
   zone5: '#DD0447', // Red-pink - VO2max (intervals.icu)
   zone6: '#6633CC', // Purple - Anaerobic (intervals.icu)
   zone7: '#1A1A1A', // Near-black - Neuromuscular (intervals.icu)
+} as const;
+
+/**
+ * The zone ladder as a fill on a dark ground, held to 3:1 on every dark
+ * surface. Zones 1 to 5 keep the intervals.icu fill. The anaerobic purple at
+ * 2.17:1 on the dark card is lifted in the same hue, and the near-black zone 7
+ * at 1.02:1 becomes a light grey.
+ */
+export const zoneColorsDark = {
+  ...zoneColors,
+  zone6: '#8A5CE6',
+  zone7: '#B0B0B0',
 } as const;
 
 /**
@@ -1093,7 +1146,11 @@ export const zoneTextColors = {
   zone7: '#1A1A1A',
 } as const;
 
-/** Each zone fill lifted to 4.5:1 for text on its 28% tint over the dark screen ground. */
+/**
+ * Each zone fill lifted to 4.5:1 for text on its 28% tint over the dark screen
+ * ground, and on every dark surface: zone 7 takes the light grey of its dark
+ * fill, which the mid grey at 4.02:1 on the dark card did not clear.
+ */
 export const zoneTextColorsDark = {
   zone1: '#26AD93',
   zone2: '#26AD26',
@@ -1101,7 +1158,7 @@ export const zoneTextColorsDark = {
   zone4: '#FF7F0E',
   zone5: '#E95C87',
   zone6: '#9C7ADE',
-  zone7: '#818181',
+  zone7: '#B0B0B0',
 } as const;
 
 // =============================================================================

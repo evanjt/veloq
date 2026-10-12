@@ -86,13 +86,13 @@ struct InsightRowView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(row.title)
           .measuredText("insight title")
-          .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+          .widgetFont(.label, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .multilineTextAlignment(.leading)
         if showsSubtitle, let subtitle = row.subtitle, !subtitle.isEmpty {
           Text(subtitle)
             .measuredText("insight subtitle")
-            .font(.system(size: WidgetTheme.TypeScale.caption))
+            .widgetFont(.caption, shrinks: true)
             .foregroundColor(palette.textSecondary)
             .multilineTextAlignment(.leading)
         }
@@ -145,6 +145,7 @@ struct InsightsWidgetView: View {
     }
     .environment(\.snapshotNow, entry.date)
     .widgetURL(tapURL(listing))
+    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -170,7 +171,7 @@ struct InsightsWidgetView: View {
         Spacer(minLength: 0)
         Text("No new insights")
           .measuredText("no insights")
-          .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+          .widgetFont(.value, weight: .semibold)
           .foregroundColor(palette.textPrimary)
           .frame(maxWidth: .infinity)
           .multilineTextAlignment(.center)
@@ -184,13 +185,13 @@ struct InsightsWidgetView: View {
           Link(destination: InsightsWidgetModel.tabURL) {
             Text(verbatim: moreText(listing.more))
               .measuredText("more")
-              .font(.system(size: WidgetTheme.TypeScale.label))
+              .widgetFont(.label)
               .foregroundColor(palette.primary)
               .lineLimit(1)
           }
         }
       }
-      SnapshotAgeLine(snapshot: entry.snapshot, palette: palette)
+      SnapshotAgeRow(snapshot: entry.snapshot, palette: palette, hasRoom: size != .small)
     }
     .widgetPadding(WidgetTheme.Layout.padding)
   }

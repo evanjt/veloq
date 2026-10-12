@@ -132,6 +132,12 @@
         "note": "The athlete signs in on intervals.icu's own page. The credentials go to the athlete's account and never reach the app."
       },
       {
+        "what": "iCloud Drive backups",
+        "carriers": ["plugin:react-native-cloud-storage"],
+        "reason": "athletesOwnAccount",
+        "note": "On iPhone the backup goes to the Veloq folder in the athlete's own iCloud Drive. It reaches no server of ours, and only the athlete's devices can read it."
+      },
+      {
         "what": "Location",
         "carriers": [
           "backgroundMode:location",
@@ -242,6 +248,12 @@
         "carriers": ["plugin:expo-web-browser"],
         "reason": "athletesOwnAccount",
         "note": "The athlete signs in on intervals.icu's own page. The credentials go to the athlete's account and never reach the app."
+      },
+      {
+        "what": "iCloud Drive backups",
+        "carriers": ["plugin:react-native-cloud-storage"],
+        "reason": "athletesOwnAccount",
+        "note": "On iPhone the backup goes to the Veloq folder in the athlete's own iCloud Drive. It reaches no server of ours, and only the athlete's devices can read it."
       }
     ]
   }

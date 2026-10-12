@@ -27,7 +27,8 @@ jest.mock('@/shared/ui', () => {
   const { View, Text } = require('react-native');
   return {
     ScreenSafeAreaView: View,
-    useTabBarClearance: () => 0,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
     EmptyState: ({ title }: { title: string }) => <Text>{title}</Text>,
   };
 });

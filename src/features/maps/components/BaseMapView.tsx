@@ -39,6 +39,7 @@ import {
   buildUserLocationCollection,
   buildUserLocationLayers,
 } from '@/features/maps/lib/userLocationLayer';
+import { motionTiming } from '@/shared/ui/reduceMotion';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -181,7 +182,7 @@ export function BaseMapView({
   // Handle 3D map ready - fade in the 3D view
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
-    Animated.timing(map3DOpacity, {
+    motionTiming(map3DOpacity, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
@@ -209,7 +210,7 @@ export function BaseMapView({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    Animated.timing(bearingAnim, {
+    motionTiming(bearingAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,

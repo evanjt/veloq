@@ -4,14 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Pressable,
-  View,
-  StyleSheet,
-  Text,
-  ActivityIndicator,
-  LayoutAnimation,
-} from 'react-native';
+import { Pressable, View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -151,7 +145,6 @@ export function SectionCreationOverlay({
   };
 
   const toggleExpanded = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(!expanded);
   };
 
@@ -250,7 +243,7 @@ export function SectionCreationOverlay({
 
           {/* Error details - expanded */}
           {shouldExpand && isError && error && (
-            <View style={[styles.expandedContent, ruleStyle]}>
+            <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {/* Technical details toggle */}
               <Pressable
                 accessibilityRole="button"
@@ -323,12 +316,12 @@ export function SectionCreationOverlay({
                   </Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
           )}
 
           {/* Expanded details - normal selection */}
           {shouldExpand && hasSelection && !isError && (
-            <View style={[styles.expandedContent, ruleStyle]}>
+            <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {getProgress() && (
                 <View style={styles.detailRow}>
                   <MaterialCommunityIcons name="percent" size={14} color={palette.textSecondary} />
@@ -366,7 +359,7 @@ export function SectionCreationOverlay({
                   {t('common.reset' as never)}
                 </Text>
               </Pressable>
-            </View>
+            </Animated.View>
           )}
         </Pressable>
 

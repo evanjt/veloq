@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import {
-  ListSectionHeader,
-  Row,
-  ScreenSafeAreaView,
-  ScreenScrollView,
-  useTabBarClearance,
-} from '@/shared/ui';
+import { ListSectionHeader, Row, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -82,6 +76,7 @@ function AccountRow({
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
             <Image
+              accessibilityIgnoresInvertColors
               source={{ uri: profileUrl }}
               style={StyleSheet.absoluteFill}
               resizeMode="cover"
@@ -121,7 +116,6 @@ function SettingsScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
 
   const { data: athleteRow } = useAthlete();
   const athlete = athleteRow ?? undefined;
@@ -220,7 +214,7 @@ function SettingsScreenContent() {
     >
       <ScreenScrollView
         testID="settings-scrollview"
-        contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
       >
         {/* Account */}
         <AccountRow

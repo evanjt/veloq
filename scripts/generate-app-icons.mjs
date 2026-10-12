@@ -16,7 +16,7 @@
 // Usage: npm run gen:app-icons
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,9 +24,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CANVAS = 1024;
 
+// The ground is the app colour the splash and adaptive icon are drawn on.
+const appColours = JSON.parse(readFileSync(join(root, 'src/theme/appColours.json'), 'utf8'));
+
 // Gradients run from the top-left corner to the bottom-right.
 const PALETTE = {
-  ground: ['#5B9BD5', '#3A7AB8'],
+  ground: [appColours.appColour, appColours.appColourDeep],
   mark: ['#FFD700', '#FFA500'],
 };
 

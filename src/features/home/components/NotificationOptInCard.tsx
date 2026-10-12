@@ -1,11 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { openExternal } from '@/shared/app/openExternal';
+import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import {
   useNotificationPreferences,
   isPrivacyNoticeOwed,
@@ -121,7 +123,9 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
             </Text>
             <TextLink
               label={t('login.privacyPolicy')}
-              onPress={() => Linking.openURL('https://veloq.fit/privacy')}
+              onPress={() => {
+                void openExternal(VELOQ_PRIVACY_URL);
+              }}
             />
           </>
         )}

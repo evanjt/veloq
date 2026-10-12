@@ -8,10 +8,7 @@ import {
   tapTargetFromPushData,
 } from '@/features/insights/light';
 import { ensureCredentialsHydrated, getStoredCredentials } from '@/shared/app/AuthStore';
-import {
-  readNotificationPermission,
-  requestNotificationPermissionOutcome,
-} from '@/shared/app/permissions/notifications';
+import { requestNotificationPermissionOutcome } from '@/shared/app/permissions/notifications';
 import { i18n } from '@/i18n';
 import type { PermissionOutcome } from '@/shared/app/permissions';
 
@@ -81,11 +78,6 @@ function nameInsightsChannel(): void {
  */
 export async function requestNotificationPermission(): Promise<PermissionOutcome> {
   return requestNotificationPermissionOutcome();
-}
-
-/** Check if notification permissions are currently granted. */
-export async function hasNotificationPermission(): Promise<boolean> {
-  return (await readNotificationPermission()) === 'granted';
 }
 
 export interface InsightNotificationData {

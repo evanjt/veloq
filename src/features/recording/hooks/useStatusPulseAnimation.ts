@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+
+import { motionLoop, motionTiming, useReduceMotion } from '@/shared/ui/reduceMotion';
 
 import type { RecordingStatus } from '../types';
 
@@ -14,19 +15,19 @@ const HALF_CYCLE_MS = 800;
 // loop.stop() in cleanup prevents updates on an unmounted component.
 export function useStatusPulseAnimation(status: RecordingStatus) {
   const statusPulse = useRef(new Animated.Value(1)).current;
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     statusPulse.setValue(1);
     if (status !== 'recording' || reduceMotion) return undefined;
-    const loop = Animated.loop(
+    const loop = motionLoop(
       Animated.sequence([
-        Animated.timing(statusPulse, {
+        motionTiming(statusPulse, {
           toValue: 0.3,
           duration: HALF_CYCLE_MS,
           useNativeDriver: true,
         }),
-        Animated.timing(statusPulse, {
+        motionTiming(statusPulse, {
           toValue: 1,
           duration: HALF_CYCLE_MS,
           useNativeDriver: true,

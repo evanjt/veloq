@@ -92,6 +92,31 @@ describe('the first-sync standby', () => {
     );
   });
 
+  it('values its progress from the counts inside the step', async () => {
+    mockStatus = {
+      state: 1,
+      completed: 4,
+      total: 8,
+      step: SyncStep.Activities,
+      stepItemsDone: 120,
+      stepItemsTotal: 480,
+    };
+    await render(<FeedFirstSyncStandby />);
+
+    const progress = screen.getByRole('progressbar');
+    expect(progress.props.accessibilityValue).toEqual({ min: 0, max: 480, now: 120 });
+    expect(progress.props.accessibilityState).toEqual({ busy: true });
+  });
+
+  it('is busy with no value while the step has no count of its own', async () => {
+    mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+    await render(<FeedFirstSyncStandby />);
+
+    const progress = screen.getByRole('progressbar');
+    expect(progress.props.accessibilityValue).toBeUndefined();
+    expect(progress.props.accessibilityState).toEqual({ busy: true });
+  });
+
   it('survives a status the engine has not answered yet', async () => {
     mockStatus = null;
     await render(<FeedFirstSyncStandby />);

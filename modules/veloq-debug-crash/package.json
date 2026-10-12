@@ -1,0 +1,17 @@
+{
+  "name": "veloq-debug-crash",
+  "version": "0.1.0",
+  "description": "Lets a debug native build request one render throw under the root error boundary, so the global crash screen can be reached on a device",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

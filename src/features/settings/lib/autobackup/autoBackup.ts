@@ -30,6 +30,7 @@ import type { BackupBackend, BackupEntry } from './backends/types';
 import { backupCarriers } from './backends/carriers';
 import { forgetBackupFolder } from './backends/folderBackend';
 import { forgetGoogleDrive } from './backends/googleDriveBackend';
+import { ICLOUD_CONTAINER, isIcloudReachable, isIcloudSupported } from './backends/icloudBackend';
 import {
   BackupTransferError,
   isBackupTransferError,
@@ -60,6 +61,8 @@ const SETTING_DESTINATION_STAMPS = '__last_backup_by_destination';
 const SETTING_PLATFORM_RECORD_ANSWERED = '__platform_record_answered';
 /** The carrier ids still owed the last zip, as a JSON array. */
 const SETTING_OWED_CARRIERS = '__backup_owed_carriers';
+/** Set to '0' while the athlete has turned iCloud Drive off; absent is on. */
+const SETTING_ICLOUD_ENABLED = '__backup_icloud_enabled';
 
 const MIN_INTERVAL_MS = TIME.DAY; // 24 hours
 const STALE_INTERVAL_MS = 7 * TIME.DAY; // 7 days
@@ -91,8 +94,9 @@ export function cleanUpRetiredBackupSettings(): void {
  * The engine's wipe keeps its settings on purpose, so without this the next
  * athlete inherits the previous one's WebDAV choice or folder with auto-backup
  * on, and their first sync writes their record there. The zips already in the
- * folder and in Google Drive stay: both are the athlete's own storage. The
- * Google account is forgotten at once and its grant given back after.
+ * folder, in Google Drive and in iCloud Drive stay: all three are the athlete's
+ * own storage. The Google account is forgotten at once and its grant given back
+ * after, and iCloud Drive is on again for whoever signs in next.
  */
 export function forgetBackupCarrier(): void {
   const engine = getEngine();
@@ -103,11 +107,42 @@ export function forgetBackupCarrier(): void {
     SETTING_LAST_FAILURE,
     SETTING_OWED_CARRIERS,
     SETTING_DESTINATION_STAMPS,
+    SETTING_ICLOUD_ENABLED,
   ]) {
     engine?.deleteSetting(key);
   }
   forgetBackupFolder();
   void forgetGoogleDrive();
+}
+
+/** Whether the athlete has left iCloud Drive on. On unless they turned it off. */
+export function isIcloudBackupOn(): boolean {
+  return getEngine()?.getSetting(SETTING_ICLOUD_ENABLED) !== '0';
+}
+
+/** Turn iCloud Drive on or off. Turning it off leaves the backups in iCloud. */
+export function setIcloudBackupOn(on: boolean): void {
+  const engine = getEngine();
+  if (on) engine?.deleteSetting(SETTING_ICLOUD_ENABLED);
+  else engine?.setSetting(SETTING_ICLOUD_ENABLED, '0');
+}
+
+/**
+ * What the iCloud Drive row says: `off` when the athlete turned it off,
+ * `unavailable` when the iPhone is signed out of iCloud or iCloud Drive is off
+ * for Veloq, `ready` when a run writes to it, and `unsupported` off iOS.
+ */
+export type IcloudBackupState = 'unsupported' | 'off' | 'unavailable' | 'ready';
+
+export async function icloudBackupState(): Promise<IcloudBackupState> {
+  if (!isIcloudSupported()) return 'unsupported';
+  if (!isIcloudBackupOn()) return 'off';
+  return (await isIcloudReachable()) ? 'ready' : 'unavailable';
+}
+
+/** Whether the athlete has left a carrier on. Only iCloud Drive can be turned off. */
+function isCarrierOn(id: string): boolean {
+  return id !== 'icloud' || isIcloudBackupOn();
 }
 
 /** Whether the platform zip needs no offer on this library. */
@@ -128,7 +163,7 @@ export function getLastBackupTimestamp(): number | null {
 }
 
 /** A place a run writes to: the device backup's zip, or one of the carriers. */
-export type BackupDestination = 'device' | 'webdav' | 'folder' | 'googleDrive';
+export type BackupDestination = 'device' | 'webdav' | 'folder' | 'googleDrive' | 'icloud';
 
 interface DestinationStamp {
   at: number;
@@ -150,6 +185,8 @@ function destinationTarget(id: string): string | null {
       return heldBackupFolder();
     case 'googleDrive':
       return getGoogleDriveAccount();
+    case 'icloud':
+      return isIcloudBackupOn() ? ICLOUD_CONTAINER : null;
     default:
       return null;
   }
@@ -432,7 +469,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         continue;
       }
       if (libraryMoved()) return { wroteZip: false, carriers: {} };
-      if (!(await carrier.isAvailable())) {
+      if (!isCarrierOn(carrier.id) || !(await carrier.isAvailable())) {
         log.log(`${carrier.id} not set up, skipping`);
         carriers[carrier.id] = { status: 'skipped', reason: 'unavailable' };
         continue;

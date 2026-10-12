@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { openExternal } from '@/shared/app/openExternal';
 import { Text } from 'react-native-paper';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -207,7 +208,9 @@ export function ExerciseTable({
                 source: (
                   <InlineLink
                     accessibilityLabel={EXERCISE_DATASET.name}
-                    onPress={() => Linking.openURL(EXERCISE_DATASET.url)}
+                    onPress={() => {
+                      void openExternal(EXERCISE_DATASET.url);
+                    }}
                   >
                     {''}
                   </InlineLink>

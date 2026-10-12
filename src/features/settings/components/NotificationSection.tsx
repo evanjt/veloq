@@ -1,15 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Linking, Pressable } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import {
-  requestNotificationPermission,
-  hasNotificationPermission,
-} from '@/features/settings/lib/notificationService';
+import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import {
@@ -20,6 +17,8 @@ import {
   SwitchRow,
 } from '@/shared/ui';
 import { confirmAction } from '@/shared/ui/dialog';
+import { openExternal } from '@/shared/app/openExternal';
+import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 
 /**
  * The kinds of push the athlete can turn off one at a time. Both flags shipped
@@ -40,30 +39,32 @@ export function NotificationSection() {
   const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
     useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
-  // Set when the system will no longer show its dialog, so the switch alone cannot turn on.
+  const permission = useNotificationPermission();
+  const requestPermission = permission.request;
+  // Set when a tap on the switch found the system will no longer show its
+  // dialog, so the switch alone cannot turn on.
   const [blocked, setBlocked] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
 
-  useEffect(() => {
-    if (enabled) {
-      hasNotificationPermission().then((granted) => {
-        if (!granted) {
-          setEnabled(false);
-        }
-      });
-    }
-  }, [enabled, setEnabled]);
+  // The athlete's choice is kept when the system setting is turned off, so a
+  // re-grant there brings notifications back; the notice says why none arrive
+  // meanwhile.
+  const systemOff =
+    enabled && permission.outcome !== null && permission.outcome !== 'granted'
+      ? permission.outcome
+      : null;
+  const notice = systemOff ?? (blocked && !enabled ? 'blocked' : null);
 
   const turnOnWithPermission = useCallback(async () => {
     setToggling(true);
-    const outcome = await requestNotificationPermission();
+    const outcome = await requestPermission();
     if (outcome === 'granted') {
       setEnabled(true);
     }
     setBlocked(outcome === 'blocked');
     setToggling(false);
-  }, [setEnabled]);
+  }, [requestPermission, setEnabled]);
 
   const handlePrivacyAccept = useCallback(async () => {
     acceptPrivacy();
@@ -113,11 +114,11 @@ export function NotificationSection() {
           testID="settings-notifications-toggle"
         />
 
-        {blocked && !enabled && (
+        {notice && (
           <View style={styles.notice}>
             <PermissionNotice
               testID="settings-notifications-blocked"
-              outcome="blocked"
+              outcome={notice}
               icon="bell-off-outline"
               reason={t('permissionNotice.notificationsOff')}
               onAllow={turnOnWithPermission}
@@ -148,9 +149,11 @@ export function NotificationSection() {
           </Text>
         ) : (
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole="link"
             accessibilityLabel={t('notifications.settings.privacyHint')}
-            onPress={() => Linking.openURL('https://veloq.fit/privacy')}
+            onPress={() => {
+              void openExternal(VELOQ_PRIVACY_URL);
+            }}
             style={pressable(styles.privacyRow)}
             android_ripple={pressRipple}
           >

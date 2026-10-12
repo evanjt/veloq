@@ -30,6 +30,7 @@ import {
   getNextStyle,
   getStyleIcon,
   isDarkStyle,
+  statusBarStyleForMap,
   lngLatFromShort,
   lngLatFromShortPoint,
   Map3DWebView,
@@ -68,6 +69,7 @@ import {
   sectionCameraSpec,
 } from '@/features/routes/lib/sectionMapCamera';
 import { styles } from './sectionMapView.styles';
+import { motionTiming } from '@/shared/ui/reduceMotion';
 
 interface SectionMapViewProps {
   section: FrequentSection;
@@ -265,7 +267,7 @@ export const SectionMapView = memo(function SectionMapView({
 
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
-    Animated.timing(map3DOpacity, {
+    motionTiming(map3DOpacity, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
@@ -297,7 +299,7 @@ export const SectionMapView = memo(function SectionMapView({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    Animated.timing(bearingAnim, {
+    motionTiming(bearingAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
@@ -716,7 +718,7 @@ export const SectionMapView = memo(function SectionMapView({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={`${statusBarStyleForMap(drawnMapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={sectionCoords}
           routeColor={

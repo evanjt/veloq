@@ -245,7 +245,10 @@ function writeBackup(): void {
 
 /**
  * Crash-recovery backups. Written on every status transition and on each lap,
- * plus periodically while recording, so a kill loses at most one interval.
+ * plus periodically while recording, so a kill loses at most one interval
+ * while the writes land. A failed write is counted on the live store, which
+ * the screen shows, because from then on a kill loses everything since the
+ * last write that landed.
  * JS timers pause in the background, where each location batch writes instead.
  * The stopped-state backup is written by the stop handler; clearing happens
  * only on discard or once the recording is safely persisted.

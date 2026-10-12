@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import MapScreen from '@/app/(tabs)/map';
 import { MapDistanceBand } from 'veloqrs';
 
@@ -22,6 +24,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRouter: () => ({ push: jest.fn() }),
+  useSegments: () => ['(tabs)', 'map'],
 }));
 jest.mock('@/features/maps', () => ({
   ACTIVITY_CATEGORIES: {
@@ -68,7 +71,7 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
-    useTabBarClearance: () => 0,
+    useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
     Shimmer: () => null,
     pressable: (style: unknown) => style,
   };
@@ -103,6 +106,20 @@ describe('map library summary', () => {
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.queryByText('5–10km')).toBeNull();
     expect(view.getByText('all')).toBeTruthy();
+  });
+
+  it('lifts the period chips clear of the tab bar and the navigation bar under it', async () => {
+    const view = await render(
+      <SafeAreaInsetsContext.Provider value={{ top: 0, left: 0, right: 0, bottom: 48 }}>
+        <MapScreen />
+      </SafeAreaInsetsContext.Provider>
+    );
+    let sheet = view.getByTestId('map-filter-handle').parent;
+    while (sheet && StyleSheet.flatten(sheet.props.style)?.paddingBottom === undefined) {
+      sheet = sheet.parent;
+    }
+    // The bar draws the tab row over the inset and its gradient above that.
+    expect(StyleSheet.flatten(sheet?.props.style).paddingBottom).toBeGreaterThanOrEqual(80 + 48);
   });
 
   it('keeps a distance filter applied while the sheet is lowered', async () => {

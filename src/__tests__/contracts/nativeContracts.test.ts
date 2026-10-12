@@ -184,6 +184,22 @@ const CONTRACTS: Contract[] = [
     b: { file: 'src/plugins/with-ios-push-extension.js' },
   },
   {
+    agree: 'the iCloud carrier loads the module whose plugin entitles its container',
+    a: { file: 'app.json', has: '"iCloudContainerIdentifier": "iCloud.com.veloq.app"' },
+    b: {
+      file: 'src/features/settings/lib/autobackup/backends/icloudBackend.ts',
+      has: "require('react-native-cloud-storage')",
+    },
+  },
+  {
+    agree: 'the iCloud carrier names the container the config plugin entitles',
+    a: { file: 'app.json', has: '"iCloudContainerIdentifier": "iCloud.com.veloq.app"' },
+    b: {
+      file: 'src/features/settings/lib/autobackup/backends/icloudBackend.ts',
+      has: "ICLOUD_CONTAINER = 'iCloud.com.veloq.app'",
+    },
+  },
+  {
     agree: 'the extension reads push data where expo-notifications puts it',
     a: { file: `${PUSH}/VeloqPushPayload.swift`, has: 'userInfo["body"]' },
     b: {
@@ -1016,6 +1032,21 @@ const CONTRACTS: Contract[] = [
       has: 'AsyncFunction("prepareEngineForSuspension")',
     },
   },
+  ...[
+    'modules/veloq-debug-crash/ios/VeloqDebugCrashModule.swift',
+    'modules/veloq-debug-crash/android/src/main/java/com/veloq/debugcrash/VeloqDebugCrashModule.kt',
+  ].flatMap((file) => [
+    {
+      agree: `the forced render crash reads the module ${file} registers`,
+      a: { file: 'src/shared/debug/forcedRenderCrash.tsx', has: "'VeloqDebugCrash'" },
+      b: { file, has: 'Name("VeloqDebugCrash")' },
+    },
+    {
+      agree: `the forced render crash calls the takeRequest ${file} defines`,
+      a: { file: 'src/shared/debug/forcedRenderCrash.tsx', has: '?.takeRequest()' },
+      b: { file, has: 'Function("takeRequest")' },
+    },
+  ]),
   {
     agree: 'the task identifier the refresh submits is one the Info.plist permits',
     a: { file: 'app.json', has: '"$(PRODUCT_BUNDLE_IDENTIFIER).widget-refresh"' },
@@ -1103,10 +1134,10 @@ const CONTRACTS: Contract[] = [
   })),
   ...['small', 'medium', 'large'].map((size) => ({
     agree: `the Summary renderer opens Fitness from the root the ${size} layout declares, which has no activity or impact view`,
-    a: { file: 'widget/android/java/WidgetRenderer.kt', has: 'R.id.sum_root' },
+    a: { file: 'widget/android/java/WidgetRenderer.kt', has: 'android.R.id.background' },
     b: {
       file: `widget/android/res/layout/widget_${size}.xml`,
-      has: 'android:id="@+id/sum_root"',
+      has: 'android:id="@android:id/background"',
       // The latest activity and its impact belong to the Last activity widget.
       lacks: /@\+id\/\w*(?:activity|impact)\w*/,
     },

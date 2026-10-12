@@ -47,7 +47,13 @@ import {
   type CreationState,
   type SectionCreationError,
 } from './SectionCreationOverlay';
-import { type MapStyleType, isDarkStyle, getNextStyle, MAP_ATTRIBUTIONS } from './mapStyles';
+import {
+  type MapStyleType,
+  isDarkStyle,
+  getNextStyle,
+  MAP_ATTRIBUTIONS,
+  statusBarStyleForMap,
+} from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
 import { GradientMapKey } from './GradientMapKey';
@@ -63,6 +69,7 @@ import {
   SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
+import { motionTiming } from '@/shared/ui/reduceMotion';
 const OVERLAY_IMAGES = [TROPHY_ICON, ...ENDPOINT_IMAGES];
 
 /** The 2D layer, held transparent until the surface reports one way or the other. */
@@ -481,7 +488,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
-    Animated.timing(map3DOpacity, {
+    motionTiming(map3DOpacity, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
@@ -818,6 +825,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         {/* The snapshot the feed drew, under everything, until a surface is up. */}
         {posterUri && !surfaceReady && (
           <Image
+            accessibilityIgnoresInvertColors
             testID={ACTIVITY_MAP_POSTER_TEST_ID}
             source={{ uri: posterUri }}
             fadeDuration={0}
@@ -950,7 +958,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={`${statusBarStyleForMap(mapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={routeCoords}
           routeColor={activityColor}

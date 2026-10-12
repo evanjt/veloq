@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
+import { openExternal } from '@/shared/app/openExternal';
 import { useDonation } from '@/shared/app/useDonation';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import {
@@ -15,7 +15,7 @@ import {
   shareCrashLog,
 } from '@/shared/app/supportLinks';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
-import { Button, ListSectionHeader, Row, pressable, pressRipple } from '@/shared/ui';
+import { Button, ExternalLinkRow, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 
 export function SupportSection() {
   const { isDark } = useTheme();
@@ -37,7 +37,9 @@ export function SupportSection() {
         <View style={styles.actionRow}>
           <Button
             label={t('support.review')}
-            onPress={() => openStorePage({ review: true })}
+            onPress={() => {
+              void openStorePage({ review: true });
+            }}
             variant="secondary"
             size="sm"
             style={styles.actionButton}
@@ -45,7 +47,9 @@ export function SupportSection() {
           />
           <Button
             label={t('support.idea')}
-            onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
+            onPress={() => {
+              void openExternal(`${GITHUB_ISSUES_URL}?labels=enhancement`);
+            }}
             variant="secondary"
             size="sm"
             style={styles.actionButton}
@@ -53,7 +57,9 @@ export function SupportSection() {
           />
           <Button
             label={t('support.forum')}
-            onPress={openForum}
+            onPress={() => {
+              void openForum();
+            }}
             variant="secondary"
             size="sm"
             style={styles.actionButton}
@@ -84,7 +90,9 @@ export function SupportSection() {
             <Button
               testID="support-sponsor-button"
               label={t('support.sponsorGitHub')}
-              onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
+              onPress={() => {
+                void openExternal(GITHUB_SPONSORS_URL);
+              }}
               variant="secondary"
               size="sm"
               icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
@@ -96,12 +104,9 @@ export function SupportSection() {
         {/* intervals.icu row */}
         {/* The card's own padding is the row's inset, so the row runs to its edges. */}
         <View style={styles.bleed}>
-          <Row
-            behaviour="navigate"
-            accessibilityLabel={t('settings.subscribe')}
-            onPress={() =>
-              WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')
-            }
+          <ExternalLinkRow
+            url="https://intervals.icu/settings/subscription"
+            label={t('settings.subscribe')}
           >
             <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
             <View style={styles.rowTextGroup}>
@@ -110,7 +115,7 @@ export function SupportSection() {
                 {t('settings.subscribe')}
               </Text>
             </View>
-          </Row>
+          </ExternalLinkRow>
         </View>
 
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bodyDiagram, colors, darkColors, insightToneColor, strengthRamp } from '@/theme/colors';
-import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
+import { widgetPalette, widgetRecord, widgetType } from '@/shared/theme/widgetTheme';
 
 // Scenario: the widget natives render only from these resolved palettes (via the
 // snapshot theme block and the generated WidgetTheme files), so every token must
@@ -215,5 +215,23 @@ describe('widgetRecord', () => {
       `static let gradientEnd = Color(hex: "${widgetRecord.dark.gradientEnd}")`
     );
     expect(dark).toContain(`static let accent = Color(hex: "${widgetRecord.dark.accent}")`);
+  });
+});
+
+// Scenario: a widget line is drawn at one step of the type scale, and the smallest text an
+// iPhone widget or an Android widget sets is the caption. A line fitted to its box may shrink
+// further, to the floor, and no further.
+describe('widgetType', () => {
+  it('sets no step under 11 pt, and fits a line down to no less than 9', () => {
+    const { floor, ...steps } = widgetType;
+    for (const [step, size] of Object.entries(steps)) {
+      expect([step, size >= 11]).toEqual([step, true]);
+    }
+    expect(floor).toBeGreaterThanOrEqual(9);
+    expect(floor).toBeLessThan(widgetType.caption);
+  });
+
+  it('shrinks the record label no smaller than the floor', () => {
+    expect(widgetRecord.textMin).toBeGreaterThanOrEqual(widgetType.floor);
   });
 });

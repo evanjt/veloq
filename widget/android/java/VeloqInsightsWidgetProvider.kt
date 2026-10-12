@@ -47,6 +47,11 @@ class VeloqInsightsWidgetProvider : AppWidgetProvider() {
     InsightsWidgetChoice.forget(context, appWidgetIds)
   }
 
+  /** A launcher restoring widgets gives them new ids, and the choice has to follow. */
+  override fun onRestored(context: Context, oldWidgetIds: IntArray, newWidgetIds: IntArray) {
+    InsightsWidgetChoice.remap(context, oldWidgetIds, newWidgetIds)
+  }
+
   private fun update(
     context: Context,
     manager: AppWidgetManager,
@@ -54,9 +59,11 @@ class VeloqInsightsWidgetProvider : AppWidgetProvider() {
     id: Int,
   ) {
     val options = manager.getAppWidgetOptions(id)
-    val w = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-    val h = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+    val kinds = InsightsWidgetChoice.kinds(context, id)
     manager.updateAppWidget(
-      id, InsightsWidgetRenderer.render(context, snap, w, h, InsightsWidgetChoice.kinds(context, id), id))
+      id,
+      WidgetLayouts.build(options, { InsightsWidget.sizeFor(it.widthDp, it.heightDp) }) {
+        InsightsWidgetRenderer.render(context, snap, it.widthDp, it.heightDp, kinds, id)
+      })
   }
 }

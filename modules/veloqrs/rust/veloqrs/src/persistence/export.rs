@@ -80,6 +80,92 @@ fn wall_clock(ts: i64) -> Option<String> {
     chrono::DateTime::from_timestamp(ts, 0).map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string())
 }
 
+/// The release that wrote an export. The release audit holds the crate version
+/// to the app's, so this is the version the athlete sees in the app.
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// What an export says about itself: what wrote it, when, from which source,
+/// in which units and under which privacy radius. A file that leaves the
+/// device carries its own provenance, since nothing else travels with it.
+struct ExportStamp {
+    /// UTC, unlike the ride times, because this one is an instant.
+    exported_at: String,
+    privacy_radius_m: Option<f64>,
+}
+
+impl ExportStamp {
+    fn now(trim: Option<&PrivacyTrim>) -> Self {
+        ExportStamp {
+            exported_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            privacy_radius_m: trim.map(|t| t.radius_m),
+        }
+    }
+
+    fn as_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "app": "Veloq",
+            "appVersion": APP_VERSION,
+            "exportedAt": self.exported_at,
+            "source": "intervals.icu",
+            "units": { "distance": "m", "movingTime": "s" },
+            "privacyRadiusM": self.privacy_radius_m,
+        })
+    }
+
+    /// What one GPX file says of itself: the export time, and the radius when
+    /// the trim shortened this track.
+    fn for_track(&self, shortened: bool) -> GpxStamp<'_> {
+        GpxStamp {
+            exported_at: &self.exported_at,
+            trimmed_by_m: self.privacy_radius_m.filter(|_| shortened),
+        }
+    }
+}
+
+/// The provenance one GPX file carries.
+struct GpxStamp<'a> {
+    exported_at: &'a str,
+    /// The privacy radius, present only when it shortened this track.
+    trimmed_by_m: Option<f64>,
+}
+
+/// The track an export writes and whether the trim shortened it, or `None`
+/// when the trim leaves too little to be a track. A non-finite fix the trim
+/// drops on the way does not count as shortening.
+fn trim_for_export(
+    trim: Option<&PrivacyTrim>,
+    points: Vec<GpsPoint>,
+) -> Option<(Vec<GpsPoint>, bool)> {
+    let Some(trim) = trim else {
+        return Some((points, false));
+    };
+    let finite = points.iter().filter(|p| is_finite_point(p)).count();
+    trim.apply(&points).map(|kept| {
+        let shortened = kept.len() < finite;
+        (kept, shortened)
+    })
+}
+
+/// One activity's row in `activities.json`. An unknown date, distance or
+/// moving time is null, because zero is a measurement. The fields are declared
+/// in sorted order, the order the file has always carried.
+#[derive(serde::Serialize)]
+struct ActivityRow {
+    date: Option<String>,
+    /// Metres.
+    distance: Option<f64>,
+    #[serde(rename = "hasGpx")]
+    has_gpx: bool,
+    id: String,
+    /// Seconds.
+    #[serde(rename = "movingTime")]
+    moving_time: Option<i64>,
+    name: String,
+    sport: String,
+    /// The privacy trim shortened the exported track.
+    trimmed: bool,
+}
+
 /// `name`, or the first free `name_2`, `name_3` and so on. Two rides share a
 /// stem whenever a watch names both legs of a commute alike, and the archive
 /// refuses a repeated entry. `written` holds names uppercased, because a
@@ -193,7 +279,8 @@ impl PersistentEngine {
     /// Export all activities with GPS data as a single GeoJSON FeatureCollection.
     ///
     /// Each activity becomes a Feature with a LineString geometry and properties
-    /// (id, name, sport, date, distance, movingTime). Streams one track at a time.
+    /// (id, name, sport, date, distance, movingTime, trimmed) and the export's
+    /// provenance as a top-level `export` member. Streams one track at a time.
     pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
         export_geojson(
             &self.db,
@@ -237,10 +324,11 @@ fn gpx_file_from_points(
     sport: Option<&str>,
     time: Option<&str>,
     points: &[GpsPoint],
+    stamp: &GpxStamp,
 ) -> GpxFile {
     GpxFile {
         filename: format!("{}.gpx", gpx_file_stem(name)),
-        content: generate_gpx(name, sport, time, points),
+        content: generate_gpx(name, sport, time, points, stamp),
     }
 }
 
@@ -255,41 +343,67 @@ pub(crate) fn single_gpx_file_from(
 ) -> Option<GpxFile> {
     let finite: Vec<GpsPoint> = points
         .iter()
-        .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
+        .filter(|p| is_finite_point(p))
         .cloned()
         .collect();
     if finite.is_empty() {
         return None;
     }
-    let kept = trim_points_for_export_from(conn, &finite)?;
-    Some(gpx_file_from_points(name, sport, time, &kept))
+    let trim = PrivacyTrim::from_connection(conn);
+    let stamp = ExportStamp::now(trim.as_ref());
+    let (kept, shortened) = trim_for_export(trim.as_ref(), finite)?;
+    Some(gpx_file_from_points(
+        name,
+        sport,
+        time,
+        &kept,
+        &stamp.for_track(shortened),
+    ))
 }
 
 /// Generate GPX 1.1 XML for a single activity. A missing sport is written as
 /// `Unknown`, and a point's elevation is written when it is finite.
+///
+/// The metadata `<time>` stays the ride's start: the points carry no time of
+/// their own, so it is the only date a reader gets for the track. The export
+/// time goes in the metadata description instead.
 fn generate_gpx(
     name: &str,
     sport: Option<&str>,
     time: Option<&str>,
     points: &[GpsPoint],
+    stamp: &GpxStamp,
 ) -> String {
     let escaped_name = escape_xml(name);
     let escaped_sport = escape_xml(sport.unwrap_or(UNKNOWN_SPORT));
 
     let mut gpx = String::with_capacity(points.len() * 80 + 500);
     gpx.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    gpx.push_str("<gpx version=\"1.1\" creator=\"Veloq\"\n");
+    gpx.push_str(&format!(
+        "<gpx version=\"1.1\" creator=\"Veloq {}\"\n",
+        escape_xml(APP_VERSION)
+    ));
     gpx.push_str("  xmlns=\"http://www.topografix.com/GPX/1/1\"\n");
     gpx.push_str("  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n");
     gpx.push_str("  xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">\n");
     gpx.push_str("  <metadata>\n");
     gpx.push_str(&format!("    <name>{}</name>\n", escaped_name));
+    gpx.push_str(&format!(
+        "    <desc>Exported {}</desc>\n",
+        escape_xml(stamp.exported_at)
+    ));
     if let Some(t) = time {
         gpx.push_str(&format!("    <time>{}</time>\n", escape_xml(t)));
     }
     gpx.push_str("  </metadata>\n");
     gpx.push_str("  <trk>\n");
     gpx.push_str(&format!("    <name>{}</name>\n", escaped_name));
+    if let Some(radius) = stamp.trimmed_by_m {
+        gpx.push_str(&format!(
+            "    <desc>Shortened at the ends by the {} m export privacy radius.</desc>\n",
+            radius
+        ));
+    }
     gpx.push_str(&format!("    <type>{}</type>\n", escaped_sport));
     gpx.push_str("    <trkseg>\n");
 
@@ -333,6 +447,31 @@ mod gpx_writer_tests {
         }
     }
 
+    const WHOLE: GpxStamp = GpxStamp {
+        exported_at: "2026-10-01T09:30:00Z",
+        trimmed_by_m: None,
+    };
+
+    #[test]
+    fn a_whole_track_carries_the_export_time_and_no_trim_note() {
+        let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)], &WHOLE);
+        assert!(
+            gpx.contains("<desc>Exported 2026-10-01T09:30:00Z</desc>"),
+            "{gpx}"
+        );
+        assert_eq!(gpx.matches("<desc>").count(), 1, "{gpx}");
+    }
+
+    #[test]
+    fn a_shortened_track_names_the_radius_that_shortened_it() {
+        let stamp = GpxStamp {
+            trimmed_by_m: Some(250.0),
+            ..WHOLE
+        };
+        let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)], &stamp);
+        assert!(gpx.contains("the 250 m export privacy radius"), "{gpx}");
+    }
+
     #[test]
     fn coordinates_are_written_to_six_places() {
         let gpx = generate_gpx(
@@ -340,13 +479,14 @@ mod gpx_writer_tests {
             Some("Ride"),
             None,
             &[fix(46.51963400000001, 6.632273, None)],
+            &WHOLE,
         );
         assert!(gpx.contains("lat=\"46.519634\" lon=\"6.632273\""), "{gpx}");
     }
 
     #[test]
     fn a_missing_sport_is_written_as_unknown() {
-        let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)]);
+        let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)], &WHOLE);
         assert!(gpx.contains("<type>Unknown</type>"));
     }
 
@@ -357,6 +497,7 @@ mod gpx_writer_tests {
             Some("Ride"),
             None,
             &[fix(1.0, 2.0, Some(35.5)), fix(1.1, 2.1, None)],
+            &WHOLE,
         );
         assert_eq!(gpx.matches("<ele>35.5</ele>").count(), 1);
         assert_eq!(gpx.matches("<ele>").count(), 1);
@@ -372,6 +513,7 @@ mod gpx_writer_tests {
                 fix(1.0, 2.0, Some(f64::NAN)),
                 fix(1.0, 2.0, Some(f64::INFINITY)),
             ],
+            &WHOLE,
         );
         assert!(!gpx.contains("<ele>"));
     }
@@ -387,6 +529,7 @@ mod gpx_writer_tests {
                 fix(1.0, f64::INFINITY, None),
                 fix(3.0, 4.0, None),
             ],
+            &WHOLE,
         );
         assert_eq!(gpx.matches("<trkpt").count(), 1);
     }
@@ -398,6 +541,7 @@ mod gpx_writer_tests {
             Some("<Ride>"),
             Some("2026-01-01T10:00:00&"),
             &[],
+            &WHOLE,
         );
         assert!(gpx.contains("<name>A &amp; &lt;B&gt; &quot;C&quot; &apos;D&apos;</name>"));
         assert!(gpx.contains("<type>&lt;Ride&gt;</type>"));
@@ -423,6 +567,7 @@ mod gpx_writer_tests {
             None,
             Some("2026-09-22T07:00:00"),
             &[fix(46.5, 6.6, None), fix(46.6, 6.7, None)],
+            &WHOLE,
         );
         assert_eq!(file.filename, "朝のライド.gpx");
         assert!(file.content.contains("<time>2026-09-22T07:00:00</time>"));
@@ -738,19 +883,6 @@ impl PrivacyTrim {
         let last = points.iter().rposition(|p| !inside(p))?;
         let kept = &points[first..=last];
         (kept.len() >= MIN_EXPORTABLE_POINTS).then(|| kept.to_vec())
-    }
-}
-
-/// The points of a single export with the configured privacy trim applied, or
-/// `None` when the trim leaves too little to be a track. With no trim
-/// configured the points come back whole.
-pub(crate) fn trim_points_for_export_from(
-    conn: &rusqlite::Connection,
-    points: &[GpsPoint],
-) -> Option<Vec<GpsPoint>> {
-    match PrivacyTrim::from_connection(conn) {
-        Some(trim) => trim.apply(points),
-        None => Some(points.to_vec()),
     }
 }
 
@@ -1260,6 +1392,110 @@ fn trackless_activities(db: &rusqlite::Connection) -> Result<Vec<Trackless>, Str
     Ok(rows.flatten().collect())
 }
 
+/// One stored track with the metrics both writers put beside it.
+struct StoredTrack {
+    activity_id: String,
+    track_blob: Vec<u8>,
+    name: Option<String>,
+    sport_type: Option<String>,
+    date: Option<i64>,
+    distance: Option<f64>,
+    moving_time: Option<i64>,
+}
+
+/// Tracks read under one hold. Few enough that the suspension waits a moment
+/// for the page in flight, not for the export.
+const EXPORT_PAGE: i64 = 32;
+
+/// Newest first, a page at a time from the key after `?1`/`?2`. A track with
+/// no metrics row sorts last, under the key `?3`, which no date reaches. The
+/// inner select reads keys alone, so the sort never carries a track blob.
+const EXPORT_PAGE_SQL: &str = "
+    SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance,
+           m.moving_time, page.sort_key
+    FROM (SELECT t.activity_id AS id, IFNULL(a.date, ?3) AS sort_key
+          FROM gps_tracks t
+          LEFT JOIN activity_metrics a ON a.activity_id = t.activity_id
+          WHERE ?1 IS NULL
+             OR IFNULL(a.date, ?3) < ?1
+             OR (IFNULL(a.date, ?3) = ?1 AND t.activity_id > ?2)
+          ORDER BY sort_key DESC, id
+          LIMIT ?4) page
+    JOIN gps_tracks g ON g.activity_id = page.id
+    LEFT JOIN activity_metrics m ON m.activity_id = page.id
+    ORDER BY page.sort_key DESC, page.id";
+
+/// Hand every stored track to `write`, newest first, counting each as visited.
+///
+/// The library is read in pages, each its own short read under a suspension
+/// hold that ends, statement finalised, before the next is asked for. On iOS a
+/// read open across a suspension holds a lock in the shared container, which
+/// the system answers with a termination, so the whole export may not be one
+/// read. While suspended the next page's hold waits for the resume, and the
+/// writer's own file stays open meanwhile, since it is not the library.
+/// A track whose row cannot be read reaches `write` as the skip naming it, and
+/// an error from `write` ends the export.
+fn each_stored_track(
+    db: &rusqlite::Connection,
+    progress: &BulkExportProgress,
+    mut write: impl FnMut(Result<StoredTrack, SkippedActivity>) -> Result<(), String>,
+) -> Result<(), String> {
+    let mut after: Option<(i64, String)> = None;
+    loop {
+        let _read = super::suspension::begin_read()
+            .ok_or_else(|| "The export was refused while the engine is suspended".to_string())?;
+        let mut stmt = db
+            .prepare(EXPORT_PAGE_SQL)
+            .map_err(|e| format!("Query failed: {}", e))?;
+        let (after_key, after_id) = match &after {
+            Some((key, id)) => (Some(*key), id.as_str()),
+            None => (None, ""),
+        };
+        let mut rows = stmt
+            .query(rusqlite::params![
+                after_key,
+                after_id,
+                i64::MIN,
+                EXPORT_PAGE
+            ])
+            .map_err(|e| format!("Query failed: {}", e))?;
+        let mut read: i64 = 0;
+        while let Some(row) = rows.next().map_err(|e| format!("Query failed: {}", e))? {
+            read += 1;
+            let key: i64 = row.get(7).map_err(|e| format!("Query failed: {}", e))?;
+            let id: String = row.get(0).map_err(|e| format!("Query failed: {}", e))?;
+            let track = (|| -> SqlResult<StoredTrack> {
+                Ok(StoredTrack {
+                    activity_id: id.clone(),
+                    track_blob: row.get(1)?,
+                    name: row.get(2)?,
+                    sport_type: row.get(3)?,
+                    date: row.get(4)?,
+                    distance: row.get(5)?,
+                    moving_time: row.get(6)?,
+                })
+            })()
+            .map_err(|e| {
+                SkippedActivity::new(&id, SkipReason::Failed, format!("row read failed: {}", e))
+            });
+            after = Some((key, id));
+            progress.visit();
+            write(track)?;
+        }
+        if read < EXPORT_PAGE {
+            return Ok(());
+        }
+    }
+}
+
+/// `read` under a suspension hold, for the one-statement reads either side of
+/// the paged tracks.
+fn held_read<T>(read: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let _read = super::suspension::begin_read()
+        .ok_or_else(|| "The export was refused while the engine is suspended".to_string())?;
+    read()
+}
+
 /// The gpx writer, taking the connection rather than the engine, so a
 /// background thread can run it on a connection of its own.
 fn export_gpx(
@@ -1276,58 +1512,35 @@ fn export_gpx(
         .compression_method(zip::CompressionMethod::Deflated)
         .compression_level(Some(6));
 
-    progress.set_total_from(db);
+    held_read(|| {
+        progress.set_total_from(db);
+        Ok(())
+    })?;
+    let stamp = ExportStamp::now(trim.as_ref());
     let mut exported: u32 = 0;
     let mut skipped: Vec<SkippedActivity> = Vec::new();
     let mut total_bytes: u64 = 0;
 
-    // Query all activities with GPS tracks in one pass
-    let mut stmt = db.prepare(
-            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
-             FROM gps_tracks g
-             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
-             ORDER BY m.date DESC"
-        ).map_err(|e| format!("Query failed: {}", e))?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            let activity_id: String = row.get(0)?;
-            let track_blob: Vec<u8> = row.get(1)?;
-            let name: Option<String> = row.get(2)?;
-            let sport_type: Option<String> = row.get(3)?;
-            let date: Option<i64> = row.get(4)?;
-            let distance: Option<f64> = row.get(5)?;
-            let moving_time: Option<i64> = row.get(6)?;
-            Ok((
-                activity_id,
-                track_blob,
-                name,
-                sport_type,
-                date,
-                distance,
-                moving_time,
-            ))
-        })
-        .map_err(|e| format!("Query failed: {}", e))?;
-
     // Metadata entries for activities.json
-    let mut metadata_entries: Vec<serde_json::Value> = Vec::new();
+    let mut metadata_entries: Vec<ActivityRow> = Vec::new();
     let mut entry_names = std::collections::HashSet::new();
 
-    for row_result in rows {
-        progress.visit();
-        let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
-            match row_result {
-                Ok(r) => r,
-                Err(e) => {
-                    skipped.push(SkippedActivity::new(
-                        "unknown",
-                        SkipReason::Failed,
-                        format!("row read failed: {}", e),
-                    ));
-                    continue;
-                }
-            };
+    each_stored_track(db, progress, |track| {
+        let StoredTrack {
+            activity_id,
+            track_blob,
+            name,
+            sport_type,
+            date,
+            distance,
+            moving_time,
+        } = match track {
+            Ok(track) => track,
+            Err(unread) => {
+                skipped.push(unread);
+                return Ok(());
+            }
+        };
 
         let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
             TrackRead::Present(points) => points,
@@ -1337,11 +1550,11 @@ fn export_gpx(
                     SkipReason::NoTrack,
                     "no stored track",
                 ));
-                continue;
+                return Ok(());
             }
             TrackRead::Corrupt(reason) => {
                 skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
-                continue;
+                return Ok(());
             }
         };
 
@@ -1351,7 +1564,7 @@ fn export_gpx(
                 SkipReason::NoTrack,
                 "track holds no points",
             ));
-            continue;
+            return Ok(());
         }
 
         let display_name = name.as_deref().unwrap_or(&activity_id);
@@ -1366,17 +1579,13 @@ fn export_gpx(
 
         // The exported copy alone is shortened. The stored track and every
         // index into it are untouched.
-        let points = match trim.as_ref().map(|t| t.apply(&points)) {
-            Some(Some(trimmed)) => trimmed,
-            Some(None) => {
-                skipped.push(SkippedActivity::new(
-                    &activity_id,
-                    SkipReason::Trimmed,
-                    "trimmed to fewer points than a track",
-                ));
-                continue;
-            }
-            None => points,
+        let Some((points, shortened)) = trim_for_export(trim.as_ref(), points) else {
+            skipped.push(SkippedActivity::new(
+                &activity_id,
+                SkipReason::Trimmed,
+                "trimmed to fewer points than a track",
+            ));
+            return Ok(());
         };
 
         // The same test the GeoJSON writer makes, so the two count it alike.
@@ -1389,7 +1598,7 @@ fn export_gpx(
                 SkipReason::Failed,
                 "track holds no finite coordinates",
             ));
-            continue;
+            return Ok(());
         }
 
         // Generate GPX XML
@@ -1398,6 +1607,7 @@ fn export_gpx(
             sport_type.as_deref(),
             date_str.as_deref(),
             &points,
+            &stamp.for_track(shortened),
         );
 
         let safe_name = gpx_file_stem(display_name);
@@ -1411,7 +1621,7 @@ fn export_gpx(
                 SkipReason::Failed,
                 format!("archive entry failed: {}", e),
             ));
-            continue;
+            return Ok(());
         }
         if let Err(e) = zip.write_all(gpx.as_bytes()) {
             log::warn!("Failed to write ZIP entry {}: {}", filename, e);
@@ -1420,23 +1630,25 @@ fn export_gpx(
                 SkipReason::Failed,
                 format!("archive write failed: {}", e),
             ));
-            continue;
+            return Ok(());
         }
 
         total_bytes += gpx.len() as u64;
         exported += 1;
 
         // Add metadata entry
-        metadata_entries.push(serde_json::json!({
-            "id": activity_id,
-            "name": display_name,
-            "date": date_str.as_deref().unwrap_or(""),
-            "sport": sport_type.as_deref().unwrap_or(UNKNOWN_SPORT),
-            "distance": distance.unwrap_or(0.0),
-            "movingTime": moving_time.unwrap_or(0),
-            "hasGpx": true,
-        }));
-    }
+        metadata_entries.push(ActivityRow {
+            date: date_str,
+            distance,
+            has_gpx: true,
+            name: display_name.to_string(),
+            id: activity_id,
+            moving_time,
+            sport: sport_type.unwrap_or_else(|| UNKNOWN_SPORT.to_string()),
+            trimmed: shortened,
+        });
+        Ok(())
+    })?;
 
     // Also add activities WITHOUT GPS tracks to metadata
     for Trackless {
@@ -1446,18 +1658,18 @@ fn export_gpx(
         date,
         distance,
         moving_time,
-    } in trackless_activities(db)?
+    } in held_read(|| trackless_activities(db))?
     {
-        let date_str = date.and_then(wall_clock);
-        metadata_entries.push(serde_json::json!({
-            "id": id,
-            "name": name.as_deref().unwrap_or(&id),
-            "date": date_str.as_deref().unwrap_or(""),
-            "sport": sport.as_deref().unwrap_or("Unknown"),
-            "distance": distance.unwrap_or(0.0),
-            "movingTime": moving_time.unwrap_or(0),
-            "hasGpx": false,
-        }));
+        metadata_entries.push(ActivityRow {
+            date: date.and_then(wall_clock),
+            distance,
+            has_gpx: false,
+            name: name.unwrap_or_else(|| id.clone()),
+            id: id.clone(),
+            moving_time,
+            sport: sport.unwrap_or_else(|| UNKNOWN_SPORT.to_string()),
+            trimmed: false,
+        });
         skipped.push(SkippedActivity::new(
             &id,
             SkipReason::NoTrack,
@@ -1485,6 +1697,14 @@ fn export_gpx(
         .map_err(|e| format!("Failed to write skip list: {}", e))?;
     total_bytes += skipped_json.len() as u64;
 
+    let stamp_json =
+        serde_json::to_string_pretty(&stamp.as_json()).unwrap_or_else(|_| "{}".to_string());
+    zip.start_file("export.json", options)
+        .map_err(|e| format!("Failed to write provenance: {}", e))?;
+    zip.write_all(stamp_json.as_bytes())
+        .map_err(|e| format!("Failed to write provenance: {}", e))?;
+    total_bytes += stamp_json.len() as u64;
+
     zip.finish()
         .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
 
@@ -1506,13 +1726,18 @@ fn is_finite_point(p: &GpsPoint) -> bool {
 
 /// One activity as a GeoJSON `LineString` feature. Points with a non-finite
 /// coordinate are left out of the line.
+/// An unknown date, distance or moving time is written as null.
 pub struct GeoJsonFeature<'a> {
     pub id: &'a str,
     pub name: &'a str,
     pub sport: &'a str,
-    pub date: &'a str,
-    pub distance: f64,
-    pub moving_time: i64,
+    pub date: Option<&'a str>,
+    /// Metres.
+    pub distance: Option<f64>,
+    /// Seconds.
+    pub moving_time: Option<i64>,
+    /// The privacy trim shortened this track.
+    pub trimmed: bool,
     pub points: &'a [GpsPoint],
 }
 
@@ -1551,13 +1776,14 @@ pub fn write_geojson_feature<W: Write>(
 
     #[derive(Serialize)]
     struct Properties<'a> {
-        date: &'a str,
-        distance: f64,
+        date: Option<&'a str>,
+        distance: Option<f64>,
         id: &'a str,
         #[serde(rename = "movingTime")]
-        moving_time: i64,
+        moving_time: Option<i64>,
         name: &'a str,
         sport: &'a str,
+        trimmed: bool,
     }
 
     #[derive(Serialize)]
@@ -1596,6 +1822,7 @@ pub fn write_geojson_feature<W: Write>(
             moving_time: feature.moving_time,
             name: feature.name,
             sport: feature.sport,
+            trimmed: feature.trimmed,
         },
         kind: "Feature",
     };
@@ -1627,52 +1854,42 @@ fn export_geojson(
         .map_err(|e| format!("Failed to create GeoJSON file: {}", e))?;
     let mut writer = BufWriter::new(file);
 
-    progress.set_total_from(db);
+    held_read(|| {
+        progress.set_total_from(db);
+        Ok(())
+    })?;
     let mut exported: u32 = 0;
     let mut skipped: Vec<SkippedActivity> = Vec::new();
     let mut total_bytes: u64 = 0;
 
-    // Write FeatureCollection header
+    // The provenance is a foreign member ahead of the features, so a reader
+    // streaming the file meets it before the first track.
+    let stamp_json = serde_json::to_string(&ExportStamp::now(trim.as_ref()).as_json())
+        .unwrap_or_else(|_| "{}".to_string());
+    let header =
+        format!("{{\"type\":\"FeatureCollection\",\"export\":{stamp_json},\"features\":[\n");
     writer
-        .write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
+        .write_all(header.as_bytes())
         .map_err(|e| format!("Write failed: {}", e))?;
-
-    let mut stmt = db.prepare(
-            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
-             FROM gps_tracks g
-             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
-             ORDER BY m.date DESC"
-        ).map_err(|e| format!("Query failed: {}", e))?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Vec<u8>>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, Option<i64>>(4)?,
-                row.get::<_, Option<f64>>(5)?,
-                row.get::<_, Option<i64>>(6)?,
-            ))
-        })
-        .map_err(|e| format!("Query failed: {}", e))?;
+    total_bytes += header.len() as u64;
 
     let mut first = true;
-    for row_result in rows {
-        progress.visit();
-        let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
-            match row_result {
-                Ok(r) => r,
-                Err(e) => {
-                    skipped.push(SkippedActivity::new(
-                        "unknown",
-                        SkipReason::Failed,
-                        format!("row read failed: {}", e),
-                    ));
-                    continue;
-                }
-            };
+    each_stored_track(db, progress, |track| {
+        let StoredTrack {
+            activity_id,
+            track_blob,
+            name,
+            sport_type,
+            date,
+            distance,
+            moving_time,
+        } = match track {
+            Ok(track) => track,
+            Err(unread) => {
+                skipped.push(unread);
+                return Ok(());
+            }
+        };
 
         let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
             TrackRead::Present(points) => points,
@@ -1682,11 +1899,11 @@ fn export_geojson(
                     SkipReason::NoTrack,
                     "no stored track",
                 ));
-                continue;
+                return Ok(());
             }
             TrackRead::Corrupt(reason) => {
                 skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
-                continue;
+                return Ok(());
             }
         };
 
@@ -1696,7 +1913,7 @@ fn export_geojson(
                 SkipReason::NoTrack,
                 "track holds no points",
             ));
-            continue;
+            return Ok(());
         }
 
         let display_name = name.as_deref().unwrap_or(&activity_id);
@@ -1706,17 +1923,13 @@ fn export_geojson(
         // The exported copy alone is shortened. The stored track and every
         // index into it are untouched. The setting names no format, so this is
         // the same trim the GPX writer applies to the same rows.
-        let points = match trim.as_ref().map(|t| t.apply(&points)) {
-            Some(Some(trimmed)) => trimmed,
-            Some(None) => {
-                skipped.push(SkippedActivity::new(
-                    &activity_id,
-                    SkipReason::Trimmed,
-                    "trimmed to fewer points than a track",
-                ));
-                continue;
-            }
-            None => points,
+        let Some((points, shortened)) = trim_for_export(trim.as_ref(), points) else {
+            skipped.push(SkippedActivity::new(
+                &activity_id,
+                SkipReason::Trimmed,
+                "trimmed to fewer points than a track",
+            ));
+            return Ok(());
         };
 
         if !points.iter().any(is_finite_point) {
@@ -1725,7 +1938,7 @@ fn export_geojson(
                 SkipReason::Failed,
                 "track holds no finite coordinates",
             ));
-            continue;
+            return Ok(());
         }
 
         if !first {
@@ -1737,9 +1950,10 @@ fn export_geojson(
             id: &activity_id,
             name: display_name,
             sport,
-            date: date_str.as_deref().unwrap_or(""),
-            distance: distance.unwrap_or(0.0),
-            moving_time: moving_time.unwrap_or(0),
+            date: date_str.as_deref(),
+            distance,
+            moving_time,
+            trimmed: shortened,
             points: &points,
         };
         let written = write_geojson_feature(&mut writer, &feature)?;
@@ -1747,9 +1961,10 @@ fn export_geojson(
         total_bytes += written;
         exported += 1;
         first = false;
-    }
+        Ok(())
+    })?;
 
-    for trackless in trackless_activities(db)? {
+    for trackless in held_read(|| trackless_activities(db))? {
         skipped.push(SkippedActivity::new(
             &trackless.id,
             SkipReason::NoTrack,
@@ -2177,6 +2392,230 @@ mod bulk_export_tests {
         assert_eq!(lines(&single.content, "<trkpt").len(), 3);
         assert_eq!(single.filename, "Morning_ride.gpx");
         assert_eq!(entries[0], "2026-09-22_Morning_ride.gpx");
+    }
+
+    /// A track synced before its summary has no metrics row, so its date,
+    /// distance and moving time are unknown. Zero is a measurement, so an
+    /// unknown is written as null.
+    #[test]
+    fn an_unknown_distance_time_or_date_is_null_rather_than_zero() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        engine
+            .add_activity(
+                "bare".into(),
+                [900.0, 1400.0, 2000.0].iter().map(|m| north(*m)).collect(),
+                "Ride".into(),
+            )
+            .expect("add ride");
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let meta: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "activities.json")).unwrap();
+        let row = &meta[0];
+        for key in ["date", "distance", "movingTime"] {
+            assert!(row[key].is_null(), "{key} in {row}");
+        }
+
+        let geojson = dir.path().join("export.geojson");
+        engine
+            .bulk_export_geojson(geojson.to_str().unwrap())
+            .expect("geojson");
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&geojson).unwrap()).unwrap();
+        let properties = &doc["features"][0]["properties"];
+        for key in ["date", "distance", "movingTime"] {
+            assert!(properties[key].is_null(), "{key} in {properties}");
+        }
+    }
+
+    /// A known distance and time still read as numbers next to the unknown.
+    #[test]
+    fn a_known_distance_and_time_are_written_as_numbers() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        ride(
+            &mut engine,
+            "known",
+            "Known",
+            SEVEN_AM,
+            &[900.0, 1400.0, 2000.0],
+        );
+        metrics(&engine, "trainer", "Trainer", SEVEN_AM);
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let meta: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "activities.json")).unwrap();
+        for row in meta.as_array().unwrap() {
+            assert_eq!(row["distance"], 1000.0, "{row}");
+            assert_eq!(row["movingTime"], 600, "{row}");
+        }
+    }
+
+    /// One ride the privacy radius shortens at both ends and one it never
+    /// reaches. Only the shortened one may say it was trimmed.
+    #[test]
+    fn a_ride_the_privacy_radius_shortened_is_marked_in_every_format() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        ride(
+            &mut engine,
+            "from-door",
+            "From the door",
+            SEVEN_AM,
+            &[10.0, 40.0, 900.0, 1400.0, 2000.0, 60.0],
+        );
+        ride(
+            &mut engine,
+            "away",
+            "Away",
+            SEVEN_AM + 36_000,
+            &[900.0, 1400.0, 2000.0],
+        );
+        set_home(&engine, 200.0);
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let meta: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "activities.json")).unwrap();
+        let trimmed = |id: &str| {
+            meta.as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["id"] == id)
+                .map(|row| row["trimmed"].clone())
+                .unwrap()
+        };
+        assert_eq!(trimmed("from-door"), true);
+        assert_eq!(trimmed("away"), false);
+
+        let shortened = archive_entry(&zip, "2026-09-22_From_the_door.gpx");
+        assert!(shortened.contains("<desc>"), "{shortened}");
+        assert!(shortened.contains("200 m"), "{shortened}");
+        let whole = archive_entry(&zip, "2026-09-22_Away.gpx");
+        assert!(!whole.contains("privacy"), "{whole}");
+
+        let geojson = dir.path().join("export.geojson");
+        engine
+            .bulk_export_geojson(geojson.to_str().unwrap())
+            .expect("geojson");
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&geojson).unwrap()).unwrap();
+        for feature in doc["features"].as_array().unwrap() {
+            let id = feature["properties"]["id"].as_str().unwrap();
+            assert_eq!(feature["properties"]["trimmed"], id == "from-door", "{id}");
+        }
+    }
+
+    /// A non-finite fix is dropped before the trim, so dropping it alone
+    /// does not count as the radius shortening the ride.
+    #[test]
+    fn a_dropped_non_finite_fix_is_not_a_trim() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        ride(
+            &mut engine,
+            "gap",
+            "Gap",
+            SEVEN_AM,
+            &[900.0, 1400.0, 2000.0],
+        );
+        let mut with_gap = vec![GpsPoint {
+            latitude: f64::NAN,
+            longitude: f64::NAN,
+            elevation: None,
+        }];
+        with_gap.extend(engine.get_gps_track("gap").expect("track"));
+        let blob = super::super::codec::serialize_points(&with_gap).expect("blob");
+        engine
+            .db
+            .execute(
+                "UPDATE gps_tracks SET track_data = ?1 WHERE activity_id = 'gap'",
+                rusqlite::params![blob],
+            )
+            .expect("store track");
+        set_home(&engine, 200.0);
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let meta: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "activities.json")).unwrap();
+        assert_eq!(meta[0]["trimmed"], false);
+    }
+
+    fn assert_provenance(stamp: &serde_json::Value, radius: serde_json::Value) {
+        assert_eq!(stamp["app"], "Veloq");
+        assert_eq!(stamp["appVersion"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(stamp["source"], "intervals.icu");
+        assert_eq!(
+            stamp["units"],
+            serde_json::json!({ "distance": "m", "movingTime": "s" })
+        );
+        assert_eq!(stamp["privacyRadiusM"], radius);
+        let at = stamp["exportedAt"].as_str().expect("an export time");
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(at).is_ok() && at.ends_with('Z'),
+            "{at}"
+        );
+    }
+
+    #[test]
+    fn both_formats_say_what_wrote_them_when_and_in_which_units() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        ride(
+            &mut engine,
+            "ride",
+            "Ride",
+            SEVEN_AM,
+            &[900.0, 1400.0, 2000.0],
+        );
+        set_home(&engine, 150.0);
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let stamp: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "export.json")).unwrap();
+        assert_provenance(&stamp, serde_json::json!(150.0));
+        let gpx = archive_entry(&zip, &gpx_entries(&zip)[0]);
+        let creator = format!("creator=\"Veloq {}\"", env!("CARGO_PKG_VERSION"));
+        assert!(gpx.contains(&creator), "{gpx}");
+        assert!(
+            gpx.contains(&format!(
+                "<desc>Exported {}</desc>",
+                stamp["exportedAt"].as_str().unwrap()
+            )),
+            "{gpx}"
+        );
+
+        let geojson = dir.path().join("export.geojson");
+        engine
+            .bulk_export_geojson(geojson.to_str().unwrap())
+            .expect("geojson");
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&geojson).unwrap()).unwrap();
+        assert_provenance(&doc["export"], serde_json::json!(150.0));
+    }
+
+    #[test]
+    fn an_export_with_no_privacy_radius_says_so() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        ride(
+            &mut engine,
+            "ride",
+            "Ride",
+            SEVEN_AM,
+            &[900.0, 1400.0, 2000.0],
+        );
+
+        let zip = dir.path().join("export.zip");
+        engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+        let stamp: serde_json::Value =
+            serde_json::from_str(&archive_entry(&zip, "export.json")).unwrap();
+        assert_provenance(&stamp, serde_json::Value::Null);
     }
 
     #[test]

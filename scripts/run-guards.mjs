@@ -128,6 +128,13 @@ const GUARDS = [
     catches: 'an exported debug push receiver entering a release manifest',
   },
   {
+    name: 'check:debug-crash-trigger',
+    kind: 'correctness',
+    cmd: node('check-debug-crash-trigger.mjs'),
+    catches:
+      'the forced render crash receiver or launch argument reaching a release build, which lets any launch open the crash screen',
+  },
+  {
     name: 'check:private-data',
     kind: 'correctness',
     cmd: ['bash', 'scripts/check-no-private-data.sh', '--all'],
@@ -219,6 +226,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-render-engine-reads.mjs'),
     catches: 'a synchronous engine read in render, which blocks the JS thread every frame',
+  },
+  {
+    name: 'lint:bottom-inset',
+    kind: 'correctness',
+    cmd: node('lint-bottom-inset.mjs'),
+    catches:
+      'a control under the navigation bar, on the screen edge with no inset, or padded by the inset twice',
   },
   {
     name: 'lint:untyped-require',
@@ -483,7 +497,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, or an action pinned at a version that runs on Node 20',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, an action pinned at a version that runs on Node 20, or a dispatch input, event field or head ref expanded inside a run body or an action script, where the value runs as shell commands',
   },
   {
     name: 'lint:counted-translation',
@@ -583,6 +597,12 @@ const GUARDS = [
     cmd: node('lint-source-rules.mjs', '--rule', 'selected-state-accessibility'),
     catches:
       'a chip or pill whose selection shows only as a tint, so a screen reader never hears which one is chosen',
+  },
+  {
+    name: 'lint:invert-colors-opt-out',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'invert-colors-opt-out'),
+    catches: 'a photo or map surface that iOS Smart Invert turns into a negative',
   },
   {
     name: 'lint:no-geocoding',
@@ -784,20 +804,41 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-press-feedback.mjs'),
     catches:
-      'a pressable with no pressed state, a rendered Touchable control, or a press wrapper that skips the platform press answer',
+      'a pressable with no pressed state, a rendered Touchable control, a press wrapper that skips the platform press answer, or an icon glyph that takes a press itself',
   },
   {
     name: 'lint:dialog-owner',
     kind: 'correctness',
     cmd: node('lint-dialog-owner.mjs'),
     catches:
-      'a dialog raised with Alert.alert, which Android back and a scrim tap cannot dismiss, and a failure notice titled with a bare generic error word',
+      'a dialog raised with Alert.alert, which Android back and a scrim tap cannot dismiss, a failure notice titled with a bare generic error word, and a confirm button labelled Confirm rather than the action',
+  },
+  {
+    name: 'lint:notice-owner',
+    kind: 'correctness',
+    cmd: node('lint-notice-owner.mjs'),
+    catches:
+      'a snackbar rendered outside the notice owner, which iOS does not announce and whose action times out under a screen reader',
+  },
+  {
+    name: 'lint:external-link-owner',
+    kind: 'correctness',
+    cmd: node('lint-external-link-owner.mjs'),
+    catches:
+      'a web page opened outside the app with no way back, or a store link that does nothing on a device with no store',
   },
   {
     name: 'lint:haptics-owner',
     kind: 'style',
     cmd: node('lint-haptics-owner.mjs'),
     catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
+  },
+  {
+    name: 'lint:sharing-owner',
+    kind: 'correctness',
+    cmd: node('lint-sharing-owner.mjs'),
+    catches:
+      'a second share path that skips the owner, so on Android the file reaches only the share chooser with no save to the device',
   },
   {
     name: 'lint:switch-owner',
@@ -860,6 +901,12 @@ const GUARDS = [
     catches: 'a new hand-rolled empty state style instead of the shared EmptyState',
   },
   {
+    name: 'lint:reduce-motion',
+    kind: 'correctness',
+    cmd: node('lint-reduce-motion.mjs'),
+    catches: 'motion that ignores Reduce Motion',
+  },
+  {
     name: 'lint:modal-sheets',
     kind: 'style',
     cmd: node('lint-modal-sheets.mjs'),
@@ -876,7 +923,7 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-roleless-pressables.mjs'),
     catches:
-      'a new press target outside the shared ui that a screen reader announces with no role, or one anywhere with a role and no label or text, announced as "button" alone',
+      'a new press target outside the shared ui, an icon taking a press among them, that a screen reader announces with no role, or one anywhere with a role and no label or text, announced as "button" alone',
   },
   {
     name: 'lint:untranslated-labels',

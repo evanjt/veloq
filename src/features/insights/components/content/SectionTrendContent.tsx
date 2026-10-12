@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, LayoutAnimation, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -94,7 +95,6 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   } = useSectionPerformances(expanded ? fullSection : null, section.sportType);
 
   const handleToggle = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onToggle(sectionRowKey(section));
   }, [onToggle, section]);
 
@@ -109,103 +109,112 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 
   // The whole header is one toggle, so a screen reader meets each row once and
   // hears everything the row draws.
+  // Rows below an opening row slide down rather than jump. A Reanimated
+  // transition follows the system reduce-motion setting.
   return (
-    <Card variant="flat" padding="none">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={composeAccessibilityLabel(
-          name,
-          section.hasRecentPR && t('a11y.personalRecord'),
-          bestTime,
-          traversals,
-          rowTrendWord(section.trend)
-        )}
-        accessibilityState={{ expanded }}
-        onPress={handleToggle}
-        testID={`section-trend-toggle-${section.sectionId}`}
-        style={pressable(styles.sectionHeader)}
-        android_ripple={pressRipple}
-      >
-        <View style={styles.sectionContent}>
-          <View style={styles.sectionNameRow}>
-            {section.sportType ? (
-              <MaterialCommunityIcons
-                name={getActivityIcon(section.sportType)}
-                size={14}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                style={styles.sportIcon}
-              />
-            ) : null}
-            <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
-              {name}
-            </Text>
-            {section.hasRecentPR ? (
-              <View style={styles.prChip}>
-                <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
-              </View>
-            ) : null}
-          </View>
-          <View style={styles.sectionMeta}>
-            {bestTime != null ? (
-              <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>
-            ) : null}
-            {traversals != null ? (
-              <Text style={[styles.traversals, isDark && styles.traversalsDark]}>{traversals}</Text>
-            ) : null}
-            <MaterialCommunityIcons
-              name={rowTrendIcon(section.trend)}
-              size={16}
-              color={rowTrendColor(section.trend, isDark)}
-            />
-          </View>
-        </View>
-
-        <View style={styles.chevronButton}>
-          <MaterialCommunityIcons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </View>
-      </Pressable>
-
-      {expanded ? (
-        <View style={styles.expandedContent}>
-          {sectionError !== undefined ? (
-            <ErrorState
-              variant="inline"
-              error={sectionError}
-              onRetry={retrySection}
-              testID="section-read-failure"
-            />
-          ) : streamsError ? (
-            <ErrorState
-              variant="inline"
-              error={streamsError}
-              onRetry={refetchStreams}
-              testID="section-stream-failure"
-            />
-          ) : isLoading ? (
-            <View style={[styles.shimmerRow, isDark && styles.shimmerRowDark]}>
-              <Shimmer width="100%" height={40} borderRadius={8} />
-            </View>
-          ) : records.length > 0 ? (
-            <RecentEffortsList records={records} bests={bests} />
-          ) : (
-            <Text style={[styles.noEfforts, isDark && styles.noEffortsDark]}>
-              {t('insights.sectionTrendSheet.noEfforts')}
-            </Text>
+    <Animated.View layout={LinearTransition}>
+      <Card variant="flat" padding="none">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={composeAccessibilityLabel(
+            name,
+            section.hasRecentPR && t('a11y.personalRecord'),
+            bestTime,
+            traversals,
+            rowTrendWord(section.trend)
           )}
-          <Button
-            label={t('insights.viewInDetail')}
-            variant="ghost"
-            size="sm"
-            onPress={handleOpenSection}
-            testID={`section-trend-open-${section.sectionId}`}
-          />
-        </View>
-      ) : null}
-    </Card>
+          accessibilityState={{ expanded }}
+          onPress={handleToggle}
+          testID={`section-trend-toggle-${section.sectionId}`}
+          style={pressable(styles.sectionHeader)}
+          android_ripple={pressRipple}
+        >
+          <View style={styles.sectionContent}>
+            <View style={styles.sectionNameRow}>
+              {section.sportType ? (
+                <MaterialCommunityIcons
+                  name={getActivityIcon(section.sportType)}
+                  size={14}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  style={styles.sportIcon}
+                />
+              ) : null}
+              <Text
+                style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                numberOfLines={1}
+              >
+                {name}
+              </Text>
+              {section.hasRecentPR ? (
+                <View style={styles.prChip}>
+                  <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.sectionMeta}>
+              {bestTime != null ? (
+                <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>
+              ) : null}
+              {traversals != null ? (
+                <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
+                  {traversals}
+                </Text>
+              ) : null}
+              <MaterialCommunityIcons
+                name={rowTrendIcon(section.trend)}
+                size={16}
+                color={rowTrendColor(section.trend, isDark)}
+              />
+            </View>
+          </View>
+
+          <View style={styles.chevronButton}>
+            <MaterialCommunityIcons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </View>
+        </Pressable>
+
+        {expanded ? (
+          <Animated.View entering={FadeIn} style={styles.expandedContent}>
+            {sectionError !== undefined ? (
+              <ErrorState
+                variant="inline"
+                error={sectionError}
+                onRetry={retrySection}
+                testID="section-read-failure"
+              />
+            ) : streamsError ? (
+              <ErrorState
+                variant="inline"
+                error={streamsError}
+                onRetry={refetchStreams}
+                testID="section-stream-failure"
+              />
+            ) : isLoading ? (
+              <View style={[styles.shimmerRow, isDark && styles.shimmerRowDark]}>
+                <Shimmer width="100%" height={40} borderRadius={8} />
+              </View>
+            ) : records.length > 0 ? (
+              <RecentEffortsList records={records} bests={bests} />
+            ) : (
+              <Text style={[styles.noEfforts, isDark && styles.noEffortsDark]}>
+                {t('insights.sectionTrendSheet.noEfforts')}
+              </Text>
+            )}
+            <Button
+              label={t('insights.viewInDetail')}
+              variant="ghost"
+              size="sm"
+              onPress={handleOpenSection}
+              testID={`section-trend-open-${section.sectionId}`}
+            />
+          </Animated.View>
+        ) : null}
+      </Card>
+    </Animated.View>
   );
 });
 
@@ -261,7 +270,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
       ))}
 
       {hasAnyPR ? (
-        <View style={styles.legend}>
+        <Animated.View layout={LinearTransition} style={styles.legend}>
           <MaterialCommunityIcons
             name="trophy"
             size={12}
@@ -270,7 +279,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('insights.recentPersonalRecord')}
           </Text>
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );

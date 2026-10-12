@@ -1,21 +1,20 @@
-import * as Sharing from 'expo-sharing';
-
 import { recordingFitExists } from '@/features/recording/lib/storage/recordingLibrary';
+import { shareExistingFile } from '@/features/settings/light';
 import type { RecordingLibraryEntry } from '@/types';
 
 /**
- * Open the share sheet on a recording's FIT file, answering whether the file is
- * still on the device. A cancelled sheet or a platform without one is not a failure.
+ * Send a recording's FIT file where the athlete chooses, answering whether the
+ * file is still on the device. A cancelled sheet or a platform without one is
+ * not a failure.
  */
 export async function shareRecordingFit(entry: RecordingLibraryEntry): Promise<boolean> {
   if (entry.kind !== 'fit' || !entry.fitPath) return false;
   let available = false;
   try {
     available = await recordingFitExists(entry);
-    if (available && (await Sharing.isAvailableAsync())) {
-      await Sharing.shareAsync(entry.fitPath, {
-        mimeType: 'application/octet-stream',
-        dialogTitle: `${entry.name}.fit`,
+    if (available) {
+      await shareExistingFile(entry.fitPath, 'application/octet-stream', {
+        name: `${entry.name}.fit`,
       });
     }
   } catch {

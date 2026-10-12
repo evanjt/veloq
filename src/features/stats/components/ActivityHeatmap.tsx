@@ -15,6 +15,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { useTheme } from '@/shared/app';
+import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
@@ -206,7 +207,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     useEffect(() => {
       if (highlightPos && scrollRef.current) {
         const scrollX = Math.max(0, highlightPos.x - 100);
-        scrollRef.current.scrollTo({ x: scrollX, animated: true });
+        scrollRef.current.scrollTo({ x: scrollX, animated: !isReduceMotionOn() });
       }
     }, [highlightPos]);
 

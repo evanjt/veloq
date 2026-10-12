@@ -25,7 +25,10 @@ import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
 import * as haptics from '@/shared/ui/haptics';
 import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
+import { informSectionWriteRefused } from '../lib/sectionWriteRefusal';
+import { removeSectionWithUndo, restoreSection } from '../lib/sectionVisibility';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { attemptEngineRead } from '@/shared/native/engineError';
 
 const log = debug.create('SectionActions');
 
@@ -141,7 +144,15 @@ export function useSectionActions({
   }
 
   // --- reference selection state ---
-  const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
+  // The override belongs to the section whose edit set it. A merge hands this
+  // hook the survivor without remounting, and an edit can end after that, so
+  // an override recorded against another section is not drawn on this one.
+  const [referenceOverride, setReferenceOverride] = useState<{
+    sectionId: string;
+    activityId: string | null;
+  } | null>(null);
+  const overrideReferenceId =
+    referenceOverride && referenceOverride.sectionId === id ? referenceOverride.activityId : null;
   const effectiveReferenceId: string | undefined =
     overrideReferenceId ?? section?.representativeActivityId ?? undefined;
   const [isReferenceSaving, setIsReferenceSaving] = useState(false);
@@ -156,7 +167,10 @@ export function useSectionActions({
   }, []);
 
   // --- exclusion state ---
-  const [showExcluded, setShowExcluded] = useState(false);
+  // Held as the section it was turned on for, so the survivor of a merge opens
+  // with excluded rides hidden like any other section.
+  const [showExcludedFor, setShowExcludedFor] = useState<string | undefined>(undefined);
+  const showExcluded = id !== undefined && showExcludedFor === id;
   const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
 
   // Reload excluded ids when section id changes OR the container signals a
@@ -169,8 +183,14 @@ export function useSectionActions({
     }
     const engine = getEngine();
     if (!engine) return;
-    const ids = engine.getExcludedActivityIds(id);
-    setExcludedActivityIds(new Set(ids));
+    // A failed read keeps the set it has rather than taking the screen down;
+    // the bundle's own exclusions replace it when they arrive.
+    const read = attemptEngineRead(() => engine.getExcludedActivityIds(id));
+    if (!read.ok) {
+      log.warn('excluded ids read failed', id, read.error);
+      return;
+    }
+    setExcludedActivityIds(new Set(read.value));
   }, [id, sectionRefreshKey, preComputedExcludedActivityIds]);
 
   // --- name actions ---
@@ -261,7 +281,7 @@ export function useSectionActions({
       }
       if (mounted.current) {
         // A reset clears the override so the section's own reference shows.
-        setOverrideReferenceId(referenceId);
+        setReferenceOverride({ sectionId: edit.sectionId, activityId: referenceId });
         // Re-read the section for the line the edit stored.
         onSectionRefresh();
       }
@@ -294,7 +314,7 @@ export function useSectionActions({
         confirmAction({
           title: t('sections.setAsReference'),
           message: t('sections.setAsReferenceConfirm'),
-          confirmLabel: t('common.confirm'),
+          confirmLabel: t('sections.setAsReference'),
           cancelLabel: t('common.cancel'),
           onConfirm: () => {
             if (__DEV__) {
@@ -312,25 +332,14 @@ export function useSectionActions({
   );
 
   // --- disable/enable ---
+  // Removal keeps the section, so it runs at once and the notice offers Undo.
   const handleToggleDisable = useCallback(() => {
     if (!id || isCustomId) return;
 
     if (isSectionDisabled) {
-      // Restore
-      getEngine()?.enableSection(id);
-    } else {
-      // Remove with confirmation, navigate back after
-      confirmAction({
-        title: t('sections.removeSection'),
-        message: t('sections.removeSectionConfirm'),
-        confirmLabel: t('common.remove'),
-        cancelLabel: t('common.cancel'),
-        destructive: true,
-        onConfirm: () => {
-          getEngine()?.disableSection(id);
-          goBack();
-        },
-      });
+      restoreSection(id, t);
+    } else if (removeSectionWithUndo(id, t)) {
+      goBack();
     }
   }, [id, isCustomId, isSectionDisabled, t]);
 
@@ -340,11 +349,14 @@ export function useSectionActions({
       if (!id) return;
       const engine = getEngine();
       if (!engine) return;
-      engine.excludeActivityFromSection(id, activityId);
+      if (!engine.excludeActivityFromSection(id, activityId)) {
+        informSectionWriteRefused(t);
+        return;
+      }
       setExcludedActivityIds((prev) => new Set([...prev, activityId]));
       onSectionRefresh();
     },
-    [id, onSectionRefresh]
+    [id, onSectionRefresh, t]
   );
 
   const handleIncludeActivity = useCallback(
@@ -352,7 +364,10 @@ export function useSectionActions({
       if (!id) return;
       const engine = getEngine();
       if (!engine) return;
-      engine.includeActivityInSection(id, activityId);
+      if (!engine.includeActivityInSection(id, activityId)) {
+        informSectionWriteRefused(t);
+        return;
+      }
       setExcludedActivityIds((prev) => {
         const next = new Set(prev);
         next.delete(activityId);
@@ -360,22 +375,25 @@ export function useSectionActions({
       });
       onSectionRefresh();
     },
-    [id, onSectionRefresh]
+    [id, onSectionRefresh, t]
   );
 
   const handleToggleShowExcluded = useCallback(() => {
-    setShowExcluded((v) => !v);
-  }, []);
+    setShowExcludedFor((shownFor) => (shownFor === id ? undefined : id));
+  }, [id]);
 
   // --- accept/pin ---
   const handleAcceptSection = useCallback(() => {
     if (!id || isCustomId) return;
     const engine = getEngine();
     if (!engine) return;
-    engine.acceptSection(id);
+    if (!engine.acceptSection(id)) {
+      informSectionWriteRefused(t);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
     onSectionRefresh();
-  }, [id, isCustomId, queryClient, onSectionRefresh]);
+  }, [id, isCustomId, queryClient, onSectionRefresh, t]);
 
   // --- lift flag ---
   // The write is an intent, not the derived column, so it outlives the next

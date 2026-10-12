@@ -8,7 +8,8 @@ import { colors } from '@/theme';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { useTheme } from '@/shared/app';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
 import { GpsSignalIndicator } from './GpsSignalIndicator';
@@ -56,7 +57,8 @@ function TimerHeaderInner({
   onLock: () => void;
 }) {
   const { t } = useTranslation();
-  const currentActivityColor = getActivityColor(currentActivityType);
+  const { isDark } = useTheme();
+  const currentActivityColor = getActivityInk(currentActivityType, isDark);
   const statusSpoken = status === 'recording' ? t('spoken.rec') : t('recording.paused', 'Paused');
   // The phone is mounted or pocketed during a ride, so a change of state is
   // spoken: through the live regions below on Android, announced on iOS.

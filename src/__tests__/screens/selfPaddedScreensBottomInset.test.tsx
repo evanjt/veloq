@@ -111,6 +111,6 @@ describe('settings screens that pad their own bottom', () => {
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(0);
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom ?? 0).toBe(0);
   });
 });

@@ -21,9 +21,16 @@ interface RecordingLiveState {
    * exactly the state that hides the problem.
    */
   backgroundTrackingFailed: boolean;
+  /**
+   * Crash-backup writes that failed in a row, cleared by the next one that
+   * lands. The last good backup survives a failure but stops following the
+   * ride, so a kill loses everything since it.
+   */
+  backupFailures: number;
   setFix: (location: { latitude: number; longitude: number }, accuracy: number | null) => void;
   setAutoPaused: (autoPaused: boolean) => void;
   setBackgroundTrackingFailed: (failed: boolean) => void;
+  recordBackupWrite: (saved: boolean) => void;
   reset: () => void;
 }
 
@@ -33,6 +40,7 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
   lastFixAt: null,
   autoPaused: false,
   backgroundTrackingFailed: false,
+  backupFailures: 0,
 
   setFix: (location, accuracy) => {
     set({ currentLocation: location, accuracy, lastFixAt: Date.now() });
@@ -42,6 +50,9 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
 
   setBackgroundTrackingFailed: (backgroundTrackingFailed) => set({ backgroundTrackingFailed }),
 
+  recordBackupWrite: (saved) =>
+    set((state) => ({ backupFailures: saved ? 0 : state.backupFailures + 1 })),
+
   reset: () =>
     set({
       currentLocation: null,
@@ -49,5 +60,6 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
       lastFixAt: null,
       autoPaused: false,
       backgroundTrackingFailed: false,
+      backupFailures: 0,
     }),
 }));

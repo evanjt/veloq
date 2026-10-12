@@ -57,7 +57,7 @@ object StrengthWidgetRenderer {
     val content = StrengthWidget.content(snap, size, window)
 
     if (content == null) {
-      v.setOnClickPendingIntent(R.id.str_root, WidgetRenderer.deepLink(context, "veloq://", 30))
+      v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, "veloq://", 30))
       v.setViewVisibility(R.id.str_label, View.GONE)
       showBody(v, narrow, false)
       bindMessage(
@@ -69,7 +69,7 @@ object StrengthWidgetRenderer {
       return v
     }
 
-    v.setOnClickPendingIntent(R.id.str_root, WidgetRenderer.deepLink(context, content.url, 30))
+    v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, content.url, 30))
     v.setViewVisibility(R.id.str_label, if (content.label.isEmpty()) View.GONE else View.VISIBLE)
     v.setTextViewText(R.id.str_label, content.label)
 

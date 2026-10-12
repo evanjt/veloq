@@ -1,6 +1,6 @@
 export { Shimmer, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
 export { BottomTabBar } from './BottomTabBar';
-export { useTabBarClearance } from './tabBarClearance';
+export { useBottomClearance, useScrollEndInset } from './tabBarClearance';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export { Button, ToggleButton, ToggleButtonRow } from './Button';
 export type {
@@ -18,6 +18,7 @@ export type { CardProps, CardVariant, CardPadding } from './Card';
 export { CardHeader } from './CardHeader';
 export type { CardHeaderProps } from './CardHeader';
 export { Row } from './Row';
+export { ExternalLinkRow } from './ExternalLinkRow';
 export { ListSectionHeader } from './ListSectionHeader';
 export { composeAccessibilityLabel, type AccessibilityLabelPart } from './accessibilityLabel';
 export type { RowBehaviour, RowProps } from './Row';
@@ -39,8 +40,19 @@ export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { pageAccessibility } from './pagerAccessibility';
 export { OfflineBanner } from './OfflineBanner';
+export { hideNotice, NoticeHost, showNotice, type NoticeArgs } from './Notice';
 export { StatusLine, joinStatusMessage, type StatusTone } from './StatusLine';
 export { SyncProgressStrip } from './SyncProgressStrip';
+export {
+  ReduceMotionSync,
+  isReduceMotionOn,
+  motionFor,
+  motionLoop,
+  motionSpring,
+  motionTiming,
+  useReduceMotion,
+} from './reduceMotion';
+export { ProgressBar, ProgressRow, progressMilestone, progressValue } from './ProgressRow';
 export { SyncErrorBanner } from './SyncErrorBanner';
 export { BodyNotDownloaded } from './BodyNotDownloaded';
 export { TrackFetchNotice } from './TrackFetchNotice';

@@ -16,3 +16,4 @@ export {
   loadGoogleDriveAccount,
   isGoogleDriveSupported,
 } from './googleDriveBackend';
+export { icloudBackend, isIcloudReachable, isIcloudSupported } from './icloudBackend';

@@ -4,7 +4,7 @@
  * package's build rather than the capture, and only on the macOS runner.
  *
  * Expected behaviour: the package compiles every widget source the app's extension compiles,
- * with the bundles the plugin generates and without the memory probe, the extension's entry
+ * with the bundles the plugin generates and without the extension's entry
  * point or any file a package cannot build, beside every widget test and both fixtures.
  */
 
@@ -33,7 +33,7 @@ afterAll(() => {
 
 it('compiles every source the extension compiles, and nothing a package cannot build', () => {
   const sources = readdirSync(join(out, 'Sources', 'VeloqWidget')).sort();
-  expect(sources).toEqual([...widgetSwiftFiles(projectRoot, false)].sort());
+  expect(sources).toEqual([...widgetSwiftFiles(projectRoot)].sort());
 });
 
 it('keeps the bundles and drops the entry point, which would be the test bundle one', () => {
@@ -41,7 +41,6 @@ it('keeps the bundles and drops the entry point, which would be the test bundle 
   expect(readFileSync(join(sources, 'VeloqWidget.swift'), 'utf8')).not.toMatch(/^@main$/m);
   const bundles = readFileSync(join(sources, 'WidgetBundles.swift'), 'utf8');
   expect(bundles).toContain('struct VeloqWidgetsConfigurable');
-  expect(bundles).not.toContain('VeloqMemoryProbeWidget');
 });
 
 it('carries every widget test and both fixtures beside the package manifest', () => {

@@ -21,13 +21,13 @@ import {
   buildEndpointLayers,
   ENDPOINT_IMAGES,
   featureCollection,
-  isDarkStyle,
   lineFeature,
   lngLatFromShort,
   type MapLayerSpec,
   type MapSourceSpec,
   MapSurface,
   pointFeature,
+  statusBarStyleForMap,
   useDrawnMapStyle,
 } from '@/features/maps';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
@@ -221,8 +221,6 @@ export function RouteMapView({
 
   const closeFullscreen = useCallback(() => setIsFullscreen(false), []);
 
-  const isDark = isDarkStyle(mapStyle);
-
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
@@ -271,7 +269,7 @@ export function RouteMapView({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={`${statusBarStyleForMap(mapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={routeCoords}
           routeColor={activityColor}

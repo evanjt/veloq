@@ -29,7 +29,8 @@ jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
-  useTabBarClearance: () => 0,
+  useBottomClearance: () => 0,
+  useScrollEndInset: () => 0,
   signalColor: () => 'green',
 }));
 jest.mock('@/shared/ui/withScreenBoundary', () => ({

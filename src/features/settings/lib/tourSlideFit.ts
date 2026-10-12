@@ -30,3 +30,26 @@ export function tourPictureScale(naturalHeight: number, space: number): number {
   if (naturalHeight <= 0) return 1;
   return Math.min(1, Math.max(0, space / naturalHeight));
 }
+
+/** The least space between two of the tour's footer buttons. */
+export const TOUR_FOOTER_GAP = spacing.sm;
+
+/** The natural widths of the tour's footer buttons; zero for one the slide does not show. */
+export interface TourFooterWidths {
+  skip: number;
+  showMe: number;
+  next: number;
+}
+
+/**
+ * Whether the footer's buttons sit in one row or stack, Show Me over Skip and
+ * Next: one row when their natural widths and the gaps between them fit the
+ * row. A row not yet laid out keeps one row, so the first frame does not stack.
+ */
+export function tourFooterLayout(rowWidth: number, widths: TourFooterWidths): 'row' | 'stacked' {
+  if (rowWidth <= 0) return 'row';
+  const shown = [widths.skip, widths.showMe, widths.next].filter((width) => width > 0);
+  const needed =
+    shown.reduce((sum, width) => sum + width, 0) + Math.max(0, shown.length - 1) * TOUR_FOOTER_GAP;
+  return needed <= rowWidth ? 'row' : 'stacked';
+}

@@ -1,20 +1,36 @@
-# Largest system text size, over the two screens that carry the most text at
-# once. The bar in src/shared/ui/CLAUDE.md says font scaling is honoured and
-# capped only on named dense surfaces, and nothing here checks that at the size
-# where it breaks: all 88 other flows run at the device default.
+# Largest system text size, over the screens that carry the most text at once.
+# The bar in src/shared/ui/CLAUDE.md says font scaling is honoured and capped
+# only on named dense surfaces, and nothing here checks that at the size where
+# it breaks: every other flow runs at the device default.
 #
-# The system text size is not Maestro's to set, so set it before the run and
-# put it back after:
+# The system text size is not Maestro's to set, so set it before each pass and
+# put it back after. Android takes two passes, the largest font size and then
+# the largest display size on top of it:
 #
-#   adb shell settings put system font_scale 1.30
+#   adb shell settings put system font_scale 2.0
 #   ANDROID_SERIAL=<id> scripts/with-maestro.sh test .maestro/largest-text-size.yaml
-#   adb shell settings put system font_scale 1.00
+#   adb shell wm density <the largest display size step>
+#   ANDROID_SERIAL=<id> scripts/with-maestro.sh test .maestro/largest-text-size.yaml
+#   adb shell wm density reset
+#   adb shell settings put system font_scale 1.0
+#
+# iOS takes the largest accessibility size on the simulator:
+#
+#   xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large
+#   maestro --device <udid> test .maestro/largest-text-size.yaml
+#   xcrun simctl ui <udid> content_size large
+#
+# 1.30 is not the worst case on Android: from Android 14 the scale is
+# non-linear, and capped text from 16 sp up still grows past 1.30 toward 2.0.
+#
+# The activity screen opens on its map, so a swipe over the screen centre pans
+# the map rather than the page: every swipe here starts below the hero.
 #
 # What the screenshots are read for, in order: a label clipped to an ellipsis
 # where the number it names is still whole, a row whose two halves now overlap,
-# a tap target that grew past its container, and any text that did not grow at
-# all, which is a suppressed scale rather than a dense surface unless the bar
-# names it.
+# a tap target that grew past its container, content left under a sheet's
+# detent, and any text that did not grow at all, which is a suppressed scale
+# rather than a dense surface unless the bar names it.
 
 appId: com.veloq.app.dev
 tags:
@@ -32,7 +48,10 @@ tags:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-01-feed"
 
-- scroll
+- swipe:
+    start: 50%, 80%
+    end: 50%, 35%
+    duration: 500
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "screenshots/largest-text-02-feed-scrolled"
@@ -52,14 +71,29 @@ tags:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-03-activity"
 
-- scroll
+# The stats grid sits below the fold, past the charts.
+- repeat:
+    while:
+      notVisible:
+        id: "activity-stats-grid"
+    times: 12
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 25%
+          duration: 500
+- extendedWaitUntil:
+    visible:
+      id: "activity-stats-grid"
+    timeout: 5000
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "screenshots/largest-text-04-activity-scrolled"
+- takeScreenshot: "screenshots/largest-text-04-activity-stats"
 
 # The sections tab of the same activity: the rows the bar's tap-target line is
-# about, and the one surface whose density is deliberate.
-- openLink: "veloq://activity/demo-test-0?tab=sections"
+# about, and the one surface whose density is deliberate. The activity route
+# reads only its id, so the tab is reached by its strip.
+- openLink: "veloq://activity/demo-test-0"
 - runFlow:
     when:
       visible: "Open"
@@ -67,8 +101,14 @@ tags:
       - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-screen"
+      id: "tab-sections"
     timeout: 20000
+- tapOn:
+    id: "tab-sections"
+- extendedWaitUntil:
+    visible:
+      id: "tab-content-sections"
+    timeout: 10000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-05-sections"
@@ -83,3 +123,34 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-06-insights"
+
+- swipe:
+    start: 50%, 80%
+    end: 50%, 35%
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "screenshots/largest-text-07-insights-scrolled"
+
+# Settings, where every row is a label beside a value or a switch.
+- openLink: "veloq:///settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "settings-scrollview"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "screenshots/largest-text-08-settings"
+
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "screenshots/largest-text-09-settings-scrolled"

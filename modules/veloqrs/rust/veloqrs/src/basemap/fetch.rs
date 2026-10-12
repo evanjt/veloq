@@ -7,6 +7,7 @@
 
 use super::TileStore;
 use super::encoding;
+use futures::{Stream, StreamExt};
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -19,6 +20,15 @@ const TILE_USER_AGENT: &str = concat!("veloq/", env!("CARGO_PKG_VERSION"), " (+h
 /// for interactively.
 pub const FILL_PACE: Duration = Duration::from_millis(100);
 
+/// The most a tile or glyph range may hold, on the wire and again once
+/// decompressed: a stop for a host that streams without end, or sends a small
+/// gzip that inflates to gigabytes.
+pub const MAX_TILE_BYTES: usize = 4 * 1024 * 1024;
+
+/// The most a TileJSON document may hold. It names a template, its zoom range
+/// and its layers, which is a few KB.
+pub const MAX_TILEJSON_BYTES: usize = 256 * 1024;
+
 /// A tile request never reached a tile.
 #[derive(Debug, thiserror::Error)]
 pub enum TileFetchError {
@@ -28,6 +38,8 @@ pub enum TileFetchError {
     Rejected { status: u16 },
     #[error("tile host answered with an empty body")]
     Empty,
+    #[error("tile host sent more than {cap} bytes")]
+    TooLarge { cap: usize },
     #[error("tile host sent a body that does not decode: {0}")]
     Garbled(String),
     #[error("could not store the tile: {0}")]
@@ -75,11 +87,27 @@ impl TileFetcher {
     /// storing any of them would serve a hole to the map for as long as it
     /// survived eviction.
     pub async fn fetch(&self, url: &str) -> Result<Vec<u8>, TileFetchError> {
-        let (sent, gzipped) = self.body(url).await?;
+        self.fetch_within(url, MAX_TILE_BYTES).await
+    }
+
+    /// A TileJSON document's bytes, decompressed, failing as
+    /// [`fetch`](Self::fetch) does under the smaller cap a document takes.
+    pub async fn fetch_tilejson(&self, url: &str) -> Result<Vec<u8>, TileFetchError> {
+        self.fetch_within(url, MAX_TILEJSON_BYTES).await
+    }
+
+    /// A body decompressed, failing past `cap` bytes on the wire or once
+    /// decompressed.
+    async fn fetch_within(&self, url: &str, cap: usize) -> Result<Vec<u8>, TileFetchError> {
+        let (sent, gzipped) = self.body(url, cap).await?;
         if !gzipped {
             return Ok(sent);
         }
-        encoding::gunzip(&sent).map_err(|e| TileFetchError::Garbled(e.to_string()))
+        match encoding::gunzip_at_most(&sent, cap) {
+            Ok(Some(body)) => Ok(body),
+            Ok(None) => Err(TileFetchError::TooLarge { cap }),
+            Err(e) => Err(TileFetchError::Garbled(e.to_string())),
+        }
     }
 
     /// One tile's body as the host sent it: gzipped when the host gzipped it,
@@ -87,11 +115,12 @@ impl TileFetcher {
     /// and also on a body in an encoding never asked for, or labelled gzip and
     /// not a gzip stream, since nothing could decode either once kept.
     pub async fn fetch_as_sent(&self, url: &str) -> Result<Vec<u8>, TileFetchError> {
-        self.body(url).await.map(|(sent, _)| sent)
+        self.body(url, MAX_TILE_BYTES).await.map(|(sent, _)| sent)
     }
 
-    /// The body as sent, and whether the host gzipped it.
-    async fn body(&self, url: &str) -> Result<(Vec<u8>, bool), TileFetchError> {
+    /// The body as sent, and whether the host gzipped it. A body past `cap`
+    /// bytes fails, before any of it is read when the host declares its length.
+    async fn body(&self, url: &str, cap: usize) -> Result<(Vec<u8>, bool), TileFetchError> {
         self.wait_for_slot().await;
 
         let response = self
@@ -123,10 +152,10 @@ impl TileFetcher {
             },
         };
 
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| TileFetchError::Unreachable(e.to_string()))?;
+        if declared_past_cap(response.content_length(), cap) {
+            return Err(TileFetchError::TooLarge { cap });
+        }
+        let bytes = read_capped(response.bytes_stream(), cap).await?;
         if bytes.is_empty() {
             return Err(TileFetchError::Empty);
         }
@@ -135,7 +164,7 @@ impl TileFetcher {
                 "labelled gzip but not a gzip stream".to_string(),
             ));
         }
-        Ok((bytes.to_vec(), gzipped))
+        Ok((bytes, gzipped))
     }
 
     /// Fetch one tile and store it as the host sent it. Returns the bytes
@@ -179,8 +208,107 @@ impl TileFetcher {
     }
 }
 
+/// Whether a declared `Content-Length` is already past `cap`.
+fn declared_past_cap(declared: Option<u64>, cap: usize) -> bool {
+    declared.is_some_and(|len| len > cap as u64)
+}
+
+/// A body read chunk by chunk, stopping at the first chunk that takes it past
+/// `cap` bytes. A declared length is not trusted to bound it: a host can omit
+/// it, or send more than it declared.
+async fn read_capped<S, B, E>(mut stream: S, cap: usize) -> Result<Vec<u8>, TileFetchError>
+where
+    S: Stream<Item = Result<B, E>> + Unpin,
+    B: AsRef<[u8]>,
+    E: std::fmt::Display,
+{
+    let mut body = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| TileFetchError::Unreachable(e.to_string()))?;
+        let chunk = chunk.as_ref();
+        if body.len() + chunk.len() > cap {
+            return Err(TileFetchError::TooLarge { cap });
+        }
+        body.extend_from_slice(chunk);
+    }
+    Ok(body)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn chunks(sizes: &[usize]) -> impl Stream<Item = Result<Vec<u8>, String>> + Unpin {
+        futures::stream::iter(sizes.iter().map(|&n| Ok(vec![7u8; n])).collect::<Vec<_>>())
+    }
+
+    fn read(sizes: &[usize], cap: usize) -> Result<Vec<u8>, TileFetchError> {
+        futures::executor::block_on(read_capped(chunks(sizes), cap))
+    }
+
+    #[test]
+    fn a_body_exactly_at_the_cap_is_read_whole() {
+        let body = read(&[4, 4, 2], 10).expect("at the cap");
+        assert_eq!(body.len(), 10);
+    }
+
+    #[test]
+    fn a_body_one_byte_past_the_cap_is_refused() {
+        assert!(matches!(
+            read(&[4, 4, 3], 10),
+            Err(TileFetchError::TooLarge { cap: 10 })
+        ));
+    }
+
+    #[test]
+    fn a_single_chunk_past_the_cap_is_refused() {
+        assert!(matches!(
+            read(&[11], 10),
+            Err(TileFetchError::TooLarge { cap: 10 })
+        ));
+    }
+
+    #[test]
+    fn an_empty_body_reads_as_empty() {
+        assert_eq!(read(&[], 10).expect("empty").len(), 0);
+    }
+
+    /// A stream that breaks mid-body is the host going away, not a tile.
+    #[test]
+    fn a_stream_that_breaks_is_unreachable() {
+        let broken = futures::stream::iter(vec![Ok(vec![1u8; 3]), Err("reset".to_string())]);
+        let read = futures::executor::block_on(read_capped(broken, 10));
+        assert!(matches!(read, Err(TileFetchError::Unreachable(_))));
+    }
+
+    #[test]
+    fn a_declared_length_past_the_cap_is_refused_before_reading() {
+        assert!(declared_past_cap(Some(11), 10));
+        assert!(!declared_past_cap(Some(10), 10));
+        assert!(!declared_past_cap(None, 10));
+    }
+
+    /// A gzip of zeroes is about a thousandth of what it inflates to, so a body
+    /// well inside the wire cap can still be past it once decompressed.
+    #[test]
+    fn a_gzip_that_inflates_past_the_cap_is_refused() {
+        use std::io::Write;
+        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        gz.write_all(&vec![0u8; 64 * 1024]).expect("gzip");
+        let sent = gz.finish().expect("gzip");
+        assert!(sent.len() < 1024);
+
+        assert_eq!(
+            encoding::gunzip_at_most(&sent, 64 * 1024)
+                .expect("inflates")
+                .map(|b| b.len()),
+            Some(64 * 1024)
+        );
+        assert_eq!(
+            encoding::gunzip_at_most(&sent, 64 * 1024 - 1).expect("inflates"),
+            None
+        );
+    }
     /// A pan asks for two dozen tiles at once and every one of them can be a
     /// miss. On HTTP/1.1 each opens its own connection and pays its own TLS
     /// handshake; on HTTP/2 they share one. `reqwest` is pulled in with

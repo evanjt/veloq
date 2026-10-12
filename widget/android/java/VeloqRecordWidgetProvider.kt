@@ -30,12 +30,17 @@ class VeloqRecordWidgetProvider : AppWidgetProvider() {
     RecordWidgetChoice.clear(context, appWidgetIds)
   }
 
+  /** A launcher restoring widgets gives them new ids, and the choice has to follow. */
+  override fun onRestored(context: Context, oldWidgetIds: IntArray, newWidgetIds: IntArray) {
+    RecordWidgetChoice.remap(context, oldWidgetIds, newWidgetIds)
+  }
+
   companion object {
     /** The button for one placed instance, starting [configured] or, with none, the last sport. */
     fun render(context: Context, snap: WidgetSnapshot?, configured: String?, id: Int): RemoteViews {
       val v = RemoteViews(context.packageName, R.layout.widget_record)
       v.setOnClickPendingIntent(
-        R.id.record_root, WidgetRenderer.recordIntent(context, snap, configured, id))
+        android.R.id.background, WidgetRenderer.recordIntent(context, snap, configured, id))
       return v
     }
   }

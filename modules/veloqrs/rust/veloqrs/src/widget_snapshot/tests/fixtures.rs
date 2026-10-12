@@ -677,3 +677,27 @@ fn the_long_text_fixture_carries_the_longest_words() {
         serde_json::json!(longest["time.yesterday"])
     );
 }
+
+/// Scenario: on iOS the widget's refresh control opens the app, since the
+/// engine does not fit in the extension, and says so in the athlete's words.
+///
+/// Expected behaviour: every snapshot carries those words from the locale, the
+/// longest of them in the long-text fixture, and not the words of a control
+/// that refreshes in place.
+#[test]
+fn the_snapshot_carries_the_words_of_a_control_that_opens_the_app() {
+    let english = english();
+    let longest = longest_strings();
+    let words = &english["systemSurfaces.openToRefresh"];
+    assert_ne!(words, &english["systemSurfaces.refresh"]);
+    for snapshot in [demo(), no_wellness(), empty()] {
+        assert_eq!(
+            snapshot["display"]["openToRefreshLabel"],
+            serde_json::json!(words)
+        );
+    }
+    assert_eq!(
+        long_text()["display"]["openToRefreshLabel"],
+        serde_json::json!(longest["systemSurfaces.openToRefresh"])
+    );
+}

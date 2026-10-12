@@ -552,7 +552,7 @@ pub fn summarise_session(sets: Vec<FfiExerciseSet>) -> FfiExerciseSession {
 
     for set in sets.iter().filter(|s| s.set_type == 0) {
         active_set_count += 1;
-        total_volume_kg += set.weight_kg.unwrap_or(0.0) * f64::from(set.repetitions.unwrap_or(1));
+        total_volume_kg += set_volume_kg(set.weight_kg, set.repetitions);
         total_duration_secs += set.duration_secs.unwrap_or(0.0);
         names.insert(set.display_name.clone());
         match groups.last_mut() {
@@ -675,12 +675,18 @@ fn muscle_contribution(set: &fit::FitExerciseSet, intensity: u8) -> MuscleContri
         1 => 0.5,
         _ => 0.0,
     };
-    let reps = set.repetitions.unwrap_or(0) as f64 * share;
     MuscleContribution {
         sets: share,
-        reps,
-        volume_kg: set.weight_kg.unwrap_or(0.0) * reps,
+        reps: f64::from(set.repetitions.unwrap_or(0)) * share,
+        volume_kg: set_volume_kg(set.weight_kg, set.repetitions) * share,
     }
+}
+
+/// A set's volume is weight × reps, so a set with no rep count, such as a
+/// carry or a hold, adds none. Every volume the engine reports goes through
+/// this, so a session total and its muscles never disagree.
+fn set_volume_kg(weight_kg: Option<f64>, repetitions: Option<u16>) -> f64 {
+    weight_kg.unwrap_or(0.0) * f64::from(repetitions.unwrap_or(0))
 }
 
 /// The number of shades the body diagram steps through, one per colour of
@@ -1252,7 +1258,7 @@ mod tests {
     }
 
     #[test]
-    fn session_totals_skip_rest_sets_and_count_a_missing_rep_count_as_one() {
+    fn session_totals_skip_rest_sets_and_count_no_volume_for_a_set_without_reps() {
         let session = summarise_session(vec![
             ffi_set(0, "Squat", 2, Some(5), Some(20.0)),
             ffi_set(1, "Squat", 0, Some(10), Some(50.0)),
@@ -1264,7 +1270,7 @@ mod tests {
         assert_eq!(session.sets.len(), 6);
         assert_eq!(session.active_set_count, 4);
         assert_eq!(session.exercise_count, 2);
-        assert_eq!(session.total_volume_kg, 500.0 + 30.0 + 0.0 + 300.0);
+        assert_eq!(session.total_volume_kg, 500.0 + 0.0 + 0.0 + 300.0);
         assert_eq!(session.total_duration_secs, 120.0);
         let shape: Vec<(&str, usize)> = session
             .groups
@@ -1341,6 +1347,22 @@ mod tests {
             0.0
         );
         assert_eq!(aggregate_muscle_detail("chest", &[set.1]).volume_kg, 0.0);
+    }
+
+    #[test]
+    fn a_set_without_reps_has_the_same_volume_in_the_session_and_the_muscle_reads() {
+        let mut set = a_set(0, 0);
+        set.1.repetitions = None;
+        set.1.weight_kg = Some(40.0);
+        let session = summarise_session(vec![ffi_set(0, "Carry", 0, None, Some(40.0))]);
+        let summary = aggregate_strength_sets(&[set]);
+        let chest = summary
+            .muscle_volumes
+            .iter()
+            .find(|m| m.slug == "chest")
+            .unwrap();
+        assert_eq!(session.total_volume_kg, chest.volume_kg);
+        assert_eq!(session.total_volume_kg, 0.0);
     }
 
     fn pair<'a>(summary: &'a FfiStrengthSummary, id: &str) -> &'a crate::FfiStrengthBalancePair {

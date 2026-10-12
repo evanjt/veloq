@@ -13,7 +13,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { platformRecordUri } from '@/shared/storage/platformRecord';
 import { isPlatformRecordAnswered, markPlatformRecordAnswered } from './autobackup/autoBackup';
-import { googleDriveBackend, webdavBackend } from './autobackup/backends';
+import {
+  googleDriveBackend,
+  icloudBackend,
+  isIcloudSupported,
+  webdavBackend,
+} from './autobackup/backends';
 import { getWebdavConfig, initWebdavConfig } from './autobackup/webdavConfig';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
 
@@ -29,8 +34,8 @@ export function restorePromptDue(activityCount: number, backupFound: boolean): b
 /**
  * Whether a backup can be seen without asking the athlete for anything: a
  * record zip left in the documents directory that was not applied, or a
- * configured WebDAV server or signed-in Google Drive that lists at least one
- * backup.
+ * configured WebDAV server, a signed-in Google Drive or, on iPhone, Veloq's own
+ * iCloud Drive folder that lists at least one backup.
  */
 export async function backupIsFound(): Promise<boolean> {
   try {
@@ -49,10 +54,18 @@ export async function backupIsFound(): Promise<boolean> {
     // A server that cannot be listed is no backup found there.
   }
   try {
-    return (
+    if (
       (await googleDriveBackend.isAvailable()) &&
       (await googleDriveBackend.listBackups()).length > 0
-    );
+    )
+      return true;
+  } catch {
+    // Drive that cannot be listed is no backup found there.
+  }
+  try {
+    // Listed whatever the switch says: a reinstall has forgotten it, and the
+    // folder still holds what the earlier install wrote.
+    return isIcloudSupported() && (await icloudBackend.listBackups()).length > 0;
   } catch {
     return false;
   }

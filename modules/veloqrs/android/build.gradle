@@ -180,7 +180,7 @@ tasks.configureEach { task ->
 // test sources too rather than compiling on from an earlier run.
 def widgetTestSources = tasks.register("generateWidgetTestSources", Sync) {
   from("../../../widget/android/java") {
-    include "TileLaunch.kt", "WidgetSnapshot.kt", "SummaryWidgetModel.kt", "SnapshotAge.kt", "InsightsWidgetModel.kt", "LastActivityWidgetModel.kt", "BodyOutline.kt", "StrengthWidgetModel.kt"
+    include "ChartText.kt", "TileLaunch.kt", "WidgetSnapshot.kt", "SummaryWidgetModel.kt", "SnapshotAge.kt", "InsightsWidgetModel.kt", "LastActivityWidgetModel.kt", "BodyOutline.kt", "StrengthWidgetModel.kt", "WidgetSizes.kt", "WidgetIdRemap.kt"
     filter { line -> line.replace("__PKG__", "com.veloq") }
   }
   into(layout.buildDirectory.dir("generated/widgetTestSources/com/veloq/widget"))

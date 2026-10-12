@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   formatHeartRate,
   formatPower,
@@ -50,6 +50,7 @@ import {
   pressRippleOver,
 } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
+import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yLabel';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
@@ -271,6 +272,7 @@ export const ActivityCard = React.memo(
 
     const { getStyleForActivity } = useMapPreferences();
     const activityColor = getActivityColor(activity.type);
+    const activityInk = getActivityInk(activity.type, isDark);
     const iconName = getActivityIcon(activity.type);
     const mapStyle = getStyleForActivity(activity.type, activity.id);
     const theme = getGradientTheme(isDark, mapStyle);
@@ -362,14 +364,19 @@ export const ActivityCard = React.memo(
       slower: sectionHighlights?.filter((h) => h.trend === -1 && !h.isPr).length ?? 0,
     };
 
-    // Context menu (shared between compact and full card)
-    const contextMenu = (
+    // The menu a hold opens wraps the card it belongs to, compact or full, and
+    // offers map controls only on the card that draws a map.
+    const withMenu = (card: React.ReactElement, hasMap: boolean) => (
       <ActivityCardContextMenu
         visible={menuVisible}
         onDismiss={() => setMenuVisible(false)}
         activity={activity}
-      />
+        hasMap={hasMap}
+      >
+        {card}
+      </ActivityCardContextMenu>
     );
+    const onHold = contextMenuHoldIsNative() ? undefined : handleLongPress;
 
     // The feed reads every strength card's summary in one engine call and hands
     // each card its own.
@@ -383,12 +390,12 @@ export const ActivityCard = React.memo(
 
     // Compact card for activities without GPS data
     if (!hasGpsData) {
-      return (
+      return withMenu(
         <View style={styles.cardWrapper}>
           <Pressable
             testID={`activity-card-${activity.id}`}
             onPress={handlePress}
-            onLongPress={handleLongPress}
+            onLongPress={onHold}
             delayLongPress={PREVIEW_HOLD_MS}
             accessibilityRole="button"
             accessibilityLabel={activityCardA11yLabel({ activity, isMetric }, t)}
@@ -419,7 +426,7 @@ export const ActivityCard = React.memo(
                       <MaterialCommunityIcons
                         name="map-marker-off"
                         size={14}
-                        color={activityColor}
+                        color={activityInk}
                         style={styles.compactNoMapIcon}
                       />
                     </View>
@@ -478,12 +485,12 @@ export const ActivityCard = React.memo(
               </View>
             </Card>
           </Pressable>
-          {contextMenu}
-        </View>
+        </View>,
+        false
       );
     }
 
-    return (
+    return withMenu(
       <View style={styles.cardWrapper}>
         <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
           <View style={styles.mapContainer}>
@@ -500,7 +507,7 @@ export const ActivityCard = React.memo(
             <Pressable
               testID={`activity-card-${activity.id}`}
               onPress={handlePress}
-              onLongPress={handleLongPress}
+              onLongPress={onHold}
               delayLongPress={PREVIEW_HOLD_MS}
               style={pressable(styles.pressableOverlay)}
               android_ripple={pressRipple}
@@ -783,10 +790,8 @@ export const ActivityCard = React.memo(
             </View>
           </View>
         </Card>
-
-        {/* Context menu for long press */}
-        {contextMenu}
-      </View>
+      </View>,
+      true
     );
   },
   (prev, next) =>

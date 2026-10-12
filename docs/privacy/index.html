@@ -379,6 +379,7 @@
           <li data-i18n="backup.webdav"><strong>Nextcloud or WebDAV server</strong>. When you set one up</li>
           <li data-i18n="backup.folder"><strong>A folder you pick</strong>. When you pick one</li>
           <li data-i18n="backup.googleDrive"><strong>Google Drive</strong>. On Android, when you sign in to Google from the backup screen. Backups go to a hidden folder in your own Google Drive that only Veloq can open</li>
+          <li data-i18n="backup.icloud"><strong>iCloud Drive</strong>. On iPhone, unless you turn it off on the backup screen. Backups go to the Veloq folder in your own iCloud Drive, which the Files app shows</li>
           <li data-i18n="backup.export"><strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes</li>
         </ul>
         <p data-i18n="backup.contents">Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.</p>
@@ -421,7 +422,7 @@
           <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item2">If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item3">Stores your IP address as a rate-limit counter for 60 seconds</li>
-          <li data-i18n="thirdParty.cloudflare.item4">Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice</li>
+          <li data-i18n="thirdParty.cloudflare.item4">Records each webhook event handled (athlete ID, event type, activity ID, event time) for 5 minutes, so a re-delivered event is not pushed twice</li>
           <li data-i18n="thirdParty.cloudflare.item5">Does not store access tokens</li>
           <li data-i18n="thirdParty.cloudflare.item6">Tells the app which geocoding endpoint to use. It receives nothing about you for this and keeps nothing</li>
         </ul>
@@ -587,6 +588,7 @@
           "backup.webdav": "<strong>Nextcloud or WebDAV server</strong>. When you set one up",
           "backup.folder": "<strong>A folder you pick</strong>. When you pick one",
           "backup.googleDrive": "<strong>Google Drive</strong>. On Android, when you sign in to Google from the backup screen. Backups go to a hidden folder in your own Google Drive that only Veloq can open",
+          "backup.icloud": "<strong>iCloud Drive</strong>. On iPhone, unless you turn it off on the backup screen. Backups go to the Veloq folder in your own iCloud Drive, which the Files app shows",
           "backup.export": "<strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes",
           "backup.contents": "Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.",
           "backup.off": "Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.",
@@ -614,7 +616,7 @@
           "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
           "thirdParty.cloudflare.item2": "If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)",
           "thirdParty.cloudflare.item3": "Stores your IP address as a rate-limit counter for 60 seconds",
-          "thirdParty.cloudflare.item4": "Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice",
+          "thirdParty.cloudflare.item4": "Records each webhook event handled (athlete ID, event type, activity ID, event time) for 5 minutes, so a re-delivered event is not pushed twice",
           "thirdParty.cloudflare.item5": "Does not store access tokens",
           "thirdParty.cloudflare.item6": "Tells the app which geocoding endpoint to use. It receives nothing about you for this and keeps nothing",
           "thirdParty.google.title": "Google Drive (Android, optional)",
@@ -699,6 +701,7 @@
           "backup.webdav": "<strong>Servidor Nextcloud o WebDAV</strong>. Cuando configuras uno",
           "backup.folder": "<strong>Una carpeta que eliges</strong>. Cuando eliges una",
           "backup.googleDrive": "<strong>Google Drive</strong>. En Android, cuando inicias sesión en Google desde la pantalla de copias. Las copias van a una carpeta oculta de tu propio Google Drive que solo Veloq puede abrir",
+          "backup.icloud": "<strong>iCloud Drive</strong>. En iPhone, salvo que lo desactives en la pantalla de copias. Las copias van a la carpeta Veloq de tu propio iCloud Drive, que muestra la app Archivos",
           "backup.export": "<strong>Exportar</strong>. Entrega una copia al menú de compartir, donde eliges adónde va",
           "backup.contents": "Respaldar ahora escribe una copia sea cual sea el ajuste de copia automática. Una copia contiene tus ajustes, incluido tu ID de atleta de intervals.icu y, si lo defines, tu ubicación de inicio de exportación, los nombres de tus rutas, las secciones que nombraste, recortaste o editaste con sus líneas de mapa, y tus pines, exclusiones e historial de secciones. No contiene credenciales, actividades, tracks GPS ni flujos de sensores. Una copia no está cifrada.",
           "backup.off": "Desactivar la copia automática detiene las copias nuevas. Las copias ya escritas permanecen donde están hasta que las borres allí, y la última permanece en la copia del dispositivo hasta que borres los datos de la app.",
@@ -726,7 +729,7 @@
           "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
           "thirdParty.cloudflare.item2": "Si activas las notificaciones push: almacena tu ID de atleta y un token push de Expo (TTL de 30 días)",
           "thirdParty.cloudflare.item3": "Almacena tu dirección IP como contador de límite de solicitudes durante 60 segundos",
-          "thirdParty.cloudflare.item4": "Registra cada evento de webhook procesado (ID de atleta, tipo de evento, ID de actividad) durante 5 minutos, para no enviar dos veces un evento reenviado",
+          "thirdParty.cloudflare.item4": "Registra cada evento de webhook procesado (ID de atleta, tipo de evento, ID de actividad, hora del evento) durante 5 minutos, para no enviar dos veces un evento reenviado",
           "thirdParty.cloudflare.item5": "No almacena tokens de acceso",
           "thirdParty.cloudflare.item6": "Indica a la app qué punto de acceso de geocodificación usar. No recibe nada sobre ti por esto y no guarda nada",
           "thirdParty.google.title": "Google Drive (Android, opcional)",
@@ -811,6 +814,7 @@
           "backup.webdav": "<strong>Serveur Nextcloud ou WebDAV</strong>. Lorsque vous en configurez un",
           "backup.folder": "<strong>Un dossier que vous choisissez</strong>. Lorsque vous en choisissez un",
           "backup.googleDrive": "<strong>Google Drive</strong>. Sur Android, lorsque vous vous connectez à Google depuis l'écran de sauvegarde. Les sauvegardes vont dans un dossier masqué de votre propre Google Drive que seul Veloq peut ouvrir",
+          "backup.icloud": "<strong>iCloud Drive</strong>. Sur iPhone, sauf si vous le désactivez depuis l'écran de sauvegarde. Les sauvegardes vont dans le dossier Veloq de votre propre iCloud Drive, visible dans l'app Fichiers",
           "backup.export": "<strong>Export</strong>. Remet une sauvegarde à la feuille de partage, où vous choisissez sa destination",
           "backup.contents": "Sauvegarder maintenant écrit une sauvegarde quel que soit le réglage de sauvegarde automatique. Une sauvegarde contient vos réglages, dont votre ID d'athlète intervals.icu et, si vous en avez défini un, votre point de départ d'export, les noms de vos itinéraires, les sections que vous avez nommées, coupées ou modifiées avec leurs tracés, ainsi que vos épingles, exclusions et l'historique des sections. Elle ne contient ni identifiants, ni activités, ni traces GPS, ni flux de capteurs. Une sauvegarde n'est pas chiffrée.",
           "backup.off": "Désactiver la sauvegarde automatique arrête les nouvelles sauvegardes. Les copies déjà écrites restent où elles sont jusqu'à ce que vous les supprimiez là, et la dernière reste dans la sauvegarde de l'appareil jusqu'à l'effacement des données de l'app.",
@@ -838,7 +842,7 @@
           "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
           "thirdParty.cloudflare.item2": "Si vous activez les notifications push : stocke votre ID d'athlète et un jeton push Expo (TTL de 30 jours)",
           "thirdParty.cloudflare.item3": "Stocke votre adresse IP comme compteur de limitation de débit pendant 60 secondes",
-          "thirdParty.cloudflare.item4": "Enregistre chaque événement webhook traité (ID d'athlète, type d'événement, ID d'activité) pendant 5 minutes, pour qu'un événement renvoyé ne soit pas notifié deux fois",
+          "thirdParty.cloudflare.item4": "Enregistre chaque événement webhook traité (ID d'athlète, type d'événement, ID d'activité, heure de l'événement) pendant 5 minutes, pour qu'un événement renvoyé ne soit pas notifié deux fois",
           "thirdParty.cloudflare.item5": "Ne stocke pas les jetons d'accès",
           "thirdParty.cloudflare.item6": "Indique à l'app quel point d'accès de géocodage utiliser. Il ne reçoit rien à votre sujet pour cela et ne conserve rien",
           "thirdParty.google.title": "Google Drive (Android, facultatif)",

@@ -20,17 +20,15 @@ import {
   formatSportSpeed,
   formatElevation,
 } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, typography, zoneColour } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { accessibleActions, pressable, pressRipple } from '@/shared/ui';
 import type { SensorKind } from '@/features/sensors';
-import { hrZoneTextColor } from '../lib/hrZoneTextColor';
 import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 export interface HrZoneInfo {
-  color: string;
   zone: number;
 }
 
@@ -138,7 +136,6 @@ interface DataFieldTileProps {
   value: string;
   label: string;
   zone: number | undefined;
-  zoneColor: string | undefined;
   emptyKind: SensorKind | undefined;
   /** What the change-field action reads, the hold's only other way in. */
   changeFieldLabel: string;
@@ -155,7 +152,6 @@ const DataFieldTile = React.memo(function DataFieldTile({
   value,
   label,
   zone,
-  zoneColor,
   emptyKind,
   changeFieldLabel,
   isDark,
@@ -172,7 +168,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
   const handleEmptyTap = React.useCallback(() => {
     if (emptyKind) onEmptySensorTap?.(emptyKind);
   }, [emptyKind, onEmptySensorTap]);
-  const zoned = zone != null && zoneColor != null;
+  const zoned = zone != null;
   const actions = React.useMemo(
     () =>
       accessibleActions(
@@ -197,7 +193,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         styles.cell,
         {
           backgroundColor: zoned
-            ? colorWithOpacity(zoneColor, isDark ? 0.28 : 0.18)
+            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), isDark ? 0.28 : 0.18)
             : isDark
               ? darkColors.surfaceElevated
               : colors.surface,
@@ -208,7 +204,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
     >
       <Text
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.value, { color: zoned ? hrZoneTextColor(zone, isDark) : textColor }]}
+        style={[styles.value, { color: zoned ? zoneColour(zone, isDark, 'text') : textColor }]}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={VALUE_MIN_FONT_SCALE}
@@ -227,7 +223,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         {zoned ? (
           <Text
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[styles.label, styles.zone, { color: hrZoneTextColor(zone, isDark) }]}
+            style={[styles.label, styles.zone, { color: zoneColour(zone, isDark, 'text') }]}
             numberOfLines={1}
           >
             {`Z${zone}`}
@@ -272,7 +268,6 @@ function DataFieldGridInner({
             value={formatFieldValue(field, metrics, isMetric, activityType)}
             label={t(`recording.fields.${field}`)}
             zone={zone}
-            zoneColor={zone != null ? hrZone?.color : undefined}
             emptyKind={emptyKind}
             changeFieldLabel={t('recording.changeField')}
             isDark={isDark}

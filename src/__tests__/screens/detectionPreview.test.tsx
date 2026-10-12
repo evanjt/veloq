@@ -10,7 +10,7 @@ import { PreviewDiffStrip } from '@/features/routes/components/preview/PreviewDi
 import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 import DetectionPreviewScreen from '@/app/detection-preview';
 import { initialiseI18n, changeLanguage } from '@/i18n';
-import { layout } from '@/theme';
+import { layout, spacing } from '@/theme';
 import type {
   PreviewCentre,
   PreviewResult,
@@ -56,10 +56,12 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+let mockScreenEdges: string[] = [];
+
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
-  useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
-  useScreenSafeAreaEdges: () => [],
+  useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: mockScreenEdges }),
+  useScreenSafeAreaEdges: () => mockScreenEdges,
 }));
 
 jest.mock('react-i18next', () => {
@@ -190,13 +192,15 @@ function flatten(style: unknown) {
 /**
  * Scenario: the preview is a stack screen, and the tab bar draws only inside
  * the tabs group, so nothing covers the bottom of the panel but the system
- * inset. On a 640 dp screen every dp the panel pads is a dp the parameter card
- * loses.
- * Expected behaviour: the panel pads by the system inset alone.
+ * inset, which the screen's safe area already takes. On a 640 dp screen every
+ * dp the panel pads is a dp the parameter card loses.
+ * Expected behaviour: the panel and the safe area together clear the inset
+ * once, and keep a margin off the edge on a phone that reports none.
  */
 describe('detection preview bottom buffer', () => {
   beforeEach(() => {
     resetEnv();
+    mockScreenEdges = ['top', 'bottom', 'left', 'right'];
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
       subscribe: () => () => {},
@@ -229,21 +233,23 @@ describe('detection preview bottom buffer', () => {
     });
   });
 
+  /** How far the panel's content sits from the screen edge: its padding and the safe area's. */
   async function panelPaddingBottom() {
     const tree = await render(<DetectionPreviewScreen />);
     const style = tree.getByTestId('preview-control-panel').props.style;
     const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style;
     await tree.unmount();
-    return flat.paddingBottom;
+    return flat.paddingBottom + (mockScreenEdges.includes('bottom') ? mockInsets.bottom : 0);
   }
 
   afterEach(() => {
     mockInsets.bottom = 0;
+    mockScreenEdges = [];
   });
 
-  it('reserves nothing for the tab bar when the device has no gesture inset', async () => {
+  it('reserves nothing for the tab bar, only a margin, when the device has no inset', async () => {
     mockInsets.bottom = 0;
-    expect(await panelPaddingBottom()).toBe(0);
+    expect(await panelPaddingBottom()).toBe(spacing.md);
   });
 
   it('keeps the gesture inset whole', async () => {
@@ -251,10 +257,10 @@ describe('detection preview bottom buffer', () => {
     expect(await panelPaddingBottom()).toBe(34);
   });
 
-  it('pads by the inset alone whatever its size', async () => {
+  it('clears the inset once whatever its size', async () => {
     for (const bottom of [0, 16, 34, 48]) {
       mockInsets.bottom = bottom;
-      expect(await panelPaddingBottom()).toBe(bottom);
+      expect(await panelPaddingBottom()).toBe(Math.max(bottom, spacing.md));
     }
   });
 });
@@ -1423,6 +1429,22 @@ describe('preview run progress', () => {
     };
 
     expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('40%');
+  });
+
+  it('exposes the run as a progress bar valued in per cent', async () => {
+    mockStatus.value = 'running';
+    mockProgress.value = {
+      phase: 'analyzing',
+      displayName: 'Analysing',
+      completed: 4,
+      total: 10,
+      percent: 40,
+    };
+
+    const tree = await render(<DetectionPreviewScreen />);
+    const bar = tree.getByTestId('preview-progress');
+    expect(bar.props.accessibilityRole).toBe('progressbar');
+    expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 40 });
   });
 
   it('clamps a percentage outside 0 to 100', async () => {

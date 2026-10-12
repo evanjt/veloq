@@ -13,11 +13,15 @@ export function stateKey(state: string): string {
   return `state:${state}`;
 }
 
+/** A route with its own rate-limit budget. */
+export type RateRoute = "state" | "token" | "device-register" | "device-unregister";
+
 /**
- * Rate-limit counter, one per route and client address, so registering a state
- * and redeeming a code each have their own budget.
+ * Rate-limit counter, one per route and client address, so registering a state,
+ * redeeming a code and each device route have their own budget, and push
+ * traffic never spends what a sign-in needs.
  */
-export function rateKey(route: "state" | "token", ip: string): string {
+export function rateKey(route: RateRoute, ip: string): string {
   return `rate:${route}:${ip}`;
 }
 
@@ -26,11 +30,16 @@ export function exchangeKey(code: string): string {
   return `exchange:${code}`;
 }
 
-/** One webhook event, so a re-delivery is not acted on twice. */
+/**
+ * One webhook event, so a re-delivery is not acted on twice. The timestamp
+ * tells apart two events of one type that carry no activity, which a
+ * re-delivery repeats.
+ */
 export function dedupeKey(
   athleteId: string | number,
   type: string,
-  activityId: string | number | undefined
+  activityId: string | number | undefined,
+  timestamp: string | undefined
 ): string {
-  return `dedup:${athleteId}:${type}:${activityId ?? "none"}`;
+  return `dedup:${athleteId}:${type}:${activityId ?? "none"}:${timestamp ?? "none"}`;
 }

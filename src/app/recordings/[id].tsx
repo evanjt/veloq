@@ -4,9 +4,14 @@ import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmptyState, ErrorState, ScreenSafeAreaView, useHeroMapHeight } from '@/shared/ui';
+import {
+  EmptyState,
+  ErrorState,
+  ScreenSafeAreaView,
+  useHeroMapHeight,
+  useScrollEndInset,
+} from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -33,7 +38,7 @@ function RecordingDetailScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const insets = useSafeAreaInsets();
+  const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const { id } = useLocalSearchParams<{ id: string }>();
   const { uploadNow, remove, uploadingId } = useRecordingLibrary();
   const mapHeight = useHeroMapHeight();
@@ -162,7 +167,7 @@ function RecordingDetailScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl + scrollEndInset }}>
         {coordinates.length >= 2 && (
           <View style={[styles.mapContainer, { height: mapHeight, borderColor: border }]}>
             <RecordingMap coordinates={coordinates} currentLocation={null} fitBounds />

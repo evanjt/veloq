@@ -23,6 +23,7 @@ export {
   StrengthSession,
   TimerHeader,
   UnlockTrack,
+  UploadPermissionNotice,
   WorkoutGuide,
 } from './components';
 export { styles } from './RecordingScreen.styles';
@@ -49,6 +50,7 @@ export { useReviewDraft } from './hooks/useReviewDraft';
 export { useReviewSave } from './hooks/useReviewSave';
 export { useStatusPulseAnimation } from './hooks/useStatusPulseAnimation';
 export { useTimer } from './hooks/useTimer';
+export { useWriteAccessMissing } from './hooks/useWriteAccessMissing';
 export { armSystemRecordingPath, canStartAfterScopeWarning } from './lib/armCountdown';
 export {
   heldRideStart,
@@ -62,7 +64,13 @@ export { ALL_DATA_FIELDS, fieldsForMode } from './lib/dataFields';
 export { recordingActions } from './lib/recordingActions';
 export { uploadStatusTone } from './lib/uploadStatusTone';
 export type { UploadStatusTone } from './lib/uploadStatusTone';
-export { ACTIVITY_CATEGORIES, getRecordingMode, screenRecordingMode } from './lib/recordingModes';
+export {
+  ACTIVITY_CATEGORIES,
+  getRecordingMode,
+  parsePairedEventId,
+  parseRecordingType,
+  screenRecordingMode,
+} from './lib/recordingModes';
 export { installRecordingSession } from './lib/recordingSession';
 export { discardReviewedRecording } from './lib/discardReview';
 export { resumeStoppedRecording } from './lib/resumeStoppedRecording';

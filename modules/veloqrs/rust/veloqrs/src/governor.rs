@@ -319,18 +319,22 @@ pub struct Allowance {
     pub per_day: Option<u32>,
 }
 
-/// The backfill's share for one install: 100 in any fifteen minutes and 600 in
-/// a day.
+/// The backfill's share for one install: 500 in any fifteen minutes and 1,600
+/// in a day.
 ///
 /// From the shared limits of 2,500 per rolling fifteen minutes and 8,000 per
 /// UTC day: less a busy baseline of about 250 per fifteen minutes and an
 /// observed peak of about 1,500 per day from the app's ordinary use, each
-/// spread over about ten installs upgrading together under a staged rollout,
-/// and rounded down. A 1,000-activity library owes about 850 requests and
-/// fills in about two days; a 3,000 one owes about 2,500 and takes about four.
+/// spread over four installs drawing their full share at once, and rounded
+/// down. A first sync asks one streams request a track, its clock included,
+/// and a few more for the curves and the bulk interval bodies, so a library of
+/// about 450 activities lands inside one window and one of about 1,500 inside
+/// its first day. A larger one carries on quietly as the window frees. Neither
+/// shared figure has been seen on a response: the only refusal ever measured
+/// is the edge's burst, so a real quota refusal is what sets the cooldown.
 pub const BACKFILL_ALLOWANCE: Allowance = Allowance {
-    per_fifteen_minutes: 100,
-    per_day: Some(600),
+    per_fifteen_minutes: 500,
+    per_day: Some(1_600),
 };
 
 /// The sync's share: a full pass asks about twenty, so fifty in any fifteen
@@ -540,6 +544,37 @@ impl Budget {
         }
     }
 
+    /// Until when a request for `intent` would be deferred at `now`, without
+    /// counting or sending anything. `None` when it would go. A user request is
+    /// never deferred here, since inside a cooldown it may go as the probe.
+    pub fn deferred_until(&mut self, intent: Intent, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.roll(now);
+        if let Some(until) = self.cooldown_until.filter(|until| *until > now) {
+            return (intent != Intent::User).then_some(until);
+        }
+        match intent {
+            Intent::User => None,
+            Intent::Sync => window_full(&self.sync_recent, self.sync_allowance),
+            Intent::Backfill => self.backfill_held_until(now),
+        }
+    }
+
+    /// Until when the backfill's own share holds it at `now`: a low budget
+    /// figure, the day's count, or a full fifteen-minute window.
+    fn backfill_held_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        [
+            self.low_figure_until.filter(|until| *until > now),
+            self.backfill_allowance
+                .per_day
+                .filter(|per_day| self.today.backfill >= *per_day)
+                .map(|_| self.next_reset(now)),
+            window_full(&self.backfill_recent, self.backfill_allowance),
+        ]
+        .into_iter()
+        .flatten()
+        .max()
+    }
+
     /// Whether a request for `intent` may go at `now`. An admission is
     /// counted; a deferral sends nothing and counts nothing.
     pub fn admit(&mut self, intent: Intent, now: DateTime<Utc>) -> Admission {
@@ -573,18 +608,7 @@ impl Budget {
                 Admission::Admitted
             }
             Intent::Backfill => {
-                let held = [
-                    self.low_figure_until.filter(|until| *until > now),
-                    self.backfill_allowance
-                        .per_day
-                        .filter(|per_day| self.today.backfill >= *per_day)
-                        .map(|_| self.next_reset(now)),
-                    window_full(&self.backfill_recent, self.backfill_allowance),
-                ]
-                .into_iter()
-                .flatten()
-                .max();
-                if let Some(until) = held {
+                if let Some(until) = self.backfill_held_until(now) {
                     return Admission::Deferred { until };
                 }
                 self.backfill_recent.push_back(now);
@@ -964,6 +988,14 @@ impl Governor {
     /// it. `None` when none does, and always on a pacing-only governor.
     pub fn cooldown_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
         self.with_budget_state(now, |budget| budget.cooldown_until(now))
+            .flatten()
+    }
+
+    /// Until when a request for `intent` would be deferred at `now`, as every
+    /// process sees it, counting nothing. `None` when it would go, and always
+    /// on a pacing-only governor.
+    pub fn deferred_until(&self, intent: Intent, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.with_budget_state(now, |budget| budget.deferred_until(intent, now))
             .flatten()
     }
 
@@ -1403,12 +1435,13 @@ mod tests {
     #[test]
     fn budget_defers_backfill_past_its_15_minute_allowance() {
         let mut budget = Budget::new(0);
+        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
         let first = at("2026-03-04T10:00:00Z");
         assert_eq!(budget.admit(Intent::Backfill, first), Admission::Admitted);
         admit_n(
             &mut budget,
             Intent::Backfill,
-            99,
+            window - 1,
             at("2026-03-04T10:05:00Z"),
         );
         assert_eq!(
@@ -1416,12 +1449,12 @@ mod tests {
             Admission::Deferred {
                 until: at("2026-03-04T10:15:00Z")
             },
-            "the 101st waits for the oldest to leave the window"
+            "the one past the window waits for the oldest to leave it"
         );
         // A deferral counts nothing, so the window is unchanged by asking.
         assert_eq!(
             budget.snapshot(at("2026-03-04T10:06:00Z")).today.backfill,
-            100
+            window
         );
         assert_eq!(
             budget.admit(Intent::Backfill, at("2026-03-04T10:15:00Z")),
@@ -1442,6 +1475,52 @@ mod tests {
             budget.admit(Intent::User, at("2026-03-04T10:15:01Z")),
             Admission::Admitted
         );
+    }
+
+    /// Scenario: a fresh install's first sync of a library of about four
+    /// hundred activities: one streams request a track, its clock included,
+    /// and a handful for the curves and the bulk interval bodies, sent at the
+    /// dispatch pace.
+    ///
+    /// Expected behaviour: the shipped allowance admits all of it, so a normal
+    /// first sync never meets the install's own cap.
+    #[test]
+    fn the_shipped_allowance_admits_a_first_sync_of_a_few_hundred_activities() {
+        let mut budget = Budget::new(0);
+        let start = at("2026-03-04T10:00:00Z");
+        let pace = chrono::TimeDelta::milliseconds(1_000 / i64::from(MAX_DISPATCH_PER_SEC));
+        for i in 0..450 {
+            assert_eq!(
+                budget.admit(Intent::Backfill, start + pace * i),
+                Admission::Admitted,
+                "request {i}"
+            );
+        }
+    }
+
+    /// Expected behaviour: asking when a request would be deferred answers
+    /// what `admit` would, and counts and sends nothing.
+    #[test]
+    fn a_deferral_read_counts_nothing() {
+        let one = Allowance {
+            per_fifteen_minutes: 1,
+            per_day: None,
+        };
+        let mut budget = Budget::with_allowances(one, one, 0);
+        let now = at("2026-03-04T10:00:00Z");
+        assert_eq!(budget.deferred_until(Intent::Sync, now), None);
+        assert_eq!(budget.deferred_until(Intent::Sync, now), None);
+        assert_eq!(budget.admit(Intent::Sync, now), Admission::Admitted);
+        let until = at("2026-03-04T10:15:00Z");
+        assert_eq!(budget.deferred_until(Intent::Sync, now), Some(until));
+        assert_eq!(
+            budget.admit(Intent::Sync, now),
+            Admission::Deferred { until }
+        );
+        assert_eq!(budget.deferred_until(Intent::Backfill, now), None);
+        assert_eq!(budget.deferred_until(Intent::User, now), None);
+        assert_eq!(budget.snapshot(now).today.sync, 1);
+        assert_eq!(budget.snapshot(now).today.backfill, 0);
     }
 
     #[test]
@@ -1470,11 +1549,13 @@ mod tests {
     #[test]
     fn budget_resets_daily_count_at_utc_midnight_with_jitter() {
         let mut budget = Budget::new(10 * 60);
-        // Six hundred at ten-second spacing never fills the fifteen-minute
-        // window, so the day's allowance is the only thing that can stop them.
+        // Spaced so they never fill the fifteen-minute window, so the day's
+        // allowance is the only thing that can stop them.
+        let per_day = BACKFILL_ALLOWANCE.per_day.expect("a daily allowance");
+        let spacing = 900 / i64::from(BACKFILL_ALLOWANCE.per_fifteen_minutes) + 1;
         let start = at("2026-03-04T22:10:00Z");
-        for i in 0..600 {
-            let now = start + chrono::TimeDelta::seconds(10 * i);
+        for i in 0..i64::from(per_day) {
+            let now = start + chrono::TimeDelta::seconds(spacing * i);
             assert_eq!(
                 budget.admit(Intent::Backfill, now),
                 Admission::Admitted,
@@ -1726,7 +1807,7 @@ mod tests {
         let stored = StoredBudget {
             cooldown_until: None,
             day: now.date_naive(),
-            backfill_today: 600,
+            backfill_today: BACKFILL_ALLOWANCE.per_day.expect("a daily allowance"),
             day_offset_secs: 0,
             ladder_step: 0,
         };

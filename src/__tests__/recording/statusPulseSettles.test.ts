@@ -24,9 +24,10 @@ jest.mock('react-native/Libraries/Animated/NativeAnimatedTurboModule', () => ({
 }));
 
 let mockReduceMotion = false;
-jest.mock('react-native-reanimated', () => ({
-  ...jest.requireActual('react-native-reanimated'),
-  useReducedMotion: () => mockReduceMotion,
+jest.mock('@/shared/ui/reduceMotion', () => ({
+  ...jest.requireActual('@/shared/ui/reduceMotion'),
+  useReduceMotion: () => mockReduceMotion,
+  isReduceMotionOn: () => mockReduceMotion,
 }));
 
 function opacity(value: Animated.Value): number {

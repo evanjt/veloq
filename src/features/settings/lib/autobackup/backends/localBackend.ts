@@ -6,7 +6,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import type { BackupBackend, BackupEntry } from './types';
+import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import { safeGetTime } from '@/shared/format/format';
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
 
@@ -102,8 +102,8 @@ export const localBackend: BackupBackend = {
 
       try {
         const metaJson = await FileSystem.readAsStringAsync(metaPath);
-        const meta = JSON.parse(metaJson) as BackupEntry;
-        entries.push(meta);
+        const meta = backupEntryFromSidecar(JSON.parse(metaJson));
+        if (meta) entries.push(meta);
       } catch {
         // Skip entries with corrupt metadata
       }

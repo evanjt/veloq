@@ -166,9 +166,10 @@ struct WidgetPalette {
 
 // MARK: - formatting helpers
 
-/// The arrow by the direction the number went, the one the app draws beside the same number, and
-/// its variant by the judgement the app made: filled for a change judged better, outlined for one
-/// judged worse, bare when flat or unjudged. Flat is drawn as a right arrow rather than left blank,
+/// The arrow the engine's trend glyph names, the one the app draws beside the same number: an
+/// improvement points up and a decline down whichever way the number went, and a metric with no
+/// polarity points the way it moved. Its variant follows the judgement the app made: filled for a
+/// change judged better, outlined for one judged worse, bare when flat or unjudged. Flat is drawn as a right arrow rather than left blank,
 /// and a direction this build does not know draws flat. A Home Screen that draws the widget in one
 /// colour keeps the variant and loses the colour.
 func trendSymbol(_ dir: String, _ verdict: String?) -> String {
@@ -211,15 +212,17 @@ private struct ChartPlot {
   let rawMin: Double
   let rawMax: Double
 
-  static let axisFontSize: CGFloat = 8
+  /// The axis labels' size, which sets the gutter they stand in.
+  let axisFontSize: CGFloat
 
-  init(size: CGSize, rawMin: Double, rawMax: Double) {
+  init(size: CGSize, rawMin: Double, rawMax: Double, axisFontSize: CGFloat) {
     self.rawMin = rawMin
     self.rawMax = rawMax
+    self.axisFontSize = axisFontSize
     let minLabel = String(Int(rawMin.rounded()))
     let maxLabel = String(Int(rawMax.rounded()))
     let chars = CGFloat(max(minLabel.count, maxLabel.count))
-    left = chars * (ChartPlot.axisFontSize * 0.62) + 4
+    left = chars * (axisFontSize * 0.62) + 4
     top = 2
     right = size.width - 2
     bottom = size.height - 2
@@ -318,9 +321,10 @@ private struct ChartAxis: View {
       .stroke(palette.border, lineWidth: 0.5)
       Text(String(Int(value.rounded())))
         .measuredText("axis value")
-        .font(.system(size: ChartPlot.axisFontSize))
+        .font(.system(size: plot.axisFontSize))
         .foregroundColor(palette.textSecondary)
-        .position(x: (plot.left - 4) / 2, y: min(max(y, 5), plot.bottom))
+        // Held half a line from the top, so the top label stays inside the chart.
+        .position(x: (plot.left - 4) / 2, y: min(max(y, plot.axisFontSize * 0.6), plot.bottom))
     }
   }
 }
@@ -331,6 +335,9 @@ private struct ChartAxis: View {
 struct FitnessChartView: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
+  @ScaledMetric(relativeTo: WidgetTheme.TypeStep.caption.style)
+  private var axisScaled = WidgetTheme.TypeStep.caption.size
+  private var axisFontSize: CGFloat { WidgetTheme.TypeStep.caption.capped(axisScaled) }
 
   var body: some View {
     GeometryReader { geo in
@@ -338,7 +345,8 @@ struct FitnessChartView: View {
       let fatigue = snapshot?.sparklines.fatigue ?? []
       let all = fitness + fatigue
       if fitness.count >= 2, let rawMin = all.min(), let rawMax = all.max() {
-        let plot = ChartPlot(size: geo.size, rawMin: rawMin, rawMax: rawMax)
+        let plot = ChartPlot(
+          size: geo.size, rawMin: rawMin, rawMax: rawMax, axisFontSize: axisFontSize)
         ChartAxis(plot: plot, palette: palette)
         if fatigue.count >= 2 {
           CasedLine(
@@ -359,11 +367,15 @@ struct SingleTrendChart: View {
   let values: [Double]
   let color: Color
   let palette: WidgetPalette
+  @ScaledMetric(relativeTo: WidgetTheme.TypeStep.caption.style)
+  private var axisScaled = WidgetTheme.TypeStep.caption.size
+  private var axisFontSize: CGFloat { WidgetTheme.TypeStep.caption.capped(axisScaled) }
 
   var body: some View {
     GeometryReader { geo in
       if values.count >= 2, let rawMin = values.min(), let rawMax = values.max() {
-        let plot = ChartPlot(size: geo.size, rawMin: rawMin, rawMax: rawMax)
+        let plot = ChartPlot(
+          size: geo.size, rawMin: rawMin, rawMax: rawMax, axisFontSize: axisFontSize)
         ChartAxis(plot: plot, palette: palette)
         FillPath(values: values, plot: plot, color: color)
         CasedLine(
@@ -399,16 +411,16 @@ struct EmptyWidgetView: View {
   var body: some View {
     VStack(spacing: 4) {
       Image(systemName: "chart.line.uptrend.xyaxis")
-        .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
+        .widgetFont(.metric, weight: .semibold)
         .foregroundColor(palette.primary)
         .unspoken()
       Text("Open Veloq")
         .measuredText("empty title")
-        .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+        .widgetFont(.value, weight: .semibold)
         .foregroundColor(palette.textPrimary)
       Text("to see your training")
         .measuredText("empty subtitle")
-        .font(.system(size: WidgetTheme.TypeScale.label))
+        .widgetFont(.label)
         .foregroundColor(palette.textSecondary)
         .multilineTextAlignment(.center)
     }
@@ -530,7 +542,7 @@ private struct AgeLineStyle: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .font(.system(size: WidgetTheme.TypeScale.caption))
+      .widgetFont(.caption)
       .foregroundColor(palette.textSecondary)
       .lineLimit(1)
   }
@@ -569,7 +581,7 @@ struct SummaryWidgetView: View {
         VStack(alignment: .leading, spacing: 2) {
           SummaryHero(
             content: content, palette: palette, formZone: formZone,
-            valueSize: WidgetTheme.TypeScale.hero)
+            valueStep: .hero)
           Spacer(minLength: 2)
           SummaryChartView(kind: content.chart, snapshot: snapshot, palette: palette)
             .frame(height: 40)
@@ -582,7 +594,7 @@ struct SummaryWidgetView: View {
           HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
             SummaryHero(
               content: content, palette: palette, formZone: formZone,
-              valueSize: WidgetTheme.TypeScale.metric)
+              valueStep: .metric)
               .frame(maxWidth: .infinity, alignment: .leading)
             SummaryChartView(kind: content.chart, snapshot: snapshot, palette: palette)
               .frame(maxWidth: .infinity)
@@ -599,7 +611,7 @@ struct SummaryWidgetView: View {
           } else {
             Spacer(minLength: 0)
           }
-          SnapshotAgeLine(snapshot: snapshot, palette: palette)
+          SnapshotAgeRow(snapshot: snapshot, palette: palette, hasRoom: true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .widgetPadding(WidgetTheme.Layout.padding)
@@ -614,7 +626,7 @@ private struct SummaryHero: View {
   let content: SummaryContent
   let palette: WidgetPalette
   let formZone: String?
-  let valueSize: CGFloat
+  let valueStep: WidgetTheme.TypeStep
 
   var body: some View {
     let hero = content.hero
@@ -623,19 +635,18 @@ private struct SummaryHero: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(hero.label.uppercased())
           .measuredText("hero label")
-          .font(.system(size: WidgetTheme.TypeScale.label))
+          .widgetFont(.label, shrinks: true)
           .foregroundColor(palette.textSecondary)
           .lineLimit(1)
         HStack(spacing: 4) {
           Text(hero.value)
             .measuredText("hero value")
-            .font(.system(size: valueSize, weight: .bold))
+            .widgetFont(valueStep, weight: .bold, shrinks: true)
             .foregroundColor(color)
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
             .widgetAccentable()
           Image(systemName: trendSymbol(hero.trendDir, hero.verdict))
-            .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
+            .widgetFont(.label, weight: .bold)
             .foregroundColor(trendColor(hero.verdict, palette))
             .unspoken()
         }
@@ -644,7 +655,7 @@ private struct SummaryHero: View {
       if let line = content.heroLine, !line.isEmpty {
         Text(line)
           .measuredText("hero line")
-          .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
+          .widgetFont(.caption, weight: .semibold)
           .foregroundColor(color)
           .lineLimit(1)
       }
@@ -693,19 +704,17 @@ private struct SummarySupportingRow: View {
           VStack(alignment: .leading, spacing: 2) {
             Text(entry.label)
               .measuredText("metric label")
-              .font(.system(size: WidgetTheme.TypeScale.caption))
+              .widgetFont(.caption, shrinks: true)
               .foregroundColor(palette.textSecondary)
               .lineLimit(1)
-              .minimumScaleFactor(0.7)
             HStack(spacing: 3) {
               Text(entry.value)
                 .measuredText("metric value")
-                .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+                .widgetFont(.value, weight: .semibold, shrinks: true)
                 .foregroundColor(color)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
               Image(systemName: trendSymbol(entry.trendDir, entry.verdict))
-                .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
+                .widgetFont(.caption, weight: .bold)
                 .foregroundColor(trendColor(entry.verdict, palette))
                 .unspoken()
             }
@@ -716,10 +725,9 @@ private struct SummarySupportingRow: View {
           if let caption = supporting.caption, !caption.isEmpty {
             Text(caption)
               .measuredText("metric caption")
-              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
+              .widgetFont(.caption, weight: .semibold, shrinks: true)
               .foregroundColor(color)
               .lineLimit(1)
-              .minimumScaleFactor(0.7)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

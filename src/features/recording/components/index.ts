@@ -19,6 +19,7 @@ export { SaveErrorBanner, type SaveErrorBannerProps } from './SaveErrorBanner';
 export { StatusSlot } from './StatusSlot';
 export { UnlockTrack } from './UnlockTrack';
 export { GrantAccessButton } from './GrantAccessButton';
+export { UploadPermissionNotice } from './UploadPermissionNotice';
 export { TimerHeader } from './TimerHeader';
 export { TrimSlider } from './TrimSlider';
 export { StrengthSession } from './StrengthFollow';

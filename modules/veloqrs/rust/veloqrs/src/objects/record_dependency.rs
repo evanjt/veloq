@@ -506,3 +506,217 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod uploaded_recording_tests {
+    use std::sync::Arc;
+
+    use httpmock::prelude::*;
+    use serde_json::json;
+
+    use crate::GpsPoint;
+    use crate::governor::{AuthMethod, Governor, NoopPolicy};
+    use crate::net::Transport;
+    use crate::persistence::PersistentEngine;
+    use crate::persistence::record_backup::collect_record_payload;
+
+    fn ride() -> Vec<GpsPoint> {
+        (0..80)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.00009, 7.36 + f64::from(i) * 0.00011))
+            .collect()
+    }
+
+    fn pin_on(activity_id: &str, line: &[GpsPoint]) -> serde_json::Value {
+        json!({"table": "section_pins",
+            "values": {"section_id": format!("pin-{activity_id}"), "version": 3},
+            "ground": {"rep_activity_id": activity_id, "rep_start_index": 10,
+                "rep_end_index": 40, "point_count": 80,
+                "polyline_json": serde_json::to_string(&line[10..40]).unwrap()}})
+    }
+
+    /// A record backup taken on the phone that recorded `local-recording-a`
+    /// and uploaded it as `i9`, with a section pinned on that ride.
+    fn backup_from_recording_phone(uploaded: bool) -> String {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("recorder.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("local-recording-a".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        if uploaded {
+            assert!(engine.record_upload("local-recording-a", "i9").unwrap());
+        }
+        let line = engine.get_gps_track("local-recording-a").unwrap();
+        let placed = engine
+            .restore_record_json(
+                &json!({"version": 1, "entries": [pin_on("local-recording-a", &line)]}).to_string(),
+            )
+            .unwrap();
+        assert_eq!(placed.placed, 1);
+        serde_json::to_string(&collect_record_payload(&engine.db).unwrap()).unwrap()
+    }
+
+    fn transport(server: &MockServer) -> Transport {
+        let governor = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor).unwrap()
+    }
+
+    fn run_owed_step(server: &MockServer) {
+        let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
+            crate::persistence::engine_install(),
+            &transport(server),
+            "i1",
+            &|| false,
+            &|_, _| {},
+        ));
+        assert!(outcome.is_ok());
+    }
+
+    fn pinned_ride(engine: &PersistentEngine) -> Option<String> {
+        engine
+            .db
+            .query_row(
+                "SELECT g.rep_activity_id FROM section_pins p
+                 JOIN section_geometry g ON g.section_id = p.section_id AND g.version = p.version",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
+    }
+
+    fn mock_ride<'a>(server: &'a MockServer, id: &str) -> httpmock::Mock<'a> {
+        let points = ride();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path(format!("/activity/{id}/streams.json"));
+            then.status(200).json_body(json!([{
+                "type": "latlng",
+                "data": points.iter().map(|p| p.latitude).collect::<Vec<_>>(),
+                "data2": points.iter().map(|p| p.longitude).collect::<Vec<_>>()
+            }]));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/activity/{id}"));
+            then.status(200).json_body(
+                json!({"id": id, "type": "Ride", "start_date_local": "2024-01-01T10:00:00"}),
+            );
+        })
+    }
+
+    /// Scenario: a ride recorded on the phone and uploaded carries a pinned
+    /// section, the library is wiped, and the sync stores the ride under the
+    /// server's id before the record backup is restored.
+    ///
+    /// Expected behaviour: the pin places on the ride the sync stored, and no
+    /// request names the device key.
+    #[test]
+    fn a_restored_pin_on_an_uploaded_recording_places_on_the_synced_ride() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("uploaded-synced.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test", "i1")
+            .expect("credential");
+        let backup = backup_from_recording_phone(true);
+        let server = MockServer::start();
+        let any = server.mock(|when, then| {
+            when.any_request();
+            then.status(404);
+        });
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .add_activity("i9".to_string(), ride(), "Ride".to_string())
+                .unwrap();
+            engine.restore_record_json(&backup).unwrap();
+        })
+        .unwrap();
+
+        run_owed_step(&server);
+
+        any.assert_calls(0);
+        crate::persistence::with_persistent_engine(|engine| {
+            assert_eq!(pinned_ride(engine).as_deref(), Some("i9"));
+            assert!(engine.owed_record_activities().unwrap().is_empty());
+            assert!(engine.unplaced_records().unwrap().is_empty());
+        })
+        .unwrap();
+        crate::objects::sync::clear_test_credentials();
+        crate::objects::observer::flush();
+    }
+
+    /// Scenario: the same backup restored before the sync has stored the ride.
+    ///
+    /// Expected behaviour: the step fetches the ride by the server's id and the
+    /// pin places on it.
+    #[test]
+    fn a_restored_pin_on_an_uploaded_recording_fetches_the_ride_by_its_server_id() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("uploaded-owed.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test", "i1")
+            .expect("credential");
+        let backup = backup_from_recording_phone(true);
+        let server = MockServer::start();
+        let detail = mock_ride(&server, "i9");
+        let local = server.mock(|when, then| {
+            when.method(GET).path_includes("local-recording-a");
+            then.status(404);
+        });
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.restore_record_json(&backup).unwrap();
+            assert_eq!(engine.owed_record_activities().unwrap(), ["i9"]);
+        })
+        .unwrap();
+
+        run_owed_step(&server);
+
+        detail.assert_calls(1);
+        local.assert_calls(0);
+        crate::persistence::with_persistent_engine(|engine| {
+            assert_eq!(pinned_ride(engine).as_deref(), Some("i9"));
+        })
+        .unwrap();
+        crate::objects::sync::clear_test_credentials();
+        crate::objects::observer::flush();
+    }
+
+    /// Scenario: the recording was never uploaded, or the record names a
+    /// seeded demo ride, so the server has no id for it.
+    ///
+    /// Expected behaviour: the record waits as unavailable and no request is
+    /// spent learning that.
+    #[test]
+    fn a_restored_record_on_a_ride_the_server_cannot_name_spends_no_request() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("never-uploaded.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test", "i1")
+            .expect("credential");
+        let backup = backup_from_recording_phone(false);
+        let line = ride();
+        let demo = json!({"version": 1, "entries": [pin_on("demo-test-0", &line)]});
+        let server = MockServer::start();
+        let any = server.mock(|when, then| {
+            when.any_request();
+            then.status(404);
+        });
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.restore_record_json(&backup).unwrap();
+            engine.restore_record_json(&demo.to_string()).unwrap();
+            assert!(engine.owed_record_activities().unwrap().is_empty());
+        })
+        .unwrap();
+
+        run_owed_step(&server);
+
+        any.assert_calls(0);
+        crate::persistence::with_persistent_engine(|engine| {
+            let reasons: Vec<String> = engine
+                .unplaced_records()
+                .unwrap()
+                .into_iter()
+                .map(|record| record.reason)
+                .collect();
+            assert_eq!(reasons, ["activity_unavailable", "activity_unavailable"]);
+        })
+        .unwrap();
+        crate::objects::sync::clear_test_credentials();
+        crate::objects::observer::flush();
+    }
+}

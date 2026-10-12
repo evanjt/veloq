@@ -32,6 +32,8 @@ export interface IconButtonProps {
   variant?: ButtonVariant;
   disabled?: boolean;
   accessibilityState?: AccessibilityState;
+  /** A button by default; a press that opens a web page is a link. */
+  accessibilityRole?: 'button' | 'link';
   style?: StyleProp<ViewStyle>;
   testID?: string | undefined;
 }
@@ -44,6 +46,7 @@ export function IconButton({
   variant = 'ghost',
   disabled = false,
   accessibilityState,
+  accessibilityRole = 'button',
   style,
   testID,
 }: IconButtonProps) {
@@ -53,7 +56,7 @@ export function IconButton({
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ ...accessibilityState, disabled }}
       hitSlop={ICON_SLOP}

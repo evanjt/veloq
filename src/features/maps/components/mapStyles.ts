@@ -538,6 +538,11 @@ export function isDarkStyle(style: MapStyleType): boolean {
   return style === 'dark' || style === 'satellite';
 }
 
+/** The status bar glyphs over a full-bleed map: they contrast with the style drawn beneath. */
+export function statusBarStyleForMap(style: MapStyleType): 'light' | 'dark' {
+  return isDarkStyle(style) ? 'light' : 'dark';
+}
+
 // Get the next style in the cycle
 export function getNextStyle(current: MapStyleType): MapStyleType {
   if (current === 'light') return 'dark';

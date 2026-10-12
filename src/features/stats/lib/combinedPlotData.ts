@@ -148,6 +148,42 @@ export type BandColourToken =
   | { kind: 'zone'; scale: 'power' | 'hr'; zone: number }
   | { kind: 'role'; role: 'work' | 'recovery' | 'warmup' | 'cooldown' | 'other' };
 
+/**
+ * What an interval's colour means, read once for the band behind the chart,
+ * the chip that keys it and the table row that lists it. A WORK interval with
+ * a zone takes the zone on `scale`; every other kind takes its role, and
+ * recovery and rest are one role.
+ */
+export function intervalBandToken(
+  interval: Pick<ActivityInterval, 'type' | 'zone'>,
+  scale: 'power' | 'hr'
+): BandColourToken {
+  switch (interval.type) {
+    case 'WORK':
+      return interval.zone != null && interval.zone >= 1
+        ? { kind: 'zone', scale, zone: interval.zone }
+        : { kind: 'role', role: 'work' };
+    case 'RECOVERY':
+    case 'REST':
+      return { kind: 'role', role: 'recovery' };
+    case 'WARMUP':
+      return { kind: 'role', role: 'warmup' };
+    case 'COOLDOWN':
+      return { kind: 'role', role: 'cooldown' };
+    default:
+      return { kind: 'role', role: 'other' };
+  }
+}
+
+const BAND_OPACITY = {
+  zone: 0.35,
+  work: 0.3,
+  recovery: 0.15,
+  warmup: 0.15,
+  cooldown: 0.15,
+  other: 0.08,
+} as const;
+
 /** Zone-colored band behind the chart for a single interval. */
 export interface IntervalBand {
   startX: number;
@@ -419,29 +455,9 @@ export function computeIntervalBands(
     }
 
     const isWork = interval.type === 'WORK';
-    const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
 
-    let bandColour: BandColourToken;
-    let bandOpacity: number;
-    if (isWork && interval.zone != null && interval.zone >= 1) {
-      bandColour = { kind: 'zone', scale: hasPowerZones ? 'power' : 'hr', zone: interval.zone };
-      bandOpacity = 0.35;
-    } else if (isWork) {
-      bandColour = { kind: 'role', role: 'work' };
-      bandOpacity = 0.3;
-    } else if (isRecovery) {
-      bandColour = { kind: 'role', role: 'recovery' };
-      bandOpacity = 0.15;
-    } else if (interval.type === 'WARMUP') {
-      bandColour = { kind: 'role', role: 'warmup' };
-      bandOpacity = 0.15;
-    } else if (interval.type === 'COOLDOWN') {
-      bandColour = { kind: 'role', role: 'cooldown' };
-      bandOpacity = 0.15;
-    } else {
-      bandColour = { kind: 'role', role: 'other' };
-      bandOpacity = 0.08;
-    }
+    const bandColour = intervalBandToken(interval, hasPowerZones ? 'power' : 'hr');
+    const bandOpacity = BAND_OPACITY[bandColour.kind === 'zone' ? 'zone' : bandColour.role];
 
     // Normalised avg Y for dashed line (only for WORK intervals)
     let avgNormY: number | null = null;

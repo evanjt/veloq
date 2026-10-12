@@ -538,7 +538,6 @@ export interface ZoneDistribution {
   name: string;
   seconds: number; // Time in this zone
   percentage: number; // % of total time
-  color: string;
 }
 
 // Activity bounds for regional map

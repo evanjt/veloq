@@ -20,6 +20,7 @@
  */
 import React from 'react';
 import { Alert, AppState } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { render, waitFor } from '@testing-library/react-native';
@@ -267,6 +268,7 @@ describe('the decisions zip a device backup brought back', () => {
 
   it('is applied without asking on an empty library the engine would restore it into', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const notice = jest.spyOn(Notice, 'showNotice');
     const translate = jest.spyOn(i18n, 't').mockImplementation(((key: string) => key) as never);
     mockEngineHolder.engine = engine({
       getSetting: heldBy('i1'),
@@ -277,19 +279,17 @@ describe('the decisions zip a device backup brought back', () => {
     });
     await render(<AuthGate>{null}</AuthGate>);
 
-    await waitFor(() => expect(alert).toHaveBeenCalled());
+    await waitFor(() => expect(notice).toHaveBeenCalled());
     translate.mockRestore();
     expect(mockEngineHolder.engine?.checkRecordZip).toHaveBeenCalledWith(
       '/docs/veloq-decisions.zip'
     );
     expect(mockEngineHolder.engine?.restoreRecordZip).toHaveBeenCalledTimes(1);
-    expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert.mock.calls[0]).toEqual([
-      'backup.restoreComplete',
-      'backup.recordRestored',
-      undefined,
-      expect.objectContaining({ cancelable: true }),
-    ]);
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).toHaveBeenCalledTimes(1);
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'backup.recordRestored' })
+    );
   });
 
   it("is not offered when the engine would refuse it as another athlete's", async () => {

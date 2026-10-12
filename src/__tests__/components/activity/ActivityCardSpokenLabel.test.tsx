@@ -38,6 +38,11 @@ jest.mock('@/features/strength', () => ({
   useExerciseSets: () => ({ data: [] }),
   useMuscleGroups: () => ({ data: [] }),
 }));
+// The card's menu reads the track for its 3D item, which no test here draws.
+jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
+  ...jest.requireActual('@/features/activity/hooks/useMapPreviewCoordinates'),
+  useMapPreviewCoordinates: () => ({ coordinates: [], altitude: undefined, isLoading: false }),
+}));
 jest.mock('@/features/activity/components/ActivityMapPreview', () => {
   const { View } = require('react-native');
   return { ActivityMapPreview: () => <View testID="preview-stub" /> };

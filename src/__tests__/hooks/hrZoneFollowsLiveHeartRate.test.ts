@@ -5,15 +5,15 @@
  * activity's chart uses.
  *
  * Expected behaviour: the tint is the engine's zone for the sport and the live
- * bpm, coloured by index, whatever the recorded stream holds, and the screen is
- * told only when the zone it paints changes.
+ * bpm, whatever the recorded stream holds, and the screen is told only when
+ * the zone it paints changes. The tile picks the colour for the scheme on
+ * screen.
  */
 
 import { renderHook } from '@testing-library/react-native';
 
 import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
 import { engineHrZone } from '@/shared/native/hrZone';
-import { HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { HrZoneInfo } from '@/features/recording/components/DataFieldGrid';
 
 jest.mock('@/shared/native/hrZone', () => ({ engineHrZone: jest.fn() }));
@@ -41,7 +41,7 @@ it('tints with the engine zone for the recorded sport and the live bpm', async (
   const { zone } = await render(150, 'Run');
 
   expect(engineHrZone).toHaveBeenCalledWith('Run', 150);
-  expect(zone()).toEqual({ zone: 2, color: HR_ZONE_COLORS[1] });
+  expect(zone()).toEqual({ zone: 2 });
 });
 
 it('follows the live bpm across zones and drops the tint when it goes stale', async () => {
@@ -49,7 +49,7 @@ it('follows the live bpm across zones and drops the tint when it goes stale', as
   expect(zone()?.zone).toBe(3);
 
   await rerender(90);
-  expect(zone()).toEqual({ zone: 1, color: HR_ZONE_COLORS[0] });
+  expect(zone()).toEqual({ zone: 1 });
 
   await rerender(0);
   expect(zone()).toBeNull();
@@ -63,11 +63,11 @@ it('does not tell the screen again while the zone holds', async () => {
   expect(setHrZone).toHaveBeenCalledTimes(1);
 });
 
-it('takes the last colour for a zone past the ramp', async () => {
+it('passes a zone past the ramp through, for the tile to clamp', async () => {
   (engineHrZone as jest.Mock).mockReturnValue(9);
   const { zone } = await render(150);
 
-  expect(zone()).toEqual({ zone: 9, color: HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1] });
+  expect(zone()).toEqual({ zone: 9 });
 });
 
 it('shows no tint while the engine has no answer', async () => {

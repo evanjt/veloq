@@ -1,7 +1,7 @@
 /**
  * The recording screen's single transient status slot. Shows at most one
- * message at a time (refused foreground service > GPS warning > sensor issue >
- * km-split toast) with an animated swap, replacing the old stack of independent
+ * message at a time (refused foreground service > failing crash backup > GPS
+ * warning > sensor issue > km-split toast) with an animated swap, replacing the old stack of independent
  * banners.
  */
 
@@ -26,6 +26,7 @@ interface StatusSlotProps extends StatusSlotInput {
 
 function StatusSlotInner({
   backgroundTrackingWarning,
+  backupWarning,
   gpsWarning,
   gpsWarningOpensSettings,
   sensorIssue,
@@ -36,6 +37,7 @@ function StatusSlotInner({
   const { isDark } = useTheme();
   const message = selectStatusMessage({
     backgroundTrackingWarning,
+    backupWarning,
     gpsWarning,
     gpsWarningOpensSettings,
     sensorIssue,
@@ -63,6 +65,24 @@ function StatusSlotInner({
         accessibilityLiveRegion="assertive"
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
+        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
+      </Animated.View>
+    );
+  }
+
+  // No dismiss either: it clears itself once a write lands, and reading it
+  // does not make the next one land. Freeing storage does.
+  if (message.kind === 'backup') {
+    return (
+      <Animated.View
+        key="backup"
+        entering={FadeInDown.duration(200)}
+        exiting={FadeOutUp.duration(150)}
+        style={[styles.row, styles.warnRow]}
+        testID="status-slot-backup"
+        accessibilityLiveRegion="assertive"
+      >
+        <MaterialCommunityIcons name="content-save-alert-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
       </Animated.View>
     );

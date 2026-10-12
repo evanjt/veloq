@@ -252,6 +252,53 @@ describe('webdavBackend.listBackups', () => {
 
     expect(entries.map((e) => e.id)).toEqual(['veloq-good.veloqdb']);
   });
+
+  it('keeps every valid backup past an undecodable href, a foreign DAV prefix and a null sidecar', async () => {
+    const base = '/remote.php/dav/files/evan/Veloq/';
+    const xml =
+      '<?xml version="1.0"?><ns0:multistatus xmlns:ns0="DAV:" xmlns:d="DAV:">' +
+      `<ns0:response><ns0:href>${base}100%-done.veloqdb.meta.json</ns0:href></ns0:response>` +
+      `<ns0:response><ns0:href xmlns:ns0="DAV:">${base}veloq-prefixed.veloqdb.meta.json</ns0:href></ns0:response>` +
+      `<d:response><d:href>${base}veloq-null.veloqdb.meta.json</d:href></d:response>` +
+      `<d:response><d:href>${base}veloq-plain.veloqdb.meta.json</d:href></d:response>` +
+      '</ns0:multistatus>';
+    routeFetch({
+      PROPFIND: () => response(207, xml),
+      GET: (url) => {
+        if (url.includes('veloq-null')) return response(200, 'null');
+        if (url.includes('veloq-prefixed')) {
+          return response(200, entryJson('veloq-prefixed.veloqdb', '2026-08-09T10:00:00.000Z'));
+        }
+        return response(200, entryJson('veloq-plain.veloqdb', '2026-08-02T10:00:00.000Z'));
+      },
+    });
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries.map((e) => e.id)).toEqual(['veloq-prefixed.veloqdb', 'veloq-plain.veloqdb']);
+  });
+
+  it('skips a sidecar that parses but lacks a string id or timestamp', async () => {
+    const xml = propfind([
+      '/remote.php/dav/files/evan/Veloq/veloq-array.veloqdb.meta.json',
+      '/remote.php/dav/files/evan/Veloq/veloq-numeric.veloqdb.meta.json',
+      '/remote.php/dav/files/evan/Veloq/veloq-good.veloqdb.meta.json',
+    ]);
+    routeFetch({
+      PROPFIND: () => response(207, xml),
+      GET: (url) => {
+        if (url.includes('veloq-array')) return response(200, '[1, 2]');
+        if (url.includes('veloq-numeric')) {
+          return response(200, JSON.stringify({ ...METADATA, id: 7, timestamp: 0 }));
+        }
+        return response(200, entryJson('veloq-good.veloqdb', '2026-08-05T10:00:00.000Z'));
+      },
+    });
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries.map((e) => e.id)).toEqual(['veloq-good.veloqdb']);
+  });
 });
 
 describe('webdavBackend.download', () => {

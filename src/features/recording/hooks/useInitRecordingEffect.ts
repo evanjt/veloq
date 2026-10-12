@@ -36,7 +36,7 @@ const choosingScreens: object[] = [];
 export function useInitRecordingEffect(
   status: RecordingStatus,
   activityType: ActivityType,
-  pairedEventId?: string,
+  pairedEventId?: number,
   canRecord: boolean = true,
   from?: string,
   mode: RecordingMode = getRecordingMode(activityType)
@@ -57,12 +57,11 @@ export function useInitRecordingEffect(
     // would run a GPS watch on a trainer and record nothing.
     const chosen = useRecordingStore.getState().activityType ?? activityType;
     const chosenMode = getRecordingMode(chosen);
-    const eventId = pairedEventId ? Number(pairedEventId) : undefined;
-    useRecordingStore.getState().startRecording(chosen, chosenMode, eventId);
+    useRecordingStore.getState().startRecording(chosen, chosenMode, pairedEventId);
     // The plan is read here, once, and frozen with the recording. A manual
     // session follows its plan on its own screen.
-    if (eventId != null && chosenMode !== 'manual') {
-      useRecordingStore.getState().followWorkout(readPlannedWorkout(eventId));
+    if (pairedEventId != null && chosenMode !== 'manual') {
+      useRecordingStore.getState().followWorkout(readPlannedWorkout(pairedEventId));
     }
     useRecordingPreferences.getState().addRecentType(chosen);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The chosen sport is read from the store when recording starts.

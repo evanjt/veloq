@@ -22,6 +22,7 @@ struct VeloqRecordingLiveActivity: Widget {
         state: context.state,
         isStale: context.isStale
       )
+      .widgetTextSize()
       .activityBackgroundTint(RecordingCardStyle.tint)
       .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
     } dynamicIsland: { context in
@@ -30,9 +31,10 @@ struct VeloqRecordingLiveActivity: Widget {
           RecordingClock(
             state: context.state,
             isStale: context.isStale,
-            size: WidgetTheme.TypeScale.metric
+            step: .metric
           )
           .padding(.leading, WidgetTheme.Layout.gap)
+          .widgetTextSize()
         }
         DynamicIslandExpandedRegion(.trailing) {
           // The control sits with the numbers it acts on. In the bottom region it
@@ -41,15 +43,15 @@ struct VeloqRecordingLiveActivity: Widget {
             VStack(alignment: .trailing, spacing: 2) {
               if context.isStale, let stopped = context.attributes.stoppedLabel {
                 Text(stopped)
-                  .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+                  .widgetFont(.label, weight: .semibold)
                   .multilineTextAlignment(.trailing)
               } else {
                 Text(context.state.distanceLabel)
-                  .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+                  .widgetFont(.value, weight: .semibold)
                   .accessibilityLabel(Text("Distance"))
                   .accessibilityValue(Text(verbatim: context.state.distanceLabel))
                 Text(context.state.speedLabel)
-                  .font(.system(size: WidgetTheme.TypeScale.label))
+                  .widgetFont(.label)
                   .foregroundStyle(RecordingCardStyle.secondaryText)
               }
             }
@@ -60,6 +62,7 @@ struct VeloqRecordingLiveActivity: Widget {
             }
           }
           .padding(.trailing, WidgetTheme.Layout.gap)
+          .widgetTextSize()
         }
         DynamicIslandExpandedRegion(.bottom) {
           // Only when there is a shape to draw. An indoor ride never has one, and
@@ -80,9 +83,10 @@ struct VeloqRecordingLiveActivity: Widget {
         RecordingClock(
           state: context.state,
           isStale: context.isStale,
-          size: WidgetTheme.TypeScale.label
+          step: .label,
+          maxWidth: RecordingCardStyle.compactClockWidth
         )
-        .frame(maxWidth: RecordingCardStyle.compactClockWidth, alignment: .trailing)
+        .widgetTextSize()
       } minimal: {
         RecordingGlyph(
           isPaused: context.state.isPaused, isStale: context.isStale,
@@ -106,16 +110,16 @@ private struct RecordingLockScreenView: View {
     HStack(alignment: .center, spacing: WidgetTheme.Layout.padding) {
       VStack(alignment: .leading, spacing: 2) {
         Text((attributes.activityLabel ?? attributes.activityType).uppercased())
-          .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
+          .widgetFont(.caption, weight: .semibold)
           .foregroundStyle(RecordingCardStyle.secondaryText)
-        RecordingClock(state: state, isStale: isStale, size: WidgetTheme.TypeScale.hero)
+        RecordingClock(state: state, isStale: isStale, step: .hero)
         if isStale, let stopped = attributes.stoppedLabel {
           Text(stopped)
-            .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+            .widgetFont(.label, weight: .semibold)
             .foregroundStyle(WidgetTheme.Record.foreground)
         } else {
           Text("\(state.distanceLabel)  ·  \(state.speedLabel)")
-            .font(.system(size: WidgetTheme.TypeScale.label))
+            .widgetFont(.label)
             .foregroundStyle(RecordingCardStyle.secondaryText)
             .accessibilityLabel(Text("Distance"))
             .accessibilityValue(Text(verbatim: "\(state.distanceLabel), \(state.speedLabel)"))
@@ -146,7 +150,23 @@ private struct RecordingLockScreenView: View {
 private struct RecordingClock: View {
   let state: VeloqRecordingAttributes.ContentState
   let isStale: Bool
-  let size: CGFloat
+  let step: WidgetTheme.TypeStep
+  /// The frame's width at the step's default size, which grows with the clock.
+  let maxWidth: CGFloat?
+  @ScaledMetric private var scaled: CGFloat
+
+  init(
+    state: VeloqRecordingAttributes.ContentState, isStale: Bool, step: WidgetTheme.TypeStep,
+    maxWidth: CGFloat? = nil
+  ) {
+    self.state = state
+    self.isStale = isStale
+    self.step = step
+    self.maxWidth = maxWidth
+    _scaled = ScaledMetric(wrappedValue: step.size, relativeTo: step.style)
+  }
+
+  private var size: CGFloat { step.capped(scaled) }
 
   var body: some View {
     Group {
@@ -157,6 +177,7 @@ private struct RecordingClock: View {
       }
     }
     .font(RecordingCardStyle.clockFont(size))
+    .frame(maxWidth: maxWidth.map { $0 * size / step.size }, alignment: .trailing)
     .foregroundStyle(WidgetTheme.Record.foreground)
     // Read as what it is and then the time, so the number is not a bare clock face.
     .accessibilityElement(children: .combine)
@@ -234,7 +255,7 @@ private struct RecordingControl: View {
     if #available(iOS 17.0, *) {
       Button(intent: VeloqRecordingControlIntent(action: state.isPaused ? "resume" : "pause")) {
         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")
-          .font(.system(size: WidgetTheme.TypeScale.value, weight: .bold))
+          .widgetFont(.value, weight: .bold)
           .frame(width: 44, height: 44)
       }
       .buttonStyle(.plain)
@@ -243,7 +264,7 @@ private struct RecordingControl: View {
     } else {
       Link(destination: URL(string: "veloq://record")!) {
         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")
-          .font(.system(size: WidgetTheme.TypeScale.value, weight: .bold))
+          .widgetFont(.value, weight: .bold)
           .frame(width: 44, height: 44)
       }
       .accessibilityLabel(spokenLabel)

@@ -10,7 +10,6 @@ import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
-import { zoneColors } from '@/theme/colors';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -43,12 +42,7 @@ function content(node: { props: { children?: unknown } }): string {
 
 it('renders the heart rate zone in its own text, apart from the label', async () => {
   const tree = await render(
-    <DataFieldGrid
-      fields={['heartrate']}
-      metrics={METRICS}
-      isMetric
-      hrZone={{ zone: 4, color: zoneColors.zone4 }}
-    />
+    <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 4 }} />
   );
   const texts = textNodes(tree, 'data-field-heartrate');
   const zone = texts.filter((n) => content(n) === 'Z4');
@@ -74,12 +68,7 @@ it.each(['heartrate', 'speed', 'timer'] as const)(
   'shrinks the %s value to fit with a floor instead of ellipsising',
   async (field) => {
     const tree = await render(
-      <DataFieldGrid
-        fields={[field]}
-        metrics={METRICS}
-        isMetric
-        hrZone={{ zone: 4, color: zoneColors.zone4 }}
-      />
+      <DataFieldGrid fields={[field]} metrics={METRICS} isMetric hrZone={{ zone: 4 }} />
     );
     const value = textNodes(tree, `data-field-${field}`)[0];
     expect(value.props.adjustsFontSizeToFit).toBe(true);

@@ -10,6 +10,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 import { Button, IconButton } from '@/shared/ui';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
+import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
 
 const FADE_IN_MS = 100;
 
@@ -90,12 +91,12 @@ export const ActivityPopup = memo(function ActivityPopup({
     if (isVisible) {
       // Animate in - fast for snappy feel
       Animated.parallel([
-        Animated.timing(opacity, {
+        motionTiming(opacity, {
           toValue: 1,
           duration: FADE_IN_MS,
           useNativeDriver: true,
         }),
-        Animated.spring(translateY, {
+        motionSpring(translateY, {
           toValue: 0,
           tension: 300,
           friction: 20,

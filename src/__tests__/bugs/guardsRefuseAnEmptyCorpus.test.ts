@@ -60,6 +60,7 @@ function runGuard(script: string, root: string): { code: number; out: string } {
 const LISTING_GUARDS = [
   'lint-audit-ids.mjs',
   'lint-au-spelling.mjs',
+  'lint-bottom-inset.mjs',
   'lint-comment-line-refs.mjs',
   'lint-em-dashes.mjs',
   'lint-jsdoc-tags.mjs',

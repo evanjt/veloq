@@ -561,7 +561,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 
   return (
     <ComponentErrorBoundary componentName="Map" showRetry={false}>
-      <View style={styles.container}>
+      <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
           <WebView
             key={viewKey}

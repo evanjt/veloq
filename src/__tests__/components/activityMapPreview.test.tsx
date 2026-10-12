@@ -157,6 +157,14 @@ describe('ActivityMapPreview', () => {
     expect(preview.findByType(Image).props.fadeDuration).toBe(0);
   });
 
+  it('keeps the snapshot out of iOS Smart Invert, so the map is not drawn as a negative', async () => {
+    const { getByTestId } = await render(<ActivityMapPreview activity={activity} />);
+
+    const preview = getByTestId('activity-map-preview-ready-demo-1');
+    const { Image } = require('react-native');
+    expect(preview.findByType(Image).props.accessibilityIgnoresInvertColors).toBe(true);
+  });
+
   it('draws the compass of a turned snapshot without an SVG surface', async () => {
     // An SVG surface re-renders and dispatches a layout event every time the
     // list reattaches the row, which held feed scroll frames past the budget.

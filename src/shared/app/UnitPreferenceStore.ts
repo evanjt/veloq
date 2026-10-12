@@ -28,6 +28,8 @@ interface UnitPreferenceState {
   initialise: () => Promise<void>;
   setUnitPreference: (pref: UnitPreference) => Promise<void>;
   setIntervalsPreferences: (prefs: IntervalsUnitPreferences) => void;
+  /** Forgets the profile's preferences, keeping the choice made on this device. */
+  reset: () => Promise<void>;
 }
 
 /**
@@ -77,6 +79,11 @@ export const useUnitPreference = create<UnitPreferenceState>((set) => ({
   setIntervalsPreferences: (prefs: IntervalsUnitPreferences) => {
     set({ intervalsPreferences: prefs });
     void persistResolvedUnitSystem().catch(() => {});
+  },
+
+  reset: async () => {
+    set({ intervalsPreferences: null });
+    await persistResolvedUnitSystem();
   },
 }));
 

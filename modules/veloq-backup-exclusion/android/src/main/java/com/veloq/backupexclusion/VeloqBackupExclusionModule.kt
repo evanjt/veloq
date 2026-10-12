@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.app.usage.StorageStatsManager
+import android.net.Uri
 import android.os.Process
 import android.os.storage.StorageManager
+import android.provider.DocumentsContract
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
@@ -14,17 +16,24 @@ import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.activityresult.AppContextActivityResultLauncher
 import expo.modules.kotlin.exception.Exceptions
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.io.File
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val REQUEST_AUTHORIZE_GOOGLE_DRIVE = 0x5644
 
 /**
  * The Android side of the backup module: the backup folder's grant release, the
  * platform's storage figure for the app, what Auto Backup last did as the
- * backup agent recorded it, and Google's authorisation for Veloq's own app
- * data folder in the athlete's Drive. The device backup rules here are an
+ * backup agent recorded it, Google's authorisation for Veloq's own app data
+ * folder in the athlete's Drive, and a save of an exported file to wherever on
+ * the device the athlete chooses. The device backup rules here are an
  * allowlist, so nothing is excluded.
  */
 class VeloqBackupExclusionModule : Module() {
@@ -34,8 +43,25 @@ class VeloqBackupExclusionModule : Module() {
   /** The sign-in waiting on the consent screen, settled when the activity returns. */
   private var pendingAuthorization: Promise? = null
 
+  private lateinit var createDocument: AppContextActivityResultLauncher<CreateDocumentInput, Uri?>
+
   override fun definition() = ModuleDefinition {
     Name("VeloqBackupExclusion")
+
+    RegisterActivityContracts {
+      createDocument = registerForActivityResult(CreateDocumentContract())
+    }
+
+    // Save a file the app wrote to a place the athlete picks on the system's
+    // create-document screen, starting in the held backup folder when there is
+    // one. The copy is streamed, so an archive of any size never sits in memory.
+    // Answers false when the screen was backed out of. A copy that fails takes
+    // its partial document with it.
+    AsyncFunction("saveDocument") Coroutine { from: String, name: String, mimeType: String, initialTree: String? ->
+      val target = createDocument.launch(CreateDocumentInput(name, mimeType, initialTree))
+      if (target != null) copyInto(target, from)
+      target != null
+    }
 
     // The figure Android's app info shows: user data and cache, by allocated
     // blocks. An app asking about its own package needs no permission.
@@ -148,6 +174,24 @@ class VeloqBackupExclusionModule : Module() {
         if (grant.isReadPermission) flags = flags or Intent.FLAG_GRANT_READ_URI_PERMISSION
         if (grant.isWritePermission) flags = flags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         resolver.releasePersistableUriPermission(grant.uri, flags)
+      }
+    }
+  }
+
+  private suspend fun copyInto(target: Uri, from: String) {
+    val resolver = context.contentResolver
+    withContext(Dispatchers.IO) {
+      try {
+        val out = resolver.openOutputStream(target, "wt")
+          ?: throw IOException("The chosen place refused the file")
+        out.use { sink -> File(from).inputStream().use { it.copyTo(sink) } }
+      } catch (e: Exception) {
+        try {
+          DocumentsContract.deleteDocument(resolver, target)
+        } catch (ignored: Exception) {
+          // A place that refused the write may refuse the delete as well.
+        }
+        throw e
       }
     }
   }

@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors } from '@/theme';
-import { useTabBarClearance } from '@/shared/ui';
+import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 import { ManualEntryForm, type ManualPrefill } from './ManualEntryForm';
 import { styles } from '../RecordingScreen.styles';
@@ -25,8 +23,6 @@ export function ManualEntry({
   unsaved?: boolean | undefined;
 }) {
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
 
   const themeColors = isDark ? darkColors : colors;
   const bg = themeColors.background;
@@ -40,7 +36,8 @@ export function ManualEntry({
         rpe={rpe}
         above={above}
         unsaved={unsaved}
-        bottomPadding={insets.bottom + tabBarClearance}
+        // The form's scroll view clears the system inset itself; Save keeps this margin above it.
+        bottomPadding={spacing.md}
       />
     </View>
   );

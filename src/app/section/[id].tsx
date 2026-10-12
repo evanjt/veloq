@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, router } from 'expo-router';
@@ -54,9 +54,10 @@ import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
+import { MapHeroStatusBar, useHeroScrolledPast } from '@/shared/app/MapHeroStatusBar';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, EmptyState, ErrorState, useHeroMapHeight, useTabBarClearance } from '@/shared/ui';
+import { Button, EmptyState, ErrorState, useHeroMapHeight, useBottomClearance } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, spacing } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -104,7 +105,7 @@ function SectionDetailScreenContent() {
     previewVersion?: string;
   }>();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const bottomClearance = useBottomClearance();
   const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
   const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
@@ -308,11 +309,16 @@ function SectionDetailScreenContent() {
 
   const heroTitle = section ? sectionHeroName(section, customName) : undefined;
 
+  // Past the hero the page runs under the header, which then takes the theme's surface.
+  const { scrolledPastHero, onScroll: onHeroScroll } = useHeroScrolledPast(
+    isTrimming ? editMapHeight : mapHeight
+  );
+
   // A fallback state takes the opaque header, so the hero puts the transparent one back, named
   // after the section.
   const heroHeaderOptions = useMemo(
-    () => overMapHeaderOptions({ title: heroTitle, isDark }),
-    [heroTitle, isDark]
+    () => overMapHeaderOptions({ title: heroTitle, isDark, scrolledPastHero }),
+    [heroTitle, isDark, scrolledPastHero]
   );
 
   if (!section) {
@@ -351,13 +357,15 @@ function SectionDetailScreenContent() {
         style={[styles.container, isDark && styles.containerDark]}
       >
         <Stack.Screen options={heroHeaderOptions} />
-        <StatusBar barStyle="light-content" />
+        <MapHeroStatusBar scrolledPastHero={scrolledPastHero} isDark={isDark} />
         <ScrollView
           ref={scrollRef}
           style={styles.scrollView}
-          contentContainerStyle={{ paddingBottom: spacing.xl + tabBarClearance }}
+          contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onScroll={onHeroScroll}
+          scrollEventThrottle={16}
         >
           {/* Hero Map Section - expands when editing */}
           <SectionHeader

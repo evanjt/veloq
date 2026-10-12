@@ -217,4 +217,71 @@ describe('setting and resetting a section reference', () => {
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['sections'] });
     expect(JSON.stringify((Alert.alert as jest.Mock).mock.calls[0])).toContain('Harbour spin');
   });
+
+  describe('when the screen is handed another section without remounting', () => {
+    async function mountSwitchable(edit: () => Promise<unknown[] | null>) {
+      mockedGetEngine.mockReturnValue({ runSectionBoundsEdit: jest.fn(edit) } as never);
+      const first = sectionWith(false);
+      const survivor: FrequentSection = {
+        ...sectionWith(true),
+        id: 's2',
+        activityIds: ['a1', 'a2', 'b1'],
+        representativeActivityId: 'b1',
+      };
+      const hook = await renderHook(
+        ({ section }: { section: FrequentSection }) =>
+          useSectionActions({
+            id: section.id,
+            isCustomId: true,
+            section,
+            isSectionDisabled: false,
+            onSectionRefresh: jest.fn(),
+            sectionRefreshKey: 0,
+            preComputedExcludedActivityIds: NO_EXCLUSIONS,
+          }),
+        { initialProps: { section: first } }
+      );
+      return { hook, survivor };
+    }
+
+    it("draws the survivor's own reference after a reference set on the first", async () => {
+      const { hook, survivor } = await mountSwitchable(() => Promise.resolve([]));
+      const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
+      await act(async () => {
+        await confirm();
+      });
+      expect(hook.result.current.effectiveReferenceId).toBe('a2');
+
+      await hook.rerender({ section: survivor });
+
+      expect(hook.result.current.effectiveReferenceId).toBe('b1');
+      (Alert.alert as jest.Mock).mockClear();
+      hook.result.current.handleSetAsReference('b1');
+      expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('sections.resetReference');
+    });
+
+    it('keeps an edit that ends after the switch off the survivor', async () => {
+      const pending = deferred();
+      const { hook, survivor } = await mountSwitchable(() => pending.promise);
+      const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
+      await act(() => {
+        void confirm();
+      });
+
+      await hook.rerender({ section: survivor });
+      await act(async () => pending.settle([]));
+
+      expect(hook.result.current.effectiveReferenceId).toBe('b1');
+    });
+
+    it('stops showing excluded rides on the survivor', async () => {
+      const { hook, survivor } = await mountSwitchable(() => Promise.resolve([]));
+      await act(() => hook.result.current.handleToggleShowExcluded());
+      expect(hook.result.current.showExcluded).toBe(true);
+
+      await hook.rerender({ section: survivor });
+
+      expect(hook.result.current.showExcluded).toBe(false);
+    });
+  });
 });

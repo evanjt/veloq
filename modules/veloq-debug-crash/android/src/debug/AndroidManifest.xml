@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <receiver
+      android:name="com.veloq.debugcrash.DebugCrashReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="com.veloq.DEBUG_FORCE_RENDER_CRASH" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

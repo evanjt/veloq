@@ -378,7 +378,10 @@ pub fn resolve_template_at(
     match resolve_step(source, now)? {
         ResolveStep::Ready(template) => Some(template),
         ResolveStep::Unavailable => None,
-        ResolveStep::Fetch { url, held } => finish_resolve(source, now, held, fetch_text(&url)),
+        ResolveStep::Fetch { url, held } => {
+            let fetched = fetch_text(&url);
+            finish_resolve(source, &url, now, held, fetched)
+        }
     }
 }
 
@@ -433,12 +436,14 @@ fn resolve_step(source: &str, now: u64) -> Option<ResolveStep> {
 /// Keep what a TileJSON fetch named, or fall back to what was held before.
 fn finish_resolve(
     source: &str,
+    tilejson_url: &str,
     now: u64,
     held: Option<HeldTemplate>,
     fetched: Result<String, String>,
 ) -> Option<String> {
     let fetched = fetched.and_then(|body| {
-        tiles_template_of(&body).ok_or_else(|| "the TileJSON named no tiles template".to_string())
+        tiles_template_of(&body, tilejson_url)
+            .ok_or_else(|| "the TileJSON named no tiles template".to_string())
     });
     match fetched {
         Ok(resolved) => {
@@ -487,7 +492,7 @@ async fn resolve_template_now(source: &str) -> Result<String, u16> {
         let fetcher = INTERACTIVE
             .as_ref()
             .ok_or(TileFetchError::Unreachable("no tile fetcher".to_string()))?;
-        fetcher.fetch(&url).await
+        fetcher.fetch_tilejson(&url).await
     })
     .await
 }
@@ -511,14 +516,14 @@ where
         Some(ResolveStep::Unavailable) => Err(UPSTREAM_FAILED),
         Some(ResolveStep::Fetch { url, held }) => {
             let mut failure = UPSTREAM_FAILED;
-            let body = match fetch(url).await {
+            let body = match fetch(url.clone()).await {
                 Ok(bytes) => String::from_utf8(bytes).map_err(|e| e.to_string()),
                 Err(e) => {
                     failure = page_status(&e);
                     Err(e.to_string())
                 }
             };
-            finish_resolve(source, now, held, body).ok_or(failure)
+            finish_resolve(source, &url, now, held, body).ok_or(failure)
         }
     }
 }
@@ -548,14 +553,22 @@ fn template_in_hand(source: &str, registered: String) -> Result<Option<String>, 
     }
 }
 
-/// The first `tiles` entry of a TileJSON document.
-fn tiles_template_of(body: &str) -> Option<String> {
+/// The first `tiles` entry of a TileJSON document, refused when it is
+/// cleartext and the document came over HTTPS. The template serves every later
+/// fill of the source, so one naming `http` would move all of them off TLS on
+/// the word of the document.
+fn tiles_template_of(body: &str, tilejson_url: &str) -> Option<String> {
     let doc: serde_json::Value = serde_json::from_str(body).ok()?;
-    doc.get("tiles")?
-        .as_array()?
-        .first()?
-        .as_str()
-        .map(str::to_string)
+    let template = doc.get("tiles")?.as_array()?.first()?.as_str()?;
+    if is_https(tilejson_url) && !is_https(template) {
+        return None;
+    }
+    Some(template.to_string())
+}
+
+fn is_https(url: &str) -> bool {
+    url.get(..8)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
 }
 
 pub fn template_for(source: &str) -> Option<String> {
@@ -612,6 +625,7 @@ pub fn page_status(error: &TileFetchError) -> u16 {
         TileFetchError::Rejected { status: 404 } | TileFetchError::Empty => NO_TILE,
         TileFetchError::Rejected { .. }
         | TileFetchError::Unreachable(_)
+        | TileFetchError::TooLarge { .. }
         | TileFetchError::Garbled(_)
         | TileFetchError::Store(_) => UPSTREAM_FAILED,
     }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/record_root"
+  android:id="@android:id/background"
+  android:clipToOutline="true"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="vertical"
@@ -16,7 +17,8 @@
 
   <TextView
     android:layout_width="match_parent"
-    android:layout_height="@dimen/widget_record_label_height"
+    android:layout_height="wrap_content"
+    android:minHeight="@dimen/widget_record_label_height"
     android:layout_marginTop="@dimen/widget_record_gap"
     android:text="@string/widget_record"
     android:textSize="@dimen/widget_record_text_max"

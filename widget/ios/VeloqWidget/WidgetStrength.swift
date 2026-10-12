@@ -56,20 +56,19 @@ struct StrengthTopRow: View {
         .unspoken()
       Text(muscle.name)
         .measuredText("muscle name")
-        .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+        .widgetFont(.label, weight: .semibold, shrinks: true)
         .foregroundColor(palette.textPrimary)
         .lineLimit(1)
-        .minimumScaleFactor(0.8)
       Spacer(minLength: WidgetTheme.Layout.gap)
       Text(muscle.setsText)
         .measuredText("muscle sets")
-        .font(.system(size: WidgetTheme.TypeScale.label))
+        .widgetFont(.label)
         .foregroundColor(palette.textPrimary)
         .lineLimit(1)
       if let volume = muscle.volumeText {
         Text(volume)
           .measuredText("muscle volume")
-          .font(.system(size: WidgetTheme.TypeScale.label))
+          .widgetFont(.label)
           .foregroundColor(palette.textSecondary)
           .lineLimit(1)
       }
@@ -102,6 +101,7 @@ struct StrengthWidgetView: View {
     }
     .environment(\.snapshotNow, entry.date)
     .widgetURL(content?.url)
+    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -111,7 +111,7 @@ struct StrengthWidgetView: View {
   private func windowLabel(_ content: StrengthContent, _ palette: WidgetPalette) -> some View {
     Text(content.label)
       .measuredText("window")
-      .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+      .widgetFont(.label, weight: .semibold)
       .foregroundColor(palette.textSecondary)
       .lineLimit(1)
   }
@@ -137,7 +137,7 @@ struct StrengthWidgetView: View {
         VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
           windowLabel(content, palette)
           Spacer(minLength: 0)
-          SnapshotAgeLine(snapshot: entry.snapshot, palette: palette)
+          SnapshotAgeRow(snapshot: entry.snapshot, palette: palette, hasRoom: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
@@ -153,11 +153,7 @@ struct StrengthWidgetView: View {
       if let words = content.emptyText {
         Text(words)
           .measuredText("empty window")
-          .font(
-            .system(
-              size: size == .large ? WidgetTheme.TypeScale.value : WidgetTheme.TypeScale.label,
-              weight: .semibold)
-          )
+          .widgetFont(size == .large ? .value : .label, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .multilineTextAlignment(.center)
           .lineLimit(4)
@@ -175,7 +171,7 @@ struct StrengthWidgetView: View {
           }
         }
       }
-      SnapshotAgeLine(snapshot: entry.snapshot, palette: palette)
+      SnapshotAgeRow(snapshot: entry.snapshot, palette: palette, hasRoom: size != .small)
     }
     .widgetPadding(size == .small ? WidgetTheme.Layout.gap : WidgetTheme.Layout.padding)
   }

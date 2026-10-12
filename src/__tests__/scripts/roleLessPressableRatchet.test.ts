@@ -84,6 +84,33 @@ describe('the role-less pressable ratchet', () => {
     expect(runGuard(root, {}).status).toBe(1);
   });
 
+  it('counts an icon that takes a press itself', () => {
+    const root = treeWith({
+      [FILE]: `
+        <MaterialCommunityIcons name="close" size={24} onPress={f} />
+        <MaterialIcons
+          name="close"
+          onPress={() => g({ a: 1 })}
+        >
+        </MaterialIcons>
+      `,
+    });
+
+    expect(runGuard(root, { [FILE]: 1 }).status).toBe(1);
+    expect(runGuard(root, { [FILE]: 2 }).status).toBe(0);
+  });
+
+  it('does not count an icon with no press, or one with a role and a label', () => {
+    const root = treeWith({
+      [FILE]: `
+        <MaterialCommunityIcons name="close" size={24} />
+        <MaterialCommunityIcons accessibilityRole="button" accessibilityLabel={label} onPress={f} />
+      `,
+    });
+
+    expect(runGuard(root, {}).status).toBe(0);
+  });
+
   it('does not count a tag with a role, or one that spreads props', () => {
     const root = treeWith({
       [FILE]: `
@@ -147,6 +174,16 @@ export const A = () => (
       });
 
       expect(runGuard(root, {}).status).toBe(1);
+    });
+
+    it('refuses an icon that takes a press with a role and no label', () => {
+      const root = treeWith({
+        [FILE]: '<MaterialCommunityIcons name="x" accessibilityRole="button" onPress={f} />',
+      });
+      const run = runGuard(root, {});
+
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(`${FILE}:1`);
     });
 
     it('passes a pressable named by its label, by a text child or by a spread', () => {

@@ -3,14 +3,14 @@
  * a recording. The only prompt was a dismissible banner on the recordings
  * screen, so once dismissed there was nowhere to grant access from.
  *
- * Expected behaviour: Settings carries a Recording group with a Grant Access
- * control whenever an OAuth athlete has no confirmed write permission, and
- * carries nothing when the permission is confirmed or the athlete signed in
- * with an API key.
+ * Expected behaviour: Settings carries a Recording group linking to recording
+ * settings, where the grant control sits beside Auto-upload, whenever an OAuth
+ * athlete has no confirmed write permission, and carries nothing when the
+ * permission is confirmed or the athlete signed in with an API key.
  */
 
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -22,6 +22,12 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
+
+const mockTapTo = jest.fn();
+jest.mock('@/shared/app/navigation', () => ({
+  ...jest.requireActual('@/shared/app/navigation'),
+  tapTo: (...a: unknown[]) => mockTapTo(...a),
+}));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
@@ -73,60 +79,48 @@ jest.mock('@/features/settings', () => ({
   FooterSection: () => null,
 }));
 
-const mockUpgradePermissions = jest.fn();
-jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
-  usePermissionUpgrade: () => ({
-    upgradePermissions: mockUpgradePermissions,
-    isUpgrading: false,
-    error: null,
-  }),
-}));
-
 function signIn(authMethod: 'oauth' | 'apiKey' | 'demo') {
   useAuthStore.setState({ authMethod });
 }
 
 describe('Settings recording permission', () => {
   beforeEach(() => {
+    mockTapTo.mockClear();
     useUploadPermissionStore.setState({ hasWritePermission: null, isLoaded: true });
     signIn('oauth');
   });
 
-  it('waits for permission hydration before offering an upgrade', async () => {
+  it('waits for permission hydration before pointing at the grant', async () => {
     useUploadPermissionStore.getState().reset();
     const { queryByTestId, getByTestId } = await render(<SettingsScreen />);
-    expect(queryByTestId('settings-grant-access')).toBeNull();
+    expect(queryByTestId('settings-recording-permission-link')).toBeNull();
 
     await act(() => useUploadPermissionStore.getState().setFromOAuthScope(''));
-    expect(getByTestId('settings-grant-access')).toBeTruthy();
+    expect(getByTestId('settings-recording-permission-link')).toBeTruthy();
   });
 
-  it('offers Grant Access when an OAuth token has no confirmed write permission', async () => {
-    const { getByTestId } = await render(<SettingsScreen />);
-    expect(getByTestId('settings-grant-access')).toBeTruthy();
+  it('links to recording settings when an OAuth token has no confirmed write permission', async () => {
+    const { getByTestId, queryByTestId } = await render(<SettingsScreen />);
+    expect(queryByTestId('settings-grant-access')).toBeNull();
+    fireEvent.press(getByTestId('settings-recording-permission-link'));
+    expect(mockTapTo).toHaveBeenCalledWith('/recording-settings');
   });
 
-  it('says recording works without write permission rather than requiring it', async () => {
-    const { queryByText, getByText } = await render(<SettingsScreen />);
-    expect(queryByText(/requires write permission/i)).toBeNull();
-    expect(getByText(/Recording works without it/)).toBeTruthy();
-  });
-
-  it('offers Grant Access when the write scope was explicitly refused', async () => {
+  it('links there when the write scope was explicitly refused', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: false });
     const { getByTestId } = await render(<SettingsScreen />);
-    expect(getByTestId('settings-grant-access')).toBeTruthy();
+    expect(getByTestId('settings-recording-permission-link')).toBeTruthy();
   });
 
   it('says nothing once the write permission is confirmed', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: true });
     const { queryByTestId } = await render(<SettingsScreen />);
-    expect(queryByTestId('settings-grant-access')).toBeNull();
+    expect(queryByTestId('settings-recording-permission-link')).toBeNull();
   });
 
   it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
     signIn(authMethod);
     const { queryByTestId } = await render(<SettingsScreen />);
-    expect(queryByTestId('settings-grant-access')).toBeNull();
+    expect(queryByTestId('settings-recording-permission-link')).toBeNull();
   });
 });

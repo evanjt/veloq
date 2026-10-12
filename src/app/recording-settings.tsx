@@ -7,7 +7,6 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
   SwitchRow,
-  useTabBarClearance,
 } from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
 import { Stepper, type StepperScale } from '@/shared/ui/Stepper';
@@ -29,6 +28,7 @@ import {
   AUTO_PAUSE_THRESHOLD_BOUNDS_KMH,
   fieldsForMode,
   useRecordingPreferences,
+  UploadPermissionNotice,
   type GpsAccuracyMode,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -83,7 +83,6 @@ const MODE_LABEL_KEYS = {
 function RecordingSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
 
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
@@ -179,15 +178,16 @@ function RecordingSettingsScreenContent() {
       testID="recording-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
-      >
+      <ScreenScrollView contentContainerStyle={styles.scrollContent}>
         {/* Upload Section */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>
             {t('recording.settingsUpload', 'Upload')}
           </ListSectionHeader>
-          <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+          <View
+            testID="settings-upload-card"
+            style={[styles.card, { backgroundColor: surface, borderColor: border }]}
+          >
             <SwitchRow
               inset="none"
               title={t('recording.autoUpload', 'Auto-upload')}
@@ -199,6 +199,7 @@ function RecordingSettingsScreenContent() {
               onValueChange={handleToggleAutoUpload}
               testID="settings-auto-upload"
             />
+            <UploadPermissionNotice />
           </View>
           <View
             style={[

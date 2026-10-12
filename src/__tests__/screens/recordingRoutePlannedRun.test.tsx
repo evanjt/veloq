@@ -13,7 +13,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import RecordingScreen from '@/app/recording/[type]';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { navigateTo } from '@/shared/app/navigation';
+import { navigateTo, replaceTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 let mockParams: Record<string, string | undefined> = {};
@@ -109,6 +109,7 @@ beforeEach(() => {
   useRecordingStore.getState().reset();
   useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true });
   (navigateTo as jest.Mock).mockClear();
+  (replaceTo as jest.Mock).mockClear();
 });
 
 it('advances the timer without rendering the recording screen on each clock tick', async () => {
@@ -186,6 +187,32 @@ it('records an ordinary run when the planned event has nothing to follow', async
     expect(screen.queryByTestId('workout-guide')).toBeNull();
     await fireEvent.press(screen.getByTestId('unlock'));
     expect(screen.getByTestId('control-stop')).toBeTruthy();
+    await view.unmount();
+    useRecordingStore.getState().reset();
+  }
+});
+
+it('sends a link naming an unknown sport to the picker and starts nothing', async () => {
+  for (const type of ['Bogus', 'constructor', 'toString']) {
+    mockBodies = [];
+    mockParams = { type };
+    const view = await render(<RecordingScreen />);
+    expect(replaceTo).toHaveBeenCalledWith('/record');
+    expect(useRecordingStore.getState().status).toBe('idle');
+    expect(screen.queryByTestId('recording-map')).toBeNull();
+    await view.unmount();
+    (replaceTo as jest.Mock).mockClear();
+  }
+});
+
+it('records an unpaired run when the planned event id is not a positive whole number', async () => {
+  for (const pairedEventId of ['abc', '0', '-7', '7.5']) {
+    mockBodies = [event(plannedRun)];
+    mockParams = { type: 'Run', pairedEventId };
+    const view = await render(<RecordingScreen />);
+    expect(useRecordingStore.getState().status).toBe('recording');
+    expect(useRecordingStore.getState().pairedEventId).toBeNull();
+    expect(screen.queryByTestId('workout-guide')).toBeNull();
     await view.unmount();
     useRecordingStore.getState().reset();
   }

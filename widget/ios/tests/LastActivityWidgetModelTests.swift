@@ -64,6 +64,41 @@ final class LastActivityWidgetModelTests: XCTestCase {
     }
   }
 
+  /// The demo snapshot with the activity's form moved between the two zones given, worded.
+  private func snapshot(beforeZone: String, afterZone: String) throws -> WidgetSnapshot {
+    let url = try XCTUnwrap(
+      Bundle.module.url(forResource: "demo", withExtension: "json", subdirectory: "fixtures"))
+    var json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    var impact = try XCTUnwrap(json["impact"] as? [String: Any])
+    let words = ["greyZone": "Grey Zone", "fresh": "Fresh"]
+    impact["formBeforeZone"] = beforeZone
+    impact["formBeforeZoneText"] = words[beforeZone]
+    impact["formAfterZone"] = afterZone
+    impact["formAfterZoneText"] = words[afterZone]
+    json["impact"] = impact
+    return try JSONDecoder().decode(
+      WidgetSnapshot.self, from: JSONSerialization.data(withJSONObject: json))
+  }
+
+  func testAFormChangeAcrossZonesNamesBothZones() throws {
+    let content = try XCTUnwrap(
+      LastActivityWidgetModel.content(
+        snapshot(beforeZone: "greyZone", afterZone: "fresh"), size: .medium))
+    let form = try XCTUnwrap(content.form)
+    XCTAssertEqual(form.beforeZoneText, "Grey Zone")
+    XCTAssertEqual(form.afterZoneText, "Fresh")
+  }
+
+  func testAFormChangeInsideOneZoneNamesItOnce() throws {
+    let content = try XCTUnwrap(
+      LastActivityWidgetModel.content(
+        snapshot(beforeZone: "fresh", afterZone: "fresh"), size: .medium))
+    let form = try XCTUnwrap(content.form)
+    XCTAssertNil(form.beforeZoneText)
+    XCTAssertEqual(form.afterZoneText, "Fresh")
+  }
+
   func testWithNoComparisonTheNameIsNeverLeftOut() throws {
     let url = try XCTUnwrap(
       Bundle.module.url(forResource: "demo", withExtension: "json", subdirectory: "fixtures"))

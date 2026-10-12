@@ -4,7 +4,8 @@
      authored, which is the gallery preview and the moment before the first update, it shows the
      widget's name. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/str_root"
+  android:id="@android:id/background"
+  android:clipToOutline="true"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="horizontal"

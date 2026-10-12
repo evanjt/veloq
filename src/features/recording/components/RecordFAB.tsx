@@ -1,11 +1,10 @@
 import React from 'react';
 import { StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { tapTo } from '@/shared/app/navigation';
-import { useTabBarClearance } from '@/shared/ui';
+import { useBottomClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, recording, spacing, layout } from '@/theme';
@@ -15,8 +14,8 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 function RecordFABInner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  // Floats absolute, so a safe area around it does not lift it by its padding.
+  const bottomClearance = useBottomClearance({ insetTaken: false });
   const sessionActive = useRecordingStore((s) => s.status === 'recording' || s.status === 'paused');
 
   if (sessionActive) return null;
@@ -27,7 +26,7 @@ function RecordFABInner() {
       style={pressable([
         styles.fab,
         {
-          bottom: insets.bottom + tabBarClearance + spacing.md,
+          bottom: bottomClearance + spacing.md,
           backgroundColor: isDark ? recording.dark : recording.light,
         },
       ])}

@@ -6,8 +6,9 @@ import XCTest
 
 /// Scenario: every widget is drawn at every family it supports, in the smallest and the largest
 /// box an iPhone gives that family, in light, in dark and in the accented mode of the tinted and
-/// clear Home Screens, with the sample library, with the longest words the locales have, with an
-/// empty library and with rides and no wellness reading.
+/// clear Home Screens, and in colour at the largest text size the widgets follow, with the sample
+/// library, with the longest words the locales have, with an empty library and with rides and no
+/// wellness reading.
 ///
 /// Expected behaviour: no text is truncated, squeezed to fewer lines than it needs or pushed out
 /// of the widget, an empty library draws the open-the-app prompt, and a Summary row that lists
@@ -100,10 +101,16 @@ final class WidgetCaptureTests: XCTestCase {
   }
 
   /// The texts a placement has to draw, besides drawing every text whole.
-  private func expected(_ widget: String, _ family: WidgetFamily, _ fixture: String) -> [String] {
+  private func expected(
+    _ widget: String, _ family: WidgetFamily, _ screen: String, _ fixture: String
+  ) -> [String] {
     if fixture == "empty" { return widget == "record" ? [] : ["empty title"] }
     // A fitness hero moves form onto the row, which then names its zone.
     if widget == "summary-fitness", family != .systemSmall { return ["metric caption"] }
+    // The sample library's form line has room under the comparison on the larger medium box.
+    if widget == "activity", family == .systemMedium, screen == "430", fixture == "demo" {
+      return ["form zone"]
+    }
     return []
   }
 
@@ -114,14 +121,21 @@ final class WidgetCaptureTests: XCTestCase {
       let snapshot = try self.snapshot(fixture)
       for widget in widgets {
         for family in widget.families {
-          let expected = expected(widget.name, family, fixture)
           for box in boxes(family) {
+            let expected = expected(widget.name, family, box.screen, fixture)
             for mode in Mode.allCases {
               let name = [widget.name, familyName(family), box.screen, fixture, mode.rawValue]
                 .joined(separator: "-")
               let view = widget.draw(snapshot, family, Date())
               failures += capture(name, view, snapshot, box.size, mode, out, expected)
             }
+            // The largest text size the widgets follow, in colour: the modes draw one layout.
+            let name = [widget.name, familyName(family), box.screen, fixture, "largest-text"]
+              .joined(separator: "-")
+            let view = widget.draw(snapshot, family, Date())
+            failures += capture(
+              name, view, snapshot, box.size, .light, out, expected,
+              textSize: WidgetTheme.largestTextSize)
           }
         }
       }
@@ -130,6 +144,47 @@ final class WidgetCaptureTests: XCTestCase {
       failures.isEmpty,
       "Cut-off or missing text in \(failures.count) places, captures in \(out.path):\n"
         + failures.joined(separator: "\n"))
+  }
+
+  /// Scenario: the reader picks the smallest text size in Settings, then the largest the widgets
+  /// follow, then one of the accessibility sizes past it.
+  ///
+  /// Expected behaviour: every text a widget draws is taller at the largest size than at the
+  /// smallest, and past the largest every widget draws as it does at the largest.
+  func testEveryWidgetFollowsTheReadersTextSizeUpToItsCap() throws {
+    let snapshot = try self.snapshot("demo")
+    var failures: [String] = []
+    for widget in widgets {
+      for family in widget.families {
+        let name = "\(widget.name)-\(familyName(family))"
+        let size = boxes(family)[1].size
+        func heights(_ textSize: DynamicTypeSize) -> [String: CGFloat] {
+          let view = widget.draw(snapshot, family, Date())
+            .padding(contentMargin)
+            .frame(width: size.width, height: size.height)
+            .environment(\.dynamicTypeSize, textSize)
+          let fits = measure(view, size)
+          return Dictionary(
+            fits.map { ($0.name, ($0.single.height * 2).rounded() / 2) }, uniquingKeysWith: max)
+        }
+        let smallest = heights(.xSmall)
+        let largest = heights(WidgetTheme.largestTextSize)
+        // A widget may leave a line out at a larger size rather than cut it, so only the texts
+        // drawn at both sizes are compared.
+        let both = smallest.filter { largest[$0.key] != nil }
+        if both.isEmpty { failures.append("\(name): no text was measured at both sizes") }
+        for (text, height) in both.sorted(by: { $0.key < $1.key }) {
+          let grown = largest[text] ?? 0
+          if grown <= height {
+            failures.append("\(name): the \(text) is \(height) pt at the smallest size, \(grown) at the largest")
+          }
+        }
+        if heights(.accessibility3) != largest {
+          failures.append("\(name): a text size past the largest draws larger still")
+        }
+      }
+    }
+    XCTAssert(failures.isEmpty, "Text that ignores the text size:\n" + failures.joined(separator: "\n"))
   }
 
   /// The probe has to see a cut when there is one, or the test above passes on nothing.
@@ -150,6 +205,15 @@ final class WidgetCaptureTests: XCTestCase {
     XCTAssertEqual(
       cuts(Text(long).measuredText("scales too far").lineLimit(1).minimumScaleFactor(0.5)).count,
       1)
+    XCTAssertEqual(
+      cuts(Text(long).measuredText("wraps and scales").lineLimit(4).minimumScaleFactor(0.25)), [])
+    XCTAssertEqual(
+      cuts(Text(long).measuredText("wraps, scales too far").lineLimit(4).minimumScaleFactor(0.9))
+        .count, 1)
+    XCTAssertEqual(
+      cuts(
+        Text(long).measuredText("scales, too few lines").lineLimit(2).minimumScaleFactor(0.5)
+      ).count, 1)
     XCTAssertEqual(
       cuts(
         VStack(spacing: 0) {
@@ -343,7 +407,7 @@ final class WidgetCaptureTests: XCTestCase {
   /// lists what it cuts off and which expected texts it does not draw.
   private func capture(
     _ name: String, _ widget: AnyView, _ snapshot: WidgetSnapshot, _ size: CGSize,
-    _ mode: Mode, _ out: URL, _ expected: [String]
+    _ mode: Mode, _ out: URL, _ expected: [String], textSize: DynamicTypeSize = .large
   ) -> [String] {
     // The tinted and clear Home Screens draw over a dark ground.
     let scheme: ColorScheme = mode == .light ? .light : .dark
@@ -363,6 +427,7 @@ final class WidgetCaptureTests: XCTestCase {
       .clipShape(RoundedRectangle(cornerRadius: WidgetTheme.Layout.radius * 1.4))
       .environment(\.colorScheme, scheme)
       .environment(\.widgetRenderingMode, mode == .accented ? .accented : .fullColor)
+      .environment(\.dynamicTypeSize, textSize)
     let drawn =
       mode == .accented
       ? AnyView(
@@ -376,6 +441,12 @@ final class WidgetCaptureTests: XCTestCase {
       : AnyView(placed)
     let fits = measure(drawn, size, save: out.appendingPathComponent("\(name).png"))
     var found = cutOff(fits, in: size).map { "\(name): \($0)" }
+    // Form figures are coloured by their zone, so wherever they are drawn the zone is in words too.
+    if snapshot.impact?.formAfterZoneText != nil, fits.contains(where: { $0.name == "form after" }),
+      !fits.contains(where: { $0.name == "form zone" })
+    {
+      found.append("\(name): draws the form figures and not their zone")
+    }
     for text in expected where !fits.contains(where: { $0.name == text }) {
       found.append("\(name): draws no \(text)")
     }
@@ -430,6 +501,19 @@ final class WidgetCaptureTests: XCTestCase {
           found.append(
             "\(at) is cut even at \(Int(fit.minimumScaleFactor * 100)) %: needs "
               + "\(Int(fit.single.width.rounded(.up))) pt across, has \(Int(box.width))")
+        }
+      } else if fit.minimumScaleFactor < 1 {
+        let lines = Int((fit.shrunk.height / max(fit.single.height, 1)).rounded())
+        let down = fit.shrunk.height * fit.minimumScaleFactor
+        if let limit = fit.lineLimit, lines > limit {
+          found.append(
+            "\(at) is cut even at \(Int(fit.minimumScaleFactor * 100)) %: needs \(lines) lines, "
+              + "has \(limit)")
+        } else if down > box.height + slack {
+          found.append(
+            "\(at) is cut even at \(Int(fit.minimumScaleFactor * 100)) %: needs "
+              + "\(Int(down.rounded(.up))) pt down at \(Int(box.width)) across, has "
+              + "\(Int(box.height))")
         }
       } else if fit.wrapped.height > box.height + slack {
         found.append(

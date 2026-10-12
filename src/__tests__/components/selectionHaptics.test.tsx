@@ -1,5 +1,5 @@
 /**
- * Scenario: a discrete choice (a map style, the 3D switch, a sub-tab, the
+ * Scenario: a discrete choice (a map style, the 3D item, a sub-tab, the
  * x-axis mode) is felt through the selection haptic, and a button that resets
  * state stays on a light impact.
  *
@@ -8,8 +8,10 @@
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import { PaperProvider } from 'react-native-paper';
 
 import { SwipeableTabs } from '@/shared/ui';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
@@ -45,6 +47,23 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
   useMapPreviewCoordinates: () => ({ coordinates: [], altitude: undefined }),
 }));
 
+jest.mock('expo-router', () => {
+  function Link({ children }: { children: React.ReactNode }) {
+    return children;
+  }
+  function Trigger({ children }: { children: React.ReactNode }) {
+    return children;
+  }
+  function Hidden() {
+    return null;
+  }
+  return {
+    ...jest.requireActual('expo-router'),
+    Link: Object.assign(Link, { Trigger, Preview: Hidden, Menu: Hidden, MenuAction: Hidden }),
+    router: { push: jest.fn() },
+  };
+});
+
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
@@ -58,15 +77,23 @@ const ACTIVITY = {
   stream_types: [],
 } as unknown as Activity;
 
+// The card menu's popup, which a screen reader opens on iOS beside the system menu.
+const renderCardMenu = () =>
+  render(
+    <PaperProvider>
+      <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} hasMap>
+        <View />
+      </ActivityCardContextMenu>
+    </PaperProvider>
+  );
+
 describe('selection haptics', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('picking a map style fires one selection and no impact', async () => {
-    const { getByText } = await render(
-      <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
-    );
+    const { getByText } = await renderCardMenu();
 
     await fireEvent.press(getByText('settings.dark'));
 
@@ -75,13 +102,10 @@ describe('selection haptics', () => {
     expect(mockSetActivityOverride).toHaveBeenCalledWith('a1', { style: 'dark' });
   });
 
-  it('flipping the 3D switch fires one selection and no impact', async () => {
-    const { UNSAFE_getByType } = await render(
-      <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
-    );
-    const { Switch } = require('react-native-paper');
+  it('checking the 3D item fires one selection and no impact', async () => {
+    const { getByText } = await renderCardMenu();
 
-    UNSAFE_getByType(Switch).props.onValueChange(true);
+    await fireEvent.press(getByText('activity.terrainRow'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
@@ -89,9 +113,7 @@ describe('selection haptics', () => {
   });
 
   it('the reset button stays a light impact', async () => {
-    const { getByText } = await render(
-      <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
-    );
+    const { getByText } = await renderCardMenu();
 
     await fireEvent.press(getByText('activity.resetToDefault'));
 

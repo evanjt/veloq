@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -9,13 +8,13 @@ import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { Button, useTabBarClearance } from '@/shared/ui';
+import { Button, useBottomClearance } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = useTabBarClearance();
+  // Floats absolute, so a safe area around it does not lift it by its padding.
+  const bottomClearance = useBottomClearance({ insetTaken: false });
   const tourState = useWhatsNewStore((s) => s.tourState);
   const resumeTour = useWhatsNewStore((s) => s.resumeTour);
   const dismissTour = useWhatsNewStore((s) => s.dismissTour);
@@ -31,7 +30,7 @@ export function TourReturnPill() {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const bottomOffset = tabBarClearance + insets.bottom + spacing.sm;
+  const bottomOffset = bottomClearance + spacing.sm;
 
   return (
     <Animated.View

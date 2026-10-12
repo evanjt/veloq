@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert, Platform } from 'react-native';
+import * as Notice from '@/shared/ui/Notice';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useImportDatabaseBackup } from '@/features/settings/hooks/useBackup';
@@ -49,6 +50,7 @@ function acceptLegacyPrompt() {
 }
 
 beforeEach(() => {
+  jest.spyOn(Notice, 'showNotice');
   mockFileName = 'older.veloq';
   mockPickedUri = (name: string) => `file:///cache/DocumentPicker/5d0c9e1a-77b4/${name}`;
   jest.clearAllMocks();
@@ -122,11 +124,8 @@ it('reports a legacy record restore and the records still waiting', async () => 
     encoding: FileSystem.EncodingType.UTF8,
   });
   expect(outcome.current?.success).toBe(true);
-  expect(Alert.alert).toHaveBeenCalledWith(
-    'backup.restoreComplete',
-    'backup.recordRestored',
-    undefined,
-    expect.objectContaining({ cancelable: true })
+  expect(Notice.showNotice).toHaveBeenCalledWith(
+    expect.objectContaining({ message: 'backup.recordRestored' })
   );
 });
 

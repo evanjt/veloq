@@ -8,7 +8,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
-import { hrZoneTextColor } from '@/features/recording/lib/hrZoneTextColor';
+import { zoneColour } from '@/theme/zoneColour';
 import { zoneColors } from '@/theme/colors';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -33,17 +33,12 @@ const METRICS = {
 
 it('draws the heart rate number in the zone text tone, not the zone fill', async () => {
   const tree = await render(
-    <DataFieldGrid
-      fields={['heartrate']}
-      metrics={METRICS}
-      isMetric
-      hrZone={{ zone: 3, color: zoneColors.zone3 }}
-    />
+    <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 3 }} />
   );
   const value = tree
     .getByTestId('data-field-heartrate')
     .findAll((n) => n.children[0] === '145 bpm')[0];
   const flat = Object.assign({}, ...[value.props.style].flat(3).filter(Boolean));
-  expect(flat.color).toBe(hrZoneTextColor(3, false));
+  expect(flat.color).toBe(zoneColour(3, false, 'text'));
   expect(flat.color).not.toBe(zoneColors.zone3);
 });

@@ -16,6 +16,9 @@ export {
   cleanUpRetiredBackupSettings,
   forgetBackupCarrier,
   onBackupCarrierSignedIn,
+  isIcloudBackupOn,
+  setIcloudBackupOn,
+  icloudBackupState,
   getWebdavConfig,
   initWebdavConfig,
   setWebdavConfig,
@@ -36,6 +39,8 @@ export {
   getGoogleDriveAccount,
   loadGoogleDriveAccount,
   isGoogleDriveSupported,
+  icloudBackend,
+  isIcloudSupported,
 } from './backends';
 export { failureMessageKey, isBackupTransferError } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';
@@ -44,6 +49,7 @@ export type {
   BackupFailure,
   BackupRunResult,
   CarrierOutcome,
+  IcloudBackupState,
   WebdavConfig,
   WebdavUrlProblem,
 } from './autoBackup';

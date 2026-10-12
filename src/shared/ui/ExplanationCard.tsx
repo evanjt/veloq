@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
+import { openExternal } from '@/shared/app/openExternal';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
 import { Button } from './Button';
 
@@ -69,7 +69,9 @@ export function ExplanationCard({ title, rows, links, testID }: ExplanationCardP
               label={link.label}
               variant="ghost"
               size="sm"
-              onPress={() => WebBrowser.openBrowserAsync(link.url)}
+              onPress={() => {
+                void openExternal(link.url);
+              }}
             />
           ))}
         </View>

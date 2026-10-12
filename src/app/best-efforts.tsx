@@ -12,7 +12,7 @@ import {
   ScreenSafeAreaView,
   ToggleButtonRow,
   Spinner,
-  useTabBarClearance,
+  useScrollEndInset,
 } from '@/shared/ui';
 import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
@@ -232,7 +232,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
 function BestEffortsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
+  const scrollEndInset = useScrollEndInset({ insetTaken: true });
   // A link from a screen that showed a window opens on that window, so the
   // bests here answer the question the athlete tapped through with.
   const params = useLocalSearchParams<{ period?: string }>();
@@ -276,7 +276,7 @@ function BestEffortsScreenContent() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: spacing.xl + tabBarClearance },
+          { paddingBottom: spacing.xl + scrollEndInset },
         ]}
         showsVerticalScrollIndicator={false}
       >

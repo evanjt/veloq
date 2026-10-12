@@ -10,7 +10,7 @@ import {
   formatHeartRate,
   formatPower,
 } from '@/shared/format/format';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
+import { intervalBandToken, resolveBandTextColour } from '@/features/stats';
 import {
   colors,
   darkColors,
@@ -39,17 +39,11 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
   const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
 
   const renderItem = ({ item, index }: { item: ActivityInterval; index: number }) => {
-    const isWork = item.type === 'WORK';
     const isRecovery = item.type === 'RECOVERY' || item.type === 'REST';
 
-    // Zone-based coloring for WORK intervals
-    // Z7 is near-black - swap to light grey in dark mode for visibility
-    const zoneColors = hasPowerZones ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-    let zoneColor =
-      isWork && item.zone != null && item.zone >= 1
-        ? zoneColors[Math.min(item.zone - 1, zoneColors.length - 1)]
-        : null;
-    if (isDark && zoneColor && item.zone === 7) zoneColor = darkColors.zone7;
+    // The label is the text tone of the colour the interval's chip and band are drawn in.
+    const token = intervalBandToken(item, hasPowerZones ? 'power' : 'hr');
+    const labelColour = resolveBandTextColour(token, isDark);
 
     const distance = item.distance != null ? formatDistance(item.distance, isMetric) : ABSENT;
     const duration = item.moving_time != null ? formatDuration(item.moving_time) : ABSENT;
@@ -65,7 +59,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
       type: item.type,
       zone: item.zone,
       label: item.label,
-      zoneColoured: zoneColor != null,
+      zoneColoured: token.kind === 'zone',
     });
 
     return (
@@ -77,15 +71,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         ]}
       >
         <Text style={styles.indexText}>{index + 1}</Text>
-        <Text
-          style={[
-            styles.typeText,
-            isWork && !zoneColor && { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-            isWork && zoneColor != null && { color: zoneColor },
-            isRecovery && { color: isDark ? darkColors.successDeep : colors.successDeep },
-          ]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.typeText, { color: labelColour }]} numberOfLines={1}>
           {typeLabel}
         </Text>
         <View style={styles.statsRow}>

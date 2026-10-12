@@ -28,7 +28,7 @@ export function useRouteReference(
       confirmAction({
         title: t('routes.setAsReference'),
         message: t('routes.setAsReferenceConfirm'),
-        confirmLabel: t('common.confirm'),
+        confirmLabel: t('routes.setAsReference'),
         cancelLabel: t('common.cancel'),
         onConfirm: () => {
           const engine = getEngine();

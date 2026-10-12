@@ -16,6 +16,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
+import { parseNextcloudLogin } from '../lib/autobackup/nextcloudLogin';
 
 interface WebdavConfigFormProps {
   /** The stored credentials changed, so whatever lists backends should read them again. */
@@ -81,6 +82,26 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
     [t]
   );
 
+  // A refused keychain write leaves nothing stored, so the form says so rather
+  // than showing filled fields over an unconfigured backup.
+  const storeWebdav = useCallback(
+    async (url: string, user: string, password: string, plainLan: boolean): Promise<boolean> => {
+      try {
+        await setWebdavConfig(url, user, password, plainLan);
+      } catch {
+        setConnectionResult('error');
+        setConnectionError(
+          t('backup.webdavSaveFailed', 'Could not save the server details on this device')
+        );
+        return false;
+      }
+      // Refresh the offer list since WebDAV is now configured
+      onConfigChange();
+      return true;
+    },
+    [t, onConfigChange]
+  );
+
   const handleSaveWebdav = useCallback(async (): Promise<boolean> => {
     if (!webdavUrl || !webdavUser || !webdavPass) return false;
     const refused = urlProblemText(webdavUrl, webdavPlainLan);
@@ -89,11 +110,8 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
       setConnectionError(refused);
       return false;
     }
-    await setWebdavConfig(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
-    // Refresh the offer list since WebDAV is now configured
-    onConfigChange();
-    return true;
-  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText, onConfigChange]);
+    return storeWebdav(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
+  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText, storeWebdav]);
 
   const handleRemoveWebdav = useCallback(async () => {
     await clearWebdavConfig();
@@ -124,33 +142,14 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
 
   const handleQrScanned = useCallback(
     (data: string) => {
-      // Parse nc://login/user:USERNAME&password:PASSWORD&server:SERVER_URL
-      if (!data.startsWith('nc://login/')) {
+      const login = parseNextcloudLogin(data);
+      if (!login) {
         setConnectionResult('error');
         setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
         setShowQrScanner(false);
         return;
       }
-      const params = data.slice('nc://login/'.length);
-      const parts: Record<string, string> = {};
-      for (const part of params.split('&')) {
-        const colonIdx = part.indexOf(':');
-        if (colonIdx > 0) {
-          parts[part.slice(0, colonIdx)] = part.slice(colonIdx + 1);
-        }
-      }
-      const user = parts.user;
-      const password = parts.password;
-      const server = parts.server;
-      if (!user || !password || !server) {
-        setConnectionResult('error');
-        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
-        setShowQrScanner(false);
-        return;
-      }
-      // Construct WebDAV URL per Nextcloud docs
-      const baseUrl = server.endsWith('/') ? server.slice(0, -1) : server;
-      const webdavEndpoint = `${baseUrl}/remote.php/dav/files/${user}/`;
+      const { url: webdavEndpoint, user, password } = login;
       setWebdavUrl(webdavEndpoint);
       setWebdavUser(user);
       setWebdavPass(password);
@@ -162,12 +161,9 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         return;
       }
       setConnectionResult(null);
-      // Auto-save config
-      setWebdavConfig(webdavEndpoint, user, password, webdavPlainLan).then(() => {
-        onConfigChange();
-      });
+      void storeWebdav(webdavEndpoint, user, password, webdavPlainLan);
     },
-    [t, urlProblemText, webdavPlainLan, onConfigChange]
+    [t, urlProblemText, webdavPlainLan, storeWebdav]
   );
 
   const handleTestConnection = useCallback(async () => {

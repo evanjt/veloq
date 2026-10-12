@@ -10,7 +10,8 @@
 //
 // Counted: an opening `<TouchableOpacity`, `<Pressable` or `<AnimatedPressable` tag, read to its
 // closing `>`, that holds neither `accessibilityRole` nor a `{...props}` spread. A spread forwards
-// the role from the caller, which the caller is counted for.
+// the role from the caller, which the caller is counted for. An icon that takes the press itself,
+// a tag whose name ends in `Icon` or `Icons` and that carries `onPress`, is a press target too.
 //
 // Not counted: `src/shared/ui/` and tests.
 //
@@ -39,6 +40,8 @@ const WRITE = process.argv.includes('--write');
 const EXEMPT = ['src/shared/ui/', 'src/__tests__/'];
 
 const OPENING = /<(?:TouchableOpacity|Pressable|AnimatedPressable)(?=[\s/>])/g;
+const ICON_OPENING = /<([A-Z]\w*Icons?)(?=[\s/>])/g;
+const PRESSED = /\bonPress\b/;
 
 /** The opening tag from `start` to its closing `>`, which is the first one outside a brace. */
 function openingTag(text, start) {
@@ -85,25 +88,44 @@ function ownChildren(text, start, tag) {
   return null;
 }
 
+/** The children of an icon that takes a press, up to its own closing tag. */
+function iconChildren(text, start, tag, name) {
+  if (tag.trimEnd().endsWith('/')) return '';
+  const from = start + tag.length + 1;
+  const end = text.indexOf(`</${name}>`, from);
+  return end === -1 ? null : text.slice(from, end);
+}
+
+/** Every press target's opening tag, with a reader for its own children. */
+function* pressTargets(text) {
+  for (const match of text.matchAll(OPENING)) {
+    const tag = openingTag(text, match.index);
+    if (tag === null) continue;
+    yield { at: match.index, tag, children: () => ownChildren(text, match.index, tag) };
+  }
+  for (const match of text.matchAll(ICON_OPENING)) {
+    const tag = openingTag(text, match.index);
+    if (tag === null || !PRESSED.test(tag)) continue;
+    yield { at: match.index, tag, children: () => iconChildren(text, match.index, tag, match[1]) };
+  }
+}
+
 /** The lines of press targets that carry a role and give a screen reader nothing to name them by. */
 function unnamedIn(text) {
   const lines = [];
-  for (const match of text.matchAll(OPENING)) {
-    const tag = openingTag(text, match.index);
-    if (tag === null || !tag.includes('accessibilityRole')) continue;
+  for (const { at, tag, children } of pressTargets(text)) {
+    if (!tag.includes('accessibilityRole')) continue;
     if (NAMED.test(tag) || SPREAD.test(tag)) continue;
-    const children = ownChildren(text, match.index, tag);
-    if (children === null || TEXT_CHILD.test(children)) continue;
-    lines.push(text.slice(0, match.index).split('\n').length);
+    const own = children();
+    if (own === null || TEXT_CHILD.test(own)) continue;
+    lines.push(text.slice(0, at).split('\n').length);
   }
   return lines;
 }
 
 function rolelessIn(text) {
   let n = 0;
-  for (const match of text.matchAll(OPENING)) {
-    const tag = openingTag(text, match.index);
-    if (tag === null) continue;
+  for (const { tag } of pressTargets(text)) {
     if (tag.includes('accessibilityRole') || SPREAD.test(tag)) continue;
     n += 1;
   }

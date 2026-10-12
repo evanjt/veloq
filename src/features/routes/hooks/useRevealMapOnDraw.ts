@@ -1,6 +1,8 @@
 import { useEffect, type RefObject } from 'react';
 import type { ScrollView } from 'react-native';
 
+import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
+
 /**
  * Scrolls a page to its top, where the hero map sits, whenever the map is given
  * something new to draw. Clearing the target leaves the page where it is.
@@ -11,6 +13,6 @@ export function useRevealMapOnDraw(
 ): void {
   useEffect(() => {
     if (drawTarget == null) return;
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    scrollRef.current?.scrollTo({ y: 0, animated: !isReduceMotionOn() });
   }, [scrollRef, drawTarget]);
 }

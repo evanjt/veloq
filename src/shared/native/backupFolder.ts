@@ -30,6 +30,12 @@ interface VeloqBackupFolderModule {
   ): Promise<BookmarkedResult & { files: { name: string; size: number }[] }>;
   readFromBookmarkedFolder(bookmark: string, name: string, to: string): Promise<BookmarkedResult>;
   releaseFolderGrant(uri: string): void;
+  saveDocument(
+    from: string,
+    name: string,
+    mimeType: string,
+    initialTree: string | null
+  ): Promise<boolean>;
 }
 
 function nativeModule(): VeloqBackupFolderModule {
@@ -120,6 +126,15 @@ export async function readFromBookmarkedFolder(name: string, to: string): Promis
   await throughBookmark(
     async (bookmark) => await nativeModule().readFromBookmarkedFolder(bookmark, name, plainPath(to))
   );
+}
+
+/**
+ * Save a file to a place the athlete picks on Android's create-document screen,
+ * suggesting `name` and starting in the held backup folder when there is one.
+ * Answers false when the screen was backed out of.
+ */
+export async function saveToDevice(from: string, name: string, mimeType: string): Promise<boolean> {
+  return await nativeModule().saveDocument(plainPath(from), name, mimeType, heldBackupFolder());
 }
 
 /**

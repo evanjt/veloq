@@ -5,13 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
-import {
-  ScreenSafeAreaView,
-  ScreenScrollView,
-  useTabBarClearance,
-  EmptyState,
-  signalColor,
-} from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView, EmptyState, signalColor } from '@/shared/ui';
 import { Button, ToggleButton } from '@/shared/ui/Button';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -136,7 +130,6 @@ function availabilityNotice(availability: SensorAvailability, t: TFunction): Not
 function SensorSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const tabBarClearance = useTabBarClearance();
 
   const scanning = useSensorStore((s) => s.scanning);
   const discovered = useSensorStore((s) => s.discovered);
@@ -270,9 +263,7 @@ function SensorSettingsScreenContent() {
       testID="sensor-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScreenScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
-      >
+      <ScreenScrollView contentContainerStyle={styles.scrollContent}>
         {/* Paired sensors */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>

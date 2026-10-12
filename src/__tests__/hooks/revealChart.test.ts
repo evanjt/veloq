@@ -6,7 +6,8 @@
  * Expected behaviour: the tab takes the chart once, prepares it (a section
  * expanded, a sport switched), scrolls to it as soon as it has a position,
  * follows it while the layout above it settles, stops when the athlete scrolls,
- * and clears the param so a later visit opens at the top.
+ * and clears the param so a later visit opens at the top. With reduce motion
+ * on it jumps to the chart rather than scrolling.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -14,6 +15,12 @@ import type { LayoutChangeEvent } from 'react-native';
 import { router } from 'expo-router';
 
 import { useRevealChart } from '@/shared/app/useRevealChart';
+
+let mockReduceMotion = false;
+jest.mock('@/shared/ui/reduceMotion', () => ({
+  ...jest.requireActual('@/shared/ui/reduceMotion'),
+  isReduceMotionOn: () => mockReduceMotion,
+}));
 
 type Chart = 'ftp' | 'week';
 type Anchor = 'trends' | 'weekly';
@@ -33,7 +40,10 @@ async function setup(initial: Chart | null) {
   return { ...hook, scrollTo, prepare };
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockReduceMotion = false;
+});
 
 describe('revealing a chart from the route', () => {
   it('does nothing without a chart', async () => {
@@ -96,5 +106,14 @@ describe('revealing a chart from the route', () => {
 
     expect(prepare).toHaveBeenCalledTimes(2);
     expect(scrollTo).toHaveBeenCalledTimes(2);
+  });
+
+  it('jumps to the anchor without animating with reduce motion on', async () => {
+    mockReduceMotion = true;
+    const { result, scrollTo } = await setup('week');
+
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(900)));
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: 900, animated: false });
   });
 });

@@ -3,14 +3,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, opacity, spacing, typography, zoneColour } from '@/theme';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 /** One bar of a zone histogram. `percent` is of the whole, 0 to 100. */
 export interface ZoneBand {
   key: string | number;
   label: string;
-  colour: string;
+  /** The training zone, 1 to 7, which picks the bar's fill and the label's tone. */
+  zone: number;
   percent: number;
   /** Bold value beside the bar, the time in zone. */
   primary?: string;
@@ -42,7 +43,13 @@ export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
         const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
         return (
           <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
-            <Text style={[styles.label, compact && styles.labelCompact, { color: band.colour }]}>
+            <Text
+              style={[
+                styles.label,
+                compact && styles.labelCompact,
+                { color: zoneColour(band.zone, isDark, 'text') },
+              ]}
+            >
               {band.label}
             </Text>
             <Text
@@ -67,7 +74,7 @@ export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
                   styles.bar,
                   {
                     width: `${Math.min(band.percent, 100)}%`,
-                    backgroundColor: band.colour,
+                    backgroundColor: zoneColour(band.zone, isDark, 'fill'),
                     borderRadius: barHeight / 2,
                   },
                 ]}

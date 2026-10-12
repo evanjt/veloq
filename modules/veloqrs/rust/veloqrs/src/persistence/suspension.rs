@@ -19,6 +19,14 @@
 //! foreground. A write from such a thread that must still land, a lease
 //! release, goes through [`write_or_defer`], which keeps it for the resume.
 //!
+//! A read that runs past a frame on a thread of its own holds a lock too: in
+//! WAL a reader keeps a read mark in the `-shm` file for as long as its
+//! statement or transaction is open. Such a read passes through [`begin_read`],
+//! which the suspension counts and waits on exactly as it does a write. A long
+//! job reads in short pieces, each under its own hold, so the suspension waits
+//! for one piece rather than the whole job, and the job's next `begin_read`
+//! is where it pauses until the resume.
+//!
 //! Nothing suspends unless the platform has said the app is in the background
 //! and no resume has come since. A suspension asked for late, after the app has
 //! already come back, is refused rather than leaving a foreground engine that
@@ -40,6 +48,8 @@ struct State {
     suspended: bool,
     /// Writes in flight, counted once per thread however deeply they nest.
     writes: usize,
+    /// Reads in flight, counted the same way.
+    reads: usize,
     /// Bumped by every resume, so a wait the resume overtook ends.
     resumes: u64,
     detection: Option<DetectionSuspendGuard>,
@@ -56,13 +66,14 @@ static STATE: Mutex<State> = Mutex::new(State {
     background: false,
     suspended: false,
     writes: 0,
+    reads: 0,
     resumes: 0,
     detection: None,
     sync: None,
     deferred: Vec::new(),
 });
 
-/// Signalled when the last write in flight ends and on every resume.
+/// Signalled when the last hold in flight ends and on every resume.
 static CHANGED: Condvar = Condvar::new();
 
 /// `State::suspended`, readable without the lock.
@@ -72,6 +83,9 @@ thread_local! {
     /// Holds this thread has open, so a write nested inside one in flight is
     /// part of it rather than a new one.
     static DEPTH: Cell<usize> = const { Cell::new(0) };
+    /// What the outermost hold on this thread counts, which is what its drop
+    /// gives back.
+    static OUTER: Cell<Kind> = const { Cell::new(Kind::Write) };
     /// Whether this thread is one the engine started, and so may wait out a
     /// suspension.
     static ENGINE_THREAD: Cell<bool> = const { Cell::new(false) };
@@ -81,14 +95,30 @@ fn state() -> MutexGuard<'static, State> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// A write in flight. The suspension waits for every one of them to drop.
-#[must_use = "the write counts as in flight only while the hold lives"]
-pub struct WriteHold {
+#[derive(Clone, Copy)]
+enum Kind {
+    Write,
+    Read,
+}
+
+impl State {
+    fn count(&mut self, kind: Kind) -> &mut usize {
+        match kind {
+            Kind::Write => &mut self.writes,
+            Kind::Read => &mut self.reads,
+        }
+    }
+}
+
+/// A write or a read in flight. The suspension waits for every one of them
+/// to drop.
+#[must_use = "the work counts as in flight only while the hold lives"]
+pub struct Hold {
     /// Held on the thread that took it, which is where its depth is counted.
     _thread: PhantomData<*const ()>,
 }
 
-impl Drop for WriteHold {
+impl Drop for Hold {
     fn drop(&mut self) {
         let depth = DEPTH.with(|d| {
             let next = d.get().saturating_sub(1);
@@ -97,19 +127,28 @@ impl Drop for WriteHold {
         });
         if depth == 0 {
             let mut state = state();
-            state.writes = state.writes.saturating_sub(1);
-            if state.writes == 0 {
+            let count = state.count(OUTER.with(Cell::get));
+            *count = count.saturating_sub(1);
+            if state.writes == 0 && state.reads == 0 {
                 CHANGED.notify_all();
             }
         }
     }
 }
 
-fn hold() -> WriteHold {
+fn hold() -> Hold {
     DEPTH.with(|d| d.set(d.get() + 1));
-    WriteHold {
+    Hold {
         _thread: PhantomData,
     }
+}
+
+/// Count a new outermost hold of `kind` and take it. The state lock is held.
+fn outermost(mut state: MutexGuard<'_, State>, kind: Kind) -> Hold {
+    *state.count(kind) += 1;
+    drop(state);
+    OUTER.with(|o| o.set(kind));
+    hold()
 }
 
 /// Mark the calling thread as one of the engine's own, which waits out a
@@ -124,7 +163,24 @@ pub(crate) fn mark_engine_thread() {
 ///
 /// A thread that already holds one gets another without asking: that write is
 /// part of the one in flight, which the suspension is waiting on.
-pub(crate) fn begin_write() -> Option<WriteHold> {
+pub(crate) fn begin_write() -> Option<Hold> {
+    begin(Kind::Write)
+}
+
+/// Take a hold for a read about to start on a connection of its own, or
+/// `None` when the engine is suspended and this thread may not wait.
+///
+/// For a read that may outlast a frame: the statement or transaction it opens
+/// holds a read mark on the library until it ends, which the suspension has to
+/// wait for. End the read, statement finalised or transaction closed, before
+/// the hold drops. A job longer than that reads in pieces, one hold each, and
+/// on an engine thread the next piece's `begin_read` waits out a suspension,
+/// holding nothing meanwhile.
+pub(crate) fn begin_read() -> Option<Hold> {
+    begin(Kind::Read)
+}
+
+fn begin(kind: Kind) -> Option<Hold> {
     if DEPTH.with(Cell::get) > 0 {
         return Some(hold());
     }
@@ -136,24 +192,20 @@ pub(crate) fn begin_write() -> Option<WriteHold> {
         }
         state = CHANGED.wait(state).unwrap_or_else(|e| e.into_inner());
     }
-    state.writes += 1;
-    drop(state);
-    Some(hold())
+    Some(outermost(state, kind))
 }
 
 /// `begin_write` that never waits, for a write that is skipped rather than
 /// queued when the engine is suspended.
-pub(crate) fn try_begin_write() -> Option<WriteHold> {
+pub(crate) fn try_begin_write() -> Option<Hold> {
     if DEPTH.with(Cell::get) > 0 {
         return Some(hold());
     }
-    let mut state = state();
+    let state = state();
     if state.suspended {
         return None;
     }
-    state.writes += 1;
-    drop(state);
-    Some(hold())
+    Some(outermost(state, Kind::Write))
 }
 
 /// Run `write`, and when a suspension refuses it, keep it for the next resume.
@@ -198,9 +250,9 @@ pub fn entered_background() {
 /// Stop the engine writing before the process is suspended, and say whether
 /// it is quiet.
 ///
-/// New writes stop at once, sync is cut short and detection starts no new
-/// run. Writes already in flight are given until `deadline` to commit or roll
-/// back. True means none is left open. False means the wait ran out, a resume
+/// New writes and reads stop at once, sync is cut short and detection starts
+/// no new run. Writes already in flight are given until `deadline` to commit
+/// or roll back, and reads until then to end. True means none is left open. False means the wait ran out, a resume
 /// overtook it, or the app was not in the background, which is the only case
 /// that leaves writes open. A second call while suspended only waits again.
 pub fn prepare_for_suspension(deadline: Duration) -> bool {
@@ -235,15 +287,16 @@ pub fn prepare_for_suspension(deadline: Duration) -> bool {
         if state.resumes != resumes {
             return false;
         }
-        if state.writes == 0 {
+        if state.writes == 0 && state.reads == 0 {
             log::info!("veloqrs: [suspension] the engine is quiet");
             return true;
         }
         let now = Instant::now();
         if now >= until {
             log::warn!(
-                "veloqrs: [suspension] {} write(s) still open at the deadline",
-                state.writes
+                "veloqrs: [suspension] {} write(s) and {} read(s) still open at the deadline",
+                state.writes,
+                state.reads
             );
             return false;
         }

@@ -257,6 +257,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
                 {canDrawPhoto ? (
                   <Image
+                    accessibilityIgnoresInvertColors
                     source={{ uri: profileUrl }}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
@@ -288,6 +289,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               accessibilityLabel={
                 isLoading || fitnessSparkline || hrvSparkline ? undefined : heroAccessibilityLabel
               }
+              testID="summary-card-hero"
               style={pressable(styles.heroSection)}
               android_ripple={pressRipple}
               onPress={onHeroPress}
@@ -561,16 +563,21 @@ const styles = StyleSheet.create({
   },
 
   // Hero section - inline horizontal
+  // The hero takes what the profile button leaves, and its rows wrap so large
+  // text drops the change line below the value rather than past the card.
   heroSection: {
+    flex: 1,
     justifyContent: 'center',
   },
   heroValueRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.xs,
   },
   heroSubLine: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: 0,

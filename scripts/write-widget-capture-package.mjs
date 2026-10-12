@@ -40,11 +40,10 @@ export function writeWidgetCapturePackage(out) {
   const plugin = require(join(root, 'src', 'plugins', 'with-ios-widget.js'));
   rmSync(out, { recursive: true, force: true });
   const sources = join(out, 'Sources');
-  // The memory probe calls the engine's C entries, which a package cannot link.
-  plugin.writeWidgetFiles(root, sources, 'App', false);
+  plugin.writeWidgetFiles(root, sources, 'App');
   rmSync(join(sources, 'App'), { recursive: true, force: true });
   const widget = join(sources, 'VeloqWidget');
-  plugin.writeWidgetBundles(widget, plugin.INCLUDE_RECORD_WIDGET, false);
+  plugin.writeWidgetBundles(widget, plugin.INCLUDE_RECORD_WIDGET);
   // A package compiles Swift alone: the plist, the entitlements, the bridging
   // header and the string catalogue belong to the app's target.
   for (const name of readdirSync(widget)) {

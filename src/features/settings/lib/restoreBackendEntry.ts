@@ -12,19 +12,14 @@ import { restoreCopyUri } from '@/shared/storage/cacheFiles';
 import type { BackupBackend, BackupEntry } from './autobackup';
 import { RESTORE_REFUSAL_KEYS, restoreDatabaseBackup, restoreRecordBackup } from './backup';
 import { holdImportWhileSignedOut } from './heldImport';
+import type { RestoreOutcome } from './restoreNotice';
 
-/** The alert a finished restore shows. */
-export interface RestoredEntryNotice {
-  title: string;
-  message: string;
-}
-
-/** The alert to show on success. Throws with the message to show on failure. */
+/** Whether the backup went in or is held for sign-in. Throws with the message to show on failure. */
 export async function restoreBackendEntry(
   backend: BackupBackend,
   entry: BackupEntry,
   t: TFunction
-): Promise<RestoredEntryNotice> {
+): Promise<RestoreOutcome> {
   const destPath = await restoreCopyUri(
     `restore-selected-${Date.now()}${entry.id.endsWith('.zip') ? '.zip' : '.veloqdb'}`
   ).catch(() => {
@@ -33,7 +28,7 @@ export async function restoreBackendEntry(
   try {
     await backend.download(entry.id, destPath);
     if (await holdImportWhileSignedOut(destPath, entry.id)) {
-      return { title: t('backup.importBackup'), message: t('backup.heldUntilSignIn') };
+      return 'held';
     }
     if (entry.id.endsWith('.zip')) {
       await restoreRecordBackup(destPath);
@@ -45,7 +40,7 @@ export async function restoreBackendEntry(
       if (result.reason) throw new Error(t(RESTORE_REFUSAL_KEYS[result.reason]));
       if (!result.success) throw new Error(result.error ?? t('backup.importError'));
     }
-    return { title: t('backup.restoreComplete'), message: t('backup.recordRestored') };
+    return 'restored';
   } catch (error) {
     throw error instanceof Error ? error : new Error(t('backup.importError'));
   } finally {

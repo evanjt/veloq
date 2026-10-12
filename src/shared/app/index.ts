@@ -33,14 +33,7 @@ export { useMetricSystem } from './useMetricSystem';
 export { useCollapsibleSections, type UseCollapsibleSections } from './useCollapsibleSections';
 export { useAthlete } from './useAthlete';
 export { useUserLocation } from './useUserLocation';
-export {
-  useSportSettings,
-  getSettingsForSport,
-  POWER_ZONE_COLORS,
-  HR_ZONE_COLORS,
-  DEFAULT_POWER_ZONES,
-  DEFAULT_HR_ZONES,
-} from './useSportSettings';
+export { useSportSettings, getSettingsForSport } from './useSportSettings';
 export { useCacheDays } from './useCacheDays';
 export { useOldestActivityDate } from './useOldestActivityDate';
 export { useDonation } from './useDonation';
