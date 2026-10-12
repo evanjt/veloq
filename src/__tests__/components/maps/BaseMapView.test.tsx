@@ -25,6 +25,9 @@ jest.mock('@/shared/app', () => ({
 
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', canAskAgain: true }),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   getCurrentPositionAsync: jest
     .fn()
@@ -136,19 +139,19 @@ function renderMap(props: Partial<BaseMapViewProps> = {}) {
 }
 
 describe('BaseMapView', () => {
-  it('mounts a map with a route and bounds', () => {
-    renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+  it('mounts a map with a route and bounds', async () => {
+    await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('shows the close control only when a close handler is supplied', () => {
+  it('shows the close control only when a close handler is supplied', async () => {
     const onClose = jest.fn();
-    const { rerender } = renderMap({ routeCoordinates: ROUTE });
+    const { rerender } = await renderMap({ routeCoordinates: ROUTE });
 
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    rerender(
+    await rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <BaseMapView routeCoordinates={ROUTE} onClose={onClose} />
       </SafeAreaProvider>
@@ -156,69 +159,72 @@ describe('BaseMapView', () => {
 
     const close = screen.getByRole('button', { name: 'maps.closeMap' });
     expect(close).toBe(screen.getByTestId('map-fullscreen-close'));
-    fireEvent.press(close);
+    await fireEvent.press(close);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the style toggle pressable', () => {
-    renderMap({ routeCoordinates: ROUTE });
+  it('keeps the style toggle pressable', async () => {
+    await renderMap({ routeCoordinates: ROUTE });
 
     const toggle = screen.getByTestId('map-style-toggle');
-    expect(() => {
-      fireEvent.press(toggle);
-      fireEvent.press(toggle);
-      fireEvent.press(toggle);
-    }).not.toThrow();
+    await expect(
+      (async () => {
+        await fireEvent.press(toggle);
+        await fireEvent.press(toggle);
+        await fireEvent.press(toggle);
+      })()
+    ).resolves.not.toThrow();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('hides the toggles when the caller turns them off', () => {
-    renderMap({ routeCoordinates: ROUTE, showStyleToggle: false, show3DToggle: false });
+  it('hides the toggles when the caller turns them off', async () => {
+    await renderMap({ routeCoordinates: ROUTE, showStyleToggle: false, show3DToggle: false });
 
     expect(screen.queryByTestId('map-style-toggle')).toBeNull();
     expect(screen.queryByTestId('map-3d-toggle')).toBeNull();
   });
 
-  it('offers 3D only when there is a route to drape', () => {
-    renderMap({ routeCoordinates: [] });
+  it('offers 3D only when there is a route to drape', async () => {
+    await renderMap({ routeCoordinates: [] });
     expect(screen.queryByTestId('map-3d-toggle')).toBeNull();
 
-    screen.unmount();
+    await screen.unmount();
 
-    renderMap({ routeCoordinates: ROUTE });
+    await renderMap({ routeCoordinates: ROUTE });
     expect(screen.getByTestId('map-3d-toggle')).toBeTruthy();
   });
 
-  it('swaps in the terrain view when 3D is enabled and back out again', () => {
-    renderMap({ routeCoordinates: ROUTE });
+  it('swaps in the terrain view when 3D is enabled and back out again', async () => {
+    await renderMap({ routeCoordinates: ROUTE });
 
     expect(screen.queryByTestId('webview')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('map-3d-toggle'));
     expect(screen.getByTestId('webview')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('map-3d-toggle'));
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
-  it('forwards map presses to the caller', () => {
+  it('forwards map presses to the caller', async () => {
     const onPress = jest.fn();
-    renderMap({ routeCoordinates: ROUTE, onPress });
+    await renderMap({ routeCoordinates: ROUTE, onPress });
 
-    pressMapAt([7.447, 46.948]);
+    await pressMapAt([7.447, 46.948]);
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(onPress.mock.calls[0][0].coordinate).toEqual([7.447, 46.948]);
   });
 
-  it('accepts overlay sources and layers alongside the route', () => {
-    expect(() =>
-      renderMap({
-        routeCoordinates: ROUTE,
-        overlaySources: OVERLAY_SOURCES,
-        overlayLayers: OVERLAY_LAYERS,
-      })
-    ).not.toThrow();
+  it('accepts overlay sources and layers alongside the route', async () => {
+    await expect(
+      (async () =>
+        renderMap({
+          routeCoordinates: ROUTE,
+          overlaySources: OVERLAY_SOURCES,
+          overlayLayers: OVERLAY_LAYERS,
+        }))()
+    ).resolves.not.toThrow();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
@@ -249,59 +255,59 @@ describe('BaseMapView', () => {
       mockMap3DProbe.props = null;
     });
 
-    function enter3D() {
-      fireEvent.press(screen.getByTestId('map-3d-toggle'));
-      act(() => {
+    async function enter3D() {
+      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
+      await act(() => {
         (mockMap3DProbe.props!.onMapReady as () => void)();
       });
     }
 
-    it('hands the terrain layer the overlays the caller drew in 2D', () => {
-      renderMap({
+    it('hands the terrain layer the overlays the caller drew in 2D', async () => {
+      await renderMap({
         routeCoordinates: ROUTE,
         layer3D: { sectionTrimGeoJSON: TRIM, highlightedTraceGeoJSON: HIGHLIGHT },
       });
 
-      enter3D();
+      await enter3D();
 
       expect(mockMap3DProbe.props!.sectionTrimGeoJSON).toBe(TRIM);
       expect(mockMap3DProbe.props!.highlightedTraceGeoJSON).toBe(HIGHLIGHT);
     });
 
-    it('sends a section marker tap on the terrain layer to the caller', () => {
+    it('sends a section marker tap on the terrain layer to the caller', async () => {
       const onSectionClick = jest.fn();
-      renderMap({ routeCoordinates: ROUTE, layer3D: { onSectionClick } });
+      await renderMap({ routeCoordinates: ROUTE, layer3D: { onSectionClick } });
 
-      enter3D();
-      act(() => {
+      await enter3D();
+      await act(() => {
         (mockMap3DProbe.props!.onSectionClick as (id: string) => void)('hill-climb');
       });
 
       expect(onSectionClick).toHaveBeenCalledWith('hill-climb');
     });
 
-    it('brings the flat map back where the terrain camera was left', () => {
-      renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+    it('brings the flat map back where the terrain camera was left', async () => {
+      await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
-      enter3D();
+      await enter3D();
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
-      act(() => {
+      await act(() => {
         (mockMap3DProbe.props!.onCameraStateChange as (c: unknown, g: boolean) => void)(
           { center: [7.6, 46.7], zoom: 14, bearing: 30, pitch: 60 },
           true
         );
       });
-      fireEvent.press(screen.getByTestId('map-3d-toggle'));
+      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
 
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
       expect(mockSurfaceProbe.initialCamera).toEqual({ center: [7.6, 46.7], zoom: 14 });
     });
 
-    it('fits the bounds again on a later visit when the terrain camera never moved', () => {
-      renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+    it('fits the bounds again on a later visit when the terrain camera never moved', async () => {
+      await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
-      enter3D();
-      fireEvent.press(screen.getByTestId('map-3d-toggle'));
+      await enter3D();
+      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
 
       expect(mockSurfaceProbe.initialCamera).toEqual(
         expect.objectContaining({ bounds: { sw: BOUNDS.sw, ne: BOUNDS.ne } })
@@ -320,18 +326,18 @@ describe('BaseMapView', () => {
 
     async function pressLocate() {
       await act(async () => {
-        fireEvent.press(screen.getByRole('button', { name: 'maps.goToLocation' }));
+        await fireEvent.press(screen.getByRole('button', { name: 'maps.goToLocation' }));
       });
     }
 
-    it('keeps the location source mounted and empty before any fix', () => {
-      renderMap({ routeCoordinates: ROUTE });
+    it('keeps the location source mounted and empty before any fix', async () => {
+      await renderMap({ routeCoordinates: ROUTE });
 
       expect(mockSurfaceProbe.sources['user-location']?.data?.features).toEqual([]);
     });
 
     it('draws the dot at the fix and eases the camera to zoom 13', async () => {
-      renderMap({ routeCoordinates: ROUTE });
+      await renderMap({ routeCoordinates: ROUTE });
 
       await pressLocate();
 
@@ -344,7 +350,7 @@ describe('BaseMapView', () => {
     });
 
     it('reuses a fix under thirty seconds old instead of asking the GPS again', async () => {
-      renderMap({ routeCoordinates: ROUTE });
+      await renderMap({ routeCoordinates: ROUTE });
 
       await pressLocate();
       await pressLocate();
@@ -356,7 +362,7 @@ describe('BaseMapView', () => {
     it('shows a spinner and refuses presses while the fix is pending', async () => {
       let resolveFix: (fix: unknown) => void = () => {};
       getPosition.mockImplementationOnce(() => new Promise((resolve) => (resolveFix = resolve)));
-      renderMap({ routeCoordinates: ROUTE });
+      await renderMap({ routeCoordinates: ROUTE });
 
       await pressLocate();
 
@@ -375,14 +381,14 @@ describe('BaseMapView', () => {
     });
 
     it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
-      renderMap({ routeCoordinates: ROUTE });
+      await renderMap({ routeCoordinates: ROUTE });
       const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
 
       await act(async () => {
-        fireEvent.press(locate);
+        await fireEvent.press(locate);
       });
       await act(async () => {
-        fireEvent.press(locate);
+        await fireEvent.press(locate);
       });
 
       expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
@@ -410,8 +416,8 @@ describe('BaseMapView', () => {
       ['empty overlays', { routeCoordinates: ROUTE, overlaySources: {}, overlayLayers: [] }],
     ];
 
-    it.each(cases)('survives %s', (_label, props) => {
-      expect(() => renderMap(props)).not.toThrow();
+    it.each(cases)('survives %s', async (_label, props) => {
+      await expect((async () => renderMap(props))()).resolves.not.toThrow();
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
   });
@@ -419,8 +425,8 @@ describe('BaseMapView', () => {
 
 // The surface reports a tap as a bridge message, so a press test drives the
 // same message the page would post rather than a renderer-specific event.
-function pressMapAt(coordinate: [number, number]) {
-  fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+async function pressMapAt(coordinate: [number, number]) {
+  await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
     nativeEvent: {
       data: JSON.stringify({ type: 'mapClick', coordinate, point: [0, 0], feature: null }),
     },

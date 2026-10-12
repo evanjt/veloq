@@ -64,29 +64,29 @@ jest.mock('@/shared/native/useLibraryCoverage', () => ({
 describe('the sync progress banner', () => {
   beforeEach(() => mockWithTiming.mockClear());
 
-  it('does not restart its animations when the tree re-renders unchanged', () => {
-    const { rerender } = render(<SyncProgressBanner />);
+  it('does not restart its animations when the tree re-renders unchanged', async () => {
+    const { rerender } = await render(<SyncProgressBanner />);
     const afterMount = mockWithTiming.mock.calls.length;
 
-    rerender(<SyncProgressBanner />);
-    rerender(<SyncProgressBanner />);
+    await rerender(<SyncProgressBanner />);
+    await rerender(<SyncProgressBanner />);
 
     expect(mockWithTiming.mock.calls.length).toBe(afterMount);
   });
 
-  it('still animates once on mount', () => {
-    render(<SyncProgressBanner />);
+  it('still animates once on mount', async () => {
+    await render(<SyncProgressBanner />);
 
     expect(mockWithTiming.mock.calls.length).toBeGreaterThan(0);
   });
 });
 
 describe('the sync progress banner height', () => {
-  it('animates to the measured content height so the lines and the track are not clipped', () => {
-    const { getByTestId, getByTestId: byId } = render(<SyncProgressBanner />);
+  it('animates to the measured content height so the lines and the track are not clipped', async () => {
+    const { getByTestId, getByTestId: byId } = await render(<SyncProgressBanner />);
     const content = byId('sync-progress-banner-content');
 
-    act(() => {
+    await act(() => {
       content.props.onLayout({ nativeEvent: { layout: { height: 75, width: 320, x: 0, y: 0 } } });
     });
 
@@ -94,14 +94,14 @@ describe('the sync progress banner height', () => {
     expect(style.height).toBe(75);
   });
 
-  it('follows the content when it grows after the first measure', () => {
-    const { getByTestId } = render(<SyncProgressBanner />);
+  it('follows the content when it grows after the first measure', async () => {
+    const { getByTestId } = await render(<SyncProgressBanner />);
     const content = getByTestId('sync-progress-banner-content');
 
-    act(() => {
+    await act(() => {
       content.props.onLayout({ nativeEvent: { layout: { height: 59, width: 320, x: 0, y: 0 } } });
     });
-    act(() => {
+    await act(() => {
       content.props.onLayout({ nativeEvent: { layout: { height: 75, width: 320, x: 0, y: 0 } } });
     });
 

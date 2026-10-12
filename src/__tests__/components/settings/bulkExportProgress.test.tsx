@@ -14,8 +14,8 @@ import { BulkExportProgress } from '@/features/settings/components/BulkExportPro
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
-it('shows a spinner and no count while the total is unknown', () => {
-  render(
+it('shows a spinner and no count while the total is unknown', async () => {
+  await render(
     <BulkExportProgress
       phase="generating"
       format="gpx"
@@ -31,8 +31,8 @@ it('shows a spinner and no count while the total is unknown', () => {
   expect(screen.queryByTestId('bulk-export-count')).toBeNull();
 });
 
-it('shows the count and no spinner once the worker reports a total', () => {
-  render(
+it('shows the count and no spinner once the worker reports a total', async () => {
+  await render(
     <BulkExportProgress
       phase="generating"
       format="gpx"
@@ -49,8 +49,8 @@ it('shows the count and no spinner once the worker reports a total', () => {
   );
 });
 
-it('shows the size once the export has produced one', () => {
-  render(
+it('shows the size once the export has produced one', async () => {
+  await render(
     <BulkExportProgress
       phase="sharing"
       format="gpx"
@@ -65,8 +65,8 @@ it('shows the size once the export has produced one', () => {
   expect(screen.getByText(/8/)).toBeTruthy();
 });
 
-it('says nothing about a size it does not have yet', () => {
-  render(
+it('says nothing about a size it does not have yet', async () => {
+  await render(
     <BulkExportProgress
       phase="generating"
       format="gpx"

@@ -46,7 +46,8 @@ interface UseMapHandlersOptions {
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
   setSelectedSectionId: (value: string | null) => void;
-  setSectionChoices: (value: string[]) => void;
+  /** Offers the sections under one tap, when it landed on more than one. */
+  chooseSection: (ids: string[]) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
   showSections: boolean;
@@ -102,7 +103,7 @@ export function useMapHandlers({
   selected,
   setSelected,
   setSelectedSectionId,
-  setSectionChoices,
+  chooseSection,
   setShowActivities,
   setShowSections,
   setShowRoutes,
@@ -169,8 +170,12 @@ export function useMapHandlers({
         isLoading: true,
       });
 
-      // Load route data after popup is shown (non-blocking)
+      // Load route data after popup is shown (non-blocking). A dismissal or
+      // another tap inside the frame decides what is on screen, so the frame
+      // writes only for the popup it was asked for.
       requestAnimationFrame(() => {
+        const onScreen = selectedRef.current?.activity.id ?? null;
+        if (!trackStillWanted(activity.id, onScreen, mountedRef.current)) return;
         const engine = getEngine();
         const encoded = engine?.getGpsTrack(activity.id);
         const localTrack = encoded ? decodeCoords(encoded) : [];
@@ -283,9 +288,8 @@ export function useMapHandlers({
     if (selectedRef.current) setSelected(null);
     setSelectedSectionId(null);
     setSelectedRouteId(null);
-    setSectionChoices([]);
     setSpider(null);
-  }, [setSelected, setSelectedSectionId, setSelectedRouteId, setSectionChoices, setSpider]);
+  }, [setSelected, setSelectedSectionId, setSelectedRouteId, setSpider]);
 
   // One tap handler for the whole surface. The page resolves which layer the
   // finger landed on, so there is no platform-specific hit test left here.
@@ -300,14 +304,14 @@ export function useMapHandlers({
 
       if (feature.layerId === SECTIONS_LINE_LAYER_ID) {
         const ids = sectionIdsAtTap(event.features?.length ? event.features : [feature]);
-        setSectionChoices(ids.length > 1 ? ids : []);
         if (ids.length === 1) setSelectedSectionId(ids[0] ?? null);
-        if (ids.length > 1) setSelectedSectionId(null);
+        if (ids.length > 1) {
+          setSelectedSectionId(null);
+          chooseSection(ids);
+        }
         setSelectedRouteId(null);
         return;
       }
-
-      setSectionChoices([]);
 
       if (feature.layerId === ROUTES_LINE_LAYER_ID) {
         const routeId = feature.properties?.id;
@@ -405,7 +409,7 @@ export function useMapHandlers({
       setSelected,
       setSelectedSectionId,
       setSelectedRouteId,
-      setSectionChoices,
+      chooseSection,
       setSpider,
       surfaceRef,
     ]
@@ -489,11 +493,10 @@ export function useMapHandlers({
       if (current) {
         // We're hiding sections, clear selection
         setSelectedSectionId(null);
-        setSectionChoices([]);
       }
       return !current;
     });
-  }, [setShowSections, setSelectedSectionId, setSectionChoices]);
+  }, [setShowSections, setSelectedSectionId]);
 
   // Toggle routes visibility - clear selection when hiding
   const toggleRoutes = useCallback(() => {

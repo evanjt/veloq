@@ -20,8 +20,8 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 describe('wellness sleep duration', () => {
-  it('carries rounded minutes into the hour', () => {
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
+  it('carries rounded minutes into the hour', async () => {
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     expect(tree.getByText('8h 0m')).toBeTruthy();
     expect(tree.getByText('sections.avg 8h 0m')).toBeTruthy();
     expect(tree.queryByText('7h 60m')).toBeNull();

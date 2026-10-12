@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, RefreshControl, Platform, Share } fr
 import Constants from 'expo-constants';
 import { Button, ScreenScrollView, useTabBarClearance, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
 import {
   readBasemapTileCounts,
@@ -23,12 +23,14 @@ import {
   engineErrorTag,
   type EngineReadResult,
 } from '@/shared/native/engineError';
+import { ABSENT } from '@/shared/format/absent';
 
 function getEngine() {
   try {
     const mod = require('veloqrs');
     return mod.EngineClient?.getInstance() ?? null;
   } catch {
+    // empty-on-error: a build without the native module has no engine to show.
     return null;
   }
 }
@@ -44,7 +46,7 @@ function getMemoryStats(): { heapMB: string; allocMB: string; gcCount: number } 
 }
 
 function formatDate(ts: number | null | undefined): string {
-  if (ts == null) return '-';
+  if (ts == null) return ABSENT;
   return new Date(Number(ts) * 1000).toLocaleDateString();
 }
 
@@ -249,7 +251,7 @@ function BackgroundNotificationsDebug({
       defaultOpen={false}
       testID="debug-section-background-notifications"
     >
-      <View style={styles.tableHeader}>
+      <View style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}>
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>Native push worker</Text>
       </View>
       {!dashboard.ok ? (
@@ -258,7 +260,10 @@ function BackgroundNotificationsDebug({
         </Text>
       ) : pushRuns.length > 0 ? (
         pushRuns.map((run) => (
-          <View key={`${run.ts}-${run.activityId}-${run.outcome}`} style={styles.taskRunRow}>
+          <View
+            key={`${run.ts}-${run.activityId}-${run.outcome}`}
+            style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).divider }]}
+          >
             <View style={styles.taskRunHeader}>
               <Text style={[styles.statValue, { color: textColor }]}>{run.outcome}</Text>
               <Text style={[styles.statLabel, { color: mutedColor }]}>
@@ -276,13 +281,22 @@ function BackgroundNotificationsDebug({
         </Text>
       )}
 
-      <View style={[styles.tableHeader, styles.taskRunGroup]}>
+      <View
+        style={[
+          styles.tableHeader,
+          styles.taskRunGroup,
+          { borderBottomColor: themePalette(isDark).divider },
+        ]}
+      >
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>JavaScript task</Text>
       </View>
       {runs.length > 0 ? (
         <>
           {runs.map((run, idx) => (
-            <View key={`${run.ts}-${idx}`} style={styles.taskRunRow}>
+            <View
+              key={`${run.ts}-${idx}`}
+              style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).divider }]}
+            >
               <View style={styles.taskRunHeader}>
                 <Text style={[styles.statValue, { color: textColor }]}>{run.stage}</Text>
                 <Text style={[styles.statLabel, { color: mutedColor }]}>
@@ -292,7 +306,7 @@ function BackgroundNotificationsDebug({
               <Text style={[styles.taskRunDetail, { color: mutedColor }]} numberOfLines={2}>
                 {[run.eventType, run.activityId, run.sourceShape, run.detail]
                   .filter(Boolean)
-                  .join(' · ') || '-'}
+                  .join(' · ') || ABSENT}
               </Text>
             </View>
           ))}
@@ -559,7 +573,9 @@ function DebugScreenContent() {
           {ffiMethods.length > 0 ? (
             <>
               {/* Header */}
-              <View style={styles.tableHeader}>
+              <View
+                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}
+              >
                 <Text style={[styles.tableHeaderText, styles.methodCol, { color: mutedColor }]}>
                   Method
                 </Text>
@@ -680,7 +696,9 @@ function DebugScreenContent() {
         <CollapsibleSection title="Map tiles" icon="map-outline" isDark={isDark}>
           {tileCounts.length > 0 ? (
             <>
-              <View style={styles.tableHeader}>
+              <View
+                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}
+              >
                 <Text style={[styles.tableHeaderText, styles.methodCol, { color: mutedColor }]}>
                   Source
                 </Text>
@@ -829,7 +847,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
     marginBottom: spacing.xs,
   },
   tableHeaderText: {
@@ -862,7 +879,6 @@ const styles = StyleSheet.create({
   taskRunRow: {
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
   },
   taskRunHeader: {
     flexDirection: 'row',

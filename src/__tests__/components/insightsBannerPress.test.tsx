@@ -37,15 +37,15 @@ describe('the Today banner press target', () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
   });
 
-  it('is not touchable in a release build', () => {
+  it('is not touchable in a release build', async () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
-    render(<InsightsPanel insights={[]} />);
+    await render(<InsightsPanel insights={[]} />);
     expect(hasTouchableAncestor(screen.getByTestId('banner'))).toBe(false);
   });
 
-  it('keeps the debug long press in development', () => {
+  it('keeps the debug long press in development', async () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
-    render(<InsightsPanel insights={[]} />);
+    await render(<InsightsPanel insights={[]} />);
     expect(hasTouchableAncestor(screen.getByTestId('banner'))).toBe(true);
   });
 });

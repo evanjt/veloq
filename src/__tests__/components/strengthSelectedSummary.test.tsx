@@ -59,8 +59,8 @@ const volume: MuscleVolume = {
   shade: 5,
 };
 
-function draw(selectedVolume: MuscleVolume | null) {
-  render(
+async function draw(selectedVolume: MuscleVolume | null) {
+  await render(
     <StrengthBodyDiagram
       bodyData={[]}
       gender="male"
@@ -79,23 +79,23 @@ describe('selected muscle summary', () => {
     mockIsMetric = true;
   });
 
-  it('shows weighted sets and volume beside the name', () => {
-    draw(volume);
+  it('shows weighted sets and volume beside the name', async () => {
+    await draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
       '· 12.5 strength.setsCount · 3420 kg'
     );
   });
 
-  it('uses the athlete weight unit', () => {
+  it('uses the athlete weight unit', async () => {
     mockIsMetric = false;
-    draw(volume);
+    await draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
       '· 12.5 strength.setsCount · 7540 lbs'
     );
   });
 
-  it('names the row as clearing the selected muscle, with its numbers', () => {
-    draw(volume);
+  it('names the row as clearing the selected muscle, with its numbers', async () => {
+    await draw(volume);
     expect(
       screen.getByRole('button', {
         name: 'strength.clearMuscle(strength.muscles.abs), 12.5 strength.setsCount · 3420 kg',
@@ -103,8 +103,8 @@ describe('selected muscle summary', () => {
     ).toBeTruthy();
   });
 
-  it('shows nothing without a selection', () => {
-    draw(null);
+  it('shows nothing without a selection', async () => {
+    await draw(null);
     expect(screen.queryByTestId('strength-selected-summary')).toBeNull();
   });
 });

@@ -24,73 +24,73 @@ const failure = Object.assign(new Error('reader pool'), { tag: 'Database' });
 describe('section detail read status', () => {
   afterEach(() => mockGetEngine.mockReset());
 
-  it('reports a thrown read as failed and keeps the error', () => {
+  it('reports a thrown read as failed and keeps the error', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => {
         throw failure;
       },
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.data).toBeNull();
     expect(result.current.status).toEqual({ kind: 'failed', error: failure });
   });
 
-  it('reports a closed engine as closed', () => {
+  it('reports a closed engine as closed', async () => {
     mockGetEngine.mockReturnValue(null);
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
 
-  it('reports a delegate answering undefined as closed', () => {
+  it('reports a delegate answering undefined as closed', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => undefined,
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
 
-  it('reports a bundle with no section as missing', () => {
+  it('reports a bundle with no section as missing', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => ({ activityCount: 0, section: undefined }),
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'missing' });
   });
 
-  it('carries the ledger departure of a missing section', () => {
+  it('carries the ledger departure of a missing section', async () => {
     const retirement = { kind: 'merged', at: '2026-08-01', into: 's2', intoName: 'Hill' };
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => ({ activityCount: 0, section: undefined, retirement }),
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'missing' });
     expect(result.current.retirement).toEqual(retirement);
   });
 
-  it('carries no departure for a missing section the ledger never saw', () => {
+  it('carries no departure for a missing section the ledger never saw', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => ({ activityCount: 0, section: undefined }),
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.retirement).toBeNull();
   });
 
-  it('reports a found section as ok', () => {
+  it('reports a found section as ok', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => ({ activityCount: 3, section: { id: 's1' } }),
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'ok' });
     expect(result.current.data?.activityCount).toBe(3);
   });
 
-  it('passes activity rows through with the engine speed and start time unchanged', () => {
+  it('passes activity rows through with the engine speed and start time unchanged', async () => {
     const row = {
       activityId: 'ride-1',
       name: 'Morning ride',
@@ -110,11 +110,11 @@ describe('section detail read status', () => {
       }),
     });
 
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.data?.activityRows?.[0]).toBe(row);
   });
 
-  it('does not read an unused nearby bundle', () => {
+  it('does not read an unused nearby bundle', async () => {
     const shapeHasNoNearby: 'nearby' extends keyof SectionDetailData ? false : true = true;
     const nearby = jest.fn(() => {
       throw new Error('nearby geometry was decoded');
@@ -129,7 +129,7 @@ describe('section detail read status', () => {
         },
       }),
     });
-    const { result } = renderHook(() => useSectionDetailData('s1', 0));
+    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'ok' });
     expect(nearby).not.toHaveBeenCalled();
     expect(shapeHasNoNearby).toBe(true);
@@ -139,30 +139,30 @@ describe('section detail read status', () => {
 describe('route detail read status', () => {
   afterEach(() => mockGetEngine.mockReset());
 
-  it('reports a thrown read as failed and keeps the error', () => {
+  it('reports a thrown read as failed and keeps the error', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getRouteDetailData: () => {
         throw failure;
       },
     });
-    const { result } = renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
     expect(result.current.data).toBeNull();
     expect(result.current.status).toEqual({ kind: 'failed', error: failure });
   });
 
-  it('reports a closed engine as closed', () => {
+  it('reports a closed engine as closed', async () => {
     mockGetEngine.mockReturnValue(null);
-    const { result } = renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
 
-  it('reports a bundle with no group as missing', () => {
+  it('reports a bundle with no group as missing', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getRouteDetailData: () => ({ activityCount: 0, group: undefined }),
     });
-    const { result } = renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
     expect(result.current.status).toEqual({ kind: 'missing' });
   });
 });

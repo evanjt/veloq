@@ -74,7 +74,7 @@ object WidgetRenderer {
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_small)
     bindHero(p, v, snap, card)
-    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
+    bindChart(context, p, v, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
     // A host reapplies these views over the ones it shows, which a short placement left hidden.
     v.setViewVisibility(R.id.small_age, View.VISIBLE)
@@ -95,7 +95,7 @@ object WidgetRenderer {
     bindHero(p, v, snap, card)
     bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartW, 48)
+    bindChart(context, p, v, snap, card, chartW, 48)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(p, v, R.id.med_updated, snap)
     bindRefresh(context, v, snap)
@@ -114,7 +114,7 @@ object WidgetRenderer {
     bindHero(p, v, snap, card)
     bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, R.id.sum_sparkline, snap, card, chartW, 52)
+    bindChart(context, p, v, snap, card, chartW, 52)
     bindFormZones(context, p, v, snap, chartWidthDp(minWidthDp, 300), 96)
 
     // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
@@ -138,8 +138,10 @@ object WidgetRenderer {
     v.setTextViewText(R.id.sum_label, card.hero.label)
     v.setTextViewText(R.id.sum_value, card.hero.value)
     p.textColor(v, R.id.sum_value, color)
-    v.setTextViewText(R.id.sum_trend, trendArrow(card.hero.trendDir))
+    v.setTextViewText(R.id.sum_trend, SummaryWidget.trendArrow(card.hero.trendDir))
     p.textColor(v, R.id.sum_trend, trendColor(card.hero.verdict))
+    // The arrow carries the verdict in colour, so the row is read as the engine's words for it.
+    v.setContentDescription(R.id.sum_hero, card.hero.spokenOrPlain())
     val line = SummaryWidget.heroLine(snap, card)
     if (line.isNullOrEmpty()) {
       v.setViewVisibility(R.id.sum_line, View.GONE)
@@ -182,8 +184,9 @@ object WidgetRenderer {
       v.setTextViewText(ids.label, entry.label)
       v.setTextViewText(ids.value, entry.value)
       p.textColor(v, ids.value, summaryColor(p, entry.colorKey, snap.form.zone))
-      v.setTextViewText(ids.trend, trendArrow(entry.trendDir))
+      v.setTextViewText(ids.trend, SummaryWidget.trendArrow(entry.trendDir))
       p.textColor(v, ids.trend, trendColor(entry.verdict))
+      v.setContentDescription(ids.cell, entry.spokenOrPlain())
     }
   }
 
@@ -317,6 +320,7 @@ object WidgetRenderer {
     v.setInt(R.id.act_name, "setMaxLines", if (size == SummarySize.LARGE) 4 else 2)
     v.setViewVisibility(
       R.id.act_pr, if (content.isPr && content.name != null) View.VISIBLE else View.GONE)
+    v.setContentDescription(R.id.act_pr, latest.prLabel)
     bindLine(v, R.id.act_label, content.heroLabel)
     bindLine(v, R.id.act_hero, content.hero)
     bindLine(v, R.id.act_detail, content.detail)
@@ -355,6 +359,7 @@ object WidgetRenderer {
           (heightDp.coerceAtLeast(60) * d).roundToInt(),
           tint.pick(dark))
       }
+      v.setContentDescription(R.id.act_preview, latest.routeLabel)
       v.setViewVisibility(R.id.act_preview, View.VISIBLE)
     }
 
@@ -452,7 +457,6 @@ object WidgetRenderer {
     context: Context,
     p: WidgetPalette,
     v: RemoteViews,
-    id: Int,
     snap: WidgetSnapshot,
     card: SummaryCard,
     widthDp: Int,
@@ -474,10 +478,13 @@ object WidgetRenderer {
     // Whether a series draws at all does not depend on the theme, so the light one decides.
     val light = draw(false)
     if (light == null) {
-      v.setViewVisibility(id, View.GONE)
+      v.setViewVisibility(R.id.sum_sparkline, View.GONE)
     } else {
-      p.bitmap(v, id) { dark -> if (dark) draw(true) ?: light else light }
-      v.setViewVisibility(id, View.VISIBLE)
+      p.bitmap(v, R.id.sum_sparkline) { dark -> if (dark) draw(true) ?: light else light }
+      v.setContentDescription(
+        R.id.sum_sparkline,
+        if (chart is SummaryChart.Single) snap.chartLabels.hrv else snap.chartLabels.fitness)
+      v.setViewVisibility(R.id.sum_sparkline, View.VISIBLE)
     }
   }
 
@@ -514,6 +521,7 @@ object WidgetRenderer {
     v.setViewVisibility(R.id.sum_form_title, View.VISIBLE)
     v.setTextViewText(R.id.sum_form_title, snap.metricLabels["form"] ?: "Form")
     v.setViewVisibility(R.id.sum_form_zones, View.VISIBLE)
+    v.setContentDescription(R.id.sum_form_zones, snap.chartLabels.form)
     p.bitmap(v, R.id.sum_form_zones) { dark ->
       FitnessChart.formZonesBitmap(
         chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, colors(dark))
@@ -521,13 +529,6 @@ object WidgetRenderer {
   }
 
   // ---- formatting -------------------------------------------------------------
-
-  private fun trendArrow(dir: String): String =
-    when (dir) {
-      "up" -> "▲"
-      "down" -> "▼"
-      else -> "–"
-    }
 
   /** Coloured by the judgement the app made, never by the direction the number went. */
   private fun trendColor(verdict: String): Int =

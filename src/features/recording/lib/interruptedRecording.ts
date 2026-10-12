@@ -1,5 +1,3 @@
-import { Alert } from 'react-native';
-
 import { i18n } from '@/i18n';
 import { navigateTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -9,6 +7,7 @@ import type { RecordingBackup } from '../types';
 import { clearInterruptedRecordingNotice } from './recordingNotification';
 import { resumeRecordingBackup, settleSavedBackup } from './restoreRecordingBackup';
 import { clearRecordingBackup, loadRecordingBackup } from './storage/recordingBackup';
+import { chooseAction } from '@/shared/ui/dialog';
 
 /**
  * Moving time the backup holds, up to its last save. A live ride's backup has
@@ -72,15 +71,14 @@ export async function promptInterruptedRecording(): Promise<void> {
   if (!canOpenBackup(backup)) return;
 
   const t = i18n.t.bind(i18n);
-  const keepForLater = () => {};
-  Alert.alert(
-    t('recording.resumePrevious'),
-    interruptedRecordingMessage(backup),
-    [
-      { text: t('recording.resumeLater'), style: 'cancel', onPress: keepForLater },
+  chooseAction({
+    title: t('recording.resumePrevious'),
+    message: interruptedRecordingMessage(backup),
+    cancelLabel: t('recording.resumeLater'),
+    actions: [
       {
-        text: t('recording.discard'),
-        style: 'destructive',
+        label: t('recording.discard'),
+        destructive: true,
         onPress: () => {
           if (!canOpenBackup(backup)) return;
           void clearRecordingBackup(backup.athleteId, backup);
@@ -88,7 +86,7 @@ export async function promptInterruptedRecording(): Promise<void> {
         },
       },
       {
-        text: t('recording.controls.resume'),
+        label: t('recording.controls.resume'),
         onPress: async () => {
           if (!canOpenBackup(backup)) return;
           const route = await resumeRecordingBackup();
@@ -96,6 +94,5 @@ export async function promptInterruptedRecording(): Promise<void> {
         },
       },
     ],
-    { cancelable: true, onDismiss: keepForLater }
-  );
+  });
 }

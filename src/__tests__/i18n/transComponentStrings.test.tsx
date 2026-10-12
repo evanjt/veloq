@@ -45,7 +45,7 @@ describe('Trans with component tags', () => {
 
     for (const key of ['bodyTypeFromProfile', 'bodyTypeDefault'] as const) {
       const template = resolvedLocale(locale).strength[key] as string;
-      const { getByTestId, unmount } = render(
+      const { getByTestId, unmount } = await render(
         <I18nextProvider i18n={i18n}>
           <Text testID="line">
             <Trans
@@ -59,7 +59,7 @@ describe('Trans with component tags', () => {
 
       expect(getByTestId('line')).toHaveTextContent(plain(template, values));
       expect(getByTestId('highlight')).toHaveTextContent(tagged(template, 'type', values));
-      unmount();
+      await unmount();
     }
   });
 });

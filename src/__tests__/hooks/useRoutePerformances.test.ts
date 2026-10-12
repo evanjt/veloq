@@ -65,7 +65,7 @@ beforeEach(() => {
   (getEngine as jest.Mock).mockReturnValue({ getRoutePerformances });
 });
 
-it('takes the fastest attempt from the engine, not from the metrics it holds', () => {
+it('takes the fastest attempt from the engine, not from the metrics it holds', async () => {
   // 'a3' has the shortest moving time in the metrics, but the engine ruled it
   // out of the route's attempts, so it is not the best on this route.
   getRoutePerformances.mockReturnValue({
@@ -79,12 +79,12 @@ it('takes the fastest attempt from the engine, not from the metrics it holds', (
     currentRank: 1,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.best?.activityId).toBe('a2');
 });
 
-it('carries the engine verdict on whether each direction best is a record', () => {
+it('carries the engine verdict on whether each direction best is a record', async () => {
   getRoutePerformances.mockReturnValue({
     performances: [performance('a1', 3600), performance('a2', 3300)],
     activityMetrics: [metrics('a1', 3600), metrics('a2', 3300)],
@@ -94,13 +94,13 @@ it('carries the engine verdict on whether each direction best is a record', () =
     currentRank: 1,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.bestForwardIsRecord).toBe(true);
   expect(result.current.bestReverseIsRecord).toBe(false);
 });
 
-it('has no best when the engine names none', () => {
+it('has no best when the engine names none', async () => {
   getRoutePerformances.mockReturnValue({
     performances: [performance('a1', 3600)],
     activityMetrics: [metrics('a1', 3600)],
@@ -112,13 +112,13 @@ it('has no best when the engine names none', () => {
     currentRank: undefined,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.performances).toHaveLength(1);
   expect(result.current.best).toBeNull();
 });
 
-it('has no best when the engine names an attempt the chart dropped', () => {
+it('has no best when the engine names an attempt the chart dropped', async () => {
   // A zero speed cannot be plotted, so the point never enters the chart.
   getRoutePerformances.mockReturnValue({
     performances: [{ ...performance('a1', 3600), speed: 0 }, performance('a2', 3300)],
@@ -131,24 +131,24 @@ it('has no best when the engine names an attempt the chart dropped', () => {
     currentRank: 2,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.performances.map((p) => p.activityId)).toEqual(['a2']);
   expect(result.current.best).toBeNull();
 });
 
-it('has no best when the engine throws', () => {
+it('has no best when the engine throws', async () => {
   getRoutePerformances.mockImplementation(() => {
     throw new Error('engine down');
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.performances).toEqual([]);
   expect(result.current.best).toBeNull();
 });
 
-it('leaves a route the engine has not named with an empty name, never its group id', () => {
+it('leaves a route the engine has not named with an empty name, never its group id', async () => {
   getRoutePerformances.mockReturnValue({
     performances: [performance('a1', 3600)],
     activityMetrics: [metrics('a1', 3600)],
@@ -160,7 +160,7 @@ it('leaves a route the engine has not named with an empty name, never its group 
     currentRank: undefined,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   expect(result.current.routeGroup?.id).toBe('g1');
   expect(result.current.routeGroup?.name).toBe('');
@@ -199,28 +199,28 @@ describe('a sport filter over a screen bundle', () => {
     attemptCount: 2,
   };
 
-  it('reads the engine once across re-renders that rebuild the bundle object', () => {
+  it('reads the engine once across re-renders that rebuild the bundle object', async () => {
     getRoutePerformances.mockReturnValue(filtered);
 
     // The screen builds this literal in its render body, so every render is a
     // new object with the same contents.
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ sport }: { sport?: string | undefined }) =>
         useRoutePerformances('a1', 'g1', sport, { groups, result: undefined }),
       { initialProps: { sport: 'Ride' } }
     );
     expect(result.current.performances).toHaveLength(1);
 
-    rerender({ sport: 'Ride' });
-    rerender({ sport: 'Ride' });
+    await rerender({ sport: 'Ride' });
+    await rerender({ sport: 'Ride' });
 
     expect(getRoutePerformances).toHaveBeenCalledTimes(1);
   });
 
-  it('reads again when the filter changes, and not when it is cleared over a held result', () => {
+  it('reads again when the filter changes, and not when it is cleared over a held result', async () => {
     getRoutePerformances.mockReturnValue(filtered);
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ sport }: { sport?: string | undefined }) =>
         useRoutePerformances('a1', 'g1', sport, {
           groups,
@@ -230,17 +230,17 @@ describe('a sport filter over a screen bundle', () => {
     );
     expect(getRoutePerformances).toHaveBeenCalledTimes(1);
 
-    rerender({ sport: 'Run' });
+    await rerender({ sport: 'Run' });
     expect(getRoutePerformances).toHaveBeenCalledTimes(2);
     expect(getRoutePerformances).toHaveBeenLastCalledWith('g1', 'a1', 'Run');
 
-    rerender({ sport: undefined });
+    await rerender({ sport: undefined });
     expect(result.current.performances).toHaveLength(2);
     expect(getRoutePerformances).toHaveBeenCalledTimes(2);
   });
 });
 
-it('marks an attempt the engine flagged outside the distance band', () => {
+it('marks an attempt the engine flagged outside the distance band', async () => {
   getRoutePerformances.mockReturnValue({
     performances: [
       performance('a1', 3600),
@@ -254,7 +254,7 @@ it('marks an attempt the engine flagged outside the distance band', () => {
     currentRank: 1,
   });
 
-  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
   const flagged = Object.fromEntries(
     result.current.performances.map((p) => [p.activityId, p.outsideDistanceBand])
@@ -268,26 +268,26 @@ describe('the trend curves the engine fitted', () => {
     { time: 1_700_086_400, value: 6.4, upper: 6.9, lower: 5.9 },
   ];
 
-  it('hands the engine result its curves unchanged', () => {
+  it('hands the engine result its curves unchanged', async () => {
     const trendCurves = { forwardSpeed: curve, forwardTime: curve };
     getRoutePerformances.mockReturnValue({
       performances: [performance('a1', 3600)],
       activityMetrics: [metrics('a1', 3600)],
       trendCurves,
     });
-    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
     expect(result.current.trendCurves).toBe(trendCurves);
   });
 
-  it('has no curves when the engine has no route to read', () => {
+  it('has no curves when the engine has no route to read', async () => {
     getRoutePerformances.mockReturnValue(undefined);
-    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
     expect(result.current.trendCurves).toEqual({});
   });
 });
 
 describe('chart points come from the engine performances', () => {
-  it('plots the engine speed and current flag with no metrics bundled', () => {
+  it('plots the engine speed and current flag with no metrics bundled', async () => {
     getRoutePerformances.mockReturnValue({
       performances: [
         { ...performance('a1', 3600), speed: 7.5, isCurrent: true },
@@ -298,7 +298,7 @@ describe('chart points come from the engine performances', () => {
       currentRank: 1,
     });
 
-    const { result } = renderHook(() => useRoutePerformances('a2', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a2', 'g1'));
 
     expect(result.current.performances.map((p) => [p.activityId, p.speed, p.isCurrent])).toEqual([
       ['a1', 7.5, false],
@@ -307,14 +307,14 @@ describe('chart points come from the engine performances', () => {
     expect(result.current.best?.activityId).toBe('a2');
   });
 
-  it('drops an attempt the engine gave no speed', () => {
+  it('drops an attempt the engine gave no speed', async () => {
     getRoutePerformances.mockReturnValue({
       performances: [{ ...performance('a1', 0), speed: 0 }, performance('a2', 3300)],
       activityMetrics: [],
       currentRank: 1,
     });
 
-    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
     expect(result.current.performances.map((p) => p.activityId)).toEqual(['a2']);
   });

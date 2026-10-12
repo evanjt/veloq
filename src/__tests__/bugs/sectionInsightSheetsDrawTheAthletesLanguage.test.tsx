@@ -94,12 +94,12 @@ function textOf(node: unknown): string[] {
 }
 
 /** A section PR sheet, and a section group sheet with one row opened. */
-function sheets(): string[] {
-  const pr = render(<SectionPRContent insight={insight('section_pr', 2)} />);
+async function sheets(): Promise<string[]> {
+  const pr = await render(<SectionPRContent insight={insight('section_pr', 2)} />);
   const prText = textOf(pr.toJSON());
-  const group = render(<SectionTrendContent insight={insight('section_trend', 2)} />);
+  const group = await render(<SectionTrendContent insight={insight('section_trend', 2)} />);
   // The first row's chevron: its sport icon, its trend icon, then the chevron.
-  fireEvent.press(group.getAllByTestId('icon')[2]);
+  await fireEvent.press(group.getAllByTestId('icon')[2]);
   const groupText = textOf(group.toJSON());
   return [...prText, ...groupText].filter((line) => /[A-Za-z]{4,}/.test(line));
 }
@@ -115,11 +115,11 @@ describe('the section insight sheets', () => {
 
   it('draw no English sentence or label in German', async () => {
     await changeLanguage('en-AU');
-    const english = new Set(sheets().filter((line) => !/^Climb \d$/.test(line)));
+    const english = new Set((await sheets()).filter((line) => !/^Climb \d$/.test(line)));
     expect(english.size).toBeGreaterThan(5);
 
     await changeLanguage('de-DE');
-    const german = sheets();
+    const german = await sheets();
 
     expect(german.filter((line) => english.has(line))).toEqual([]);
 

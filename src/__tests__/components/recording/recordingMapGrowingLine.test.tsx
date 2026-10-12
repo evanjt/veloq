@@ -52,24 +52,28 @@ function routeLine(): number[][] {
 }
 
 describe('the live line on the recording map', () => {
-  it('ships one fix as one point from a track that grows in place', () => {
+  it('ships one fix as one point from a track that grows in place', async () => {
     const track: [number, number][] = [
       [46.948, 7.447],
       [46.949, 7.448],
     ];
     const here = { latitude: 46.949, longitude: 7.448 };
-    const view = render(
+    const view = await render(
       <RecordingMap coordinates={track} coordinateCount={2} currentLocation={here} />
     );
 
     track.push([46.95, 7.449]);
-    view.rerender(<RecordingMap coordinates={track} coordinateCount={3} currentLocation={here} />);
+    await view.rerender(
+      <RecordingMap coordinates={track} coordinateCount={3} currentLocation={here} />
+    );
     expect(patches[patches.length - 1].patch?.appends).toEqual({
       'recording-route': [[7.449, 46.95]],
     });
 
     track.push([46.951, 7.45]);
-    view.rerender(<RecordingMap coordinates={track} coordinateCount={4} currentLocation={here} />);
+    await view.rerender(
+      <RecordingMap coordinates={track} coordinateCount={4} currentLocation={here} />
+    );
     expect(patches[patches.length - 1].patch?.appends).toEqual({
       'recording-route': [[7.45, 46.951]],
     });
@@ -81,31 +85,31 @@ describe('the live line on the recording map', () => {
     ]);
   });
 
-  it('draws only the length the render saw, not points added after it', () => {
+  it('draws only the length the render saw, not points added after it', async () => {
     const track: [number, number][] = [
       [46.948, 7.447],
       [46.949, 7.448],
       [46.95, 7.449],
     ];
-    render(<RecordingMap coordinates={track} coordinateCount={2} currentLocation={null} />);
+    await render(<RecordingMap coordinates={track} coordinateCount={2} currentLocation={null} />);
     expect(routeLine()).toHaveLength(2);
   });
 
-  it('draws no line to the origin for samples with no position', () => {
+  it('draws no line to the origin for samples with no position', async () => {
     const track: [number, number][] = [
       [0, 0],
       [0, 0],
       [46.948, 7.447],
       [46.949, 7.448],
     ];
-    render(<RecordingMap coordinates={track} currentLocation={null} />);
+    await render(<RecordingMap coordinates={track} currentLocation={null} />);
     expect(routeLine()).toEqual([
       [7.447, 46.948],
       [7.448, 46.949],
     ]);
   });
 
-  it('applies a trim in track indices when placeholders precede the trimmed range', () => {
+  it('applies a trim in track indices when placeholders precede the trimmed range', async () => {
     const track: [number, number][] = [
       [0, 0],
       [46.948, 7.447],
@@ -113,7 +117,7 @@ describe('the live line on the recording map', () => {
       [46.95, 7.449],
       [46.951, 7.45],
     ];
-    render(
+    await render(
       <RecordingMap
         coordinates={track}
         currentLocation={null}

@@ -33,14 +33,14 @@ jest.mock('@/features/settings/components/StreamHistoryRow', () => ({
   StreamHistoryRow: () => null,
 }));
 
-function panel(freeStorage: number | null, athleteFilesSize = 0) {
+function panel(freeStorage: number | null, athleteFilesSize = 0, routeMatchingEnabled = true) {
   return render(
     <StorageStatsPanel
       isDark={false}
       totalActivities={10}
       routeGroupCount={2}
       totalSections={3}
-      routeMatchingEnabled
+      routeMatchingEnabled={routeMatchingEnabled}
       dateRangeText="range"
       lastSync={null}
       totalQueries={1}
@@ -56,8 +56,8 @@ function panel(freeStorage: number | null, athleteFilesSize = 0) {
 }
 
 describe('the storage bar line', () => {
-  it('states Veloq data and free space as two figures', () => {
-    const { getByText } = panel(20_000_000_000);
+  it('states Veloq data and free space as two figures', async () => {
+    const { getByText } = await panel(20_000_000_000);
     expect(getByText(/^settings\.storageUsedAndFree\|/)).toBeTruthy();
     const line = getByText(/^settings\.storageUsedAndFree\|/).props.children;
     expect(String(line)).toContain('used=');
@@ -65,13 +65,13 @@ describe('the storage bar line', () => {
     expect(String(line)).not.toContain('total=');
   });
 
-  it('draws no line without a free-space reading', () => {
-    const { queryByText } = panel(null);
+  it('draws no line without a free-space reading', async () => {
+    const { queryByText } = await panel(null);
     expect(queryByText(/storageUsed/)).toBeNull();
   });
 
-  it('counts the backups and set-aside copies in the figure and the legend', () => {
-    const { getByText, getAllByTestId } = panel(20_000_000_000, 700_000_000);
+  it('counts the backups and set-aside copies in the figure and the legend', async () => {
+    const { getByText, getAllByTestId } = await panel(20_000_000_000, 700_000_000);
     const line = String(getByText(/^settings\.storageUsedAndFree\|/).props.children);
     // 300 MB library plus 700 MB of copies, the figure the settings hub reads.
     expect(line).toContain('used=1.0 GB');
@@ -79,9 +79,39 @@ describe('the storage bar line', () => {
     expect(labels.some((l) => l.includes('settings.storageBackups'))).toBe(true);
   });
 
-  it('draws no backups segment when there are none', () => {
-    const { getAllByTestId } = panel(20_000_000_000, 0);
+  it('draws no backups segment when there are none', async () => {
+    const { getAllByTestId } = await panel(20_000_000_000, 0);
     const labels = getAllByTestId('storage-legend-label').map((n) => String(n.props.children));
     expect(labels.some((l) => l.includes('settings.storageBackups'))).toBe(false);
+  });
+});
+
+/**
+ * Scenario: with route matching off, the route and section counts print '-'
+ * and refuse the press. A screen reader heard the bare name and nothing of why.
+ *
+ * Expected behaviour: each reports itself disabled and says route matching is
+ * off; with matching on it is a live link that says its count and not the
+ * reason.
+ */
+describe('the route and section counts with matching off', () => {
+  it.each(['settings.routesCount', 'settings.sectionsCount'])('says why %s is out', async (key) => {
+    const { getByTestId } = await panel(null, 0, false);
+    const stat = getByTestId(`storage-stat-${key}`);
+
+    expect(stat.props.accessibilityState).toMatchObject({ disabled: true });
+    expect(stat.props.accessibilityLabel).toContain(key);
+    expect(stat.props.accessibilityLabel).toContain('settings.routeMatchingOff');
+  });
+
+  it.each([
+    ['settings.routesCount', 2],
+    ['settings.sectionsCount', 3],
+  ])('keeps %s live with matching on, saying its count %i', async (key, count) => {
+    const { getByTestId } = await panel(null);
+    const stat = getByTestId(`storage-stat-${key}`);
+
+    expect(stat.props.accessibilityState?.disabled ?? false).toBe(false);
+    expect(stat.props.accessibilityLabel).toBe(`${key}, ${count}`);
   });
 });

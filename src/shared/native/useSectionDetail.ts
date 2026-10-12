@@ -6,13 +6,15 @@
 import { useMemo } from 'react';
 import type { FrequentSection } from '@/types';
 import { convertNativeSectionToApp } from '@/shared/ffi/sectionConversions';
-import { useEngineRead } from './useEngineSubscription';
+import { useEngineRead, useReadRetry } from './useEngineSubscription';
 
 interface UseSectionDetailResult {
   /** Full section data (with polyline) or null if not found */
   section: FrequentSection | null;
   /** What the engine threw, when the read failed. Null with no error is not found. */
   error?: unknown;
+  /** Reads the section again after a failure. */
+  retry: () => void;
 }
 
 /**
@@ -21,19 +23,20 @@ interface UseSectionDetailResult {
  * Converts GpsPoint format to RoutePoint format.
  */
 export function useSectionDetail(sectionId: string | null): UseSectionDetailResult {
-  const readSections = useEngineRead(['sections']);
+  const [attempt, retry] = useReadRetry();
+  const readSections = useEngineRead(['sections'], [attempt]);
 
   return useMemo<UseSectionDetailResult>(() => {
-    if (!sectionId) return { section: null };
+    if (!sectionId) return { section: null, retry };
 
     const engine = readSections((open) => open);
-    if (!engine) return { section: null };
+    if (!engine) return { section: null, retry };
 
     try {
       const native = engine.getSectionById(sectionId);
-      return { section: native ? convertNativeSectionToApp(native) : null };
+      return { section: native ? convertNativeSectionToApp(native) : null, retry };
     } catch (error) {
-      return { section: null, error };
+      return { section: null, error, retry };
     }
-  }, [sectionId, readSections]);
+  }, [sectionId, readSections, retry]);
 }

@@ -81,6 +81,7 @@ struct InsightRowView: View {
       Circle()
         .fill(palette.toneColor(row.tone))
         .frame(width: 8, height: 8)
+        .spoken("tone", row.toneLabel)
         .padding(.top, 4)
       VStack(alignment: .leading, spacing: 2) {
         Text(row.title)
@@ -99,6 +100,8 @@ struct InsightRowView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+    // The tone, the title and the subtitle are read as one row, the way the row is tapped.
+    .accessibilityElement(children: .combine)
   }
 }
 

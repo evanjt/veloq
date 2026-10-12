@@ -36,7 +36,7 @@ const MIXED = {
   createdAt: '2026-01-01T00:00:00Z',
 } as FrequentSection;
 
-function iconNames(view: ReturnType<typeof render>): string[] {
+function iconNames(view: Awaited<ReturnType<typeof render>>): string[] {
   return view.UNSAFE_getAllByType(MaterialCommunityIcons).map((icon) => icon.props.name as string);
 }
 
@@ -44,15 +44,15 @@ function count(names: string[], name: string): number {
   return names.filter((n) => n === name).length;
 }
 
-it('the sections row draws each sport once and gives no sport to the empty preview', () => {
-  const names = iconNames(render(<SectionRow section={MIXED} />));
+it('the sections row draws each sport once and gives no sport to the empty preview', async () => {
+  const names = iconNames(await render(<SectionRow section={MIXED} />));
 
   expect(count(names, 'bike')).toBe(1);
   expect(count(names, 'run')).toBe(1);
 });
 
-it('the map popup draws every sport and names none of them', () => {
-  const view = render(<SectionPopup section={MIXED} bottom={0} onClose={jest.fn()} />);
+it('the map popup draws every sport and names none of them', async () => {
+  const view = await render(<SectionPopup section={MIXED} bottom={0} onClose={jest.fn()} />);
 
   expect(iconNames(view)).toContain('bike');
   expect(view.queryByText('Run')).toBeNull();

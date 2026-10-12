@@ -24,25 +24,25 @@ describe('pull to refresh notice', () => {
     [StartOutcome.Offline, 'refresh.offline'],
     [StartOutcome.NotConfigured, 'refresh.notConfigured'],
     [StartOutcome.Failed, 'refresh.failed'],
-  ])('shows and announces the refusal %s, then clears it', (outcome, key) => {
+  ])('shows and announces the refusal %s, then clears it', async (outcome, key) => {
     request.mockReturnValue(outcome);
-    const { result } = renderHook(() => useSyncRefreshNotice());
+    const { result } = await renderHook(() => useSyncRefreshNotice());
 
-    act(() => result.current.requestRefresh());
+    await act(() => result.current.requestRefresh());
 
     expect(result.current.notice).toBe(key);
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(key);
-    act(() => jest.runOnlyPendingTimers());
+    await act(() => jest.runOnlyPendingTimers());
     expect(result.current.notice).toBeNull();
   });
 
-  it('clears an earlier refusal when the next pull starts', () => {
+  it('clears an earlier refusal when the next pull starts', async () => {
     request.mockReturnValueOnce(StartOutcome.Offline).mockReturnValueOnce(StartOutcome.Started);
-    const { result } = renderHook(() => useSyncRefreshNotice());
+    const { result } = await renderHook(() => useSyncRefreshNotice());
 
-    act(() => result.current.requestRefresh());
+    await act(() => result.current.requestRefresh());
     expect(result.current.notice).toBe('refresh.offline');
-    act(() => result.current.requestRefresh());
+    await act(() => result.current.requestRefresh());
     expect(result.current.notice).toBeNull();
   });
 });

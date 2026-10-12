@@ -20,6 +20,7 @@ let mockParams: Record<string, string | undefined> = { type: 'Ride' };
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({
@@ -77,44 +78,44 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('starts the ride once from the picker after the athlete continues past the warning', () => {
+it('starts the ride once from the picker after the athlete continues past the warning', async () => {
   mockParams = { type: 'Ride' };
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
   expect(useRecordingStore.getState().status).toBe('idle');
 
-  fireEvent.press(screen.getByTestId('scope-continue'));
+  await fireEvent.press(screen.getByTestId('scope-continue'));
 
   expect(useRecordingStore.getState().status).toBe('recording');
-  act(() => jest.advanceTimersByTime(10_000));
+  await act(() => jest.advanceTimersByTime(10_000));
   expect(starts).toBe(1);
 });
 
-it('leaves a one-tap start idle after the warning, however long the screen stays open', () => {
+it('leaves a one-tap start idle after the warning, however long the screen stays open', async () => {
   mockParams = { type: 'Ride', from: QUICKSTART_ENTRY };
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
 
-  fireEvent.press(screen.getByTestId('scope-continue'));
+  await fireEvent.press(screen.getByTestId('scope-continue'));
 
-  act(() => jest.advanceTimersByTime(10_000));
+  await act(() => jest.advanceTimersByTime(10_000));
   expect(useRecordingStore.getState().status).toBe('idle');
   expect(starts).toBe(0);
 });
 
-it('starts once from the entry screen Start after the athlete continues past the warning', () => {
+it('starts once from the entry screen Start after the athlete continues past the warning', async () => {
   mockParams = { type: 'Ride', from: ENTRY_SCREEN_ENTRY };
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
 
-  fireEvent.press(screen.getByTestId('scope-continue'));
+  await fireEvent.press(screen.getByTestId('scope-continue'));
 
   expect(useRecordingStore.getState().status).toBe('recording');
-  act(() => jest.advanceTimersByTime(10_000));
+  await act(() => jest.advanceTimersByTime(10_000));
   expect(starts).toBe(1);
 });
 
-it('starts nothing while the warning is still up', () => {
+it('starts nothing while the warning is still up', async () => {
   mockParams = { type: 'Ride', from: QUICKSTART_ENTRY };
-  render(<RecordingScreen />);
-  act(() => jest.advanceTimersByTime(10_000));
+  await render(<RecordingScreen />);
+  await act(() => jest.advanceTimersByTime(10_000));
 
   expect(screen.getByTestId('scope-continue')).toBeTruthy();
   expect(useRecordingStore.getState().status).toBe('idle');

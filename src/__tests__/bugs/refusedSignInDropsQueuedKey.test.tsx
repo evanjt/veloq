@@ -89,7 +89,7 @@ beforeEach(() => {
 });
 
 it('drops the queued key when the athlete refuses the account change', async () => {
-  const { result } = renderHook(() => useOAuthLogin({ setError: jest.fn() }));
+  const { result } = await renderHook(() => useOAuthLogin({ setError: jest.fn() }));
 
   await act(() => result.current.handleOAuthLogin());
 
@@ -103,7 +103,9 @@ it('hands the refusal to the screen, so the queued banner goes with the key', as
   const discardQueuedKey = jest.fn(async () => {
     held.key = null;
   });
-  const { result } = renderHook(() => useOAuthLogin({ setError: jest.fn(), discardQueuedKey }));
+  const { result } = await renderHook(() =>
+    useOAuthLogin({ setError: jest.fn(), discardQueuedKey })
+  );
 
   await act(() => result.current.handleOAuthLogin());
 

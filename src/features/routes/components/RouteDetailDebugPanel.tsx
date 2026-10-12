@@ -4,6 +4,7 @@ import { formatDistance, formatDuration } from '@/shared/format/format';
 import { DebugInfoPanel } from './DebugInfoPanel';
 import { DebugWarningBanner } from './DebugWarningBanner';
 import type { RouteHeadline } from '../lib/routeHeadline';
+import { ABSENT } from '@/shared/format/absent';
 
 interface FfiMetric {
   name: string;
@@ -75,11 +76,11 @@ export function RouteDetailDebugPanel({
           { label: 'Activities', value: String(actCount) },
           {
             label: 'Distance',
-            value: routeStats.distance > 0 ? formatDistance(routeStats.distance, isMetric) : '-',
+            value: routeStats.distance > 0 ? formatDistance(routeStats.distance, isMetric) : ABSENT,
           },
           {
             label: 'Best Time',
-            value: bestTime != null ? formatDuration(bestTime) : '-',
+            value: bestTime != null ? formatDuration(bestTime) : ABSENT,
           },
           ...Object.entries(ffiEntries).map(([name, m]) => ({
             label: name,

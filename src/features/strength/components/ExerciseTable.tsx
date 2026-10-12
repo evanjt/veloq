@@ -8,9 +8,11 @@ import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
+import { formatBestSet } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 import type { ExerciseGroup } from 'veloqrs';
-import { Button } from '@/shared/ui';
+import { Button, InlineLink } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 
 interface ExerciseTableProps {
@@ -108,10 +110,7 @@ export function ExerciseTable({
             </View>
             {group.bestSet && (
               <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
-                {t('strength.bestSet')}: {formatWeight(group.bestSet.weightKg ?? 0, isMetric)} ·{' '}
-                {group.bestSet.repetitions == null
-                  ? `-- ${t('strength.reps')}`
-                  : t('strength.repsCount', { count: group.bestSet.repetitions })}
+                {t('strength.bestSet')}: {formatBestSet(group.bestSet, isMetric, t)}
               </Text>
             )}
             {group.restSeconds.length > 0 && (
@@ -137,29 +136,43 @@ export function ExerciseTable({
               </Text>
             </View>
 
-            {group.sets.map((set, setIdx) => (
-              <View
-                key={set.setOrder}
-                style={[
-                  styles.setRow,
-                  setIdx > 0 && styles.setRowBorder,
-                  setIdx > 0 && isDark && styles.setRowBorderDark,
-                ]}
-              >
-                <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
-                  {setIdx + 1}
-                </Text>
-                <Text style={[styles.colValue, styles.colReps, isDark && styles.textDark]}>
-                  {set.repetitions != null ? set.repetitions : '--'}
-                </Text>
-                <Text style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}>
-                  {set.weightKg != null ? formatWeight(set.weightKg, isMetric) : '--'}
-                </Text>
-                <Text style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}>
-                  {set.durationSecs != null ? formatDuration(set.durationSecs) : '--'}
-                </Text>
-              </View>
-            ))}
+            {group.sets.map((set, setIdx) => {
+              const reps = set.repetitions != null ? String(set.repetitions) : ABSENT;
+              const weight = set.weightKg != null ? formatWeight(set.weightKg, isMetric) : ABSENT;
+              const time = set.durationSecs != null ? formatDuration(set.durationSecs) : ABSENT;
+              return (
+                <View
+                  key={set.setOrder}
+                  style={[
+                    styles.setRow,
+                    setIdx > 0 && styles.setRowBorder,
+                    setIdx > 0 && isDark && styles.setRowBorderDark,
+                  ]}
+                >
+                  <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
+                    {setIdx + 1}
+                  </Text>
+                  <Text
+                    style={[styles.colValue, styles.colReps, isDark && styles.textDark]}
+                    accessibilityLabel={absentLabel(reps, t)}
+                  >
+                    {reps}
+                  </Text>
+                  <Text
+                    style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}
+                    accessibilityLabel={absentLabel(weight, t)}
+                  >
+                    {weight}
+                  </Text>
+                  <Text
+                    style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}
+                    accessibilityLabel={absentLabel(time, t)}
+                  >
+                    {time}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ))}
 
@@ -192,12 +205,12 @@ export function ExerciseTable({
               i18nKey="strength.muscleSource"
               components={{
                 source: (
-                  <Text
-                    style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}
-                    onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
+                  <InlineLink
+                    accessibilityLabel={EXERCISE_DATASET.name}
+                    onPress={() => Linking.openURL(EXERCISE_DATASET.url)}
                   >
                     {''}
-                  </Text>
+                  </InlineLink>
                 ),
               }}
             />
@@ -223,6 +236,13 @@ export function ExerciseTable({
     </>
   );
 }
+
+// The dataset the muscle groups come from. Its name is the project's own and
+// reads the same in every language.
+const EXERCISE_DATASET = {
+  name: 'free-exercise-db',
+  url: 'https://github.com/yuhonas/free-exercise-db',
+} as const;
 
 const styles = StyleSheet.create({
   exerciseHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -387,9 +407,5 @@ const styles = StyleSheet.create({
   },
   infoHighlightDark: {
     color: darkColors.textPrimary,
-  },
-  infoLink: {
-    ...typography.caption,
-    color: colors.linkTeal,
   },
 });

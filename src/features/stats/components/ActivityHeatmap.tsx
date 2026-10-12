@@ -31,6 +31,8 @@ import {
   HEATMAP_PITCH,
   HEATMAP_WEEKS,
 } from '../lib/heatmapGrid';
+import { CardHeader } from '@/shared/ui/CardHeader';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 interface ActivityHeatmapProps {
   /**
@@ -51,7 +53,7 @@ export interface ActivityHeatmapHandle {
   setHighlight: (date: string | null) => void;
 }
 
-// Color scale for activity intensity (based on TSS or duration)
+// Color scale for activity intensity (based on training load or duration)
 const INTENSITY_COLORS = contributionRamp.dark;
 const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
@@ -215,22 +217,15 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       const notDownloaded = coverage === RangeCoverage.NotFetched;
       return (
         <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={[styles.title, isDark && styles.textLight]}>
-              {t('stats.activityCalendar')}
-            </Text>
-          </View>
+          <CardHeader title={t('stats.activityCalendar')} />
           {/* Until the first answer there is nothing to say about the range. */}
           <View style={styles.emptyState}>
             {!isPending && (
-              <Text style={[styles.emptyText, isDark && styles.textDark]}>
-                {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
-              </Text>
-            )}
-            {!isPending && !notDownloaded && (
-              <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-                {t('stats.completeActivitiesHeatmap')}
-              </Text>
+              <EmptyState
+                variant="inline"
+                title={notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
+                description={notDownloaded ? undefined : t('stats.completeActivitiesHeatmap')}
+              />
             )}
           </View>
         </View>
@@ -240,22 +235,19 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     return (
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.title, isDark && styles.textLight]}>
-              {t('stats.activityCalendar')}
+        <CardHeader
+          testID="activity-heatmap-header"
+          title={t('stats.activityCalendar')}
+          subtitle={labels.range}
+          accessory={
+            <Text
+              testID="activity-heatmap-count"
+              style={[styles.subtitle, isDark && styles.textDark]}
+            >
+              {t('stats.activitiesCount', { count: totalActivities })}
             </Text>
-            <Text testID="activity-heatmap-range" style={[styles.range, isDark && styles.textDark]}>
-              {labels.range}
-            </Text>
-          </View>
-          <Text
-            testID="activity-heatmap-count"
-            style={[styles.subtitle, isDark && styles.textDark]}
-          >
-            {t('stats.activitiesCount', { count: totalActivities })}
-          </Text>
-        </View>
+          }
+        />
 
         <View style={styles.body}>
           {/* Fixed gutter: the year in view and the weekday names */}
@@ -374,25 +366,9 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
 const styles = StyleSheet.create({
   container: {},
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   subtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-  },
-  range: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
   partial: {
     fontSize: typography.caption.fontSize,
@@ -469,15 +445,5 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });

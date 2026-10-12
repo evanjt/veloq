@@ -50,28 +50,28 @@ beforeEach(() => {
 });
 
 describe('recording close control', () => {
-  it('goes back when there is a screen to go back to', () => {
-    render(<RecordingCloseButton />);
-    fireEvent.press(screen.getByTestId('recording-close'));
+  it('goes back when there is a screen to go back to', async () => {
+    await render(<RecordingCloseButton />);
+    await fireEvent.press(screen.getByTestId('recording-close'));
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('falls back to the feed when nothing is behind it', () => {
+  it('falls back to the feed when nothing is behind it', async () => {
     mockCanGoBack = false;
-    render(<RecordingCloseButton />);
-    fireEvent.press(screen.getByTestId('recording-close'));
+    await render(<RecordingCloseButton />);
+    await fireEvent.press(screen.getByTestId('recording-close'));
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/');
   });
 
-  it('is shown in the header at idle', () => {
-    render(<TimerHeader {...headerProps} status="idle" />);
+  it('is shown in the header at idle', async () => {
+    await render(<TimerHeader {...headerProps} status="idle" />);
     expect(screen.getByTestId('recording-close')).toBeTruthy();
   });
 
-  it.each(['recording', 'paused'] as const)('is absent in the header while %s', (status) => {
-    render(<TimerHeader {...headerProps} status={status} />);
+  it.each(['recording', 'paused'] as const)('is absent in the header while %s', async (status) => {
+    await render(<TimerHeader {...headerProps} status={status} />);
     expect(screen.queryByTestId('recording-close')).toBeNull();
   });
 });

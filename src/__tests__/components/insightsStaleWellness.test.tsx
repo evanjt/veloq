@@ -28,8 +28,8 @@ jest.mock('@/shared/format/format', () => ({
 }));
 
 describe('the insights panel when the HRV trend was withheld', () => {
-  it('dates the last wellness sync', () => {
-    render(<InsightsPanel insights={[]} hrvWithheldSince="2026-08-08" />);
+  it('dates the last wellness sync', async () => {
+    await render(<InsightsPanel insights={[]} hrvWithheldSince="2026-08-08" />);
 
     expect(screen.getByTestId('insights-stale-wellness')).toBeTruthy();
     expect(screen.getByTestId('insights-stale-wellness')).toHaveTextContent(
@@ -37,14 +37,14 @@ describe('the insights panel when the HRV trend was withheld', () => {
     );
   });
 
-  it('says nothing when no date is given', () => {
-    render(<InsightsPanel insights={[]} hrvWithheldSince={null} />);
+  it('says nothing when no date is given', async () => {
+    await render(<InsightsPanel insights={[]} hrvWithheldSince={null} />);
 
     expect(screen.queryByTestId('insights-stale-wellness')).toBeNull();
   });
 
-  it('says nothing when the prop is absent', () => {
-    render(<InsightsPanel insights={[]} />);
+  it('says nothing when the prop is absent', async () => {
+    await render(<InsightsPanel insights={[]} />);
 
     expect(screen.queryByTestId('insights-stale-wellness')).toBeNull();
   });

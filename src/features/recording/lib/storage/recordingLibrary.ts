@@ -123,11 +123,14 @@ async function archiveUnadoptable(sourceKey: string, value: unknown): Promise<vo
 /**
  * The engine, or a throw. The index is the only record of a recording the
  * server does not have yet, so a caller that cannot reach it must hear so
- * rather than read an empty library as "nothing recorded".
+ * rather than read an empty library as "nothing recorded". The throw carries
+ * the engine's own not-open tag, so a surface names it as the engine does.
  */
 function library(requireReady = false): NonNullable<ReturnType<typeof getEngine>> {
   const engine = getEngine();
-  if (!engine || (requireReady && !engine.ready)) throw new Error('Engine not initialised');
+  if (!engine || (requireReady && !engine.ready)) {
+    throw Object.assign(new Error('Engine not initialised'), { tag: 'NotInitialized' });
+  }
   return engine;
 }
 

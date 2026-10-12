@@ -26,11 +26,23 @@ import { encodeTrack } from '../__shared__/trackBytes';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 let mockSearchParams: { id: string; tab?: string } = { id: 'act-1' };
-jest.mock('expo-router', () => ({
-  ...jest.requireActual('expo-router'),
-  useLocalSearchParams: () => mockSearchParams,
-  router: { back: jest.fn(), push: jest.fn() },
-}));
+// The options each `Stack.Screen` the screen renders hands its navigation item, merged in order.
+let mockScreenOptions: Record<string, unknown> = {};
+jest.mock('expo-router', () => {
+  function Stack() {
+    return null;
+  }
+  Stack.Screen = function Screen({ options }: { options?: Record<string, unknown> }) {
+    mockScreenOptions = { ...mockScreenOptions, ...options };
+    return null;
+  };
+  return {
+    ...jest.requireActual('expo-router'),
+    useLocalSearchParams: () => mockSearchParams,
+    router: { back: jest.fn(), push: jest.fn() },
+    Stack,
+  };
+});
 let mockTransitionTask: (() => void) | null = null;
 jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
   useAfterNavigationTransition: (task: () => void) => {
@@ -72,7 +84,7 @@ jest.mock('@/shared/ui', () => {
     ScreenSafeAreaView: View,
     ChartSkeleton: () => null,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    ErrorStatePreset: () => null,
+    ErrorState: () => null,
     useHeroMapHeight: () => 300,
     SwipeableTabs: ({
       children,
@@ -304,17 +316,24 @@ describe('activity detail screen', () => {
     mockStreamReads.length = 0;
     mockSearchParams = { id: 'act-1' };
     mockRepresentativeId = null;
+    mockScreenOptions = {};
   });
   afterEach(() => jest.restoreAllMocks());
 
+  it("titles its navigation item with the activity's name once the read has it", async () => {
+    await render(<ActivityDetailScreen />);
+    await act(async () => {});
+    expect(mockScreenOptions.title).toBe('Morning Ride');
+  });
+
   it('shows the translated route record badge with and without an improvement', async () => {
     mockRouteHighlights.set('act-1', { isPr: true, prImprovementSeconds: 12 });
-    const view = render(<ActivityDetailScreen />);
+    const view = await render(<ActivityDetailScreen />);
     await act(async () => {});
     expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record -12s');
 
     mockRouteHighlights.set('act-1', { isPr: true });
-    view.rerender(<ActivityDetailScreen />);
+    await view.rerender(<ActivityDetailScreen />);
     await act(async () => {});
     expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record');
   });
@@ -328,7 +347,7 @@ describe('activity detail screen', () => {
     mockRepresentativeId = 'rep-1';
     mockDetail.representativeSignature = encodeTrack(signature);
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
 
     expect(mockStreamReads).not.toContain('rep-1');
@@ -339,7 +358,7 @@ describe('activity detail screen', () => {
   });
 
   it('hands the charts the opening transition the route read before its content mounted', async () => {
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
     expect(capturedTransitionSettled).toBe(false);
 
@@ -348,7 +367,7 @@ describe('activity detail screen', () => {
   });
 
   it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
     const matchesBefore = mockUseSectionMatches.mock.calls.at(-1)?.[1];
     const overlaysBefore = mockUseSectionOverlays.mock.calls.at(-1)?.[5];
@@ -416,7 +435,7 @@ describe('activity detail screen', () => {
       ],
     });
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
 
     const captureKeys = capturedSectionEncounters.map(
@@ -474,7 +493,7 @@ describe('activity detail screen', () => {
       },
     ];
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
 
     const sectionsTab = capturedTabs.current.find((tab) => tab.key === 'sections');
@@ -495,7 +514,7 @@ describe('activity detail screen', () => {
       ],
     });
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
 
     expect(capturedHeaderProps.sectionOverlays ?? null).toBeNull();

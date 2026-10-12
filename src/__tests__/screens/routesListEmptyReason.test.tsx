@@ -65,65 +65,65 @@ describe('RoutesList empty reason', () => {
     tapTo.mockClear();
   });
 
-  it('says a library of indoor sessions has no GPS, and offers a wider range', () => {
-    renderList(reason('NoGpsActivities'));
+  it('says a library of indoor sessions has no GPS, and offers a wider range', async () => {
+    await renderList(reason('NoGpsActivities'));
 
     expect(screen.getByText('No activities with GPS')).toBeTruthy();
     expect(
       screen.getByText(/only sessions without one, such as trainer, pool or strength/)
     ).toBeTruthy();
     expect(screen.queryByText('No routes yet')).toBeNull();
-    fireEvent.press(screen.getByText('Expand range'));
+    await fireEvent.press(screen.getByText('Expand range'));
     expect(tapTo).toHaveBeenCalledWith('/sync-settings');
   });
 
-  it('counts the activities a detect has still to see', () => {
-    renderList(reason('NotYetRun', { awaiting: 3 }));
+  it('counts the activities a detect has still to see', async () => {
+    await renderList(reason('NotYetRun', { awaiting: 3 }));
 
     expect(screen.getByText('Waiting for analysis')).toBeTruthy();
     expect(screen.getByText(/^3 activities with GPS are waiting for analysis/)).toBeTruthy();
   });
 
-  it('says one waiting activity singly', () => {
-    renderList(reason('NotYetRun', { awaiting: 1 }));
+  it('says one waiting activity singly', async () => {
+    await renderList(reason('NotYetRun', { awaiting: 1 }));
 
     expect(screen.getByText(/^1 activity with GPS is waiting for analysis/)).toBeTruthy();
   });
 
-  it('names the running phase and how far it has got', () => {
-    renderList(reason('Running', { phase: 'analyzing', percent: 42 }));
+  it('names the running phase and how far it has got', async () => {
+    await renderList(reason('Running', { phase: 'analyzing', percent: 42 }));
 
     expect(screen.getByText('Analysis running')).toBeTruthy();
     expect(screen.getByText(/^Analysing activities: 42% done\./)).toBeTruthy();
   });
 
-  it('opens the settings that resume a paused elevation download holding the detect', () => {
-    renderList(held('ElevationPaused'));
+  it('opens the settings that resume a paused elevation download holding the detect', async () => {
+    await renderList(held('ElevationPaused'));
 
     expect(screen.getByText('Analysis on hold')).toBeTruthy();
     expect(
       screen.getByText('Detection is held until you resume the elevation download in Settings')
     ).toBeTruthy();
-    fireEvent.press(screen.getByText('Open settings'));
+    await fireEvent.press(screen.getByText('Open settings'));
     expect(tapTo).toHaveBeenCalledWith('/detection-settings');
   });
 
-  it('sizes an elevation queue that waits on the network, with no action', () => {
-    renderList(held('ElevationWaiting', { remaining: 12 }));
+  it('sizes an elevation queue that waits on the network, with no action', async () => {
+    await renderList(held('ElevationWaiting', { remaining: 12 }));
 
     expect(screen.getByText(/waits on elevation for 12 activity tracks/)).toBeTruthy();
     expect(screen.queryByText('Open settings')).toBeNull();
     expect(screen.queryByText('Expand range')).toBeNull();
   });
 
-  it('names the migration when the cutover holds the detect', () => {
-    renderList(held('Cutover'));
+  it('names the migration when the cutover holds the detect', async () => {
+    await renderList(held('Cutover'));
 
     expect(screen.getByText('Detection paused while your sections migrate')).toBeTruthy();
   });
 
-  it('states the repeat threshold when the detect found no route', () => {
-    renderList(reason('NoneFound', { minActivities: 2 }));
+  it('states the repeat threshold when the detect found no route', async () => {
+    await renderList(reason('NoneFound', { minActivities: 2 }));
 
     expect(screen.getByText('No routes yet')).toBeTruthy();
     expect(
@@ -132,17 +132,17 @@ describe('RoutesList empty reason', () => {
     expect(screen.queryByPlaceholderText('Search routes...')).toBeNull();
   });
 
-  it('keeps the reason ahead of a search when the catalogue holds no route', () => {
-    renderList(reason('NoneFound', { minActivities: 2 }), { searchQuery: 'loop' });
+  it('keeps the reason ahead of a search when the catalogue holds no route', async () => {
+    await renderList(reason('NoneFound', { minActivities: 2 }), { searchQuery: 'loop' });
 
     expect(screen.getByText('No routes yet')).toBeTruthy();
     expect(screen.queryByText('No matching routes found')).toBeNull();
   });
 
-  it('reads a search that matched nothing as no match when the engine names no reason', () => {
-    renderList(null, { searchQuery: 'loop', totalGroupCount: 4 });
+  it('reads a search that matched nothing as its filter when the engine names no reason', async () => {
+    await renderList(null, { searchQuery: 'loop', totalGroupCount: 4 });
 
-    expect(screen.getByText('No matching routes found')).toBeTruthy();
-    expect(screen.queryByTestId('empty-state')).toBeNull();
+    expect(screen.getByTestId('empty-state-title').props.children).toBe('No routes for “loop”');
+    expect(screen.queryByText('No routes yet')).toBeNull();
   });
 });

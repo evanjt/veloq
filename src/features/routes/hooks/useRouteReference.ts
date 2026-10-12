@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
 import { getEngine } from '@/shared/native/engine';
+import { confirmAction } from '@/shared/ui/dialog';
 
 export function useRouteReference(
   id: string | undefined,
@@ -12,30 +12,30 @@ export function useRouteReference(
     (activityId: string) => {
       if (!id) return;
       if (activityId === representativeId) {
-        Alert.alert(t('routes.resetReference'), t('routes.resetReferenceConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.reset'),
-            onPress: () => {
-              const engine = getEngine();
-              if (!engine) return;
-              engine.resetRouteRepresentative(id);
-            },
-          },
-        ]);
-        return;
-      }
-      Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.confirm'),
-          onPress: () => {
+        confirmAction({
+          title: t('routes.resetReference'),
+          message: t('routes.resetReferenceConfirm'),
+          confirmLabel: t('common.reset'),
+          cancelLabel: t('common.cancel'),
+          onConfirm: () => {
             const engine = getEngine();
             if (!engine) return;
-            engine.setRouteRepresentative(id, activityId);
+            void engine.resetRouteRepresentative(id);
           },
+        });
+        return;
+      }
+      confirmAction({
+        title: t('routes.setAsReference'),
+        message: t('routes.setAsReferenceConfirm'),
+        confirmLabel: t('common.confirm'),
+        cancelLabel: t('common.cancel'),
+        onConfirm: () => {
+          const engine = getEngine();
+          if (!engine) return;
+          void engine.setRouteRepresentative(id, activityId);
         },
-      ]);
+      });
     },
     [id, representativeId, t]
   );

@@ -10,9 +10,11 @@
 
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { act, render, fireEvent, screen } from '@testing-library/react-native';
+import { act, render, fireEvent, screen, within } from '@testing-library/react-native';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
 import { controlHeight, layout } from '@/theme';
+import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { initialiseI18n } from '@/i18n';
 import { stubHardwareBack } from '../../__shared__/hardwareBack';
 
 jest.mock('@/shared/app', () => ({
@@ -27,7 +29,7 @@ const LAYER_IDS = [
   'map-fit-all',
 ];
 
-function renderStack(props: Partial<React.ComponentProps<typeof MapControlStack>> = {}) {
+async function renderStack(props: Partial<React.ComponentProps<typeof MapControlStack>> = {}) {
   const handlers = {
     onToggle3D: jest.fn(),
     onResetOrientation: jest.fn(),
@@ -38,7 +40,7 @@ function renderStack(props: Partial<React.ComponentProps<typeof MapControlStack>
     onToggleRoutes: jest.fn(),
     onFitAll: jest.fn(),
   };
-  render(
+  await render(
     <MapControlStack
       top={100}
       isDark={false}
@@ -62,8 +64,8 @@ function renderStack(props: Partial<React.ComponentProps<typeof MapControlStack>
 }
 
 describe('MapControlStack', () => {
-  it('keeps the layer toggles and fit-all out of the column until the layers menu opens', () => {
-    renderStack();
+  it('keeps the layer toggles and fit-all out of the column until the layers menu opens', async () => {
+    await renderStack();
 
     for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
       expect(screen.getByTestId(id)).toBeTruthy();
@@ -76,8 +78,8 @@ describe('MapControlStack', () => {
     });
   });
 
-  it('draws each column control at the icon-button size and reaches the tap minimum by slop', () => {
-    renderStack();
+  it('draws each column control at the icon-button size and reaches the tap minimum by slop', async () => {
+    await renderStack();
 
     for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
       const node = screen.getByTestId(id);
@@ -94,10 +96,10 @@ describe('MapControlStack', () => {
     }
   });
 
-  it('opens a menu with every available layer, its state, and fit-all', () => {
-    const handlers = renderStack();
+  it('opens a menu with every available layer, its state, and fit-all', async () => {
+    const handlers = await renderStack();
 
-    fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.getByTestId('map-layers').props.accessibilityState).toMatchObject({
       expanded: true,
@@ -112,39 +114,39 @@ describe('MapControlStack', () => {
       checked: false,
     });
 
-    fireEvent.press(screen.getByTestId('map-toggle-routes'));
-    fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
+    await fireEvent.press(screen.getByTestId('map-toggle-routes'));
+    await fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
     expect(handlers.onToggleRoutes).toHaveBeenCalledTimes(1);
     expect(handlers.onToggleHeatmap).toHaveBeenCalledTimes(1);
     // A toggle leaves the menu open, so several layers change in one visit.
     expect(screen.getByTestId('map-toggle-sections')).toBeTruthy();
   });
 
-  it('closes the menu on fit-all, on the layers control again, and on a tap outside it', () => {
-    const handlers = renderStack();
+  it('closes the menu on fit-all, on the layers control again, and on a tap outside it', async () => {
+    const handlers = await renderStack();
 
-    fireEvent.press(screen.getByTestId('map-layers'));
-    fireEvent.press(screen.getByTestId('map-fit-all'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-fit-all'));
     expect(handlers.onFitAll).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('map-fit-all')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('map-layers'));
-    fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
     expect(screen.queryByTestId('map-toggle-activities')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('map-layers'));
-    fireEvent.press(screen.getByTestId('map-layers-backdrop'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers-backdrop'));
     expect(screen.queryByTestId('map-toggle-activities')).toBeNull();
   });
 
-  it('closes the open menu on back, and leaves back alone once it is shut', () => {
+  it('closes the open menu on back, and leaves back alone once it is shut', async () => {
     const back = stubHardwareBack();
     try {
-      renderStack();
+      await renderStack();
       expect(back.press()).toBe(false);
 
-      fireEvent.press(screen.getByTestId('map-layers'));
-      act(() => {
+      await fireEvent.press(screen.getByTestId('map-layers'));
+      await act(() => {
         expect(back.press()).toBe(true);
       });
 
@@ -155,10 +157,10 @@ describe('MapControlStack', () => {
     }
   });
 
-  it('lists only the layers that have something to show', () => {
-    renderStack({ sectionCount: 0, routeCount: 0, onToggleHeatmap: undefined });
+  it('lists only the layers that have something to show', async () => {
+    await renderStack({ sectionCount: 0, routeCount: 0, onToggleHeatmap: undefined });
 
-    fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.getByTestId('map-toggle-activities')).toBeTruthy();
     expect(screen.getByTestId('map-fit-all')).toBeTruthy();
@@ -167,8 +169,8 @@ describe('MapControlStack', () => {
     }
   });
 
-  it('offers no layers control when the map has nothing to layer', () => {
-    renderStack({
+  it('offers no layers control when the map has nothing to layer', async () => {
+    await renderStack({
       activityCount: 0,
       sectionCount: 0,
       routeCount: 0,
@@ -177,5 +179,68 @@ describe('MapControlStack', () => {
 
     expect(screen.queryByTestId('map-layers')).toBeNull();
     expect(screen.getByTestId('map-location')).toBeTruthy();
+  });
+
+  describe('the key', () => {
+    beforeAll(async () => {
+      await initialiseI18n('en-GB');
+    });
+
+    const HEAT = ['#0B2F2B', '#2D7D74', '#B8EDE4'];
+
+    async function openKey(props: Partial<React.ComponentProps<typeof MapControlStack>> = {}) {
+      await renderStack({ keyCategories: ['Ride', 'Run'], heatKeyColours: HEAT, ...props });
+      await fireEvent.press(screen.getByTestId('map-layers'));
+    }
+
+    const swatchColour = (rowId: string) =>
+      StyleSheet.flatten(
+        within(screen.getByTestId(rowId)).getByTestId('map-key-swatch').props.style
+      ).backgroundColor;
+
+    it('names each sport in view beside a swatch in the colour its dots are drawn in', async () => {
+      await openKey();
+
+      expect(swatchColour('map-key-category-Ride')).toBe(ACTIVITY_CATEGORIES.Ride.color);
+      expect(swatchColour('map-key-category-Run')).toBe(ACTIVITY_CATEGORIES.Run.color);
+      expect(within(screen.getByTestId('map-key-category-Ride')).getByText('Ride')).toBeTruthy();
+      expect(within(screen.getByTestId('map-key-category-Run')).getByText('Run')).toBeTruthy();
+      expect(screen.queryByTestId('map-key-category-Swim')).toBeNull();
+    });
+
+    it('explains the fade from a recent dot to one a year old or more', async () => {
+      await openKey();
+
+      const recency = screen.getByTestId('map-key-recency');
+      expect(within(recency).getByText('Recent')).toBeTruthy();
+      expect(within(recency).getByText('A year or more')).toBeTruthy();
+    });
+
+    it('draws the heat ramp from fewer to more passes while the heatmap shows', async () => {
+      await openKey({ showHeatmap: true });
+
+      const heat = screen.getByTestId('map-key-heat');
+      expect(within(heat).getByText('Fewer passes')).toBeTruthy();
+      expect(within(heat).getByText('More passes')).toBeTruthy();
+      const steps = within(heat)
+        .getAllByTestId('map-key-ramp-step')
+        .map((step) => StyleSheet.flatten(step.props.style).backgroundColor);
+      expect(steps[0]).toBe(HEAT[0]);
+      expect(steps[steps.length - 1]).toBe(HEAT[HEAT.length - 1]);
+    });
+
+    it('hides each row with its layer', async () => {
+      await openKey({ showActivities: false, showHeatmap: false });
+
+      expect(screen.queryByTestId('map-key-category-Ride')).toBeNull();
+      expect(screen.queryByTestId('map-key-recency')).toBeNull();
+      expect(screen.queryByTestId('map-key-heat')).toBeNull();
+    });
+
+    it('draws no heat ramp when the map has no heatmap layer to show', async () => {
+      await openKey({ showHeatmap: true, onToggleHeatmap: undefined });
+
+      expect(screen.queryByTestId('map-key-heat')).toBeNull();
+    });
   });
 });

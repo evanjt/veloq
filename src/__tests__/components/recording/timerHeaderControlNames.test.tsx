@@ -30,8 +30,8 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: { UserCancelled: 'user-cancelled' },
 }));
 
-function drawHeader() {
-  render(
+async function drawHeader() {
+  await render(
     <TimerHeader
       currentActivityType={'Ride' as never}
       status={'recording' as never}
@@ -50,8 +50,8 @@ function drawHeader() {
 }
 
 describe('the recording sport badge', () => {
-  it('tells a screen reader the sport badge changes the sport', () => {
-    drawHeader();
+  it('tells a screen reader the sport badge changes the sport', async () => {
+    await drawHeader();
 
     expect(screen.getByTestId('recording-type-badge').props.accessibilityHint).toBe(
       'recording.changeType'

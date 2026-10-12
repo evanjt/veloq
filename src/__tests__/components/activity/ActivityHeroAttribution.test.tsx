@@ -101,21 +101,21 @@ describe('activity hero clears the map attribution', () => {
     ['the tallest hero content', 62, activity()],
   ];
 
-  it.each(cases)('leaves the attribution uncovered with %s', (_label, insetTop, detail) => {
-    renderHero(insetTop, detail);
+  it.each(cases)('leaves the attribution uncovered with %s', async (_label, insetTop, detail) => {
+    await renderHero(insetTop, detail);
 
     expect(screen.getByTestId('map-attribution-text')).toBeTruthy();
     expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(attributionHeight());
   });
 
-  it('grows the reservation when the credit line wraps to a second row', () => {
-    renderHero(0, activity());
+  it('grows the reservation when the credit line wraps to a second row', async () => {
+    await renderHero(0, activity());
     const oneLine = overlayPaddingBottom();
 
     // Satellite with 3D on runs to two rows at phone width, which the
     // single-line estimate does not cover.
     const twoLines = attributionHeight() * 2;
-    fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
+    await fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 320, height: twoLines } },
     });
 
@@ -123,18 +123,18 @@ describe('activity hero clears the map attribution', () => {
     expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(twoLines);
   });
 
-  it('gives the room back when the credit line fits on one row again', () => {
-    renderHero(0, activity());
+  it('gives the room back when the credit line fits on one row again', async () => {
+    await renderHero(0, activity());
     const oneLine = attributionHeight();
 
-    const layoutTo = (height: number) =>
-      fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
+    const layoutTo = async (height: number) =>
+      await fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
         nativeEvent: { layout: { x: 0, y: 0, width: 320, height } },
       });
 
-    layoutTo(oneLine * 2);
+    await layoutTo(oneLine * 2);
     const wrapped = overlayPaddingBottom();
-    layoutTo(oneLine);
+    await layoutTo(oneLine);
 
     expect(overlayPaddingBottom()).toBeLessThan(wrapped);
     expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(oneLine);
@@ -142,8 +142,8 @@ describe('activity hero clears the map attribution', () => {
 });
 
 describe('activity hero place line', () => {
-  it('shows nothing for a locality an older stored body still carries', () => {
-    renderHero(
+  it('shows nothing for a locality an older stored body still carries', async () => {
+    await renderHero(
       0,
       activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<ActivityDetail>)
     );

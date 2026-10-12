@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Alert, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill, useRouteSettings } from '@/features/routes';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
+import { inform } from '@/shared/ui/dialog';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
@@ -145,10 +146,10 @@ export function ElevationBackfillStatus() {
         testID="elevation-backfill-why"
         label={t('settings.elevationBackfillWhy')}
         onPress={() =>
-          Alert.alert(
-            t('settings.elevationBackfillWhyTitle'),
-            t('settings.elevationBackfillWhyBody')
-          )
+          inform({
+            title: t('settings.elevationBackfillWhyTitle'),
+            message: t('settings.elevationBackfillWhyBody'),
+          })
         }
         variant="ghost"
         size="sm"

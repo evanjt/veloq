@@ -78,7 +78,9 @@ afterEach(() => {
 
 describe('the exercise sets hook', () => {
   it('says the sets are not downloaded when nothing has settled the activity', async () => {
-    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
   });
@@ -87,7 +89,9 @@ describe('the exercise sets hook', () => {
   it('says the session is genuinely empty once the engine has settled it', async () => {
     engine.isFitProcessed.mockReturnValue(true);
 
-    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.outcome).toBe('empty'));
   });
@@ -95,7 +99,9 @@ describe('the exercise sets hook', () => {
   it('says loaded when there are sets, whatever the status row says', async () => {
     engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
 
-    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.outcome).toBe('loaded'));
   });
@@ -106,14 +112,16 @@ describe('the exercise sets hook', () => {
       throw new Error('ffi');
     });
 
-    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
   });
 
   /** Not a strength activity at all: the hook is disabled and claims nothing. */
   it('says nothing for an activity that carries no FIT file', async () => {
-    const { result } = renderHook(() => useExerciseSets('act1', 'Ride'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'Ride'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
     expect(engine.getExerciseSets).not.toHaveBeenCalled();
@@ -122,7 +130,7 @@ describe('the exercise sets hook', () => {
 
 describe('the exercise table with no sets', () => {
   it('says they have not been downloaded when the activity has not settled', async () => {
-    render(<ExerciseTable activityId="act1" activityType="WeightTraining" isDark={false} />, {
+    await render(<ExerciseTable activityId="act1" activityType="WeightTraining" isDark={false} />, {
       wrapper,
     });
 
@@ -132,7 +140,7 @@ describe('the exercise table with no sets', () => {
   it('draws nothing for a session the engine settled as set-free', async () => {
     engine.isFitProcessed.mockReturnValue(true);
 
-    const tree = render(
+    const tree = await render(
       <ExerciseTable activityId="act1" activityType="WeightTraining" isDark={false} />,
       { wrapper }
     );
@@ -164,7 +172,7 @@ describe('the exercise table with sets', () => {
       totalDurationSecs: 0,
     });
 
-    render(
+    await render(
       <ExerciseTable
         activityId="act1"
         activityType="WeightTraining"
@@ -187,7 +195,47 @@ describe('the exercise table with sets', () => {
     expect(screen.getByText(/strength.bestSet/)).toBeTruthy();
     expect(screen.getByText(/strength.restBetweenSets: 1:00/)).toBeTruthy();
     expect(screen.queryByText(/strength.restBetweenSets: 3:00/)).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'strength.history' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'strength.history' }));
     expect(mockRouterPush).toHaveBeenCalledWith('/exercise/0');
+  });
+});
+
+describe('the exercise table with a body-weight exercise', () => {
+  /**
+   * Expected behaviour: a set logged with repetitions and no load reads as its
+   * repetitions alone. The engine sends no weight, so no weight is printed, and
+   * a missing cell in the set rows is the absent mark rather than a zero.
+   */
+  it('prints the best set as its repetitions, with no invented zero load', async () => {
+    const pushUp = { ...aSet, displayName: 'Engine Push-up', weightKg: undefined, repetitions: 12 };
+    engine.getExerciseSets.mockReturnValue({
+      sets: [pushUp],
+      groups: [
+        {
+          name: 'Engine Push-up',
+          exerciseCategory: 0,
+          sets: [pushUp],
+          restSeconds: [],
+          bestSet: pushUp,
+        },
+      ],
+      activeSetCount: 1,
+      exerciseCount: 1,
+      totalVolumeKg: 0,
+      totalDurationSecs: 0,
+    });
+
+    await render(<ExerciseTable activityId="act1" activityType="WeightTraining" isDark={false} />, {
+      wrapper,
+    });
+
+    await waitFor(() => expect(screen.getByText('Engine Push-up')).toBeTruthy());
+    const bestSet = screen.getByText(/strength.bestSet/);
+    expect(bestSet).toHaveTextContent('strength.bestSet: strength.repsCount');
+    expect(screen.queryByText(/0 kg/)).toBeNull();
+    expect(screen.queryByText(/0 lbs/)).toBeNull();
+    const absent = screen.getAllByLabelText('common.noData');
+    expect(absent.length).toBeGreaterThanOrEqual(2);
+    absent.forEach((cell) => expect(cell).toHaveTextContent('--'));
   });
 });

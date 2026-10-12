@@ -226,10 +226,10 @@ describe('the failed set holds one entry per request', () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     post({ type: 'mapReady', workerId: 1 });
   });
@@ -366,10 +366,10 @@ describe('the snapshot pool retries a failure when the queue goes idle', () => {
     return ref.current;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     post({ type: 'mapReady', workerId: 1 });
   });
@@ -478,16 +478,16 @@ describe('a snapshot that arrives after its render was abandoned', () => {
     jest.useRealTimers();
   });
 
-  it('is not counted when a pause put its request back on the queue', () => {
+  it('is not counted when a pause put its request back on the queue', async () => {
     watchFailures('a0');
-    const tree = render(<TerrainSnapshotWebView ref={ref} />);
+    const tree = await render(<TerrainSnapshotWebView ref={ref} />);
     pool().requestSnapshot(request('a0'));
     post({ type: 'mapReady', workerId: 0 });
 
-    tree.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
+    await tree.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
     post({ type: 'snapshot', workerId: 0, activityId: 'a0', base64: 'AAAA', gen: 1 });
-    act(() => goneHandlers.forEach((gone) => gone()));
-    tree.rerender(<TerrainSnapshotWebView ref={ref} />);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await tree.rerender(<TerrainSnapshotWebView ref={ref} />);
 
     // a0 is back on the queue and still owed a render, so a pool that never
     // comes back fails it rather than forgetting it.
@@ -497,8 +497,8 @@ describe('a snapshot that arrives after its render was abandoned', () => {
     expect(failures).toEqual(['a0']);
   });
 
-  it('is not saved when the timeout already dealt with it', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('is not saved when the timeout already dealt with it', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     pool().requestSnapshot(request('a0'));
     post({ type: 'mapReady', workerId: 0 });
 
@@ -512,8 +512,8 @@ describe('a snapshot that arrives after its render was abandoned', () => {
     expect(savedIds()).toEqual([]);
   });
 
-  it('still counts the render the worker is actually holding', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('still counts the render the worker is actually holding', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     pool().requestSnapshot(request('a0'));
     pool().requestSnapshot(request('a1'));
     post({ type: 'mapReady', workerId: 0 });
@@ -524,16 +524,16 @@ describe('a snapshot that arrives after its render was abandoned', () => {
     expect(rendered()).toEqual(['a0', 'a1']);
   });
 
-  it('does not let a paused error count a request that is queued again', () => {
+  it('does not let a paused error count a request that is queued again', async () => {
     watchFailures('a0');
-    const tree = render(<TerrainSnapshotWebView ref={ref} />);
+    const tree = await render(<TerrainSnapshotWebView ref={ref} />);
     pool().requestSnapshot(request('a0'));
     post({ type: 'mapReady', workerId: 0 });
 
-    tree.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
+    await tree.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
     post({ type: 'snapshotError', workerId: 0, activityId: 'a0', error: 'boom' });
-    act(() => goneHandlers.forEach((gone) => gone()));
-    tree.rerender(<TerrainSnapshotWebView ref={ref} />);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await tree.rerender(<TerrainSnapshotWebView ref={ref} />);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
     expect(watchdogFired()).toEqual(['1 failed']);
@@ -562,10 +562,10 @@ describe('the snapshot pool counts only what can still complete', () => {
     for (let i = 0; i < count; i += 1) pool().requestSnapshot(request(`a${i}`));
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   afterEach(() => {
@@ -629,7 +629,7 @@ describe('the snapshot pool counts only what can still complete', () => {
  */
 describe('a resume where no worker ever becomes ready', () => {
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
 
   const pool = () => {
     if (!ref.current) throw new Error('the pool did not mount');
@@ -644,10 +644,10 @@ describe('a resume where no worker ever becomes ready', () => {
     post({ type: 'mapReady', workerId: 1 });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
     workersReady();
   });
 
@@ -655,13 +655,13 @@ describe('a resume where no worker ever becomes ready', () => {
     jest.useRealTimers();
   });
 
-  it('fails the queue within the staleness timeout rather than wedging', () => {
+  it('fails the queue within the staleness timeout rather than wedging', async () => {
     watchFailures('a1');
     pool().requestSnapshot(request('a1'));
-    setSuspended(true);
+    await setSuspended(true);
     // Android reclaims the page while the feed is away and it never answers.
-    act(() => goneHandlers.forEach((gone) => gone()));
-    setSuspended(false);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await setSuspended(false);
 
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
@@ -669,12 +669,12 @@ describe('a resume where no worker ever becomes ready', () => {
     expect(failures).toEqual(['a1']);
   });
 
-  it('leaves the queue alone while the watchdog is still waiting', () => {
+  it('leaves the queue alone while the watchdog is still waiting', async () => {
     watchFailures('a1');
     pool().requestSnapshot(request('a1'));
-    setSuspended(true);
-    act(() => goneHandlers.forEach((gone) => gone()));
-    setSuspended(false);
+    await setSuspended(true);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await setSuspended(false);
 
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS - 1);
 
@@ -682,21 +682,21 @@ describe('a resume where no worker ever becomes ready', () => {
     expect(failures).toEqual([]);
   });
 
-  it('runs the work instead of failing it when a worker does come back', () => {
+  it('runs the work instead of failing it when a worker does come back', async () => {
     pool().requestSnapshot(request('a1'));
     injected.length = 0;
-    setSuspended(true);
-    act(() => goneHandlers.forEach((gone) => gone()));
-    setSuspended(false);
+    await setSuspended(true);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await setSuspended(false);
 
     workersReady();
 
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('arms nothing on a resume with an empty queue', () => {
-    setSuspended(true);
-    setSuspended(false);
+  it('arms nothing on a resume with an empty queue', async () => {
+    await setSuspended(true);
+    await setSuspended(false);
 
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
@@ -715,7 +715,7 @@ describe('a resume where no worker ever becomes ready', () => {
  */
 describe('the snapshot pool watchdog across a suspend', () => {
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
 
   const pool = () => {
     if (!ref.current) throw new Error('the pool did not mount');
@@ -730,10 +730,10 @@ describe('the snapshot pool watchdog across a suspend', () => {
     post({ type: 'mapReady', workerId: 1 });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
     workersReady();
   });
 
@@ -755,12 +755,12 @@ describe('the snapshot pool watchdog across a suspend', () => {
     expect(eventsOf('watchdogHeld').map((e) => e.detail)).toEqual(['a worker is still rendering']);
   });
 
-  it('stops watching when the feed leaves part way through', () => {
+  it('stops watching when the feed leaves part way through', async () => {
     watchFailures('a1', 'a2');
     pool().requestSnapshot(request('a1'));
     pool().requestSnapshot(request('a2'));
 
-    setSuspended(true);
+    await setSuspended(true);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 4);
 
     expect(eventsOf('suspend')).toHaveLength(1);
@@ -769,31 +769,31 @@ describe('the snapshot pool watchdog across a suspend', () => {
     expect(failures).toEqual([]);
   });
 
-  it('watches the same work again when the feed comes back', () => {
+  it('watches the same work again when the feed comes back', async () => {
     pool().requestSnapshot(request('a1'));
     pool().requestSnapshot(request('a2'));
-    setSuspended(true);
-    act(() => goneHandlers.forEach((gone) => gone()));
+    await setSuspended(true);
+    await act(() => goneHandlers.forEach((gone) => gone()));
 
-    setSuspended(false);
+    await setSuspended(false);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
     expect(watchdogFired()).toEqual(['2 failed']);
   });
 
-  it('keeps the queue, so the work still runs after the feed returns', () => {
+  it('keeps the queue, so the work still runs after the feed returns', async () => {
     pool().requestSnapshot(request('a1'));
     injected.length = 0;
 
-    setSuspended(true);
-    setSuspended(false);
+    await setSuspended(true);
+    await setSuspended(false);
     workersReady();
 
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('says nothing but the suspend when there is no queue at all', () => {
-    setSuspended(true);
+  it('says nothing but the suspend when there is no queue at all', async () => {
+    await setSuspended(true);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
     expect(mockEvents.map((e) => e.kind)).toEqual(['suspend']);
@@ -811,7 +811,7 @@ describe('the snapshot pool watchdog across a suspend', () => {
  */
 describe('the snapshot pool follows the feed on and off screen', () => {
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
 
   const pool = () => {
     if (!ref.current) throw new Error('the pool did not mount');
@@ -826,10 +826,10 @@ describe('the snapshot pool follows the feed on and off screen', () => {
     post({ type: 'mapReady', workerId: 1 });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
     workersReady();
   });
 
@@ -841,47 +841,47 @@ describe('the snapshot pool follows the feed on and off screen', () => {
     expect(mounted).toBe(2);
   });
 
-  it('keeps both workers while the feed is offscreen', () => {
-    setSuspended(true);
+  it('keeps both workers while the feed is offscreen', async () => {
+    await setSuspended(true);
 
     expect(mounted).toBe(2);
   });
 
-  it('mounts nothing new when the feed returns', () => {
-    setSuspended(true);
-    setSuspended(false);
+  it('mounts nothing new when the feed returns', async () => {
+    await setSuspended(true);
+    await setSuspended(false);
 
     expect(mountedEver).toBe(2);
   });
 
-  it('renders nothing while suspended, and the request waits', () => {
-    setSuspended(true);
+  it('renders nothing while suspended, and the request waits', async () => {
+    await setSuspended(true);
 
     pool().requestSnapshot(request('a1'));
 
     expect(rendered()).toEqual([]);
 
-    setSuspended(false);
+    await setSuspended(false);
 
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('finishes the render that was in flight when the feed left', () => {
+  it('finishes the render that was in flight when the feed left', async () => {
     pool().requestSnapshot(request('a1'));
     expect(rendered()).toEqual(['a1']);
 
-    setSuspended(true);
-    setSuspended(false);
+    await setSuspended(true);
+    await setSuspended(false);
 
     expect(rendered()).toEqual(['a1', 'a1']);
   });
 
-  it('does not fail the queue while it is suspended', () => {
+  it('does not fail the queue while it is suspended', async () => {
     pool().requestSnapshot(request('a1'));
-    setSuspended(true);
+    await setSuspended(true);
 
     jest.advanceTimersByTime(60_000);
-    setSuspended(false);
+    await setSuspended(false);
 
     expect(rendered()).toEqual(['a1', 'a1']);
   });
@@ -906,10 +906,10 @@ describe('the snapshot pool waits out a scroll', () => {
     return ref.current;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     post({ type: 'mapReady', workerId: 1 });
   });
@@ -1074,13 +1074,13 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       });
     };
 
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.useFakeTimers();
       injected.length = 0;
       save.mockClear();
       mockCached.clear();
       ref = React.createRef<TerrainSnapshotWebViewRef>();
-      render(<TerrainSnapshotWebView ref={ref} />);
+      await render(<TerrainSnapshotWebView ref={ref} />);
       onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady', workerId: 0 }) } });
       onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady', workerId: 1 }) } });
       // Hold worker 0, so the one under test is worker 1 throughout.
@@ -1323,7 +1323,7 @@ describe('an override jumps the snapshot queue', () => {
   });
 
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
 
   const pool = () => {
     if (!ref.current) throw new Error('the pool did not mount');
@@ -1334,10 +1334,10 @@ describe('an override jumps the snapshot queue', () => {
     for (let i = 0; i < count; i += 1) pool().requestSnapshot(request(`a${i}`));
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   afterEach(() => {
@@ -1420,7 +1420,7 @@ describe('an override jumps the snapshot queue', () => {
     expect(injected.join('\n')).toContain('chosen');
   });
 
-  it('still counts the override in the total', () => {
+  it('still counts the override in the total', async () => {
     queue(3);
     pool().requestSnapshot(request('chosen', { priority: true }));
     post({ type: 'mapReady', workerId: 0 });
@@ -1431,9 +1431,9 @@ describe('an override jumps the snapshot queue', () => {
     // Three of four done and a2 owed a render. A total that missed the
     // override reads three of three, and a pool that never comes back from
     // the pause would then leave a2 waiting for good.
-    view.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
-    act(() => goneHandlers.forEach((gone) => gone()));
-    view.rerender(<TerrainSnapshotWebView ref={ref} />);
+    await view.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
+    await act(() => goneHandlers.forEach((gone) => gone()));
+    await view.rerender(<TerrainSnapshotWebView ref={ref} />);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
     expect(watchdogFired()).toEqual(['1 failed']);
@@ -1450,7 +1450,7 @@ describe('an override jumps the snapshot queue', () => {
 describe('a wedged pool reports what it did', () => {
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
   let reported: string[];
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
   let consoleError: jest.SpyInstance;
 
   const pool = () => {
@@ -1458,14 +1458,14 @@ describe('a wedged pool reports what it did', () => {
     return ref.current;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     reported = [];
     consoleError = jest.spyOn(console, 'error').mockImplementation((line: unknown) => {
       reported.push(String(line));
     });
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   // Restores the one spy this block made, rather than every mock in the file,
@@ -1476,7 +1476,7 @@ describe('a wedged pool reports what it did', () => {
   });
 
   /** Two throttles, so the backoff outlasts four watchdog holds. */
-  const throttlePool = () => {
+  const throttlePool = async () => {
     pool().requestSnapshot(request('a0'));
     pool().requestSnapshot(request('a1'));
     post({ type: 'mapReady', workerId: 0 });
@@ -1489,7 +1489,7 @@ describe('a wedged pool reports what it did', () => {
       tileErrors: 2,
       tileThrottles: 2,
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
     post({
@@ -1503,20 +1503,20 @@ describe('a wedged pool reports what it did', () => {
     });
   };
 
-  it('says nothing while the watchdog has only held once or twice', () => {
-    throttlePool();
+  it('says nothing while the watchdog has only held once or twice', async () => {
+    await throttlePool();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 2 + 1000);
     });
 
     expect(reported).toEqual([]);
   });
 
-  it('names the hold reason, the queue and what led there', () => {
-    throttlePool();
+  it('names the hold reason, the queue and what led there', async () => {
+    await throttlePool();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 4 + 1000);
     });
 
@@ -1527,26 +1527,26 @@ describe('a wedged pool reports what it did', () => {
     expect(reported[0]).toContain('start w0 a0');
   });
 
-  it('reports a run of holds once, not every fifteen seconds after it', () => {
-    throttlePool();
+  it('reports a run of holds once, not every fifteen seconds after it', async () => {
+    await throttlePool();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 12 + 1000);
     });
 
     expect(reported).toHaveLength(1);
   });
 
-  it('records the feed leaving and returning, and no return at mount', () => {
-    act(() => {
-      view.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
+  it('records the feed leaving and returning, and no return at mount', async () => {
+    await act(async () => {
+      await view.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
     });
-    act(() => {
-      view.rerender(<TerrainSnapshotWebView ref={ref} suspended={false} />);
+    await act(async () => {
+      await view.rerender(<TerrainSnapshotWebView ref={ref} suspended={false} />);
     });
-    throttlePool();
+    await throttlePool();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 4 + 1000);
     });
 
@@ -1596,20 +1596,20 @@ describe('a throttled tile server stops the pool', () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('renders nothing at all while the backoff runs', () => {
+  it('renders nothing at all while the backoff runs', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 2 });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS - 1000);
     });
 
@@ -1617,10 +1617,10 @@ describe('a throttled tile server stops the pool', () => {
     expect(injected.join('\n')).not.toContain('a1');
   });
 
-  it('picks the queue back up once the backoff has run', () => {
+  it('picks the queue back up once the backoff has run', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 2 });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
 
@@ -1628,20 +1628,20 @@ describe('a throttled tile server stops the pool', () => {
     expect(injected.join('\n')).toContain('a0');
   });
 
-  it('leaves the pool running for a tile error that is not a throttle', () => {
+  it('leaves the pool running for a tile error that is not a throttle', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 0 });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(3000);
     });
 
     expect(injected.join('\n')).toContain('a0');
   });
 
-  it('does not let a pull-to-refresh defeat the wait', () => {
+  it('does not let a pull-to-refresh defeat the wait', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 2 });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(5000);
       pool().retryFailed();
       jest.advanceTimersByTime(1000);
@@ -1651,9 +1651,9 @@ describe('a throttled tile server stops the pool', () => {
     expect(injected.join('\n')).not.toContain('a1');
   });
 
-  it('waits longer the second time the server says no', () => {
+  it('waits longer the second time the server says no', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 2 });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
     post({
@@ -1668,20 +1668,20 @@ describe('a throttled tile server stops the pool', () => {
     injected.length = 0;
 
     // The first wait would already be over by here. The second is twice it.
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
     expect(injected).toEqual([]);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS);
     });
     expect(injected.length).toBeGreaterThan(0);
   });
 
-  it('goes back to the first wait once a render gets through', () => {
+  it('goes back to the first wait once a render gets through', async () => {
     failFirst({ tileErrors: 2, tileThrottles: 2 });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
     post({ type: 'snapshot', workerId: 0, activityId: 'a0', base64: 'AAAA', gen: 2 });
@@ -1696,23 +1696,23 @@ describe('a throttled tile server stops the pool', () => {
     });
     injected.length = 0;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS - 1000);
     });
     expect(injected).toEqual([]);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
     expect(injected.join('\n')).toContain('a1');
   });
 
-  it('does not let the staleness watchdog fail the queue for waiting', () => {
+  it('does not let the staleness watchdog fail the queue for waiting', async () => {
     // The watchdog gives up after 15 s of no progress, and the backoff is
     // longer than that on purpose. Waiting as instructed is not being stuck.
     failFirst({ tileErrors: 2, tileThrottles: 2 });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + 1000);
     });
 
@@ -1759,9 +1759,9 @@ describe('where a preview spends its seconds', () => {
 
   it.each(['snapshot', 'snapshotError'])(
     'records per-source tile counts from a %s message',
-    (type) => {
+    async (type) => {
       const before = calls('snapshot.tiles.satellite');
-      render(<TerrainSnapshotWebView ref={ref} />);
+      await render(<TerrainSnapshotWebView ref={ref} />);
       post({ type: 'mapReady', workerId: 0 });
       pool().requestSnapshot(request('tiles'));
       post({
@@ -1794,28 +1794,28 @@ describe('where a preview spends its seconds', () => {
     }
   );
 
-  it('records no tile reading when the message carries none', () => {
+  it('records no tile reading when the message carries none', async () => {
     const before = calls('snapshot.tiles.terrain');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('no-counts'));
     post({ type: 'snapshot', workerId: 0, activityId: 'no-counts', base64: 'AAAA', gen: 1 });
     expect(calls('snapshot.tiles.terrain')).toBe(before);
   });
 
-  it('times a worker booting, from its mount to mapReady', () => {
+  it('times a worker booting, from its mount to mapReady', async () => {
     const before = calls('snapshot.boot');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
 
     post({ type: 'mapReady', workerId: 0 });
 
     expect(calls('snapshot.boot')).toBe(before + 1);
   });
 
-  it('times the wait and the render of a request that completes', () => {
+  it('times the wait and the render of a request that completes', async () => {
     const beforeWait = calls('snapshot.wait');
     const beforeRender = calls('snapshot.render.flat');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
     pool().requestSnapshot(request('a0'));
@@ -1825,9 +1825,9 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.flat')).toBe(beforeRender + 1);
   });
 
-  it('files a drape apart from a flat render', () => {
+  it('files a drape apart from a flat render', async () => {
     const before = calls('snapshot.render.drape');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
     pool().requestSnapshot(request('a0', false));
@@ -1836,8 +1836,8 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.drape')).toBe(before + 1);
   });
 
-  it('times nothing for a render the timeout abandoned', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('times nothing for a render the timeout abandoned', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('a0'));
 
@@ -1850,10 +1850,10 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.flat')).toBe(after);
   });
 
-  it('records the page elapsed under the path it took', () => {
+  it('records the page elapsed under the path it took', async () => {
     const before = calls('snapshot.page.fast.drape');
     const beforeStandIn = calls('snapshot.page.fast.standIn');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
     pool().requestSnapshot(request('a0', false));
@@ -1871,10 +1871,10 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.page.fast.standIn')).toBe(beforeStandIn);
   });
 
-  it('files a first-paint stand-in apart from the drape it precedes', () => {
+  it('files a first-paint stand-in apart from the drape it precedes', async () => {
     const before = calls('snapshot.page.setStyle.standIn');
     const beforeDrape = calls('snapshot.page.setStyle.drape');
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
     pool().requestSnapshot({ ...request('a0', true), standIn: true, firstPaint: true });
@@ -1892,9 +1892,9 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.page.setStyle.drape')).toBe(beforeDrape);
   });
 
-  it('records the stages the page stamped inside that elapsed', () => {
+  it('records the stages the page stamped inside that elapsed', async () => {
     const before = ['style', 'settle', 'probe', 'encode'].map((p) => calls(`snapshot.phase.${p}`));
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
     pool().requestSnapshot(request('a0'));
@@ -1913,8 +1913,8 @@ describe('where a preview spends its seconds', () => {
     );
   });
 
-  it('records no stage for a render the timeout abandoned', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('records no stage for a render the timeout abandoned', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('a0'));
 
@@ -1976,8 +1976,8 @@ describe('which worker a render goes to', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('sends a flat render to the worker that last drew flat', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('sends a flat render to the worker that last drew flat', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     settleWorkers();
     expect(tookIt('flat-seed')).toBe(0);
     expect(tookIt('drape-seed')).toBe(1);
@@ -1987,8 +1987,8 @@ describe('which worker a render goes to', () => {
     expect(tookIt('a-flat')).toBe(0);
   });
 
-  it('sends a drape to the worker that last drew a drape', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('sends a drape to the worker that last drew a drape', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     settleWorkers();
 
     pool().requestSnapshot(request('a-drape', false));
@@ -1996,8 +1996,8 @@ describe('which worker a render goes to', () => {
     expect(tookIt('a-drape')).toBe(1);
   });
 
-  it('sends it out anyway when the matching worker is busy', () => {
-    render(<TerrainSnapshotWebView ref={ref} />);
+  it('sends it out anyway when the matching worker is busy', async () => {
+    await render(<TerrainSnapshotWebView ref={ref} />);
     settleWorkers();
 
     // Worker 0 takes a flat render and is now busy.
@@ -2037,17 +2037,17 @@ describe('the pool timers', () => {
   const rendersOf = (activityId: string) => rendered().filter((id) => id === activityId).length;
 
   let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  let view: ReturnType<typeof render>;
+  let view: Awaited<ReturnType<typeof render>>;
 
   const pool = () => {
     if (!ref.current) throw new Error('the pool did not mount');
     return ref.current;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    view = render(<TerrainSnapshotWebView ref={ref} />);
+    view = await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   afterEach(() => {
@@ -2172,7 +2172,7 @@ describe('the pool timers', () => {
   });
 
   describe('an unmounted pool fails no card', () => {
-    it('lets no throttle timer render or fail anything after unmount', () => {
+    it('lets no throttle timer render or fail anything after unmount', async () => {
       watchFailures('a0', 'a1');
       post({ type: 'mapReady', workerId: 0 });
       pool().requestSnapshot(request('a0'));
@@ -2188,31 +2188,31 @@ describe('the pool timers', () => {
       });
       const before = rendered().length;
 
-      view.unmount();
+      await view.unmount();
       jest.advanceTimersByTime(THROTTLE_BACKOFF_MS + SNAPSHOT_TIMEOUT_MS + STALENESS_TIMEOUT_MS);
 
       expect(rendered().length).toBe(before);
       expect(failures).toEqual([]);
     });
 
-    it('lets no retry timer render or fail anything after unmount', () => {
+    it('lets no retry timer render or fail anything after unmount', async () => {
       watchFailures('a0');
       post({ type: 'mapReady', workerId: 0 });
       pool().requestSnapshot(request('a0'));
       post({ type: 'snapshotError', workerId: 0, activityId: 'a0', gen: 1, error: 'tiles' });
 
-      view.unmount();
+      await view.unmount();
       jest.advanceTimersByTime(RETRY_DELAY_MS + SNAPSHOT_TIMEOUT_MS + STALENESS_TIMEOUT_MS);
 
       expect(rendersOf('a0')).toBe(1);
       expect(failures).toEqual([]);
     });
 
-    it('lets no queued request fail after unmount', () => {
+    it('lets no queued request fail after unmount', async () => {
       watchFailures('a0');
       pool().requestSnapshot(request('a0'));
 
-      view.unmount();
+      await view.unmount();
       jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 2);
 
       expect(failures).toEqual([]);
@@ -2251,10 +2251,10 @@ describe('a pool that goes quiet', () => {
   const recycles = (workerId: number) =>
     injectedByWorker[workerId].filter((entry) => entry === 'recycle').length;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     post({ type: 'mapReady', workerId: 1 });
   });
@@ -2346,10 +2346,10 @@ describe('every request the pool accepts ends in a picture or a failure', () => 
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
   });
 
   afterEach(() => {
@@ -2394,24 +2394,24 @@ describe('every request the pool accepts ends in a picture or a failure', () => 
     expect(failures).toEqual([]);
   });
 
-  it('fails the card whose worker page died mid-render and never came back', () => {
+  it('fails the card whose worker page died mid-render and never came back', async () => {
     watchFailures('orphan');
     workerReady(0);
     pool().requestSnapshot(request('orphan'));
     expect(rendered()).toEqual(['orphan']);
 
-    act(() => goneHandlers[0]?.());
+    await act(() => goneHandlers[0]?.());
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
     expect(failures).toEqual(['orphan']);
   });
 
-  it('draws the card again when the dead worker page comes back', () => {
+  it('draws the card again when the dead worker page comes back', async () => {
     watchFailures('orphan');
     workerReady(0);
     pool().requestSnapshot(request('orphan'));
 
-    act(() => goneHandlers[0]?.());
+    await act(() => goneHandlers[0]?.());
     workerReady(0);
 
     expect(rendered()).toEqual(['orphan', 'orphan']);
@@ -2447,10 +2447,10 @@ describe('a worker page is given each style once', () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     ref = React.createRef<TerrainSnapshotWebViewRef>();
-    render(<TerrainSnapshotWebView ref={ref} />);
+    await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
   });
 
@@ -2473,7 +2473,7 @@ describe('a worker page is given each style once', () => {
     pool().requestSnapshot(request('a0'));
     await land('a0', 1);
 
-    act(() => goneHandlers[0]?.());
+    await act(() => goneHandlers[0]?.());
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('a1'));
     expect(registrations(last())).toBe(1);

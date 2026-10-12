@@ -49,8 +49,8 @@ function renderList(batchGroups: GroupWithPolyline[]) {
 }
 
 describe('the Routes explanation card', () => {
-  it('closes a list of routes', () => {
-    renderList([group]);
+  it('closes a list of routes', async () => {
+    await renderList([group]);
 
     const card = screen.getByTestId('routes-explanation');
     expect(within(card).getByText('routes.explanation.routesTitle')).toBeTruthy();
@@ -58,8 +58,8 @@ describe('the Routes explanation card', () => {
     expect(within(card).getByText('insights.explanation.sourcesLabel')).toBeTruthy();
   });
 
-  it('leaves an empty library to its empty state', () => {
-    renderList([]);
+  it('leaves an empty library to its empty state', async () => {
+    await renderList([]);
 
     expect(screen.queryByTestId('routes-explanation')).toBeNull();
     expect(screen.getByText('routes.noRoutesYet')).toBeTruthy();

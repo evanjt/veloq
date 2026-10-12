@@ -69,19 +69,21 @@ function sportAsked(): unknown {
 describe('an insight sheet', () => {
   beforeEach(() => mockPerformances.mockClear());
 
-  it('reads the PR sport the record was set in, not the section own sport', () => {
-    render(<SectionPRContent insight={insight('section_pr', 'Run')} />);
+  it('reads the PR sport the record was set in, not the section own sport', async () => {
+    await render(<SectionPRContent insight={insight('section_pr', 'Run')} />);
     expect(sportAsked()).toBe('Run');
   });
 
-  it('reads the trend sport the accordion row carries', () => {
-    const { getByText } = render(<SectionTrendContent insight={insight('section_trend', 'Run')} />);
+  it('reads the trend sport the accordion row carries', async () => {
+    const { getByText } = await render(
+      <SectionTrendContent insight={insight('section_trend', 'Run')} />
+    );
     getByText('t(insights.sectionWithSport)');
     expect(sportAsked()).toBe('Run');
   });
 
-  it('asks for no sport when the row carries none', () => {
-    render(<SectionPRContent insight={insight('section_pr')} />);
+  it('asks for no sport when the row carries none', async () => {
+    await render(<SectionPRContent insight={insight('section_pr')} />);
     expect(mockPerformances).toHaveBeenCalled();
     expect(sportAsked()).toBeUndefined();
   });

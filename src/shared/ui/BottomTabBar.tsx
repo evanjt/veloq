@@ -1,6 +1,7 @@
 /**
  * Minimalist bottom navigation tab bar.
- * Gradient fade from content, subtle icons and labels.
+ * Gradient fade from content, subtle icons and labels. With the system asking
+ * for less transparency or more contrast, an opaque surface with a divider.
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
@@ -57,7 +58,7 @@ function BottomTabBarComponent() {
   const segments = useSegments();
   // Demo mode counts as a session, `enterDemoMode` sets `isAuthenticated`.
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { isDark } = useTheme();
+  const { isDark, preferOpaqueChrome } = useTheme();
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
   const activeLabel = palette.textPrimary;
@@ -124,13 +125,28 @@ function BottomTabBarComponent() {
         style={[styles.container, { height: totalHeight }]}
         pointerEvents="box-none"
       >
-        {/* Smooth gradient fade */}
-        <LinearGradient
-          colors={gradientColors}
-          locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
+        {preferOpaqueChrome ? (
+          <View
+            testID="bottom-tab-bar-surface"
+            style={[
+              styles.opaqueSurface,
+              {
+                height: TAB_BAR_HEIGHT + insets.bottom,
+                backgroundColor: palette.surface,
+                borderTopColor: palette.divider,
+              },
+            ]}
+            pointerEvents="none"
+          />
+        ) : (
+          <LinearGradient
+            testID="bottom-tab-bar-gradient"
+            colors={gradientColors}
+            locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        )}
         {/* Icons row - positioned at bottom above safe area */}
         <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
           {MENU_ITEMS.map((item) => {
@@ -188,6 +204,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1000,
     justifyContent: 'flex-end',
+  },
+  opaqueSurface: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   tabRow: {
     flexDirection: 'row',

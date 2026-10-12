@@ -36,8 +36,8 @@ describe('SheetFrame on Android', () => {
     Platform.OS = 'android';
   });
 
-  it('draws the handle on a resizable sheet and pads past the navigation bar', () => {
-    render(
+  it('draws the handle on a resizable sheet and pads past the navigation bar', async () => {
+    await render(
       <SheetFrame name="sheets/insight">
         <Text>body</Text>
       </SheetFrame>
@@ -47,8 +47,8 @@ describe('SheetFrame on Android', () => {
     expect(screen.getByText('body')).toBeTruthy();
   });
 
-  it('draws no handle on a sheet sized to its content, and still pads it', () => {
-    render(
+  it('draws no handle on a sheet sized to its content, and still pads it', async () => {
+    await render(
       <SheetFrame name="sheets/smoothing">
         <Text>body</Text>
       </SheetFrame>
@@ -57,8 +57,8 @@ describe('SheetFrame on Android', () => {
     expect(frameStyle().paddingBottom).toBe(48);
   });
 
-  it('hides the handle from assistive technology, since it carries no action', () => {
-    render(
+  it('hides the handle from assistive technology, since it carries no action', async () => {
+    await render(
       <SheetFrame name="sheets/field-picker">
         <Text>body</Text>
       </SheetFrame>
@@ -74,8 +74,8 @@ describe('SheetFrame on iOS', () => {
     Platform.OS = 'ios';
   });
 
-  it('leaves the grabber to the system and pads a resizable sheet', () => {
-    render(
+  it('leaves the grabber to the system and pads a resizable sheet', async () => {
+    await render(
       <SheetFrame name="sheets/insight">
         <Text>body</Text>
       </SheetFrame>
@@ -84,8 +84,8 @@ describe('SheetFrame on iOS', () => {
     expect(frameStyle().paddingBottom).toBe(48);
   });
 
-  it('adds no padding to a fitted sheet, which the system already ends above the indicator', () => {
-    render(
+  it('adds no padding to a fitted sheet, which the system already ends above the indicator', async () => {
+    await render(
       <SheetFrame name="sheets/smoothing">
         <Text>body</Text>
       </SheetFrame>
@@ -99,14 +99,16 @@ describe('sheetScreenLayout', () => {
     Platform.OS = 'android';
   });
 
-  it('frames a sheet route', () => {
-    render(sheetScreenLayout({ route: { name: 'sheets/insight' }, children: <Text>body</Text> }));
+  it('frames a sheet route', async () => {
+    await render(
+      sheetScreenLayout({ route: { name: 'sheets/insight' }, children: <Text>body</Text> })
+    );
     expect(screen.getByTestId('sheet-frame')).toBeTruthy();
     expect(screen.getByText('body')).toBeTruthy();
   });
 
-  it('passes any other route through untouched', () => {
-    render(sheetScreenLayout({ route: { name: 'settings' }, children: <Text>body</Text> }));
+  it('passes any other route through untouched', async () => {
+    await render(sheetScreenLayout({ route: { name: 'settings' }, children: <Text>body</Text> }));
     expect(screen.queryByTestId('sheet-frame')).toBeNull();
     expect(screen.getByText('body')).toBeTruthy();
   });

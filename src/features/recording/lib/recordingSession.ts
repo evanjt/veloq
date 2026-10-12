@@ -6,6 +6,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { debug } from '@/shared/debug/debug';
+import { readLocationGrant } from '@/shared/app/permissions/locationGrant';
 import {
   backgroundLocationRunning,
   startBackgroundLocation,
@@ -195,8 +196,9 @@ async function startForegroundService(): Promise<void> {
 export async function ensureLocationWatch(): Promise<boolean> {
   if (!running) return false;
   if (useRecordingStore.getState().mode !== 'gps') return false;
-  const { status } = await Location.getForegroundPermissionsAsync();
-  if (status !== 'granted') return false;
+  // An approximate grant still starts the watch: the screen says why its fixes
+  // are dropped, and an upgrade mid-ride needs the watch already running.
+  if (!(await readLocationGrant()).granted) return false;
   // The screen's own watch first. It is what the rider sees, it costs
   // milliseconds, and verifying the service can take seconds on the path where
   // it was refused, which is no reason to hold up the first fix.

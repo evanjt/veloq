@@ -15,6 +15,7 @@ import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formZoneTextColor } from '@/features/fitness/lib/fitness';
 import { getEngine } from '@/shared/native/engine';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -87,8 +88,8 @@ function metric(
 }
 
 describe('the feed card wellness numbers', () => {
-  it('come from the bundle, with the glyph the engine judged', () => {
-    const { result } = renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
+  it('come from the bundle, with the glyph the engine judged', async () => {
+    const { result } = await renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
     const metrics = result.current.supportingMetrics;
 
     // The bundle carries the current value and no baseline, so a trend the
@@ -98,46 +99,50 @@ describe('the feed card wellness numbers', () => {
     expect(metric(metrics, '⚖️')?.trend).toBeUndefined();
   });
 
-  it('makes no wellness read of its own', () => {
-    renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
+  it('makes no wellness read of its own', async () => {
+    await renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
 
     expect(engine.getWellnessDays).not.toHaveBeenCalled();
   });
 
-  it('gives placeholders and no arrows before a bundle arrives', () => {
-    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
+  it('gives placeholders and no arrows before a bundle arrives', async () => {
+    const { result } = await renderHook(() =>
+      useSummaryCardData(undefined, { awaitPrecomputed: true })
+    );
     const metrics = result.current.supportingMetrics;
 
-    expect(metric(metrics, 'metrics.fitness')).toMatchObject({ value: '-' });
+    expect(metric(metrics, 'metrics.fitness')).toMatchObject({ value: ABSENT });
     expect(metric(metrics, 'metrics.fitness')?.trend).toBeUndefined();
     // Weight with no reading is dropped from the row rather than drawn as zero.
     expect(metric(metrics, '⚖️')).toBeUndefined();
   });
 });
 
-it('keeps missing wellness distinct from measured zero after activities arrive', () => {
+it('keeps missing wellness distinct from measured zero after activities arrive', async () => {
   const missing = {
     ...CARD,
     wellness: withoutReadings('fitness', 'fitnessTrend', 'form', 'formTrend'),
   };
-  const { result, rerender } = renderHook(
+  const { result, rerender } = await renderHook(
     ({ card }: { card: typeof CARD }) => useSummaryCardData(card, { awaitPrecomputed: true }),
     { initialProps: { card: missing as typeof CARD } }
   );
-  expect(metric(result.current.supportingMetrics, 'metrics.fitness')).toMatchObject({ value: '-' });
+  expect(metric(result.current.supportingMetrics, 'metrics.fitness')).toMatchObject({
+    value: ABSENT,
+  });
   expect(result.current.isLoading).toBe(false);
-  expect(result.current.heroValue).toBe('-');
-  rerender({ card: { ...CARD, wellness: { ...WELLNESS, fitness: 0, form: 0 } } });
+  expect(result.current.heroValue).toBe(ABSENT);
+  await rerender({ card: { ...CARD, wellness: { ...WELLNESS, fitness: 0, form: 0 } } });
   expect(metric(result.current.supportingMetrics, 'metrics.fitness')).toMatchObject({ value: 0 });
 });
 
-it('withholds the form zone until a form reading arrives', () => {
+it('withholds the form zone until a form reading arrives', async () => {
   const preferences = useDashboardPreferences.getState().summaryCard;
   useDashboardPreferences.setState({
     summaryCard: { ...preferences, supportingMetrics: ['fitness', 'form'] },
   });
   try {
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ wellness }: { wellness: typeof WELLNESS }) =>
         useSummaryCardData({ ...CARD, wellness }, { awaitPrecomputed: true }),
       {
@@ -147,9 +152,11 @@ it('withholds the form zone until a form reading arrives', () => {
       }
     );
     const greyZone = formZoneTextColor('greyZone', false);
-    expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({ value: '-' });
+    expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
+      value: ABSENT,
+    });
     expect(metric(result.current.supportingMetrics, 'metrics.form')?.color).not.toBe(greyZone);
-    rerender({ wellness: { ...WELLNESS, fitness: 0, form: 0 } });
+    await rerender({ wellness: { ...WELLNESS, fitness: 0, form: 0 } });
     expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
       value: '0',
       color: greyZone,

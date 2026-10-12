@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '@/theme';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
@@ -56,6 +57,17 @@ function TimerHeaderInner({
 }) {
   const { t } = useTranslation();
   const currentActivityColor = getActivityColor(currentActivityType);
+  const statusSpoken = status === 'recording' ? t('spoken.rec') : t('recording.paused', 'Paused');
+  // The phone is mounted or pocketed during a ride, so a change of state is
+  // spoken: through the live regions below on Android, announced on iOS.
+  // Nothing is recording on the screen waiting for Start, so it says nothing.
+  let announcement: string | null = null;
+  if (status !== 'idle') {
+    announcement = autoPaused
+      ? `${t('recording.autoPaused')}. ${t('recording.autoPausedHint')}`
+      : statusSpoken;
+  }
+  useAnnounceOnAppear(announcement);
 
   return (
     <View style={styles.timerHeader}>
@@ -66,6 +78,7 @@ function TimerHeaderInner({
           <Text
             testID="recording-autopause"
             style={[styles.autoPauseLabel, { color: textSecondary }]}
+            accessibilityLiveRegion="polite"
           >
             {t('recording.autoPaused')} · {t('recording.autoPausedHint')}
           </Text>
@@ -109,7 +122,11 @@ function TimerHeaderInner({
               reading PAUSED there would mislead. The
               GPS indicator goes with it: no watch runs while idle. */}
           {status !== 'idle' && (
-            <View testID="recording-status" style={styles.statusBadge}>
+            <View
+              testID="recording-status"
+              style={styles.statusBadge}
+              accessibilityLiveRegion="polite"
+            >
               <Animated.View
                 style={[
                   styles.statusDot,
@@ -119,7 +136,10 @@ function TimerHeaderInner({
                   },
                 ]}
               />
-              <Text style={[styles.statusText, { color: textSecondary }]}>
+              <Text
+                style={[styles.statusText, { color: textSecondary }]}
+                accessibilityLabel={statusSpoken}
+              >
                 {status === 'recording'
                   ? t('recording.rec', 'REC')
                   : t('recording.paused', 'PAUSED')}

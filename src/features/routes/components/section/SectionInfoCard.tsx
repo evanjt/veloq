@@ -9,10 +9,10 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { formatAxisDate, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
+import { formatAxisDate } from '@/shared/format/format';
+import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import type { DirectionStats, ActivityType } from '@/types';
+import type { DirectionStats } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
 
@@ -29,8 +29,8 @@ export interface SectionInfoCardProps {
   bestReverseRecord: SectionPerformanceRecord | null;
   forwardStats: DirectionStats | null;
   reverseStats: DirectionStats | null;
-  /** The sport on screen, absent until the engine has answered. */
-  sportType: string | undefined;
+  /** What Best and Avg read as, the basis the chart plots on. */
+  basis: AttemptBasis;
   isDark: boolean;
   /** Colour of the forward direction's arrow. */
   activityColor?: string;
@@ -45,7 +45,7 @@ export function SectionInfoCard({
   bestReverseRecord,
   forwardStats,
   reverseStats,
-  sportType,
+  basis,
   isDark,
   activityColor,
   pending = false,
@@ -53,27 +53,13 @@ export function SectionInfoCard({
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
 
-  const showsPace = isPaceSport(sportType as ActivityType);
-  const isSwimming = isSwimmingActivity(sportType as ActivityType);
-  const showPace = showsPace || isSwimming;
+  const formatBest = (record: SectionPerformanceRecord | null): string | null =>
+    record ? formatAttemptFigure(basis, record.bestTime, record.bestPace, isMetric) : null;
 
-  const formatBest = (record: SectionPerformanceRecord | null): string | null => {
-    if (!record) return null;
-    if (!showPace) return formatDuration(record.bestTime);
-    return isSwimming
-      ? formatSwimPace(record.bestPace, isMetric)
-      : formatPace(record.bestPace, isMetric);
-  };
-
-  const formatAvg = (stats: DirectionStats | null): string | null => {
-    if (!stats || stats.avgTime == null) return null;
-    if (showPace && stats.avgSpeed != null && stats.avgSpeed > 0) {
-      return isSwimming
-        ? formatSwimPace(stats.avgSpeed, isMetric)
-        : formatPace(stats.avgSpeed, isMetric);
-    }
-    return formatDuration(stats.avgTime);
-  };
+  const formatAvg = (stats: DirectionStats | null): string | null =>
+    stats && stats.avgTime != null
+      ? formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric)
+      : null;
 
   if (pending && (!firstDate || !lastDate)) {
     return (

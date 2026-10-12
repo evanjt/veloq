@@ -52,46 +52,46 @@ beforeEach(() => {
   (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array(0));
 });
 
-function renderDetailStreams() {
+async function renderDetailStreams() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client }, children);
-  return { ...renderHook(() => useActivityDetailStreams('a1'), { wrapper }), client };
+  return { ...(await renderHook(() => useActivityDetailStreams('a1'), { wrapper })), client };
 }
 
 describe('the detail stream read and stored-track fallback', () => {
   it('waits for a stream body containing latlng without reading the stored track', async () => {
     engine.getActivityStreams.mockReturnValue(streamBuffers({ latlng: BLOB }));
     (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array([46.2, 7.35]));
-    const { result, rerender, unmount, client } = renderDetailStreams();
+    const { result, rerender, unmount, client } = await renderDetailStreams();
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(result.current.coordinates).toEqual([{ latitude: 46.2, longitude: 7.35 }])
     );
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    rerender(undefined);
+    await rerender(undefined);
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    unmount();
+    await unmount();
     client.clear();
   });
 
   it('reads the stored track once after the stream body settles empty', async () => {
-    const { result, rerender, unmount, client } = renderDetailStreams();
+    const { result, rerender, unmount, client } = await renderDetailStreams();
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
     await waitFor(() => expect(result.current.coordinates).toEqual(POINTS));
     expect(engine.getGpsTrack).toHaveBeenCalledTimes(1);
-    rerender(undefined);
+    await rerender(undefined);
     expect(engine.getGpsTrack).toHaveBeenCalledTimes(1);
-    unmount();
+    await unmount();
     client.clear();
   });
 });
 
 describe('the stored track crosses the FFI encoded', () => {
-  it('waits for the stream read before opening the stored track', () => {
-    const { rerender } = renderHook(
+  it('waits for the stream read before opening the stored track', async () => {
+    const { rerender } = await renderHook(
       ({ pending }: { pending: boolean }) => useDetailCoordinates('a1', undefined, pending),
       {
         initialProps: { pending: true },
@@ -99,28 +99,28 @@ describe('the stored track crosses the FFI encoded', () => {
     );
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    rerender({ pending: false });
+    await rerender({ pending: false });
     expect(engine.getGpsTrack).toHaveBeenCalledTimes(1);
   });
-  it('decodes the blob the engine returned, untouched', () => {
-    const { result } = renderHook(() => useDetailCoordinates('a1', undefined));
+  it('decodes the blob the engine returned, untouched', async () => {
+    const { result } = await renderHook(() => useDetailCoordinates('a1', undefined));
 
     expect(decodeCoords).toHaveBeenCalledWith(BLOB);
     expect(result.current).toEqual(POINTS);
   });
 
-  it('reads an empty blob as no line', () => {
+  it('reads an empty blob as no line', async () => {
     engine.getGpsTrack.mockReturnValue(EMPTY);
     (decodeCoords as jest.Mock).mockReturnValue([]);
 
-    const { result } = renderHook(() => useDetailCoordinates('a1', undefined));
+    const { result } = await renderHook(() => useDetailCoordinates('a1', undefined));
 
     expect(result.current).toEqual([]);
   });
 
-  it('does not read the engine at all when the stream body is already there', () => {
+  it('does not read the engine at all when the stream body is already there', async () => {
     const streamLatLng = new Float64Array([46.2, 7.35, 46.21, 7.36]);
-    const { result } = renderHook(() => useDetailCoordinates('a1', streamLatLng));
+    const { result } = await renderHook(() => useDetailCoordinates('a1', streamLatLng));
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
     expect(decodeCoords).not.toHaveBeenCalled();

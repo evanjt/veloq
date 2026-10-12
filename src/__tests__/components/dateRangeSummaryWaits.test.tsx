@@ -20,24 +20,24 @@ jest.mock('expo-router', () => ({
 const base = { activityCount: 3, oldestDate: null, newestDate: null };
 
 describe('DateRangeSummary waits', () => {
-  it('shows an indicator, not a sync glyph, beside a progress message', () => {
-    const { UNSAFE_getAllByType, queryByText } = render(
+  it('shows an indicator, not a sync glyph, beside a progress message', async () => {
+    const { UNSAFE_getAllByType, queryByText } = await render(
       <DateRangeSummary {...base} syncMessage="Analysing routes... 34%" />
     );
     expect(queryByText('Analysing routes... 34%')).toBeTruthy();
     expect(UNSAFE_getAllByType(ActivityIndicator)).toHaveLength(1);
     expect(
-      JSON.stringify(render(<DateRangeSummary {...base} syncMessage="x" />).toJSON())
+      JSON.stringify(await (await render(<DateRangeSummary {...base} syncMessage="x" />)).toJSON())
     ).not.toContain('"sync"');
   });
 
-  it('shows an indicator beside the loading text', () => {
-    const { UNSAFE_getAllByType } = render(<DateRangeSummary {...base} isLoading />);
+  it('shows an indicator beside the loading text', async () => {
+    const { UNSAFE_getAllByType } = await render(<DateRangeSummary {...base} isLoading />);
     expect(UNSAFE_getAllByType(ActivityIndicator)).toHaveLength(1);
   });
 
-  it('shows no indicator when nothing is outstanding', () => {
-    const { UNSAFE_queryAllByType } = render(<DateRangeSummary {...base} />);
+  it('shows no indicator when nothing is outstanding', async () => {
+    const { UNSAFE_queryAllByType } = await render(<DateRangeSummary {...base} />);
     expect(UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
   });
 });

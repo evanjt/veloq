@@ -46,7 +46,7 @@ const ROUTE = {
 } as RouteGroup;
 
 // The placeholder is the only view that centres its content and is filled.
-const placeholderFill = (view: ReturnType<typeof render>) =>
+const placeholderFill = (view: Awaited<ReturnType<typeof render>>) =>
   view
     .UNSAFE_getAllByType(View)
     .map((v) => StyleSheet.flatten(v.props.style) ?? {})
@@ -57,10 +57,10 @@ describe.each([
   ['light', false],
   ['dark', true],
 ])('the empty preview in the %s theme', (_name, isDark) => {
-  it('is the same fill on the section row as on the route row', () => {
+  it('is the same fill on the section row as on the route row', async () => {
     mockIsDark = isDark;
-    const section = placeholderFill(render(<SectionRow section={SECTION} />));
-    const route = placeholderFill(render(<RouteRow route={ROUTE} navigable />));
+    const section = placeholderFill(await render(<SectionRow section={SECTION} />));
+    const route = placeholderFill(await render(<RouteRow route={ROUTE} navigable />));
 
     expect(route.length).toBeGreaterThan(0);
     expect(section).toEqual(expect.arrayContaining([route[route.length - 1]]));

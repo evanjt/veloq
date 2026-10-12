@@ -56,6 +56,9 @@ jest.mock('@/shared/app', () => ({
 
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', canAskAgain: true }),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
@@ -98,8 +101,8 @@ function renderSection(props: Partial<React.ComponentProps<typeof SectionMapView
 }
 
 describe('SectionMapView', () => {
-  it('mounts the interactive container with a map', () => {
-    renderSection();
+  it('mounts the interactive container with a map', async () => {
+    await renderSection();
 
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
@@ -107,82 +110,82 @@ describe('SectionMapView', () => {
     expect(screen.getByTestId('section-map-3d-toggle')).toBeTruthy();
   });
 
-  it('drops the control stack in preview mode', () => {
-    renderSection({ interactive: false });
+  it('drops the control stack in preview mode', async () => {
+    await renderSection({ interactive: false });
 
     expect(screen.queryByTestId('section-map-container')).toBeNull();
     expect(screen.queryByTestId('section-map-style-toggle')).toBeNull();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('opens and closes fullscreen from the control stack', () => {
-    renderSection({ enableFullscreen: true });
+  it('opens and closes fullscreen from the control stack', async () => {
+    await renderSection({ enableFullscreen: true });
 
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    fireEvent(screen.getByTestId('section-map-fullscreen'), 'pressIn');
+    await fireEvent(screen.getByTestId('section-map-fullscreen'), 'pressIn');
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
+    await fireEvent.press(screen.getByTestId('section-map-fullscreen'));
     expect(screen.getByTestId('map-fullscreen-close')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('hides the fullscreen control while trimming', () => {
-    renderSection({ enableFullscreen: true, trimRange: { start: 1, end: 3 } });
+  it('hides the fullscreen control while trimming', async () => {
+    await renderSection({ enableFullscreen: true, trimRange: { start: 1, end: 3 } });
 
     expect(screen.queryByTestId('section-map-fullscreen')).toBeNull();
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
   });
 
-  it('swaps in the terrain view when 3D is enabled', () => {
-    renderSection();
+  it('swaps in the terrain view when 3D is enabled', async () => {
+    await renderSection();
 
     expect(screen.queryByTestId('webview')).toBeNull();
 
-    fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
+    await fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
     expect(screen.queryByTestId('webview')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.getByTestId('webview')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
-  it('changes style on release', () => {
-    renderSection();
+  it('changes style on release', async () => {
+    await renderSection();
 
     const toggle = screen.getByTestId('section-map-style-toggle');
     const icon = toggle.findByType(MaterialCommunityIcons).props.name;
-    fireEvent(toggle, 'pressIn');
+    await fireEvent(toggle, 'pressIn');
     expect(
       screen.getByTestId('section-map-style-toggle').findByType(MaterialCommunityIcons).props.name
     ).toBe(icon);
 
-    fireEvent.press(toggle);
+    await fireEvent.press(toggle);
     expect(
       screen.getByTestId('section-map-style-toggle').findByType(MaterialCommunityIcons).props.name
     ).not.toBe(icon);
   });
 
-  it('resets orientation on release', () => {
+  it('resets orientation on release', async () => {
     const timing = jest.spyOn(Animated, 'timing');
-    renderSection();
+    await renderSection();
     timing.mockClear();
 
-    fireEvent(screen.getByTestId('section-map-compass'), 'pressIn');
+    await fireEvent(screen.getByTestId('section-map-compass'), 'pressIn');
     expect(timing).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByTestId('section-map-compass'));
+    await fireEvent.press(screen.getByTestId('section-map-compass'));
     expect(timing).toHaveBeenCalledTimes(1);
     timing.mockRestore();
   });
 
-  it('renders pre-loaded traces for every activity', () => {
-    renderSection({
+  it('renders pre-loaded traces for every activity', async () => {
+    await renderSection({
       allActivityTraces: { a1: POLYLINE, a2: POLYLINE.slice(0, 3) },
       highlightedActivityId: 'a1',
     });
@@ -191,8 +194,8 @@ describe('SectionMapView', () => {
   });
 
   describe('degenerate input', () => {
-    it('falls back to a placeholder for an empty polyline', () => {
-      renderSection({ section: section({ polyline: [] }) });
+    it('falls back to a placeholder for an empty polyline', async () => {
+      await renderSection({ section: section({ polyline: [] }) });
 
       expect(screen.queryByTestId('section-map-container')).toBeNull();
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
@@ -217,22 +220,22 @@ describe('SectionMapView', () => {
       ['an empty shadow track', { shadowTrack: [] }],
     ];
 
-    it.each(cases)('survives %s', (_label, props) => {
-      expect(() => renderSection(props)).not.toThrow();
+    it.each(cases)('survives %s', async (_label, props) => {
+      await expect((async () => renderSection(props))()).resolves.not.toThrow();
       expect(screen.getByTestId('section-map-container')).toBeTruthy();
     });
   });
   describe('camera framing', () => {
     beforeEach(() => mockFitBounds.mockClear());
 
-    it('leaves the camera alone when the same section arrives again', () => {
-      const { rerender } = renderSection();
+    it('leaves the camera alone when the same section arrives again', async () => {
+      const { rerender } = await renderSection();
       const framed = mockFitBounds.mock.calls.length;
       expect(framed).toBeGreaterThan(0);
 
       // A `sections` engine event rebuilds the detail bundle, so `polyline` is a
       // fresh array of the same points. The athlete's own pan and zoom survive it.
-      rerender(
+      await rerender(
         <SafeAreaProvider initialMetrics={METRICS}>
           <SectionMapView
             section={section({ polyline: POLYLINE.map((p) => ({ ...p })) })}
@@ -244,11 +247,11 @@ describe('SectionMapView', () => {
       expect(mockFitBounds).toHaveBeenCalledTimes(framed);
     });
 
-    it('reframes when the section itself changes', () => {
-      const { rerender } = renderSection();
+    it('reframes when the section itself changes', async () => {
+      const { rerender } = await renderSection();
       const framed = mockFitBounds.mock.calls.length;
 
-      rerender(
+      await rerender(
         <SafeAreaProvider initialMetrics={METRICS}>
           <SectionMapView section={section({ id: 'section-2' })} interactive />
         </SafeAreaProvider>
@@ -257,8 +260,8 @@ describe('SectionMapView', () => {
       expect(mockFitBounds.mock.calls.length).toBeGreaterThan(framed);
     });
 
-    it('reframes on entering and leaving expand mode', () => {
-      const { rerender } = renderSection();
+    it('reframes on entering and leaving expand mode', async () => {
+      const { rerender } = await renderSection();
       const framed = mockFitBounds.mock.calls.length;
 
       const withTrack = (track: RoutePoint[] | undefined) =>
@@ -268,27 +271,27 @@ describe('SectionMapView', () => {
           </SafeAreaProvider>
         );
 
-      withTrack(POLYLINE);
+      await withTrack(POLYLINE);
       const entered = mockFitBounds.mock.calls.length;
       expect(entered).toBeGreaterThan(framed);
 
       // Extending further inside expand mode is the athlete moving the handle,
       // not a mode change, so it does not snatch the viewport back.
-      withTrack([...POLYLINE, { lat: 46.953, lng: 7.452 }]);
+      await withTrack([...POLYLINE, { lat: 46.953, lng: 7.452 }]);
       expect(mockFitBounds.mock.calls.length).toBe(entered);
 
-      withTrack(undefined);
+      await withTrack(undefined);
       expect(mockFitBounds.mock.calls.length).toBeGreaterThan(entered);
     });
   });
 
-  it('falls back to the 2D map when the terrain page reports failure', () => {
-    renderSection();
+  it('falls back to the 2D map when the terrain page reports failure', async () => {
+    await renderSection();
 
-    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.getByTestId('section-map-3d-loading')).toBeTruthy();
 
-    fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview'), 'message', {
       nativeEvent: { data: JSON.stringify({ type: 'mapFailed', reason: 'ready timeout' }) },
     });
 
@@ -297,13 +300,13 @@ describe('SectionMapView', () => {
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
   });
 
-  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', () => {
-    renderSection();
+  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', async () => {
+    await renderSection();
 
-    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
 
-    fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview'), 'message', {
       nativeEvent: {
         data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
       },
@@ -328,9 +331,9 @@ describe('SectionMapView', () => {
       getPosition.mockReset().mockResolvedValue({ coords: { longitude: 7.5, latitude: 46.5 } });
     });
 
-    function markSurfaceReady() {
-      act(() => {
-        fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+    async function markSurfaceReady() {
+      await act(async () => {
+        await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
           nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) },
         });
       });
@@ -341,10 +344,10 @@ describe('SectionMapView', () => {
     }
 
     it('is found by its label and is not pressable while a fix is awaited', async () => {
-      renderSection();
+      await renderSection();
       expect(screen.getByLabelText('maps.goToLocation')).toBeTruthy();
 
-      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await fireEvent.press(screen.getByLabelText('maps.goToLocation'));
       expect(screen.getByLabelText('maps.goToLocation').props.accessibilityState.disabled).toBe(
         true
       );
@@ -352,13 +355,13 @@ describe('SectionMapView', () => {
     });
 
     it('reuses a recent fix, lands at the shared zoom and draws the dot', async () => {
-      renderSection();
-      markSurfaceReady();
+      await renderSection();
+      await markSurfaceReady();
       expect(sourcesSent()['user-location'].data.features).toEqual([]);
 
-      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await fireEvent.press(screen.getByLabelText('maps.goToLocation'));
       await waitFor(() => expect(mockSetCamera).toHaveBeenCalledTimes(1));
-      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await fireEvent.press(screen.getByLabelText('maps.goToLocation'));
       await waitFor(() => expect(mockSetCamera).toHaveBeenCalledTimes(2));
 
       expect(getPosition).toHaveBeenCalledTimes(1);
@@ -372,10 +375,10 @@ describe('SectionMapView', () => {
 
     it('leaves the map and the dot alone when permission is refused', async () => {
       requestPermission.mockResolvedValue({ status: 'denied' });
-      renderSection();
-      markSurfaceReady();
+      await renderSection();
+      await markSurfaceReady();
 
-      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await fireEvent.press(screen.getByLabelText('maps.goToLocation'));
       await waitFor(() =>
         expect(screen.getByLabelText('maps.goToLocation').props.accessibilityState.disabled).toBe(
           false
@@ -388,14 +391,14 @@ describe('SectionMapView', () => {
 
     it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
       getPosition.mockResolvedValue({ coords: { latitude: 46.948, longitude: 7.447 } });
-      renderSection();
+      await renderSection();
       const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
 
       await act(async () => {
-        fireEvent.press(locate);
+        await fireEvent.press(locate);
       });
       await act(async () => {
-        fireEvent.press(locate);
+        await fireEvent.press(locate);
       });
 
       expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);

@@ -32,51 +32,51 @@ describe('the missing-tracks notice', () => {
     useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   });
 
-  it('says nothing while every track landed', () => {
-    const { queryByTestId } = render(<TrackFetchNotice />);
+  it('says nothing while every track landed', async () => {
+    const { queryByTestId } = await render(<TrackFetchNotice />);
 
     expect(queryByTestId('track-fetch-notice')).toBeNull();
   });
 
-  it('names how many routes did not download', () => {
+  it('names how many routes did not download', async () => {
     useTrackFetchNotice.setState({ failedCount: 3, dismissed: false });
 
-    const { getByTestId, getByText } = render(<TrackFetchNotice />);
+    const { getByTestId, getByText } = await render(<TrackFetchNotice />);
 
     expect(getByTestId('track-fetch-notice')).toBeTruthy();
     expect(getByText("3 routes didn't come down")).toBeTruthy();
   });
 
-  it('counts one route in the singular', () => {
+  it('counts one route in the singular', async () => {
     useTrackFetchNotice.setState({ failedCount: 1, dismissed: false });
 
-    const { getByText } = render(<TrackFetchNotice />);
+    const { getByText } = await render(<TrackFetchNotice />);
 
     expect(getByText("1 route didn't come down")).toBeTruthy();
   });
 
-  it('comes down when the athlete closes it', () => {
+  it('comes down when the athlete closes it', async () => {
     useTrackFetchNotice.setState({ failedCount: 2, dismissed: false });
 
-    const { getByTestId, queryByTestId } = render(<TrackFetchNotice />);
-    fireEvent.press(getByTestId('track-fetch-notice-dismiss'));
+    const { getByTestId, queryByTestId } = await render(<TrackFetchNotice />);
+    await fireEvent.press(getByTestId('track-fetch-notice-dismiss'));
 
     expect(queryByTestId('track-fetch-notice')).toBeNull();
   });
 
-  it('opens the activity when exactly one route failed', () => {
+  it('opens the activity when exactly one route failed', async () => {
     useTrackFetchNotice.setState({ failedIds: ['i42'], failedCount: 1, dismissed: false });
 
-    const { getByTestId } = render(<TrackFetchNotice />);
-    fireEvent.press(getByTestId('track-fetch-notice-open'));
+    const { getByTestId } = await render(<TrackFetchNotice />);
+    await fireEvent.press(getByTestId('track-fetch-notice-open'));
 
     expect(router.push).toHaveBeenCalledWith('/activity/i42');
   });
 
-  it('offers no activity to open when several routes failed', () => {
+  it('offers no activity to open when several routes failed', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false });
 
-    const { queryByTestId } = render(<TrackFetchNotice />);
+    const { queryByTestId } = await render(<TrackFetchNotice />);
 
     expect(queryByTestId('track-fetch-notice-open')).toBeNull();
   });

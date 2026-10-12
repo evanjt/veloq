@@ -58,14 +58,14 @@ describe('useActivityLabels', () => {
   it('names the ids it is given without reading a window', async () => {
     land('a1', 'Alpine loop');
 
-    const view = renderHook(() => useActivityLabels(['a1']), { wrapper });
+    const view = await renderHook(() => useActivityLabels(['a1']), { wrapper });
 
     await waitFor(() => expect(view.result.current.labels.get('a1')?.name).toBe('Alpine loop'));
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('fills a row in when its body lands while the screen is open', async () => {
-    const view = renderHook(() => useActivityLabels(['a1']), { wrapper });
+    const view = await renderHook(() => useActivityLabels(['a1']), { wrapper });
     await waitFor(() => expect(view.result.current.labels.size).toBe(0));
 
     await act(async () => {
@@ -76,7 +76,7 @@ describe('useActivityLabels', () => {
   });
 
   it('asks the engine nothing when there are no ids to name', async () => {
-    renderHook(() => useActivityLabels([]), { wrapper });
+    await renderHook(() => useActivityLabels([]), { wrapper });
 
     await waitFor(() => expect(engine.subscribe).toHaveBeenCalled());
     expect(engine.getActivityBody).not.toHaveBeenCalled();

@@ -30,8 +30,8 @@ const SECTION = {
   createdAt: '2026-01-01T00:00:00Z',
 } as FrequentSection;
 
-function popupText(): string {
-  const { toJSON } = render(
+async function popupText(): Promise<string> {
+  const { toJSON } = await render(
     <SectionPopup section={SECTION} bottom={0} onClose={() => undefined} />
   );
   const texts: string[] = [];
@@ -45,14 +45,14 @@ function popupText(): string {
 }
 
 describe('SectionPopup distance', () => {
-  it('shows miles under imperial units', () => {
+  it('shows miles under imperial units', async () => {
     mockMetric = false;
-    expect(popupText()).toContain('2.6');
-    expect(popupText()).not.toContain('4210');
+    expect(await popupText()).toContain('2.6');
+    expect(await popupText()).not.toContain('4210');
   });
 
-  it('shows kilometres under metric units', () => {
+  it('shows kilometres under metric units', async () => {
     mockMetric = true;
-    expect(popupText()).toContain('4.2');
+    expect(await popupText()).toContain('4.2');
   });
 });

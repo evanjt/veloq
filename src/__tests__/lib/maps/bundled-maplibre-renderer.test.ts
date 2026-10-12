@@ -1,15 +1,17 @@
 /**
  * Scenario: a map opens on a device with no radio and a cold WebView HTTP
- * cache. Every map in the app is a WebView, and all three page builders share
- * one head.
+ * cache. Every map in the app is a WebView, all three page builders share one
+ * head, and up to five pages are alive at once, each holding its HTML string.
  *
- * Expected behaviour: the renderer ships in the app, so no page reaches the
- * network before it can draw, and the pinned version only moves in a commit.
+ * Expected behaviour: the renderer ships in the app and is answered by the
+ * platform interceptor on the page's own origin, so no page reaches the network
+ * before it can draw, no page string carries a megabyte of renderer, and the
+ * pinned version only moves in a commit.
  */
 
 import {
-  MAPLIBRE_GL_CSS,
-  MAPLIBRE_GL_JS,
+  MAPLIBRE_GL_CSS_FILE,
+  MAPLIBRE_GL_JS_FILE,
   MAPLIBRE_GL_VERSION,
 } from '@/features/maps/assets/maplibreRenderer.generated';
 import {
@@ -18,6 +20,7 @@ import {
   buildSnapshotWorkerHtml,
   mapLibreHead,
 } from '@/features/maps/lib/htmlBuilders';
+import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 const pages: [string, string][] = [
   [
@@ -33,48 +36,55 @@ const pages: [string, string][] = [
   ['snapshot worker', buildSnapshotWorkerHtml(0)],
 ];
 
+const rendererUrl = `${mapPageBaseUrl()}veloq-asset/${MAPLIBRE_GL_JS_FILE}`;
+const stylesheetUrl = `${mapPageBaseUrl()}veloq-asset/${MAPLIBRE_GL_CSS_FILE}`;
+
 describe('the bundled renderer', () => {
   it('is pinned, so a bump is a deliberate commit', () => {
     expect(MAPLIBRE_GL_VERSION).toBe('5.19.0');
-    expect(MAPLIBRE_GL_JS).toContain('MapLibre GL JS');
-    expect(MAPLIBRE_GL_JS.length).toBeGreaterThan(500_000);
-    expect(MAPLIBRE_GL_CSS).toContain('.maplibregl-map');
   });
 
-  it('carries no tag-closing sequence, which would end the script it inlines into', () => {
-    expect(MAPLIBRE_GL_JS).not.toMatch(/<\/script/i);
-  });
-
-  // Hermes stores a string holding any character above U+007F as UTF-16, which
-  // doubles the renderer and every page string concatenated from it.
-  it('is ASCII, so the engine stores it one byte per character', () => {
-    expect(MAPLIBRE_GL_JS).toMatch(/^[\x00-\x7f]*$/);
-    expect(MAPLIBRE_GL_CSS).toMatch(/^[\x00-\x7f]*$/);
+  it('is named by its version, so an immutable answer never outlives a bump', () => {
+    expect(MAPLIBRE_GL_JS_FILE).toBe(`renderer/maplibre-gl-${MAPLIBRE_GL_VERSION}.js`);
+    expect(MAPLIBRE_GL_CSS_FILE).toBe(`renderer/maplibre-gl-${MAPLIBRE_GL_VERSION}.css`);
   });
 });
 
 describe.each(pages)('%s', (_name, html) => {
+  it('carries no copy of the renderer in the page string', () => {
+    expect(html.length).toBeLessThan(150_000);
+    expect(html).not.toContain('@license');
+    expect(html).not.toContain('.maplibregl-map');
+  });
+
   it('reaches no CDN for the renderer', () => {
     expect(html).not.toContain('unpkg.com');
-    expect(html).not.toMatch(/<script[^>]+\bsrc=/i);
-    expect(html).not.toMatch(/<link[^>]+\bhref="https?:/i);
+    const sources = [...html.matchAll(/<script[^>]+\bsrc="([^"]+)"/gi)].map((m) => m[1]);
+    expect(sources).toEqual([rendererUrl]);
+    const links = [...html.matchAll(/<link[^>]+\bhref="([^"]+)"/gi)].map((m) => m[1]);
+    expect(links).toEqual([stylesheetUrl]);
   });
 
-  it('inlines the renderer and its stylesheet', () => {
-    expect(html.includes(MAPLIBRE_GL_JS)).toBe(true);
-    expect(html.includes(MAPLIBRE_GL_CSS)).toBe(true);
+  it('asks the page origin for the renderer and its stylesheet', () => {
+    expect(html).toContain(`<script id="maplibre-gl" src="${rendererUrl}"></script>`);
+    expect(html).toContain(`<link rel="stylesheet" href="${stylesheetUrl}">`);
   });
 
-  it('defines the renderer before the first line that touches it', () => {
-    expect(html.indexOf(MAPLIBRE_GL_JS)).toBeLessThan(html.indexOf('maplibregl.'));
+  it('loads the renderer before the first line that touches it', () => {
+    expect(html.indexOf(rendererUrl)).toBeLessThan(html.indexOf('maplibregl.'));
+  });
+
+  it('loads the renderer as a blocking classic script, so the page scripts after it can use it', () => {
+    const tag = /<script[^>]+\bsrc="[^"]+"[^>]*>/.exec(html)![0];
+    expect(tag).not.toMatch(/\b(async|defer|type="module")\b/);
   });
 });
 
 describe('mapLibreHead', () => {
-  it('is the one place the renderer is inlined', () => {
-    expect(mapLibreHead().includes(MAPLIBRE_GL_JS)).toBe(true);
+  it('is the one place the renderer is named', () => {
+    expect(mapLibreHead()).toContain(rendererUrl);
     for (const [, html] of pages) {
-      expect(html.split(MAPLIBRE_GL_JS).length - 1).toBe(1);
+      expect(html.split(rendererUrl).length - 1).toBe(1);
     }
   });
 });

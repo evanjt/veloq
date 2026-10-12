@@ -35,16 +35,16 @@ beforeEach(() => {
 });
 
 describe('recording settings units', () => {
-  it('reads metric by default', () => {
+  it('reads metric by default', async () => {
     mockIsMetric = true;
-    const { queryByText } = render(<RecordingSettingsScreen />);
+    const { queryByText } = await render(<RecordingSettingsScreen />);
     expect(queryByText('50 m')).not.toBeNull();
     expect(queryByText('2.0 km/h')).not.toBeNull();
   });
 
-  it('reads feet and mph when the preference is imperial', () => {
+  it('reads feet and mph when the preference is imperial', async () => {
     mockIsMetric = false;
-    const { queryByText } = render(<RecordingSettingsScreen />);
+    const { queryByText } = await render(<RecordingSettingsScreen />);
     expect(queryByText('164 ft')).not.toBeNull();
     expect(queryByText('1.2 mph')).not.toBeNull();
     expect(queryByText('50 m')).toBeNull();

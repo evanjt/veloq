@@ -46,7 +46,7 @@ function renderCards() {
     <SectionStatsCards
       calendarSummary={summary}
       isDark={false}
-      isRunning={false}
+      basis="speed"
       activityColor="#3B82F6"
       onSetAsReference={() => {}}
       referenceActivityId="ref"
@@ -59,14 +59,14 @@ describe('the calendar card reference row', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('names the reference attempt in text on its row only', () => {
-    const { getAllByText } = renderCards();
+  it('names the reference attempt in text on its row only', async () => {
+    const { getAllByText } = await renderCards();
 
     expect(getAllByText('Reference')).toHaveLength(1);
   });
 
-  it('keeps the star button from setting the row height', () => {
-    const { getAllByTestId } = renderCards();
+  it('keeps the star button from setting the row height', async () => {
+    const { getAllByTestId } = await renderCards();
 
     const buttons = getAllByTestId('calendar-reference-button');
     for (const button of buttons) {

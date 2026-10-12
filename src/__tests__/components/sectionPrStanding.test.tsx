@@ -22,7 +22,7 @@ jest.mock('@/features/routes/hooks/useSectionPerformances', () => ({
   }),
 }));
 
-it('shows the standing and previous best carried by the PR', () => {
+it('shows the standing and previous best carried by the PR', async () => {
   const insight = {
     id: 'section',
     category: 'section_pr',
@@ -43,7 +43,7 @@ it('shows the standing and previous best carried by the PR', () => {
     },
   } as Insight;
 
-  const { getByText } = render(<SectionPRContent insight={insight} />);
+  const { getByText } = await render(<SectionPRContent insight={insight} />);
   getByText('insights.sectionPrSheet.efforts:{"n":4}');
   getByText('insights.sectionPrSheet.fasterThan:{"percent":75}');
   getByText('insights.sectionPrSheet.fromPrevious:{"delta":"0:10"}');

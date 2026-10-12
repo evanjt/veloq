@@ -1,5 +1,6 @@
 import {
   formatPaceCompact,
+  formatPower,
   formatSwimPace,
   paceSecondsForUnit,
   paceUnitLabel,
@@ -37,6 +38,12 @@ function dateToMs(d: bigint | number | undefined): number | undefined {
   // becomes 1970-01-01 and fails the recency gate.
   if (ms < YEAR_2000_MS) return undefined;
   return ms;
+}
+
+/** The day a snapshot is dated, in epoch seconds, for a data point to carry. */
+function daySeconds(d: bigint | number | undefined): number | undefined {
+  const ms = dateToMs(d);
+  return ms == null ? undefined : ms / 1000;
 }
 
 function historySpan(
@@ -139,11 +146,13 @@ function addPaceMilestoneInsight(
             value: options.formatValue(pace.latestPace),
             unit: options.paceUnit,
             context: declining ? 'neutral' : 'good',
+            date: daySeconds(pace.latestDate),
           },
           {
             label: t('insights.data.previousPace'),
             value: options.formatValue(pace.previousPace),
             unit: options.paceUnit,
+            date: daySeconds(pace.previousDate),
           },
           {
             label: t('insights.data.improvement'),
@@ -195,12 +204,12 @@ export function generateFitnessMilestoneInsights(
           icon: 'lightning-bolt',
           iconTone: declining ? 'neutral' : 'positive',
           title: t(declining ? 'insights.ftpChange' : 'insights.ftpIncrease', {
-            current: Math.round(ftp.latestFtp),
-            change: declining ? `−${Math.abs(delta)}` : delta,
+            current: formatPower(ftp.latestFtp),
+            change: `${declining ? '−' : ''}${formatPower(Math.abs(delta))}`,
           }),
           subtitle: t('insights.caption.fromTo', {
-            previous: `${Math.round(ftp.previousFtp)}W`,
-            current: `${Math.round(ftp.latestFtp)}W`,
+            previous: formatPower(ftp.previousFtp),
+            current: formatPower(ftp.latestFtp),
           }),
           navigationTarget: fitnessTarget({ date: dayOf(ftp.latestDate) }),
           timestamp: now,
@@ -216,7 +225,7 @@ export function generateFitnessMilestoneInsights(
               fitnessTarget({ date: dayOf(ftp.latestDate) }),
               {
                 mark: historySpan(ftp.previousDate, ftp.latestDate),
-                format: (watts) => `${Math.round(watts)} W`,
+                format: formatPower,
               }
             ),
             trend: {
@@ -229,11 +238,13 @@ export function generateFitnessMilestoneInsights(
                 value: Math.round(ftp.latestFtp),
                 unit: 'W',
                 context: declining ? 'neutral' : 'good',
+                date: daySeconds(ftp.latestDate),
               },
               {
                 label: t('insights.data.previousFtp'),
                 value: Math.round(ftp.previousFtp),
                 unit: 'W',
+                date: daySeconds(ftp.previousDate),
               },
               {
                 label: t('insights.data.change'),

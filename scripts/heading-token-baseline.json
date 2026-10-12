@@ -1,0 +1,21 @@
+{
+  "src/app/about.tsx": 1,
+  "src/app/record.tsx": 1,
+  "src/features/activity/components/ActivityCard.tsx": 3,
+  "src/features/fitness/components/FitnessChart.tsx": 1,
+  "src/features/home/components/SummaryCard.tsx": 1,
+  "src/features/insights/components/SupportingDataSection.tsx": 1,
+  "src/features/insights/components/content/EfficiencyTrendContent.tsx": 2,
+  "src/features/insights/components/content/FitnessMilestoneContent.tsx": 2,
+  "src/features/maps/components/MapSurface.tsx": 1,
+  "src/features/recording/components/RecordingTitle.tsx": 1,
+  "src/features/recording/components/WorkoutGuide.tsx": 1,
+  "src/features/routes/components/preview/PreviewSectionPopover.tsx": 1,
+  "src/features/routes/components/section/SectionCorrelationCard.tsx": 1,
+  "src/features/routes/components/section/SectionEfficiencyCard.tsx": 1,
+  "src/features/routes/components/section/SectionHistoryPanel.tsx": 1,
+  "src/features/routes/components/section/SectionLapList.tsx": 1,
+  "src/features/settings/components/NextcloudQrScanner.tsx": 1,
+  "src/features/settings/components/ProfileAccountSection.tsx": 2,
+  "src/features/strength/components/StrengthActivityCard.tsx": 1
+}

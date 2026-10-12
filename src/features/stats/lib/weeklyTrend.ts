@@ -3,8 +3,10 @@ import {
   trendOfMetric,
   trendVerdict,
   verdictRung,
+  type TrendDirection,
   type TrendGlyph,
   type TrendMetric,
+  type TrendVerdict,
 } from '@/shared/format/trend';
 import type { VerdictRung } from '@/theme/colors';
 
@@ -15,6 +17,9 @@ export type WeeklyStat = 'count' | 'duration' | 'distance' | 'tss';
 export interface WeeklyTrendCell {
   glyph: TrendGlyph;
   rung: VerdictRung;
+  /** The judgement the glyph draws, and the number's own direction, for the spoken form. */
+  verdict: TrendVerdict;
+  direction: TrendDirection;
   /** The size of the move, absent for a flat one. */
   pct: string | null;
 }
@@ -49,9 +54,12 @@ export function weeklyTrend(
   const metric = METRIC[stat];
   const direction = trendOfMetric(metric, current / PER_UNIT[stat], previous / PER_UNIT[stat]);
   const pct = Math.round(Math.abs(((current - previous) / previous) * 100));
+  const verdict = trendVerdict(metric, direction);
   return {
     glyph: trendGlyph(metric, direction),
-    rung: verdictRung(trendVerdict(metric, direction)),
+    rung: verdictRung(verdict),
+    verdict,
+    direction,
     pct: direction === 'flat' ? null : `${pct}%`,
   };
 }

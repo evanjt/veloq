@@ -24,6 +24,7 @@
 
       <TextView
         android:id="@+id/sum_label"
+        android:importantForAccessibility="no"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:maxLines="1"
@@ -34,6 +35,7 @@
         android:letterSpacing="0.05" />
 
       <LinearLayout
+        android:id="@+id/sum_hero"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -79,8 +81,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scaleType="fitXY"
-        android:contentDescription="@null" />
+        android:scaleType="fitXY" />
 
       <LinearLayout
         android:layout_width="match_parent"

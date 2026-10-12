@@ -3,10 +3,12 @@ import { PERIOD_DAYS } from '@/shared/app/period';
 import { useQuery } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
-import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
+import { requestOwedStrengthFiles } from '@/features/routes/light';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState, type ExerciseDetailData } from 'veloqrs';
 import { CACHE } from '@/shared/app/constants';
@@ -184,5 +186,22 @@ export function useStrengthTabState(): StrengthTabState {
         }
       }) ?? 'hidden',
     [readStrength, isSyncing]
+  );
+}
+
+/**
+ * Ask for the FIT files the strength queue still owes, and wait for them.
+ *
+ * Without this the tab could only say the files were owed and that a connection would bring
+ * them, which was false while online and offered nothing to press. The start verdict is what
+ * the tab shows instead: downloading while the request runs, Retry once the wait is over,
+ * and the fix when the engine refused it, offline or signed out. The sets announce on
+ * `fitParsed`, which the screen read already follows.
+ */
+export function useOwedStrengthFiles(owed: boolean): EngineBodyWait {
+  return useEngineBody(
+    !owed,
+    () => requestOwedStrengthFiles(getNativeModule()),
+    queryKeys.strength.all
   );
 }

@@ -37,12 +37,12 @@ function change(overrides: Partial<ActivityLedgerChange>): ActivityLedgerChange 
 describe('ActivityLedgerChanges', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('renders nothing when no change names the activity', () => {
-    const { queryByTestId } = render(<ActivityLedgerChanges changes={[]} isDark={false} />);
+  it('renders nothing when no change names the activity', async () => {
+    const { queryByTestId } = await render(<ActivityLedgerChanges changes={[]} isDark={false} />);
     expect(queryByTestId('activity-ledger-changes')).toBeNull();
   });
 
-  it('lists each change with its section and opens that section', () => {
+  it('lists each change with its section and opens that section', async () => {
     const unnamed = change({
       eventId: 2,
       sectionId: 's2',
@@ -50,7 +50,7 @@ describe('ActivityLedgerChanges', () => {
       relation: 'reanchored_from',
     });
     delete unnamed.sectionName;
-    const { getByTestId, getByText, queryByText } = render(
+    const { getByTestId, getByText, queryByText } = await render(
       <ActivityLedgerChanges
         changes={[change({ eventId: 1, relation: 'fork_around' }), unnamed]}
         isDark={false}
@@ -63,12 +63,12 @@ describe('ActivityLedgerChanges', () => {
     expect(getByText('sectionHistory.kind_reference_reanchored')).toBeTruthy();
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
 
-    fireEvent.press(getByTestId('activity-ledger-change-2'));
+    await fireEvent.press(getByTestId('activity-ledger-change-2'));
     expect(tapTo).toHaveBeenCalledWith('/section/s2');
   });
 
-  it('leaves out the kind label of a change that needs a count the row does not carry', () => {
-    const { getAllByText, queryByText } = render(
+  it('leaves out the kind label of a change that needs a count the row does not carry', async () => {
+    const { getAllByText, queryByText } = await render(
       <ActivityLedgerChanges
         changes={[change({ kind: 'split' }), change({ eventId: 2, kind: 'reverted' })]}
         isDark={false}
@@ -79,8 +79,8 @@ describe('ActivityLedgerChanges', () => {
     expect(queryByText('sectionHistory.kind_reverted')).toBeNull();
   });
 
-  it('answers a press on a row with the shared ripple', () => {
-    const { UNSAFE_root } = render(
+  it('answers a press on a row with the shared ripple', async () => {
+    const { UNSAFE_root } = await render(
       <ActivityLedgerChanges changes={[change({ eventId: 4 })]} isDark={false} />
     );
     const row = UNSAFE_root.find(

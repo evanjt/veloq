@@ -68,29 +68,29 @@ const WORLD = [
 describe('the regional map opening camera', () => {
   beforeEach(() => clusterSearch.mockClear());
 
-  it('searches for the cluster once, however many sync events land', () => {
-    const { rerender } = render(BERN);
+  it('searches for the cluster once, however many sync events land', async () => {
+    const { rerender } = await render(BERN);
     const afterMount = clusterSearch.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
 
-    rerender({ activities: PLUS_ONE });
-    rerender({ activities: [...PLUS_ONE] });
+    await rerender({ activities: PLUS_ONE });
+    await rerender({ activities: [...PLUS_ONE] });
 
     expect(clusterSearch).toHaveBeenCalledTimes(afterMount);
   });
 
-  it('still answers a centre for the surface to open on', () => {
-    const { result } = render(BERN);
+  it('still answers a centre for the surface to open on', async () => {
+    const { result } = await render(BERN);
     expect(result.current.mapCenter).not.toBeNull();
   });
 
   /// An empty library at mount has nothing to search, so the first real batch
   /// is what the camera opens on.
-  it('computes on the first activities it is given, not on the empty mount', () => {
-    const { result, rerender } = render([]);
+  it('computes on the first activities it is given, not on the empty mount', async () => {
+    const { result, rerender } = await render([]);
     expect(result.current.mapCenter).toBeNull();
 
-    rerender({ activities: BERN });
+    await rerender({ activities: BERN });
     expect(result.current.mapCenter).not.toBeNull();
   });
 
@@ -102,67 +102,67 @@ describe('the regional map opening camera', () => {
     });
     afterEach(() => jest.useRealTimers());
 
-    it('fits once and leaves the camera alone for later syncs', () => {
-      const { result, rerender } = render(BERN);
-      act(() => result.current.markUserInteracted());
+    it('fits once and leaves the camera alone for later syncs', async () => {
+      const { result, rerender } = await render(BERN);
+      await act(() => result.current.markUserInteracted());
       expect(commands()).toBe(1);
 
-      rerender({ activities: PLUS_ONE });
-      rerender({ activities: [...PLUS_ONE] });
+      await rerender({ activities: PLUS_ONE });
+      await rerender({ activities: [...PLUS_ONE] });
       expect(commands()).toBe(1);
     });
 
-    it('fits once when activities arrive after the first settle, then stays put', () => {
-      const { result, rerender } = render([]);
-      act(() => result.current.markUserInteracted());
+    it('fits once when activities arrive after the first settle, then stays put', async () => {
+      const { result, rerender } = await render([]);
+      await act(() => result.current.markUserInteracted());
       expect(commands()).toBe(0);
 
-      rerender({ activities: BERN });
+      await rerender({ activities: BERN });
       expect(commands()).toBe(1);
 
-      rerender({ activities: PLUS_ONE });
+      await rerender({ activities: PLUS_ONE });
       expect(commands()).toBe(1);
     });
 
-    it('ignores a user pan once the programmatic window has passed', () => {
-      const { result } = render(BERN);
-      act(() => result.current.markUserInteracted());
-      act(() => {
+    it('ignores a user pan once the programmatic window has passed', async () => {
+      const { result } = await render(BERN);
+      await act(() => result.current.markUserInteracted());
+      await act(() => {
         jest.advanceTimersByTime(700);
       });
-      act(() => result.current.markUserInteracted());
+      await act(() => result.current.markUserInteracted());
       expect(commands()).toBe(1);
     });
 
-    it('jumps with one setCamera and no fit for world-spanning data', () => {
-      const { result } = render(WORLD);
-      act(() => result.current.markUserInteracted());
+    it('jumps with one setCamera and no fit for world-spanning data', async () => {
+      const { result } = await render(WORLD);
+      await act(() => result.current.markUserInteracted());
       expect(surface.setCamera).toHaveBeenCalledTimes(1);
       expect(surface.fitBounds).not.toHaveBeenCalled();
     });
 
-    it('issues no camera command over a restored camera', () => {
-      const { result, rerender } = render([], true);
-      act(() => result.current.markUserInteracted());
-      rerender({ activities: BERN });
-      rerender({ activities: PLUS_ONE });
+    it('issues no camera command over a restored camera', async () => {
+      const { result, rerender } = await render([], true);
+      await act(() => result.current.markUserInteracted());
+      await rerender({ activities: BERN });
+      await rerender({ activities: PLUS_ONE });
       expect(commands()).toBe(0);
     });
 
-    it('issues no camera command when a restored camera settles with activities loaded', () => {
-      const { result } = render(BERN, true);
-      act(() => result.current.markUserInteracted());
+    it('issues no camera command when a restored camera settles with activities loaded', async () => {
+      const { result } = await render(BERN, true);
+      await act(() => result.current.markUserInteracted());
       expect(commands()).toBe(0);
     });
   });
 });
 
 describe('the regional map opening camera walk', () => {
-  it('reads each activity bounds twice at most: once to find centres, once to bound the cluster', () => {
+  it('reads each activity bounds twice at most: once to find centres, once to bound the cluster', async () => {
     const polyline = require('@/shared/geo/polyline');
     const spy = jest.spyOn(polyline, 'normaliseBounds');
     try {
-      render(PLUS_ONE);
+      await render(PLUS_ONE);
       expect(spy.mock.calls.length).toBeLessThanOrEqual(PLUS_ONE.length * 2);
     } finally {
       spy.mockRestore();

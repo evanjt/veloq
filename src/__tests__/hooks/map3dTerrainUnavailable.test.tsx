@@ -6,6 +6,7 @@
 
 import { render, renderHook, screen } from '@testing-library/react-native';
 import React from 'react';
+import { AccessibilityInfo, Platform } from 'react-native';
 
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import {
@@ -15,8 +16,8 @@ import {
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
-function bridgeFor(handlers: { onTerrainUnavailable?: (reason: string) => void }) {
-  const { result } = renderHook(() =>
+async function bridgeFor(handlers: { onTerrainUnavailable?: (reason: string) => void }) {
+  const { result } = await renderHook(() =>
     useMap3DBridge({
       mapReadyRef: { current: false },
       savedCameraRef: { current: null },
@@ -32,32 +33,32 @@ function bridgeFor(handlers: { onTerrainUnavailable?: (reason: string) => void }
   return result.current;
 }
 
-const post = (bridge: ReturnType<typeof bridgeFor>, payload: object) =>
+const post = (bridge: Awaited<ReturnType<typeof bridgeFor>>, payload: object) =>
   bridge({ nativeEvent: { data: JSON.stringify(payload) } } as never);
 
 describe('the 3D bridge', () => {
-  it('hands the terrain report to the caller with its reason', () => {
+  it('hands the terrain report to the caller with its reason', async () => {
     const onTerrainUnavailable = jest.fn();
-    const bridge = bridgeFor({ onTerrainUnavailable });
+    const bridge = await bridgeFor({ onTerrainUnavailable });
 
     post(bridge, { type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
     expect(onTerrainUnavailable).toHaveBeenCalledWith('no terrain tiles: 6 failed');
   });
 
-  it('names the reason even when the page sent none', () => {
+  it('names the reason even when the page sent none', async () => {
     const onTerrainUnavailable = jest.fn();
-    const bridge = bridgeFor({ onTerrainUnavailable });
+    const bridge = await bridgeFor({ onTerrainUnavailable });
 
     post(bridge, { type: 'terrainUnavailable' });
 
     expect(onTerrainUnavailable).toHaveBeenCalledWith('unknown');
   });
 
-  it('does not read a terrain report as a failed page', () => {
+  it('does not read a terrain report as a failed page', async () => {
     const onMapFailed = jest.fn();
     const onMapReady = jest.fn();
-    const bridge = bridgeFor({ onMapFailed, onMapReady } as never);
+    const bridge = await bridgeFor({ onMapFailed, onMapReady } as never);
 
     post(bridge, { type: 'terrainUnavailable', reason: 'x' });
 
@@ -69,31 +70,59 @@ describe('the terrain notice', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('says why the view is flat', () => {
-    render(<TerrainUnavailableNotice onDismiss={() => {}} />);
+  it('says why the view is flat', async () => {
+    await render(<TerrainUnavailableNotice onDismiss={() => {}} />);
     expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
     expect(screen.getByText('maps.threeDUnavailable')).toBeTruthy();
   });
 
-  it('clears itself, so it never has to be dismissed', () => {
+  it('clears itself, so it never has to be dismissed', async () => {
     const onDismiss = jest.fn();
-    render(<TerrainUnavailableNotice onDismiss={onDismiss} />);
+    await render(<TerrainUnavailableNotice onDismiss={onDismiss} />);
 
     expect(onDismiss).not.toHaveBeenCalled();
     jest.advanceTimersByTime(10_000);
     expect(onDismiss).toHaveBeenCalled();
   });
 
-  it('keeps its six-second clock when the parent re-renders with a new callback', () => {
+  it('keeps its six-second clock when the parent re-renders with a new callback', async () => {
     const onDismiss = jest.fn();
-    const { rerender } = render(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
+    const { rerender } = await render(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
 
     for (let i = 0; i < 2; i++) {
       jest.advanceTimersByTime(2000);
-      rerender(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
+      await rerender(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
     }
     expect(onDismiss).not.toHaveBeenCalled();
     jest.advanceTimersByTime(2000);
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('speaks once on iOS when it appears, since it clears itself before a reader reaches it', async () => {
+    const announce = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(() => {});
+    announce.mockClear();
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+    try {
+      const { rerender } = await render(<TerrainUnavailableNotice onDismiss={() => {}} />);
+      await rerender(<TerrainUnavailableNotice onDismiss={() => {}} />);
+
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith('maps.threeDUnavailable');
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: original, configurable: true });
+      announce.mockRestore();
+    }
+  });
+
+  it('is a polite live region that says how to close it', async () => {
+    await render(<TerrainUnavailableNotice onDismiss={() => {}} />);
+    const notice = screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID);
+
+    expect(notice.props.accessibilityLiveRegion).toBe('polite');
+    expect(notice.props.accessibilityLabel).toBe('maps.threeDUnavailable');
+    expect(notice.props.accessibilityHint).toBe('common.close');
   });
 });

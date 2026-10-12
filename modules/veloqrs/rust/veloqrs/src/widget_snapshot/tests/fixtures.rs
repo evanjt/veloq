@@ -198,6 +198,7 @@ fn insight(id: &str, tone: &str, title: &str, subtitle: &str) -> WidgetInsight {
         icon: "trending-up".to_string(),
         tone: tone.to_string(),
         url: "veloq://fitness".to_string(),
+        tone_label: String::new(),
     }
 }
 
@@ -402,7 +403,7 @@ fn compose_fixture(library: &Library, ctx: &WidgetContext) -> serde_json::Value 
     serde_json::from_str(&json).expect("a snapshot that parses")
 }
 
-fn demo() -> serde_json::Value {
+pub(super) fn demo() -> serde_json::Value {
     let mut ctx = context(english(), english_dates(), true);
     ctx.record_shortcuts = vec![shortcut("Ride", "Ride"), shortcut("Run", "Run")];
     ctx.launcher_shortcuts = ctx.record_shortcuts.clone();
@@ -553,7 +554,7 @@ fn long_text() -> serde_json::Value {
     compose_fixture(&library, &ctx)
 }
 
-fn english() -> BTreeMap<String, String> {
+pub(super) fn english() -> BTreeMap<String, String> {
     // The app's English is en-GB with the en-AU words laid over it.
     let mut strings = locale("en-GB.json");
     strings.extend(locale("en-AU.json"));

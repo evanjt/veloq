@@ -9,11 +9,12 @@
  */
 
 import React from 'react';
-import { Alert, TextInput } from 'react-native';
+import { Alert } from 'react-native';
 import { act, render, renderHook } from '@testing-library/react-native';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
 import { HeroNameRow } from '@/shared/ui/DetailHero';
+import type { TextFieldHandle } from '@/shared/ui/TextField';
 import { getEngine } from '@/shared/native/engine';
 import type { FrequentSection } from '@/types';
 import { stubHardwareBack, type HardwareBack } from '../__shared__/hardwareBack';
@@ -51,9 +52,9 @@ const track = [
 ];
 
 describe('section creation', () => {
-  function renderCreation(creationMode: boolean) {
+  async function renderCreation(creationMode: boolean) {
     const onCreationCancelled = jest.fn();
-    const hook = renderHook(() =>
+    const hook = await renderHook(() =>
       useSectionCreation({
         creationMode,
         externalCreationState: undefined,
@@ -64,14 +65,14 @@ describe('section creation', () => {
     return { hook, onCreationCancelled };
   }
 
-  it('cancels creation and drops the picks on back', () => {
-    const { hook, onCreationCancelled } = renderCreation(true);
-    act(() => {
+  it('cancels creation and drops the picks on back', async () => {
+    const { hook, onCreationCancelled } = await renderCreation(true);
+    await act(() => {
       hook.result.current.handleCreationTap(151.2, -33.87);
     });
     expect(hook.result.current.startIndex).toBe(0);
 
-    act(() => {
+    await act(() => {
       expect(back.press()).toBe(true);
     });
 
@@ -79,8 +80,8 @@ describe('section creation', () => {
     expect(hook.result.current.startIndex).toBeNull();
   });
 
-  it('leaves back alone outside creation', () => {
-    const { onCreationCancelled } = renderCreation(false);
+  it('leaves back alone outside creation', async () => {
+    const { onCreationCancelled } = await renderCreation(false);
 
     expect(back.press()).toBe(false);
     expect(onCreationCancelled).not.toHaveBeenCalled();
@@ -98,12 +99,12 @@ describe('section trim', () => {
     return renderHook(() => useSectionTrim(section, jest.fn(), false));
   }
 
-  it('ends trim mode on back, the way Cancel does', () => {
-    const hook = renderTrim();
+  it('ends trim mode on back, the way Cancel does', async () => {
+    const hook = await renderTrim();
     expect(back.press()).toBe(false);
 
-    act(() => hook.result.current.startTrim());
-    act(() => {
+    await act(() => hook.result.current.startTrim());
+    await act(() => {
       expect(back.press()).toBe(true);
     });
 
@@ -116,15 +117,15 @@ describe('section trim', () => {
     (getEngine as jest.Mock).mockReturnValue({
       runSectionBoundsEdit: jest.fn(() => new Promise((resolve) => (finish = resolve))),
     });
-    const hook = renderTrim();
-    act(() => hook.result.current.startTrim());
-    act(() => hook.result.current.setTrimEnd(10));
-    act(() => {
+    const hook = await renderTrim();
+    await act(() => hook.result.current.startTrim());
+    await act(() => hook.result.current.setTrimEnd(10));
+    await act(() => {
       void hook.result.current.confirmTrim();
     });
     expect(hook.result.current.isSaving).toBe(true);
 
-    act(() => {
+    await act(() => {
       expect(back.press()).toBe(true);
     });
     expect(hook.result.current.isTrimming).toBe(true);
@@ -137,17 +138,17 @@ describe('section trim', () => {
 });
 
 describe('hero rename', () => {
-  function renderName(isEditing: boolean) {
+  async function renderName(isEditing: boolean) {
     const onCancel = jest.fn();
-    const inputRef = React.createRef<TextInput>();
-    render(
+    const inputRef = React.createRef<TextFieldHandle>();
+    await render(
       <HeroNameRow
         name="Ridge climb"
         editable={{
           isEditing,
           editName: 'Ridge cl',
           inputRef,
-          placeholder: 'Name',
+          label: 'Name',
           testIDPrefix: 'section',
           onStartEdit: jest.fn(),
           onSave: jest.fn(),
@@ -159,15 +160,15 @@ describe('hero rename', () => {
     return onCancel;
   }
 
-  it('cancels the rename on back', () => {
-    const onCancel = renderName(true);
+  it('cancels the rename on back', async () => {
+    const onCancel = await renderName(true);
 
     expect(back.press()).toBe(true);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves back alone while the name is not being edited', () => {
-    const onCancel = renderName(false);
+  it('leaves back alone while the name is not being edited', async () => {
+    const onCancel = await renderName(false);
 
     expect(back.press()).toBe(false);
     expect(onCancel).not.toHaveBeenCalled();

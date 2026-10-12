@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Linking, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
@@ -10,7 +10,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
-import { SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
+import { OpenSettingsButton, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
 import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
@@ -44,7 +44,7 @@ import {
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { getEngine } from '@/shared/native/engine';
 import { readPlannedWorkouts } from '@/features/home';
-import { navigateTo, replaceTo, tapTo } from '@/shared/app/navigation';
+import { replaceTo, tapTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, CalendarEvent } from '@/types';
@@ -140,7 +140,9 @@ function RecordScreenContent() {
 
   const start = useCallback((type: ActivityType, pairedEventId?: number) => {
     haptics.medium();
-    navigateTo(recordingEntryHref(type, pairedEventId));
+    // The live screen takes this screen's place, so back from a ride under way never lands on
+    // a Start button for a ride that is already recording.
+    replaceTo(recordingEntryHref(type, pairedEventId));
   }, []);
 
   const openSheet = useSheetOpener();
@@ -188,7 +190,10 @@ function RecordScreenContent() {
   const showGpsWarning =
     mode === 'gps' &&
     !gpsWarningDismissed &&
-    (gps.state === 'weak' || gps.state === 'none' || gps.state === 'servicesOff');
+    (gps.state === 'weak' ||
+      gps.state === 'approximate' ||
+      gps.state === 'none' ||
+      gps.state === 'servicesOff');
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
@@ -249,6 +254,7 @@ function RecordScreenContent() {
             <GpsWarningLine
               state={gps.state}
               onTurnOnServices={gps.turnOnServices}
+              onUpgradePrecision={gps.upgradePrecision}
               onDismiss={() => setGpsWarningDismissed(true)}
               surface={surface}
             />
@@ -413,6 +419,7 @@ const GPS_STATUS: Record<
   checking: { icon: 'crosshairs-question', level: 'idle' },
   ready: { icon: 'crosshairs-gps', level: 'ok' },
   weak: { icon: 'crosshairs', level: 'warn' },
+  approximate: { icon: 'map-marker-radius', level: 'warn' },
   none: { icon: 'crosshairs-off', level: 'bad' },
   servicesOff: { icon: 'map-marker-off', level: 'bad' },
 };
@@ -426,6 +433,7 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
     checking: t('recording.gpsAcquiring'),
     ready: t('recording.gpsReady'),
     weak: t('recording.gpsWeak'),
+    approximate: t('recording.gpsApproximate'),
     none: t('recording.gpsNone', 'Location denied'),
     servicesOff: t('recording.gpsServicesOff'),
   }[state];
@@ -439,19 +447,21 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
 }
 
 /**
- * A weak fix, a denied location or the device's location switch off, as one
- * dismissable line. The switch has its own action: Android turns it on from
- * here, and iOS has no way in to it, so the line names where it is and offers
- * no button, since the app's settings page does not hold it.
+ * A weak fix, an approximate grant, a denied location or the device's location
+ * switch off, as one dismissable line. The switch has its own action: Android
+ * turns it on from here, and iOS has no way in to it, so the line names where
+ * it is and offers no button, since the app's settings page does not hold it.
  */
 function GpsWarningLine({
   state,
   onTurnOnServices,
+  onUpgradePrecision,
   onDismiss,
   surface,
 }: {
   state: EntryGpsState;
   onTurnOnServices: () => Promise<void>;
+  onUpgradePrecision: () => void;
   onDismiss: () => void;
   surface: string;
 }) {
@@ -465,7 +475,9 @@ function GpsWarningLine({
       ? locationServicesOffMessage(t)
       : state === 'none'
         ? t('recording.gpsNone', 'Location denied')
-        : t('recording.gpsWeakWarning');
+        : state === 'approximate'
+          ? t('recording.gpsApproximateWarning')
+          : t('recording.gpsWeakWarning');
   return (
     <View style={[styles.warningLine, { backgroundColor: surface }]}>
       <View style={styles.warningBody}>
@@ -485,10 +497,14 @@ function GpsWarningLine({
               size="sm"
             />
           )}
-          {state === 'none' && (
+          {state === 'none' && <OpenSettingsButton testID="record-gps-settings" />}
+          {state === 'approximate' && (
             <Button
-              onPress={() => Linking.openSettings()}
-              label={t('recording.gpsAlertSettings', 'Open Settings')}
+              testID="record-gps-allow-precise"
+              onPress={onUpgradePrecision}
+              label={t(
+                Platform.OS === 'android' ? 'recording.gpsApproximateAllow' : 'common.openSettings'
+              )}
               variant="ghost"
               size="sm"
             />

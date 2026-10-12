@@ -34,21 +34,21 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('schedules no timer while the engine is absent', () => {
+it('schedules no timer while the engine is absent', async () => {
   const setIntervalSpy = jest.spyOn(global, 'setInterval');
-  renderHook(() => useStartupData(['a1']));
+  await renderHook(() => useStartupData(['a1']));
   expect(setIntervalSpy).not.toHaveBeenCalled();
   setIntervalSpy.mockRestore();
 });
 
-it('subscribes to the signals once when the engine is present', () => {
+it('subscribes to the signals once when the engine is present', async () => {
   const subscribe = jest.fn(() => () => {});
   mockGetEngine.mockReturnValue({
     subscribe,
     getSyncStatus: () => ({ state: 0 }),
     getStartupData: () => ({ summaryCard: {}, previewTracks: [] }),
   } as unknown as ReturnType<typeof getEngine>);
-  renderHook(() => useStartupData(['a1']));
+  await renderHook(() => useStartupData(['a1']));
 
   expect(subscribe).toHaveBeenCalledWith('syncSettled', expect.any(Function));
   expect(subscribe).toHaveBeenCalledWith('bodyStored', expect.any(Function));

@@ -15,8 +15,8 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-it('opens the selected exercise history from the strength list', () => {
-  render(
+it('opens the selected exercise history from the strength list', async () => {
+  await render(
     <StrengthExerciseList
       selectedVolume={{
         slug: 'hamstring',
@@ -44,6 +44,6 @@ it('opens the selected exercise history from the strength list', () => {
     />
   );
 
-  fireEvent.press(screen.getByTestId('exercise-history-15'));
+  await fireEvent.press(screen.getByTestId('exercise-history-15'));
   expect(mockRouterPush).toHaveBeenCalledWith('/exercise/15');
 });

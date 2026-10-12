@@ -45,34 +45,34 @@ function expectNoHaptic() {
 }
 
 describe('useSectionCreation haptics', () => {
-  it('fires one medium impact per anchor and none for a tap after complete', () => {
-    const { result } = renderCreation();
+  it('fires one medium impact per anchor and none for a tap after complete', async () => {
+    const { result } = await renderCreation();
 
-    act(() => {
+    await act(() => {
       result.current.handleCreationTap(151.2, -33.87);
     });
     expect(mockedHaptics.medium).toHaveBeenCalledTimes(1);
 
-    act(() => {
+    await act(() => {
       result.current.handleCreationTap(151.202, -33.872);
     });
     expect(mockedHaptics.medium).toHaveBeenCalledTimes(2);
     expect(result.current.creationState).toBe('complete');
 
-    act(() => {
+    await act(() => {
       expect(result.current.handleCreationTap(151.201, -33.871)).toBe(false);
     });
     expect(mockedHaptics.medium).toHaveBeenCalledTimes(2);
     expect(mockedHaptics.success).not.toHaveBeenCalled();
   });
 
-  it('fires the end anchor impact when the end lands before the start', () => {
-    const { result } = renderCreation();
+  it('fires the end anchor impact when the end lands before the start', async () => {
+    const { result } = await renderCreation();
 
-    act(() => {
+    await act(() => {
       result.current.handleCreationTap(151.202, -33.872);
     });
-    act(() => {
+    await act(() => {
       result.current.handleCreationTap(151.2, -33.87);
     });
 
@@ -80,18 +80,18 @@ describe('useSectionCreation haptics', () => {
     expect(mockedHaptics.medium).toHaveBeenCalledTimes(2);
   });
 
-  it('fires nothing for a tap outside creation mode', () => {
-    const { result } = renderCreation(false);
+  it('fires nothing for a tap outside creation mode', async () => {
+    const { result } = await renderCreation(false);
 
-    act(() => {
+    await act(() => {
       expect(result.current.handleCreationTap(151.2, -33.87)).toBe(false);
     });
 
     expectNoHaptic();
   });
 
-  it('fires nothing for a tap with no route coordinates', () => {
-    const { result } = renderHook(() =>
+  it('fires nothing for a tap with no route coordinates', async () => {
+    const { result } = await renderHook(() =>
       useSectionCreation({
         creationMode: true,
         externalCreationState: undefined,
@@ -99,16 +99,16 @@ describe('useSectionCreation haptics', () => {
       })
     );
 
-    act(() => {
+    await act(() => {
       expect(result.current.handleCreationTap(151.2, -33.87)).toBe(false);
     });
 
     expectNoHaptic();
   });
 
-  it('fires nothing on cancel or reset', () => {
+  it('fires nothing on cancel or reset', async () => {
     const onCreationCancelled = jest.fn();
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useSectionCreation({
         creationMode: true,
         externalCreationState: undefined,
@@ -117,10 +117,10 @@ describe('useSectionCreation haptics', () => {
       })
     );
 
-    act(() => {
+    await act(() => {
       result.current.handleCreationReset();
     });
-    act(() => {
+    await act(() => {
       result.current.handleCreationCancel();
     });
 

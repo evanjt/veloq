@@ -1,7 +1,7 @@
 /**
  * Scenario: the wellness read throws while the tab's other cards read their own aggregates.
  *
- * Expected behaviour: the title, the range pills, the heatmap and the weekly summary stay on
+ * Expected behaviour: the header, the range pills, the heatmap and the weekly summary stay on
  * screen with pull to refresh, and only the wellness card shows the read failure with a Retry.
  */
 import React from 'react';
@@ -16,6 +16,7 @@ const mockRefetch = jest.fn().mockResolvedValue(undefined);
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   router: { push: jest.fn(), back: jest.fn() },
   useLocalSearchParams: () => ({}),
 }));
@@ -70,10 +71,9 @@ function renderTraining() {
 beforeEach(() => mockRefetch.mockClear());
 
 describe('training tab with the wellness read failing', () => {
-  it('keeps the title, range pills and independent cards and fails inside the wellness card', async () => {
-    renderTraining();
-    expect(screen.getByTestId('training-header')).toBeTruthy();
-    expect(screen.getByText('healthScreen.title')).toBeTruthy();
+  it('keeps the header, range pills and independent cards and fails inside the wellness card', async () => {
+    await renderTraining();
+    expect(screen.getByTestId('native-header')).toBeTruthy();
     expect(screen.getByTestId('training-smoothing-button')).toBeTruthy();
     expect(screen.getByTestId('activity-heatmap')).toBeTruthy();
     expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(1);
@@ -88,9 +88,9 @@ describe('training tab with the wellness read failing', () => {
   });
 
   it('retries the wellness read from inside the card', async () => {
-    renderTraining();
+    await renderTraining();
     await waitFor(() => expect(screen.getByTestId('wellness-trends-failed')).toBeTruthy());
-    fireEvent.press(screen.getByText('common.retry'));
+    await fireEvent.press(screen.getByText('common.retry'));
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,9 +4,10 @@
  * Match direction and percentage come from Rust engine's AMD-based matching.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useEngineGroups } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
+import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type {
@@ -83,6 +84,8 @@ interface UseRoutePerformancesResult {
   histograms: FfiAttemptHistograms;
   /** What the engine threw, when a read failed. Empty performances with no error is a group with none. */
   error?: unknown;
+  /** Reads the groups and the performances again after a failure. */
+  retry: () => void;
 }
 
 /** Groups and performances a caller already read as part of a screen bundle. */
@@ -101,10 +104,19 @@ export function useRoutePerformances(
   sportType?: string,
   preComputed?: PreComputedRoutePerformances
 ): UseRoutePerformancesResult {
-  const { groups: queriedGroups, error: groupsError } = useEngineGroups({
+  const {
+    groups: queriedGroups,
+    error: groupsError,
+    retry: retryGroups,
+  } = useEngineGroups({
     minActivities: 1,
     enabled: preComputed === undefined,
   });
+  const [attempt, retryPerformances] = useReadRetry();
+  const retry = useCallback(() => {
+    retryGroups();
+    retryPerformances();
+  }, [retryGroups, retryPerformances]);
   const groups = preComputed?.groups ?? queriedGroups;
 
   // Find route group - either from provided ID or by looking up activity
@@ -191,6 +203,8 @@ export function useRoutePerformances(
     };
 
     if (!engineGroup) return emptyResult;
+    // A retry is a reason to read again that no engine event announces.
+    void attempt;
 
     try {
       // Get typed performance data directly from Rust engine (now includes metrics)
@@ -219,7 +233,7 @@ export function useRoutePerformances(
     } catch (error) {
       return { ...emptyResult, error };
     }
-  }, [engineGroup, activityId, sportType, preComputedResult]);
+  }, [engineGroup, activityId, sportType, preComputedResult, attempt]);
 
   const {
     rows,
@@ -300,5 +314,6 @@ export function useRoutePerformances(
     trendCurves: rustData.trendCurves,
     histograms: rustData.histograms,
     error: groupsError ?? rustData.error,
+    retry,
   };
 }

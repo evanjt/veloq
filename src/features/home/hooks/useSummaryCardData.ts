@@ -4,13 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useWellnessGeneration } from '@/features/wellness';
-import { formatForm, getFormZone, formZoneTextColor, SPORT_COLORS } from '@/features/fitness';
+import { formatForm, getFormZone, formZoneTextColor } from '@/features/fitness';
+import { summaryMetricTextColor } from '@/features/home/lib/summaryMetricColour';
 import { useDashboardPreferences, type MetricId } from '@/features/settings';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
-import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
+import {
+  formatPaceCompact,
+  formatSwimPace,
+  paceUnitLabel,
+  swimPaceUnitLabel,
+} from '@/shared/format/format';
+import { spokenDuration, spokenPace, spokenSwimPace } from '@/shared/format/spoken';
 import { formatWeightCompact } from '@/shared/format/weight';
+import { ABSENT } from '@/shared/format/absent';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { colors, verdictColor } from '@/theme';
+import { verdictColor } from '@/theme';
 import type { WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -27,7 +35,11 @@ import {
  */
 interface SupportingMetric {
   label: string;
+  /** The metric's name for a screen reader, where the label is a glyph. */
+  name: string;
   value: string | number;
+  /** The unit the value is read in, drawn after it; a placeholder has none. */
+  unit?: string | undefined;
   color?: string | undefined;
   trend?: TrendGlyph | undefined;
   /** What a screen reader hears: the value, and what its arrow was judged against. */
@@ -142,7 +154,7 @@ function onDay(
 }
 
 /** What a metric with no reading behind it draws, everywhere on the card. */
-const PLACEHOLDER = '-';
+const PLACEHOLDER = ABSENT;
 
 /**
  * Hook that provides all data needed for SummaryCard.
@@ -319,61 +331,97 @@ export function useSummaryCardData(
     ? formZoneTextColor(formZone, isDark)
     : verdictColor('positive', isDark);
 
-  // What a screen reader hears for a metric: its value, and beside an arrow
-  // what the arrow means and the reading it was judged against, formatted in
-  // the athlete's units as the value is.
-  const describe = useCallback(
-    (id: MetricId, value: string | number, trend: TrendGlyph | undefined): string => {
+  // A metric's spoken name, its value where the card draws it as a clock, and
+  // the reading its arrow was judged against, formatted in the athlete's units
+  // as the value is. An abbreviated name is said in full, and a pace or a
+  // duration that the card draws as a clock is said in words.
+  const spokenOf = useCallback(
+    (
+      id: MetricId
+    ): {
+      name: string;
+      value?: string | undefined;
+      baseline: SummaryTrendBaseline | undefined;
+    } => {
       const b = quickStats.baselines;
       const lastWeek = (previous: string | number | undefined): SummaryTrendBaseline | undefined =>
         previous === undefined ? undefined : { kind: 'lastWeek', previous };
-      const spoken = (): { name: string; baseline: SummaryTrendBaseline | undefined } => {
-        switch (id) {
-          case 'fitness':
-            return { name: t('metrics.fitness'), baseline: onDay(b.fitness) };
-          case 'form':
-            return {
-              name: t('metrics.form'),
-              baseline: onDay(b.form, (v) => formatForm(v, b.fitnessForForm, asPercent)),
-            };
-          case 'hrv':
-            return { name: t('metrics.hrv'), baseline: onDay(b.hrv) };
-          case 'rhr':
-            return { name: t('metrics.rhr'), baseline: onDay(b.rhr) };
-          case 'weight':
-            return {
-              name: t('metrics.weight'),
-              baseline: onDay(b.weight, (v) => formatWeightCompact(v, isMetric)),
-            };
-          case 'ftp':
-            return { name: t('metrics.ftp'), baseline: onDay(b.ftp) };
-          case 'thresholdPace':
-            return {
-              name: t('metrics.pace'),
-              baseline: onDay(b.thresholdPace, (v) => formatPaceCompact(v, isMetric)),
-            };
-          case 'css':
-            return {
-              name: t('metrics.css'),
-              baseline: onDay(b.css, (v) => formatSwimPace(v, isMetric)),
-            };
-          case 'weekHours':
-            return {
-              name: t('metrics.week'),
-              baseline: lastWeek(b.weekHours === undefined ? undefined : `${b.weekHours}h`),
-            };
-          case 'weekCount':
-            return { name: t('metrics.activityCount'), baseline: lastWeek(b.weekCount) };
-          default: {
-            const unhandled: never = id;
-            return { name: String(unhandled), baseline: undefined };
-          }
+      const hours = (h: number): string => spokenDuration(Math.round(h * 3600));
+      switch (id) {
+        case 'fitness':
+          return { name: t('metrics.fitness'), baseline: onDay(b.fitness) };
+        case 'form':
+          return {
+            name: t('metrics.form'),
+            baseline: onDay(b.form, (v) => formatForm(v, b.fitnessForForm, asPercent)),
+          };
+        case 'hrv':
+          return { name: t('spoken.hrv'), baseline: onDay(b.hrv) };
+        case 'rhr':
+          return { name: t('spoken.rhr'), baseline: onDay(b.rhr) };
+        case 'weight':
+          return {
+            name: t('metrics.weight'),
+            baseline: onDay(b.weight, (v) => formatWeightCompact(v, isMetric)),
+          };
+        case 'ftp':
+          return { name: t('metrics.eftp'), baseline: onDay(b.ftp) };
+        case 'thresholdPace':
+          return {
+            name: t('metrics.pace'),
+            value:
+              quickStats.thresholdPace == null
+                ? undefined
+                : spokenPace(quickStats.thresholdPace, isMetric),
+            baseline: onDay(b.thresholdPace, (v) => spokenPace(v, isMetric)),
+          };
+        case 'css':
+          return {
+            name: t('metrics.css'),
+            value: quickStats.css == null ? undefined : spokenSwimPace(quickStats.css, isMetric),
+            baseline: onDay(b.css, (v) => spokenSwimPace(v, isMetric)),
+          };
+        case 'weekHours':
+          return {
+            name: t('metrics.week'),
+            value: hours(quickStats.weekHours),
+            baseline: lastWeek(b.weekHours === undefined ? undefined : hours(b.weekHours)),
+          };
+        case 'weekCount':
+          return { name: t('metrics.activityCount'), baseline: lastWeek(b.weekCount) };
+        default: {
+          const unhandled: never = id;
+          return { name: String(unhandled), baseline: undefined };
         }
-      };
-      const { name, baseline } = spoken();
-      return summaryMetricLabel(t, { name, value, metric: id, trend, baseline });
+      }
     },
-    [quickStats.baselines, asPercent, isMetric, t]
+    [
+      quickStats.baselines,
+      quickStats.thresholdPace,
+      quickStats.css,
+      quickStats.weekHours,
+      asPercent,
+      isMetric,
+      t,
+    ]
+  );
+
+  // What a screen reader hears for a metric: its value, and beside an arrow
+  // what the arrow means and that baseline. A dash is not a reading, so a
+  // metric showing one is spoken by name alone.
+  const describe = useCallback(
+    (id: MetricId, value: string | number, trend: TrendGlyph | undefined): string => {
+      const said = spokenOf(id);
+      if (value === PLACEHOLDER) return said.name;
+      return summaryMetricLabel(t, {
+        name: said.name,
+        value: said.value ?? value,
+        metric: id,
+        trend,
+        baseline: said.baseline,
+      });
+    },
+    [spokenOf, t]
   );
 
   // Build hero metric data based on summaryCard preferences
@@ -381,9 +429,9 @@ export function useSummaryCardData(
     const hero =
       summaryCard.heroMetric === 'hrv'
         ? {
-            value: quickStats.hrv ?? '-',
+            value: quickStats.hrv ?? PLACEHOLDER,
             label: t('metrics.hrv'),
-            color: colors.chartPink,
+            color: summaryMetricTextColor('hrv', isDark),
             trend: quickStats.hrvTrend,
           }
         : summaryCard.heroMetric === 'form'
@@ -399,7 +447,7 @@ export function useSummaryCardData(
           : {
               value: quickStats.fitness ?? PLACEHOLDER,
               label: t('metrics.fitness'),
-              color: colors.fitnessBlue,
+              color: summaryMetricTextColor('fitness', isDark),
               trend: quickStats.fitnessTrend,
             };
     const heroId: MetricId =
@@ -407,7 +455,7 @@ export function useSummaryCardData(
         ? summaryCard.heroMetric
         : 'fitness';
     return { ...hero, accessibilityLabel: describe(heroId, hero.value, hero.trend) };
-  }, [summaryCard.heroMetric, quickStats, t, asPercent, formColor, describe]);
+  }, [summaryCard.heroMetric, quickStats, t, asPercent, formColor, describe, isDark]);
 
   // Sparklines pulled from Rust (wellness persisted in SQLite via
   // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
@@ -441,13 +489,13 @@ export function useSummaryCardData(
   const hrvData = sparklines?.hrv && sparklines.hrv.length > 0 ? sparklines.hrv : undefined;
   const rhrData = sparklines?.rhr && sparklines.rhr.length > 0 ? sparklines.rhr : undefined;
   // Which days of each series had a reading of their own, so a scrub onto a
-  // carried day reads '-'. Only beside a series the card draws.
+  // carried day reads the absent mark. Only beside a series the card draws.
   const hrvRead = hrvData ? sparklines?.hrvRead : undefined;
   const rhrRead = rhrData ? sparklines?.rhrRead : undefined;
 
   // Format weight value with unit
   const formattedWeight = useMemo(() => {
-    if (quickStats.weight === null) return '-';
+    if (quickStats.weight === null) return PLACEHOLDER;
     return formatWeightCompact(quickStats.weight, isMetric);
   }, [quickStats.weight, isMetric]);
 
@@ -461,6 +509,7 @@ export function useSummaryCardData(
       const shown = supportingMetric(metricId);
       return {
         ...shown,
+        name: spokenOf(metricId).name,
         accessibilityLabel: describe(metricId, shown.value, shown.trend),
         navigationTarget: summaryCardTarget(metricId),
       };
@@ -468,13 +517,13 @@ export function useSummaryCardData(
 
     function supportingMetric(
       metricId: MetricId
-    ): Omit<SupportingMetric, 'navigationTarget' | 'accessibilityLabel'> {
+    ): Omit<SupportingMetric, 'name' | 'navigationTarget' | 'accessibilityLabel'> {
       switch (metricId) {
         case 'fitness':
           return {
             label: t('metrics.fitness'),
             value: quickStats.fitness ?? PLACEHOLDER,
-            color: colors.fitnessBlue,
+            color: summaryMetricTextColor('fitness', isDark),
             trend: quickStats.fitnessTrend,
           };
         case 'form':
@@ -490,22 +539,25 @@ export function useSummaryCardData(
         case 'hrv':
           return {
             label: t('metrics.hrv'),
-            value: quickStats.hrv ?? '-',
-            color: colors.chartPink,
+            value: quickStats.hrv ?? PLACEHOLDER,
+            unit: quickStats.hrv == null ? undefined : t('units.ms'),
+            color: summaryMetricTextColor('hrv', isDark),
             trend: quickStats.hrvTrend,
           };
         case 'rhr':
           return {
             label: t('metrics.rhr'),
-            value: quickStats.rhr ?? '-',
+            value: quickStats.rhr ?? PLACEHOLDER,
+            unit: quickStats.rhr == null ? undefined : t('units.bpm'),
             color: undefined,
             trend: quickStats.rhrTrend,
           };
         case 'ftp':
           return {
-            label: t('metrics.ftp'),
-            value: quickStats.ftp ?? '-',
-            color: SPORT_COLORS.Cycling,
+            label: t('metrics.eftp'),
+            value: quickStats.ftp ?? PLACEHOLDER,
+            unit: quickStats.ftp == null ? undefined : t('units.watts'),
+            color: summaryMetricTextColor('ftp', isDark),
             trend: quickStats.ftpTrend,
           };
         case 'thresholdPace':
@@ -515,14 +567,16 @@ export function useSummaryCardData(
               quickStats.thresholdPace == null
                 ? PLACEHOLDER
                 : formatPaceCompact(quickStats.thresholdPace, isMetric),
-            color: SPORT_COLORS.Running,
+            unit: quickStats.thresholdPace == null ? undefined : paceUnitLabel(isMetric),
+            color: summaryMetricTextColor('thresholdPace', isDark),
             trend: quickStats.thresholdPaceTrend,
           };
         case 'css':
           return {
             label: t('metrics.css'),
             value: quickStats.css == null ? PLACEHOLDER : formatSwimPace(quickStats.css, isMetric),
-            color: SPORT_COLORS.Swimming,
+            unit: quickStats.css == null ? undefined : swimPaceUnitLabel(isMetric),
+            color: summaryMetricTextColor('css', isDark),
             trend: quickStats.cssTrend,
           };
         case 'weekHours':
@@ -560,8 +614,10 @@ export function useSummaryCardData(
     formattedWeight,
     isMetric,
     asPercent,
+    isDark,
     t,
     describe,
+    spokenOf,
   ]);
 
   // Stabilize references to prevent downstream re-renders when values are unchanged
@@ -584,7 +640,11 @@ export function useSummaryCardData(
   const stableRhrRead = useStableArray(rhrRead);
   const stableSupportingMetrics = useStableValue(
     isLoading
-      ? supportingMetrics.map((metric) => ({ ...metric, value: PLACEHOLDER, trend: undefined }))
+      ? supportingMetrics.map((metric) => ({
+          ...metric,
+          value: PLACEHOLDER,
+          trend: undefined,
+        }))
       : supportingMetrics
   );
 

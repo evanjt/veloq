@@ -1,6 +1,11 @@
 {
   "demo": true,
   "display": {
+    "chartLabels": {
+      "fitness": "Fitness 62 to 72 and Fatigue 78 to 80 over 30 days",
+      "form": "Form -11 to -8 over 42 days, now Grey Zone",
+      "hrv": "HRV 62 to 58 over 30 days"
+    },
     "demoLabel": "Demo Mode",
     "formZone": "Grey Zone",
     "impactLine": "Form -5 → -6 · +88 TSS",
@@ -93,6 +98,7 @@
       "subtitle": "Ramp of 4.2 a week",
       "title": "Fitness up 6 this month",
       "tone": "positive",
+      "toneLabel": "Positive",
       "url": "veloq://fitness"
     },
     {
@@ -102,6 +108,7 @@
       "subtitle": "1:23 off your best",
       "title": "2nd best on Harbour Loop",
       "tone": "record",
+      "toneLabel": "Record",
       "url": "veloq://fitness"
     },
     {
@@ -111,6 +118,7 @@
       "subtitle": "58 ms over 7 days",
       "title": "HRV is steady",
       "tone": "info",
+      "toneLabel": "Information",
       "url": "veloq://fitness"
     },
     {
@@ -120,6 +128,7 @@
       "subtitle": "−8 today",
       "title": "Form is in the grey zone",
       "tone": "neutral",
+      "toneLabel": "Neutral",
       "url": "veloq://fitness"
     },
     {
@@ -129,6 +138,7 @@
       "subtitle": "Up 6 W in 30 days",
       "title": "eFTP 251 W",
       "tone": "positive",
+      "toneLabel": "Positive",
       "url": "veloq://fitness"
     }
   ],
@@ -208,6 +218,7 @@
     "loadVsTypical": null,
     "movingTimeS": 5400.0,
     "name": "Harbour Loop",
+    "prLabel": "Personal record",
     "route": {
       "attemptCount": 14,
       "attemptSeconds": [
@@ -230,6 +241,7 @@
       "name": "Harbour Loop",
       "rank": 2
     },
+    "routeLabel": "Route map of Harbour Loop",
     "routePreview": {
       "aspect": 1.43,
       "points": [
@@ -594,18 +606,21 @@
   "metrics": {
     "fatigue": {
       "deltaVsYesterday": 2.0,
+      "spoken": "Fatigue 80, rising",
       "trendDir": "up",
       "value": 80.0,
       "verdict": "moved"
     },
     "fitness": {
       "deltaVsYesterday": 0.0,
+      "spoken": "Fitness 72, steady",
       "trendDir": "flat",
       "value": 72.0,
       "verdict": "flat"
     },
     "form": {
       "deltaVsYesterday": -2.0,
+      "spoken": "Form -8, falling",
       "text": "-8",
       "trendDir": "down",
       "value": -8.0,
@@ -614,6 +629,7 @@
     },
     "hrv": {
       "deltaVsYesterday": -1.0,
+      "spoken": "HRV 58, steady",
       "trendDir": "flat",
       "value": 58.0,
       "verdict": "flat"
@@ -623,6 +639,7 @@
     },
     "rhr": {
       "deltaVsYesterday": -1.0,
+      "spoken": "RHR 47, improved",
       "trendDir": "up",
       "value": 47.0,
       "verdict": "improved"
@@ -640,7 +657,7 @@
       "url": "veloq://record?type=Run"
     }
   ],
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "sparklines": {
     "fatigue": [
       78,
@@ -777,6 +794,7 @@
     "windows": {
       "last30": {
         "activityCount": 2,
+        "bodyLabel": "Most trained: Glutes 7 sets, Triceps 7 sets, Deltoids 5 sets, Hamstrings 5 sets",
         "emptyText": null,
         "label": "1 month",
         "maxWeightedSets": 7.0,
@@ -857,6 +875,7 @@
       },
       "month": {
         "activityCount": 1,
+        "bodyLabel": "Most trained: Glutes 7 sets, Hamstrings 5 sets, Lower Back 5 sets, Chest 4 sets",
         "emptyText": null,
         "label": "December",
         "maxWeightedSets": 7.0,
@@ -939,6 +958,7 @@
         "colorKey": "blue",
         "id": "fitness",
         "label": "Fitness",
+        "spoken": "Fitness 72, steady",
         "trendDir": "flat",
         "value": "72",
         "verdict": "flat"
@@ -946,7 +966,8 @@
       {
         "colorKey": "default",
         "id": "ftp",
-        "label": "FTP",
+        "label": "eFTP",
+        "spoken": "eFTP, no reading",
         "trendDir": "flat",
         "value": "-",
         "verdict": "flat"
@@ -955,6 +976,7 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Week",
+        "spoken": "Week 2.6h, improved",
         "trendDir": "up",
         "value": "2.6h",
         "verdict": "improved"
@@ -964,6 +986,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Form",
+      "spoken": "Form -8, falling",
       "trendDir": "down",
       "value": "-8",
       "verdict": "moved"
@@ -1012,6 +1035,7 @@
       "colorKey": "default",
       "id": "hrv",
       "label": "HRV",
+      "spoken": "HRV 58, steady",
       "trendDir": "flat",
       "value": "58",
       "verdict": "flat"
@@ -1020,6 +1044,7 @@
       "colorKey": "default",
       "id": "rhr",
       "label": "RHR",
+      "spoken": "RHR 47, improved",
       "trendDir": "up",
       "value": "47",
       "verdict": "improved"
@@ -1028,6 +1053,7 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Week",
+      "spoken": "Week 2.6h, improved",
       "trendDir": "up",
       "value": "2.6h",
       "verdict": "improved"
@@ -1036,6 +1062,7 @@
       "colorKey": "default",
       "id": "weekCount",
       "label": "#",
+      "spoken": "Activities 2, improved",
       "trendDir": "up",
       "value": "2",
       "verdict": "improved"
@@ -1043,7 +1070,8 @@
     {
       "colorKey": "default",
       "id": "ftp",
-      "label": "FTP",
+      "label": "eFTP",
+      "spoken": "eFTP, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1052,6 +1080,7 @@
       "colorKey": "default",
       "id": "thresholdPace",
       "label": "Pace",
+      "spoken": "Pace, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1060,6 +1089,7 @@
       "colorKey": "default",
       "id": "css",
       "label": "CSS",
+      "spoken": "CSS, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1068,6 +1098,7 @@
       "colorKey": "blue",
       "id": "fitness",
       "label": "Fitness",
+      "spoken": "Fitness 72, steady",
       "trendDir": "flat",
       "value": "72",
       "verdict": "flat"
@@ -1076,6 +1107,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Form",
+      "spoken": "Form -8, falling",
       "trendDir": "down",
       "value": "-8",
       "verdict": "moved"

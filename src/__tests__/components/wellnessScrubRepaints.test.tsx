@@ -30,10 +30,10 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 /** The chart sizes itself from its container's onLayout, so give it a width. */
-function layout(tree: ReturnType<typeof render>) {
+async function layout(tree: Awaited<ReturnType<typeof render>>) {
   const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(container!, 'layout', { nativeEvent: { layout: { width: 360, height: 300 } } });
+  await act(async () => {
+    await fireEvent(container!, 'layout', { nativeEvent: { layout: { width: 360, height: 300 } } });
   });
 }
 
@@ -47,8 +47,8 @@ describe('wellness trends scrub', () => {
   it('records the sparklines once and re-records none of them on a scrub tick', async () => {
     const built = capturePans();
     const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
+    await layout(tree);
 
     const atRest = svg.mock.calls.length;
     expect(atRest).toBe(5);
@@ -60,8 +60,8 @@ describe('wellness trends scrub', () => {
 
   it('keeps one gesture across the scrub', async () => {
     const built = capturePans();
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
+    await layout(tree);
 
     const beforeScrub = built.length;
     await holdAndScrub(longPressPan(built), 120, [160, 200]);

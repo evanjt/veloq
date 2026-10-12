@@ -77,19 +77,22 @@ beforeEach(() => {
   mockMapProps.length = 0;
 });
 
-it.each(['charts', 'sections'])('hands the map one overlay list across a scrub on %s', (tab) => {
-  const view = render(header(tab, 0));
-  for (const index of [1, 2, 3]) view.rerender(header(tab, index));
+it.each(['charts', 'sections'])(
+  'hands the map one overlay list across a scrub on %s',
+  async (tab) => {
+    const view = await render(header(tab, 0));
+    for (const index of [1, 2, 3]) await view.rerender(header(tab, index));
 
-  const handed = mockMapProps.map((p) => p.sectionOverlays);
-  expect(handed.length).toBeGreaterThan(1);
-  for (const list of handed) expect(list).toBe(handed[0]);
-  expect(handed[0]).not.toBeNull();
-  expect(handed[0]).toBe(overlays);
-});
+    const handed = mockMapProps.map((p) => p.sectionOverlays);
+    expect(handed.length).toBeGreaterThan(1);
+    for (const list of handed) expect(list).toBe(handed[0]);
+    expect(handed[0]).not.toBeNull();
+    expect(handed[0]).toBe(overlays);
+  }
+);
 
-it('hands the map no section overlays on the routes tab', () => {
-  render(header('routes', null));
+it('hands the map no section overlays on the routes tab', async () => {
+  await render(header('routes', null));
 
   expect(mockMapProps[mockMapProps.length - 1].sectionOverlays).toBeNull();
 });

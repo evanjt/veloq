@@ -22,9 +22,9 @@ const track = Array.from({ length: 5 }, (_, i) => ({
 
 const GRADE = [8, 6, 4, -5, -9];
 
-const stopsOf = (arrays: StreamArrays) => {
+const stopsOf = async (arrays: StreamArrays) => {
   const streams = streamsFromArrays(arrays);
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useMapLayers({ validCoordinates: track, coordinates: track, streams })
   );
   const expression = result.current.gradientLineExpression as (string | number | unknown[])[];
@@ -32,8 +32,8 @@ const stopsOf = (arrays: StreamArrays) => {
   return expression.slice(3);
 };
 
-it('places each colour stop at its share of the distance', () => {
-  const stops = stopsOf({ grade_smooth: GRADE, distance: [0, 100, 150, 500, 1000] });
+it('places each colour stop at its share of the distance', async () => {
+  const stops = await stopsOf({ grade_smooth: GRADE, distance: [0, 100, 150, 500, 1000] });
 
   expect(stops).toEqual([
     0,
@@ -49,14 +49,14 @@ it('places each colour stop at its share of the distance', () => {
   ]);
 });
 
-it('measures the share from where the distance stream starts', () => {
-  const stops = stopsOf({ grade_smooth: GRADE, distance: [200, 300, 350, 700, 1200] });
+it('measures the share from where the distance stream starts', async () => {
+  const stops = await stopsOf({ grade_smooth: GRADE, distance: [200, 300, 350, 700, 1200] });
 
   expect(stops[stops.indexOf(0.5) + 1]).toBe(gradientToColor(-5));
 });
 
-it('places the stops by sample when there is no distance stream', () => {
-  const stops = stopsOf({ grade_smooth: GRADE });
+it('places the stops by sample when there is no distance stream', async () => {
+  const stops = await stopsOf({ grade_smooth: GRADE });
 
   expect(stops.filter((s) => typeof s === 'number')).toEqual([0, 0.25, 0.5, 0.75, 1]);
 });

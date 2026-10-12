@@ -2,8 +2,8 @@
  * Stats row shown above/below the section scatter chart.
  *
  * Displays the direction arrow, a localized "forward" / "reverse" label,
- * a traversal count badge, the average time/pace, and the direction's best
- * time/pace. The engine says whether that best is the direction's record: a
+ * a traversal count badge, the average, and the direction's best, each in
+ * the basis the chart plots on. The engine says whether that best is the direction's record: a
  * record carries a trophy and the gold value, any other best (the best of a
  * range, a lone lap, a tie) reads as "Best" in the muted value style.
  */
@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
+import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { DirectionArrow, directionWord } from './DirectionCue';
 import { colors, colorWithOpacity, darkColors, typography, layout, spacing } from '@/theme';
 import type {
@@ -32,10 +32,8 @@ export interface StatsRowProps {
   pointCount: number;
   /** Direction accent color (activity color for forward, reverseDirection for reverse). */
   color: string;
-  /** When true, show pace instead of duration for the avg/best values. */
-  showPace: boolean;
-  /** When true, format pace as min/100m instead of min/km. */
-  isSwimming?: boolean;
+  /** What the avg and best read as, the basis the chart plots on. */
+  basis: AttemptBasis;
   isDark: boolean;
 }
 
@@ -46,8 +44,7 @@ export function StatsRow({
   bestIsRecord,
   pointCount,
   color,
-  showPace,
-  isSwimming = false,
+  basis,
   isDark,
 }: StatsRowProps) {
   const { t } = useTranslation();
@@ -55,11 +52,7 @@ export function StatsRow({
   if (pointCount === 0) return null;
 
   const bestValue = bestRecord
-    ? showPace && bestRecord.bestPace
-      ? isSwimming
-        ? formatSwimPace(bestRecord.bestPace, isMetric)
-        : formatPace(bestRecord.bestPace, isMetric)
-      : formatDuration(bestRecord.bestTime)
+    ? formatAttemptFigure(basis, bestRecord.bestTime, bestRecord.bestPace, isMetric)
     : '';
 
   return (
@@ -79,9 +72,7 @@ export function StatsRow({
         <View style={styles.statsMiddle}>
           {stats?.avgTime != null && (
             <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
-              {showPace && stats.avgSpeed != null && stats.avgSpeed > 0
-                ? `${isSwimming ? formatSwimPace(stats.avgSpeed, isMetric) : formatPace(stats.avgSpeed, isMetric)} ${t('sections.avg')}`
-                : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
+              {`${formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric)} ${t('sections.avg')}`}
             </Text>
           )}
         </View>

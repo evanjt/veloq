@@ -20,9 +20,9 @@ const LITRES: StepperScale = { perStored: 1, step: 5 };
 /** Displays a stored litre count in half-litres, five at a press. */
 const HALF_LITRES: StepperScale = { perStored: 2, step: 5 };
 
-function setup(value: number, scale: StepperScale = LITRES) {
+async function setup(value: number, scale: StepperScale = LITRES) {
   const onChange = jest.fn();
-  const view = render(
+  const view = await render(
     <Stepper
       testID="tank"
       accessibilityLabel="Tank level"
@@ -44,8 +44,8 @@ function setup(value: number, scale: StepperScale = LITRES) {
 }
 
 describe('Stepper', () => {
-  it('is one adjustable element whose value is the formatted reading', () => {
-    const { view } = setup(100);
+  it('is one adjustable element whose value is the formatted reading', async () => {
+    const { view } = await setup(100);
     const node = view.getByTestId('tank-value');
     expect(node.props.accessible).toBe(true);
     expect(node.props.accessibilityRole).toBe('adjustable');
@@ -55,40 +55,40 @@ describe('Stepper', () => {
     expect(view.getAllByRole('adjustable')).toHaveLength(1);
   });
 
-  it('disables plus at the upper bound and minus at the lower one', () => {
-    const top = setup(100);
+  it('disables plus at the upper bound and minus at the lower one', async () => {
+    const top = await setup(100);
     expect(top.view.getByTestId('tank-plus').props.accessibilityState.disabled).toBe(true);
     expect(top.view.getByTestId('tank-minus').props.accessibilityState.disabled).toBe(false);
-    fireEvent.press(top.view.getByTestId('tank-plus'));
+    await fireEvent.press(top.view.getByTestId('tank-plus'));
     top.act('increment');
     expect(top.onChange).not.toHaveBeenCalled();
-    top.view.unmount();
+    await top.view.unmount();
 
-    const bottom = setup(10);
+    const bottom = await setup(10);
     expect(bottom.view.getByTestId('tank-minus').props.accessibilityState.disabled).toBe(true);
     expect(bottom.view.getByTestId('tank-plus').props.accessibilityState.disabled).toBe(false);
     bottom.act('decrement');
     expect(bottom.onChange).not.toHaveBeenCalled();
   });
 
-  it('steps by one step from a value on the grid, by press and by action', () => {
-    const { view, onChange, act } = setup(50);
-    fireEvent.press(view.getByTestId('tank-plus'));
+  it('steps by one step from a value on the grid, by press and by action', async () => {
+    const { view, onChange, act } = await setup(50);
+    await fireEvent.press(view.getByTestId('tank-plus'));
     expect(onChange).toHaveBeenLastCalledWith(55);
-    fireEvent.press(view.getByTestId('tank-minus'));
+    await fireEvent.press(view.getByTestId('tank-minus'));
     expect(onChange).toHaveBeenLastCalledWith(45);
-    act('increment');
+    await act('increment');
     expect(onChange).toHaveBeenLastCalledWith(55);
-    act('decrement');
+    await act('decrement');
     expect(onChange).toHaveBeenLastCalledWith(45);
   });
 
-  it('steps in the displayed unit and writes the stored unit', () => {
-    const { view, onChange } = setup(26, HALF_LITRES);
+  it('steps in the displayed unit and writes the stored unit', async () => {
+    const { view, onChange } = await setup(26, HALF_LITRES);
     expect(view.getByTestId('tank-value').props.accessibilityValue).toEqual({ text: '52 L' });
-    fireEvent.press(view.getByTestId('tank-plus'));
+    await fireEvent.press(view.getByTestId('tank-plus'));
     expect(onChange).toHaveBeenLastCalledWith(27.5);
-    fireEvent.press(view.getByTestId('tank-minus'));
+    await fireEvent.press(view.getByTestId('tank-minus'));
     expect(onChange).toHaveBeenLastCalledWith(25);
   });
 });

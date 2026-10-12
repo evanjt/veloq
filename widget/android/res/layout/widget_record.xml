@@ -12,7 +12,7 @@
     android:layout_width="@dimen/widget_record_glyph"
     android:layout_height="@dimen/widget_record_glyph"
     android:src="@drawable/widget_record_roundel"
-    android:contentDescription="@null" />
+    android:importantForAccessibility="no" />
 
   <TextView
     android:layout_width="match_parent"

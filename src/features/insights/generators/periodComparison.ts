@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
-import { formatDurationCompact } from '@/shared/format/format';
+import { formatDurationCompact, formatLoad } from '@/shared/format/format';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
 import {
@@ -73,7 +73,7 @@ export function signedPercent(ratio: number): string {
 
 /** A comparison's total as the caption states it, in the unit it was compared in. */
 function captionValue(value: number, useTss: boolean): string {
-  return useTss ? `${Math.round(value)} TSS` : formatDurationCompact(value);
+  return useTss ? formatLoad(value) : formatDurationCompact(value);
 }
 
 /** A weekly bar's value, which `displayValue` holds in minutes for time, as the caption states it. */
@@ -81,7 +81,7 @@ function weeklyCaption(value: number, useTss: boolean): string {
   return captionValue(useTss ? value : value * 60, useTss);
 }
 
-/** A comparison's own value as the card shows it: TSS as it stands, seconds as minutes. */
+/** A comparison's own value as the card shows it: load as it stands, seconds as minutes. */
 function displayValue(value: number, useTss: boolean): number {
   return Math.round(useTss ? value : value / 60);
 }
@@ -165,12 +165,12 @@ export function generatePeriodComparisonInsights(
       current: {
         label: t('insights.data.thisWeek'),
         value: displayValue(weekOverWeek.current, useTss),
-        unit: useTss ? 'TSS' : 'min',
+        unit: useTss ? undefined : 'min',
       },
       previous: {
         label: t('insights.data.samePointLastWeek'),
         value: displayValue(weekOverWeek.previous, useTss),
-        unit: useTss ? 'TSS' : 'min',
+        unit: useTss ? undefined : 'min',
       },
       change: {
         label: t('insights.data.change'),
@@ -300,12 +300,12 @@ function generateLastWeekVsAverageInsight(
           current: {
             label: t('insights.data.lastWeek'),
             value: displayValue(comparison.current, useTss),
-            unit: useTss ? 'TSS' : 'min',
+            unit: useTss ? undefined : 'min',
           },
           previous: {
             label: t('insights.data.fourWeekAvgTss'),
             value: displayValue(comparison.previous, useTss),
-            unit: useTss ? 'TSS' : 'min',
+            unit: useTss ? undefined : 'min',
           },
           change: {
             label: t('insights.data.change'),

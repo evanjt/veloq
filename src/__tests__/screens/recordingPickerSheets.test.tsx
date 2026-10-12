@@ -23,6 +23,7 @@ const mockOverlayReads: (string | null)[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: { Screen: () => null },
   router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
@@ -90,20 +91,20 @@ jest.mock('@/features/recording/components/UnlockTrack', () => ({
   },
 }));
 
-let view: ReturnType<typeof render>;
+let view: Awaited<ReturnType<typeof render>>;
 const fieldTexts = () => [0, 1, 2, 3].map((i) => view.getByTestId(`slot-text-${i}`).props.children);
 
 /** Answers the pushed request with `value`, null included, as the route does for "No route". */
-function resolveSheet(value: unknown) {
+async function resolveSheet(value: unknown) {
   mockParams.request = mockPush.mock.calls.at(-1)[0].params.request;
-  const sheet = renderHook(() => useSheetRequest<unknown, unknown>());
-  act(() => sheet.result.current.resolve(value));
-  sheet.unmount();
+  const sheet = await renderHook(() => useSheetRequest<unknown, unknown>());
+  await act(() => sheet.result.current.resolve(value));
+  await sheet.unmount();
 }
 
-function renderUnlocked() {
-  view = render(<RecordingScreen />);
-  fireEvent.press(view.getByTestId('unlock'));
+async function renderUnlocked() {
+  view = await render(<RecordingScreen />);
+  await fireEvent.press(view.getByTestId('unlock'));
 }
 
 beforeEach(() => {
@@ -118,24 +119,24 @@ beforeEach(() => {
 
 describe('data field picker sheet', () => {
   it('puts the chosen field in the pressed slot and leaves the others', async () => {
-    renderUnlocked();
-    fireEvent(view.getByTestId('slot-2'), 'longPress');
+    await renderUnlocked();
+    void fireEvent(view.getByTestId('slot-2'), 'longPress');
     expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/field-picker');
-    answerSheet(mockPush, mockParams, 'cadence');
+    await answerSheet(mockPush, mockParams, 'cadence');
     await waitFor(() => expect(fieldTexts()).toEqual(['speed', 'distance', 'cadence', 'power']));
   });
 
   it('swaps places with a field already shown in another slot', async () => {
-    renderUnlocked();
-    fireEvent(view.getByTestId('slot-2'), 'longPress');
-    answerSheet(mockPush, mockParams, 'speed');
+    await renderUnlocked();
+    void fireEvent(view.getByTestId('slot-2'), 'longPress');
+    await answerSheet(mockPush, mockParams, 'speed');
     await waitFor(() => expect(fieldTexts()).toEqual(['heartrate', 'distance', 'speed', 'power']));
   });
 
   it('changes nothing when the sheet is dismissed', async () => {
-    renderUnlocked();
-    fireEvent(view.getByTestId('slot-2'), 'longPress');
-    answerSheet(mockPush, mockParams, null);
+    await renderUnlocked();
+    void fireEvent(view.getByTestId('slot-2'), 'longPress');
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(fieldTexts()).toEqual(['speed', 'distance', 'heartrate', 'power']);
   });
@@ -145,42 +146,42 @@ describe('route overlay picker sheet', () => {
   const lastRead = () => mockOverlayReads.at(-1);
 
   it('opens with the sport and the current overlay, and applies the chosen route', async () => {
-    renderUnlocked();
+    await renderUnlocked();
     expect(lastRead()).toBeNull();
-    act(() => {
+    await act(() => {
       mockOpenRoutePicker();
     });
     expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/route-overlay');
-    answerSheet(mockPush, mockParams, 'group-7');
+    await answerSheet(mockPush, mockParams, 'group-7');
     await waitFor(() => expect(lastRead()).toBe('group-7'));
   });
 
   it('clears the overlay when "No route" is chosen', async () => {
-    renderUnlocked();
-    act(() => {
+    await renderUnlocked();
+    await act(() => {
       mockOpenRoutePicker();
     });
-    answerSheet(mockPush, mockParams, 'group-7');
+    await answerSheet(mockPush, mockParams, 'group-7');
     await waitFor(() => expect(lastRead()).toBe('group-7'));
-    act(() => {
+    await act(() => {
       mockOpenRoutePicker();
     });
-    resolveSheet(null);
+    await resolveSheet(null);
     await act(async () => {});
     await waitFor(() => expect(lastRead()).toBeNull());
   });
 
   it('keeps the overlay when the sheet is dismissed', async () => {
-    renderUnlocked();
-    act(() => {
+    await renderUnlocked();
+    await act(() => {
       mockOpenRoutePicker();
     });
-    answerSheet(mockPush, mockParams, 'group-7');
+    await answerSheet(mockPush, mockParams, 'group-7');
     await waitFor(() => expect(lastRead()).toBe('group-7'));
-    act(() => {
+    await act(() => {
       mockOpenRoutePicker();
     });
-    answerSheet(mockPush, mockParams, null);
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(lastRead()).toBe('group-7');
   });

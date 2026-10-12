@@ -80,8 +80,8 @@ function renderCard() {
 /** Long-press the first month, which opens the tooltip on January. */
 async function scrubJanuary() {
   const chart = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
+  await act(async () => {
+    await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });
   await holdAndScrub(longPressPan(pans), 10);
 }
@@ -104,7 +104,7 @@ afterEach(() => {
 
 describe('SeasonComparison series', () => {
   it('names each series once, beside its colour, with no separate legend row', async () => {
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
     const previousDot = screen.getByTestId('season-summary-dot-previous');
@@ -120,7 +120,7 @@ describe('SeasonComparison series', () => {
 
 describe('SeasonComparison change between years', () => {
   it('states the change against a baseline', async () => {
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByText('+100%')).toBeTruthy());
   });
@@ -128,7 +128,7 @@ describe('SeasonComparison change between years', () => {
   it('prints a year level with last year as 0% on the neutral rung', async () => {
     setRows([month(YEAR - 1, 1, 4), month(YEAR, 1, 4)]);
 
-    renderCard();
+    await renderCard();
 
     const change = await waitFor(() => screen.getByText('0%'));
     expect(StyleSheet.flatten(change.props.style).color).toBe(verdictColor('neutral', false));
@@ -138,7 +138,7 @@ describe('SeasonComparison change between years', () => {
   it('prints a fall that rounds to nothing as 0% on the neutral rung, not -0%', async () => {
     setRows([month(YEAR - 1, 1, 100.3), month(YEAR, 1, 100)]);
 
-    renderCard();
+    await renderCard();
 
     const change = await waitFor(() => screen.getByText('0%'));
     expect(StyleSheet.flatten(change.props.style).color).toBe(verdictColor('neutral', false));
@@ -148,7 +148,7 @@ describe('SeasonComparison change between years', () => {
   it('states no change when last year is empty', async () => {
     setRows([month(YEAR, 1, 4)]);
 
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
     expect(screen.getByText('0h')).toBeTruthy();
@@ -158,7 +158,7 @@ describe('SeasonComparison change between years', () => {
   it('states no change in the tooltip for a month empty last year', async () => {
     setRows([month(YEAR - 1, 3, 2), month(YEAR, 1, 4)]);
 
-    renderCard();
+    await renderCard();
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
     await scrubJanuary();
 
@@ -167,7 +167,7 @@ describe('SeasonComparison change between years', () => {
   });
 
   it('names both years beside their values in the tooltip', async () => {
-    renderCard();
+    await renderCard();
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
     await scrubJanuary();
 
@@ -179,7 +179,7 @@ describe('SeasonComparison change between years', () => {
   it('states the change in the tooltip for a month with a baseline', async () => {
     setRows([month(YEAR - 1, 1, 4), month(YEAR, 1, 2)]);
 
-    renderCard();
+    await renderCard();
     await waitFor(() => expect(screen.getByText('2h')).toBeTruthy());
     await scrubJanuary();
 
@@ -192,7 +192,7 @@ describe('SeasonComparison over a range never downloaded', () => {
     setRows([]);
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.NotFetched);
 
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByText('stats.rangeNotDownloaded')).toBeTruthy());
     expect(screen.queryByText('stats.noActivityData')).toBeNull();
@@ -202,7 +202,7 @@ describe('SeasonComparison over a range never downloaded', () => {
     setRows([]);
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.Empty);
 
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByText('stats.noActivityData')).toBeTruthy());
     expect(screen.queryByText('stats.rangeNotDownloaded')).toBeNull();
@@ -211,13 +211,13 @@ describe('SeasonComparison over a range never downloaded', () => {
   it('adds a quiet line when part of the two years is not downloaded', async () => {
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.NotFetched);
 
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(screen.getByTestId('season-comparison-partial')).toBeTruthy());
   });
 
   it('asks the census about 1 January last year through today', async () => {
-    renderCard();
+    await renderCard();
 
     await waitFor(() => expect(engine.rangeCoverage).toHaveBeenCalled());
     expect(engine.rangeCoverage).toHaveBeenCalledWith(`${YEAR - 1}-01-01`, `${YEAR}-06-17`);
@@ -234,7 +234,7 @@ describe('SeasonComparison in the app language', () => {
   });
 
   it('names the months in that language', async () => {
-    renderCard();
+    await renderCard();
     await waitFor(() => expect(screen.getByText('1月')).toBeTruthy());
     await scrubJanuary();
 

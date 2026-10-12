@@ -21,7 +21,6 @@ export { useSectionMergeFlow } from './useSectionMergeFlow';
 export { useSectionUIState } from './useSectionUIState';
 export { useRevealMapOnDraw } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
-export { useSectionMapData } from './useSectionMapData';
 export { useRouteMapSignatures } from './useRouteMapSignatures';
 export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';

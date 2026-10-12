@@ -50,7 +50,7 @@ function renderCards() {
     <SectionStatsCards
       calendarSummary={summary}
       isDark={false}
-      isRunning={false}
+      basis="speed"
       activityColor="#3B82F6"
     />
   );
@@ -61,8 +61,8 @@ describe('the calendar card', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('names the overall personal best in text, not only in gold', () => {
-    const { getAllByText } = renderCards();
+  it('names the overall personal best in text, not only in gold', async () => {
+    const { getAllByText } = await renderCards();
 
     expect(getAllByText('PR').length).toBeGreaterThan(0);
   });

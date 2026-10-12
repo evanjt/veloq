@@ -70,10 +70,10 @@ const OTHER = {
   distanceMeters: 650,
 };
 
-function open<I, R>(route: string, input: I, Sheet: React.ComponentType) {
+async function open<I, R>(route: string, input: I, Sheet: React.ComponentType) {
   const result = openSheet<I, R>(route, input);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  const tree = render(<Sheet />);
+  const tree = await render(<Sheet />);
   return { result, tree };
 }
 
@@ -110,17 +110,17 @@ beforeEach(() => {
 describe('merge candidates sheet', () => {
   it('resolves the caller with the tapped candidate and dismisses', async () => {
     const chosen = candidate({ sectionId: 'sec-c', name: 'Third Climb' });
-    const { result } = openCandidates([candidate(), chosen]);
-    fireEvent.press(screen.getByTestId('merge-candidate-sec-c'));
+    const { result } = await openCandidates([candidate(), chosen]);
+    await fireEvent.press(screen.getByTestId('merge-candidate-sec-c'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: chosen });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('cancels when closed without a tap', async () => {
-    const { result } = openCandidates([candidate()]);
-    fireEvent.press(screen.getByTestId('merge-candidates-cancel'));
+    const { result } = await openCandidates([candidate()]);
+    await fireEvent.press(screen.getByTestId('merge-candidates-cancel'));
     expect(mockBack).toHaveBeenCalledTimes(1);
-    screen.unmount();
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 
@@ -128,19 +128,19 @@ describe('merge candidates sheet', () => {
     [120, true, /120 m/],
     [3200, true, /3\.2 km/],
     [3200, false, /[\d.]+ mi/],
-  ])('shows the centre distance %d m, metric %s', (metres, metric, expected) => {
+  ])('shows the centre distance %d m, metric %s', async (metres, metric, expected) => {
     mockIsMetric = metric;
-    openCandidates([candidate({ centerDistanceMeters: metres })]);
+    await openCandidates([candidate({ centerDistanceMeters: metres })]);
     expect(screen.getByText(expected)).toBeTruthy();
   });
 
-  it('keeps its scroll view where the iOS sheet sizes it', () => {
-    openCandidates([candidate()]);
+  it('keeps its scroll view where the iOS sheet sizes it', async () => {
+    await openCandidates([candidate()]);
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
-  it('draws every sport of a candidate', () => {
-    openCandidates([candidate({ sportTypes: ['Ride', 'Run'] })]);
+  it('draws every sport of a candidate', async () => {
+    await openCandidates([candidate({ sportTypes: ['Ride', 'Run'] })]);
     const names = iconNames();
     expect(count(names, 'bike')).toBe(1);
     expect(count(names, 'run')).toBe(1);
@@ -149,8 +149,8 @@ describe('merge candidates sheet', () => {
 
 describe('merge confirm sheet', () => {
   it('keeps the section with more visits by default and resolves with that direction', async () => {
-    const { result } = openConfirm();
-    fireEvent.press(screen.getByTestId('merge-confirm-merge'));
+    const { result } = await openConfirm();
+    await fireEvent.press(screen.getByTestId('merge-confirm-merge'));
     await expect(result).resolves.toEqual({
       kind: 'selected',
       value: { primaryId: 'sec-a', secondaryId: 'sec-b' },
@@ -159,9 +159,9 @@ describe('merge confirm sheet', () => {
   });
 
   it('resolves with the other direction once the other section is chosen', async () => {
-    const { result } = openConfirm();
-    fireEvent.press(screen.getByTestId('merge-keep-sec-b'));
-    fireEvent.press(screen.getByTestId('merge-confirm-merge'));
+    const { result } = await openConfirm();
+    await fireEvent.press(screen.getByTestId('merge-keep-sec-b'));
+    await fireEvent.press(screen.getByTestId('merge-confirm-merge'));
     await expect(result).resolves.toEqual({
       kind: 'selected',
       value: { primaryId: 'sec-b', secondaryId: 'sec-a' },
@@ -169,30 +169,30 @@ describe('merge confirm sheet', () => {
   });
 
   it('cancels without resolving a merge when closed', async () => {
-    const { result } = openConfirm();
-    fireEvent.press(screen.getByTestId('merge-confirm-cancel'));
+    const { result } = await openConfirm();
+    await fireEvent.press(screen.getByTestId('merge-confirm-cancel'));
     expect(mockBack).toHaveBeenCalledTimes(1);
-    screen.unmount();
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 
-  it('keeps its scroll view where the iOS sheet sizes it', () => {
-    openConfirm();
+  it('keeps its scroll view where the iOS sheet sizes it', async () => {
+    await openConfirm();
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
-  it('shows nothing extra when no ride would leave', () => {
-    openConfirm();
+  it('shows nothing extra when no ride would leave', async () => {
+    await openConfirm();
     expect(screen.queryByTestId('merge-dropped-rides')).toBeNull();
     expect(screen.queryByText(/stay in your library/)).toBeNull();
   });
 
-  it('names the rides that would leave and says they stay in the library', () => {
+  it('names the rides that would leave and says they stay in the library', async () => {
     mockPreviewDropped.mockReturnValue([
       { activityId: 'r1', name: 'Morning Spin', startDate: 1_700_000_000 },
       { activityId: 'r2', name: '', startDate: 1_700_100_000 },
     ]);
-    openConfirm();
+    await openConfirm();
     expect(screen.getByTestId('merge-dropped-rides')).toBeTruthy();
     expect(
       screen.getByText(/Rides left out of the merged section: 2\. They stay in your library/)
@@ -200,27 +200,27 @@ describe('merge confirm sheet', () => {
     expect(screen.getByText(/Morning Spin/)).toBeTruthy();
   });
 
-  it('asks again for the other direction when the choice changes', () => {
-    openConfirm();
+  it('asks again for the other direction when the choice changes', async () => {
+    await openConfirm();
     expect(mockPreviewDropped).toHaveBeenLastCalledWith('sec-a', 'sec-b');
-    fireEvent.press(screen.getByTestId('merge-keep-sec-b'));
+    await fireEvent.press(screen.getByTestId('merge-keep-sec-b'));
     expect(mockPreviewDropped).toHaveBeenLastCalledWith('sec-b', 'sec-a');
   });
 
-  it('no longer promises that all traversal history is preserved', () => {
-    openConfirm();
+  it('no longer promises that all traversal history is preserved', async () => {
+    await openConfirm();
     expect(screen.queryByText(/All traversal history/)).toBeNull();
   });
 
-  it('prints each section distance in the athlete unit', () => {
+  it('prints each section distance in the athlete unit', async () => {
     mockIsMetric = false;
-    openConfirm({ ...MAIN, distanceMeters: 1287 }, { ...OTHER, distanceMeters: 1287 });
+    await openConfirm({ ...MAIN, distanceMeters: 1287 }, { ...OTHER, distanceMeters: 1287 });
     expect(screen.getAllByText('0.8 mi').length).toBeGreaterThan(0);
     expect(screen.queryByText('1287m')).toBeNull();
   });
 
-  it('draws every sport of each section', () => {
-    openConfirm(
+  it('draws every sport of each section', async () => {
+    await openConfirm(
       { ...MAIN, sportTypes: ['Ride', 'Run'], visitCount: 50 },
       { ...OTHER, sportTypes: ['Walk'], visitCount: 3 }
     );

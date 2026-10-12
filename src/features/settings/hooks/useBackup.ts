@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -18,6 +17,7 @@ import {
 } from '@/features/settings/lib/backup';
 import { holdImportWhileSignedOut, isHeldWhileSignedOut } from '@/features/settings/lib/heldImport';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /** Ask before a backup replaces stored preferences and names. */
 export function confirmLegacyImport(copy: {
@@ -26,15 +26,15 @@ export function confirmLegacyImport(copy: {
   cancel: string;
 }): Promise<boolean> {
   return new Promise((resolve) => {
-    Alert.alert(
-      copy.title,
-      copy.message,
-      [
-        { text: copy.cancel, style: 'cancel', onPress: () => resolve(false) },
-        { text: copy.title, style: 'destructive', onPress: () => resolve(true) },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) }
-    );
+    confirmAction({
+      title: copy.title,
+      message: copy.message,
+      confirmLabel: copy.title,
+      cancelLabel: copy.cancel,
+      destructive: true,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
   });
 }
 
@@ -69,7 +69,7 @@ export function useExportRecordBackup() {
               await take(await resumePendingRecordExport());
             } catch {
               setStillRunning(false);
-              Alert.alert(t('common.error'), t('backup.exportError'));
+              inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
             }
           });
         }
@@ -84,7 +84,7 @@ export function useExportRecordBackup() {
     if (!hasPendingRecordExport()) return;
     resumePendingRecordExport().then(settle, () => {
       setStillRunning(false);
-      Alert.alert(t('common.error'), t('backup.exportError'));
+      inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
     });
   }, [settle, t]);
 
@@ -102,7 +102,7 @@ export function useExportRecordBackup() {
       return outcome;
     } catch {
       setStillRunning(false);
-      Alert.alert(t('common.error'), t('backup.exportError'));
+      inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
       return 'failed';
     } finally {
       running.current = false;
@@ -142,7 +142,7 @@ export function useImportDatabaseBackup() {
 
       // An older backup picked signed out is held for sign-in below; anything else needs the engine now.
       if (importWaitsForSignIn() && !isHeldWhileSignedOut(fileName)) {
-        Alert.alert(t('common.error'), t('backup.signInRequired'));
+        inform({ title: t('backup.notRestoredTitle'), message: t('backup.signInRequired') });
         return { success: false, activityCount: 0, signInRequired: true };
       }
 
@@ -155,7 +155,7 @@ export function useImportDatabaseBackup() {
 
       // Signed out, an older backup waits for the sign-in that lets it land.
       if (await holdImportWhileSignedOut(fileUri, fileName)) {
-        Alert.alert(t('backup.importBackup'), t('backup.heldUntilSignIn'));
+        inform({ title: t('backup.importBackup'), message: t('backup.heldUntilSignIn') });
         return { success: false, activityCount: 0 };
       }
 
@@ -170,12 +170,12 @@ export function useImportDatabaseBackup() {
           const message = legacyResult.signInRequired
             ? t('backup.signInRequired')
             : (legacyResult.error ?? t('backup.importError'));
-          Alert.alert(t('common.error'), message);
+          inform({ title: t('backup.notRestoredTitle'), message });
           return { success: false, activityCount: 0, error: legacyResult.error ?? message };
         }
 
         const messages = [t('backup.recordRestored')];
-        Alert.alert(t('backup.restoreComplete'), messages.join('\n'));
+        inform({ title: t('backup.restoreComplete'), message: messages.join('\n') });
 
         return {
           success: true,
@@ -185,31 +185,31 @@ export function useImportDatabaseBackup() {
 
       if (fileName.endsWith('.zip')) {
         await restoreRecordBackup(fileUri);
-        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
         return { success: true, activityCount: 0 };
       }
 
       const restoreResult = await restoreDatabaseBackup(fileUri);
 
       if (restoreResult.success) {
-        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
       } else {
-        Alert.alert(
-          t('common.error'),
-          restoreResult.signInRequired
+        inform({
+          title: t('backup.notRestoredTitle'),
+          message: restoreResult.signInRequired
             ? t('backup.signInRequired')
             : restoreResult.athleteIdMismatch
               ? t('backup.backupDifferentAccount')
               : restoreResult.reason
                 ? t(RESTORE_REFUSAL_KEYS[restoreResult.reason])
-                : (restoreResult.error ?? t('backup.importError'))
-        );
+                : (restoreResult.error ?? t('backup.importError')),
+        });
       }
 
       return restoreResult;
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('backup.importError');
-      Alert.alert(t('common.error'), msg);
+      inform({ title: t('backup.notRestoredTitle'), message: msg });
       // empty-on-error: the failure is the alert on the line above; null tells the caller the
       // import did not complete.
       return null;

@@ -31,8 +31,11 @@ function interval(watts?: number): ActivityInterval {
   } as ActivityInterval;
 }
 
-function zoneLabelColour(activityType: ActivityType, watts?: number): string | undefined {
-  render(
+async function zoneLabelColour(
+  activityType: ActivityType,
+  watts?: number
+): Promise<string | undefined> {
+  await render(
     <IntervalsTable
       intervals={[interval(watts)]}
       activityType={activityType}
@@ -48,16 +51,16 @@ function zoneLabelColour(activityType: ActivityType, watts?: number): string | u
 describe('the intervals table zone palette', () => {
   it.each(['Ride', 'GravelRide', 'MountainBikeRide', 'Handcycle', 'Velomobile', 'VirtualRide'])(
     'colours a %s work interval with watts from the power ladder',
-    (type) => {
-      expect(zoneLabelColour(type as ActivityType, 250)).toBe(POWER_ZONE_COLORS[5]);
+    async (type) => {
+      expect(await zoneLabelColour(type as ActivityType, 250)).toBe(POWER_ZONE_COLORS[5]);
     }
   );
 
-  it('keeps the power ladder on a ride with no watts at all', () => {
-    expect(zoneLabelColour('Ride', undefined)).toBe(POWER_ZONE_COLORS[5]);
+  it('keeps the power ladder on a ride with no watts at all', async () => {
+    expect(await zoneLabelColour('Ride', undefined)).toBe(POWER_ZONE_COLORS[5]);
   });
 
-  it('colours a run from the heart-rate ladder', () => {
-    expect(zoneLabelColour('Run', undefined)).toBe(HR_ZONE_COLORS[5]);
+  it('colours a run from the heart-rate ladder', async () => {
+    expect(await zoneLabelColour('Run', undefined)).toBe(HR_ZONE_COLORS[5]);
   });
 });

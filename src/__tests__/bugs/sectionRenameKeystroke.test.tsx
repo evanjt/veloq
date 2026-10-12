@@ -88,34 +88,34 @@ describe('renaming a section', () => {
     mockRenameSection.mockResolvedValue(undefined);
   });
 
-  it('does not render the screen root on a keystroke', () => {
-    render(<Root />);
-    fireEvent.press(screen.getByTestId('section-rename-button'));
+  it('does not render the screen root on a keystroke', async () => {
+    await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
     const before = rootRendered.mock.calls.length;
 
     for (const text of ['N', 'Ne', 'New', 'New l', 'New lo', 'New loop']) {
-      fireEvent.changeText(screen.getByTestId('section-rename-input'), text);
+      await fireEvent.changeText(screen.getByTestId('section-rename-input'), text);
     }
 
     expect(screen.getByTestId('section-rename-input').props.value).toBe('New loop');
     expect(rootRendered).toHaveBeenCalledTimes(before);
   });
 
-  it('starts the input on the name on show', () => {
-    render(<Root />);
+  it('starts the input on the name on show', async () => {
+    await render(<Root />);
 
-    fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
 
     expect(screen.getByTestId('section-rename-input').props.value).toBe('Old climb');
   });
 
   it('saves the trimmed typed name, closes the input and shows the new name', async () => {
-    render(<Root />);
-    fireEvent.press(screen.getByTestId('section-rename-button'));
-    fireEvent.changeText(screen.getByTestId('section-rename-input'), '  New loop  ');
+    await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), '  New loop  ');
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('section-rename-save'));
+      await fireEvent.press(screen.getByTestId('section-rename-save'));
     });
 
     expect(mockRenameSection).toHaveBeenCalledWith('s1', 'New loop');
@@ -124,30 +124,30 @@ describe('renaming a section', () => {
   });
 
   it('clears a name and shows the numbered label returned by the engine', async () => {
-    const tree = render(<Root />);
-    fireEvent.press(screen.getByTestId('section-rename-button'));
-    fireEvent.changeText(screen.getByTestId('section-rename-input'), '   ');
+    const tree = await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), '   ');
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('section-rename-save'));
+      await fireEvent.press(screen.getByTestId('section-rename-save'));
     });
 
     expect(mockRenameSection).toHaveBeenCalledWith('s1', '');
-    tree.rerender(<Root currentSection={{ ...section, name: 'Section 1' }} />);
+    await tree.rerender(<Root currentSection={{ ...section, name: 'Section 1' }} />);
     expect(screen.queryByTestId('section-rename-input')).toBeNull();
     expect(screen.getByText('Section 1')).toBeTruthy();
   });
 
-  it('keeps the old name when the edit is cancelled, and starts the next edit from it', () => {
-    render(<Root />);
-    fireEvent.press(screen.getByTestId('section-rename-button'));
-    fireEvent.changeText(screen.getByTestId('section-rename-input'), 'Discarded');
-    fireEvent.press(screen.getByLabelText('common.cancel'));
+  it('keeps the old name when the edit is cancelled, and starts the next edit from it', async () => {
+    await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), 'Discarded');
+    await fireEvent.press(screen.getByLabelText('common.cancel'));
 
     expect(mockRenameSection).not.toHaveBeenCalled();
     expect(screen.getByText('Old climb')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
     expect(screen.getByTestId('section-rename-input').props.value).toBe('Old climb');
   });
 });

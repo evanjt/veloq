@@ -46,16 +46,17 @@ function fakeEngine(first: SyncStatus) {
 
 beforeEach(() => jest.clearAllMocks());
 
-it('reads once per announcement with seven components mounted', () => {
+it('reads once per announcement with seven components mounted', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const mounted = Array.from({ length: 7 }, () => renderHook(() => useSyncStatus()));
+  const mounted = [];
+  for (let i = 0; i < 7; i++) mounted.push(await renderHook(() => useSyncStatus()));
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
   expect(engine.subscribe).toHaveBeenCalledTimes(4);
 
   engine.setSnapshot(status(SyncState.Syncing, 4));
-  act(() => engine.announce('syncProgress'));
+  await act(() => engine.announce('syncProgress'));
 
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(2);
   mounted.forEach(({ result }) => expect(result.current?.completed).toBe(4));
@@ -64,33 +65,33 @@ it('reads once per announcement with seven components mounted', () => {
   expect(engine.liveListeners()).toBe(0);
 });
 
-it('keeps reading for the survivors when one of several unmounts', () => {
+it('keeps reading for the survivors when one of several unmounts', async () => {
   const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const first = renderHook(() => useSyncStatus());
-  const second = renderHook(() => useSyncStatus());
-  first.unmount();
+  const first = await renderHook(() => useSyncStatus());
+  const second = await renderHook(() => useSyncStatus());
+  await first.unmount();
 
   engine.setSnapshot(status(SyncState.Syncing, 1));
-  act(() => engine.announce('sync'));
+  await act(() => engine.announce('sync'));
 
   expect(second.result.current?.completed).toBe(1);
-  second.unmount();
+  await second.unmount();
 });
 
-it('attaches on a later subscriber when the engine was not open yet', () => {
+it('attaches on a later subscriber when the engine was not open yet', async () => {
   mockGetEngine.mockReturnValue(null as unknown as ReturnType<typeof getEngine>);
-  const early = renderHook(() => useSyncStatus());
+  const early = await renderHook(() => useSyncStatus());
   expect(early.result.current).toBeNull();
 
   const engine = fakeEngine(status(SyncState.Syncing, 2));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  const late = renderHook(() => useSyncStatus());
+  const late = await renderHook(() => useSyncStatus());
 
   expect(late.result.current?.completed).toBe(2);
-  early.unmount();
-  late.unmount();
+  await early.unmount();
+  await late.unmount();
 });
 
 /**
@@ -101,7 +102,7 @@ it('attaches on a later subscriber when the engine was not open yet', () => {
  * Expected behaviour: the snapshot follows the database. A restore is a new
  * library, so the counts and the error from before it are gone.
  */
-it('re-reads after a restore, which announces syncReset and no sync step', () => {
+it('re-reads after a restore, which announces syncReset and no sync step', async () => {
   const failed = {
     ...status(SyncState.Idle, 3),
     lastError: 'connection reset',
@@ -109,15 +110,15 @@ it('re-reads after a restore, which announces syncReset and no sync step', () =>
   const engine = fakeEngine(failed);
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const mounted = renderHook(() => useSyncStatus());
+  const mounted = await renderHook(() => useSyncStatus());
   expect(mounted.result.current?.lastError).toBe('connection reset');
 
   engine.setSnapshot(status(SyncState.Idle, 0));
-  act(() => engine.announce('syncReset'));
+  await act(() => engine.announce('syncReset'));
 
   expect(mounted.result.current?.lastError).toBeUndefined();
   expect(mounted.result.current?.completed).toBe(0);
 
-  mounted.unmount();
+  await mounted.unmount();
   expect(engine.liveListeners()).toBe(0);
 });

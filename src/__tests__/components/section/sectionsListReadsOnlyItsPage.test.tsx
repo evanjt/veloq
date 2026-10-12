@@ -109,7 +109,7 @@ describe('the sections tab over its screen read', () => {
   });
 
   it('reads nothing from the engine beside the page it was given', async () => {
-    renderList();
+    await renderList();
     await act(async () => {
       await Promise.resolve();
     });
@@ -119,11 +119,11 @@ describe('the sections tab over its screen read', () => {
 
   it('still deletes a custom section through the engine', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const tree = renderList();
+    const tree = await renderList();
     const rows = tree.UNSAFE_getAllByType(Swipeable);
-    const swipe = render(rows[1].props.renderRightActions(null, { interpolate: () => 1 }));
+    const swipe = await render(rows[1].props.renderRightActions(null, { interpolate: () => 1 }));
 
-    fireEvent.press(swipe.getByText('Delete'));
+    await fireEvent.press(swipe.getByText('Delete'));
     const confirm = alert.mock.calls[0][2]?.find((button) => button.style === 'destructive');
     await act(async () => {
       await confirm?.onPress?.();

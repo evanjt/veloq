@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Button, pressable, pressRipple, SheetScrollView } from '@/shared/ui';
+import { pressable, pressRipple, SheetActions, SheetHeader, SheetScrollView } from '@/shared/ui';
 import { formatDistance, formatShortDate } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
@@ -92,61 +92,58 @@ function MergeConfirmSheetContent() {
     );
   };
 
+  const actions = {
+    onCancel: () => tapBack(),
+    cancelTestID: 'merge-confirm-cancel',
+    confirm: {
+      label: t('sections.merge'),
+      onPress: () => resolve({ primaryId: kept.id, secondaryId: merged.id }),
+      testID: 'merge-confirm-merge',
+    },
+  };
+
   return (
-    <SheetScrollView contentContainerStyle={styles.content}>
-      <Text accessibilityRole="header" style={[styles.title, { color: textPrimary }]}>
-        {t('sections.mergeSections')}
-      </Text>
-      <Text style={[styles.subtitle, { color: textSecondary }]}>
-        {t('sections.mergeKeepMessage')}
-      </Text>
+    <SheetScrollView>
+      <SheetHeader title={t('sections.mergeSections')} {...actions} />
+      <View style={styles.content}>
+        <Text style={[styles.subtitle, { color: textSecondary }]}>
+          {t('sections.mergeKeepMessage')}
+        </Text>
 
-      <View style={styles.options}>
-        {renderOption(primary)}
-        {renderOption(secondary)}
-      </View>
-
-      <Text style={[styles.info, { color: textSecondary }]}>
-        {t('sections.mergeInto', { secondary: merged.name, primary: kept.name })}
-      </Text>
-
-      {dropped.length > 0 && (
-        <View style={styles.dropped} testID="merge-dropped-rides">
-          <Text style={[styles.droppedTitle, { color: textPrimary }]}>
-            {t('sections.mergeDroppedRides', { count: dropped.length })}
-          </Text>
-          {dropped.slice(0, MAX_NAMED_RIDES).map((ride) => (
-            <Text
-              key={ride.activityId}
-              style={[styles.optionStat, { color: textSecondary }]}
-              numberOfLines={1}
-            >
-              {ride.name
-                ? `${ride.name}, ${formatShortDate(new Date(ride.startDate * 1000))}`
-                : formatShortDate(new Date(ride.startDate * 1000))}
-            </Text>
-          ))}
-          {dropped.length > MAX_NAMED_RIDES && (
-            <Text style={[styles.optionStat, { color: textSecondary }]}>
-              {t('sections.mergeDroppedMore', { count: dropped.length - MAX_NAMED_RIDES })}
-            </Text>
-          )}
+        <View style={styles.options}>
+          {renderOption(primary)}
+          {renderOption(secondary)}
         </View>
-      )}
 
-      <View style={styles.actions}>
-        <Button
-          testID="merge-confirm-cancel"
-          label={t('common.cancel')}
-          onPress={() => tapBack()}
-          variant="ghost"
-        />
-        <Button
-          testID="merge-confirm-merge"
-          label={t('sections.merge')}
-          onPress={() => resolve({ primaryId: kept.id, secondaryId: merged.id })}
-        />
+        <Text style={[styles.info, { color: textSecondary }]}>
+          {t('sections.mergeInto', { secondary: merged.name, primary: kept.name })}
+        </Text>
+
+        {dropped.length > 0 && (
+          <View style={styles.dropped} testID="merge-dropped-rides">
+            <Text style={[styles.droppedTitle, { color: textPrimary }]}>
+              {t('sections.mergeDroppedRides', { count: dropped.length })}
+            </Text>
+            {dropped.slice(0, MAX_NAMED_RIDES).map((ride) => (
+              <Text
+                key={ride.activityId}
+                style={[styles.optionStat, { color: textSecondary }]}
+                numberOfLines={1}
+              >
+                {ride.name
+                  ? `${ride.name}, ${formatShortDate(new Date(ride.startDate * 1000))}`
+                  : formatShortDate(new Date(ride.startDate * 1000))}
+              </Text>
+            ))}
+            {dropped.length > MAX_NAMED_RIDES && (
+              <Text style={[styles.optionStat, { color: textSecondary }]}>
+                {t('sections.mergeDroppedMore', { count: dropped.length - MAX_NAMED_RIDES })}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
+      <SheetActions {...actions} />
     </SheetScrollView>
   );
 }
@@ -155,11 +152,8 @@ export default withScreenBoundary(MergeConfirmSheetContent, 'Merge Sections');
 
 const styles = StyleSheet.create({
   content: {
-    padding: layout.screenPadding,
-  },
-  title: {
-    ...typography.cardTitle,
-    marginBottom: spacing.xs,
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: layout.screenPadding,
   },
   subtitle: {
     ...typography.bodySmall,
@@ -218,10 +212,5 @@ const styles = StyleSheet.create({
   },
   droppedTitle: {
     ...typography.bodyMedium,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.lg,
   },
 });

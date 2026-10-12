@@ -17,8 +17,8 @@ jest.mock('@/features/activity', () => ({
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-it('reads only the ids named by the best efforts', () => {
-  render(
+it('reads only the ids named by the best efforts', async () => {
+  await render(
     <SeasonBestsSection
       efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
       sport="Cycling"
@@ -32,8 +32,8 @@ it('reads only the ids named by the best efforts', () => {
   expect(screen.getByText(/Hill ride/)).toBeTruthy();
 });
 
-it('leaves an uncached effort without an activity link', () => {
-  render(
+it('leaves an uncached effort without an activity link', async () => {
+  await render(
     <SeasonBestsSection
       efforts={[{ label: '10 km', activityId: 'a2', value: 2400, time: 2400 }] as never}
       sport="Cycling"
@@ -59,8 +59,8 @@ describe('the Best Efforts link', () => {
     ['loading', [], true],
     ['empty', [], false],
     ['all values null', [{ label: '5 km', activityId: null, value: null, time: null }], false],
-  ])('stays reachable while %s, on the range Fitness shows', (_name, efforts, isLoading) => {
-    render(
+  ])('stays reachable while %s, on the range Fitness shows', async (_name, efforts, isLoading) => {
+    await render(
       <SeasonBestsSection
         efforts={efforts as never}
         sport="Swimming"
@@ -69,14 +69,14 @@ describe('the Best Efforts link', () => {
       />
     );
 
-    fireEvent.press(screen.getByTestId('season-bests-view-all'));
+    await fireEvent.press(screen.getByTestId('season-bests-view-all'));
 
     expect(mockPush).toHaveBeenCalledWith('/best-efforts?period=1y');
   });
 });
 
-it('sets the link and effort text in the sport text tone, not the fill', () => {
-  render(
+it('sets the link and effort text in the sport text tone, not the fill', async () => {
+  await render(
     <SeasonBestsSection
       efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
       sport="Running"
@@ -91,4 +91,64 @@ it('sets the link and effort text in the sport text tone, not the fill', () => {
     .filter(Boolean);
   expect(colorsUsed).toContain(SPORT_TEXT_COLORS.Running);
   expect(colorsUsed).not.toContain(SPORT_COLORS.Running);
+});
+
+describe('the activity link for a screen reader', () => {
+  beforeAll(() => require('@/i18n').initialiseI18n('en-GB'));
+
+  it('speaks the row in reading order through its link: best, value, activity', () => {
+    render(
+      <SeasonBestsSection
+        efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
+        sport="Cycling"
+        period="6m"
+        isLoading={false}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '5 km, 250 W, Hill ride' })).toBeTruthy();
+  });
+
+  it('carries the time a running best draws under its pace', () => {
+    render(
+      <SeasonBestsSection
+        efforts={[{ label: '5 km', activityId: 'a1', value: 4, time: 1200 }] as never}
+        sport="Running"
+        period="6m"
+        isLoading={false}
+      />
+    );
+
+    const label = screen.getByRole('button', { name: /^5 km, / }).props
+      .accessibilityLabel as string;
+    expect(label.endsWith(', 20:00, Hill ride')).toBe(true);
+  });
+
+  it('does not read the best and its value again beside the link', () => {
+    render(
+      <SeasonBestsSection
+        efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
+        sport="Cycling"
+        period="6m"
+        isLoading={false}
+      />
+    );
+
+    expect(screen.queryByText('5 km')).toBeNull();
+    expect(screen.queryByText('250 W')).toBeNull();
+    expect(screen.getByText('5 km', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('leaves the best readable on a row with no link', () => {
+    render(
+      <SeasonBestsSection
+        efforts={[{ label: '10 km', activityId: 'a2', value: 2400, time: 2400 }] as never}
+        sport="Cycling"
+        period="6m"
+        isLoading={false}
+      />
+    );
+
+    expect(screen.getByText('10 km')).toBeTruthy();
+  });
 });

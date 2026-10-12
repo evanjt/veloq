@@ -59,12 +59,12 @@ describe('useStrengthScreenData on fitParsed', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
-    const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
 
     await waitFor(() => expect(result.current.data?.summary.activityCount).toBe(0));
     expect(listeners.has('fitParsed')).toBe(true);
 
-    act(() => listeners.get('fitParsed')?.());
+    await act(() => listeners.get('fitParsed')?.());
 
     await waitFor(() => expect(result.current.data?.summary.activityCount).toBe(3));
     expect(reads).toBe(2);

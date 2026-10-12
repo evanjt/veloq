@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 async function openDetail() {
-  const view = renderHook(() => useActivity('a1'), { wrapper });
+  const view = await renderHook(() => useActivity('a1'), { wrapper });
   await waitFor(() => expect(view.result.current.data).not.toBeUndefined());
   return view;
 }
@@ -79,7 +79,7 @@ describe('activity detail retention', () => {
   it('lets a closed detail go and reads the engine again on reopen', async () => {
     const view = await openDetail();
     const readsAtOpen = engine.getActivityBody.mock.calls.length;
-    view.unmount();
+    await view.unmount();
 
     jest.advanceTimersByTime(PAST_THE_WINDOW_MS);
     await openDetail();
@@ -90,7 +90,7 @@ describe('activity detail retention', () => {
   it('still has the body for a step to a neighbour and back', async () => {
     const view = await openDetail();
     const readsAtOpen = engine.getActivityBody.mock.calls.length;
-    view.unmount();
+    await view.unmount();
 
     jest.advanceTimersByTime(WITHIN_THE_WINDOW_MS);
     await openDetail();
@@ -107,9 +107,9 @@ describe('activity detail retention', () => {
   it.each(detailQueries)(
     'holds the %s of a closed detail for minutes, not hours',
     async (_what, hook, key) => {
-      const view = renderHook(hook, { wrapper });
+      const view = await renderHook(hook, { wrapper });
       await waitFor(() => expect(view.result.current.data).not.toBeUndefined());
-      view.unmount();
+      await view.unmount();
 
       jest.advanceTimersByTime(WITHIN_THE_WINDOW_MS);
       expect(client.getQueryCache().find({ queryKey: key })).toBeDefined();

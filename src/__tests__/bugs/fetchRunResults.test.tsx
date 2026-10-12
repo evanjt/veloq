@@ -69,7 +69,7 @@ describe('the foreground sync reading a download result', () => {
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === undefined ? null : (results.get(run) ?? null)
     );
-    const { result } = renderHook(() => useGpsDataFetcher());
+    const { result } = await renderHook(() => useGpsDataFetcher());
 
     const [first, second] = await Promise.all([
       result.current.fetchApiGps([activity('a1')], deps()),
@@ -87,7 +87,7 @@ describe('the foreground sync reading a download result', () => {
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === 99 ? resultFor(['foreign']) : null
     );
-    const { result } = renderHook(() => useGpsDataFetcher());
+    const { result } = await renderHook(() => useGpsDataFetcher());
 
     const outcome = await result.current.fetchApiGps([activity('a1')], deps());
 
@@ -99,7 +99,7 @@ describe('the foreground sync reading a download result', () => {
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === 1 ? resultFor(['a1']) : null
     );
-    const { result } = renderHook(() => useGpsDataFetcher());
+    const { result } = await renderHook(() => useGpsDataFetcher());
 
     await result.current.fetchApiGps([activity('a1')], deps());
 

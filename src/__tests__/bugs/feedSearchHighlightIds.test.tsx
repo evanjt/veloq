@@ -17,7 +17,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
-import FeedScreen from '@/app/(tabs)/index';
+import FeedScreen from '@/app/(tabs)/(feed)';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 
 // The default text size, where the cards are pinned and the search section
@@ -41,6 +41,7 @@ let mockFeedFocused = true;
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => mockFeedFocused,
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
 }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useTopSafeArea: () => ({ screenEdges: [] }),
@@ -68,6 +69,8 @@ const initialActivities = [
 ];
 let activities = initialActivities;
 let mockFeedData = { pages: [activities] };
+/** What the range read holds, the activities inside the chosen days. */
+let mockRangeActivities: typeof initialActivities = [];
 let mockHasPreviousPage = false;
 let mockIsRefetching = false;
 let mockSummaryRefetch = jest.fn();
@@ -75,6 +78,7 @@ const mockRefreshStartupData = jest.fn();
 const mockFetchPreviousPage = jest.fn();
 const mockSyncListeners = new Map<string, Set<() => void>>();
 let mockSyncCompleted = 0;
+let mockSyncState = 0;
 
 jest.mock('@/features/activity/hooks', () => {
   const actual = jest.requireActual('@/features/activity/hooks');
@@ -97,6 +101,25 @@ jest.mock('@/features/activity/hooks', () => {
   };
 });
 
+// The barrel takes the range read straight from its module, beside the hooks index.
+jest.mock('@/features/activity/hooks/useActivities', () => ({
+  ...jest.requireActual('@/features/activity/hooks/useActivities'),
+  useRangeActivities: (range: unknown) => ({
+    data: range ? { pages: [mockRangeActivities] } : undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isRefetching: false,
+    fetchNextPage: jest.fn(),
+    fetchPreviousPage: jest.fn(),
+    hasPreviousPage: false,
+    isFetchingPreviousPage: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock('@/features/insights', () => ({ useInsights: () => ({ insights: [] }) }));
 jest.mock('@/features/home', () => ({
   ...jest.requireActual('@/features/settings/stores/summaryCardPreferences'),
@@ -109,6 +132,10 @@ jest.mock('@/features/home', () => ({
   SummaryCard: () => null,
   NotificationOptInCard: () => null,
   SupportCard: () => null,
+  FeedFirstSyncStandby: () => {
+    const { View } = require('react-native');
+    return require('react').createElement(View, { testID: 'feed-first-sync-standby' });
+  },
 }));
 jest.mock('@/features/recording', () => ({
   RecordFAB: () => null,
@@ -162,24 +189,33 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 /** The engine's search over the stored library, which here is the loaded feed. */
 const CHIP_TYPES: Record<number, string> = { 0: 'Ride', 1: 'Run', 2: 'Swim' };
-function searchActivityBodies(query: { needle: string; sportGroups: number[] }) {
+function searchActivityBodies(query: {
+  needle: string;
+  sportGroups: number[];
+  oldestTs?: number;
+  offset: number;
+  limit?: number;
+}) {
   const needle = query.needle.toLowerCase();
+  const library = query.oldestTs === undefined ? activities : mockRangeActivities;
   const chip = (type: string) =>
     query.sportGroups.length === 0 ||
     (query.sportGroups.includes(3)
       ? !Object.values(CHIP_TYPES).includes(type)
       : query.sportGroups.some((group) => CHIP_TYPES[group] === type));
-  const matched = activities.filter(
+  const matched = library.filter(
     (a) =>
       chip(a.type) &&
       (a.name.toLowerCase().includes(needle) || a.type.toLowerCase().includes(needle))
   );
+  const page = matched.slice(query.offset, query.offset + (query.limit ?? matched.length));
   return {
-    bodies: matched.map((a) => JSON.stringify(a)),
+    bodies: page.map((a) => JSON.stringify(a)),
     matchedCount: matched.length,
     hasMore: false,
   };
 }
+const searchActivityBodiesSpy = jest.fn(searchActivityBodies);
 const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   indicators: [],
   routeHighlights: [],
@@ -187,9 +223,9 @@ const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   strengthCards: [],
 }));
 
-function renderFeed() {
+async function renderFeed() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  const view = render(
+  const view = await render(
     <QueryClientProvider client={client}>
       <FeedScreen />
     </QueryClientProvider>
@@ -211,6 +247,8 @@ beforeEach(() => {
   mockStartupData = undefined;
   activities = initialActivities;
   mockFeedData = { pages: [activities] };
+  mockRangeActivities = [];
+  mockSyncState = 0;
   mockHasPreviousPage = false;
   mockIsRefetching = false;
   mockSummaryRefetch = jest.fn();
@@ -219,11 +257,11 @@ beforeEach(() => {
   mockSyncListeners.clear();
   mockGetEngine.mockReturnValue({
     getActivityHighlightsBundle,
-    searchActivityBodies,
+    searchActivityBodies: searchActivityBodiesSpy,
     // The feed reads the sync state to decide whether an empty library is a
     // first launch standing by or a library with nothing in it.
     getSyncStatus: jest.fn(() => ({
-      state: 0,
+      state: mockSyncState,
       inFlight: 0,
       completed: mockSyncCompleted,
       total: 3,
@@ -252,7 +290,7 @@ it('replaces a startup preview when its track moves under the same activity id',
       ['a2', a2],
     ]),
   };
-  const { rerender } = renderFeed();
+  const { rerender } = await renderFeed();
   await waitFor(() => expect(screen.getByTestId('card-a1').props.children).toBe(46.2));
   const heldA2 = mockCardTracks.get('a2');
 
@@ -262,7 +300,7 @@ it('replaces a startup preview when its track moves under the same activity id',
       ['a2', a2],
     ]),
   };
-  rerender(
+  await rerender(
     <QueryClientProvider client={new QueryClient()}>
       <FeedScreen />
     </QueryClientProvider>
@@ -273,15 +311,15 @@ it('replaces a startup preview when its track moves under the same activity id',
 });
 
 describe('feed search does not re-read the highlight bundle', () => {
-  it('scrolls past the measured search section on Android when the estimate matches', () => {
+  it('scrolls past the measured search section on Android when the estimate matches', async () => {
     const platform = Platform.OS;
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
-      renderFeed();
+      await renderFeed();
       const list = screen.getByTestId('home-activity-list');
       const searchSection = list.props.ListHeaderComponent().props.children[0];
-      act(() =>
+      await act(() =>
         searchSection.props.onLayout({
           nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
         })
@@ -293,13 +331,13 @@ describe('feed search does not re-read the highlight bundle', () => {
     }
   });
 
-  it('hides revealed controls after returning to an unfiltered feed', () => {
+  it('hides revealed controls after returning to an unfiltered feed', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
-      const feed = renderFeed();
+      const feed = await renderFeed();
       const list = screen.getByTestId('home-activity-list');
       const searchSection = list.props.ListHeaderComponent().props.children[0];
-      act(() =>
+      await act(() =>
         searchSection.props.onLayout({
           nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 94 } },
         })
@@ -307,9 +345,9 @@ describe('feed search does not re-read the highlight bundle', () => {
       scrollToOffset.mockClear();
 
       mockFeedFocused = false;
-      feed.rerenderFeed();
+      await feed.rerenderFeed();
       mockFeedFocused = true;
-      feed.rerenderFeed();
+      await feed.rerenderFeed();
 
       expect(scrollToOffset).toHaveBeenCalledWith({ offset: 94, animated: false });
     } finally {
@@ -320,7 +358,7 @@ describe('feed search does not re-read the highlight bundle', () => {
   it('does not render again for sync progress within the same state', async () => {
     let renders = 0;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-    render(
+    await render(
       <QueryClientProvider client={client}>
         <React.Profiler
           id="feed"
@@ -335,53 +373,53 @@ describe('feed search does not re-read the highlight bundle', () => {
     await waitFor(() => expect(screen.getByTestId('home-activity-list')).toBeTruthy());
     const before = renders;
 
-    act(() => {
+    await act(() => {
       mockSyncCompleted = 1;
       mockSyncListeners.get('syncProgress')?.forEach((notify) => notify());
     });
     expect(renders).toBe(before);
   });
 
-  it('anchors only when an evicted page can be fetched back', () => {
-    const view = renderFeed();
+  it('anchors only when an evicted page can be fetched back', async () => {
+    const view = await renderFeed();
     const list = () => screen.getByTestId('home-activity-list');
     expect(list().props.maintainVisibleContentPosition).toBeUndefined();
-    fireEvent(list(), 'startReached');
+    await fireEvent(list(), 'startReached');
     expect(mockFetchPreviousPage).not.toHaveBeenCalled();
 
     mockHasPreviousPage = true;
-    view.rerenderFeed();
+    await view.rerenderFeed();
     expect(list().props.maintainVisibleContentPosition).toEqual({ minIndexForVisible: 1 });
-    fireEvent(list(), 'startReached');
+    await fireEvent(list(), 'startReached');
     expect(mockFetchPreviousPage).toHaveBeenCalledTimes(1);
   });
 
   it('shows a changed same-id row and finds its new name', async () => {
-    const view = renderFeed();
+    const view = await renderFeed();
     await waitFor(() => expect(screen.getByTestId('card-a1').props.children).toBe('Morning ride'));
     const firstList = screen.getByTestId('home-activity-list').props.data;
 
-    view.rerenderFeed();
+    await view.rerenderFeed();
     expect(screen.getByTestId('home-activity-list').props.data).toBe(firstList);
 
     activities = [{ ...initialActivities[0], name: 'Renamed ride' }, ...initialActivities.slice(1)];
     mockFeedData = { pages: [activities] };
-    view.rerenderFeed();
+    await view.rerenderFeed();
     await waitFor(() => expect(screen.getByTestId('card-a1').props.children).toBe('Renamed ride'));
-    fireEvent.changeText(screen.getByTestId('home-search-input'), 'renamed');
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'renamed');
     expect(screen.getByTestId('card-a1')).toBeTruthy();
   });
   it('asks the engine for the unfiltered feed and not again per keystroke', async () => {
-    renderFeed();
+    await renderFeed();
     await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
 
     const firstIds = getActivityHighlightsBundle.mock.calls[0][0];
     expect(firstIds).toEqual(['a1', 'a2', 'a3']);
     const callsBeforeTyping = getActivityHighlightsBundle.mock.calls.length;
 
-    const input = screen.getByTestId('home-search-input');
+    const input = screen.getByTestId('native-header-search');
     for (const query of ['z', 'ze', 'zeb', 'zebr', 'zebra']) {
-      fireEvent.changeText(input, query);
+      await fireEvent.changeText(input, query);
     }
 
     await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
@@ -390,31 +428,31 @@ describe('feed search does not re-read the highlight bundle', () => {
   });
 
   it('does not read again when the search is cleared or a type filter is applied', async () => {
-    renderFeed();
+    await renderFeed();
     await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
     const baseline = getActivityHighlightsBundle.mock.calls.length;
 
-    fireEvent.changeText(screen.getByTestId('home-search-input'), 'zebra');
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'zebra');
     await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
-    fireEvent.changeText(screen.getByTestId('home-search-input'), '');
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), '');
     await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
 
-    fireEvent.press(screen.getByTestId('home-filter-running'));
+    await fireEvent.press(screen.getByTestId('home-filter-running'));
     await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
 
     expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
   });
 
   it('reads nothing when a query matches no activity, and keeps the full-feed key', async () => {
-    renderFeed();
+    await renderFeed();
     await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
     const baseline = getActivityHighlightsBundle.mock.calls.length;
 
-    fireEvent.changeText(screen.getByTestId('home-search-input'), 'nothing matches this');
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nothing matches this');
     await waitFor(() => expect(screen.queryByTestId('card-a2')).toBeNull());
     expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
 
-    fireEvent.changeText(screen.getByTestId('home-search-input'), 'ride');
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'ride');
     await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
 
     expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
@@ -424,14 +462,14 @@ describe('feed search does not re-read the highlight bundle', () => {
 
 describe('feed pull to refresh', () => {
   it('shows the disc only for a pull, not for background feed refetches', async () => {
-    const feed = renderFeed();
+    const feed = await renderFeed();
     const list = await screen.findByTestId('home-activity-list');
     const refreshing = () => list.props.refreshControl.props.refreshing;
     expect(refreshing()).toBe(false);
 
     for (const refetching of [true, false, true, false]) {
       mockIsRefetching = refetching;
-      feed.rerenderFeed();
+      await feed.rerenderFeed();
       expect(refreshing()).toBe(false);
     }
 
@@ -443,7 +481,7 @@ describe('feed pull to refresh', () => {
         })
     );
     let pull: Promise<void> | undefined;
-    act(() => {
+    await act(() => {
       pull = list.props.refreshControl.props.onRefresh();
     });
     expect(refreshing()).toBe(true);
@@ -456,11 +494,116 @@ describe('feed pull to refresh', () => {
   });
 
   it('asks the engine for a sync', async () => {
-    renderFeed();
+    await renderFeed();
     const list = await screen.findByTestId('home-activity-list');
     await act(async () => {
       await list.props.refreshControl.props.onRefresh();
     });
     expect(requestSyncRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a date range narrows the feed like a search or a sport chip', () => {
+  const lastYear = [
+    { id: 'y1', name: 'Harbour ferry', type: 'Ride' },
+    { id: 'y2', name: 'Lock walk', type: 'Walk' },
+  ];
+
+  async function revealedAt(height: number) {
+    const list = screen.getByTestId('home-activity-list');
+    const filterSection = list.props.ListHeaderComponent().props.children[0];
+    await act(() =>
+      filterSection.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 430, height } } })
+    );
+  }
+
+  it('keeps the range chips on screen after a pull to refresh', async () => {
+    jest.useFakeTimers();
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    try {
+      mockRangeActivities = lastYear;
+      await renderFeed();
+      await revealedAt(94);
+      await fireEvent.press(screen.getByTestId('home-range-lastYear'));
+      scrollToOffset.mockClear();
+
+      const list = screen.getByTestId('home-activity-list');
+      await act(async () => {
+        await list.props.refreshControl.props.onRefresh();
+      });
+      await act(() => jest.runOnlyPendingTimers());
+
+      expect(scrollToOffset).not.toHaveBeenCalledWith(expect.objectContaining({ offset: 94 }));
+    } finally {
+      scrollToOffset.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the range chips on screen when the feed tab is returned to', async () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    try {
+      mockRangeActivities = lastYear;
+      const feed = await renderFeed();
+      await revealedAt(94);
+      await fireEvent.press(screen.getByTestId('home-range-lastYear'));
+      scrollToOffset.mockClear();
+
+      mockFeedFocused = false;
+      await feed.rerenderFeed();
+      mockFeedFocused = true;
+      await feed.rerenderFeed();
+
+      expect(scrollToOffset).not.toHaveBeenCalled();
+    } finally {
+      scrollToOffset.mockRestore();
+    }
+  });
+
+  it('shows the engine count of the whole range above the cards', async () => {
+    mockRangeActivities = lastYear;
+    await renderFeed();
+    await fireEvent.press(screen.getByTestId('home-range-lastYear'));
+
+    await waitFor(() => expect(screen.getByTestId('card-y1')).toBeTruthy());
+    expect(screen.getByText('feed.activitiesCount')).toBeTruthy();
+    expect(searchActivityBodiesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ needle: '', sportGroups: [], limit: 0 })
+    );
+  });
+
+  it('says the range holds nothing, rather than standing by for a sync', async () => {
+    mockSyncState = 2;
+    await renderFeed();
+    await fireEvent.press(screen.getByTestId('home-range-lastYear'));
+
+    await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
+    expect(screen.queryByTestId('feed-first-sync-standby')).toBeNull();
+  });
+
+  it('clears the range from the empty state and returns to the whole feed', async () => {
+    await renderFeed();
+    await fireEvent.press(screen.getByTestId('home-range-lastYear'));
+    await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('home-clear-filters'));
+
+    await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
+    expect(screen.getByTestId('home-range-lastYear').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false })
+    );
+  });
+
+  it('clears a search and a chip that match nothing in one tap', async () => {
+    await renderFeed();
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nothing matches this');
+    await fireEvent.press(screen.getByTestId('home-filter-running'));
+    await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('home-clear-filters'));
+
+    await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
+    expect(screen.getByTestId('card-a2')).toBeTruthy();
+    expect(screen.getByTestId('native-header-search').props.value).toBe('');
   });
 });

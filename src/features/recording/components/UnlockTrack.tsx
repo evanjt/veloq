@@ -9,7 +9,7 @@
  * touches are still filtered by the slide.
  */
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -27,8 +27,15 @@ import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
 const ACCESSIBILITY_ACTIONS = [{ name: 'activate' }];
+// How far the handle starts along the track when a back press meets the lock.
+const HINT_TRAVEL = HANDLE_SIZE / 2;
 
-export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
+/**
+ * `hint` counts the inputs the lock has refused, such as a system back. Each new
+ * value starts the handle along the track and lets it settle, which shows where
+ * the screen unlocks.
+ */
+export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint?: number }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
@@ -52,6 +59,20 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
     },
     [handleUnlock]
   );
+
+  useEffect(() => {
+    if (hint === 0) return;
+    haptics.light();
+    Animated.sequence([
+      Animated.timing(translateX, { toValue: HINT_TRAVEL, duration: 150, useNativeDriver: true }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 6,
+      }),
+    ]).start();
+  }, [hint, translateX]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -119,7 +140,7 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
         style={[styles.handle, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        <MaterialCommunityIcons name="lock-open-outline" size={22} color={colors.textOnDark} />
+        <MaterialCommunityIcons name="lock-open-outline" size={22} color={colors.textOnPrimary} />
       </Animated.View>
     </View>
   );

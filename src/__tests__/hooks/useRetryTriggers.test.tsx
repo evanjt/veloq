@@ -28,54 +28,54 @@ describe('useReconnect', () => {
     mockIsOnline = true;
   });
 
-  it('stays quiet while the connection never drops', () => {
+  it('stays quiet while the connection never drops', async () => {
     const onReconnect = jest.fn();
-    const { rerender } = renderHook(() => useReconnect(onReconnect), { wrapper });
+    const { rerender } = await renderHook(() => useReconnect(onReconnect), { wrapper });
 
-    rerender({});
-    rerender({});
+    await rerender({});
+    await rerender({});
 
     expect(onReconnect).not.toHaveBeenCalled();
   });
 
-  it('fires on the offline to online edge', () => {
+  it('fires on the offline to online edge', async () => {
     const onReconnect = jest.fn();
-    const { rerender } = renderHook(() => useReconnect(onReconnect), { wrapper });
+    const { rerender } = await renderHook(() => useReconnect(onReconnect), { wrapper });
 
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     expect(onReconnect).not.toHaveBeenCalled();
 
     mockIsOnline = true;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     expect(onReconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('does not fire again while the connection holds', () => {
+  it('does not fire again while the connection holds', async () => {
     const onReconnect = jest.fn();
-    const { rerender } = renderHook(() => useReconnect(onReconnect), { wrapper });
+    const { rerender } = await renderHook(() => useReconnect(onReconnect), { wrapper });
 
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     mockIsOnline = true;
-    act(() => rerender({}));
-    act(() => rerender({}));
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
+    await act(async () => await rerender({}));
+    await act(async () => await rerender({}));
 
     expect(onReconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('calls the latest callback, not the one captured at mount', () => {
+  it('calls the latest callback, not the one captured at mount', async () => {
     const first = jest.fn();
     const second = jest.fn();
     let callback = first;
-    const { rerender } = renderHook(() => useReconnect(callback), { wrapper });
+    const { rerender } = await renderHook(() => useReconnect(callback), { wrapper });
 
     callback = second;
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     mockIsOnline = true;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
 
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
@@ -99,29 +99,29 @@ describe('useForeground', () => {
     jest.restoreAllMocks();
   });
 
-  it('fires when the app returns to active from the background', () => {
+  it('fires when the app returns to active from the background', async () => {
     const onForeground = jest.fn();
-    renderHook(() => useForeground(onForeground), { wrapper });
+    await renderHook(() => useForeground(onForeground), { wrapper });
 
-    act(() => listener?.('background'));
-    act(() => listener?.('active'));
+    await act(() => listener?.('background'));
+    await act(() => listener?.('active'));
 
     expect(onForeground).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores an inactive to active flicker with no background in between', () => {
+  it('ignores an inactive to active flicker with no background in between', async () => {
     const onForeground = jest.fn();
-    renderHook(() => useForeground(onForeground), { wrapper });
+    await renderHook(() => useForeground(onForeground), { wrapper });
 
-    act(() => listener?.('active'));
+    await act(() => listener?.('active'));
 
     expect(onForeground).not.toHaveBeenCalled();
   });
 
-  it('unsubscribes on unmount', () => {
-    const { unmount } = renderHook(() => useForeground(jest.fn()), { wrapper });
+  it('unsubscribes on unmount', async () => {
+    const { unmount } = await renderHook(() => useForeground(jest.fn()), { wrapper });
 
-    unmount();
+    await unmount();
 
     expect(remove).toHaveBeenCalledTimes(1);
   });

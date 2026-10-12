@@ -74,8 +74,8 @@ function renderHeatmap() {
   );
 }
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb());
   });
 }
@@ -88,18 +88,18 @@ beforeEach(() => {
 
 describe('ActivityHeatmap', () => {
   it('re-reads the day cache when activities change', async () => {
-    renderHeatmap();
+    await renderHeatmap();
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(1));
 
-    emit('activities');
+    await emit('activities');
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(2));
   });
 
   it('ignores an event it does not depend on', async () => {
-    renderHeatmap();
+    await renderHeatmap();
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(1));
 
-    emit('sections');
+    await emit('sections');
     expect(heatmapDays).toHaveBeenCalledTimes(1);
   });
 
@@ -107,11 +107,11 @@ describe('ActivityHeatmap', () => {
     heatmapDays.mockImplementation(() => {
       throw new Error('engine down');
     });
-    const view = renderHeatmap();
+    const view = await renderHeatmap();
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(1));
     expect(view.getByText('stats.activityCalendar')).toBeTruthy();
 
-    emit('activities');
+    await emit('activities');
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(2));
   });
 });

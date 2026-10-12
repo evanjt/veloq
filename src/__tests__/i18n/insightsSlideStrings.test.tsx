@@ -19,8 +19,8 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 describe('the insights tour slide', () => {
-  it('draws a section record and a fitness step as the Insights tab draws them', () => {
-    const { getAllByTestId } = render(<InsightsSlide />);
+  it('draws a section record and a fitness step as the Insights tab draws them', async () => {
+    const { getAllByTestId } = await render(<InsightsSlide />);
 
     const ids = getAllByTestId(/^insight-card-.*(?<!-body)$/).map(
       (card) => card.props.testID as string
@@ -30,22 +30,22 @@ describe('the insights tour slide', () => {
     expect(ids[1]).toBe('insight-card-fitness_milestone-ftp');
   });
 
-  it('titles each card with the generator copy, not a category label', () => {
-    const { getByText, queryByText } = render(<InsightsSlide />);
+  it('titles each card with the generator copy, not a category label', async () => {
+    const { getByText, queryByText } = await render(<InsightsSlide />);
 
     expect(getByText('insights.sectionPr')).toBeTruthy();
     expect(getByText('insights.ftpIncrease')).toBeTruthy();
     expect(queryByText('whatsNew.v030.insightsSectionPrs')).toBeNull();
   });
 
-  it('draws each example card with the graphic of its history', () => {
-    const { getAllByTestId } = render(<InsightsSlide />);
+  it('draws each example card with the graphic of its history', async () => {
+    const { getAllByTestId } = await render(<InsightsSlide />);
 
     expect(getAllByTestId('insight-graphic')).toHaveLength(2);
   });
 
-  it('says how an insight is made, through the translator', () => {
-    const { getByText } = render(<InsightsSlide />);
+  it('says how an insight is made, through the translator', async () => {
+    const { getByText } = await render(<InsightsSlide />);
 
     expect(getByText('whatsNew.v030.insightsHow')).toBeTruthy();
   });

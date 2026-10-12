@@ -85,10 +85,10 @@ describe('section and exercise detail lists', () => {
     expect(headerLargeTitle('section/laps/[id]', 'android')).toBe(false);
   });
 
-  it.each(SCREENS)('%s lets the system inset its scroll view on iOS', (_route, load) => {
+  it.each(SCREENS)('%s lets the system inset its scroll view on iOS', async (_route, load) => {
     Platform.OS = 'ios';
     const Screen = load();
-    const { UNSAFE_getAllByType } = render(<Screen />);
+    const { UNSAFE_getAllByType } = await render(<Screen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');

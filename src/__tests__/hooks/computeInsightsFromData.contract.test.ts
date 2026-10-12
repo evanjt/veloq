@@ -126,6 +126,7 @@ function buildFfiData(): InsightsData {
       latestDate: 1_745_000_000,
       previousFtp: 270,
       previousDate: 1_700_000_000,
+      lookbackDays: 30,
       sampleCount: 24,
       history: [],
       changes: [],

@@ -13,6 +13,9 @@ import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', canAskAgain: true }),
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
@@ -21,10 +24,10 @@ jest.mock('expo-location', () => ({
 const getPosition = Location.getCurrentPositionAsync as jest.Mock;
 let now = 1_000_000;
 
-function mount(is3D = false) {
+async function mount(is3D = false) {
   const surface = { setCamera: jest.fn() };
   const map3D = { setCamera: jest.fn() };
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapCamera({
       validCoordinates: [
         { latitude: 46.948, longitude: 7.447 },
@@ -52,7 +55,7 @@ afterEach(() => jest.restoreAllMocks());
 
 describe('useMapCamera locate', () => {
   it('eases onto the fix at the shared locate zoom and holds it for the dot', async () => {
-    const { rendered, surface } = mount();
+    const { rendered, surface } = await mount();
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });
@@ -62,7 +65,7 @@ describe('useMapCamera locate', () => {
   });
 
   it('reuses a fix 29 s old and asks again at 30 s', async () => {
-    const { rendered } = mount();
+    const { rendered } = await mount();
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });
@@ -79,7 +82,7 @@ describe('useMapCamera locate', () => {
   });
 
   it('moves the 3D map, not the hidden surface, while 3D is showing', async () => {
-    const { rendered, surface, map3D } = mount(true);
+    const { rendered, surface, map3D } = await mount(true);
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });
@@ -91,7 +94,7 @@ describe('useMapCamera locate', () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
       status: 'denied',
     });
-    const { rendered, surface } = mount();
+    const { rendered, surface } = await mount();
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });

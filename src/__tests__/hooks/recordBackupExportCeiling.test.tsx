@@ -70,7 +70,7 @@ afterEach(() => {
 
 it('reports still running at the ceiling and shares once the slot holder ends', async () => {
   const holder = holdSlot();
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
 
   await act(async () => {
     void result.current.exportRecordBackup();
@@ -99,12 +99,12 @@ it('reports still running at the ceiling and shares once the slot holder ends', 
 
 it('offers the archive on the next mount when the screen was left', async () => {
   const holder = holdSlot();
-  const first = renderHook(() => useExportRecordBackup());
+  const first = await renderHook(() => useExportRecordBackup());
   await act(async () => {
     void first.result.current.exportRecordBackup();
   });
   await pastCeiling();
-  first.unmount();
+  await first.unmount();
 
   await act(async () => {
     releaseHolder();
@@ -113,7 +113,7 @@ it('offers the archive on the next mount when the screen was left', async () => 
   });
   expect(shareExistingFile).not.toHaveBeenCalled();
 
-  const second = renderHook(() => useExportRecordBackup());
+  const second = await renderHook(() => useExportRecordBackup());
   await act(async () => {
     await jest.advanceTimersByTimeAsync(1_000);
   });
@@ -125,7 +125,7 @@ it('offers the archive on the next mount when the screen was left', async () => 
 it('alerts when the lapsed write fails', async () => {
   const holder = holdSlot();
   mockRunRecordBackup.mockRejectedValue(new Error('disk full'));
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
   await act(async () => {
     void result.current.exportRecordBackup();
   });
@@ -150,7 +150,7 @@ it('does not offer the archive a second time when the share sheet stays open pas
         closeSheet = resolve;
       })
   );
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
   await act(async () => {
     void result.current.exportRecordBackup();
     await jest.advanceTimersByTimeAsync(1_000);

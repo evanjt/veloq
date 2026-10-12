@@ -502,12 +502,15 @@ pub(crate) fn hr_zone_for_sport(
     hr_zone_number(sport_settings.as_deref(), sport_type, bpm)
 }
 
-/// The max HR for one activity, from the two places it can come from, in
-/// order: the top bound of the activity's own `icu_hr_zones`, the `max_hr` of
-/// the sport settings entry whose `types` holds the activity's `type`, then
-/// [`DEFAULT_MAX_HR`]. Each source is raw JSON as stored, and one that does not
-/// parse, or carries 0, is skipped.
-fn resolve_max_hr(body: Option<&str>, sport_settings: Option<&str>) -> f64 {
+/// The max HR for one activity and where it came from, from the two places it
+/// can come from, in order: the top bound of the activity's own
+/// `icu_hr_zones`, the `max_hr` of the sport settings entry whose `types` holds
+/// the activity's `type`, then [`DEFAULT_MAX_HR`]. Each source is raw JSON as
+/// stored, and one that does not parse, or carries 0, is skipped.
+fn resolve_max_hr(
+    body: Option<&str>,
+    sport_settings: Option<&str>,
+) -> (f64, crate::FfiMaxHrSource) {
     let body: Option<serde_json::Value> = body.and_then(|b| serde_json::from_str(b).ok());
     let own_zones = body
         .as_ref()
@@ -516,7 +519,7 @@ fn resolve_max_hr(body: Option<&str>, sport_settings: Option<&str>) -> f64 {
         .and_then(|z| z.last())
         .and_then(|top| top.as_f64());
     if let Some(top) = positive(own_zones) {
-        return top;
+        return (top, crate::FfiMaxHrSource::ActivityZones);
     }
 
     let sport_type = body
@@ -527,14 +530,14 @@ fn resolve_max_hr(body: Option<&str>, sport_settings: Option<&str>) -> f64 {
         .and_then(|sport_type| sport_entry(sport_settings?, sport_type))
         .and_then(|entry| entry.get("max_hr")?.as_f64());
     if let Some(sport) = positive(sport) {
-        return sport;
+        return (sport, crate::FfiMaxHrSource::SportSettings);
     }
 
-    DEFAULT_MAX_HR
+    (DEFAULT_MAX_HR, crate::FfiMaxHrSource::Default)
 }
 
 /// [`resolve_max_hr`] over the rows one connection holds.
-fn activity_max_hr(conn: &rusqlite::Connection, activity_id: &str) -> f64 {
+fn activity_max_hr(conn: &rusqlite::Connection, activity_id: &str) -> (f64, crate::FfiMaxHrSource) {
     let body = crate::persistence::activities::pooled::activity_body(conn, activity_id);
     let sport_settings = crate::persistence::fitness::sport_settings_from(conn);
     resolve_max_hr(body.as_deref(), sport_settings.as_deref())
@@ -569,7 +572,7 @@ fn activity_hr_zones(
         .and_then(|b| b.get("type"))
         .and_then(|t| t.as_str());
     let entry = sport_type.and_then(|t| sport_entry(sport_settings?, t));
-    let max_hr = resolve_max_hr(body, sport_settings);
+    let (max_hr, _) = resolve_max_hr(body, sport_settings);
     let bounds = hr_zone_bounds(&numbers("icu_hr_zones"), entry.as_ref(), max_hr);
 
     let own_times = numbers("icu_hr_zone_times");
@@ -2304,6 +2307,7 @@ pub mod pooled {
             .collect();
 
         let ids = [activity_id.to_string()];
+        let (max_hr, max_hr_source) = super::activity_max_hr(conn, activity_id);
         crate::FfiActivityDetailData {
             exercise_groups: crate::persistence::strength::pooled::exercise_sets(conn, activity_id)
                 .map(|sets| {
@@ -2334,7 +2338,8 @@ pub mod pooled {
             },
             section_traces,
             pr_section_ids,
-            max_hr: super::activity_max_hr(conn, activity_id),
+            max_hr,
+            max_hr_source,
             hr_zones: super::activity_hr_zones_from(conn, activity_id),
             power_zones: super::activity_power_zones(
                 crate::persistence::activities::pooled::activity_body(conn, activity_id).as_deref(),
@@ -3783,84 +3788,127 @@ mod tests {
 
     /// Scenario: the heart rate stat card and the zones chart on the activity
     /// screen divide by one max HR, and TypeScript resolved it from three engine
-    /// reads. The screen read answers it now, with the same precedence.
+    /// reads. The screen read answers it now, with the same precedence, and says
+    /// which source answered so a default is never shown as the athlete's own.
     ///
     /// Expected behaviour: the top of the activity's own zones, then the sport
-    /// setting for the activity's type, then 190. A value an older install left
-    /// in the retired local zones setting is not read.
+    /// setting for the activity's type, then 190 marked as the default. A value
+    /// an older install left in the retired local zones setting is not read.
     mod activity_max_hr {
         use super::*;
+        use crate::FfiMaxHrSource as Source;
 
         const RIDE: &str = r#"{"id":"a1","type":"Ride"}"#;
         const ZONED_RIDE: &str = r#"{"id":"a1","type":"Ride","icu_hr_zones":[130,150,170,196]}"#;
         const RIDE_185: &str = r#"[{"types":["Ride","VirtualRide"],"max_hr":185}]"#;
+        const RIDE_175: &str = r#"[{"types":["Ride"],"max_hr":175}]"#;
         const RUN_185: &str = r#"[{"types":["Run"],"max_hr":185}]"#;
         const LOCAL_180: &str =
             r#"{"maxHR":180,"zones":[{"id":1,"name":"Recovery","min":0.5,"max":0.6,"color":"x"}]}"#;
 
         #[test]
         fn takes_the_top_of_the_activitys_own_zones_first() {
-            assert_eq!(resolve_max_hr(Some(ZONED_RIDE), Some(RIDE_185)), 196.0);
+            assert_eq!(
+                resolve_max_hr(Some(ZONED_RIDE), Some(RIDE_185)),
+                (196.0, Source::ActivityZones)
+            );
         }
 
         #[test]
         fn takes_the_sport_setting_for_an_activity_with_no_zones() {
-            assert_eq!(resolve_max_hr(Some(RIDE), Some(RIDE_185)), 185.0);
+            assert_eq!(
+                resolve_max_hr(Some(RIDE), Some(RIDE_175)),
+                (175.0, Source::SportSettings)
+            );
             let empty = r#"{"type":"Ride","icu_hr_zones":[]}"#;
-            assert_eq!(resolve_max_hr(Some(empty), Some(RIDE_185)), 185.0);
+            assert_eq!(
+                resolve_max_hr(Some(empty), Some(RIDE_185)),
+                (185.0, Source::SportSettings)
+            );
             let zero_top = r#"{"type":"Ride","icu_hr_zones":[130,150,0]}"#;
-            assert_eq!(resolve_max_hr(Some(zero_top), Some(RIDE_185)), 185.0);
+            assert_eq!(
+                resolve_max_hr(Some(zero_top), Some(RIDE_185)),
+                (185.0, Source::SportSettings)
+            );
         }
 
         #[test]
         fn ignores_another_sports_setting_and_an_unset_one() {
-            assert_eq!(resolve_max_hr(Some(RIDE), Some(RUN_185)), DEFAULT_MAX_HR);
+            assert_eq!(
+                resolve_max_hr(Some(RIDE), Some(RUN_185)),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
             let unset = r#"[{"types":["Ride"],"max_hr":null}]"#;
-            assert_eq!(resolve_max_hr(Some(RIDE), Some(unset)), DEFAULT_MAX_HR);
+            assert_eq!(
+                resolve_max_hr(Some(RIDE), Some(unset)),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
         }
 
         #[test]
         fn takes_the_default_with_nothing_else() {
-            assert_eq!(resolve_max_hr(Some(RIDE), None), DEFAULT_MAX_HR);
-            assert_eq!(resolve_max_hr(None, None), DEFAULT_MAX_HR);
+            assert_eq!(
+                resolve_max_hr(Some(RIDE), None),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
+            assert_eq!(
+                resolve_max_hr(None, None),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
             assert_eq!(DEFAULT_MAX_HR, 190.0);
         }
 
         #[test]
         fn garbage_sources_fall_through_rather_than_fail() {
-            assert_eq!(resolve_max_hr(Some("{"), Some("{")), DEFAULT_MAX_HR);
+            assert_eq!(
+                resolve_max_hr(Some("{"), Some("{")),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
             let wrong_shape = r#"{"type":"Ride","icu_hr_zones":"many"}"#;
-            assert_eq!(resolve_max_hr(Some(wrong_shape), Some(RIDE_185)), 185.0);
+            assert_eq!(
+                resolve_max_hr(Some(wrong_shape), Some(RIDE_185)),
+                (185.0, Source::SportSettings)
+            );
         }
 
-        /// The screen read carries the stored maximum heart rate.
+        /// The screen read carries the stored maximum heart rate and its source.
         #[test]
-        fn the_detail_read_carries_the_maximum_heart_rate() {
+        fn the_detail_read_carries_the_maximum_heart_rate_and_its_source() {
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
             engine
                 .upsert_activity_bodies(&[("a1".into(), 1_700_000_000, RIDE.into())])
                 .expect("body");
+
+            let bare = pooled::activity_detail_data(&engine.db, "a1", 1);
+            assert_eq!(
+                (bare.max_hr, bare.max_hr_source),
+                (DEFAULT_MAX_HR, Source::Default)
+            );
+
             engine.set_sport_settings(RIDE_185).expect("sport settings");
             engine
                 .set_setting("veloq-hr-zones", LOCAL_180)
                 .expect("local");
 
+            let set = pooled::activity_detail_data(&engine.db, "a1", 1);
             assert_eq!(
-                pooled::activity_detail_data(&engine.db, "a1", 1).max_hr,
-                185.0
+                (set.max_hr, set.max_hr_source),
+                (185.0, Source::SportSettings)
             );
 
             engine
                 .upsert_activity_bodies(&[("a1".into(), 1_700_000_000, ZONED_RIDE.into())])
                 .expect("detail body");
+            let zoned = pooled::activity_detail_data(&engine.db, "a1", 1);
             assert_eq!(
-                pooled::activity_detail_data(&engine.db, "a1", 1).max_hr,
-                196.0
+                (zoned.max_hr, zoned.max_hr_source),
+                (196.0, Source::ActivityZones)
             );
 
+            let unknown = pooled::activity_detail_data(&engine.db, "unknown", 1);
             assert_eq!(
-                pooled::activity_detail_data(&engine.db, "unknown", 1).max_hr,
-                DEFAULT_MAX_HR
+                (unknown.max_hr, unknown.max_hr_source),
+                (DEFAULT_MAX_HR, Source::Default)
             );
         }
     }

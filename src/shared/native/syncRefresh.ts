@@ -21,7 +21,7 @@
  * wipe both end that account, so `cancelSyncRefresh` drops it rather than
  * letting the next athlete's first sync drag it in.
  */
-import { hasStarted, isRetryableStart, StartOutcome } from 'veloqrs';
+import { hasStarted, isRetryableStart, StartOutcome, startOutcome } from 'veloqrs';
 
 import { getEngine } from './engine';
 
@@ -41,8 +41,9 @@ export function requestSyncRefresh(): StartOutcome {
   const engine = getEngine();
   if (!engine) return StartOutcome.NotReady;
 
-  const outcome = engine.syncNow(true);
-  if (hasStarted(outcome) || !isRetryableStart(outcome)) return outcome;
+  const result = engine.syncNow(true);
+  const outcome = startOutcome(result);
+  if (hasStarted(result) || !isRetryableStart(result)) return outcome;
 
   // `syncSettled` is the terminal transition, so each retry costs one sync
   // ending. A slot taken again in between waits for the next one rather than

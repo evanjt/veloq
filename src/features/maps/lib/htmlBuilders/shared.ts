@@ -6,7 +6,11 @@
  */
 
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
-import { MAPLIBRE_GL_CSS, MAPLIBRE_GL_JS } from '@/features/maps/assets/maplibreRenderer.generated';
+import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
+import {
+  MAPLIBRE_GL_CSS_FILE,
+  MAPLIBRE_GL_JS_FILE,
+} from '@/features/maps/assets/maplibreRenderer.generated';
 
 /**
  * Bridges calls to `window._rn_log(msg)` to React Native via postMessage.
@@ -138,22 +142,25 @@ export function terrainVisibilityScript(): string {
  * Standard HTML head: MapLibre GL JS, inline CSS for full-bleed map.
  * `mapHeight` defaults to `100vh`; pass a pixel value for fixed-height workers.
  *
- * The renderer and its stylesheet are inlined from the app bundle rather than
- * pulled off a CDN, so a device with no radio and a cold WebView HTTP cache
- * still draws a map. This is the one place it
- * happens, so all three page builders stay identical.
+ * The renderer and its stylesheet ship in the app and are asked for on the
+ * page's own origin, where the platform interceptor answers them out of the
+ * bundle, so a device with no radio and a cold WebView HTTP cache still draws
+ * a map, and no page string carries its own megabyte-sized copy. The script
+ * is a plain blocking one, so every page script after it can use `maplibregl`.
+ * This is the one place it happens, so all three page builders stay identical.
  */
 export function mapLibreHead(options: { title?: string; mapHeight?: string } = {}): string {
   const height = options.mapHeight ?? '100vh';
   const title = options.title ?? 'Map';
+  const assets = `${mapPageBaseUrl()}veloq-asset/`;
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${title}</title>
-  <script id="maplibre-gl">${MAPLIBRE_GL_JS}</script>
-  <style>${MAPLIBRE_GL_CSS}</style>
+  <link rel="stylesheet" href="${assets}${MAPLIBRE_GL_CSS_FILE}">
+  <script id="maplibre-gl" src="${assets}${MAPLIBRE_GL_JS_FILE}"></script>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { width: 100vw; height: ${height}; }

@@ -9,7 +9,6 @@ export { IndoorDisplay } from './IndoorDisplay';
 export { ManualEntry } from './ManualEntry';
 export { RecordingTitle } from './RecordingTitle';
 export { ManualEntryForm } from './ManualEntryForm';
-export { ManualEntryHeader } from './ManualEntryHeader';
 export { PendingUploadsCard } from './PendingUploadsCard';
 export { PermissionUpgradeBanner } from './PermissionUpgradeBanner';
 export { RecordFAB } from './RecordFAB';

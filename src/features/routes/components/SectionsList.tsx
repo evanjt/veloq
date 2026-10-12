@@ -7,7 +7,7 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert, Animated, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, Animated, ActivityIndicator } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -18,11 +18,16 @@ import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, swipeAction } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
-import { SportFilterMenu } from './SportFilterMenu';
-import type { SectionHideFlags, SectionsSortOption } from '@/features/routes/lib/routesScreenQuery';
-import { Button, EmptyState, ExplanationCard } from '@/shared/ui';
+import { SportFilterChips } from './SportFilterChips';
+import {
+  hidesBeyondDefault,
+  type SectionHideFlags,
+  type SectionsSortOption,
+} from '@/features/routes/lib/routesScreenQuery';
+import { filterSummary } from '@/shared/format/filterSummary';
+import { Button, EmptyState, ErrorState, ExplanationCard } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -46,6 +51,8 @@ import { type FfiCatalogueEmptyReason, type SectionWithPolyline } from 'veloqrs'
 import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
+import { confirmAction, inform } from '@/shared/ui/dialog';
+import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 
 const log = debug.create('SectionsList');
 
@@ -70,7 +77,7 @@ interface SectionsListProps {
   searchQuery: string;
   /** Called when the search term changes */
   onSearchChange: (next: string) => void;
-  /** The sports the athlete has activities in, offered in the sport filter menu */
+  /** The sports the athlete has activities in, offered as the sport chips */
   sportOptions?: string[] | undefined;
   /** The sport the list is narrowed to, if any */
   sportType?: string | undefined;
@@ -80,6 +87,8 @@ interface SectionsListProps {
   hiddenFilters: SectionHideFlags;
   /** Called when a filter chip is pressed */
   onHiddenFiltersChange: (next: SectionHideFlags) => void;
+  /** Clears the search, the sport and the hide flags together, from a list they have emptied */
+  onClearFilters?: (() => void) | undefined;
   /** Auto sections awaiting review, over the catalogue rather than the page */
   unacceptedAutoCount: number;
   /** Auto sections already accepted, over the catalogue rather than the page */
@@ -89,7 +98,7 @@ interface SectionsListProps {
   /** Retired auto sections over the catalogue rather than the page */
   retiredSectionCount: number;
   /** The page read failed: shown with a retry, never as an empty library */
-  loadError?: Error | null | undefined;
+  loadError?: unknown;
   /** Reads the page again after a failure */
   onRetry?: (() => void) | undefined;
   /** Why the engine holds no section of any kind, or null while it holds one */
@@ -112,7 +121,7 @@ interface SectionListItemProps {
   t: (key: string) => string;
 }
 
-const SectionListItem = memo(
+export const SectionListItem = memo(
   function SectionListItem({
     index,
     item,
@@ -126,13 +135,26 @@ const SectionListItem = memo(
     swipeableRefs,
     t,
   }: SectionListItemProps) {
+    const isCustom = item.sectionType === 'custom';
+
+    // The swipe button and the screen reader's action are one action, so the
+    // label and the handler cannot drift apart.
+    const rowAction = useMemo<AccessibleAction>(
+      () =>
+        isCustom
+          ? { name: 'delete', label: t('common.delete'), run: () => onDelete(item) }
+          : isDisabled
+            ? { name: 'restore', label: t('common.restore'), run: () => onToggleHide(item) }
+            : { name: 'hide', label: t('common.remove'), run: () => onToggleHide(item) },
+      [isCustom, isDisabled, item, onDelete, onToggleHide, t]
+    );
+    const rowActions = useMemo(() => [rowAction], [rowAction]);
+
     const renderRightActions = useCallback(
       (
         _progress: Animated.AnimatedInterpolation<number>,
         dragX: Animated.AnimatedInterpolation<number>
       ) => {
-        const isCustom = item.sectionType === 'custom';
-
         const opacity = dragX.interpolate({
           inputRange: [-80, -40, 0],
           outputRange: [1, 0.8, 0],
@@ -142,9 +164,15 @@ const SectionListItem = memo(
         if (isCustom) {
           return (
             <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
-              <RectButton style={styles.swipeActionButton} onPress={() => onDelete(item)}>
-                <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
-                <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
+              <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
+                <MaterialCommunityIcons
+                  name="delete"
+                  size={24}
+                  color={swipeAction.destructive.text}
+                />
+                <Text style={[styles.swipeActionText, styles.deleteActionText]}>
+                  {rowAction.label}
+                </Text>
               </RectButton>
             </Animated.View>
           );
@@ -158,20 +186,25 @@ const SectionListItem = memo(
               { opacity },
             ]}
           >
-            <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
+            <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
               <MaterialCommunityIcons
                 name={isDisabled ? 'undo' : 'delete-outline'}
                 size={24}
-                color={colors.textOnDark}
+                color={isDisabled ? swipeAction.restore.text : swipeAction.destructive.text}
               />
-              <Text style={styles.swipeActionText}>
-                {isDisabled ? t('common.restore') : t('common.remove')}
+              <Text
+                style={[
+                  styles.swipeActionText,
+                  isDisabled ? styles.showActionText : styles.deleteActionText,
+                ]}
+              >
+                {rowAction.label}
               </Text>
             </RectButton>
           </Animated.View>
         );
       },
-      [item, isDisabled, onDelete, onToggleHide, t]
+      [isCustom, isDisabled, rowAction]
     );
 
     return (
@@ -201,6 +234,7 @@ const SectionListItem = memo(
             isDisabled={isDisabled}
             distanceFromUser={distanceFromUser}
             onPress={onPress}
+            actions={rowActions}
           />
         </View>
       </Swipeable>
@@ -235,6 +269,7 @@ export const SectionsList = memo(function SectionsList({
   onSportChange,
   hiddenFilters,
   onHiddenFiltersChange,
+  onClearFilters,
   unacceptedAutoCount,
   acceptedAutoCount,
   customSectionCount,
@@ -332,37 +367,34 @@ export const SectionsList = memo(function SectionsList({
     return () => clearTimeout(timer);
   }, [acceptAllResult]);
   const handleAcceptAll = useCallback(() => {
-    Alert.alert(
-      t('sections.acceptAllSections'),
-      t('sections.acceptAllConfirm', { count: unacceptedAutoCount }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.confirm'),
-          onPress: () => {
-            // A failure is said as one, never as a count of none accepted.
-            try {
-              setAcceptAllResult(getEngine()?.acceptAllSections() ?? 0);
-            } catch (error) {
-              Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'engine.failure.database')));
-            }
-          },
-        },
-      ]
-    );
+    confirmAction({
+      title: t('sections.acceptAllSections'),
+      message: t('sections.acceptAllConfirm', { count: unacceptedAutoCount }),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: () => {
+        // A failure is said as one, never as a count of none accepted.
+        try {
+          setAcceptAllResult(getEngine()?.acceptAllSections() ?? 0);
+        } catch (error) {
+          inform({
+            title: t('sections.acceptAllFailedTitle'),
+            message: t(engineErrorKey(error, 'engine.failure.database')),
+          });
+        }
+      },
+    });
   }, [t, unacceptedAutoCount]);
 
+  // The catalogue's own count, not the page's: a page the filters emptied is
+  // not a library with no sections.
+  const catalogueCount = totalSectionCount ?? totalCount;
+  const filtered =
+    searchQuery.trim().length > 0 || sportType !== undefined || hidesBeyondDefault(hiddenFilters);
+
   const renderEmpty = () => {
-    if (loadError) {
-      return (
-        <EmptyState
-          icon="alert-circle-outline"
-          title={t('emptyState.error.title')}
-          description={t('emptyState.error.description')}
-          actionLabel={t('common.retry')}
-          onAction={onRetry}
-        />
-      );
+    if (loadError && onRetry) {
+      return <ErrorState error={loadError} onRetry={onRetry} testID="sections-load-failure" />;
     }
 
     if (!isReady) {
@@ -379,21 +411,29 @@ export const SectionsList = memo(function SectionsList({
       return <CatalogueEmptyState reason={emptyReason} kind="sections" />;
     }
 
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialCommunityIcons
-          name="filter-remove-outline"
-          size={48}
-          color={isDark ? darkColors.iconDisabled : colors.gray400}
+    if (filtered) {
+      const named = filterSummary(
+        t,
+        searchQuery,
+        sportType === undefined ? [] : [t(`activityTypes.${sportType}` as never, sportType)]
+      );
+      return (
+        <EmptyState
+          icon="filter-remove-outline"
+          title={
+            named
+              ? t('routes.noSectionsFor', { filters: named })
+              : t('routes.noSectionsMatchFilter')
+          }
+          actionLabel={t('common.clearFilters')}
+          onAction={onClearFilters}
+          actionTestID="sections-clear-filters"
         />
-        <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-          {t('routes.noSectionsMatchFilter')}
-        </Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
-          {t('routes.adjustSportTypeFilter')}
-        </Text>
-      </View>
-    );
+      );
+    }
+
+    // Every section the catalogue holds is one the default hides, the retired ones.
+    return <EmptyState icon="filter-remove-outline" title={t('routes.noSectionsMatchFilter')} />;
   };
 
   const sortChips: {
@@ -433,7 +473,7 @@ export const SectionsList = memo(function SectionsList({
     }
   }, [isScanning, rescan]);
 
-  const displaySectionCount = totalSectionCount ?? totalCount;
+  const displaySectionCount = catalogueCount;
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
@@ -453,14 +493,14 @@ export const SectionsList = memo(function SectionsList({
       if (item.disabled || item.supersededBy) {
         getEngine()?.enableSection(item.id);
       } else {
-        Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.remove'),
-            style: 'destructive',
-            onPress: () => getEngine()?.disableSection(item.id),
-          },
-        ]);
+        confirmAction({
+          title: t('sections.removeSection'),
+          message: t('sections.removeSectionConfirm'),
+          confirmLabel: t('common.remove'),
+          cancelLabel: t('common.cancel'),
+          destructive: true,
+          onConfirm: () => getEngine()?.disableSection(item.id),
+        });
       }
     },
     [t]
@@ -472,24 +512,20 @@ export const SectionsList = memo(function SectionsList({
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
-      Alert.alert(
-        t('sections.deleteSection'),
-        t('sections.deleteSectionConfirm', { name: item.name || item.id }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.delete'),
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await removeSection(item.id);
-              } catch (error) {
-                log.error('Failed to delete section:', error);
-              }
-            },
-          },
-        ]
-      );
+      confirmAction({
+        title: t('sections.deleteSection'),
+        message: t('sections.deleteSectionConfirm', { name: item.name || item.id }),
+        confirmLabel: t('common.delete'),
+        cancelLabel: t('common.cancel'),
+        destructive: true,
+        onConfirm: async () => {
+          try {
+            await removeSection(item.id);
+          } catch (error) {
+            log.error('Failed to delete section:', error);
+          }
+        },
+      });
     },
     [removeSection, t]
   );
@@ -572,8 +608,8 @@ export const SectionsList = memo(function SectionsList({
           onRescan={handleRescan}
         />
         {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
-          <SportFilterMenu
-            options={sportOptions.map((type) => ({ type }))}
+          <SportFilterChips
+            options={sportOptions}
             selectedType={sportType}
             onSelect={onSportChange}
           />
@@ -615,8 +651,6 @@ export const SectionsList = memo(function SectionsList({
   );
 });
 
-const LIST_EMPTY_VERTICAL_PADDING = spacing.xxl * 2;
-
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
@@ -640,34 +674,6 @@ const styles = StyleSheet.create({
   retiredLink: {
     alignSelf: 'center',
     marginVertical: spacing.xs,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: layout.screenPadding * 2,
-    paddingVertical: LIST_EMPTY_VERTICAL_PADDING,
-  },
-  emptyTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: spacing.lg,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
   disabledSection: {
     opacity: 0.6,
@@ -693,13 +699,18 @@ const styles = StyleSheet.create({
   swipeActionText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: colors.textOnDark,
   },
   deleteAction: {
-    backgroundColor: colors.error,
+    backgroundColor: swipeAction.destructive.bg,
+  },
+  deleteActionText: {
+    color: swipeAction.destructive.text,
   },
   showAction: {
-    backgroundColor: colors.success,
+    backgroundColor: swipeAction.restore.bg,
+  },
+  showActionText: {
+    color: swipeAction.restore.text,
   },
   loadingMore: {
     paddingVertical: spacing.md,

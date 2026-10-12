@@ -39,8 +39,8 @@ function start(): void {
   useRecordingStore.getState().startRecording('Ride', 'gps');
 }
 
-function advance(ms: number): void {
-  act(() => {
+async function advance(ms: number): Promise<void> {
+  await act(() => {
     jest.advanceTimersByTime(ms);
   });
 }
@@ -57,83 +57,83 @@ describe('moving time through a pause', () => {
     jest.useRealTimers();
   });
 
-  it('freezes the screen timer while paused and does not jump on resume', () => {
+  it('freezes the screen timer while paused and does not jump on resume', async () => {
     start();
-    const { result, rerender } = renderHook(() => useTimer());
-    advance(30_000);
+    const { result, rerender } = await renderHook(() => useTimer());
+    await advance(30_000);
     expect(result.current.movingTime).toBe(30);
 
-    act(() => useRecordingStore.getState().pauseRecording());
+    await act(() => useRecordingStore.getState().pauseRecording());
     // The screen keeps re-rendering through a pause: the metrics tick runs
     // whatever the status.
-    advance(60_000);
-    rerender({});
+    await advance(60_000);
+    await rerender({});
     expect(result.current.movingTime).toBe(30);
     expect(result.current.formattedMoving).toBe('00:30');
 
-    advance(240_000);
-    rerender({});
+    await advance(240_000);
+    await rerender({});
     expect(result.current.movingTime).toBe(30);
 
-    act(() => useRecordingStore.getState().resumeRecording());
-    rerender({});
+    await act(() => useRecordingStore.getState().resumeRecording());
+    await rerender({});
     expect(result.current.movingTime).toBe(30);
 
-    advance(10_000);
+    await advance(10_000);
     expect(result.current.movingTime).toBe(40);
   });
 
-  it('keeps the elapsed reading counting through a pause with no other clock reader', () => {
+  it('keeps the elapsed reading counting through a pause with no other clock reader', async () => {
     start();
     let renders = 0;
-    const { result } = renderHook(() => {
+    const { result } = await renderHook(() => {
       renders += 1;
       const { formattedElapsed, formattedMoving } = useTimer();
       return { formattedElapsed, formattedMoving };
     });
-    advance(10_000);
+    await advance(10_000);
     expect(result.current.formattedElapsed).toBe('00:10');
 
-    act(() => useRecordingStore.getState().pauseRecording());
+    await act(() => useRecordingStore.getState().pauseRecording());
     renders = 0;
-    for (let i = 0; i < 60; i += 1) advance(1000);
+    for (let i = 0; i < 60; i += 1) await advance(1000);
     expect(renders).toBe(60);
     expect(result.current.formattedElapsed).toBe('01:10');
     expect(result.current.formattedMoving).toBe('00:10');
 
-    act(() => useRecordingStore.getState().resumeRecording());
+    await act(() => useRecordingStore.getState().resumeRecording());
     expect(result.current.formattedElapsed).toBe('01:10');
     expect(result.current.formattedMoving).toBe('00:10');
 
-    advance(1000);
+    await advance(1000);
     expect(result.current.formattedElapsed).toBe('01:11');
     expect(result.current.formattedMoving).toBe('00:11');
   });
 
-  it('stops the clock once the ride is stopped', () => {
+  it('stops the clock once the ride is stopped', async () => {
     start();
     let renders = 0;
-    const { result } = renderHook(() => {
+    const { result } = await renderHook(() => {
       renders += 1;
       return useTimer().formattedElapsed;
     });
-    advance(5000);
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(5000);
-    act(() => useRecordingStore.getState().stopRecording());
+    await advance(5000);
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(5000);
+    await act(() => useRecordingStore.getState().stopRecording());
     renders = 0;
-    advance(60_000);
+    await advance(60_000);
     expect(renders).toBe(0);
     expect(result.current).toBe('00:10');
   });
 
-  it('gives the screen, the notification and the store one moving time mid-pause', () => {
+  it('gives the screen, the notification and the store one moving time mid-pause', async () => {
     start();
-    const { result, rerender } = renderHook(() => useTimer());
-    advance(30_000);
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(300_000);
-    rerender({});
+    const { result, rerender } = await renderHook(() => useTimer());
+    await advance(30_000);
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(300_000);
+    await rerender({});
 
     const now = Date.now();
     const state = useRecordingStore.getState();
@@ -147,15 +147,15 @@ describe('moving time through a pause', () => {
     expect(result.current.movingTime).toBe(30);
   });
 
-  it('counts a closed pause once and an open pause once', () => {
+  it('counts a closed pause once and an open pause once', async () => {
     start();
-    advance(20_000);
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(10_000);
-    act(() => useRecordingStore.getState().resumeRecording());
-    advance(20_000);
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(15_000);
+    await advance(20_000);
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(10_000);
+    await act(() => useRecordingStore.getState().resumeRecording());
+    await advance(20_000);
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(15_000);
     expect(movingMsAt(useRecordingStore.getState(), Date.now())).toBe(40_000);
   });
 
@@ -163,15 +163,15 @@ describe('moving time through a pause', () => {
     expect(movingMsAt(useRecordingStore.getState(), Date.now())).toBe(0);
   });
 
-  it('holds the finished times on a stopped ride rather than zero or a running clock', () => {
+  it('holds the finished times on a stopped ride rather than zero or a running clock', async () => {
     start();
-    const { result, rerender } = renderHook(() => useTimer());
-    advance(30_000);
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(10_000);
-    act(() => useRecordingStore.getState().stopRecording());
-    advance(600_000);
-    rerender({});
+    const { result, rerender } = await renderHook(() => useTimer());
+    await advance(30_000);
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(10_000);
+    await act(() => useRecordingStore.getState().stopRecording());
+    await advance(600_000);
+    await rerender({});
 
     expect(result.current.movingTime).toBe(30);
     expect(result.current.elapsedTime).toBe(40);
@@ -215,23 +215,23 @@ describe('live averages over moving time', () => {
     });
   }
 
-  it('divides distance by moving time, not wall clock', () => {
+  it('divides distance by moving time, not wall clock', async () => {
     rideWithACafeStop();
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     // 20 km over 40 min is 30 km/h.
     expect(result.current.avgSpeed * 3.6).toBeCloseTo(30, 5);
   });
 
-  it('estimates calories over moving time', () => {
+  it('estimates calories over moving time', async () => {
     rideWithACafeStop();
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     // No HR: 40 min x 70 kg x MET 8 for a ride.
     expect(result.current.calories).toBe(Math.round((2400 / 3600) * 70 * 8));
   });
 
-  it('shows the same average standing in an open pause as at the last sample', () => {
+  it('shows the same average standing in an open pause as at the last sample', async () => {
     rideWithACafeStop();
-    const { result: before } = renderHook(() => useRecordingMetrics());
+    const { result: before } = await renderHook(() => useRecordingMetrics());
     const atLastSample = before.current.avgSpeed;
 
     // The rider stops again right after the last sample. No sample is appended
@@ -239,11 +239,11 @@ describe('live averages over moving time', () => {
     // subtracted from it.
     useRecordingStore.setState({ status: 'paused', _pauseStart: NOW });
     jest.setSystemTime(NOW + 600_000);
-    const { result: after } = renderHook(() => useRecordingMetrics());
+    const { result: after } = await renderHook(() => useRecordingMetrics());
     expect(after.current.avgSpeed).toBeCloseTo(atLastSample, 10);
   });
 
-  it('measures lap time on the moving clock from the last sample', () => {
+  it('measures lap time on the moving clock from the last sample', async () => {
     rideWithACafeStop({
       laps: [
         {
@@ -261,7 +261,7 @@ describe('live averages over moving time', () => {
         },
       ],
     });
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current.lapTime).toBe(2400 - 600);
   });
 });
@@ -294,41 +294,41 @@ describe('every surface through a real pause and resume', () => {
     });
   }
 
-  it('keeps average speed, calories and lap time level across a long stop', () => {
+  it('keeps average speed, calories and lap time level across a long stop', async () => {
     start();
     fix(0);
     jest.setSystemTime(Date.now() + 600_000);
     fix(5000);
-    const { result, rerender } = renderHook(() => useRecordingMetrics());
+    const { result, rerender } = await renderHook(() => useRecordingMetrics());
     const before = result.current;
 
-    act(() => useRecordingStore.getState().pauseRecording());
+    await act(() => useRecordingStore.getState().pauseRecording());
     jest.setSystemTime(Date.now() + 1_200_000);
-    act(() => useRecordingStore.getState().resumeRecording());
+    await act(() => useRecordingStore.getState().resumeRecording());
     jest.setSystemTime(Date.now() + 1000);
-    act(() => fix(5008));
-    rerender({});
+    await act(() => fix(5008));
+    await rerender({});
 
     expect(result.current.avgSpeed).toBeCloseTo(before.avgSpeed, 1);
     expect(result.current.calories - before.calories).toBeLessThanOrEqual(1);
     expect(result.current.lapTime).toBe(601);
   });
 
-  it('shows the Live Activity the same moving time as the screen, mid-pause and after', () => {
+  it('shows the Live Activity the same moving time as the screen, mid-pause and after', async () => {
     start();
-    const { result, rerender } = renderHook(() => useTimer());
-    advance(45_000);
+    const { result, rerender } = await renderHook(() => useTimer());
+    await advance(45_000);
     beginLiveActivity();
 
-    act(() => useRecordingStore.getState().pauseRecording());
-    advance(300_000);
-    rerender({});
+    await act(() => useRecordingStore.getState().pauseRecording());
+    await advance(300_000);
+    await rerender({});
     refreshLiveActivity();
     expect(lastCard().frozenElapsedS).toBe(result.current.movingTime);
     expect(result.current.movingTime).toBe(45);
 
-    act(() => useRecordingStore.getState().resumeRecording());
-    rerender({});
+    await act(() => useRecordingStore.getState().resumeRecording());
+    await rerender({});
     refreshLiveActivity();
     expect(lastCard().status).toBe('recording');
     expect(lastCard().frozenElapsedS).toBe(result.current.movingTime);

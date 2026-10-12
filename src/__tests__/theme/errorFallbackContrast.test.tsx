@@ -46,8 +46,8 @@ describe('error fallback colours', () => {
   it.each([
     ['component', ComponentErrorBoundary],
     ['chart', ChartErrorBoundary],
-  ])('draws the %s fallback on a dark ground under dark text', (_name, Boundary) => {
-    render(
+  ])('draws the %s fallback on a dark ground under dark text', async (_name, Boundary) => {
+    await render(
       <Boundary>
         <Crash />
       </Boundary>

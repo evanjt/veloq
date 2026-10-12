@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import {
   insightToneColor,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import type { Insight } from '@/types';
 import { InsightHistoryGraphic } from './InsightHistoryGraphic';
 import { dataLinkLabel, historyTarget } from '../lib/dataLink';
@@ -45,11 +46,12 @@ export const InsightListCard = React.memo(function InsightListCard({
   );
 
   const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
-  const handleAction = useCallback(
-    (event: AccessibilityActionEvent) => {
-      if (event.nativeEvent.actionName === OPEN_PICTURED && target) tapTo(target);
-    },
-    [target]
+  const actions = useMemo(
+    () =>
+      target && linkLabel
+        ? [{ name: OPEN_PICTURED, label: linkLabel, run: () => tapTo(target) }]
+        : undefined,
+    [target, linkLabel]
   );
 
   return (
@@ -59,13 +61,12 @@ export const InsightListCard = React.memo(function InsightListCard({
       style={{ flexDirection: 'row' }}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={insight.title}
-      {...(target && linkLabel
-        ? {
-            accessibilityActions: [{ name: OPEN_PICTURED, label: linkLabel }],
-            onAccessibilityAction: handleAction,
-          }
-        : {})}
+      accessibilityLabel={composeAccessibilityLabel(
+        insight.title,
+        insight.isNew && t('a11y.isNew'),
+        insight.subtitle
+      )}
+      actions={actions}
       testID={`insight-card-${insight.id}`}
     >
       <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />

@@ -223,3 +223,61 @@ fn the_engine_is_asked_on_every_rung() {
     assert_eq!(run.attempts, 6);
     assert_eq!(asked.get(), 6, "once per rung");
 }
+
+/// Scenario: intervals.icu refused the backfill and its cooldown, kept in the
+/// settings rows, holds for an hour past the ladder's first rung.
+///
+/// Expected behaviour: the ladder sends nothing before the cooldown ends. Its
+/// first wait reaches the end of the cooldown rather than the minute rung, and
+/// a rung that wakes early, on the connection coming back, asks nothing while
+/// the cooldown still holds.
+#[test]
+fn a_stored_cooldown_holds_every_attempt_until_it_ends() {
+    use veloqrs::net::elevation_backfill::resume_ladder_after_cooldown;
+
+    let cooldown = Duration::from_secs(3600);
+    let now = Cell::new(Duration::ZERO);
+    let slept = RefCell::new(Vec::new());
+    let attempted_at = RefCell::new(Vec::new());
+    resume_ladder_after_cooldown(
+        |wait| {
+            if slept.borrow().len() >= 4 {
+                return false;
+            }
+            slept.borrow_mut().push(wait);
+            // The first sleep is cut short by an online edge after a minute.
+            let woke = if slept.borrow().len() == 1 {
+                Duration::from_secs(60)
+            } else {
+                wait
+            };
+            now.set(now.get() + woke);
+            true
+        },
+        || Some(5),
+        || false,
+        || false,
+        || false,
+        || {
+            cooldown
+                .checked_sub(now.get())
+                .filter(|left| !left.is_zero())
+        },
+        || attempted_at.borrow_mut().push(now.get()),
+    );
+
+    assert_eq!(
+        slept.borrow()[0],
+        cooldown,
+        "the first wait ignored the cooldown"
+    );
+    let attempted_at = attempted_at.into_inner();
+    assert!(
+        !attempted_at.is_empty(),
+        "the ladder never asked once it ended"
+    );
+    assert!(
+        attempted_at.iter().all(|at| *at >= cooldown),
+        "an attempt went inside the cooldown: {attempted_at:?}"
+    );
+}

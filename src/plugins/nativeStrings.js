@@ -76,7 +76,7 @@ const APPLE_STRINGS = [
   { key: 'Supporting Metrics', path: 'settings.supportingMetrics' },
   { key: 'Week', path: 'metrics.week' },
   { key: 'Activities', path: 'metrics.activityCount' },
-  { key: 'FTP', path: 'metrics.ftp' },
+  { key: 'eFTP', path: 'metrics.eftp' },
   { key: 'Pace', path: 'metrics.pace' },
   { key: 'CSS', path: 'metrics.css' },
   { key: 'Weight', path: 'metrics.weight' },
@@ -129,6 +129,13 @@ const APPLE_STRINGS = [
   },
   { key: 'Last 30 days', path: 'stats.last30Days' },
   { key: 'This Month', path: 'stats.thisMonth' },
+  // What a screen reader says for the recording card's clock, distance, status and controls.
+  { key: 'Moving time', path: 'recording.fields.movingTime' },
+  { key: 'Distance', path: 'activity.distance' },
+  { key: 'Recording', path: 'recording.status.recording' },
+  { key: 'Paused', path: 'recording.paused' },
+  { key: 'Pause recording', path: 'systemSurfaces.spoken.pauseRecording' },
+  { key: 'Resume recording', path: 'systemSurfaces.spoken.resumeRecording' },
 ];
 
 /**

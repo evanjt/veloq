@@ -22,6 +22,9 @@ pub mod elevation_backfill;
 
 pub mod stream_backfill;
 
+/// The engine's own wake-up when a refusal lifts.
+pub mod resume;
+
 pub mod offline_prefetch;
 pub(crate) mod record_dependency_fetch;
 

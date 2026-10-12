@@ -72,8 +72,8 @@ describe('PreviewMapView', () => {
     capturedSources.length = 0;
   });
 
-  it('draws the live catalogue as current alone before a run', () => {
-    render(
+  it('draws the live catalogue as current alone before a run', async () => {
+    await render(
       <PreviewMapView
         result={null}
         currentSections={[section('live-a'), section('live-b')]}
@@ -95,8 +95,8 @@ describe('PreviewMapView', () => {
     expect(sources['gone-sections'].data.features).toEqual([]);
   });
 
-  it('draws nothing when the area has no sections yet', () => {
-    render(
+  it('draws nothing when the area has no sections yet', async () => {
+    await render(
       <PreviewMapView
         result={null}
         currentSections={[]}
@@ -117,8 +117,8 @@ describe('PreviewMapView', () => {
     expect(sources['proposed-sections'].data.features).toEqual([]);
   });
 
-  it('hides the live catalogue when the current chip is off', () => {
-    render(
+  it('hides the live catalogue when the current chip is off', async () => {
+    await render(
       <PreviewMapView
         result={null}
         currentSections={[section('live-a')]}
@@ -137,7 +137,7 @@ describe('PreviewMapView', () => {
     expect(latestSources()['current-sections'].data.features).toEqual([]);
   });
 
-  it('lets a finished run supersede the live catalogue', () => {
+  it('lets a finished run supersede the live catalogue', async () => {
     const result: PreviewResult = {
       pool: { activities: 4, empty: 0, unreadable: 0 },
       elapsedMs: 9,
@@ -162,7 +162,7 @@ describe('PreviewMapView', () => {
       ],
     };
 
-    render(
+    await render(
       <PreviewMapView
         result={result}
         currentSections={[section('live-a'), section('live-b')]}
@@ -184,8 +184,8 @@ describe('PreviewMapView', () => {
     expect(sources['current-sections'].data.features).toEqual([]);
   });
 
-  it('selects out of the live catalogue before a run', () => {
-    render(
+  it('selects out of the live catalogue before a run', async () => {
+    await render(
       <PreviewMapView
         result={null}
         currentSections={[section('live-a')]}
@@ -204,8 +204,8 @@ describe('PreviewMapView', () => {
     expect(featureIds(latestSources()['selected-section'].data)).toEqual(['live-a']);
   });
 
-  it('credits the tile source, which the licence requires on every map surface', () => {
-    const { getByTestId } = render(
+  it('credits the tile source, which the licence requires on every map surface', async () => {
+    const { getByTestId } = await render(
       <PreviewMapView
         result={null}
         currentSections={[section('live-a')]}

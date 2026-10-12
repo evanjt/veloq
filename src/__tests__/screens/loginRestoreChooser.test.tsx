@@ -11,12 +11,13 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert, ScrollView } from 'react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import LoginScreen from '@/app/login';
 import { clearWebdavConfig } from '@/features/settings/lib/autobackup/webdavConfig';
+import { ScreenScrollView } from '@/shared/ui/ScreenScrollView';
 import { i18n, initialiseI18n } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -122,9 +123,9 @@ beforeEach(async () => {
 });
 
 async function openChooser() {
-  render(<LoginScreen />);
+  await render(<LoginScreen />);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('login-restore-button'));
+    await fireEvent.press(screen.getByTestId('login-restore-button'));
   });
 }
 
@@ -144,24 +145,38 @@ describe('restore from backup on the login screen', () => {
     expect(screen.queryByText(i18n.t('backup.restoreFromDestination'))).toBeNull();
   });
 
+  it('keeps the API key form and the inline WebDAV form on the scroll view that clears the keyboard', async () => {
+    await openChooser();
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
+    });
+    const scroll = within(screen.UNSAFE_getByType(ScreenScrollView));
+
+    expect(scroll.getByTestId('login-apikey-section')).toBeTruthy();
+    expect(scroll.getByLabelText(i18n.t('backup.password'))).toBeTruthy();
+    expect(screen.UNSAFE_getAllByType(ScrollView)[0]?.props.keyboardShouldPersistTaps).toBe(
+      'handled'
+    );
+  });
+
   it("lists a WebDAV server's backups from the inline form and holds the chosen one for sign-in", async () => {
     const fetchMock = stubServer();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     await openChooser();
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
+      await fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
     });
-    fireEvent.changeText(screen.getByPlaceholderText(i18n.t('backup.serverUrl')), SERVER);
-    fireEvent.changeText(screen.getByPlaceholderText(i18n.t('backup.username')), 'rider');
-    const password = screen.getByPlaceholderText(i18n.t('backup.password'));
-    fireEvent.changeText(password, 'app-password');
+    await fireEvent.changeText(screen.getByLabelText(i18n.t('backup.serverUrl')), SERVER);
+    await fireEvent.changeText(screen.getByLabelText(i18n.t('backup.username')), 'rider');
+    const password = screen.getByLabelText(i18n.t('backup.password'));
+    await fireEvent.changeText(password, 'app-password');
     await act(async () => {
-      fireEvent(password, 'blur');
+      await fireEvent(password, 'blur');
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('restore-chooser-list'));
+      await fireEvent.press(screen.getByTestId('restore-chooser-list'));
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `${SERVER}Veloq`,
@@ -170,7 +185,7 @@ describe('restore from backup on the login screen', () => {
     const entry = screen.getByTestId(`restore-chooser-entry-${BACKUP_ID}`);
 
     await act(async () => {
-      fireEvent.press(entry);
+      void fireEvent.press(entry);
     });
     await act(async () => {
       const confirm = alert.mock.calls
@@ -187,8 +202,23 @@ describe('restore from backup on the login screen', () => {
     expect(mockFiles.get('file:///docs/veloq-held-import.zip')).toBe('UEsDBBQAAAAIAA');
     expect(alert).toHaveBeenLastCalledWith(
       i18n.t('backup.importBackup'),
-      i18n.t('backup.heldUntilSignIn')
+      i18n.t('backup.heldUntilSignIn'),
+      undefined,
+      expect.objectContaining({ cancelable: true })
     );
-    expect(alert).not.toHaveBeenCalledWith(i18n.t('common.error'), expect.anything());
+    expect(alert).not.toHaveBeenCalledWith(
+      i18n.t('backup.notRestoredTitle'),
+      expect.anything(),
+      undefined,
+      expect.anything()
+    );
+  });
+});
+
+describe('the login screen', () => {
+  it('opens on its title as a heading', async () => {
+    await render(<LoginScreen />);
+
+    expect(screen.getByRole('header', { name: i18n.t('login.title') })).toBeTruthy();
   });
 });

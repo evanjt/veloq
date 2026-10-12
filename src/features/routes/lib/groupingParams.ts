@@ -14,6 +14,7 @@
  * control that moves and does nothing.
  */
 
+import { parseDecimalInput } from '@/shared/format/decimalInput';
 import type { RouteGroupPreview } from 'veloqrs';
 
 export interface GroupingParams {
@@ -60,8 +61,8 @@ export const GROUPING_DEFAULTS: GroupingParams = {
  * count is positive or it is nothing.
  */
 export function parseGroupingInput(key: GroupingParamKey, text: string): number | null {
-  const value = Number(text.trim().replace(',', '.'));
-  if (!Number.isFinite(value) || value <= 0) return null;
+  const value = parseDecimalInput(text);
+  if (value == null || value <= 0) return null;
   if (key === 'minMatchPercentage' && value > 100) return null;
   return Math.round(value);
 }

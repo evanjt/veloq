@@ -40,12 +40,12 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
   }),
 }));
 
-function swatchColour(view: ReturnType<typeof render>, testID: string) {
+function swatchColour(view: Awaited<ReturnType<typeof render>>, testID: string) {
   return StyleSheet.flatten(view.getByTestId(testID).props.style).backgroundColor;
 }
 
-it('keys the activity line and the route line to their map colours', () => {
-  const view = render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
+it('keys the activity line and the route line to their map colours', async () => {
+  const view = await render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
 
   expect(swatchColour(view, 'route-key-activity')).toBe(getActivityColor('Ride'));
   expect(swatchColour(view, 'route-key-route')).toBe(mapLayerColors.routeOverlay);

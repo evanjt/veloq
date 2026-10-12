@@ -1,6 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 
 import { OAUTH } from '@/features/auth/constants';
 import { NET_DEADLINE_MS, fetchWithDeadline, isFetchTimeout } from '@/shared/net/fetchWithDeadline';
@@ -34,7 +35,8 @@ export type OAuthFailureKey =
   | 'login.oauthProxyRefused'
   | 'login.oauthInvalidCallback'
   | 'login.oauthAccessDenied'
-  | 'login.oauthCodeExchangeFailed';
+  | 'login.oauthCodeExchangeFailed'
+  | 'login.oauthInterrupted';
 
 /**
  * The translation key for a sign-in failure the athlete can act on.
@@ -58,28 +60,100 @@ export function oauthFailureKey(error: unknown): OAuthFailureKey {
 }
 
 /**
- * Module-level state for CSRF protection during OAuth flow.
- *
- * This is a global mutable variable intentionally - the OAuth flow requires
- * generating a state before redirect and validating it on callback. The state
- * must persist across the browser redirect cycle.
- *
- * Limitations:
- * - Only one OAuth flow can be active at a time (acceptable for mobile apps)
- * - State is lost on app restart (OAuth must be restarted)
- * - Not suitable for server-side rendering or concurrent auth flows
- *
- * For more complex scenarios, consider storing state in SecureStore with
- * a timeout for expiration.
+ * How long a started sign-in waits for its redirect. Long enough to type a
+ * password and approve, short enough that a verifier left by an abandoned
+ * browser does not outlive the attempt.
  */
-let oauthState: string | null = null;
+export const OAUTH_FLOW_TTL_MS = 10 * 60 * 1000;
 
 /**
- * The PKCE verifier for the flow in progress, held for exactly as long as the
- * state is. It never leaves the device: only its SHA-256 goes to the proxy, and
- * the verifier itself is sent once, over HTTPS, to redeem the code.
+ * The state and PKCE verifier of the sign-in in progress.
+ *
+ * They are kept in the keychain for the life of the request, as RFC 8252 asks,
+ * because Android may kill the app while the browser is in front, and the
+ * process the redirect then starts has to complete the flow. The verifier
+ * never leaves the device: only its SHA-256 goes to the proxy, and the
+ * verifier itself is sent once, over HTTPS, to redeem the code.
+ *
+ * One flow at a time: starting another replaces it.
  */
-let oauthVerifier: string | null = null;
+interface PendingFlow {
+  state: string;
+  verifier: string;
+  /** Epoch milliseconds the flow was started at. */
+  startedAt: number;
+}
+
+const PENDING_FLOW_KEY = 'oauth_pending_flow';
+
+/** Read by this app alone, never by an extension, so it needs no shared group. */
+const PENDING_FLOW_KEYCHAIN_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+/** This process's copy of the stored flow. */
+let pendingFlow: PendingFlow | null = null;
+
+/**
+ * Every state this process started a flow with. A redirect carrying one of
+ * them is answered by the `openAuthSessionAsync` call that opened the browser,
+ * so the callback route leaves it alone.
+ */
+const statesStartedHere = new Set<string>();
+
+async function savePendingFlow(flow: PendingFlow): Promise<void> {
+  pendingFlow = flow;
+  statesStartedHere.add(flow.state);
+  try {
+    await SecureStore.setItemAsync(
+      PENDING_FLOW_KEY,
+      JSON.stringify(flow),
+      PENDING_FLOW_KEYCHAIN_OPTIONS
+    );
+  } catch {
+    // The flow still completes in this process; only a process death loses it.
+  }
+}
+
+async function clearPendingFlow(): Promise<void> {
+  pendingFlow = null;
+  try {
+    await SecureStore.deleteItemAsync(PENDING_FLOW_KEY, PENDING_FLOW_KEYCHAIN_OPTIONS);
+  } catch {
+    // An entry that will not delete expires, and the next start replaces it.
+  }
+}
+
+function asPendingFlow(value: unknown): PendingFlow | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { state, verifier, startedAt } = value as Record<string, unknown>;
+  if (typeof state !== 'string' || typeof verifier !== 'string') return null;
+  if (typeof startedAt !== 'number' || !Number.isFinite(startedAt)) return null;
+  return { state, verifier, startedAt };
+}
+
+async function readStoredFlow(): Promise<PendingFlow | null> {
+  try {
+    const stored = await SecureStore.getItemAsync(PENDING_FLOW_KEY, PENDING_FLOW_KEYCHAIN_OPTIONS);
+    return stored === null ? null : asPendingFlow(JSON.parse(stored));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Take the flow in progress, from this process or from the keychain when the
+ * process that started it is gone. Taking spends it, whatever the callback
+ * turns out to hold, so a code is never presented twice. Null when there is
+ * none, or when it is older than `OAUTH_FLOW_TTL_MS`.
+ */
+async function takePendingFlow(): Promise<PendingFlow | null> {
+  const flow = pendingFlow ?? (await readStoredFlow());
+  await clearPendingFlow();
+  if (!flow) return null;
+  const age = Date.now() - flow.startedAt;
+  return age >= 0 && age <= OAUTH_FLOW_TTL_MS ? flow : null;
+}
 
 function generateState(): string {
   return randomHex(32);
@@ -126,10 +200,10 @@ export function getProxyRedirectUri(): string {
 /**
  * Build the OAuth authorization URL
  * Redirects to the proxy, which then redirects to the app with the token
- * Note: oauthState must be set before calling this function
+ * Note: a flow must have been started before calling this function
  */
 export function buildAuthorizationUrl(scopes: readonly string[] = OAUTH.SCOPES): string {
-  if (!oauthState) {
+  if (!pendingFlow) {
     throw new Error('OAuth state not initialised. Call startOAuthFlow() instead.');
   }
 
@@ -141,7 +215,7 @@ export function buildAuthorizationUrl(scopes: readonly string[] = OAUTH.SCOPES):
     redirect_uri: proxyRedirectUri,
     scope: scopes.join(','),
     response_type: 'code',
-    state: oauthState,
+    state: pendingFlow.state,
   });
 
   return `${OAUTH.AUTH_ENDPOINT}?${params.toString()}`;
@@ -196,20 +270,22 @@ export async function startOAuthFlow(
     );
   }
 
-  // Generate state and register with proxy before building URL
-  const state = generateState();
-  oauthState = state;
-
   // The verifier stays here and its hash goes to the proxy, so the code the
   // redirect comes back with is redeemable by this app and nothing else.
+  const state = generateState();
   const verifier = generateVerifier();
-  oauthVerifier = verifier;
+  await savePendingFlow({ state, verifier, startedAt: Date.now() });
 
   // Register state and challenge with proxy for server-side validation
-  await registerStateWithProxy(state, await codeChallengeFor(verifier));
+  try {
+    await registerStateWithProxy(state, await codeChallengeFor(verifier));
+  } catch (error) {
+    await clearPendingFlow();
+    throw error;
+  }
 
   const authUrl = buildAuthorizationUrl(scopes);
-  const appCallbackUrl = `${OAUTH.APP_SCHEME}://oauth/callback`;
+  const appCallbackUrl = getAppRedirectUri();
 
   // Open browser for authorization
   // The proxy will redirect back to our app scheme
@@ -314,19 +390,12 @@ export function parseCallbackUrl(url: string): OAuthCallback | null {
 }
 
 /**
- * Validate the state parameter from the callback
+ * Validate the state parameter from the callback, spending the flow in progress
+ * whether it matches or not.
  */
-export function validateState(receivedState: string): boolean {
-  if (!oauthState) {
-    return false;
-  }
-
-  const isValid = receivedState === oauthState;
-
-  // Clear the state after validation (single use)
-  oauthState = null;
-
-  return isValid;
+export async function validateState(receivedState: string): Promise<boolean> {
+  const flow = await takePendingFlow();
+  return flow !== null && flow.state === receivedState;
 }
 
 /**
@@ -374,6 +443,9 @@ async function redeemCode(code: string, verifier: string): Promise<OAuthTokenRes
  * only exists once this resolves.
  */
 export async function handleOAuthCallback(url: string): Promise<OAuthTokenResponse> {
+  // Spent whatever the callback holds: a refusal, a failed redemption or a
+  // forged state must not leave the verifier for a second try.
+  const flow = await takePendingFlow();
   const callback = parseCallbackUrl(url);
 
   if (!callback) {
@@ -392,25 +464,24 @@ export async function handleOAuthCallback(url: string): Promise<OAuthTokenRespon
     );
   }
 
-  if (!validateState(callback.state)) {
+  // Nothing stored, or stored too long ago: the attempt this answers is gone,
+  // and the athlete is told to start again rather than shown a security error.
+  if (!flow) {
+    throw new OAuthFlowError(
+      'OAuth state validation failed - no sign-in in progress',
+      'login.oauthInterrupted'
+    );
+  }
+
+  if (callback.state !== flow.state) {
     throw new OAuthFlowError(
       'OAuth state validation failed - possible CSRF attack',
       'login.oauthStateValidationFailed'
     );
   }
 
-  // Spent either way: a failed redemption must not leave it for a second try.
-  const verifier = oauthVerifier;
-  oauthVerifier = null;
-
   if (callback.code) {
-    if (!verifier) {
-      throw new OAuthFlowError(
-        'OAuth callback carried a code this app did not start a flow for',
-        'login.oauthInvalidCallback'
-      );
-    }
-    return redeemCode(callback.code, verifier);
+    return redeemCode(callback.code, flow.verifier);
   }
 
   if (callback.token) {
@@ -421,6 +492,57 @@ export async function handleOAuthCallback(url: string): Promise<OAuthTokenRespon
     'Invalid OAuth callback URL - missing token data',
     'login.oauthInvalidCallback'
   );
+}
+
+/**
+ * A redirect that arrived in a process that did not open the browser, waiting
+ * for the sign-in screen to complete it. Android may kill the app while the
+ * browser is in front, and the redirect then starts a new one.
+ */
+let interruptedCallback: string | null = null;
+const interruptedCallbackListeners = new Set<() => void>();
+
+/**
+ * Hold a redirect for the sign-in screen when no `openAuthSessionAsync` in this
+ * process is waiting for it. False when this process started the flow it
+ * answers, or when the link carries nothing to answer.
+ */
+export function holdInterruptedCallback(url: string): boolean {
+  const params = Linking.parse(url).queryParams ?? {};
+  if (Object.keys(params).length === 0) return false;
+  const state = params.state;
+  if (typeof state === 'string' && statesStartedHere.has(state)) return false;
+  interruptedCallback = url;
+  interruptedCallbackListeners.forEach((listener) => listener());
+  return true;
+}
+
+/** The held redirect, once: whoever takes it completes it. */
+export function takeInterruptedCallback(): string | null {
+  const url = interruptedCallback;
+  interruptedCallback = null;
+  return url;
+}
+
+/** Called each time a redirect is held. Returns the unsubscribe. */
+export function onInterruptedCallback(listener: () => void): () => void {
+  interruptedCallbackListeners.add(listener);
+  return () => {
+    interruptedCallbackListeners.delete(listener);
+  };
+}
+
+/** The redirect URL again, from the query parameters the callback route was opened with. */
+export function callbackUrlFromParams(
+  params: Record<string, string | string[] | undefined>
+): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const first = Array.isArray(value) ? value[0] : value;
+    if (first !== undefined) query.append(key, first);
+  }
+  const search = query.toString();
+  return search ? `${getAppRedirectUri()}?${search}` : getAppRedirectUri();
 }
 
 /**

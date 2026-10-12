@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
@@ -15,6 +15,8 @@ import * as haptics from '@/shared/ui/haptics';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
+import { ABSENT } from '@/shared/format/absent';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const FORCE_SYNC_LABEL = 'Force Sync';
 const HARD_RESYNC_LABEL = 'Hard Re-sync';
@@ -92,7 +94,7 @@ export function SyncDebugTab() {
   const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
-  // API activities (shares cache with GlobalDataSync)
+  // The stored bodies over the sync window, read only while this debug tab is open
   const { data: apiActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
@@ -152,13 +154,13 @@ export function SyncDebugTab() {
     const missing = alignment.missingFromEngine.length;
     if (missing > 0) {
       setForceSyncStatus(`${missing} activities missing - sync triggered`);
-      Alert.alert(
-        'Force Sync',
-        `${missing} activities missing from engine - sync triggered.\n\nWatch Sync Status section for progress.`
-      );
+      inform({
+        title: 'Force Sync',
+        message: `${missing} activities missing from engine - sync triggered.\n\nWatch Sync Status section for progress.`,
+      });
     } else {
       setForceSyncStatus('All activities already synced');
-      Alert.alert('Force Sync', 'All activities already synced - nothing to fetch.');
+      inform({ title: 'Force Sync', message: 'All activities already synced - nothing to fetch.' });
     }
     // Invalidate cache to fetch fresh activity list from API
     queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
@@ -176,89 +178,85 @@ export function SyncDebugTab() {
     );
     const toRemove = sorted.slice(0, removeCount).map((a) => a.id);
 
-    Alert.alert(
-      'Remove Activities',
-      `Remove ${toRemove.length} most recent activities from engine?\n\nIDs: ${toRemove.join(', ')}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            haptics.medium();
-            setIsRemoving(true);
-            let removed = 0;
-            const removedIds: string[] = [];
-            const refused: string[] = [];
-            for (const id of toRemove) {
-              const result = engine.removeActivity(id);
-              if (result.ok) {
-                removed++;
-                removedIds.push(id);
-              } else {
-                refused.push(`${id}: ${result.reason}`);
-              }
-            }
-            // Clean up orphaned GPS track files
-            if (removedIds.length > 0) {
-              await deleteGpsTracks(removedIds);
-            }
-            setIsRemoving(false);
-            if (removed === 0 && toRemove.length > 0) {
-              Alert.alert('Remove Failed', `No activities were removed.\n\n${refused.join('\n')}`);
-            } else {
-              // Trigger background section detection to recompute groups + sections
-              engine.startSectionDetection();
-              // Invalidate cache + fire syncReset to trigger re-sync of removed activities
-              queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-              engine.triggerRefresh('syncReset');
-              const refusalNote = refused.length > 0 ? `\n\nKept:\n${refused.join('\n')}` : '';
-              Alert.alert(
-                'Done',
-                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.${refusalNote}`
-              );
-            }
-          },
-        },
-      ]
-    );
+    confirmAction({
+      title: 'Remove Activities',
+      message: `Remove ${toRemove.length} most recent activities from engine?\n\nIDs: ${toRemove.join(', ')}`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        haptics.medium();
+        setIsRemoving(true);
+        let removed = 0;
+        const removedIds: string[] = [];
+        const refused: string[] = [];
+        for (const id of toRemove) {
+          const result = engine.removeActivity(id);
+          if (result.ok) {
+            removed++;
+            removedIds.push(id);
+          } else {
+            refused.push(`${id}: ${result.reason}`);
+          }
+        }
+        // Clean up orphaned GPS track files
+        if (removedIds.length > 0) {
+          await deleteGpsTracks(removedIds);
+        }
+        setIsRemoving(false);
+        if (removed === 0 && toRemove.length > 0) {
+          inform({
+            title: 'Remove Failed',
+            message: `No activities were removed.\n\n${refused.join('\n')}`,
+          });
+        } else {
+          // Trigger background section detection to recompute groups + sections
+          engine.startSectionDetection();
+          // Invalidate cache + fire syncReset to trigger re-sync of removed activities
+          queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+          engine.triggerRefresh('syncReset');
+          const refusalNote = refused.length > 0 ? `\n\nKept:\n${refused.join('\n')}` : '';
+          inform({
+            title: 'Done',
+            message: `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.${refusalNote}`,
+          });
+        }
+      },
+    });
   }, [apiActivities, engine, removeCount, queryClient]);
 
   // Hard re-sync handler
   const handleHardResync = useCallback(() => {
     if (!engine) return;
-    Alert.alert(
-      'Hard Re-sync',
-      'This will clear ALL engine data (activities, routes, sections) and trigger a full re-sync from scratch.\n\nThis is destructive and cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear & Re-sync',
-          style: 'destructive',
-          onPress: () => {
-            haptics.medium();
-            void engine.clear().then(
-              () => {
-                queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-                Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
-              },
-              (error: unknown) => {
-                Alert.alert(
-                  i18n.t('alerts.error'),
-                  i18n.t(engineErrorKey(error, 'alerts.failedToClear'))
-                );
-              }
-            );
+    confirmAction({
+      title: 'Hard Re-sync',
+      message:
+        'This will clear ALL engine data (activities, routes, sections) and trigger a full re-sync from scratch.\n\nThis is destructive and cannot be undone.',
+      confirmLabel: 'Clear & Re-sync',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: () => {
+        haptics.medium();
+        void engine.clear().then(
+          () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+            inform({ title: 'Done', message: 'Engine cleared. Full re-sync triggered.' });
           },
-        },
-      ]
-    );
+          (error: unknown) => {
+            inform({
+              title: i18n.t('alerts.clearFailedTitle'),
+              message: i18n.t(engineErrorKey(error, 'alerts.failedToClear')),
+            });
+          }
+        );
+      },
+    });
   }, [engine, queryClient]);
 
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   function formatDate(ts: number | null | undefined): string {
-    if (ts == null) return '-';
+    if (ts == null) return ABSENT;
     return new Date(Number(ts) * 1000).toLocaleDateString();
   }
 
@@ -390,7 +388,7 @@ export function SyncDebugTab() {
           value={
             gpsSyncProgress.total > 0
               ? `${gpsSyncProgress.completed}/${gpsSyncProgress.total} (${gpsSyncProgress.percent}%)`
-              : '-'
+              : ABSENT
           }
           isDark={isDark}
         />

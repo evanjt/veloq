@@ -206,7 +206,12 @@ describe('a record zip picked or downloaded while signed out', () => {
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreRecordBackup).toHaveBeenCalledWith(held);
-    expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.restoreComplete',
+      'backup.recordRestored',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(heldFiles()).toEqual([]);
   });
 });
@@ -220,7 +225,12 @@ describe('the first signed-in launch', () => {
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreBackup).toHaveBeenCalledWith(LEGACY_JSON);
-    expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.restoreComplete',
+      'backup.recordRestored',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(mockMarkAnswered).toHaveBeenCalledTimes(1);
     expect(heldFiles()).toEqual([]);
     expect(await applyHeldImport(t)).toBe(false);
@@ -236,7 +246,12 @@ describe('the first signed-in launch', () => {
     expect(await applyHeldImport(t)).toBe(true);
 
     expect(mockRestoreRecordBackup).toHaveBeenCalledWith(held);
-    expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.restoreComplete',
+      'backup.recordRestored',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(heldFiles()).toEqual([]);
   });
 
@@ -248,7 +263,12 @@ describe('the first signed-in launch', () => {
 
     expect(await applyHeldImport(t)).toBe(true);
 
-    expect(alert).toHaveBeenCalledWith('common.error', 'backup.backupDifferentAccount');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.notRestoredTitle',
+      'backup.backupDifferentAccount',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(mockMarkAnswered).toHaveBeenCalledTimes(1);
     expect(heldFiles()).toEqual([]);
   });
@@ -261,8 +281,18 @@ describe('the first signed-in launch', () => {
 
     expect(await applyHeldImport(t)).toBe(true);
 
-    expect(alert).toHaveBeenCalledWith('common.error', 'backup.importError');
-    expect(alert).not.toHaveBeenCalledWith('backup.restoreComplete', expect.anything());
+    expect(alert).toHaveBeenCalledWith(
+      'backup.notRestoredTitle',
+      'backup.importError',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
+    expect(alert).not.toHaveBeenCalledWith(
+      'backup.restoreComplete',
+      expect.anything(),
+      undefined,
+      expect.anything()
+    );
   });
 
   it('keeps the held file while the engine is still closed', async () => {

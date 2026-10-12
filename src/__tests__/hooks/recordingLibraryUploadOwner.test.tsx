@@ -33,6 +33,7 @@ jest.mock('expo-router', () => ({
 const mockEngine = {};
 jest.mock('@/shared/native/useEngineReady', () => ({
   useEngineReady: jest.fn(() => mockEngine),
+  useEngineOpening: jest.fn(() => false),
 }));
 
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
@@ -83,7 +84,7 @@ beforeEach(() => {
 
 async function pressUpload(entry: RecordingLibraryEntry) {
   mockGetVisibleRecording.mockResolvedValue(entry);
-  const { result } = renderHook(() => useRecordingLibrary());
+  const { result } = await renderHook(() => useRecordingLibrary());
   let outcome: Awaited<ReturnType<typeof result.current.uploadNow>> = null;
   await act(async () => {
     outcome = await result.current.uploadNow(entry.id);
@@ -131,7 +132,7 @@ describe('Upload in My Recordings', () => {
   it('clears the uploading mark and refreshes the list when the export throws', async () => {
     mockUploadNow.mockRejectedValue(new Error('engine closed'));
     mockGetVisibleRecording.mockResolvedValue(ride(B));
-    const { result } = renderHook(() => useRecordingLibrary());
+    const { result } = await renderHook(() => useRecordingLibrary());
     jest.mocked(listVisibleRecordings).mockClear();
 
     await act(async () => {
@@ -146,7 +147,7 @@ describe('Upload in My Recordings', () => {
 describe('the list in My Recordings', () => {
   it("is the visible read, so another athlete's held ride never reaches the screen", async () => {
     jest.mocked(listVisibleRecordings).mockResolvedValue([ride(B)]);
-    const { result } = renderHook(() => useRecordingLibrary());
+    const { result } = await renderHook(() => useRecordingLibrary());
     await act(async () => {
       await result.current.refresh();
     });
@@ -157,7 +158,7 @@ describe('the list in My Recordings', () => {
 
   it("does not upload a ride the visible read does not return (another athlete's)", async () => {
     mockGetVisibleRecording.mockResolvedValue(null);
-    const { result } = renderHook(() => useRecordingLibrary());
+    const { result } = await renderHook(() => useRecordingLibrary());
     let outcome: Awaited<ReturnType<typeof result.current.uploadNow>> = null;
     await act(async () => {
       outcome = await result.current.uploadNow(`rec-${A}`);
@@ -171,7 +172,7 @@ describe('the list in My Recordings', () => {
     jest.mocked(listVisibleRecordings).mockResolvedValue([ride(B)]);
     const off = jest.fn();
     jest.mocked(onRecordingsChanged).mockReturnValue(off);
-    const { result, unmount } = renderHook(() => useRecordingLibrary());
+    const { result, unmount } = await renderHook(() => useRecordingLibrary());
     await act(async () => {});
     expect(listVisibleRecordings).not.toHaveBeenCalled();
 
@@ -182,7 +183,7 @@ describe('the list in My Recordings', () => {
 
     expect(listVisibleRecordings).toHaveBeenCalledTimes(1);
     expect(result.current.entries.map((e) => e.id)).toEqual([`rec-${B}`]);
-    unmount();
+    await unmount();
     expect(off).toHaveBeenCalled();
   });
 });

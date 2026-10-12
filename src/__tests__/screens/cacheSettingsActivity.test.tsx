@@ -25,8 +25,8 @@ jest.mock('@/features/settings/components', () => ({
   DataCacheSection: mockCacheSection,
 }));
 
-it('shows the activity bar above the controls that start stream backfill', () => {
-  const tree = render(<CacheSettingsScreen />);
+it('shows the activity bar above the controls that start stream backfill', async () => {
+  const tree = await render(<CacheSettingsScreen />);
   const ids = tree.root
     .findAll((node) => typeof node.props.testID === 'string')
     .map((node) => node.props.testID as string);

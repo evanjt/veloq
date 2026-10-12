@@ -18,13 +18,15 @@ import {
   ink,
   brand,
   darkColors,
+  themedStyles,
+  type Palette,
 } from '@/theme';
 import {
   useTrainingScreenData,
   type MonthTotals,
   type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { EngineReadFailureRetry, ToggleButton } from '@/shared/ui';
+import { ErrorState, ToggleButton, CardHeader, EmptyState } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { seasonChange, seasonMonthChange } from '@/features/stats/lib/periodWindows';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
@@ -106,6 +108,7 @@ function monthCentreX(width: number, monthIndex: number): number {
 export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const isMetric = useMetricSystem();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
 
@@ -198,7 +201,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const metricLabels = {
     hours: { label: t('stats.hours'), unit: 'h' },
     distance: { label: t('activity.distance'), unit: longDistanceUnitLabel(isMetric) },
-    tss: { label: t('stats.tss'), unit: '' },
+    tss: { label: t('metrics.load'), unit: '' },
   };
 
   // Get selected month data for tooltip
@@ -336,12 +339,9 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   if (readError != null) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('stats.seasonComparison')}
-          </Text>
-        </View>
-        <EngineReadFailureRetry
+        <CardHeader title={t('stats.seasonComparison')} />
+        <ErrorState
+          variant="inline"
           error={readError}
           onRetry={() =>
             void queryClient.invalidateQueries({ queryKey: queryKeys.stats.training.all })
@@ -355,20 +355,13 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   if (!hasData) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('stats.seasonComparison')}
-          </Text>
-        </View>
+        <CardHeader title={t('stats.seasonComparison')} />
         <View style={[styles.emptyState, { height }]}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
-          </Text>
-          {!notDownloaded && (
-            <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-              {t('stats.completeActivitiesYearComparison')}
-            </Text>
-          )}
+          <EmptyState
+            variant="inline"
+            title={notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
+            description={notDownloaded ? undefined : t('stats.completeActivitiesYearComparison')}
+          />
         </View>
       </View>
     );
@@ -377,21 +370,21 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>
-          {t('stats.seasonComparison')}
-        </Text>
-        <View style={styles.metricSelector}>
-          {(['hours', 'distance', 'tss'] as const).map((m) => (
-            <ToggleButton
-              key={m}
-              label={metricLabels[m].label}
-              selected={metric === m}
-              onPress={() => setMetric(m)}
-            />
-          ))}
-        </View>
-      </View>
+      <CardHeader
+        title={t('stats.seasonComparison')}
+        accessory={
+          <View style={styles.metricSelector}>
+            {(['hours', 'distance', 'tss'] as const).map((m) => (
+              <ToggleButton
+                key={m}
+                label={metricLabels[m].label}
+                selected={metric === m}
+                onPress={() => setMetric(m)}
+              />
+            ))}
+          </View>
+        }
+      />
 
       {/* Summary / Tooltip */}
       <View
@@ -444,9 +437,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 testID="season-summary-dot-previous"
                 style={[styles.legendDot, { backgroundColor: colorPrevious }]}
               />
-              <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {currentYear - 1}
-              </Text>
+              <Text style={styles.summaryLabel}>{currentYear - 1}</Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.previousTotal}
                 {metricLabels[metric].unit}
@@ -457,9 +448,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 testID="season-summary-dot-current"
                 style={[styles.legendDot, { backgroundColor: colorCurrent }]}
               />
-              <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {currentYear}
-              </Text>
+              <Text style={styles.summaryLabel}>{currentYear}</Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.currentTotal}
                 {metricLabels[metric].unit}
@@ -507,10 +496,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       </GestureDetector>
 
       {notDownloaded && (
-        <Text
-          testID="season-comparison-partial"
-          style={[styles.partial, isDark && chartStyles.textDark]}
-        >
+        <Text testID="season-comparison-partial" style={styles.partial}>
           {t('stats.rangePartlyDownloaded')}
         </Text>
       )}
@@ -518,130 +504,110 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {},
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  metricSelector: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  summary: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: colors.regionTintIdle,
-    minHeight: 44,
-  },
-  summaryDark: {
-    backgroundColor: darkColors.regionTintIdle,
-  },
-  summaryActive: {
-    backgroundColor: colors.regionTintActive,
-  },
-  summaryActiveDark: {
-    backgroundColor: darkColors.regionTintActive,
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xsPlus,
-  },
-  legendDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: layout.borderRadiusXs,
-  },
-  summaryLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginRight: spacing.xs,
-  },
-  summaryValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipMonth: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    minWidth: 40,
-  },
-  tooltipValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  tooltipItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tooltipValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipDiff: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  monthLabelsRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  monthLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    flex: 1,
-  },
-  currentMonthLabel: {
-    fontWeight: '700',
-    color: colors.linkTeal,
-  },
-  selectedMonthLabel: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  partial: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    textLight: {
+      color: colors.textOnDark,
+    },
+    metricSelector: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    summary: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      borderRadius: layout.borderRadiusSm,
+      backgroundColor: colors.regionTintIdle,
+      minHeight: 44,
+    },
+    summaryDark: {
+      backgroundColor: darkColors.regionTintIdle,
+    },
+    summaryActive: {
+      backgroundColor: colors.regionTintActive,
+    },
+    summaryActiveDark: {
+      backgroundColor: darkColors.regionTintActive,
+    },
+    summaryItem: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.xsPlus,
+    },
+    legendDot: {
+      width: spacing.sm,
+      height: spacing.sm,
+      borderRadius: layout.borderRadiusXs,
+    },
+    summaryLabel: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+      marginRight: spacing.xs,
+    },
+    summaryValue: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    tooltipMonth: {
+      fontSize: typography.body.fontSize,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      minWidth: 40,
+    },
+    tooltipValues: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    tooltipItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    tooltipValue: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    tooltipDiff: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '700',
+    },
+    monthLabelsRow: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    monthLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      flex: 1,
+    },
+    currentMonthLabel: {
+      fontWeight: '700',
+      color: colors.linkTeal,
+    },
+    selectedMonthLabel: {
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    partial: {
+      fontSize: typography.caption.fontSize,
+      color: palette.textSecondary,
+      marginTop: spacing.sm,
+    },
+  });

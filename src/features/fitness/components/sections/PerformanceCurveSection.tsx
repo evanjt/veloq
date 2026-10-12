@@ -24,6 +24,7 @@ import {
 } from '@/features/fitness/stores';
 import {
   formatPaceCompact,
+  formatPower,
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
@@ -127,7 +128,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           headerRight={
             sportMode === 'Cycling' && headerFtp ? (
               <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
-                {headerFtp} {t('units.watts')}
+                {t('statsScreen.ftpLabel', { value: formatPower(headerFtp) })}
               </Text>
             ) : sportMode === 'Running' && headerRunPace ? (
               <Text style={[styles.headerValue, { color: sportText.Running }]}>

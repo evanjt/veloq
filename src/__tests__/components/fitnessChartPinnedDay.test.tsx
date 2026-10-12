@@ -5,7 +5,7 @@
  * day's numbers, or the last scrub's, under the pinned date. The form chart
  * also zoned on absolute TSB whatever the setting.
  *
- * Expected behaviour: a pinned day with no row reads '-' for every value
+ * Expected behaviour: a pinned day with no row reads the absent mark for every value
  * under its date, with or without a selection before it, and the form chart
  * zones its number the way the header card does.
  */
@@ -18,6 +18,7 @@ import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsCha
 import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import type { Activity, WellnessData } from '@/types';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -37,87 +38,87 @@ const MISSING = '2026-03-03';
 afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
 describe('the fitness chart header on a pinned day with no row', () => {
-  it("reads '-' rather than the newest day", () => {
-    const tree = render(<FitnessChart data={DAYS} selectedDate={MISSING} />);
+  it('reads the absent mark rather than the newest day', async () => {
+    const tree = await render(<FitnessChart data={DAYS} selectedDate={MISSING} />);
 
-    expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent('-', { exact: true });
-    expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent(ABSENT, { exact: true });
+    expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent(ABSENT, { exact: true });
   });
 
-  it("reads '-' rather than the day selected before it", () => {
-    const tree = render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
+  it('reads the absent mark rather than the day selected before it', async () => {
+    const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
     expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent('41');
 
-    tree.rerender(<FitnessChart data={DAYS} selectedDate={MISSING} />);
+    await tree.rerender(<FitnessChart data={DAYS} selectedDate={MISSING} />);
 
-    expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent('-', { exact: true });
-    expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent(ABSENT, { exact: true });
+    expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent(ABSENT, { exact: true });
   });
 
-  it('still reads the pinned day when it has a row', () => {
-    const tree = render(<FitnessChart data={DAYS} selectedDate="2026-03-01" />);
+  it('still reads the pinned day when it has a row', async () => {
+    const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-01" />);
 
     expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent('40');
   });
 });
 
 describe('the form chart header on a pinned day with no row', () => {
-  it("reads '-' and names no zone rather than the newest day's", () => {
-    const tree = render(<FormZoneChart data={DAYS} selectedDate={MISSING} />);
+  it("reads the absent mark and names no zone rather than the newest day's", async () => {
+    const tree = await render(<FormZoneChart data={DAYS} selectedDate={MISSING} />);
 
-    expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('form-chart-value')).toHaveTextContent(ABSENT, { exact: true });
     expect(tree.queryByTestId('form-chart-zone')).toBeNull();
   });
 
-  it("reads '-' rather than the day selected before it", () => {
-    const tree = render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
+  it('reads the absent mark rather than the day selected before it', async () => {
+    const tree = await render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
     expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-8');
 
-    tree.rerender(<FormZoneChart data={DAYS} selectedDate={MISSING} />);
+    await tree.rerender(<FormZoneChart data={DAYS} selectedDate={MISSING} />);
 
-    expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('form-chart-value')).toHaveTextContent(ABSENT, { exact: true });
   });
 });
 
 describe('the form chart zone', () => {
   // -8 on fitness 41 is about -20 per cent: optimal as a percentage, grey in
   // absolute TSB.
-  it('follows form as a percentage, as the header card does', () => {
+  it('follows form as a percentage, as the header card does', async () => {
     useFormPreference.setState({ formAsPercent: true });
-    const tree = render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
+    const tree = await render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('form-chart-zone')).toHaveTextContent('formZones.optimal');
   });
 
-  it('stays on absolute TSB with the setting off', () => {
+  it('stays on absolute TSB with the setting off', async () => {
     useFormPreference.setState({ formAsPercent: false });
-    const tree = render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
+    const tree = await render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('form-chart-zone')).toHaveTextContent('formZones.greyZone');
   });
 });
 
 describe('the form chart readout under form as a percentage', () => {
-  it('prints the percentage the zone was judged on', () => {
+  it('prints the percentage the zone was judged on', async () => {
     useFormPreference.setState({ formAsPercent: true });
-    const tree = render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
+    const tree = await render(<FormZoneChart data={DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-20%');
   });
 
-  it('shows no number and no zone for a day with no fitness', () => {
+  it('shows no number and no zone for a day with no fitness', async () => {
     useFormPreference.setState({ formAsPercent: true });
     const days = [...DAYS, { id: '2026-03-05', ctl: 0, atl: 12 }] as WellnessData[];
-    const tree = render(<FormZoneChart data={days} selectedDate="2026-03-05" />);
+    const tree = await render(<FormZoneChart data={days} selectedDate="2026-03-05" />);
 
-    expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('form-chart-value')).toHaveTextContent(ABSENT, { exact: true });
     expect(tree.queryByTestId('form-chart-zone')).toBeNull();
   });
 
-  it('keeps the absolute number and zone for that day with the setting off', () => {
+  it('keeps the absolute number and zone for that day with the setting off', async () => {
     useFormPreference.setState({ formAsPercent: false });
     const days = [...DAYS, { id: '2026-03-05', ctl: 0, atl: 12 }] as WellnessData[];
-    const tree = render(<FormZoneChart data={days} selectedDate="2026-03-05" />);
+    const tree = await render(<FormZoneChart data={days} selectedDate="2026-03-05" />);
 
     expect(tree.getByTestId('form-chart-value')).toHaveTextContent('-12');
     expect(tree.getByTestId('form-chart-zone')).toHaveTextContent('formZones.optimal');
@@ -132,13 +133,15 @@ describe('the activity strip on a pinned day with no row', () => {
     start_date_local: '2026-03-02T07:00:00',
   } as Activity;
 
-  it('drops the day selected before it rather than keeping its activity label', () => {
-    const tree = render(
+  it('drops the day selected before it rather than keeping its activity label', async () => {
+    const tree = await render(
       <ActivityDotsChart data={DAYS} activities={[RIDE]} selectedDate="2026-03-02" />
     );
     expect(tree.queryByText(/Morning Ride/)).not.toBeNull();
 
-    tree.rerender(<ActivityDotsChart data={DAYS} activities={[RIDE]} selectedDate={MISSING} />);
+    await tree.rerender(
+      <ActivityDotsChart data={DAYS} activities={[RIDE]} selectedDate={MISSING} />
+    );
 
     expect(tree.queryByText(/Morning Ride/)).toBeNull();
   });

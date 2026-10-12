@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 /// Retries for transient failures (429 / 5xx / transport). Matches the prior
 /// axios client (`maxRetries = 3`).
-const MAX_RETRIES: u32 = 3;
+pub(crate) const MAX_RETRIES: u32 = 3;
 
 /// How long each lane may spend on one request, and how long the whole retry
 /// loop may run for the lane a user is waiting on.
@@ -177,6 +177,14 @@ impl NetError {
     pub fn is_deferred(&self) -> bool {
         matches!(self, NetError::Deferred { .. })
     }
+
+    /// intervals.icu or the request budget said not now: a deferral, or a
+    /// 429 the retries ran out on. It speaks for every request behind it, so
+    /// a walk over many stops at the first one rather than asking the rest,
+    /// and nothing about the item asked for is wrong.
+    pub fn is_refusal(&self) -> bool {
+        matches!(self, NetError::Deferred { .. } | NetError::RateLimited)
+    }
 }
 
 /// Pooled HTTP transport bound to one base URL and one credential.
@@ -267,6 +275,31 @@ impl Transport {
         })
     }
 
+    /// When the work `e` refused may be asked for again, or `None` when `e`
+    /// is not a refusal. A deferral carries its own time; a 429 the retries
+    /// ran out on waits for the cooldown it left, or the first rung of the
+    /// cooldown ladder when it left none.
+    pub fn refusal_lifts_at(
+        &self,
+        e: &NetError,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Option<chrono::DateTime<chrono::Utc>> {
+        match e {
+            NetError::Deferred { until } => Some(*until),
+            NetError::RateLimited => Some(self.governor.refusal_lifts_at(now)),
+            _ => None,
+        }
+    }
+
+    /// When work refused at `now` may be asked for again: the end of the
+    /// governor's cooldown, or the first rung of its ladder when none holds.
+    pub fn cooldown_lifts_at(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> chrono::DateTime<chrono::Utc> {
+        self.governor.refusal_lifts_at(now)
+    }
+
     fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
     }
@@ -324,7 +357,7 @@ impl Transport {
                     let budget = parse_budget(resp.headers());
 
                     if status.is_success() {
-                        self.governor.note_success(&budget, chrono::Utc::now());
+                        self.note_success(&budget);
                         return resp
                             .bytes()
                             .await
@@ -549,6 +582,14 @@ impl Transport {
         }
     }
 
+    /// Hand a success to the governor, and resume at once whatever waited on
+    /// a cooldown it ended.
+    fn note_success(&self, budget: &RateBudget) {
+        if self.governor.note_success(budget, chrono::Utc::now()) {
+            crate::net::resume::cooldown_cleared();
+        }
+    }
+
     /// Hand a 429 to the governor, whose budget classifies it and decides
     /// between an inline retry and a cooldown, and log the whole response,
     /// since the shape of the application's refusal is known only from what
@@ -589,7 +630,7 @@ impl Transport {
         let budget = parse_budget(resp.headers());
 
         if status.is_success() {
-            self.governor.note_success(&budget, chrono::Utc::now());
+            self.note_success(&budget);
             // The status says the server applied the write. A body that breaks
             // off after it loses only the answer's detail, and reporting a
             // transport failure would have the caller send the write again.

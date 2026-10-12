@@ -17,7 +17,7 @@ import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeS
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
-import { awaitTilePass } from '@/features/routes/lib/tilePass';
+import { awaitTilePass, tilePassProgress } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 import {
   DETECTION_FOREGROUND_MS,
@@ -81,14 +81,7 @@ async function waitForTilePass(
 ): Promise<void> {
   await awaitTilePass((processed, total) => {
     if (!updateProgress || !owns() || total === 0) return;
-    const tilePct = Math.min(100, Math.round((processed / total) * 100));
-    updateProgress({
-      status: 'computing',
-      completed: 0,
-      total: 0,
-      percent: scalePercent(tilePct, rangeStart, rangeEnd),
-      message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
-    });
+    updateProgress(tilePassProgress(processed, total, i18n.t, rangeStart, rangeEnd));
   });
 }
 
@@ -423,11 +416,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activityIds.length,
           percent: 0,
-          message: i18n.t('cache.downloadingGpsProgress', {
-            percent: 0,
-            completed: 0,
-            total: activityIds.length,
-          }),
+          message: i18n.t('cache.downloadingGpsProgress'),
         });
       }
 
@@ -464,7 +453,7 @@ export function useGpsDataFetcher() {
               completed,
               total: activityIds.length,
               percent: combined,
-              message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
+              message: i18n.t('cache.downloadingGpsProgress'),
             });
           },
         });

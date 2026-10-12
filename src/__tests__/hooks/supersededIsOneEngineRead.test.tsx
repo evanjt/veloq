@@ -53,7 +53,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 async function createOne(mock: ReturnType<typeof engine>) {
   mockedGetEngine.mockReturnValue(mock as never);
-  const { result } = renderHook(() => useCustomSections(), { wrapper });
+  const { result } = await renderHook(() => useCustomSections(), { wrapper });
   await act(async () => {
     await result.current.createSection({
       startIndex: 0,
@@ -88,7 +88,7 @@ describe('the superseded lookup after a custom section is created', () => {
     });
     mockedGetEngine.mockReturnValue(mock as never);
 
-    const { result } = renderHook(() => useCustomSections(), { wrapper });
+    const { result } = await renderHook(() => useCustomSections(), { wrapper });
     await act(async () => {
       await expect(
         result.current.createSection({
@@ -106,7 +106,7 @@ describe('the superseded lookup after a custom section is created', () => {
   it('makes one mutation on each call, including the second', async () => {
     const mock = engine();
     mockedGetEngine.mockReturnValue(mock as never);
-    const { result } = renderHook(() => useCustomSections(), { wrapper });
+    const { result } = await renderHook(() => useCustomSections(), { wrapper });
     await act(async () => {
       await result.current.createSection({
         startIndex: 0,

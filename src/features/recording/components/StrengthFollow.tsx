@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { Button, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
@@ -20,7 +21,6 @@ import {
   type PlanLine,
 } from '@/features/recording/lib/planFollow';
 import { ManualEntry } from './ManualEntry';
-import { ManualEntryHeader } from './ManualEntryHeader';
 import { RpeSlider } from './RpeSlider';
 import { styles } from '../RecordingScreen.styles';
 
@@ -67,6 +67,9 @@ function Follow({
   const tick = useCallback(() => setFollow((s) => advance(s, Date.now())), []);
 
   const finishedAt = follow.finishedAt;
+  // The session is under way from arrival. Once finished, the form below
+  // carries it as unsaved input and holds back in its place.
+  useDiscardGuard(finishedAt == null);
   const prefill = useMemo(
     () =>
       finishedAt == null
@@ -88,6 +91,7 @@ function Follow({
         pairedEventId={pairedEventId}
         prefill={prefill}
         rpe={rpe}
+        unsaved
         above={
           <RpeSlider
             value={rpe ?? 5}
@@ -107,13 +111,9 @@ function Follow({
 
   return (
     <View
-      style={[
-        styles.container,
-        { backgroundColor: themeColors.background, paddingTop: insets.top },
-      ]}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       testID="strength-follow"
     >
-      <ManualEntryHeader activityType={activityType} textPrimary={themeColors.textPrimary} />
       <View style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text style={{ ...typography.caption, color: themeColors.textSecondary }}>
           {isRest

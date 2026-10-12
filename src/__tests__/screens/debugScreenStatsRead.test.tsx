@@ -48,12 +48,12 @@ jest.mock('veloqrs', () =>
 
 describe('debug screen engine stats', () => {
   it('reads stats once per mount and once more per refresh', async () => {
-    const screen = render(<DebugScreen />);
+    const screen = await render(<DebugScreen />);
     await act(async () => {});
 
     expect(mockGetStats).toHaveBeenCalledTimes(1);
 
-    screen.rerender(<DebugScreen />);
+    await screen.rerender(<DebugScreen />);
     await act(async () => {});
     expect(mockGetStats).toHaveBeenCalledTimes(1);
 

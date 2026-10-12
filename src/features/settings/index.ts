@@ -22,7 +22,8 @@ export type { BackgroundJob, BackgroundJobId, BackgroundJobState } from './hooks
 export { useNotificationPreferences } from './stores/NotificationPreferencesStore';
 export type { NotificationPreferences } from './stores/NotificationPreferencesStore';
 export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
-export { RestorePromptSheet } from './components/RestorePromptSheet';
+export { RestoreOfferCard } from './components/RestoreOfferCard';
+export { useLaunchSurfaces } from './hooks/useLaunchSurfaces';
 export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
 export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';

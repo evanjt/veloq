@@ -390,6 +390,12 @@ const GUARDS = [
     catches: 'an export throwing anything but VeloqError, which panics the bindings generator',
   },
   {
+    name: 'lint:absent-mark',
+    kind: 'correctness',
+    cmd: node('lint-absent-mark.mjs'),
+    catches: 'a missing value printed as its own hyphen, which a screen reader announces as minus',
+  },
+  {
     name: 'lint:engine-read-empty',
     kind: 'correctness',
     cmd: node('lint-engine-read-empty.mjs'),
@@ -492,6 +498,13 @@ const GUARDS = [
     catches: 'a wait drawn as the static loading glyph, which never turns',
   },
   {
+    name: 'lint:paper-spinner',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'paper-spinner'),
+    catches:
+      "Paper's ActivityIndicator, a drawn Material arc that puts a second spinner style beside the system indicator on iOS",
+  },
+  {
     name: 'lint:coverage-hooks-read',
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'coverage-hooks-read'),
@@ -535,6 +548,13 @@ const GUARDS = [
     cmd: node('lint-source-rules.mjs', '--rule', 'one-back'),
     catches:
       'a back or close control that does nothing on a screen with no history, because it pops past the owner that falls back to the Feed',
+  },
+  {
+    name: 'lint:one-text-field',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'one-text-field'),
+    catches:
+      'a form input drawn outside the shared field, named by its placeholder alone and raising the light keyboard in the dark theme',
   },
   {
     name: 'lint:shared-import-cycles',
@@ -650,10 +670,23 @@ const GUARDS = [
     catches: 'American spelling in our own identifiers and prose',
   },
   {
+    name: 'lint:locale-ellipsis',
+    kind: 'style',
+    cmd: node('lint-locale-ellipsis.mjs'),
+    catches:
+      'three full stops written for an ellipsis in a locale value, which a line that adds its own then doubles',
+  },
+  {
     name: 'lint:locale-overrides',
     kind: 'correctness',
     cmd: node('lint-locale-overrides.mjs'),
     catches: 'a copied regional string masking a later change to its base translation',
+  },
+  {
+    name: 'lint:widget-image-labels',
+    kind: 'correctness',
+    cmd: node('lint-widget-image-labels.mjs'),
+    catches: 'a widget chart, route, body or tone image that a screen reader reaches with no words',
   },
   {
     name: 'lint:locale-bundles',
@@ -698,6 +731,12 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-window-dimensions.mjs'),
     catches: 'a static Dimensions read that ignores rotation and split screen',
+  },
+  {
+    name: 'lint:chart-window-width',
+    kind: 'correctness',
+    cmd: node('lint-chart-window-width.mjs'),
+    catches: 'a chart sized from the window overflows a sheet or pane narrower than the window',
   },
   {
     name: 'lint:route-default-exports',
@@ -748,10 +787,24 @@ const GUARDS = [
       'a pressable with no pressed state, a rendered Touchable control, or a press wrapper that skips the platform press answer',
   },
   {
+    name: 'lint:dialog-owner',
+    kind: 'correctness',
+    cmd: node('lint-dialog-owner.mjs'),
+    catches:
+      'a dialog raised with Alert.alert, which Android back and a scrim tap cannot dismiss, and a failure notice titled with a bare generic error word',
+  },
+  {
     name: 'lint:haptics-owner',
     kind: 'style',
     cmd: node('lint-haptics-owner.mjs'),
     catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
+  },
+  {
+    name: 'lint:switch-owner',
+    kind: 'style',
+    cmd: node('lint-switch-owner.mjs'),
+    catches:
+      'a switch drawing its own colours or carrying no name, so an off state falls under 3:1 or a screen reader reads no label',
   },
   {
     name: 'lint:hold-durations',
@@ -763,7 +816,8 @@ const GUARDS = [
     name: 'lint:tap-targets',
     kind: 'style',
     cmd: node('lint-tap-targets.mjs'),
-    catches: 'an explicitly undersized pressable with no hit slop to reach the platform minimum',
+    catches:
+      'an explicitly undersized pressable with no hit slop, or a literal hit slop that lets a target drift under the platform minimum',
   },
   {
     name: 'lint:rgba',
@@ -786,10 +840,36 @@ const GUARDS = [
       "a new hand-built button instead of the shared one, or Paper's IconButton, which takes no label and reaches a screen reader unnamed",
   },
   {
+    name: 'lint:heading-tokens',
+    kind: 'style',
+    cmd: node('lint-heading-tokens.mjs'),
+    catches:
+      'a title styled as a section or card title by hand, with no header role for heading navigation',
+  },
+  {
+    name: 'lint:row-chevrons',
+    kind: 'style',
+    cmd: node('lint-row-chevrons.mjs'),
+    catches:
+      'a disclosure chevron or typed › drawn beside the shared Row, or one on a row that acts rather than opens',
+  },
+  {
+    name: 'lint:empty-state-styles',
+    kind: 'style',
+    cmd: node('lint-empty-state-styles.mjs'),
+    catches: 'a new hand-rolled empty state style instead of the shared EmptyState',
+  },
+  {
     name: 'lint:modal-sheets',
     kind: 'style',
     cmd: node('lint-modal-sheets.mjs'),
     catches: 'a hand-built Modal sheet instead of a formSheet route',
+  },
+  {
+    name: 'lint:sheet-headers',
+    kind: 'style',
+    cmd: node('lint-sheet-headers.mjs'),
+    catches: 'a sheet route drawing its own title row and dismissal instead of SheetHeader',
   },
   {
     name: 'lint:roleless-pressables',
@@ -833,11 +913,16 @@ const GUARDS = [
     catches: 'a ground token colouring text, a hue that answers to no contrast bar',
   },
   {
-    name: 'lint:dark-text-counterpart',
+    name: 'lint:disabled-ink-content',
     kind: 'style',
-    cmd: node('lint-source-rules.mjs', '--rule', 'dark-text-counterpart'),
-    catches:
-      'a text token the dark theme redefines, drawn in its light value in a file that switches on isDark',
+    cmd: node('lint-source-rules.mjs', '--rule', 'disabled-ink-content'),
+    catches: 'disabled-grade ink on live content',
+  },
+  {
+    name: 'lint:dark-counterpart',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'dark-counterpart'),
+    catches: 'a light-only text, ground or border colour drawn in dark mode',
   },
   {
     name: 'lint:dimmed-text',

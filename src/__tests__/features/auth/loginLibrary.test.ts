@@ -6,6 +6,7 @@
  */
 import { Alert } from 'react-native';
 
+import { initialiseI18n } from '@/i18n';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import * as accountChange from '@/features/auth/lib/accountChange';
 import * as count from '@/features/auth/lib/storedActivityCount';
@@ -20,11 +21,17 @@ jest.mock('@/features/auth/lib/accountChange', () => ({
   settleBeforeNamingLibrary: jest.fn().mockResolvedValue(undefined),
 }));
 
-function press(index: number) {
+const STYLE = { mine: 'default', delete: 'destructive', cancel: 'cancel' } as const;
+
+function press(choice: keyof typeof STYLE) {
   jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-    buttons?.[index]?.onPress?.();
+    buttons?.find((button) => button.style === STYLE[choice])?.onPress?.();
   });
 }
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 beforeEach(() => {
   jest.restoreAllMocks();
@@ -34,18 +41,18 @@ beforeEach(() => {
 });
 
 it('keeps an unnamed library only when the athlete says it is theirs', async () => {
-  press(1);
+  press('mine');
   expect(await resolveLoginLibrary('i-b')).toBe('keep');
   expect(accountChange.settleBeforeNamingLibrary).toHaveBeenCalled();
 });
 
 it('wipes an unnamed library when the athlete deletes it', async () => {
-  press(2);
+  press('delete');
   expect(await resolveLoginLibrary('i-b')).toBe('wipe');
 });
 
 it('refuses and leaves the library alone on cancel', async () => {
-  press(0);
+  press('cancel');
   expect(await resolveLoginLibrary('i-b')).toBe('refused');
   expect(accountChange.settleBeforeNamingLibrary).not.toHaveBeenCalled();
 });
@@ -65,7 +72,7 @@ it('keeps the same account without a prompt', async () => {
 });
 
 it('does not name an unnamed library for the incoming athlete when settlement fails', async () => {
-  press(1);
+  press('mine');
   jest
     .mocked(accountChange.settleBeforeNamingLibrary)
     .mockRejectedValueOnce(new Error('disk full'));

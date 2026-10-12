@@ -55,9 +55,9 @@ afterEach(() => {
 });
 
 describe('the screen error fallback Back button on a tab', () => {
-  it('is absent when the router has no history, and Retry still works', () => {
+  it('is absent when the router has no history, and Retry still works', async () => {
     canGoBack.mockReturnValue(false);
-    const { getByText, queryByText } = render(
+    const { getByText, queryByText } = await render(
       <ScreenErrorBoundary>
         <Broken />
       </ScreenErrorBoundary>
@@ -65,19 +65,19 @@ describe('the screen error fallback Back button on a tab', () => {
 
     expect(queryByText('common.back')).toBeNull();
     failing = false;
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
     expect(getByText('loaded')).toBeTruthy();
   });
 
-  it('goes back when the router has history', () => {
+  it('goes back when the router has history', async () => {
     canGoBack.mockReturnValue(true);
-    const { getByText } = render(
+    const { getByText } = await render(
       <ScreenErrorBoundary>
         <Broken />
       </ScreenErrorBoundary>
     );
 
-    fireEvent.press(getByText('common.back'));
+    await fireEvent.press(getByText('common.back'));
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 });
@@ -87,28 +87,28 @@ describe('the screen error fallback Back button outside the tabs', () => {
     segments.mockReturnValue(['section', '[id]'] as never);
   });
 
-  it('is offered with no history and replaces to the Feed', () => {
+  it('is offered with no history and replaces to the Feed', async () => {
     canGoBack.mockReturnValue(false);
-    const { getByText } = render(
+    const { getByText } = await render(
       <ScreenErrorBoundary>
         <Broken />
       </ScreenErrorBoundary>
     );
 
-    fireEvent.press(getByText('common.back'));
+    await fireEvent.press(getByText('common.back'));
     expect(router.back).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith('/');
   });
 
-  it('pops when the router has history', () => {
+  it('pops when the router has history', async () => {
     canGoBack.mockReturnValue(true);
-    const { getByText } = render(
+    const { getByText } = await render(
       <ScreenErrorBoundary>
         <Broken />
       </ScreenErrorBoundary>
     );
 
-    fireEvent.press(getByText('common.back'));
+    await fireEvent.press(getByText('common.back'));
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(router.replace).not.toHaveBeenCalled();
   });

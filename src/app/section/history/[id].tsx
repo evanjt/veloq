@@ -1,8 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import {
   DetailFallback,
@@ -15,12 +14,12 @@ import { colors, darkColors, layout, spacing } from '@/theme';
 import { ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
+import { confirmAction } from '@/shared/ui/dialog';
 
 function SectionHistoryScreenContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
   const { data: detail, status } = useSectionDetailData(id, refreshKey);
@@ -40,15 +39,15 @@ function SectionHistoryScreenContent() {
   const revert = useCallback(
     (version: number) => {
       if (ledger.isReverting) return;
-      Alert.alert(t('sectionHistory.revert'), t('sectionHistory.revertConfirm', { version }), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('sectionHistory.revert'),
-          onPress: async () => {
-            if (await ledger.revert(version)) refresh();
-          },
+      confirmAction({
+        title: t('sectionHistory.revert'),
+        message: t('sectionHistory.revertConfirm', { version }),
+        confirmLabel: t('sectionHistory.revert'),
+        cancelLabel: t('common.cancel'),
+        onConfirm: async () => {
+          if (await ledger.revert(version)) refresh();
         },
-      ]);
+      });
     },
     [ledger, refresh, t]
   );
@@ -68,9 +67,7 @@ function SectionHistoryScreenContent() {
     return (
       <DetailFallback
         isDark={isDark}
-        insetTop={insets.top}
         status={status}
-        loading={status.kind === 'closed'}
         onRetry={refresh}
         notFoundMessage={t('sections.sectionNotFound')}
       />

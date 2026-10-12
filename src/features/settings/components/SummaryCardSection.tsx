@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,8 +13,16 @@ import {
   type MetricId,
 } from '../stores/summaryCardPreferences';
 import { useSummaryCardData, SummaryCard } from '@/features/home';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { ListSectionHeader, Row, ToggleButtonRow } from '@/shared/ui';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  themedStyles,
+  type Palette,
+} from '@/theme';
+import { ListSectionHeader, Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';
 
 const HERO_LABEL_KEYS = {
@@ -25,6 +33,7 @@ const HERO_LABEL_KEYS = {
 
 export function SummaryCardSection() {
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const { t } = useTranslation();
   const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
   const summaryCardData = useSummaryCardData();
@@ -37,18 +46,12 @@ export function SummaryCardSection() {
         style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
         testID="settings-summary-card"
       >
-        {/* Master toggle */}
-        <View style={styles.enabledRow}>
-          <Text style={[styles.enabledLabel, isDark && settingsStyles.textLight]}>
-            {t('settings.showSummaryCard')}
-          </Text>
-          <Switch
-            testID="settings-summary-card-enabled-toggle"
-            value={summaryCard.enabled}
-            onValueChange={(value) => setSummaryCardPreferences({ enabled: value })}
-            color={colors.primary}
-          />
-        </View>
+        <SwitchRow
+          title={t('settings.showSummaryCard')}
+          value={summaryCard.enabled}
+          onValueChange={(value) => setSummaryCardPreferences({ enabled: value })}
+          testID="settings-summary-card-enabled-toggle"
+        />
 
         {/* Live Preview using actual SummaryCard with real data */}
         <View style={styles.summaryCardPreview}>
@@ -79,22 +82,16 @@ export function SummaryCardSection() {
 
         {/* Hero Metric Picker - always visible */}
         <View style={styles.summaryCardContainer}>
-          <View style={styles.heroMetricHeader}>
-            <Text style={[styles.summaryCardLabel, isDark && settingsStyles.textLight]}>
-              {t('settings.heroMetric')}
-            </Text>
-            <View style={styles.sparklineToggleInline}>
-              <Text style={[styles.sparklineToggleLabel, isDark && settingsStyles.textSecondary]}>
-                {t('settings.showSparkline')}
-              </Text>
-              <Switch
-                testID="settings-summary-card-sparkline-toggle"
-                value={summaryCard.showSparkline}
-                onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
-                color={colors.primary}
-              />
-            </View>
-          </View>
+          <SwitchRow
+            inset="none"
+            title={t('settings.showSparkline')}
+            value={summaryCard.showSparkline}
+            onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
+            testID="settings-summary-card-sparkline-toggle"
+          />
+          <Text style={[styles.summaryCardLabel, isDark && settingsStyles.textLight]}>
+            {t('settings.heroMetric')}
+          </Text>
           <ToggleButtonRow
             value={summaryCard.heroMetric}
             onValueChange={(value) => {
@@ -114,9 +111,7 @@ export function SummaryCardSection() {
         </Row>
 
         <View style={styles.summaryCardContainer}>
-          <Text style={[styles.summaryCardHint, isDark && settingsStyles.textSecondary]}>
-            {t('settings.maxMetricsHint')}
-          </Text>
+          <Text style={styles.summaryCardHint}>{t('settings.maxMetricsHint')}</Text>
 
           {(
             [
@@ -142,10 +137,9 @@ export function SummaryCardSection() {
                 key={metricId}
                 style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
               >
-                <Text style={[styles.summaryMetricLabel, isDark && settingsStyles.textLight]}>
-                  {t(def.labelKey as never)}
-                </Text>
-                <Switch
+                <SwitchRow
+                  inset="none"
+                  title={t(def.labelKey as never)}
                   value={isEnabled}
                   disabled={!isEnabled && maxReached}
                   onValueChange={(enabled) => {
@@ -160,7 +154,6 @@ export function SummaryCardSection() {
                       });
                     }
                   }}
-                  color={colors.primary}
                 />
               </View>
             );
@@ -171,70 +164,38 @@ export function SummaryCardSection() {
   );
 }
 
-const styles = StyleSheet.create({
-  enabledRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  enabledLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  summaryCardPreview: {
-    marginHorizontal: -layout.screenPadding,
-    paddingTop: spacing.sm,
-  },
-  summaryCardContainer: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  heroMetricHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  summaryCardLabel: {
-    ...typography.bodySmall,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  sparklineToggleInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sparklineToggleLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  actionText: {
-    ...typography.body,
-    flex: 1,
-    color: colors.textPrimary,
-  },
-  summaryCardHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  summaryMetricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  summaryMetricRowDark: {
-    borderBottomColor: darkColors.border,
-  },
-  summaryMetricLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    summaryCardPreview: {
+      marginHorizontal: -layout.screenPadding,
+      paddingTop: spacing.sm,
+    },
+    summaryCardContainer: {
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.md,
+    },
+    summaryCardLabel: {
+      ...typography.bodySmall,
+      marginTop: spacing.sm,
+      marginBottom: spacing.sm,
+      fontWeight: '500',
+      color: colors.textPrimary,
+    },
+    actionText: {
+      ...typography.body,
+      flex: 1,
+      color: colors.textPrimary,
+    },
+    summaryCardHint: {
+      ...typography.caption,
+      color: palette.textSecondary,
+      marginBottom: spacing.sm,
+    },
+    summaryMetricRow: {
+      borderBottomWidth: 1,
+      borderBottomColor: palette.border,
+    },
+    summaryMetricRowDark: {
+      borderBottomColor: darkColors.border,
+    },
+  });

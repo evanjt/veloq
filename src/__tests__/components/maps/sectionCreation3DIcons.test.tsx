@@ -13,7 +13,6 @@ import { View } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
 import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
-import { MAPLIBRE_GL_JS } from '@/features/maps/assets/maplibreRenderer.generated';
 import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { SECTION_END_ICON_ID, SECTION_START_ICON_ID } from '@/features/maps/lib/mapIcons';
@@ -141,11 +140,11 @@ describe('3D section creation markers', () => {
         sectionCreationEnd={[7.5, 46.95]}
       />
     );
-    const view = render(creating('light'));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
-    view.rerender(creating('dark'));
+    const view = await render(creating('light'));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await view.rerender(creating('dark'));
     injected.length = 0;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(600);
     });
     jest.useRealTimers();
@@ -160,7 +159,7 @@ describe('3D section creation markers', () => {
     const icon = map.layers.find((l) => l.type === 'symbol');
     expect(icon?.layout).not.toHaveProperty('text-field');
     expect(icon?.layout?.visibility).toBeUndefined();
-    view.unmount();
+    await view.unmount();
   });
 
   it('leave no glyph outside the bundled ranges in the page', () => {
@@ -180,7 +179,7 @@ describe('3D section creation markers', () => {
       devicePixelRatio: 1,
     });
 
-    expect(html.replace(MAPLIBRE_GL_JS, '')).not.toMatch(BUNDLE_MISSING_GLYPHS);
+    expect(html).not.toMatch(BUNDLE_MISSING_GLYPHS);
     expect(html).toContain(
       addSectionCreation3DLayersScript('map', 'section-creation-markers', false)
     );

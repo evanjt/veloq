@@ -12,17 +12,23 @@
 
 import fs from 'fs';
 import path from 'path';
+import { processColor } from 'react-native';
+import { getHeaderTitle } from 'expo-router/build/react-navigation/elements/Header/getHeaderTitle';
 
 import {
+  OVER_MAP_TITLE_COLOR,
   SCREEN_HEADERS,
   SCREEN_SHEETS,
   headerLargeTitle,
   largeTitleScreenOptions,
+  noHeroHeaderOptions,
+  overMapHeaderOptions,
   sheetFrame,
   sheetHasDetents,
   sheetScreenOptions,
 } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
+import { colors, darkColors } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
@@ -92,6 +98,32 @@ describe('the native stack header', () => {
       .filter(([, header]) => header.titleKey && typeof lookup(header.titleKey) !== 'string')
       .map(([route]) => route);
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * Scenario: the map-hero screens set an empty `headerTitle`, and the native stack prefers a string
+ * `headerTitle` over `title`, so the native item carried no title. Neither screen reader could
+ * announce the screen and the next screen's iOS back control had no name to show.
+ *
+ * Expected behaviour: the over-map header leaves `title` to reach the native item and draws it at
+ * an alpha nobody can see, so the header stays visually empty over the hero.
+ */
+describe('the over-map header', () => {
+  it('hands the screen title to the native item', () => {
+    const options = overMapHeaderOptions({ title: 'Harbour loop', isDark: false });
+    expect(getHeaderTitle(options, 'activity/[id]')).toBe('Harbour loop');
+  });
+
+  it('draws that title at an alpha the eye cannot see but the native header still applies', () => {
+    const options = overMapHeaderOptions({ isDark: false });
+    expect(options.headerTransparent).toBe(true);
+    expect(options.headerStyle.backgroundColor).toBe('transparent');
+    // The Android header skips a title colour of 0 and draws its default, so the packed colour
+    // has to be non-zero while its alpha stays at the floor.
+    const packed = processColor(options.headerTitleStyle.color) as number;
+    expect(packed).not.toBe(0);
+    expect((packed >>> 24) & 0xff).toBe(1);
   });
 });
 
@@ -249,5 +281,59 @@ describe('large title options', () => {
         backgroundColor: 'transparent',
       });
     }
+  });
+});
+
+/**
+ * Scenario: a map-hero detail screen with no hero to show (a trainer ride, a read still waiting,
+ * a missing record) kept the transparent, untitled header and drew its own title row and a
+ * spacer beneath it, so the page read as two stacked headers.
+ *
+ * Expected behaviour: with no hero the screen takes the opaque, themed platform header, titled
+ * when it has a name, and the hero state puts back the transparent one, since options a screen
+ * sets outlast the state that set them.
+ */
+describe('map-hero detail header states', () => {
+  it('gives a screen with no hero an opaque header in the theme, titled with its name', () => {
+    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: false })).toEqual({
+      headerTransparent: false,
+      headerShadowVisible: true,
+      headerStyle: { backgroundColor: colors.surface },
+      headerTintColor: colors.textPrimary,
+      headerTitleStyle: { color: colors.textPrimary },
+      title: 'Trainer ride',
+    });
+    expect(
+      getHeaderTitle(noHeroHeaderOptions({ title: 'Trainer ride', isDark: false }), 'activity/[id]')
+    ).toBe('Trainer ride');
+    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: true })).toMatchObject({
+      headerStyle: { backgroundColor: darkColors.surface },
+      headerTintColor: darkColors.textPrimary,
+      headerTitleStyle: { color: darkColors.textPrimary },
+    });
+  });
+
+  it("leaves the route's own title alone when the screen has no name to show", () => {
+    const options = noHeroHeaderOptions({ isDark: false });
+    expect(options.headerTransparent).toBe(false);
+    expect(options).not.toHaveProperty('title');
+    expect(options).not.toHaveProperty('headerTitle');
+  });
+
+  it('puts back the transparent, visually untitled header over the hero', () => {
+    expect(overMapHeaderOptions({ isDark: false })).toEqual({
+      headerTransparent: true,
+      headerShadowVisible: false,
+      headerStyle: { backgroundColor: 'transparent' },
+      headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
+      headerTintColor: colors.textOnDark,
+    });
+    expect(overMapHeaderOptions({ isDark: true }).headerTintColor).toBe(colors.textOnDark);
+  });
+
+  it('undoes every option the hero header sets, so neither state leaks into the other', () => {
+    const hero = Object.keys(overMapHeaderOptions({ isDark: false })).sort();
+    const noHero = Object.keys(noHeroHeaderOptions({ title: 'x', isDark: false }));
+    expect(hero.filter((key) => !noHero.includes(key))).toEqual([]);
   });
 });

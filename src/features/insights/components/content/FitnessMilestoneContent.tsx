@@ -14,6 +14,7 @@ import {
   layout,
   typography,
 } from '@/theme';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import type { Insight } from '@/types';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
 
@@ -22,14 +23,17 @@ const CONTEXT_COPY = {
   power: {
     heading: 'insights.milestoneSheet.powerHeading',
     summary: 'insights.milestoneSheet.powerSummary',
+    undated: 'insights.milestoneSheet.powerSummaryUndated',
   },
   run: {
     heading: 'insights.milestoneSheet.runHeading',
     summary: 'insights.milestoneSheet.runSummary',
+    undated: 'insights.milestoneSheet.runSummary',
   },
   swim: {
     heading: 'insights.milestoneSheet.swimHeading',
     summary: 'insights.milestoneSheet.swimSummary',
+    undated: 'insights.milestoneSheet.swimSummary',
   },
 } as const;
 
@@ -43,11 +47,8 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const dataPoints = insight.supportingData?.dataPoints;
-  if (!dataPoints || dataPoints.length < 2) return null;
-
-  const currentPoint = dataPoints[0];
-  const previousPoint = dataPoints[1];
-  const changePoint = dataPoints[2];
+  const [currentPoint, previousPoint, changePoint] = dataPoints ?? [];
+  if (!currentPoint || !previousPoint) return null;
 
   const changeStr = changePoint ? String(changePoint.value) : '';
   const changeUnit = changePoint?.unit ?? '';
@@ -62,13 +63,23 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   // critical speed.
   const unit = currentPoint.unit ?? '';
   const kind = unit === 'W' ? 'power' : unit.startsWith('/100') ? 'swim' : 'run';
+  // Each value carries the day it was read. The earlier one is the newest day at
+  // or before the window's start, so it is named by its date, never by the window.
+  const previousDate = previousPoint.date != null ? formatEpochDayUtc(previousPoint.date) : null;
+  const currentDate = currentPoint.date != null ? formatEpochDayUtc(currentPoint.date) : null;
+  const dated = previousDate != null && currentDate != null;
   const summaryValues = {
     previous: String(previousPoint.value),
     current: String(currentPoint.value),
     unit,
+    previousDate,
+    currentDate,
   };
   const contextHeading = t(CONTEXT_COPY[kind].heading);
-  const contextSummary = t(CONTEXT_COPY[kind].summary, summaryValues);
+  const contextSummary = t(
+    dated ? CONTEXT_COPY[kind].summary : CONTEXT_COPY[kind].undated,
+    summaryValues
+  );
 
   const lineColor = isDark ? darkColors.border : colors.border;
 
@@ -104,7 +115,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
           </View>
           <View style={styles.timelineContent}>
             <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
-              {previousPoint.label}
+              {previousDate ? `${previousPoint.label} · ${previousDate}` : previousPoint.label}
             </Text>
             <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
               {String(previousPoint.value)}
@@ -126,7 +137,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
           </View>
           <View style={styles.timelineContent}>
             <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
-              {currentPoint.label}
+              {currentDate ? `${currentPoint.label} · ${currentDate}` : currentPoint.label}
             </Text>
             <Text
               style={[

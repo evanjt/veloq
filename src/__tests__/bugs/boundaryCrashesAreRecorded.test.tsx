@@ -46,8 +46,8 @@ beforeEach(() => {
 afterEach(() => consoleError.mockRestore());
 
 describe('an error caught below the global boundary is recorded', () => {
-  it('records a screen crash, and says which screen', () => {
-    render(
+  it('records a screen crash, and says which screen', async () => {
+    await render(
       <ScreenErrorBoundary screenName="Routes">
         <Boom />
       </ScreenErrorBoundary>
@@ -63,8 +63,8 @@ describe('an error caught below the global boundary is recorded', () => {
     );
   });
 
-  it('records a component crash under its component name', () => {
-    render(
+  it('records a component crash under its component name', async () => {
+    await render(
       <ComponentErrorBoundary componentName="SectionList">
         <Boom />
       </ComponentErrorBoundary>
@@ -75,8 +75,8 @@ describe('an error caught below the global boundary is recorded', () => {
     );
   });
 
-  it('records a chart crash under its chart name', () => {
-    render(
+  it('records a chart crash under its chart name', async () => {
+    await render(
       <ChartErrorBoundary chartName="Power curve">
         <Boom />
       </ChartErrorBoundary>
@@ -88,8 +88,8 @@ describe('an error caught below the global boundary is recorded', () => {
   });
 
   /** The chart name is for the log and is English; the athlete reads the translated line. */
-  it('keeps the chart name out of the fallback the athlete reads', () => {
-    const { getByText, queryByText } = render(
+  it('keeps the chart name out of the fallback the athlete reads', async () => {
+    const { getByText, queryByText } = await render(
       <ChartErrorBoundary chartName="Power curve">
         <Boom />
       </ChartErrorBoundary>
@@ -100,8 +100,8 @@ describe('an error caught below the global boundary is recorded', () => {
   });
 
   /** None of the three is fatal: the app is still running behind the fallback. */
-  it('marks none of them fatal', () => {
-    render(
+  it('marks none of them fatal', async () => {
+    await render(
       <ChartErrorBoundary>
         <Boom />
       </ChartErrorBoundary>
@@ -111,8 +111,8 @@ describe('an error caught below the global boundary is recorded', () => {
   });
 
   /** An unnamed boundary still records, under whatever screen the log knows. */
-  it('records without a name rather than not recording', () => {
-    render(
+  it('records without a name rather than not recording', async () => {
+    await render(
       <ComponentErrorBoundary>
         <Boom />
       </ComponentErrorBoundary>
@@ -122,8 +122,8 @@ describe('an error caught below the global boundary is recorded', () => {
     expect(mockRecord.mock.calls[0][0].screen).toBeUndefined();
   });
 
-  it('carries a stack so the record is worth reading', () => {
-    render(
+  it('carries a stack so the record is worth reading', async () => {
+    await render(
       <ScreenErrorBoundary screenName="Routes">
         <Boom />
       </ScreenErrorBoundary>
@@ -132,9 +132,9 @@ describe('an error caught below the global boundary is recorded', () => {
     expect(mockRecord.mock.calls[0][0].stack).toEqual(expect.stringContaining('Error'));
   });
 
-  it('still calls the caller-supplied handler', () => {
+  it('still calls the caller-supplied handler', async () => {
     const onError = jest.fn();
-    render(
+    await render(
       <ComponentErrorBoundary componentName="SectionList" onError={onError}>
         <Boom />
       </ComponentErrorBoundary>

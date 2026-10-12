@@ -58,95 +58,95 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('reads once at mount and never on a timer while idle', () => {
+it('reads once at mount and never on a timer while idle', async () => {
   const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const { result } = renderHook(() => useSyncStatus());
+  const { result } = await renderHook(() => useSyncStatus());
   expect(result.current?.state).toBe(SyncState.Idle);
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
 
-  act(() => {
+  await act(() => {
     jest.advanceTimersByTime(30_000);
   });
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
 });
 
-it('re-reads when the engine announces a step', () => {
+it('re-reads when the engine announces a step', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const { result } = renderHook(() => useSyncStatus());
+  const { result } = await renderHook(() => useSyncStatus());
   engine.setSnapshot(status(SyncState.Syncing, 2));
-  act(() => {
+  await act(() => {
     engine.announce('syncProgress');
   });
 
   expect(result.current?.completed).toBe(2);
 });
 
-it('re-reads when the engine announces the settle', () => {
+it('re-reads when the engine announces the settle', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const { result } = renderHook(() => useSyncStatus());
+  const { result } = await renderHook(() => useSyncStatus());
   engine.setSnapshot(status(SyncState.Idle, 3));
-  act(() => {
+  await act(() => {
     engine.announce('syncSettled');
   });
 
   expect(result.current?.state).toBe(SyncState.Idle);
 });
 
-it('drops its subscriptions on unmount', () => {
+it('drops its subscriptions on unmount', async () => {
   const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-  const { unmount } = renderHook(() => useSyncStatus());
-  unmount();
+  const { unmount } = await renderHook(() => useSyncStatus());
+  await unmount();
 
   const live = [...engine.listeners.values()].reduce((n, set) => n + set.size, 0);
   expect(live).toBe(0);
 });
 
-it('does not re-render a state consumer for progress within the same state', () => {
+it('does not re-render a state consumer for progress within the same state', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   let renders = 0;
-  const { result } = renderHook(() => {
+  const { result } = await renderHook(() => {
     renders += 1;
     return useSyncState();
   });
   const first = renders;
 
   engine.setSnapshot(status(SyncState.Syncing, 2));
-  act(() => engine.announce('syncProgress'));
+  await act(() => engine.announce('syncProgress'));
   expect(result.current).toBe(SyncState.Syncing);
   expect(renders).toBe(first);
 
   engine.setSnapshot(status(SyncState.Idle, 3));
-  act(() => engine.announce('syncSettled'));
+  await act(() => engine.announce('syncSettled'));
   expect(result.current).toBe(SyncState.Idle);
   expect(renders).toBe(first + 1);
 });
 
-it('does not re-render a last-error consumer for progress while the error is unchanged', () => {
+it('does not re-render a last-error consumer for progress while the error is unchanged', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   let renders = 0;
-  const { result } = renderHook(() => {
+  const { result } = await renderHook(() => {
     renders += 1;
     return useSyncLastError();
   });
   const first = renders;
 
   engine.setSnapshot(status(SyncState.Syncing, 2));
-  act(() => engine.announce('syncProgress'));
+  await act(() => engine.announce('syncProgress'));
   expect(renders).toBe(first);
   expect(result.current).toBeUndefined();
 
   engine.setSnapshot({ ...status(SyncState.Idle, 2), lastError: 'offline' } as SyncStatus);
-  act(() => engine.announce('syncSettled'));
+  await act(() => engine.announce('syncSettled'));
   expect(result.current).toBe('offline');
   expect(renders).toBe(first + 1);
 });

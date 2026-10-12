@@ -109,6 +109,11 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'lines on map tiles, each over its own white casing, which is outside the surface rule: the ground is the basemap',
   },
+  gradientScale: {
+    kind: 'series',
+    reason:
+      'the activity line coloured by gradient, over its white casing on the basemap, keyed by a labelled ramp while it draws',
+  },
   chartStreamColors: {
     kind: 'series',
     reason: 'one hue per stream, with a labelled chip and a labelled axis',
@@ -117,6 +122,20 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason:
       'the label ink of a selected chart chip, one per stream hue. Measured against its hue at 4.5:1 in chartStreamInk.test.ts, because the ground is in another group',
+  },
+  sectionPaletteInk: {
+    kind: 'series',
+    reason:
+      "the ink of a section's index number, one per palette slot. Measured against its slot's hue at 4.5:1 in sectionInlinePlot.test.tsx, because the ground is in another group",
+  },
+  swipeAction: {
+    kind: 'pair',
+    reason: "a list row's swipe action fill with the ink of its label and icon",
+    pairs: [
+      { ground: 'destructive.bg', on: ['destructive.text'], bar: 'text' },
+      { ground: 'hide.bg', on: ['hide.text'], bar: 'text' },
+      { ground: 'restore.bg', on: ['restore.text'], bar: 'text' },
+    ],
   },
   mapStyleSwatch: {
     kind: 'pair',
@@ -137,9 +156,13 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     pairs: [],
   },
   insightIcon: {
-    kind: 'series',
+    kind: 'mark',
     reason:
-      "the insight's icon, on a 12 per cent tint of itself with the insight's own title and body text beside it, so 1.4.11's exemption reaches it. Read only through insightToneColor, and `opportunity` also colours a map line and a chart line, which sit on tiles rather than on a surface. Two of the four have no reader at all (D64)",
+      "the two category tones of an insight. In the app the icon sits on a tint of itself beside the insight's title, but a widget row's dot is the only mark of its tone, so each theme's tone answers to 3:1 on that theme's surfaces. Read only through insightToneColor",
+    marks: [
+      { paths: ['info.light', 'opportunity.light'], theme: 'light' },
+      { paths: ['info.dark', 'opportunity.dark'], theme: 'dark' },
+    ],
   },
   statusBadge: {
     kind: 'pair',
@@ -228,9 +251,22 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       'drawn once off screen to compile the shaders, never seen. Primary red and green on purpose, so a frame that does reach the screen is obvious',
   },
   switchTrackOff: {
-    kind: 'series',
+    kind: 'mark',
     reason:
-      'the ground the switch thumb sits on, not a mark. The thumb and its position are what identify the control, and the track is what they are read against, so it is measured as the ground of a pair whose foreground is not in this group',
+      "the off track is the boundary that shows an off switch is there at all, so it is a mark at 3:1 against each mode's surfaces, the same bar as the on state's tint",
+    marks: [
+      { paths: ['light'], theme: 'light' },
+      { paths: ['dark'], theme: 'dark' },
+    ],
+  },
+  inputBoundary: {
+    kind: 'mark',
+    reason:
+      'the outline of a text field, the one thing that says where to type, drawn on the theme surface',
+    marks: [
+      { paths: ['light'], theme: 'light' },
+      { paths: ['dark'], theme: 'dark' },
+    ],
   },
   cameraOverlay: {
     kind: 'pair',

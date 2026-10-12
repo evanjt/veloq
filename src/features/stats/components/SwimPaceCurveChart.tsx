@@ -4,9 +4,17 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  typography,
+  spacing,
+  layout,
+  colorWithOpacity,
+  themedStyles,
+  type Palette,
+} from '@/theme';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded } from '@/shared/ui';
+import { BodyNotDownloaded, CardHeader, EmptyState, ErrorState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -63,6 +71,7 @@ interface ChartPoint {
 export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const formatPaceAxis = useCallback(
@@ -77,6 +86,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     coverage,
     bodyStatus,
     retryBody,
+    refetch,
   } = usePaceCurve({ sport: 'Swim', days });
 
   // Process curve data - use distances directly from API
@@ -131,30 +141,42 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
+        <CardHeader title={t('stats.swimPaceCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
 
-  if (error || chartData.length === 0) {
+  if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
+        <CardHeader title={t('stats.swimPaceCurve')} />
+        <ErrorState
+          variant="inline"
+          error={error}
+          onRetry={() => void refetch()}
+          testID="swim-pace-curve-failed"
+        />
+      </View>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <CardHeader title={t('stats.swimPaceCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
               testID="swim-pace-curve-not-downloaded"
               style={styles.notDownloaded}
-              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              textStyle={styles.notDownloadedText}
               message={t('stats.rangeNotDownloaded')}
               status={bodyStatus}
               onRetry={retryBody}
             />
           ) : (
-            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-              {t('stats.noSwimPaceData')}
-            </Text>
+            <EmptyState variant="inline" title={t('stats.noSwimPaceData')} />
           )}
         </View>
       </View>
@@ -167,36 +189,32 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   return (
     <View style={[styles.container, { height }]}>
       {/* Header with values */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
-        <View style={styles.valuesRow}>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-              {t('activity.distance')}
-            </Text>
-            <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-              {formatDistance(displayData.distance, isMetric)}
-            </Text>
+      <CardHeader
+        title={t('stats.swimPaceCurve')}
+        accessory={
+          <View style={styles.valuesRow}>
+            <View style={styles.valueItem}>
+              <Text style={styles.valueLabel}>{t('activity.distance')}</Text>
+              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+                {formatDistance(displayData.distance, isMetric)}
+              </Text>
+            </View>
+            <View style={styles.valueItem}>
+              <Text style={styles.valueLabel}>{t('stats.time')}</Text>
+              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+                {formatTime(displayData.time)}
+              </Text>
+            </View>
+            <View style={styles.valueItem}>
+              <Text style={styles.valueLabel}>{t('metrics.pace')}</Text>
+              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+                {formatSwimPace(displayData.paceMs, isMetric)}
+                {swimPaceUnitLabel(isMetric)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-              {t('stats.time')}
-            </Text>
-            <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-              {formatTime(displayData.time)}
-            </Text>
-          </View>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-              {t('metrics.pace')}
-            </Text>
-            <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-              {formatSwimPace(displayData.paceMs, isMetric)}
-              {swimPaceUnitLabel(isMetric)}
-            </Text>
-          </View>
-        </View>
-      </View>
+        }
+      />
 
       <CurveChart
         data={chartData}
@@ -214,7 +232,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       {cssPace && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
+          <Text style={styles.legendText}>
             {t('metrics.css')} {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
             {swimPaceUnitLabel(isMetric)}
           </Text>
@@ -224,62 +242,52 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   );
 }
 
-const styles = StyleSheet.create({
-  container: {},
-  title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  textLight: { color: colors.textOnDark },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  valuesRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  valueItem: {
-    alignItems: 'flex-end',
-  },
-  valueLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  valueNumber: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notDownloaded: {
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.xs,
-    gap: spacing.xsPlus,
-  },
-  legendDash: {
-    width: spacing.md,
-    height: 2,
-    borderRadius: layout.borderRadiusFull,
-  },
-  legendText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    textLight: { color: colors.textOnDark },
+    valuesRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    valueItem: {
+      alignItems: 'flex-end',
+    },
+    valueLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      marginBottom: spacing.xxs,
+    },
+    valueNumber: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '700',
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    notDownloaded: {
+      alignItems: 'center',
+    },
+    notDownloadedText: {
+      fontSize: typography.bodyCompact.fontSize,
+      color: palette.textSecondary,
+    },
+    legend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      gap: spacing.xsPlus,
+    },
+    legendDash: {
+      width: spacing.md,
+      height: 2,
+      borderRadius: layout.borderRadiusFull,
+    },
+    legendText: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+    },
+  });

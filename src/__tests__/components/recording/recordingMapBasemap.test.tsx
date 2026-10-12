@@ -68,44 +68,44 @@ describe('the recording map picks its own basemap', () => {
     __resetRecordingMapStyle();
   });
 
-  it('opens on the theme style, not the browsing preference', () => {
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+  it('opens on the theme style, not the browsing preference', async () => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(lastDrawn()).toBe('light');
   });
 
-  it('follows the theme rather than hard-coding light', () => {
+  it('follows the theme rather than hard-coding light', async () => {
     theme.isDark = true;
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(lastDrawn()).toBe('dark');
   });
 
-  it('cycles to another style in place', () => {
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+  it('cycles to another style in place', async () => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
     const before = lastDrawn();
 
-    fireEvent.press(screen.getByTestId('recording-map-style'));
+    await fireEvent.press(screen.getByTestId('recording-map-style'));
 
     expect(lastDrawn()).not.toBe(before);
   });
 
-  it('keeps the athlete choice across a remount, because a ride is long', () => {
-    const first = render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
-    fireEvent.press(screen.getByTestId('recording-map-style'));
+  it('keeps the athlete choice across a remount, because a ride is long', async () => {
+    const first = await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+    await fireEvent.press(screen.getByTestId('recording-map-style'));
     const chosen = lastDrawn();
-    first.unmount();
+    await first.unmount();
 
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(lastDrawn()).toBe(chosen);
   });
 
-  it('draws the vector basemap when satellite is chosen with no connection', () => {
-    const view = render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+  it('draws the vector basemap when satellite is chosen with no connection', async () => {
+    const view = await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
     // Cycle until satellite is the choice, then take the radio away.
     for (let i = 0; i < 4 && lastDrawn() !== 'satellite'; i += 1) {
-      fireEvent.press(screen.getByTestId('recording-map-style'));
+      await fireEvent.press(screen.getByTestId('recording-map-style'));
     }
     expect(lastDrawn()).toBe('satellite');
 
@@ -113,13 +113,15 @@ describe('the recording map picks its own basemap', () => {
     // redraw is forced with a new point rather than by the context that does it
     // in the app.
     network.isOnline = false;
-    view.rerender(<RecordingMap coordinates={[...TRACK, [46.95, 7.449]]} currentLocation={HERE} />);
+    await view.rerender(
+      <RecordingMap coordinates={[...TRACK, [46.95, 7.449]]} currentLocation={HERE} />
+    );
 
     expect(lastDrawn()).not.toBe('satellite');
   });
 
-  it('shows no style control in review mode, where the ride is over', () => {
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} fitBounds />);
+  it('shows no style control in review mode, where the ride is over', async () => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} fitBounds />);
 
     expect(screen.queryByTestId('recording-map-style')).toBeNull();
   });

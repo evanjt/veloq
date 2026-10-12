@@ -9,6 +9,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
+import { initialiseI18n } from '@/i18n';
 import { RouteRow } from '@/features/routes/components/RouteRow';
 import { SectionRow } from '@/features/routes/components/SectionRow';
 import { darkColors, layout } from '@/theme';
@@ -62,23 +63,91 @@ function expectFlatCard(
   expect(flat(parent).marginBottom).toBeDefined();
 }
 
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
+
 describe('list entries on the flat Card', () => {
-  it('draws a route entry on the flat dark card', () => {
-    const view = render(<RouteRow route={route} navigable />);
+  it('draws a route entry on the flat dark card', async () => {
+    const view = await render(<RouteRow route={route} navigable />);
     const touch = view.getByTestId('route-row-r_1-touch');
     expect(touch.props.accessibilityRole).toBe('button');
-    expect(touch.props.accessibilityLabel).toBe('Harbour loop');
+    expect(touch.props.accessibilityLabel).toBe('Harbour loop, 1.0 km, 3 activities');
     expectFlatCard(touch, view.getByTestId('route-row-r_1'));
   });
 
-  it('draws a section entry on the flat dark card and presses through it', () => {
+  it('draws a section entry on the flat dark card and presses through it', async () => {
     const onPress = jest.fn();
-    const view = render(<SectionRow section={section} onPress={onPress} />);
+    const view = await render(<SectionRow section={section} onPress={onPress} />);
     const touch = view.getByTestId('section-row-s_1');
     expect(touch.props.accessibilityRole).toBe('button');
-    expect(touch.props.accessibilityLabel).toBe('Hill climb');
+    expect(touch.props.accessibilityLabel).toBe('Hill climb, 800 m, 4 traversals');
     expectFlatCard(touch, view.UNSAFE_getAllByType(View)[0]);
-    fireEvent.press(touch);
+    await fireEvent.press(touch);
     expect(onPress).toHaveBeenCalledWith('s_1');
+  });
+});
+
+describe('a list entry speaks what it draws', () => {
+  it('reads a route with its distance, proximity, match and activity count', () => {
+    const view = render(
+      <RouteRow route={{ ...route, averageMatchQuality: 86.6 }} distanceFromUser={250} navigable />
+    );
+    expect(view.getByTestId('route-row-r_1-touch').props.accessibilityLabel).toBe(
+      'Harbour loop, 1.0 km, 250 m, 87% match, 3 activities'
+    );
+  });
+
+  it('leaves out a distance the route row hides', () => {
+    const view = render(<RouteRow route={{ ...route, distance: 0 }} navigable />);
+    expect(view.getByTestId('route-row-r_1-touch').props.accessibilityLabel).toBe(
+      'Harbour loop, 3 activities'
+    );
+  });
+
+  it('reads a section with its gain, proximity, tags, record, trend and traversals', () => {
+    const view = render(
+      <SectionRow
+        section={{
+          ...section,
+          sectionType: 'custom',
+          elevationGainM: 42,
+          latestIsRecord: true,
+          trend: 0.4,
+        }}
+        isDisabled
+        distanceFromUser={1500}
+      />
+    );
+    expect(view.getByTestId('section-row-s_1').props.accessibilityLabel).toBe(
+      'Hill climb, 800 m, Elevation gain 42 m, 1.5 km, Custom, Disabled, ' +
+        'Your best time here was your last one, Trending faster, 4 traversals'
+    );
+  });
+
+  it('names a descent by the height it drops, not as a gain', () => {
+    const view = render(<SectionRow section={{ ...section, elevationLossM: 60 }} />);
+    expect(view.getByTestId('section-row-s_1').props.accessibilityLabel).toBe(
+      'Hill climb, 800 m, Elevation loss 60 m, 4 traversals'
+    );
+  });
+
+  it('reads a slowing section as declining and a flat one with no trend word', () => {
+    const slowing = render(<SectionRow section={{ ...section, trend: -0.2 }} />);
+    expect(slowing.getByTestId('section-row-s_1').props.accessibilityLabel).toBe(
+      'Hill climb, 800 m, Trending slower, 4 traversals'
+    );
+    const flatTrend = render(<SectionRow section={{ ...section, trend: 0 }} />);
+    expect(flatTrend.getByTestId('section-row-s_1').props.accessibilityLabel).toBe(
+      'Hill climb, 800 m, 4 traversals'
+    );
+  });
+
+  it('never names an unnamed section by its id', () => {
+    const view = render(<SectionRow section={{ ...section, name: undefined }} />);
+    const button = view.getByRole('button');
+    expect(button.props.accessibilityLabel).not.toBe('s_1');
+    expect(button.props.accessibilityLabel).not.toContain('s_1');
+    expect(button.props.accessibilityLabel).toBe('800 m, 4 traversals');
   });
 });

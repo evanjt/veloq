@@ -11,7 +11,15 @@ import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, getIntlLocale } from '@/shared/format/format';
-import { colors, controlHeight, darkColors, spacing, typography, layout } from '@/theme';
+import {
+  colors,
+  controlHeight,
+  darkColors,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { Button, Card } from '@/shared/ui';
 import type {
   SectionGeometryVersion,
@@ -107,6 +115,7 @@ function Chips({
           key={id}
           testID={`${testID}-${id}`}
           style={pressable([styles.chip, isDark && styles.chipDark])}
+          hitSlop={pillSlop}
           accessibilityRole="button"
           accessibilityLabel={chipLabel(id, names)}
           onPress={() => tapTo(`/activity/${id}`)}
@@ -143,9 +152,18 @@ export function SectionHistoryPanel({
   const locale = getIntlLocale();
   const newest = useMemo(() => Math.max(0, ...versions.map((v) => v.version)), [versions]);
 
-  // A record is held within one sport, so a line about one names it.
-  const inSport = (sport: string | undefined, line: string): string =>
-    sport ? `${t(`activityTypes.${sport}` as never, { defaultValue: sport })} · ${line}` : line;
+  // A record is held within one sport and one direction, so a line about one
+  // names both. A row written before either was held carries neither.
+  const inSport = (
+    sport: string | undefined,
+    direction: string | undefined,
+    line: string
+  ): string => {
+    const parts: string[] = [];
+    if (sport) parts.push(t(`activityTypes.${sport}` as never, { defaultValue: sport }));
+    if (direction) parts.push(t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward'));
+    return [...parts, line].join(' · ');
+  };
 
   const kindLine = (e: SectionHistoryEvent, d: FfiSectionEventDetails): string => {
     switch (e.kind) {
@@ -176,11 +194,14 @@ export function SectionHistoryPanel({
           size={18}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
-        <Text style={[styles.title, isDark && styles.textDark]}>{t('sectionHistory.title')}</Text>
+        <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
+          {t('sectionHistory.title')}
+        </Text>
         {pinnedVersion != null && (
           <Pressable
             testID="section-history-unpin"
             style={pressable([styles.pill, isDark && styles.pillDark])}
+            hitSlop={pillSlop}
             accessibilityRole="button"
             accessibilityLabel={t('sectionHistory.unpin')}
             accessibilityState={{ disabled: isReverting }}
@@ -219,6 +240,7 @@ export function SectionHistoryPanel({
                 <Pressable
                   testID={`section-version-${v.version}-show`}
                   style={pressable([styles.pill, isDark && styles.pillDark])}
+                  hitSlop={pillSlop}
                   accessibilityRole="button"
                   accessibilityLabel={`${t('sectionHistory.version', { version: v.version })}, ${isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}`}
                   accessibilityState={{ selected: isShown }}
@@ -233,6 +255,7 @@ export function SectionHistoryPanel({
                   <Pressable
                     testID={`section-version-${v.version}-revert`}
                     style={pressable([styles.pill, isDark && styles.pillDark])}
+                    hitSlop={pillSlop}
                     accessibilityRole="button"
                     accessibilityLabel={t('sectionHistory.revertVersion', {
                       version: v.version,
@@ -260,7 +283,11 @@ export function SectionHistoryPanel({
         history.map((e) => {
           const d = e.details ?? NO_EVENT_DETAILS;
           return (
-            <View key={e.id} style={styles.event} testID={`section-history-event-${e.kind}`}>
+            <View
+              key={e.id}
+              style={[styles.event, isDark && styles.eventDark]}
+              testID={`section-history-event-${e.kind}`}
+            >
               <Text style={[styles.date, isDark && styles.textDark]}>
                 {ledgerDate(e.at).toLocaleDateString(locale, {
                   day: 'numeric',
@@ -293,6 +320,7 @@ export function SectionHistoryPanel({
                 <Text style={[styles.meta, isDark && styles.textDark]}>
                   {inSport(
                     d.prSport,
+                    d.prDirection,
                     t('sectionHistory.prMoved', {
                       from: formatDuration(d.prFrom),
                       to: formatDuration(d.prTo),
@@ -302,9 +330,13 @@ export function SectionHistoryPanel({
               )}
               {e.kind !== 'pr_rebased' &&
                 d.prs.map((record) => (
-                  <Text key={record.sport ?? ''} style={[styles.meta, isDark && styles.textDark]}>
+                  <Text
+                    key={`${record.sport ?? ''}-${record.direction ?? ''}`}
+                    style={[styles.meta, isDark && styles.textDark]}
+                  >
                     {inSport(
                       record.sport,
+                      record.direction,
                       t('sectionHistory.prEra', {
                         time: formatDuration(record.time),
                       })
@@ -345,6 +377,10 @@ export function SectionHistoryPanel({
   );
 }
 
+// A caption line inside the padding of the activity chips and the version pills.
+const PILL_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
+const pillSlop = slopToMinTapTarget(PILL_HEIGHT);
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -383,6 +419,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: PILL_HEIGHT,
     borderRadius: layout.borderRadiusLg,
     backgroundColor: colors.background,
   },
@@ -397,6 +434,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+  },
+  eventDark: {
+    borderTopColor: darkColors.border,
   },
   date: {
     ...typography.caption,
@@ -422,6 +462,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: PILL_HEIGHT,
     borderRadius: layout.borderRadiusLg,
     backgroundColor: colors.background,
     maxWidth: 160,

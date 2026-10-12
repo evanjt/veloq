@@ -1,4 +1,4 @@
-export { SectionHeader } from './SectionHeader';
+export { SectionHeader, sectionHeroName } from './SectionHeader';
 export type { SectionHeaderProps } from './SectionHeader';
 export { SectionStatsCards } from './SectionStatsCards';
 export type { SectionStatsCardsProps, CalendarSummary } from './SectionStatsCards';

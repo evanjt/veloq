@@ -40,33 +40,33 @@ beforeEach(() => {
 
 describe('the Always prompt is asked once, at the moment it earns the dialog', () => {
   it('asks when a quick-start surface has a ride running', async () => {
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(mockRequestBackground).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(marked()).toBe(true));
   });
 
   it('does not ask from an in-app start, which needs nothing extra', async () => {
-    render({ fromQuickStart: false, recording: true });
+    await render({ fromQuickStart: false, recording: true });
     await waitFor(() => expect(marked()).toBe(false));
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
 
   it('waits for the ride to be running, so a refusal costs nothing', async () => {
-    render({ fromQuickStart: true, recording: false });
+    await render({ fromQuickStart: true, recording: false });
     await waitFor(() => expect(marked()).toBe(false));
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
 
   it('never asks twice, because iOS only shows it once', async () => {
     useRecordingPreferences.setState({ alwaysLocationAsked: true });
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(mockGetForeground).not.toHaveBeenCalled());
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
 
   it('does not ask before When In Use is held: Always is an upgrade, not a first ask', async () => {
     mockGetForeground.mockResolvedValue({ status: 'denied' });
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(mockGetForeground).toHaveBeenCalled());
     expect(mockRequestBackground).not.toHaveBeenCalled();
     expect(marked()).toBe(false);
@@ -74,7 +74,7 @@ describe('the Always prompt is asked once, at the moment it earns the dialog', (
 
   it('waits for the preferences to load, or it would ask a second time on a restart', async () => {
     useRecordingPreferences.setState({ isLoaded: false });
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(mockGetForeground).not.toHaveBeenCalled());
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
@@ -83,13 +83,13 @@ describe('the Always prompt is asked once, at the moment it earns the dialog', (
 describe('a refusal breaks nothing', () => {
   it('records the ask so the athlete is never nagged again', async () => {
     mockRequestBackground.mockResolvedValue({ status: 'denied' });
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(marked()).toBe(true));
   });
 
   it('survives the request throwing, which is what a refusal can look like', async () => {
     mockRequestBackground.mockRejectedValue(new Error('no'));
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await waitFor(() => expect(marked()).toBe(true));
   });
 });
@@ -105,7 +105,7 @@ describe('Android never shows the Always dialog', () => {
   });
 
   it('requests nothing for a quick-start ride, which runs in a foreground service', async () => {
-    render({ fromQuickStart: true, recording: true });
+    await render({ fromQuickStart: true, recording: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(mockRequestBackground).not.toHaveBeenCalled();
     expect(marked()).toBe(false);

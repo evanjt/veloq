@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   BodyNotDownloaded,
-  EngineReadFailure,
+  composeAccessibilityLabel,
+  EmptyState,
+  ErrorState,
   ScreenSafeAreaView,
-  useTabBarClearance,
   ToggleButtonRow,
+  Spinner,
+  useTabBarClearance,
 } from '@/shared/ui';
 import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
@@ -72,7 +75,11 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
     () => efforts.map((e) => e.activityId).filter((id): id is string => !!id),
     [efforts]
   );
-  const { labels: activityMap, error: labelsError } = useActivityLabels(effortIds);
+  const {
+    labels: activityMap,
+    error: labelsError,
+    refetch: refetchLabels,
+  } = useActivityLabels(effortIds);
   const sportColor = SPORT_COLORS[sport];
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
   const hasAnyValue = efforts.some((e) => e.value !== null);
@@ -94,36 +101,41 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           color={sportColor}
           style={styles.cardHeaderIcon}
         />
-        <Text style={[styles.cardTitle, isDark && styles.cardTitleDark]}>{sectionTitle}</Text>
+        <Text accessibilityRole="header" style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
+          {sectionTitle}
+        </Text>
       </View>
 
       {labelsError != null && (
-        <EngineReadFailure error={labelsError} testID={`best-efforts-labels-failed-${sport}`} />
+        <ErrorState
+          variant="inline"
+          error={labelsError}
+          onRetry={refetchLabels}
+          testID={`best-efforts-labels-failed-${sport}`}
+        />
       )}
 
       {isLoading || (notFetched && curve.status === 'waiting') ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner />
         </View>
       ) : notFetched ? (
         <BodyNotDownloaded
           testID={`best-efforts-not-downloaded-${sport}`}
-          style={styles.emptyContainer}
-          textStyle={[styles.emptyText, isDark && styles.emptyTextDark]}
+          style={styles.notDownloaded}
+          textStyle={[styles.notDownloadedText, isDark && styles.notDownloadedTextDark]}
           message={t('statsScreen.curveNotDownloaded')}
           status={curve.status}
           onRetry={curve.retry}
         />
       ) : !hasAnyValue ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {t('statsScreen.noEffortData')}
-          </Text>
-        </View>
+        <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
       ) : (
         efforts.map((effort, index) => {
           const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
           const timeStr = formatDurationOrNull(effort.time);
+          const shownTime = timeStr && sport !== 'Cycling' ? timeStr : null;
+          const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
           const isLast = index === efforts.length - 1;
 
           const opensActivity = !!activityInfo && !!effort.activityId;
@@ -133,12 +145,18 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
               key={effort.label}
               testID={`best-efforts-row-${sport}-${effort.label}`}
               label={effort.label}
-              value={formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
-              secondary={sport !== 'Cycling' ? timeStr : null}
+              value={valueText}
+              secondary={shownTime}
               valueColor={sportText}
               isLast={isLast}
               onPress={opensActivity ? () => tapTo(`/activity/${effort.activityId}`) : undefined}
-              accessibilityLabel={effort.label}
+              accessibilityLabel={composeAccessibilityLabel(
+                effort.label,
+                valueText,
+                shownTime,
+                activityInfo?.name,
+                activityInfo?.date
+              )}
             >
               {activityInfo ? (
                 <>
@@ -152,9 +170,9 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
                     {activityInfo.date}
                   </Text>
                 </>
-              ) : effort.value !== null ? (
+              ) : effort.value !== null && labelsError == null ? (
                 <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
-                  {t('bestEffortsScreen.activityNotCached')}
+                  {t('activitySummary.notDownloaded')}
                 </Text>
               ) : null}
             </BestEffortRow>
@@ -190,21 +208,17 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
           color={SPORT_COLORS[sport]}
           style={styles.cardHeaderIcon}
         />
-        <Text style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
+        <Text accessibilityRole="header" style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
           {t('bestEffortsScreen.climbingBests')}
         </Text>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner />
         </View>
       ) : !hasAnyValue && !hasNote ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {t('statsScreen.noEffortData')}
-          </Text>
-        </View>
+        <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
       ) : (
         <>
           {hasAnyValue ? <ClimbingBestRows bests={bests} sport={sport} /> : null}
@@ -225,7 +239,7 @@ function BestEffortsScreenContent() {
   const [period, setPeriod] = useState<Period>(() => bestEffortsPeriodFromParam(params.period));
 
   const days = bestEffortsDays(period);
-  const { data, isLoading, error, curves } = useBestEfforts(days, SHOWN);
+  const { data, isLoading, error, refetch, curves } = useBestEfforts(days, SHOWN);
   const effortsBySport = useMemo(
     () => new Map(SPORTS.map((sport) => [sport, bestEffortsOf(data, sport)])),
     [data]
@@ -272,29 +286,38 @@ function BestEffortsScreenContent() {
             : t('bestEffortsScreen.seasonSubtitle', { days })}
         </Text>
 
-        {error != null && <EngineReadFailure error={error} testID="best-efforts-read-failed" />}
-
-        {SPORTS.map((sport) => (
-          <SportSection
-            key={sport}
-            sport={sport}
-            efforts={effortsBySport.get(sport) ?? []}
-            curve={curves[BEST_EFFORTS_SPORT[sport]]}
-            isLoading={isLoading}
-            isDark={isDark}
+        {error != null ? (
+          <ErrorState
+            variant="inline"
+            error={error}
+            onRetry={() => void refetch()}
+            testID="best-efforts-read-failed"
           />
-        ))}
+        ) : (
+          <>
+            {SPORTS.map((sport) => (
+              <SportSection
+                key={sport}
+                sport={sport}
+                efforts={effortsBySport.get(sport) ?? []}
+                curve={curves[BEST_EFFORTS_SPORT[sport]]}
+                isLoading={isLoading}
+                isDark={isDark}
+              />
+            ))}
 
-        {CLIMBING_SPORTS.map((sport) => (
-          <ClimbingSection
-            key={sport}
-            sport={sport}
-            bests={climbingBySport.get(sport) ?? []}
-            status={climbStatusBySport.get(sport) ?? { owed: 0, sourceExcluded: 0 }}
-            isLoading={isLoading}
-            isDark={isDark}
-          />
-        ))}
+            {CLIMBING_SPORTS.map((sport) => (
+              <ClimbingSection
+                key={sport}
+                sport={sport}
+                bests={climbingBySport.get(sport) ?? []}
+                status={climbStatusBySport.get(sport) ?? { owed: 0, sourceExcluded: 0 }}
+                isLoading={isLoading}
+                isDark={isDark}
+              />
+            ))}
+          </>
+        )}
 
         <Text style={[styles.footerNote, isDark && styles.footerNoteDark]}>
           {t('bestEffortsScreen.sourceNote')}
@@ -355,15 +378,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'center',
   },
-  emptyContainer: {
+  notDownloaded: {
     padding: spacing.md,
     alignItems: 'center',
   },
-  emptyText: {
+  notDownloadedText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  emptyTextDark: {
+  notDownloadedTextDark: {
     color: darkColors.textSecondary,
   },
   activityName: {

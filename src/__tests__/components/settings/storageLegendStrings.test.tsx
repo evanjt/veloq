@@ -69,8 +69,8 @@ function fullPanel() {
 }
 
 describe('the storage legend', () => {
-  it('names every segment through a key', () => {
-    const { getAllByTestId } = fullPanel();
+  it('names every segment through a key', async () => {
+    const { getAllByTestId } = await fullPanel();
     const names = getAllByTestId('storage-legend-label').map((n) => String(n.props.children[0]));
     expect(names).toHaveLength(SEGMENT_KEYS.length);
     for (const name of names) {
@@ -78,8 +78,8 @@ describe('the storage legend', () => {
     }
   });
 
-  it('draws a segment for every store that holds something', () => {
-    const { getAllByTestId } = fullPanel();
+  it('draws a segment for every store that holds something', async () => {
+    const { getAllByTestId } = await fullPanel();
     const names = getAllByTestId('storage-legend-label').map((n) => String(n.props.children[0]));
     expect(names).toEqual(SEGMENT_KEYS.map((key) => `t(settings.${key})`));
   });

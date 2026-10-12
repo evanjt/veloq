@@ -8,13 +8,22 @@
  * one native file does inside itself is the build's business, not this suite's.
  */
 
+import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
+
+import {
+  MAPLIBRE_GL_CSS_FILE,
+  MAPLIBRE_GL_CSS_SHA256,
+  MAPLIBRE_GL_JS_FILE,
+  MAPLIBRE_GL_JS_SHA256,
+} from '@/features/maps/assets/maplibreRenderer.generated';
 
 import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
 import { VELOQ_WEBVIEW_COMPONENT_NAME } from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { HEATMAP_TILE_STOPS } from '@/features/maps/lib/heatmapPaint';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { RECORD_PICKER_URL, WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
@@ -898,7 +907,7 @@ const CONTRACTS: Contract[] = [
   {
     agree: 'a tap on the iOS Summary widget goes to the Fitness tab route',
     a: { file: 'widget/ios/VeloqWidget/SummaryWidgetModel.swift', has: '"veloq://fitness"' },
-    b: { file: 'src/app/(tabs)/fitness.tsx' },
+    b: { file: 'src/app/(tabs)/fitness/index.tsx' },
   },
   {
     agree: 'the iOS Summary widget decodes the metric list the engine writes for a placement',
@@ -1105,7 +1114,7 @@ const CONTRACTS: Contract[] = [
   {
     agree: 'a tap on the Summary widget goes to the Fitness tab route',
     a: { file: 'widget/android/java/WidgetRenderer.kt', has: 'FITNESS_URL = "veloq://fitness"' },
-    b: { file: 'src/app/(tabs)/fitness.tsx' },
+    b: { file: 'src/app/(tabs)/fitness/index.tsx' },
   },
   {
     agree: 'the iOS record surfaces fall back to the picker link the snapshot names',
@@ -1911,6 +1920,20 @@ describe('the light heatmap paint agrees with the contrast test that gates it', 
   });
 });
 
+// The layers menu keys the heatmap with the ramp the engine paints its tiles in.
+it('keys the heatmap in the colour stops the engine paints its tiles with', () => {
+  const lut = read(`${RUST}/tiles.rs`).match(
+    /fn build_colour_lut[\s\S]*?let stops[^=]*= &\[([\s\S]*?)\];/
+  );
+  expect(lut).not.toBeNull();
+  const stops = [...(lut?.[1] ?? '').replace(/\/\/.*$/gm, '').matchAll(/\(([^)]*)\)/g)]
+    .map((match) => match[1].split(',').map(Number))
+    .filter(([intensity]) => intensity > 0)
+    .map(([intensity, r, g, b, a]) => ({ intensity, rgba: [r, g, b, a] }));
+  expect(stops.length).toBeGreaterThan(2);
+  expect(HEATMAP_TILE_STOPS).toEqual(stops);
+});
+
 describe('the widget palette agrees with the committed Android resources', () => {
   const resource = (dir: string) => read(`widget/android/res/${dir}/widget_theme.xml`);
 
@@ -1961,4 +1984,59 @@ describe('every basemap clear runs off the JS thread', () => {
       expect(declared().get(name)).toMatch(/^Promise</);
     }
   );
+});
+
+describe('the renderer every map page asks for is the one both platforms ship', () => {
+  // Android packages `modules/veloqrs/assets` as its assets, and the podspec
+  // copies `assets/basemap` into the iOS resource bundle, so one file feeds both.
+  const BASEMAP = 'modules/veloqrs/assets/basemap';
+  const directory = MAPLIBRE_GL_JS_FILE.split('/')[0];
+
+  it.each([
+    [MAPLIBRE_GL_JS_FILE, MAPLIBRE_GL_JS_SHA256],
+    [MAPLIBRE_GL_CSS_FILE, MAPLIBRE_GL_CSS_SHA256],
+  ])('%s carries the bytes the generator pinned', (file, sha) => {
+    const bytes = fs.readFileSync(path.join(ROOT, BASEMAP, file));
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha);
+  });
+
+  it('ships one version only, so a bump leaves no stale renderer behind', () => {
+    expect(fs.readdirSync(path.join(ROOT, BASEMAP, directory)).sort()).toEqual(
+      [MAPLIBRE_GL_CSS_FILE, MAPLIBRE_GL_JS_FILE].map((file) => path.basename(file)).sort()
+    );
+  });
+
+  it('the iOS bundle is a copy of the directory Android packages', () => {
+    expect(read('modules/veloqrs/scripts/sync-basemap-assets.js')).toContain(
+      "path.join(__dirname, '..', 'assets', 'basemap')"
+    );
+    expect(read(`${TILE_IOS}/Veloqrs.podspec`)).toContain('"VeloqBasemap" => ["BasemapAssets"]');
+  });
+
+  it('both interceptors admit the renderer directory', () => {
+    expect(read(`${TILE_ANDROID}/BasemapAssetPath.java`)).toContain(
+      `static final String RENDERER = "${directory}";`
+    );
+    expect(read(`${TILE_IOS}/VeloqTileSchemeHandler.m`)).toContain(
+      `RendererDirectory = @"${directory}";`
+    );
+  });
+
+  it('both interceptors answer the renderer as a script and a stylesheet', () => {
+    const android = read(`${TILE_ANDROID}/BasemapAssetPath.java`);
+    expect(android).toContain('endsWith(".js")) return "text/javascript";');
+    expect(android).toContain('endsWith(".css")) return "text/css";');
+    const ios = read(`${TILE_IOS}/VeloqTileSchemeHandler.m`);
+    expect(ios).toContain('isEqualToString:@"js"]) return @"text/javascript; charset=utf-8";');
+    expect(ios).toContain('isEqualToString:@"css"]) return @"text/css; charset=utf-8";');
+  });
+
+  it('both interceptors let the WebView keep the versioned renderer', () => {
+    const immutable = 'public, max-age=31536000, immutable';
+    expect(read(`${TILE_ANDROID}/BasemapAssetPath.java`)).toContain(`"${immutable}"`);
+    expect(read(`${TILE_ANDROID}/VeloqTileWebViewClient.java`)).toContain(
+      'BasemapAssetPath.cacheControlFor(path)'
+    );
+    expect(read(`${TILE_IOS}/VeloqTileSchemeHandler.m`)).toContain(`@"${immutable}"`);
+  });
 });

@@ -91,8 +91,8 @@ function renderPanel(over: Omit<PanelProps, keyof typeof baseProps>) {
 }
 
 describe('the map cache row against its legend', () => {
-  it('names a store holding only previews for what it holds, not for tiles', () => {
-    const { getByTestId } = renderPanel({
+  it('names a store holding only previews for what it holds, not for tiles', async () => {
+    const { getByTestId } = await renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
       basemapTiles: { totalBytes: 0, vectorBytes: 0 },
@@ -100,8 +100,8 @@ describe('the map cache row against its legend', () => {
     expect(getByTestId('settings-map-cache-label').props.children).toBe('settings.mapCache');
   });
 
-  it('marks the total as a floor while a store has not answered', () => {
-    const { getByTestId } = renderPanel({
+  it('marks the total as a floor while a store has not answered', async () => {
+    const { getByTestId } = await renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
       basemapTiles: null,
@@ -111,8 +111,8 @@ describe('the map cache row against its legend', () => {
     );
   });
 
-  it('prints a plain size once every store has answered', () => {
-    const { getByTestId } = renderPanel({
+  it('prints a plain size once every store has answered', async () => {
+    const { getByTestId } = await renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
       basemapTiles: { totalBytes: 0, vectorBytes: 0 },
@@ -120,8 +120,8 @@ describe('the map cache row against its legend', () => {
     expect(getByTestId('settings-map-cache-value').props.children).toBe('15.4 MB');
   });
 
-  it('keeps the row and the legend from being the same number twice', () => {
-    const { getByTestId } = renderPanel({
+  it('keeps the row and the legend from being the same number twice', async () => {
+    const { getByTestId } = await renderPanel({
       terrainCacheSize: 4_000_000,
       heatmapCacheSize: 2_000_000,
       basemapTiles: { totalBytes: 6_000_000, vectorBytes: 6_000_000 },

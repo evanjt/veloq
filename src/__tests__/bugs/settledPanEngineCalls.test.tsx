@@ -39,14 +39,14 @@ function library(count: number): ActivityBoundsItem[] {
   }));
 }
 
-function settle(count: number, zooms: number[]) {
-  const rendered = renderHook(() =>
+async function settle(count: number, zooms: number[]) {
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities: library(count),
       selected: null,
       setSelected: jest.fn(),
       setSelectedSectionId: jest.fn(),
-      setSectionChoices: jest.fn(),
+      chooseSection: jest.fn(),
       showActivities: true,
       setShowActivities: jest.fn(),
       showSections: true,
@@ -69,7 +69,7 @@ function settle(count: number, zooms: number[]) {
     } as never)
   );
   for (const zoom of zooms) {
-    act(() => {
+    await act(() => {
       rendered.result.current.handleRegionDidChange({
         zoom,
         center: [6.6 + zoom / 100, 46.5],
@@ -87,13 +87,13 @@ describe('a settled region change', () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  it('queries no viewport on a library of 2,000 activities', () => {
-    settle(2000, [10, 10.5]);
+  it('queries no viewport on a library of 2,000 activities', async () => {
+    await settle(2000, [10, 10.5]);
     expect(mockEngine.queryViewport).not.toHaveBeenCalled();
   });
 
-  it('queries no viewport when crossing zoom 11 on five activities', () => {
-    settle(5, [10, 12, 10]);
+  it('queries no viewport when crossing zoom 11 on five activities', async () => {
+    await settle(5, [10, 12, 10]);
     expect(mockEngine.queryViewport).not.toHaveBeenCalled();
   });
 });

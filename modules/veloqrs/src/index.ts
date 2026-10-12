@@ -190,6 +190,7 @@ export type ZoneDistributionData = FfiZoneDistribution;
 /** One local day's recorded activity load and whether it is complete. */
 export type DayLoad = FfiDayLoad;
 export { FfiDayLoadStatus as DayLoadStatus } from './generated/veloqrs';
+export { FfiMaxHrSource as MaxHrSource } from './generated/veloqrs';
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;

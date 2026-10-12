@@ -1,9 +1,10 @@
 import React, { Component, ReactNode } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { Button } from './Button';
+import { StatusLine } from './StatusLine';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
@@ -83,22 +84,23 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
+  const title = componentName
+    ? t('errorState.unableToLoad', { componentName })
+    : t('errorState.defaultTitle');
+  const hint = t('errorState.restartHint');
+
   return (
-    <View
+    <StatusLine
+      tone="error"
+      message={[title, hint]}
       style={[
         styles.container,
         isDark && styles.containerDark,
         minHeight ? { minHeight } : undefined,
       ]}
     >
-      <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
-        {componentName
-          ? t('errorState.unableToLoad', { componentName })
-          : t('errorState.defaultTitle')}
-      </Text>
-      <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
-        {t('errorState.restartHint')}
-      </Text>
+      <Text style={[styles.errorText, isDark && styles.errorTextDark]}>{title}</Text>
+      <Text style={[styles.hintText, isDark && styles.hintTextDark]}>{hint}</Text>
       {showRetry && (
         <Button
           label={t('common.retry')}
@@ -108,7 +110,7 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
           style={styles.retryButton}
         />
       )}
-    </View>
+    </StatusLine>
   );
 }
 

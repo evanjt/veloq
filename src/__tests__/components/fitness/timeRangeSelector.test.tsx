@@ -14,8 +14,8 @@ import { TimeRangeSelector } from '@/features/fitness/components/TimeRangeSelect
 import { TIME_RANGES } from '@/shared/app/constants';
 
 describe('TimeRangeSelector', () => {
-  it('exposes every range as a button and marks only the chosen one selected', () => {
-    render(<TimeRangeSelector timeRange="3m" onTimeRangeChange={() => {}} isDark={false} />);
+  it('exposes every range as a button and marks only the chosen one selected', async () => {
+    await render(<TimeRangeSelector timeRange="3m" onTimeRangeChange={() => {}} isDark={false} />);
 
     for (const range of TIME_RANGES) {
       const button = screen.getByRole('button', { name: range.labelKey });
@@ -24,13 +24,13 @@ describe('TimeRangeSelector', () => {
     }
   });
 
-  it('reports the range that was pressed', () => {
+  it('reports the range that was pressed', async () => {
     const onTimeRangeChange = jest.fn();
-    render(
+    await render(
       <TimeRangeSelector timeRange="3m" onTimeRangeChange={onTimeRangeChange} isDark={false} />
     );
 
-    fireEvent.press(screen.getByTestId('fitness-range-1y'));
+    await fireEvent.press(screen.getByTestId('fitness-range-1y'));
 
     expect(onTimeRangeChange).toHaveBeenCalledWith('1y');
   });

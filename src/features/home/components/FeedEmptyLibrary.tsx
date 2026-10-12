@@ -56,7 +56,7 @@ export function FeedEmptyLibrary({ state, onRetry }: FeedEmptyLibraryProps) {
           icon="cloud-alert"
           title={t('feed.emptyLibrary.failedTitle')}
           description={reasonKey ? t(reasonKey) : t('feed.emptyLibrary.failedBody')}
-          actionLabel={t('errorState.tryAgain')}
+          actionLabel={t('common.retry')}
           onAction={onRetry}
         />
       );

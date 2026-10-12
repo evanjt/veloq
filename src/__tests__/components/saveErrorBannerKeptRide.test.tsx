@@ -14,10 +14,10 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/ui/useAnnounceOnAppear', () => ({ useAnnounceOnAppear: () => {} }));
 
-it('offers the kept ride to open and share, with the server detail beneath', () => {
+it('offers the kept ride to open and share, with the server detail beneath', async () => {
   const onOpen = jest.fn();
   const onShare = jest.fn();
-  const { getByText, getByTestId, queryByText } = render(
+  const { getByText, getByTestId, queryByText } = await render(
     <SaveErrorBanner
       errorMessage="recording.uploadRejected"
       detail="Duplicate lantern log"
@@ -33,14 +33,14 @@ it('offers the kept ride to open and share, with the server detail beneath', () 
   expect(getByText('Duplicate lantern log')).toBeTruthy();
   expect(queryByText('common.retry')).toBeNull();
 
-  fireEvent.press(getByTestId('save-error-open-recording'));
-  fireEvent.press(getByTestId('save-error-share-fit'));
+  await fireEvent.press(getByTestId('save-error-open-recording'));
+  await fireEvent.press(getByTestId('save-error-share-fit'));
   expect(onOpen).toHaveBeenCalledTimes(1);
   expect(onShare).toHaveBeenCalledTimes(1);
 });
 
-it('shows neither action nor detail when none is given', () => {
-  const { queryByTestId, toJSON } = render(
+it('shows neither action nor detail when none is given', async () => {
+  const { queryByTestId, toJSON } = await render(
     <SaveErrorBanner
       errorMessage="recording.uploadMissing"
       showPermissionFix={false}

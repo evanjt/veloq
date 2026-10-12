@@ -184,10 +184,15 @@ fn sustained_dissolve_writes_one_event_with_an_era_snapshot() {
     for key in ["avg_time", "visits_per_month"] {
         assert!(details.get(key).is_none(), "snapshot must not carry {key}");
     }
-    assert!(
-        details["prs"].is_object(),
-        "the era's records are keyed by sport"
-    );
+    let prs = details["prs"]
+        .as_array()
+        .expect("the era's records are a list");
+    for record in prs {
+        assert!(
+            record["sport"].is_string() && record["direction"].is_string(),
+            "each era record names its sport and direction: {record}"
+        );
+    }
 }
 
 #[test]
@@ -568,6 +573,13 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
             assert!(
                 d.get("sport").and_then(|v| v.as_str()).is_some(),
                 "a record moves within one sport"
+            );
+            assert!(
+                matches!(
+                    d.get("direction").and_then(|v| v.as_str()),
+                    Some("same" | "reverse")
+                ),
+                "a record moves within one direction"
             );
             let from = d.get("from_time").and_then(|v| v.as_f64());
             let to = d.get("to_time").and_then(|v| v.as_f64());

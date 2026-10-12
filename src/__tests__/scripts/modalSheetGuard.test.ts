@@ -6,7 +6,8 @@
  * Expected behaviour: a file rendering `<Modal` that the baseline does not list
  * fails and is named, with a pointer at the sheets directory. A baseline entry
  * whose file no longer renders one fails as stale, so each conversion deletes
- * its own line and the list only shrinks.
+ * its own line and the list only shrinks. An entry names why its file stays a
+ * Modal: `converting` is a promise, not a reason, so it is refused.
  */
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -50,6 +51,7 @@ export const A = () => (
 `;
 
 const FILE = 'src/features/a/A.tsx';
+const REASON = 'full-screen takeover: the camera fills the screen';
 
 describe('the Modal sheet guard', () => {
   it('refuses a Modal sheet in a file outside the baseline, naming it and the sheets directory', () => {
@@ -64,12 +66,21 @@ describe('the Modal sheet guard', () => {
   it('passes the same file once the baseline lists it with a reason', () => {
     const root = treeWith({ [FILE]: SHEET });
 
-    expect(runGuard(root, { [FILE]: 'converting' }).status).toBe(0);
+    expect(runGuard(root, { [FILE]: REASON }).status).toBe(0);
+  });
+
+  it('refuses an entry whose reason is a promise to convert, naming it', () => {
+    const root = treeWith({ [FILE]: SHEET });
+    const run = runGuard(root, { [FILE]: ' Converting ' });
+
+    expect(run.status).toBe(1);
+    expect(run.output).toContain(FILE);
+    expect(run.output).toContain('src/app/sheets/');
   });
 
   it('refuses a baseline entry whose file no longer renders a Modal, and names it', () => {
     const root = treeWith({ [FILE]: 'export const A = () => null;\n' });
-    const run = runGuard(root, { [FILE]: 'converting' });
+    const run = runGuard(root, { [FILE]: REASON });
 
     expect(run.status).toBe(1);
     expect(run.output).toContain(FILE);
@@ -79,7 +90,7 @@ describe('the Modal sheet guard', () => {
   it('refuses a baseline entry whose file is gone', () => {
     const root = treeWith({ 'src/features/a/B.tsx': 'export const B = 1;\n' });
 
-    expect(runGuard(root, { [FILE]: 'converting' }).status).toBe(1);
+    expect(runGuard(root, { [FILE]: REASON }).status).toBe(1);
   });
 
   it('refuses a baseline entry with no reason', () => {

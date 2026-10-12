@@ -69,11 +69,11 @@ function engine() {
  * the callback schedules is only flushed when the first one returns, and a
  * timer run inside it would come too early to see the interaction.
  */
-function announce(event: string) {
-  act(() => {
+async function announce(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb());
   });
-  act(() => {
+  await act(() => {
     jest.runOnlyPendingTimers();
   });
 }
@@ -93,89 +93,89 @@ describe('useStartupData read count', () => {
     mockGetEngine.mockReturnValue(engine());
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Unmount on the fake clock the test rendered on. Left to the testing
     // library's own cleanup, the unmount runs after `useRealTimers` has swapped
     // the clock out from under React, and an unmount that then has to wait on
     // React waits forever: three of these five tests spent the full 30 s hook
     // budget in that cleanup on the CI runner, twice, and never here.
-    act(() => {
+    await act(() => {
       unmountRendered?.();
     });
     unmountRendered = null;
     jest.useRealTimers();
   });
 
-  function mount() {
-    const rendered = renderHook(() => useStartupData(['a1']));
+  async function mount() {
+    const rendered = await renderHook(() => useStartupData(['a1']));
     unmountRendered = rendered.unmount;
-    act(() => {
+    await act(() => {
       jest.runOnlyPendingTimers();
     });
     return rendered;
   }
 
-  it('reads once when a launch sync announces five times', () => {
-    mount();
+  it('reads once when a launch sync announces five times', async () => {
+    await mount();
 
-    for (let i = 0; i < 5; i += 1) announce('activities');
+    for (let i = 0; i < 5; i += 1) await announce('activities');
 
     expect(reads).toBe(1);
   });
 
-  it('reads again for the first stored rows when the read at mount saw an empty library', () => {
+  it('reads again for the first stored rows when the read at mount saw an empty library', async () => {
     storedActivities = 0;
-    mount();
+    await mount();
     expect(reads).toBe(1);
 
     storedActivities = 3;
-    announce('activities');
+    await announce('activities');
     expect(reads).toBe(2);
 
-    announce('activities');
-    announce('activities');
+    await announce('activities');
+    await announce('activities');
     expect(reads).toBe(2);
   });
 
-  it('reads again when the sync settles, so the feed is not left stale', () => {
-    mount();
-    announce('activities');
+  it('reads again when the sync settles, so the feed is not left stale', async () => {
+    await mount();
+    await announce('activities');
     expect(reads).toBe(1);
 
     syncState = SyncState.Idle;
-    announce('syncSettled');
+    await announce('syncSettled');
 
     expect(reads).toBe(2);
   });
 
-  it('still refreshes on an announcement outside a sync', () => {
+  it('still refreshes on an announcement outside a sync', async () => {
     syncState = SyncState.Idle;
-    mount();
+    await mount();
     expect(reads).toBe(1);
 
-    announce('sections');
+    await announce('sections');
 
     expect(reads).toBe(2);
   });
 
-  it('paints from the first read even though a sync is running', () => {
-    const { result } = mount();
+  it('paints from the first read even though a sync is running', async () => {
+    const { result } = await mount();
 
     expect(reads).toBe(1);
     expect(result.current.data).not.toBeNull();
   });
 
-  it('does not read again when the settle brings nothing new to announce', () => {
+  it('does not read again when the settle brings nothing new to announce', async () => {
     syncState = SyncState.Idle;
-    mount();
+    await mount();
     const after = reads;
 
-    announce('syncSettled');
+    await announce('syncSettled');
 
     expect(reads).toBe(after);
   });
 
-  it('retains an unchanged startup track while replacing its changed neighbour', () => {
+  it('retains an unchanged startup track while replacing its changed neighbour', async () => {
     syncState = SyncState.Idle;
     mockEncodedCoords.set('old', [{ latitude: 46.2, longitude: 7.3 }]);
     mockEncodedCoords.set('new', [{ latitude: 47.1, longitude: 7.3 }]);
@@ -184,7 +184,7 @@ describe('useStartupData read count', () => {
       { activityId: 'a1', encodedCoords: 'old' },
       { activityId: 'a2', encodedCoords: 'same' },
     ];
-    const { result } = mount();
+    const { result } = await mount();
     const firstA1 = result.current.data?.previewTracks.get('a1');
     const firstA2 = result.current.data?.previewTracks.get('a2');
 
@@ -192,7 +192,7 @@ describe('useStartupData read count', () => {
       { activityId: 'a1', encodedCoords: 'new' },
       { activityId: 'a2', encodedCoords: 'same' },
     ];
-    announce('sections');
+    await announce('sections');
 
     expect(result.current.data?.previewTracks.get('a1')).not.toBe(firstA1);
     expect(result.current.data?.previewTracks.get('a2')).toBe(firstA2);

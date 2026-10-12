@@ -31,8 +31,8 @@ const METRICS = {
   movingTime: 200,
 };
 
-it('draws the heart rate number in the zone text tone, not the zone fill', () => {
-  const tree = render(
+it('draws the heart rate number in the zone text tone, not the zone fill', async () => {
+  const tree = await render(
     <DataFieldGrid
       fields={['heartrate']}
       metrics={METRICS}

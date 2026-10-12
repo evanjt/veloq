@@ -64,6 +64,44 @@ function streams(overrides: StreamArrays = {}): ActivityStreams {
   });
 }
 
+describe('why buildChartData has nothing to draw', () => {
+  const configs = { power: powerConfig() } as Record<ChartTypeId, ChartConfig>;
+
+  it('names a missing distance stream when the axis is distance and time exists', () => {
+    const result = buildChartData(
+      streams({ distance: [] }),
+      ['power'],
+      configs,
+      true,
+      null,
+      'distance'
+    );
+    expect(result.emptyCause).toBe('noDistance');
+  });
+
+  it('names an activity with no samples at all', () => {
+    const result = buildChartData(
+      streams({ time: [], distance: [] }),
+      ['power'],
+      configs,
+      true,
+      null,
+      'time'
+    );
+    expect(result.emptyCause).toBe('noSamples');
+  });
+
+  it('names chosen metrics the activity did not record', () => {
+    const result = buildChartData(streams({ watts: [] }), ['power'], configs, true, null, 'time');
+    expect(result.emptyCause).toBe('noMetrics');
+  });
+
+  it('names nothing when there is a series to draw', () => {
+    const result = buildChartData(streams(), ['power'], configs, true, null, 'distance');
+    expect(result.emptyCause).toBeNull();
+  });
+});
+
 describe('buildChartData', () => {
   it('returns empty result when x-source is empty', () => {
     const result = buildChartData(

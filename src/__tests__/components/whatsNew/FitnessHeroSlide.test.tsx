@@ -40,7 +40,7 @@ const EXPLANATIONS = [
   'fitnessScreen.formDescription',
 ];
 
-function drawnKeys(tree: ReturnType<typeof render>): string[] {
+function drawnKeys(tree: Awaited<ReturnType<typeof render>>): string[] {
   return tree.root.findAllByType('Text' as never).flatMap((node) => {
     const child = (node.props as { children?: unknown }).children;
     const parts = Array.isArray(child) ? child : [child];
@@ -55,8 +55,8 @@ function lookup(bundle: unknown, key: string): unknown {
 }
 
 describe('the tour fitness slide', () => {
-  it('shows the four cut-outs of the Fitness tab under the titles the tab uses', () => {
-    const tree = render(<FitnessHeroSlide />);
+  it('shows the four cut-outs of the Fitness tab under the titles the tab uses', async () => {
+    const tree = await render(<FitnessHeroSlide />);
 
     for (const [testID, titleKey] of CUTOUTS) {
       const card = tree.getByTestId(testID);
@@ -64,14 +64,14 @@ describe('the tour fitness slide', () => {
     }
   });
 
-  it('says what fitness, fatigue and form are, in the words the Fitness tab uses', () => {
-    const drawn = drawnKeys(render(<FitnessHeroSlide />));
+  it('says what fitness, fatigue and form are, in the words the Fitness tab uses', async () => {
+    const drawn = drawnKeys(await render(<FitnessHeroSlide />));
 
     for (const key of EXPLANATIONS) expect(drawn).toContain(key);
   });
 
-  it('draws only keys that have a value in every locale', () => {
-    const keys = drawnKeys(render(<FitnessHeroSlide />));
+  it('draws only keys that have a value in every locale', async () => {
+    const keys = drawnKeys(await render(<FitnessHeroSlide />));
     expect(keys.length).toBeGreaterThan(0);
 
     for (const file of fs.readdirSync(LOCALES_DIR)) {

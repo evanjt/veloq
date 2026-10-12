@@ -17,6 +17,7 @@ describe('ftpTrendView', () => {
       latestFtp: 250,
       previousFtp: 240,
       deltaWatts: 10,
+      lookbackDays: 30,
       sampleCount: 3,
       changes: [],
       history: [
@@ -35,6 +36,7 @@ describe('ftpTrendView', () => {
       latestFtp: 250,
       previousFtp: 200,
       deltaWatts: 50,
+      lookbackDays: 30,
       sampleCount: 91,
       changes: [],
       history: [],
@@ -45,11 +47,31 @@ describe('ftpTrendView', () => {
     expect(view.changePercent).toBeCloseTo(25, 5);
   });
 
+  it('carries the window the engine measured the step over for the caption', () => {
+    const view = ftpTrendView({
+      latestFtp: 275,
+      previousFtp: 270,
+      deltaWatts: 5,
+      lookbackDays: 30,
+      sampleCount: 3,
+      changes: [],
+      history: [
+        { date: midnightUtc('2026-06-07'), value: 240 },
+        { date: midnightUtc('2026-08-06'), value: 270 },
+        { date: midnightUtc('2026-09-05'), value: 275 },
+      ],
+    });
+
+    expect(view.change).toBe(5);
+    expect(view.lookbackDays).toBe(30);
+  });
+
   it('reports a fall with its sign', () => {
     const view = ftpTrendView({
       latestFtp: 180,
       previousFtp: 200,
       deltaWatts: -20,
+      lookbackDays: 30,
       sampleCount: 91,
       changes: [],
       history: [],
@@ -62,6 +84,7 @@ describe('ftpTrendView', () => {
   it('has no step when the engine had nothing to compare against', () => {
     const view = ftpTrendView({
       latestFtp: 250,
+      lookbackDays: 30,
       sampleCount: 1,
       changes: [],
       history: [{ date: midnightUtc('2026-06-03'), value: 250 }],
@@ -73,7 +96,7 @@ describe('ftpTrendView', () => {
   });
 
   it('is empty without a stored estimate', () => {
-    const view = ftpTrendView({ sampleCount: 0, history: [], changes: [] });
+    const view = ftpTrendView({ lookbackDays: 30, sampleCount: 0, history: [], changes: [] });
 
     expect(view.series).toEqual([]);
     expect(view.latest).toBe(0);

@@ -12,7 +12,7 @@ import {
   formZoneTextColor,
   formZoneLabel,
 } from '@/features/fitness';
-import { formatDuration, isolateNumeric } from '@/shared/format/format';
+import { formatDuration, formatLoad, isolateNumeric } from '@/shared/format/format';
 import { formFromLoads } from '@/shared/math';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { WorkoutStepBar } from './WorkoutStepBar';
@@ -104,7 +104,8 @@ const ReadinessRow = React.memo(function ReadinessRow({
       </Text>
       <Text style={[styles.readinessValue, { color: formTextColor }]}>
         {formLabel}
-        {formValue !== null && ` (${isolateNumeric(formValue)}${asPercent ? '' : ' TSB'})`}
+        {formValue !== null &&
+          ` \u00B7 ${t(asPercent ? 'metrics.form' : 'activity.stats.formTSB')} ${isolateNumeric(formValue)}`}
       </Text>
     </View>
   );
@@ -143,7 +144,7 @@ const WorkoutCard = React.memo(function WorkoutCard({
       <Text style={[styles.workoutMeta, isDark && styles.textSecondary]}>
         {formatDuration(workout.moving_time)}
         {workout.icu_training_load > 0 &&
-          ` \u00B7 ${Math.round(workout.icu_training_load)} ${t('stats.tss')}`}
+          ` \u00B7 ${t('metrics.trainingLoad')} ${formatLoad(workout.icu_training_load)}`}
         {targetLabel && ` \u00B7 ${targetLabel}`}
       </Text>
       {workout.workout_doc?.steps && <WorkoutStepBar steps={workout.workout_doc.steps} />}
@@ -170,7 +171,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
       {recentPRCount > 0 && (
         <View style={styles.prSummaryRow}>
           <MaterialCommunityIcons name="trophy-outline" size={14} color={brand.gold} />
-          <Text style={styles.prSummaryText}>
+          <Text style={[styles.prSummaryText, isDark && styles.prGoldDark]}>
             {t('todayBanner.prCountThisWeek', {
               count: recentPRCount,
               defaultValue: '{{count}} section PRs this week',
@@ -211,16 +212,18 @@ const SectionHighlights = React.memo(function SectionHighlights({
               {prTimeSecs != null && isRecentPR && (
                 <View style={styles.prCelebration}>
                   <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
-                  <Text style={styles.prTextCelebration}>
+                  <Text style={[styles.prTextCelebration, isDark && styles.prGoldDark]}>
                     {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
                   </Text>
                   {gain != null && (
-                    <Text style={styles.prDelta}>{` \u2212${formatDuration(gain)}`}</Text>
+                    <Text
+                      style={[styles.prDelta, isDark && styles.accentTextDark]}
+                    >{` \u2212${formatDuration(gain)}`}</Text>
                   )}
                 </View>
               )}
               {prTimeSecs != null && !isRecentPR && (
-                <Text style={styles.prBadgeAccent}>
+                <Text style={[styles.prBadgeAccent, isDark && styles.accentTextDark]}>
                   {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
                   {gain != null ? ` (\u2212${formatDuration(gain)})` : ''}
                 </Text>
@@ -325,14 +328,18 @@ const styles = StyleSheet.create({
   prSummaryText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: brand.gold,
+    color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
+  },
+  prGoldDark: {
+    color: darkColors.chartGoldText,
   },
   sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.xs,
+    minHeight: layout.minTapTarget,
   },
   sectionName: {
     fontSize: typography.bodyCompact.fontSize,
@@ -355,20 +362,23 @@ const styles = StyleSheet.create({
   prTextCelebration: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
-    color: brand.gold,
+    color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
   },
   prDelta: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: brand.tealLight,
+    color: colors.linkTeal,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: brand.tealLight,
+    color: colors.linkTeal,
     fontVariant: ['tabular-nums'],
+  },
+  accentTextDark: {
+    color: darkColors.linkTeal,
   },
   trendArrow: {
     fontSize: typography.bodyCompact.fontSize,

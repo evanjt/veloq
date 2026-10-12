@@ -13,11 +13,12 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Button, ScreenScrollView } from '@/shared/ui';
+import { Button, EmptyState, ErrorState, ScreenScrollView } from '@/shared/ui';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import type { ExerciseDetailData } from 'veloqrs';
 
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
+import { formatBestSet } from '../lib/formatting';
 import { tapTo } from '@/shared/app/navigation';
 
 function Trend({ sessions }: { sessions: ExerciseDetailData['sessions'] }) {
@@ -54,7 +55,7 @@ function ExerciseDetailScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     ...LOCAL_READ_QUERY,
     queryKey: [...queryKeys.strength.exerciseDetail(exerciseCategory), readGeneration],
     queryFn: () => readExerciseDetailData(exerciseCategory),
@@ -71,9 +72,20 @@ function ExerciseDetailScreen() {
         {data?.exerciseName || t('strength.history')}
       </Text>
       {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
-      {isError ? <Text>{t('strength.exerciseActivitiesFailed')}</Text> : null}
+      {isError ? (
+        <ErrorState
+          error={error}
+          fallbackKey="strength.exerciseActivitiesFailed"
+          onRetry={() => void refetch()}
+          testID="exercise-detail-failure"
+        />
+      ) : null}
       {!isLoading && !isError && sessions.length === 0 ? (
-        <Text style={isDark && styles.textDark}>{t('strength.exerciseActivitiesEmpty')}</Text>
+        <EmptyState
+          variant="compact"
+          icon="dumbbell"
+          title={t('strength.exerciseActivitiesEmpty')}
+        />
       ) : null}
       {sessions.length > 0 ? (
         <>
@@ -92,10 +104,7 @@ function ExerciseDetailScreen() {
                 onPress={() => tapTo(`/activity/${session.activityId}`)}
               />
               <Text style={isDark && styles.textDark}>
-                {t('strength.bestSet')}: {formatWeight(session.bestSet.weightKg ?? 0, isMetric)} ·{' '}
-                {session.bestSet.repetitions == null
-                  ? `-- ${t('strength.reps')}`
-                  : t('strength.repsCount', { count: session.bestSet.repetitions })}
+                {t('strength.bestSet')}: {formatBestSet(session.bestSet, isMetric, t)}
               </Text>
               <Text style={[styles.method, isDark && styles.secondaryDark]}>
                 {t('strength.estimatedOneRepMax')}:{' '}

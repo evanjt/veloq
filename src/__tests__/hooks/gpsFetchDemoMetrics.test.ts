@@ -49,7 +49,7 @@ const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 describe('the demo GPS fetch', () => {
   it('writes no metrics row from TypeScript and still refreshes the lists', async () => {
-    const { result } = renderHook(() => useGpsDataFetcher());
+    const { result } = await renderHook(() => useGpsDataFetcher());
 
     const outcome = await result.current.fetchDemoGps([activity('d1'), activity('d2')], {
       isMountedRef: { current: true },

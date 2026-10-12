@@ -15,8 +15,8 @@ const OPTIONS = [
 ] as const;
 
 describe('ChipSelector', () => {
-  it('marks exactly the chosen option selected', () => {
-    const { getByTestId } = render(
+  it('marks exactly the chosen option selected', async () => {
+    const { getByTestId } = await render(
       <ChipSelector
         options={OPTIONS}
         value="b"
@@ -30,9 +30,9 @@ describe('ChipSelector', () => {
     expect(getByTestId('chip-a').props.accessibilityRole).toBe('button');
   });
 
-  it('reports the value of the pressed chip', () => {
+  it('reports the value of the pressed chip', async () => {
     const onChange = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <ChipSelector
         options={OPTIONS}
         value="a"
@@ -41,13 +41,13 @@ describe('ChipSelector', () => {
       />
     );
 
-    fireEvent.press(getByTestId('chip-b'));
+    await fireEvent.press(getByTestId('chip-b'));
 
     expect(onChange).toHaveBeenCalledWith('b');
   });
 
-  it('draws a chip, not a bordered button', () => {
-    const { getByTestId } = render(
+  it('draws a chip, not a bordered button', async () => {
+    const { getByTestId } = await render(
       <ChipSelector
         options={OPTIONS}
         value="a"

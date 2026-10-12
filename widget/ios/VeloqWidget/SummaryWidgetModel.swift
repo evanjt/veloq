@@ -176,7 +176,7 @@ enum SummaryWidgetModel {
     }
     return WidgetSummaryEntry(
       id: id, label: label, value: m.text ?? String(Int(m.value.rounded())),
-      trendDir: m.trendDir, verdict: m.verdict, colorKey: colorKey)
+      trendDir: m.trendDir, verdict: m.verdict, colorKey: colorKey, spoken: m.spoken)
   }
 
   /// The large chart, absent without two measured days or without the four zone bounds.

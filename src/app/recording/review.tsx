@@ -1,14 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Alert, View, StyleSheet, TextInput, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { replaceTo, tapBack, tapTo } from '@/shared/app/navigation';
+import { replaceTo, tapTo } from '@/shared/app/navigation';
+import { useBackIntercept } from '@/shared/app/useBackIntercept';
+import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
+import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, ScreenScrollView, useTabBarClearance } from '@/shared/ui';
+import { Button, ScreenScrollView, StatusLine, TextField, useTabBarClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -26,12 +29,14 @@ import {
   ReviewMapHero,
   ActivityStatsCard,
   SaveErrorBanner,
+  recordingBackAction,
 } from '@/features/recording';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { confirmAction } from '@/shared/ui/dialog';
 
 const MAP_FRACTION = 0.45;
 
@@ -40,6 +45,8 @@ function parseRpe(raw: string | undefined): number | null {
   const value = Number(raw);
   return raw && Number.isInteger(value) && value >= 1 && value <= 10 ? value : null;
 }
+
+function ignoreBack(): void {}
 
 function ReviewScreenContent() {
   const { t } = useTranslation();
@@ -85,6 +92,7 @@ function ReviewScreenContent() {
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
+  const savedToLibrary = useRecordingStore((s) => s.savedToLibrary);
 
   const lastPoint = Math.max(0, (streams.latlng?.length ?? 0) - 1);
   const { initial: draft, edit: editDraft } = useReviewDraft(streams.latlng?.length ?? 0);
@@ -121,6 +129,24 @@ function ReviewScreenContent() {
     },
     [editDraft]
   );
+
+  // What leaving would keep: the review as it opened, then as a save put it in
+  // the library. A GPS ride's edits wait in the store until it is saved, so
+  // only a manual entry or a saved ride loses what is on screen.
+  const onScreen = { name, notes, type: selectedType, trimStart, trimEnd };
+  const [kept, setKept] = useState(onScreen);
+  const [keptSaved, setKeptSaved] = useState(savedToLibrary);
+  if (savedToLibrary !== keptSaved) {
+    setKeptSaved(savedToLibrary);
+    if (savedToLibrary) setKept(onScreen);
+  }
+  const edited =
+    (isManual || savedToLibrary) &&
+    (name !== kept.name ||
+      notes !== kept.notes ||
+      selectedType !== kept.type ||
+      trimStart !== kept.trimStart ||
+      trimEnd !== kept.trimEnd);
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
@@ -192,21 +218,17 @@ function ReviewScreenContent() {
 
   // The alert is the guard against a stray tap, as the unlock swipe is for Stop.
   const handleDiscard = useCallback(() => {
-    Alert.alert(
-      t('recording.discardConfirmTitle', 'Discard this recording?'),
-      t(
+    confirmAction({
+      title: t('recording.discardConfirmTitle', 'Discard this recording?'),
+      message: t(
         'recording.discardConfirmMessage',
         'It has not been saved, and it cannot be recovered once discarded.'
       ),
-      [
-        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-        {
-          text: t('recording.discard', 'Discard'),
-          style: 'destructive',
-          onPress: () => discardReviewedRecording(startTime),
-        },
-      ]
-    );
+      confirmLabel: t('recording.discard', 'Discard'),
+      cancelLabel: t('common.cancel', 'Cancel'),
+      destructive: true,
+      onConfirm: () => discardReviewedRecording(startTime),
+    });
   }, [t, startTime]);
 
   const openSheet = useSheetOpener();
@@ -224,10 +246,6 @@ function ReviewScreenContent() {
     resumeStoppedRecording().catch(() => {});
   }, []);
 
-  const handleBack = useCallback(() => {
-    tapBack();
-  }, []);
-
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
@@ -235,6 +253,13 @@ function ReviewScreenContent() {
   const border = isDark ? darkColors.border : colors.border;
   const activityColor = getActivityColor(type);
   const isProcessing = isUploading;
+  // The header back hides while a save is in flight, and Android's back control is held with it.
+  useBackIntercept(
+    recordingBackAction({ status: recordingStatus, isLocked: false, isProcessing }) === 'consume',
+    ignoreBack
+  );
+  // Save and Discard return to the root, which the guard lets through as the app's own navigation.
+  useDiscardGuard(ownedReview && edited && !isProcessing && !queuedMessage);
   const { height: windowHeight } = useWindowDimensions();
   const mapHeight = hasGps ? windowHeight * MAP_FRACTION : 0;
 
@@ -242,13 +267,14 @@ function ReviewScreenContent() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      {/* A GPS recording opens on a map hero that runs under the status bar and
-          carries its own back control, so the native header is off there. The
-          non-GPS screen takes it, and loses it while an upload is in flight,
-          which is what the old header's disabled back button did. */}
+      {/* A GPS recording opens on a map hero that runs under the status bar, so
+          its header is the transparent one the detail heroes take, with the
+          platform's back floating over the map. Either way the header back is
+          the one back, and it goes with the swipe while an upload is in flight. */}
       <Stack.Screen
         options={{
-          headerShown: !hasGps,
+          ...(hasGps && { ...overMapHeaderOptions({ isDark }), headerLargeTitle: false }),
+          headerShown: true,
           headerBackVisible: !isProcessing,
           gestureEnabled: !isProcessing,
         }}
@@ -268,31 +294,20 @@ function ReviewScreenContent() {
           totalPoints={streams.latlng.length}
           onTrimChange={handleTrimChange}
           onTrimCommit={handleTrimCommit}
-          onBack={handleBack}
-          disabled={isProcessing}
         />
       )}
 
       {/* Bottom sheet content */}
       <ScreenScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
-        keyboardShouldPersistTaps="handled"
       >
         {/* Activity Name */}
-        <TextInput
+        <TextField
           testID="review-activity-name"
-          style={[
-            styles.nameInput,
-            {
-              color: textPrimary,
-              backgroundColor: surface,
-              borderColor: border,
-            },
-          ]}
+          label={t('recording.activityName')}
           value={name}
           onChangeText={handleNameChange}
           placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey(startTime)}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
-          placeholderTextColor={textSecondary}
           editable={!isProcessing}
         />
 
@@ -306,8 +321,10 @@ function ReviewScreenContent() {
         {/* Trim delta feedback */}
         {trimDelta && (
           <Text style={[styles.trimDelta, { color: textSecondary }]}>
-            {t('recording.trimmed', 'Trimmed')}: {formatDistance(trimDelta.distance, isMetric)},{' '}
-            {formatDuration(trimDelta.duration)}
+            {t('recording.trimmedOff', {
+              distance: formatDistance(trimDelta.distance, isMetric),
+              time: formatDuration(trimDelta.duration),
+            })}
           </Text>
         )}
 
@@ -327,29 +344,21 @@ function ReviewScreenContent() {
         </Pressable>
 
         {/* Notes */}
-        <TextInput
+        <TextField
           testID="review-notes"
-          style={[
-            styles.notesInput,
-            {
-              color: textPrimary,
-              backgroundColor: surface,
-              borderColor: border,
-            },
-          ]}
+          label={t('recording.notes')}
+          style={styles.notesField}
           value={notes}
           onChangeText={handleNotesChange}
           placeholder={t('recording.notesPlaceholder', 'How did it feel?')}
-          placeholderTextColor={textSecondary}
           multiline
           numberOfLines={3}
-          textAlignVertical="top"
           editable={!isProcessing}
         />
 
         {/* Queued success message */}
         {queuedMessage && (
-          <View style={styles.queuedBanner}>
+          <StatusLine tone="success" message={queuedMessage} style={styles.queuedBanner}>
             <MaterialCommunityIcons
               name="check-circle-outline"
               size={18}
@@ -363,7 +372,7 @@ function ReviewScreenContent() {
             >
               {queuedMessage}
             </Text>
-          </View>
+          </StatusLine>
         )}
 
         {/* The scope the athlete recorded past: say where the ride is going. */}
@@ -435,13 +444,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
-  nameInput: {
-    ...typography.body,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
   trimDelta: {
     ...typography.caption,
     textAlign: 'center',
@@ -469,13 +471,7 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
   // Notes
-  notesInput: {
-    ...typography.body,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    minHeight: 60,
+  notesField: {
     marginTop: spacing.md,
   },
   // Banners

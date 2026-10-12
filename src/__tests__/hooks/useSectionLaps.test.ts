@@ -38,24 +38,24 @@ function record(
 }
 
 describe('useSectionLaps', () => {
-  it('moves one lap both ways by its junction key', () => {
+  it('moves one lap both ways by its junction key', async () => {
     const engine = {
       excludeSectionLap: jest.fn(() => true),
       includeSectionLap: jest.fn(() => true),
     };
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useSectionLaps('sec1'));
+    const { result } = await renderHook(() => useSectionLaps('sec1'));
 
-    act(() => result.current.excludeLap('a', 10));
+    await act(() => result.current.excludeLap('a', 10));
     expect(engine.excludeSectionLap).toHaveBeenCalledWith('sec1', 'a', 10);
 
-    act(() => result.current.includeLap('a', 40));
+    await act(() => result.current.includeLap('a', 40));
     expect(engine.includeSectionLap).toHaveBeenCalledWith('sec1', 'a', 40);
   });
 
-  it('does nothing without an engine', () => {
+  it('does nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
-    const { result } = renderHook(() => useSectionLaps('sec1'));
+    const { result } = await renderHook(() => useSectionLaps('sec1'));
     expect(() => result.current.excludeLap('a', 10)).not.toThrow();
   });
 });

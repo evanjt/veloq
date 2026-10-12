@@ -35,38 +35,38 @@ describe('BackgroundJobsActivityBar', () => {
     await changeLanguage('en-GB');
   });
 
-  it('stays hidden when no job runs or owes work', () => {
+  it('stays hidden when no job runs or owes work', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection'), job('streamBackfill')]);
     expect(
-      render(<BackgroundJobsActivityBar />).queryByTestId('background-jobs-activity')
+      await (await render(<BackgroundJobsActivityBar />)).queryByTestId('background-jobs-activity')
     ).toBeNull();
   });
 
-  it('expands to show each running or owed job and its progress', () => {
+  it('expands to show each running or owed job and its progress', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('detection', { state: 'running', completed: 4, total: 12 }),
       job('elevationBackfill', { state: 'complete' }),
       job('cutover', { remaining: 1 }),
       job('streamBackfill', { remaining: 8 }),
     ]);
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
 
     expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
     expect(tree.queryByTestId('background-job-detection')).toBeNull();
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-detection-detail').props.children).toBe('4 of 12');
     expect(tree.getByTestId('background-job-cutover')).toBeTruthy();
     expect(tree.getByTestId('background-job-streamBackfill')).toBeTruthy();
     expect(tree.queryByTestId('background-job-elevationBackfill')).toBeNull();
   });
 
-  it('clears a finished job when the polled state has no work left', () => {
+  it('clears a finished job when the polled state has no work left', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection', { state: 'running' })]);
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
 
     mockUseBackgroundJobs.mockReturnValue([job('detection', { state: 'complete' })]);
-    tree.rerender(<BackgroundJobsActivityBar />);
+    await tree.rerender(<BackgroundJobsActivityBar />);
     expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
   });
 
@@ -76,9 +76,9 @@ describe('BackgroundJobsActivityBar', () => {
       job('cutover', { state: 'running', phase: 'draining' }),
       job('detection', { state: 'running', phase: 'analyzing', percent: 40 }),
     ]);
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
 
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
       'Katalog vorbereiten'
     );
@@ -87,13 +87,13 @@ describe('BackgroundJobsActivityBar', () => {
     );
   });
 
-  it('shows an unknown engine phase without a translation', () => {
+  it('shows an unknown engine phase without a translation', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('cutover', { state: 'running', phase: 'new_phase' }),
     ]);
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
 
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe('new_phase');
   });
 });

@@ -121,7 +121,7 @@ describe('useStrengthScreenData', () => {
 
   it('reads once for a drag across five muscles', async () => {
     const wrapper = wrapperWith(client);
-    const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await waitForData(() => result.current.data);
 
     expect(screenCalls).toBe(1);
@@ -136,7 +136,7 @@ describe('useStrengthScreenData', () => {
 
   it('gives each muscle its own series out of the one read', async () => {
     const wrapper = wrapperWith(client);
-    const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await waitForData(() => result.current.data);
 
     const chest = selectProgression(result.current.data, 'chest');
@@ -152,7 +152,7 @@ describe('useStrengthScreenData', () => {
 
   it('carries the period summary the diagram is shaded from', async () => {
     const wrapper = wrapperWith(client);
-    const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await waitForData(() => result.current.data);
 
     expect(result.current.data?.summary.muscleVolumes.map((v) => v.slug)).toEqual(MUSCLES);
@@ -162,7 +162,7 @@ describe('useStrengthScreenData', () => {
     for (const key of Object.keys(mockEngine)) delete mockEngine[key];
     mockEngine.subscribe = () => () => {};
     const wrapper = wrapperWith(client);
-    const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await flush();
 
     expect(result.current.data ?? null).toBeNull();
@@ -177,7 +177,7 @@ describe('useStrengthScreenData failure', () => {
     });
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useStrengthScreenData('1m'), {
+    const { result } = await renderHook(() => useStrengthScreenData('1m'), {
       wrapper: wrapperWith(client),
     });
 

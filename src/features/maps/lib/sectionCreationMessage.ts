@@ -7,14 +7,14 @@
  */
 
 export type SectionCreationMessageKey =
-  | 'routes.gpsTrackNotSynced'
+  | 'routes.gpsTrackNotDownloaded'
   | 'routes.invalidSectionRange'
   | 'routes.sectionCreationFailed';
 
 export function sectionCreationMessageKey(error: unknown): SectionCreationMessageKey {
   const reason =
     error instanceof Error && 'reason' in error ? (error as { reason: unknown }).reason : undefined;
-  if (reason === 'noTrack') return 'routes.gpsTrackNotSynced';
+  if (reason === 'noTrack') return 'routes.gpsTrackNotDownloaded';
   if (reason === 'tooFewPoints') return 'routes.invalidSectionRange';
   return 'routes.sectionCreationFailed';
 }

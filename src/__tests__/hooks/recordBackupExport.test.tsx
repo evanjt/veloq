@@ -31,7 +31,7 @@ it('shares one record archive for repeated taps while export is running', async 
         finish = () => resolve('complete');
       })
   );
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
 
   let first: Promise<unknown> = Promise.resolve();
   await act(async () => {
@@ -51,12 +51,17 @@ it('shares one record archive for repeated taps while export is running', async 
 it('shows a failure and permits another export', async () => {
   mockExport.mockRejectedValueOnce(new Error('share failed'));
   mockExport.mockResolvedValueOnce('complete');
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
 
   await act(async () => {
     await result.current.exportRecordBackup();
   });
-  expect(Alert.alert).toHaveBeenCalledWith('common.error', 'backup.exportError');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'backup.notSavedTitle',
+    'backup.exportError',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
 
   await act(async () => {
     await result.current.exportRecordBackup();

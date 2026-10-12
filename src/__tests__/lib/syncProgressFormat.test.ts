@@ -2,11 +2,12 @@
  * Tests for sync progress formatting utilities.
  *
  * Covers: formatGpsSyncProgress
- * Bug fix validated: completed > total produces >100%
  */
 
 import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 import { formatGpsSyncProgress } from '@/features/maps/lib/syncProgressFormat';
+import { tilePassProgress } from '@/features/routes/lib/tilePass';
+import { i18n, initialiseI18n } from '@/i18n';
 
 import type { TFunction } from 'i18next';
 const t = ((key: string, opts?: Record<string, unknown>) =>
@@ -111,6 +112,81 @@ describe('formatGpsSyncProgress', () => {
       message: '',
     };
     const result = formatGpsSyncProgress(fetching, false, t);
-    expect(result!.text).toBe('routesScreen.downloadingGps');
+    expect(result!.text).toBe(
+      'cache.stageProgress:{"stage":"routesScreen.downloadingGps","percent":20}'
+    );
+  });
+});
+
+/**
+ * Scenario: the heatmap tile pass is 40 % through while the sync as a whole
+ * stands at 85 %, and the banner prints its line in the athlete's language.
+ *
+ * Expected behaviour: the line carries one figure, the overall one, and one
+ * typographic ellipsis. The stage message used to bring its own tile figure, so
+ * the banner read "Finalising heatmap... 40%... 85%".
+ */
+describe('the banner line in real copy', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-GB');
+  });
+
+  const percentSigns = (line: string) => line.split('%').length - 1;
+
+  it('prints one percentage for the heatmap stage, the overall one', () => {
+    const progress: GpsSyncProgress = {
+      status: 'computing',
+      completed: 0,
+      total: 0,
+      percent: 85,
+      message: i18n.t('cache.finalizingHeatmap', { percent: 40 }),
+    };
+    const line = formatGpsSyncProgress(progress, false, i18n.t)!.text;
+    expect(percentSigns(line)).toBe(1);
+    expect(line).toContain('85%');
+    expect(line).not.toContain('40%');
+    expect(line).not.toContain('...');
+  });
+
+  it('builds the tile pass row with the overall figure and a stage message without one', () => {
+    const row = tilePassProgress(40, 100, i18n.t);
+    expect(row).toMatchObject({ status: 'computing', percent: 85 });
+    expect(row.message).not.toMatch(/\d/);
+    const line = formatGpsSyncProgress(row, false, i18n.t)!.text;
+    expect(percentSigns(line)).toBe(1);
+    expect(line).toContain('85%');
+  });
+
+  it('starts the tile range at its floor and ends it at its ceiling', () => {
+    expect(tilePassProgress(0, 100, i18n.t).percent).toBe(75);
+    expect(tilePassProgress(100, 100, i18n.t).percent).toBe(100);
+    expect(tilePassProgress(250, 100, i18n.t).percent).toBe(100);
+    expect(tilePassProgress(50, 100, i18n.t, 50, 100).percent).toBe(75);
+  });
+
+  it('prints the stage alone, with no figure, before any progress', () => {
+    const progress: GpsSyncProgress = {
+      status: 'computing',
+      completed: 0,
+      total: 0,
+      percent: 0,
+      message: '',
+    };
+    const line = formatGpsSyncProgress(progress, false, i18n.t)!.text;
+    expect(percentSigns(line)).toBe(0);
+    expect(line).toBe(i18n.t('cache.analyzingRoutes'));
+  });
+
+  it('prints the download figure once', () => {
+    const progress: GpsSyncProgress = {
+      status: 'fetching',
+      completed: 5,
+      total: 10,
+      percent: 25,
+      message: i18n.t('cache.downloadingGpsProgress', { percent: 25 }),
+    };
+    const line = formatGpsSyncProgress(progress, false, i18n.t)!.text;
+    expect(percentSigns(line)).toBe(1);
+    expect(line).toContain('25%');
   });
 });

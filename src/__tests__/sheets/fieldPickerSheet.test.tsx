@@ -34,13 +34,13 @@ jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
 
-function open(selectedField: DataFieldType | null) {
+async function open(selectedField: DataFieldType | null) {
   const result = openSheet<FieldPickerSheetInput, DataFieldType>('sheets/field-picker', {
     selectedField,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  render(<FieldPickerSheet />);
-  return result;
+  await render(<FieldPickerSheet />);
+  return { result };
 }
 
 beforeEach(() => {
@@ -50,15 +50,15 @@ beforeEach(() => {
 
 describe('field picker sheet', () => {
   it('lists every field and resolves the caller with the tapped one', async () => {
-    const result = open('speed');
+    const { result } = await open('speed');
     expect(screen.getByTestId('field-picker-list').props.data).toEqual(ALL_DATA_FIELDS);
-    fireEvent.press(screen.getByTestId('field-option-cadence'));
+    await fireEvent.press(screen.getByTestId('field-option-cadence'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'cadence' });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('marks the current field as selected', () => {
-    open('power');
+  it('marks the current field as selected', async () => {
+    await open('power');
     expect(screen.getByTestId('field-option-power').props.accessibilityState).toMatchObject({
       selected: true,
     });
@@ -67,14 +67,14 @@ describe('field picker sheet', () => {
     });
   });
 
-  it('keeps its scroll view where the iOS sheet sizes it', () => {
-    open(null);
+  it('keeps its scroll view where the iOS sheet sizes it', async () => {
+    await open(null);
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {
-    const result = open(null);
-    screen.unmount();
+    const { result } = await open(null);
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 });

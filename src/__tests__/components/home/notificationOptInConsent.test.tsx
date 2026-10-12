@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { Modal } from 'react-native';
+import { Linking, Modal } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { NotificationOptInCard } from '@/features/home/components/NotificationOptInCard';
@@ -19,6 +19,7 @@ import { Card } from '@/shared/ui/Card';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
+import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import enGB from '@/i18n/locales/en-GB.json';
 
 const mockTranslation = jest.fn((key: string) => key);
@@ -28,7 +29,7 @@ jest.mock('react-i18next', () => ({
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
-  requestNotificationPermission: jest.fn().mockResolvedValue(true),
+  requestNotificationPermission: jest.fn().mockResolvedValue('granted'),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) =>
@@ -53,15 +54,17 @@ beforeEach(() => {
     isLoaded: true,
   });
   useNotificationPrompt.setState({ isLoaded: true, dismissed: false, showingSettingsHint: false });
+  useWhatsNewStore.setState({ tourState: null });
+  useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
 });
 
 describe('not enabled', () => {
-  it('describes the notification kinds available in Settings', () => {
+  it('describes the notification kinds available in Settings', async () => {
     mockTranslation.mockImplementation((key: string) => {
       if (key === 'notifications.prompt.description') return enGB.notifications.prompt.description;
       return key;
     });
-    const screen = render(<NotificationOptInCard />);
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
     const description = screen.getByText(enGB.notifications.prompt.description).props.children;
 
     expect(description).toContain(enGB.notifications.settings.sectionPr.toLowerCase());
@@ -69,8 +72,8 @@ describe('not enabled', () => {
     expect(description).not.toMatch(/sync|ready/i);
   });
 
-  it('shows a title, one line and the buttons, with the disclosure collapsed', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('shows a title, one line and the buttons, with the disclosure collapsed', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
     expect(screen.getByText('notifications.prompt.title')).toBeTruthy();
     expect(screen.getByText('notifications.prompt.description')).toBeTruthy();
@@ -81,10 +84,10 @@ describe('not enabled', () => {
     expect(screen.UNSAFE_queryAllByType(Modal)).toHaveLength(0);
   });
 
-  it('opens the disclosure in the card on Details, with no modal', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('opens the disclosure in the card on Details, with no modal', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
-    fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
+    await fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
 
     expect(screen.getByText('notifications.privacy.brief')).toBeTruthy();
     expect(screen.getByText('login.privacyPolicy')).toBeTruthy();
@@ -92,20 +95,29 @@ describe('not enabled', () => {
     expect(prefs().privacyAccepted).toBe(false);
   });
 
-  it('closes the disclosure on a second press', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('closes the disclosure on a second press', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
-    fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
-    fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
+    await fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
+    await fireEvent.press(screen.getByText('notifications.prompt.howItWorks'));
 
     expect(screen.queryByText('notifications.privacy.brief')).toBeNull();
   });
 
+  it('is a disclosure button to a screen reader, saying whether it is open', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
+    const toggle = () => screen.getByRole('button', { name: 'notifications.prompt.howItWorks' });
+
+    expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
+    await fireEvent.press(toggle());
+    expect(toggle().props.accessibilityState).toMatchObject({ expanded: true });
+  });
+
   it('records consent and enables in one tap', async () => {
-    const screen = render(<NotificationOptInCard />);
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
     await act(async () => {
-      fireEvent.press(screen.getByText('notifications.prompt.enable'));
+      await fireEvent.press(screen.getByText('notifications.prompt.enable'));
     });
 
     expect(prefs().privacyAccepted).toBe(true);
@@ -113,21 +125,50 @@ describe('not enabled', () => {
   });
 
   it('leaves consent unrecorded when the permission is refused', async () => {
-    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce(false);
-    const screen = render(<NotificationOptInCard />);
+    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce('askable');
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
     await act(async () => {
-      fireEvent.press(screen.getByText('notifications.prompt.enable'));
+      await fireEvent.press(screen.getByText('notifications.prompt.enable'));
     });
 
     expect(prefs().enabled).toBe(false);
     expect(prefs().privacyAccepted).toBe(false);
   });
 
-  it('records nothing on Not now', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('says notifications are off and offers settings once the system stops asking', async () => {
+    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce('blocked');
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
-    fireEvent.press(screen.getByText('notifications.prompt.dismiss'));
+    await act(async () => {
+      await fireEvent.press(screen.getByText('notifications.prompt.enable'));
+    });
+
+    expect(screen.getByTestId('notification-optin-blocked')).toBeTruthy();
+    expect(screen.getByText('permissionNotice.notificationsOff')).toBeTruthy();
+    await fireEvent.press(screen.getByText('common.openSettings'));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(prefs().enabled).toBe(false);
+    expect(prefs().privacyAccepted).toBe(false);
+    openSettings.mockRestore();
+  });
+
+  it('shows no notice while the system will still ask', async () => {
+    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce('askable');
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByText('notifications.prompt.enable'));
+    });
+
+    expect(screen.queryByTestId('notification-optin-blocked')).toBeNull();
+  });
+
+  it('records nothing on Not now', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
+
+    await fireEvent.press(screen.getByText('notifications.prompt.dismiss'));
 
     expect(prefs().privacyAccepted).toBe(false);
     expect(prefs().enabled).toBe(false);
@@ -139,9 +180,9 @@ describe('owed: enabled without consent', () => {
     useNotificationPreferences.setState({ enabled: true, privacyAccepted: false });
   });
 
-  it('shows the receiving wording inline with no modal, even after Not now was chosen', () => {
+  it('shows the receiving wording inline with no modal, even after Not now was chosen', async () => {
     useNotificationPrompt.setState({ dismissed: true });
-    const screen = render(<NotificationOptInCard />);
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
     expect(screen.getByText('notifications.privacy.briefEnabled')).toBeTruthy();
     expect(screen.queryByText('notifications.prompt.howItWorks')).toBeNull();
@@ -149,36 +190,63 @@ describe('owed: enabled without consent', () => {
     expect(screen.UNSAFE_queryAllByType(Modal)).toHaveLength(0);
   });
 
-  it('Keep records consent and keeps notifications on', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('Keep records consent and keeps notifications on', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
-    fireEvent.press(screen.getByText('notifications.prompt.keep'));
+    await fireEvent.press(screen.getByText('notifications.prompt.keep'));
 
     expect(prefs().privacyAccepted).toBe(true);
     expect(prefs().enabled).toBe(true);
   });
 
-  it('Turn off disables without recording consent', () => {
-    const screen = render(<NotificationOptInCard />);
+  it('Turn off disables without recording consent', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
-    fireEvent.press(screen.getByText('notifications.privacy.turnOff'));
+    await fireEvent.press(screen.getByText('notifications.privacy.turnOff'));
 
     expect(prefs().enabled).toBe(false);
     expect(prefs().privacyAccepted).toBe(false);
   });
 
-  it('is absent until the stored preferences have loaded', () => {
+  it('is absent until the stored preferences have loaded', async () => {
     useNotificationPreferences.setState({ isLoaded: false });
-    const screen = render(<NotificationOptInCard />);
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
     expect(screen.queryByText('notifications.privacy.briefEnabled')).toBeNull();
   });
 });
 
-it('shows nothing once consent is recorded and notifications are on', () => {
+it('shows nothing once consent is recorded and notifications are on', async () => {
   useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
-  const screen = render(<NotificationOptInCard />);
+  const screen = await render(<NotificationOptInCard libraryCount={1} />);
 
   expect(screen.queryByText('notifications.privacy.briefEnabled')).toBeNull();
   expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
+});
+
+describe('on a first launch', () => {
+  it('asks nothing while the tour is open, and asks once it closes', async () => {
+    useWhatsNewStore.getState().startTour('tutorial');
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
+    expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
+
+    await act(async () => {
+      useWhatsNewStore.getState().endTour();
+    });
+    expect(screen.getByText('notifications.prompt.enable')).toBeTruthy();
+  });
+
+  it('asks nothing until the library holds an activity', async () => {
+    const screen = await render(<NotificationOptInCard libraryCount={0} />);
+    expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
+
+    await screen.rerender(<NotificationOptInCard libraryCount={1} />);
+    expect(screen.getByText('notifications.prompt.enable')).toBeTruthy();
+  });
+
+  it('asks nothing while the restore offer is unanswered', async () => {
+    useWhatsNewStore.setState({ restoreOffered: true });
+    const screen = await render(<NotificationOptInCard libraryCount={1} />);
+    expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
+  });
 });

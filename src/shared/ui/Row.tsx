@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing } from '@/theme';
+import { colors, darkColors, layout, opacity, spacing } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
 interface RowBaseProps {
@@ -19,17 +19,41 @@ interface RowBaseProps {
   accessory?: React.ReactNode;
 }
 
+/**
+ * What pressing a row does. `navigate` opens another screen, sheet or page and
+ * draws the disclosure chevron; `act` runs something where the row stands and
+ * draws none, so a destructive row is marked by its colour and words alone.
+ */
+export type RowBehaviour = 'navigate' | 'act';
+
 export type RowProps =
-  | (RowBaseProps & { onPress?: undefined; accessibilityLabel?: undefined })
-  | (RowBaseProps & { onPress: () => void; accessibilityLabel: string });
+  | (RowBaseProps & {
+      onPress?: undefined;
+      accessibilityLabel?: undefined;
+      accessibilityValue?: undefined;
+      behaviour?: undefined;
+    })
+  | (RowBaseProps & {
+      onPress: () => void;
+      /**
+       * Replaces everything the row draws for a screen reader, so it carries the
+       * row's values as well as its name (`composeAccessibilityLabel`).
+       */
+      accessibilityLabel: string;
+      /** The row's current value or state, read after its name. */
+      accessibilityValue?: string | undefined;
+      behaviour: RowBehaviour;
+    });
 
 export function Row({
   children,
   testID,
   onPress,
   accessibilityLabel,
+  accessibilityValue,
   disabled,
   accessory,
+  behaviour,
 }: RowProps) {
   const { isDark } = useTheme();
 
@@ -47,6 +71,7 @@ export function Row({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityValue={accessibilityValue ? { text: accessibilityValue } : undefined}
       accessibilityState={disabled ? { disabled: true } : undefined}
       onPress={onPress}
       disabled={disabled}
@@ -58,12 +83,14 @@ export function Row({
       ])}
     >
       {children}
-      <MaterialCommunityIcons
-        testID="row-chevron"
-        name="chevron-right"
-        size={20}
-        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-      />
+      {behaviour === 'navigate' ? (
+        <MaterialCommunityIcons
+          testID="row-chevron"
+          name="chevron-right"
+          size={20}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+      ) : null}
     </Pressable>
   );
 
@@ -97,6 +124,6 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
   disabled: {
-    opacity: 0.5,
+    opacity: opacity.disabled,
   },
 });

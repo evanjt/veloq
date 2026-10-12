@@ -11,8 +11,8 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 /** The narrowest row a picker gets: a 320 pt phone less the slide's and the row's padding. */
 const NARROW_ROW = 240;
 
-function layOut(testID: string, width: number) {
-  fireEvent(screen.getByTestId(testID), 'layout', {
+async function layOut(testID: string, width: number) {
+  await fireEvent(screen.getByTestId(testID), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width, height: 120 } },
   });
 }
@@ -42,38 +42,38 @@ function expectCircleOverWholeLabel(optionTestID: string, label: string, rowWidt
   expect(StyleSheet.flatten(text.props.style).textAlign).toBe('center');
 }
 
-it('announces the selected map style and lets another style be chosen', () => {
+it('announces the selected map style and lets another style be chosen', async () => {
   const onValueChange = jest.fn();
-  render(<MapStylePreviewPicker value="dark" onValueChange={onValueChange} />);
+  await render(<MapStylePreviewPicker value="dark" onValueChange={onValueChange} />);
 
   expect(
     screen.getByRole('button', { name: 'settings.dark' }).props.accessibilityState.selected
   ).toBe(true);
-  fireEvent.press(screen.getByRole('button', { name: 'settings.satellite' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'settings.satellite' }));
   expect(onValueChange).toHaveBeenCalledWith('satellite');
 });
 
-it('draws each map style as a circle over its whole label at the narrowest row', () => {
-  render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
-  layOut('map-style-picker', NARROW_ROW);
+it('draws each map style as a circle over its whole label at the narrowest row', async () => {
+  await render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
+  await layOut('map-style-picker', NARROW_ROW);
 
   for (const style of ['light', 'dark', 'satellite']) {
     expectCircleOverWholeLabel(`map-style-${style}`, `settings.${style}`, NARROW_ROW);
   }
 });
 
-it('keeps the full circle on a wide row', () => {
-  render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
-  layOut('map-style-picker', 600);
+it('keeps the full circle on a wide row', async () => {
+  await render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
+  await layOut('map-style-picker', 600);
 
   const circle = StyleSheet.flatten(screen.getByTestId('map-style-light-circle').props.style);
   expect(circle.width).toBe(70);
 });
 
-it('draws the 3D terrain choice as circles to match, and reports the one chosen', () => {
+it('draws the 3D terrain choice as circles to match, and reports the one chosen', async () => {
   const onValueChange = jest.fn();
-  render(<Terrain3DPicker value="smart" onValueChange={onValueChange} />);
-  layOut('terrain-3d-picker', NARROW_ROW);
+  await render(<Terrain3DPicker value="smart" onValueChange={onValueChange} />);
+  await layOut('terrain-3d-picker', NARROW_ROW);
 
   for (const mode of ['off', 'smart', 'always']) {
     const key = `settings.terrain3D${mode[0].toUpperCase()}${mode.slice(1)}`;
@@ -83,6 +83,6 @@ it('draws the 3D terrain choice as circles to match, and reports the one chosen'
     screen.getByRole('button', { name: 'settings.terrain3DSmart' }).props.accessibilityState
       .selected
   ).toBe(true);
-  fireEvent.press(screen.getByRole('button', { name: 'settings.terrain3DAlways' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'settings.terrain3DAlways' }));
   expect(onValueChange).toHaveBeenCalledWith('always');
 });

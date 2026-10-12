@@ -11,7 +11,15 @@ import {
   isEnglishVariant,
   isLanguageVariant,
 } from '@/shared/app/LanguageStore';
-import { brand, colors, darkColors, layout, spacing, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
 interface LanguageListProps {
@@ -52,6 +60,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                 onSelect(lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value)
               }
               style={pressable(styles.languageLabelContainer)}
+              hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
               accessibilityRole="button"
               accessibilityLabel={lang.label}
               accessibilityState={{ selected: showCheck }}
@@ -88,7 +97,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                       ])}
                       android_ripple={pressRipple}
                       onPress={() => onSelect(variant.value)}
-                      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                      hitSlop={VARIANT_CHIP_SLOP}
                       accessibilityRole="button"
                       accessibilityState={{ selected: isVariantSelected }}
                       accessibilityLabel={
@@ -126,7 +135,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
           <View
             style={[
               styles.dialectKeySwatch,
-              isDark && styles.variantChipDark,
+              isDark && styles.dialectKeySwatchDark,
               styles.variantChipDialect,
               isDark && styles.variantChipDialectDark,
             ]}
@@ -139,6 +148,22 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
     </View>
   );
 }
+
+const VARIANT_CHIP_BORDER = 1;
+const VARIANT_CHIP_GAP = spacing.xsPlus;
+const VARIANT_CHIP_HEIGHT =
+  typography.bodyCompact.lineHeight + 2 * (spacing.xs + VARIANT_CHIP_BORDER);
+// Side by side, each chip reaches half the gap so the two targets meet without
+// overlapping.
+const VARIANT_CHIP_SLOP = {
+  ...slopToMinTapTarget(VARIANT_CHIP_HEIGHT),
+  left: VARIANT_CHIP_GAP / 2,
+  right: VARIANT_CHIP_GAP / 2,
+};
+
+// The label's line inside its padding. The row's own padding holds the slop
+// that lifts it to the tap target, so neighbouring rows are not reached.
+const LANGUAGE_LABEL_HEIGHT = typography.body.lineHeight + 2 * spacing.xs;
 
 const styles = StyleSheet.create({
   languageRow: {
@@ -158,6 +183,7 @@ const styles = StyleSheet.create({
   languageLabelContainer: {
     flex: 1,
     paddingVertical: spacing.xs,
+    minHeight: LANGUAGE_LABEL_HEIGHT,
   },
   languageLabel: {
     ...typography.body,
@@ -165,7 +191,7 @@ const styles = StyleSheet.create({
   },
   variantChips: {
     flexDirection: 'row',
-    gap: spacing.xsPlus,
+    gap: VARIANT_CHIP_GAP,
     marginLeft: 'auto',
   },
   variantChip: {
@@ -173,7 +199,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: VARIANT_CHIP_BORDER,
     borderColor: colors.border,
   },
   variantChipDark: {
@@ -220,6 +246,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.background,
     borderWidth: 1,
+  },
+  dialectKeySwatchDark: {
+    backgroundColor: darkColors.surfaceElevated,
+    borderColor: darkColors.border,
   },
   dialectKeyText: {
     ...typography.caption,

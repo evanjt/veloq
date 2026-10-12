@@ -38,6 +38,8 @@ interface SparklineOptions {
   mark?: HistoryMark | undefined;
   /** Prints a value in the series' unit; without one the card prints no scale. */
   format?: (value: number) => string;
+  /** The series' unit symbol, for a card that prints its values one at a time. */
+  unit?: string;
 }
 
 /** A dated graphic from the engine series, when at least three points exist. */
@@ -45,10 +47,10 @@ export function sparkline(
   points: SeriesPoint[] | undefined,
   label: string,
   target: string,
-  { kind = 'sparkline', mark, format }: SparklineOptions = {}
+  { kind = 'sparkline', mark, format, unit }: SparklineOptions = {}
 ): { history?: InsightHistory } {
   if (!points || points.length < 3) return {};
-  const series = [{ label, points }];
+  const series: HistorySeries[] = [{ label, points, ...(unit ? { unit } : {}) }];
   return {
     history: {
       kind,

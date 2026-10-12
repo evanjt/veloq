@@ -14,6 +14,7 @@ import { Stack, router } from 'expo-router';
 
 import { AuthGate, unstable_settings } from '@/app/_layout';
 import TabsLayout from '@/app/(tabs)/_layout';
+import FeedLayout from '@/app/(tabs)/(feed)/_layout';
 import { useAuthStore } from '@/shared/app/AuthStore';
 // After the layout: the testing library mocks reanimated for every later import,
 // and that mock lacks the logger the root layout configures at load.
@@ -65,7 +66,8 @@ function leaf(name: string) {
 const APP = {
   _layout: { default: RootStub, unstable_settings },
   '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': leaf('feed'),
+  '(tabs)/(feed)/_layout': FeedLayout,
+  '(tabs)/(feed)/index': leaf('feed'),
   '(tabs)/map': leaf('map'),
   'activity/[id]': leaf('activity'),
   'section/[id]': leaf('section'),
@@ -151,7 +153,7 @@ it('back from a cold-linked screen lands on the Feed', async () => {
   await settle();
 
   expect(router.canGoBack()).toBe(true);
-  act(() => router.back());
+  await act(() => router.back());
   await settle();
   expect(routeNames()).toEqual(['(tabs)']);
   expect(result.getPathname()).toBe('/');
@@ -179,7 +181,7 @@ it('the record screen swapping itself for the review keeps the tab group under i
   renderRouter(APP, { initialUrl: '/record' });
   await settle();
 
-  act(() => router.replace('/recording/review'));
+  await act(() => router.replace('/recording/review'));
   await settle();
   expect(routeNames()).toEqual(['(tabs)', 'recording/review']);
 });

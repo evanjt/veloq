@@ -22,6 +22,7 @@ fn context() -> WidgetContext {
             icon: "trophy".to_string(),
             tone: "positive".to_string(),
             url: "veloq://section/s1".to_string(),
+            tone_label: String::new(),
         }],
         ..WidgetContext::default()
     }
@@ -222,8 +223,8 @@ fn storing_the_same_context_twice_writes_once() {
 /// The natives read this version to decide what a snapshot carries, so a change
 /// here is a change to what they decode.
 #[test]
-fn the_schema_is_the_one_carrying_the_strength_block() {
-    assert_eq!(SCHEMA_VERSION, 15);
+fn the_schema_is_the_one_carrying_the_spoken_words() {
+    assert_eq!(SCHEMA_VERSION, 16);
 }
 
 /// Scenario: the library is wiped for the next athlete, then a push for them

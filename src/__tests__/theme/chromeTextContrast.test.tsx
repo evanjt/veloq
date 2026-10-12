@@ -89,20 +89,23 @@ describe('the bottom tab bar labels', () => {
     return composite(densest, isDark ? ink.white : ink.black);
   }
 
-  it.each(THEMES)('clear 4.5:1 on the scrim in the $name theme, active and inactive', (theme) => {
-    mockIsDark = theme.isDark;
-    const { UNSAFE_getByType, getByText } = render(<BottomTabBar />);
-    const ground = worstGround(theme.isDark, UNSAFE_getByType(LinearGradient).props.colors);
+  it.each(THEMES)(
+    'clear 4.5:1 on the scrim in the $name theme, active and inactive',
+    async (theme) => {
+      mockIsDark = theme.isDark;
+      const { UNSAFE_getByType, getByText } = await render(<BottomTabBar />);
+      const ground = worstGround(theme.isDark, UNSAFE_getByType(LinearGradient).props.colors);
 
-    // The feed is the active tab at `/`, the fitness tab an inactive one.
-    const failing = ['navigation.feed', 'navigation.fitness'].flatMap((label) => {
-      const colour = renderedTextColour(getByText(label).props.style, ground);
-      const ratio = contrastRatio(colour, ground);
-      return ratio >= AA_TEXT ? [] : [`${label} ${ratio.toFixed(2)}`];
-    });
+      // The feed is the active tab at `/`, the fitness tab an inactive one.
+      const failing = ['navigation.feed', 'navigation.fitness'].flatMap((label) => {
+        const colour = renderedTextColour(getByText(label).props.style, ground);
+        const ratio = contrastRatio(colour, ground);
+        return ratio >= AA_TEXT ? [] : [`${label} ${ratio.toFixed(2)}`];
+      });
 
-    expect(failing).toStrictEqual([]);
-  });
+      expect(failing).toStrictEqual([]);
+    }
+  );
 });
 
 describe('the swipeable tab strip badges', () => {
@@ -134,8 +137,8 @@ describe('the swipeable tab strip badges', () => {
     return undefined;
   }
 
-  it.each(THEMES)('clear 4.5:1 on their own fill in the $name theme', (theme) => {
-    const { getByText } = renderStrip(theme.isDark);
+  it.each(THEMES)('clear 4.5:1 on their own fill in the $name theme', async (theme) => {
+    const { getByText } = await renderStrip(theme.isDark);
     const page = theme.palette.background;
 
     const failing = ['11', '22', '+12s', '-5s', 'PR', '3'].flatMap((text) => {
@@ -149,8 +152,8 @@ describe('the swipeable tab strip badges', () => {
     expect(failing).toStrictEqual([]);
   });
 
-  it.each(THEMES)('draws a slower time in the decline tone in the $name theme', (theme) => {
-    const { getByText } = renderStrip(theme.isDark);
+  it.each(THEMES)('draws a slower time in the decline tone in the $name theme', async (theme) => {
+    const { getByText } = await renderStrip(theme.isDark);
 
     const colour = StyleSheet.flatten(getByText('+12s').props.style).color;
 
@@ -158,20 +161,23 @@ describe('the swipeable tab strip badges', () => {
     expect(colour).not.toBe(colors.textOnPrimary);
   });
 
-  it.each(THEMES)('draws the active icon and label in one teal in the $name theme', (theme) => {
-    const { getByText, UNSAFE_getAllByProps } = renderStrip(theme.isDark);
+  it.each(THEMES)(
+    'draws the active icon and label in one teal in the $name theme',
+    async (theme) => {
+      const { getByText, UNSAFE_getAllByProps } = await renderStrip(theme.isDark);
 
-    const label = StyleSheet.flatten(getByText('Active').props.style).color;
-    const icon = UNSAFE_getAllByProps({ name: 'map-marker-path' })[0].props.color;
+      const label = StyleSheet.flatten(getByText('Active').props.style).color;
+      const icon = UNSAFE_getAllByProps({ name: 'map-marker-path' })[0].props.color;
 
-    expect(icon).toBe(label);
-  });
+      expect(icon).toBe(label);
+    }
+  );
 });
 
 describe('the Garmin trademark line', () => {
-  it.each(THEMES)('clears 4.5:1 on every surface in the $name theme', (theme) => {
+  it.each(THEMES)('clears 4.5:1 on every surface in the $name theme', async (theme) => {
     mockIsDark = theme.isDark;
-    const { getByText } = render(<DeviceAttribution deviceName="Garmin Edge 840" />);
+    const { getByText } = await render(<DeviceAttribution deviceName="Garmin Edge 840" />);
     const style = getByText('attribution.garminTrademark').props.style;
 
     const worst = Math.min(
@@ -183,9 +189,9 @@ describe('the Garmin trademark line', () => {
     expect(worst).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  it.each(THEMES)('clears 4.5:1 on the data sources card in the $name theme', (theme) => {
+  it.each(THEMES)('clears 4.5:1 on the data sources card in the $name theme', async (theme) => {
     mockIsDark = theme.isDark;
-    const { getByText } = render(<DataSourcesSection />);
+    const { getByText } = await render(<DataSourcesSection />);
     const card = theme.isDark ? darkColors.surfaceCard : colors.surface;
 
     const colour = renderedTextColour(getByText('attribution.garminTrademark').props.style, card);

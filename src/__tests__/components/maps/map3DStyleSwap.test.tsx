@@ -80,28 +80,28 @@ describe('swapping the 3D style', () => {
     expect(html).toContain('veloq-asset/');
   });
 
-  it('uses bundled light tiles when returning from the dark style', () => {
-    const view = render(surface('dark', []));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
-    view.rerender(<Map3DWebView coordinates={[]} mapStyle="light" routesGeoJSON={EMPTY} />);
+  it('uses bundled light tiles when returning from the dark style', async () => {
+    const view = await render(surface('dark', []));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await view.rerender(<Map3DWebView coordinates={[]} mapStyle="light" routesGeoJSON={EMPTY} />);
 
     const script = injected.find((s) => s.includes('setStyle'));
     expect(script).toBeDefined();
     const style = styleSwapped(script as string);
     expect(JSON.stringify(style.sources.openmaptiles)).toContain('/veloq-tile/');
     expect(JSON.stringify(style)).toContain('veloq-asset/');
-    view.unmount();
+    await view.unmount();
   });
 
   it.each([
     ['no route drawn', [] as [number, number][]],
     ['a route drawn', [[7.4, 46.9]] as [number, number][]],
-  ])('keeps the route and scrub sources with %s', (_name, coordinates) => {
-    const view = render(surface('dark', coordinates));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+  ])('keeps the route and scrub sources with %s', async (_name, coordinates) => {
+    const view = await render(surface('dark', coordinates));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
     injected.length = 0;
 
-    view.rerender(surface('satellite', coordinates));
+    await view.rerender(surface('satellite', coordinates));
 
     const script = injected.find((s) => s.includes('setStyle'));
     expect(script).toBeDefined();
@@ -112,21 +112,21 @@ describe('swapping the 3D style', () => {
     expect(style.layers.map((l) => l.id)).toEqual(
       expect.arrayContaining(['route-line', 'highlight-border', 'highlight-fill'])
     );
-    view.unmount();
+    await view.unmount();
   });
 
-  it('sends the scrub marker and the creation line again once the swap settles', () => {
-    const view = render(surface('dark', []));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
-    view.rerender(surface('satellite', []));
+  it('sends the scrub marker and the creation line again once the swap settles', async () => {
+    const view = await render(surface('dark', []));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await view.rerender(surface('satellite', []));
     injected.length = 0;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(600);
     });
 
     expect(injected.some((s) => s.includes("getSource('highlight-point')"))).toBe(true);
     expect(injected.some((s) => s.includes("'section-creation-markers'"))).toBe(true);
-    view.unmount();
+    await view.unmount();
   });
 });

@@ -23,33 +23,33 @@ describe('useEngineReady', () => {
     useEngineStatus.setState({ readyNonce: 0 });
   });
 
-  it('answers null while the engine is not open', () => {
+  it('answers null while the engine is not open', async () => {
     mockGetEngine.mockReturnValue(null);
 
-    const { result } = renderHook(() => useEngineReady());
+    const { result } = await renderHook(() => useEngineReady());
 
     expect(result.current).toBeNull();
   });
 
-  it('answers the handle on the render the ready nonce triggers', () => {
+  it('answers the handle on the render the ready nonce triggers', async () => {
     mockGetEngine.mockReturnValue(null);
-    const { result } = renderHook(() => useEngineReady());
+    const { result } = await renderHook(() => useEngineReady());
     expect(result.current).toBeNull();
 
     mockGetEngine.mockReturnValue(HANDLE);
-    act(() => useEngineStatus.getState().markEngineReady());
+    await act(() => useEngineStatus.getState().markEngineReady());
 
     expect(result.current).toBe(HANDLE);
   });
 
-  it('answers the replacement after a clear reopens the engine', () => {
+  it('answers the replacement after a clear reopens the engine', async () => {
     mockGetEngine.mockReturnValue(HANDLE);
-    const { result } = renderHook(() => useEngineReady());
+    const { result } = await renderHook(() => useEngineReady());
     expect(result.current).toBe(HANDLE);
 
     const replacement = { id: 'reopened' } as unknown as ReturnType<typeof getEngine>;
     mockGetEngine.mockReturnValue(replacement);
-    act(() => useEngineStatus.getState().markEngineReady());
+    await act(() => useEngineStatus.getState().markEngineReady());
 
     expect(result.current).toBe(replacement);
   });

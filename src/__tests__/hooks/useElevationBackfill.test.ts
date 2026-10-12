@@ -53,8 +53,8 @@ function engineReporting(
 }
 
 /** Stands in for the phase transition Rust announces off the JS thread. */
-function announce(event: string) {
-  act(() => {
+async function announce(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((listener) => listener());
   });
 }
@@ -74,21 +74,21 @@ describe('useElevationBackfill', () => {
     jest.useRealTimers();
   });
 
-  it('reads idle when no run has happened', () => {
+  it('reads idle when no run has happened', async () => {
     mockGetEngine.mockReturnValue(engineReporting(() => progress('idle')));
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe('idle');
     expect(result.current.isRunning).toBe(false);
   });
 
-  it('reports a live count while fetching', () => {
+  it('reports a live count while fetching', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress('fetching', { completed: 12, total: 40 }))
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current).toMatchObject({
       phase: 'fetching',
@@ -98,15 +98,15 @@ describe('useElevationBackfill', () => {
     });
   });
 
-  it('follows the count as the run advances', () => {
+  it('follows the count as the run advances', async () => {
     let completed = 1;
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress('fetching', { completed, total: 40 }))
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     completed = 7;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1500);
     });
 
@@ -118,74 +118,74 @@ describe('useElevationBackfill', () => {
     ['partial', { completed: 40, total: 40, failed: 3 }],
     ['failed', {}],
     ['paused', { completed: 20, total: 40 }],
-  ])('reports the %s terminal state as itself', (phase, over) => {
+  ])('reports the %s terminal state as itself', async (phase, over) => {
     mockGetEngine.mockReturnValue(engineReporting(() => progress(phase, over)));
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe(phase);
     expect(result.current.isRunning).toBe(false);
   });
 
-  it('never reports a failed run as a finished one', () => {
+  it('never reports a failed run as a finished one', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress('failed', { completed: 40, total: 40 }))
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).not.toBe('complete');
     expect(result.current.phase).not.toBe('partial');
     expect(result.current.phase).toBe('failed');
   });
 
-  it('keeps the retry count of a partial run', () => {
+  it('keeps the retry count of a partial run', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress('partial', { completed: 40, total: 40, failed: 5 }))
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.failed).toBe(5);
   });
 
-  it('treats an unknown phase as idle rather than as a finished run', () => {
+  it('treats an unknown phase as idle rather than as a finished run', async () => {
     mockGetEngine.mockReturnValue(engineReporting(() => progress('detecting')));
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe('idle');
   });
 
-  it('reads idle when the engine is unavailable', () => {
+  it('reads idle when the engine is unavailable', async () => {
     mockGetEngine.mockReturnValue(null);
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe('idle');
   });
 
-  it('stops polling once unmounted', () => {
+  it('stops polling once unmounted', async () => {
     const read = jest.fn(() => progress('fetching', { completed: 1, total: 2 }));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
-    const { unmount } = renderHook(() => useElevationBackfill());
-    unmount();
+    const { unmount } = await renderHook(() => useElevationBackfill());
+    await unmount();
     const callsAtUnmount = read.mock.calls.length;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
 
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
   });
 
-  it('makes no engine calls while nothing is running', () => {
+  it('makes no engine calls while nothing is running', async () => {
     const read = jest.fn(() => progress('idle'));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
-    renderHook(() => useElevationBackfill());
+    await renderHook(() => useElevationBackfill());
     const callsAtMount = read.mock.calls.length;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
 
@@ -193,47 +193,47 @@ describe('useElevationBackfill', () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the snapshot when the engine announces a phase', () => {
+  it('reads the snapshot when the engine announces a phase', async () => {
     let phase = 'idle';
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress(phase, { completed: 0, total: 12 }))
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     expect(result.current.isRunning).toBe(false);
 
     phase = 'fetching';
-    announce('backfillPhase');
+    await announce('backfillPhase');
 
     expect(result.current).toMatchObject({ phase: 'fetching', total: 12, isRunning: true });
   });
 
-  it('stops reading once the run reaches a terminal phase', () => {
+  it('stops reading once the run reaches a terminal phase', async () => {
     let phase = 'fetching';
     const read = jest.fn(() => progress(phase, { completed: 3, total: 12 }));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     phase = 'complete';
-    announce('backfillPhase');
+    await announce('backfillPhase');
     expect(result.current.phase).toBe('complete');
 
     const callsAtSettle = read.mock.calls.length;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
 
     expect(read).toHaveBeenCalledTimes(callsAtSettle);
   });
 
-  it('hears nothing more once unmounted', () => {
+  it('hears nothing more once unmounted', async () => {
     const read = jest.fn(() => progress('idle'));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
-    const { unmount } = renderHook(() => useElevationBackfill());
-    unmount();
+    const { unmount } = await renderHook(() => useElevationBackfill());
+    await unmount();
     const callsAtUnmount = read.mock.calls.length;
-    announce('backfillPhase');
+    await announce('backfillPhase');
 
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
   });
@@ -248,7 +248,7 @@ describe('useElevationBackfill', () => {
    * stops the polling. The state settling and the poll stopping are the same
    * event, not two.
    */
-  it('stops polling once a tick finds the run over', () => {
+  it('stops polling once a tick finds the run over', async () => {
     let reads = 0;
     let running = true;
     mockGetEngine.mockReturnValue(
@@ -260,17 +260,17 @@ describe('useElevationBackfill', () => {
       })
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     expect(result.current.isRunning).toBe(true);
 
     running = false;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1500);
     });
     expect(result.current.isRunning).toBe(false);
 
     const settled = reads;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
 
@@ -278,7 +278,7 @@ describe('useElevationBackfill', () => {
   });
 
   /** An engine that cannot answer reads as idle, and that stops the poll too. */
-  it('stops polling when the reads stop answering', () => {
+  it('stops polling when the reads stop answering', async () => {
     let reads = 0;
     let throwing = false;
     mockGetEngine.mockReturnValue(
@@ -289,17 +289,17 @@ describe('useElevationBackfill', () => {
       })
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     expect(result.current.isRunning).toBe(true);
 
     throwing = true;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1500);
     });
     expect(result.current.isRunning).toBe(false);
 
     const settled = reads;
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
 
@@ -313,7 +313,7 @@ describe('useElevationBackfill', () => {
  * nothing read it.
  */
 describe('useElevationBackfill outstanding count', () => {
-  it('reads the count at rest', () => {
+  it('reads the count at rest', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(
         () => progress('idle'),
@@ -321,13 +321,13 @@ describe('useElevationBackfill outstanding count', () => {
       )
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe('idle');
     expect(result.current.remaining).toBe(12);
   });
 
-  it('reads zero as zero, not as unknown', () => {
+  it('reads zero as zero, not as unknown', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(
         () => progress('idle'),
@@ -335,12 +335,12 @@ describe('useElevationBackfill outstanding count', () => {
       )
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.remaining).toBe(0);
   });
 
-  it('reads null when the engine cannot answer', () => {
+  it('reads null when the engine cannot answer', async () => {
     mockGetEngine.mockReturnValue(
       engineReporting(
         () => progress('idle'),
@@ -348,33 +348,33 @@ describe('useElevationBackfill outstanding count', () => {
       )
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.remaining).toBeNull();
   });
 
-  it('reads null with no engine at all', () => {
+  it('reads null with no engine at all', async () => {
     mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.remaining).toBeNull();
   });
 
-  it('does not count during a live pass, which reports its own progress', () => {
+  it('does not count during a live pass, which reports its own progress', async () => {
     const remaining = jest.fn(() => 12);
     mockGetEngine.mockReturnValue(
       engineReporting(() => progress('fetching', { completed: 3, total: 20 }), remaining)
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
 
     expect(result.current.phase).toBe('fetching');
     expect(result.current.remaining).toBeNull();
     expect(remaining).not.toHaveBeenCalled();
   });
 
-  it('re-counts when a pass announces it has finished', () => {
+  it('re-counts when a pass announces it has finished', async () => {
     let phase = 'fetching';
     let left = 12;
     mockGetEngine.mockReturnValue(
@@ -384,12 +384,12 @@ describe('useElevationBackfill outstanding count', () => {
       )
     );
 
-    const { result } = renderHook(() => useElevationBackfill());
+    const { result } = await renderHook(() => useElevationBackfill());
     expect(result.current.remaining).toBeNull();
 
     phase = 'idle';
     left = 0;
-    announce('backfillPhase');
+    await announce('backfillPhase');
 
     expect(result.current.remaining).toBe(0);
   });

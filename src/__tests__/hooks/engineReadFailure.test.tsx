@@ -47,38 +47,38 @@ beforeEach(() => {
 });
 
 describe('route engine hooks', () => {
-  it('useEngineGroups reports a thrown read', () => {
-    const { result } = renderHook(() => useEngineGroups());
+  it('useEngineGroups reports a thrown read', async () => {
+    const { result } = await renderHook(() => useEngineGroups());
     expect(engineErrorTag(result.current.error)).toBe('Database');
     expect(result.current.groups).toEqual([]);
   });
 
-  it('useSectionSummaries reports a thrown read', () => {
-    const { result } = renderHook(() => useSectionSummaries());
+  it('useSectionSummaries reports a thrown read', async () => {
+    const { result } = await renderHook(() => useSectionSummaries());
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
-  it('useGroupSummaries reports a thrown read', () => {
-    const { result } = renderHook(() => useGroupSummaries());
+  it('useGroupSummaries reports a thrown read', async () => {
+    const { result } = await renderHook(() => useGroupSummaries());
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
-  it('useGroupSummaries reads nothing while disabled', () => {
-    const { result } = renderHook(() => useGroupSummaries({ enabled: false }));
+  it('useGroupSummaries reads nothing while disabled', async () => {
+    const { result } = await renderHook(() => useGroupSummaries({ enabled: false }));
     expect(engine.getFilteredGroupSummaries).not.toHaveBeenCalled();
     expect(result.current.error).toBeUndefined();
     expect(result.current.summaries).toEqual([]);
   });
 
-  it('useSectionDetail reports a thrown read rather than not found', () => {
-    const { result } = renderHook(() => useSectionDetail('s1'));
+  it('useSectionDetail reports a thrown read rather than not found', async () => {
+    const { result } = await renderHook(() => useSectionDetail('s1'));
     expect(result.current.section).toBeNull();
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
-  it('a read that answers nothing is not an error', () => {
+  it('a read that answers nothing is not an error', async () => {
     engine.getSectionById.mockImplementation(() => null as never);
-    const detail = renderHook(() => useSectionDetail('s1'));
+    const detail = await renderHook(() => useSectionDetail('s1'));
     expect(detail.result.current.section).toBeNull();
     expect(detail.result.current.error).toBeUndefined();
   });
@@ -94,7 +94,9 @@ describe('useMuscleGroups', () => {
   }
 
   it('records a thrown read as a query error, not a cached empty list', async () => {
-    const { result } = renderHook(() => useMuscleGroups('act-1', true), { wrapper: wrapper() });
+    const { result } = await renderHook(() => useMuscleGroups('act-1', true), {
+      wrapper: wrapper(),
+    });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();
     expect(engineErrorTag(result.current.error)).toBe('Database');
@@ -102,7 +104,9 @@ describe('useMuscleGroups', () => {
 
   it('caches the muscles a successful read returns', async () => {
     engine.getMuscleGroups.mockImplementation(() => [{ slug: 'chest', intensity: 2 }] as never);
-    const { result } = renderHook(() => useMuscleGroups('act-1', true), { wrapper: wrapper() });
+    const { result } = await renderHook(() => useMuscleGroups('act-1', true), {
+      wrapper: wrapper(),
+    });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([{ slug: 'chest', intensity: 2 }]);
   });

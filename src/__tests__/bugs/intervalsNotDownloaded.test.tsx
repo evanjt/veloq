@@ -10,12 +10,14 @@
 
 import React from 'react';
 import { fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
 import { useActivityIntervals } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
+import { layout } from '@/theme/layout';
 import type { ActivityDetail, ActivityInterval } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -35,10 +37,12 @@ jest.mock('@/shared/ui', () => {
       </Pressable>
     ),
     BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
+    CardHeader: jest.requireActual('@/shared/ui/CardHeader').CardHeader,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
+    DisclosureChevron: () => null,
     ScreenSafeAreaView: View,
   };
 });
@@ -145,7 +149,7 @@ afterEach(() => {
 
 describe('the intervals hook', () => {
   it('says the body was never fetched rather than handing back empty laps', async () => {
-    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
     expect(result.current.data.icu_intervals).toEqual([]);
@@ -154,7 +158,7 @@ describe('the intervals hook', () => {
   it('says a fetched body with no laps is empty', async () => {
     engine.getIntervalBody.mockReturnValue(JSON.stringify({ icu_intervals: [], icu_groups: [] }));
 
-    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('empty'));
   });
@@ -164,13 +168,13 @@ describe('the intervals hook', () => {
       JSON.stringify({ icu_intervals: intervals, icu_groups: [] })
     );
 
-    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('loaded'));
   });
 
   it('hands back the wait for a body never fetched, and a retry that asks again', async () => {
-    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.bodyStatus).toBe('waiting'));
     expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(1);
@@ -183,15 +187,15 @@ describe('the intervals hook', () => {
   it('says pending for a body that will not parse', async () => {
     engine.getIntervalBody.mockReturnValue('{not json');
 
-    const { result } = renderHook(() => useActivityIntervals('act-1'), { wrapper });
+    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
   });
 });
 
 describe('the charts section with no intervals', () => {
-  it('says the laps were never downloaded when the body is still owed', () => {
-    const { getByTestId, queryByTestId } = renderSection({ intervalsOutcome: 'pending' });
+  it('says the laps were never downloaded when the body is still owed', async () => {
+    const { getByTestId, queryByTestId } = await renderSection({ intervalsOutcome: 'pending' });
 
     expect(getByTestId('intervals-not-downloaded')).toBeTruthy();
     expect(queryByTestId('activity-interval-table')).toBeNull();
@@ -199,21 +203,21 @@ describe('the charts section with no intervals', () => {
 
   it.each<EngineBodyStatus>(['timedOut', 'refused'])(
     'offers a Retry that asks again once the wait is %s',
-    (status) => {
+    async (status) => {
       const onRetryIntervals = jest.fn();
-      const { getByTestId } = renderSection({
+      const { getByTestId } = await renderSection({
         intervalsOutcome: 'pending',
         intervalsStatus: status,
         onRetryIntervals,
       });
 
-      fireEvent.press(getByTestId('intervals-not-downloaded-retry'));
+      await fireEvent.press(getByTestId('intervals-not-downloaded-retry'));
       expect(onRetryIntervals).toHaveBeenCalledTimes(1);
     }
   );
 
-  it('offers no Retry while the laps are still being fetched', () => {
-    const { getByTestId, queryByTestId } = renderSection({
+  it('offers no Retry while the laps are still being fetched', async () => {
+    const { getByTestId, queryByTestId } = await renderSection({
       intervalsOutcome: 'pending',
       intervalsStatus: 'waiting',
       onRetryIntervals: jest.fn(),
@@ -223,20 +227,34 @@ describe('the charts section with no intervals', () => {
     expect(queryByTestId('intervals-not-downloaded-retry')).toBeNull();
   });
 
-  it('says nothing at all for a ride the server settled as lapless', () => {
-    const { queryByTestId } = renderSection({ intervalsOutcome: 'empty' });
+  it('says nothing at all for a ride the server settled as lapless', async () => {
+    const { queryByTestId } = await renderSection({ intervalsOutcome: 'empty' });
 
     expect(queryByTestId('intervals-not-downloaded')).toBeNull();
     expect(queryByTestId('activity-interval-table')).toBeNull();
   });
 
-  it('draws the table, and no caveat, once the laps are there', () => {
-    const { getByTestId, queryByTestId } = renderSection({
+  it('draws the table, and no caveat, once the laps are there', async () => {
+    const { getByTestId, queryByTestId } = await renderSection({
       intervalsData: { icu_intervals: intervals },
       intervalsOutcome: 'loaded',
     });
 
     expect(getByTestId('activity-interval-table')).toBeTruthy();
     expect(queryByTestId('intervals-not-downloaded')).toBeNull();
+  });
+});
+
+describe('the intervals bar', () => {
+  it('reaches the tap-target floor, since the card clips any hit slop', () => {
+    const { getByLabelText } = renderSection({
+      intervalsData: { icu_intervals: intervals },
+      intervalsOutcome: 'loaded',
+    });
+
+    const style = StyleSheet.flatten(
+      getByLabelText('activityDetail.tabs.intervals').props.style
+    ) as { minHeight?: number };
+    expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 });

@@ -76,7 +76,10 @@ async function fetchFloor() {
 
 async function main() {
   await fetchFloor();
-  rmSync(outDir, { recursive: true, force: true });
+  // Only the two directories written here: the map renderer sits beside them
+  // and is scripts/fetch-maplibre-renderer.mjs's to replace.
+  rmSync(join(outDir, 'sprites'), { recursive: true, force: true });
+  rmSync(join(outDir, 'fonts'), { recursive: true, force: true });
 
   let spriteBytes = 0;
   for (const file of SPRITE_FILES) {

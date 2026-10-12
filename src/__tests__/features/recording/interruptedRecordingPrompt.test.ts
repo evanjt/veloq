@@ -84,7 +84,7 @@ function lastAlert(): { body: string; buttons: AlertButton[]; options?: AlertOpt
 }
 
 function resumeButton(): AlertButton | undefined {
-  return lastAlert().buttons.find((b) => b.style === undefined);
+  return lastAlert().buttons.find((b) => b.style !== 'destructive' && b.style !== 'cancel');
 }
 
 beforeAll(async () => {
@@ -228,7 +228,6 @@ describe('the resume prompt on the record screen', () => {
     const options = lastAlert().options;
 
     expect(options?.cancelable).toBe(true);
-    expect(options?.onDismiss).toBeInstanceOf(Function);
     options?.onDismiss?.();
 
     expect(mockClearBackup).not.toHaveBeenCalled();

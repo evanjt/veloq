@@ -20,20 +20,20 @@ const renderHero = () =>
   );
 
 describe('DetailHero pointer events', () => {
-  it('passes touches through the overlay to the map beneath', () => {
-    renderHero();
+  it('passes touches through the overlay to the map beneath', async () => {
+    await renderHero();
 
     expect(screen.getByTestId('detail-hero-overlay').props.pointerEvents).toBe('box-none');
   });
 
-  it('takes no touches at all on the gradient', () => {
-    renderHero();
+  it('takes no touches at all on the gradient', async () => {
+    await renderHero();
 
     expect(screen.getByTestId('detail-hero-gradient').props.pointerEvents).toBe('none');
   });
 
-  it('draws no back control, the stack header owns it', () => {
-    renderHero();
+  it('draws no back control, the stack header owns it', async () => {
+    await renderHero();
 
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByTestId('detail-hero-header')).toBeNull();

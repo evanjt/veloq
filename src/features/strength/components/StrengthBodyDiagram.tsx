@@ -100,7 +100,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
           <MaterialCommunityIcons
             name="close"
             size={14}
-            color={isDark ? darkColors.textSecondary : colors.textDisabled}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>
       ) : (
@@ -119,6 +119,8 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         onMuscleScrub={onMuscleScrub}
         tappableSlugs={tappableSlugs}
         defaultFill={untrainedFill}
+        accessibilityLabel={t('strength.muscleGroupVolume')}
+        accessibilityValueText={selectedVolume ? `${selectedName}, ${selectedSummary}` : undefined}
       />
 
       {/* Continuous scale bar */}
@@ -181,7 +183,7 @@ const styles = StyleSheet.create({
   },
   bodyHint: {
     fontSize: typography.label.fontSize,
-    color: colors.textDisabled,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
     fontStyle: 'italic',

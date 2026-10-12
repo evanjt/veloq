@@ -63,18 +63,18 @@ const strengthData = { muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 
 describe('a strength card in the feed', () => {
   beforeEach(() => mockGetEngine.mockClear());
 
-  it('paints the summary it is handed', () => {
-    render(<ActivityCard activity={lift} strengthData={strengthData} />);
+  it('paints the summary it is handed', async () => {
+    await render(<ActivityCard activity={lift} strengthData={strengthData} />);
     expect(screen.getByTestId('strength-card').props.children).toBe(9);
   });
 
-  it('reads nothing from the engine', () => {
-    render(<ActivityCard activity={lift} strengthData={strengthData} />);
+  it('reads nothing from the engine', async () => {
+    await render(<ActivityCard activity={lift} strengthData={strengthData} />);
     expect(mockGetEngine).not.toHaveBeenCalled();
   });
 
-  it('draws an ordinary card while the feed has no summary for it', () => {
-    render(<ActivityCard activity={lift} />);
+  it('draws an ordinary card while the feed has no summary for it', async () => {
+    await render(<ActivityCard activity={lift} />);
     expect(screen.queryByTestId('strength-card')).toBeNull();
     expect(screen.getByTestId('activity-card-s1')).toBeTruthy();
   });

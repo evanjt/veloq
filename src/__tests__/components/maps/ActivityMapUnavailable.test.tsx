@@ -74,36 +74,36 @@ const layerOpacity = () => {
 };
 
 describe('activity map with an unavailable basemap', () => {
-  it('keeps the 2D layer hidden until the surface says something', () => {
-    renderActivityMap();
+  it('keeps the 2D layer hidden until the surface says something', async () => {
+    await renderActivityMap();
 
     expect(layerOpacity()).toBe(0);
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();
   });
 
-  it('reveals the layer and the unavailable state when the surface fails', () => {
-    renderActivityMap();
+  it('reveals the layer and the unavailable state when the surface fails', async () => {
+    await renderActivityMap();
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
 
     expect(layerOpacity()).toBe(1);
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
-  it('reveals the layer with no unavailable state on a healthy load', () => {
-    renderActivityMap();
+  it('reveals the layer with no unavailable state on a healthy load', async () => {
+    await renderActivityMap();
 
-    post({ type: 'mapReady' });
+    await post({ type: 'mapReady' });
 
     expect(layerOpacity()).toBe(1);
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();
   });
 
-  it('clears the unavailable state when the load arrives after the failure', () => {
-    renderActivityMap();
+  it('clears the unavailable state when the load arrives after the failure', async () => {
+    await renderActivityMap();
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
-    post({ type: 'mapReady' });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapReady' });
 
     expect(layerOpacity()).toBe(1);
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();

@@ -98,17 +98,17 @@ jest.mock('@/shared/charts', () => ({
   },
 }));
 
-function scrubTo(distance: number) {
+async function scrubTo(distance: number) {
   const chart = chartProps.current!;
   const point = chart.data.find((p) => p.distance === distance)!;
-  act(() => {
+  await act(() => {
     chart.onInteractionChange(true);
     chart.onSelect(point);
   });
 }
 
-function release() {
-  act(() => chartProps.current!.onInteractionChange(false));
+async function release() {
+  await act(() => chartProps.current!.onInteractionChange(false));
 }
 
 function expectHeader(distance: number, time: number, activity: string | null) {
@@ -123,57 +123,57 @@ beforeEach(() => {
 });
 
 describe('the pace curve held point', () => {
-  it('stays on screen after release while the same curve is drawn', () => {
-    const { rerender } = render(<PaceCurveChart days={42} />);
-    scrubTo(5000);
-    release();
-    rerender(<PaceCurveChart days={42} />);
+  it('stays on screen after release while the same curve is drawn', async () => {
+    const { rerender } = await render(<PaceCurveChart days={42} />);
+    await scrubTo(5000);
+    await release();
+    await rerender(<PaceCurveChart days={42} />);
 
     expectHeader(5000, 1200, 'Harbour loop');
   });
 
-  it('gives way to the new curve when the range changes', () => {
-    const { rerender } = render(<PaceCurveChart days={42} />);
-    scrubTo(5000);
-    release();
-    rerender(<PaceCurveChart days={365} />);
+  it('gives way to the new curve when the range changes', async () => {
+    const { rerender } = await render(<PaceCurveChart days={42} />);
+    await scrubTo(5000);
+    await release();
+    await rerender(<PaceCurveChart days={365} />);
 
     expectHeader(21097.5, 5400, 'Ridge half');
     expect(screen.queryByText(formatDistance(5000, true))).toBeNull();
     expect(screen.queryByLabelText('Harbour loop')).toBeNull();
   });
 
-  it('gives way to the grade adjusted curve when GAP is turned on', () => {
-    render(<PaceCurveChart days={42} />);
-    scrubTo(5000);
-    release();
-    fireEvent(screen.getByRole('switch'), 'valueChange', true);
+  it('gives way to the grade adjusted curve when GAP is turned on', async () => {
+    await render(<PaceCurveChart days={42} />);
+    await scrubTo(5000);
+    await release();
+    await fireEvent(screen.getByRole('switch'), 'valueChange', true);
 
     expectHeader(15000, 3800, 'Lighthouse out and back');
     expect(screen.queryByText(formatDuration(1200))).toBeNull();
     expect(screen.queryByLabelText('Harbour loop')).toBeNull();
   });
 
-  it('drops a point scrubbed on a curve that was replaced mid-scrub', () => {
-    const { rerender } = render(<PaceCurveChart days={42} />);
-    scrubTo(5000);
-    rerender(<PaceCurveChart days={365} />);
+  it('drops a point scrubbed on a curve that was replaced mid-scrub', async () => {
+    const { rerender } = await render(<PaceCurveChart days={42} />);
+    await scrubTo(5000);
+    await rerender(<PaceCurveChart days={365} />);
 
     expectHeader(21097.5, 5400, 'Ridge half');
 
-    release();
+    await release();
 
     expectHeader(21097.5, 5400, 'Ridge half');
     expect(screen.queryByLabelText('Harbour loop')).toBeNull();
   });
 
-  it('holds a point scrubbed on the new curve after a change', () => {
-    const { rerender } = render(<PaceCurveChart days={42} />);
-    scrubTo(5000);
-    release();
-    rerender(<PaceCurveChart days={365} />);
-    scrubTo(5000);
-    release();
+  it('holds a point scrubbed on the new curve after a change', async () => {
+    const { rerender } = await render(<PaceCurveChart days={42} />);
+    await scrubTo(5000);
+    await release();
+    await rerender(<PaceCurveChart days={365} />);
+    await scrubTo(5000);
+    await release();
 
     expectHeader(5000, 1180, null);
   });

@@ -44,10 +44,10 @@ function alertButtons() {
   return (spy.mock.calls[0][2] ?? []) as { text: string; style?: string; onPress?: () => void }[];
 }
 
-function press(label: string) {
+async function press(label: string) {
   const button = alertButtons().find((b) => b.text === label);
   expect(button).toBeDefined();
-  act(() => button?.onPress?.());
+  await act(() => button?.onPress?.());
 }
 
 const SECTION: FrequentSection = {
@@ -66,9 +66,9 @@ const SECTION: FrequentSection = {
 // which sets a new Set and renders again, so it is hoisted.
 const NO_EXCLUSIONS: string[] = [];
 
-function mountWith(engine: Record<string, unknown> | null, onSectionRefresh = jest.fn()) {
+async function mountWith(engine: Record<string, unknown> | null, onSectionRefresh = jest.fn()) {
   mockedGetEngine.mockReturnValue(engine as never);
-  const hook = renderHook(() =>
+  const hook = await renderHook(() =>
     useSectionActions({
       id: 's1',
       isCustomId: false,
@@ -88,21 +88,21 @@ describe('unflagging a section the detector called lift ground', () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
-  it('writes nothing on the tap alone', () => {
+  it('writes nothing on the tap alone', async () => {
     const setSectionIsLift = jest.fn(() => true);
-    const { hook, onSectionRefresh } = mountWith({ setSectionIsLift });
+    const { hook, onSectionRefresh } = await mountWith({ setSectionIsLift });
 
-    act(() => hook.result.current.handleUnflagLift());
+    await act(() => hook.result.current.handleUnflagLift());
 
     expect(Alert.alert).toHaveBeenCalled();
     expect(setSectionIsLift).not.toHaveBeenCalled();
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('says what the confirmation does, and offers a way out of it', () => {
-    const { hook } = mountWith({ setSectionIsLift: jest.fn(() => true) });
+  it('says what the confirmation does, and offers a way out of it', async () => {
+    const { hook } = await mountWith({ setSectionIsLift: jest.fn(() => true) });
 
-    act(() => hook.result.current.handleUnflagLift());
+    await act(() => hook.result.current.handleUnflagLift());
 
     const [title, body] = (Alert.alert as jest.Mock).mock.calls[0];
     expect(title).toBe('sections.unflagLift');
@@ -110,54 +110,54 @@ describe('unflagging a section the detector called lift ground', () => {
     expect(alertButtons().map((b) => b.style)).toContain('cancel');
   });
 
-  it('writes once and refreshes the section when the athlete confirms', () => {
+  it('writes once and refreshes the section when the athlete confirms', async () => {
     const setSectionIsLift = jest.fn(() => true);
-    const { hook, onSectionRefresh } = mountWith({ setSectionIsLift });
+    const { hook, onSectionRefresh } = await mountWith({ setSectionIsLift });
 
-    act(() => hook.result.current.handleUnflagLift());
-    press('common.remove');
+    await act(() => hook.result.current.handleUnflagLift());
+    await press('common.remove');
 
     expect(setSectionIsLift).toHaveBeenCalledTimes(1);
     expect(setSectionIsLift).toHaveBeenCalledWith('s1', false);
     expect(onSectionRefresh).toHaveBeenCalled();
   });
 
-  it('writes nothing when the athlete cancels', () => {
+  it('writes nothing when the athlete cancels', async () => {
     const setSectionIsLift = jest.fn(() => true);
-    const { hook, onSectionRefresh } = mountWith({ setSectionIsLift });
+    const { hook, onSectionRefresh } = await mountWith({ setSectionIsLift });
 
-    act(() => hook.result.current.handleUnflagLift());
+    await act(() => hook.result.current.handleUnflagLift());
     const cancel = alertButtons().find((b) => b.style === 'cancel');
-    act(() => cancel?.onPress?.());
+    await act(() => cancel?.onPress?.());
 
     expect(setSectionIsLift).not.toHaveBeenCalled();
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('does not ask when the engine is not up', () => {
-    const { hook, onSectionRefresh } = mountWith(null);
+  it('does not ask when the engine is not up', async () => {
+    const { hook, onSectionRefresh } = await mountWith(null);
 
-    act(() => hook.result.current.handleUnflagLift());
+    await act(() => hook.result.current.handleUnflagLift());
 
     expect(Alert.alert).not.toHaveBeenCalled();
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('does not refresh when the engine refuses the confirmed write', () => {
+  it('does not refresh when the engine refuses the confirmed write', async () => {
     const setSectionIsLift = jest.fn(() => false);
-    const { hook, onSectionRefresh } = mountWith({ setSectionIsLift });
+    const { hook, onSectionRefresh } = await mountWith({ setSectionIsLift });
 
-    act(() => hook.result.current.handleUnflagLift());
-    press('common.remove');
+    await act(() => hook.result.current.handleUnflagLift());
+    await press('common.remove');
 
     expect(setSectionIsLift).toHaveBeenCalledWith('s1', false);
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('names the custom section selected for deletion', () => {
+  it('names the custom section selected for deletion', async () => {
     mockedGetEngine.mockReturnValue(null);
     const section = { ...SECTION, sectionType: 'custom' as const, name: 'River climb' };
-    const hook = renderHook(() =>
+    const hook = await renderHook(() =>
       useSectionActions({
         id: section.id,
         isCustomId: true,
@@ -169,7 +169,7 @@ describe('unflagging a section the detector called lift ground', () => {
       })
     );
 
-    act(() => hook.result.current.handleDeleteSection());
+    await act(() => hook.result.current.handleDeleteSection());
 
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('River climb');
     expect(alertButtons().map((button) => button.style)).toContain('cancel');

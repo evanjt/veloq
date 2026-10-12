@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { BleErrorCode, State } from 'react-native-ble-plx';
 
 import { debug } from '@/shared/debug/debug';
+import { useRecordingStore } from '@/features/recording';
 import { useSensorStore } from '../store';
 import {
   HEART_RATE_SERVICE,
@@ -389,6 +390,24 @@ const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const connectGenerations = new Map<string, number>();
 
 /**
+ * Set by `connectKnownSensors`, which the recording screen calls on mount,
+ * and cleared by `disconnectAllSensors`, which ends that session.
+ */
+let sessionHeld = false;
+
+/** Sensors the Sensors screen connected to confirm a pairing. */
+const pairingConnections = new Set<string>();
+
+/**
+ * Whether a recording session owns the connections: the recording screen has
+ * taken them, or a ride is under way. Only then is a dropped link reconnected
+ * and a pairing connection kept when its screen is left.
+ */
+function sessionOwnsConnections(): boolean {
+  return sessionHeld || useRecordingStore.getState().status !== 'idle';
+}
+
+/**
  * Write the sensor's derived status into the store. Called when a sample
  * lands and on every watchdog tick, so the row follows the link rather than
  * the GATT handshake.
@@ -447,7 +466,7 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
           if (!characteristic?.value) return;
           noteSample(sensor, active);
           const hr = parseHeartRate(base64ToBytes(characteristic.value));
-          if (hr != null && hr > 0 && hr < 255) store().setLatest('heartRate', hr);
+          if (hr != null && hr > 0 && hr < 255) store().setLatest('heartRate', hr, sensor.id);
         }
       )
     );
@@ -468,10 +487,10 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
           noteSample(sensor, active);
           const parsed = parseCyclingPower(base64ToBytes(characteristic.value));
           if (!parsed) return;
-          if (parsed.power >= 0) store().setLatest('power', parsed.power);
+          if (parsed.power >= 0) store().setLatest('power', parsed.power, sensor.id);
           if (parsed.crank) {
             const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
-            if (rpm != null) store().setLatest('cadence', rpm);
+            if (rpm != null) store().setLatest('cadence', rpm, sensor.id, 'derived');
           }
         }
       )
@@ -491,7 +510,7 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
         const parsed = parseCsc(base64ToBytes(char.value));
         if (parsed?.crank) {
           const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
-          if (rpm != null) store().setLatest('cadence', rpm);
+          if (rpm != null) store().setLatest('cadence', rpm, sensor.id);
         }
       })
     );
@@ -608,6 +627,14 @@ function abandonConnect(id: string): void {
 function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
   const conn = useSensorStore.getState().connections[sensor.id];
   if (!conn) return; // Disconnected deliberately
+  // Outside a session nothing needs the link, so a drop ends it rather than
+  // retrying for as long as the app runs.
+  if (!sessionOwnsConnections()) {
+    log.log(`Sensor link ended outside a recording session: ${sensor.name}`);
+    cleanupConnection(sensor.id);
+    pairingConnections.delete(sensor.id);
+    return;
+  }
   // A silent link keeps saying so while the reconnect runs: "no data" is what
   // the athlete can act on, "reconnecting" is only how it is being fixed.
   if (conn.status !== 'noData') {
@@ -673,18 +700,47 @@ function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): 
   }
   if (!options?.keepStoreEntry) {
     useSensorStore.getState().setConnection(id, null);
+    useSensorStore.getState().dropSources(id);
   }
 }
 
-/** Connect every paired sensor (called when a recording session starts). */
+/**
+ * Connect every paired sensor and hold them for the recording session, which
+ * the recording screen starts on mount. `disconnectAllSensors` ends it.
+ */
 export async function connectKnownSensors(): Promise<void> {
+  sessionHeld = true;
+  pairingConnections.clear();
   const { knownSensors } = useSensorStore.getState();
   for (const sensor of knownSensors) {
     connectAndSubscribe(sensor, 0);
   }
 }
 
+/**
+ * Connect the one sensor being paired, so the Sensors screen can show it
+ * working. `releasePairingConnections` ends it when the screen is left.
+ */
+export async function connectPairedSensor(sensor: KnownSensor): Promise<void> {
+  if (!sessionOwnsConnections()) pairingConnections.add(sensor.id);
+  await connectAndSubscribe(sensor, 0);
+}
+
+/**
+ * Disconnect what the Sensors screen connected, unless a recording session
+ * owns the connections and keeps them.
+ */
+export async function releasePairingConnections(): Promise<void> {
+  const ids = [...pairingConnections];
+  pairingConnections.clear();
+  if (sessionOwnsConnections()) return;
+  for (const id of ids) {
+    await disconnectSensor(id);
+  }
+}
+
 export async function disconnectSensor(id: string): Promise<void> {
+  pairingConnections.delete(id);
   cleanupConnection(id);
   try {
     await bleManager?.cancelDeviceConnection(id);
@@ -694,6 +750,7 @@ export async function disconnectSensor(id: string): Promise<void> {
 }
 
 export async function disconnectAllSensors(): Promise<void> {
+  sessionHeld = false;
   const ids = [...activeConnections.keys()];
   const storeIds = Object.keys(useSensorStore.getState().connections);
   for (const id of new Set([...ids, ...storeIds])) {

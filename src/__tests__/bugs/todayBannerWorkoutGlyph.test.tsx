@@ -51,9 +51,9 @@ describe('TodayBanner workout glyph', () => {
     ['Walk', 'walk'],
     ['Run', 'run'],
     ['Ride', 'bike'],
-  ])('draws the %s icon', (type, icon) => {
+  ])('draws the %s icon', async (type, icon) => {
     mockType = type;
-    const { queryByText } = render(<TodayBanner form={null} />);
+    const { queryByText } = await render(<TodayBanner form={null} />);
     expect(queryByText(/\u{1F6B4}|\u{1F3C3}/u)).toBeNull();
     expect(queryByText(`icon:${icon}`)).not.toBeNull();
   });

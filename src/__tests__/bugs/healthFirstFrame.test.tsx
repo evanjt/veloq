@@ -2,7 +2,7 @@
  * Scenario: the Health tab's first visit finds its reads already cached, so
  * every card has its data on the first commit.
  *
- * Expected behaviour: the first commit paints the header, the heatmap's frame
+ * Expected behaviour: the first commit paints the screen, the heatmap's frame
  * and the chart placeholders with no Skia canvas in it, and the canvases and
  * the cards below them mount on the frames that follow.
  */
@@ -23,6 +23,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   router: { setParams: jest.fn() },
   useLocalSearchParams: () => ({}),
 }));
@@ -100,9 +101,9 @@ it('paints the header and placeholders before any Skia canvas, then mounts the c
   );
 
   // Warm the screen read, as an earlier mount or another card would have.
-  const warm = render(screenOn());
+  const warm = await render(screenOn());
   await waitFor(() => expect(screen.getByTestId('activity-heatmap-count')).toBeTruthy());
-  warm.unmount();
+  await warm.unmount();
 
   const frames: FrameRequestCallback[] = [];
   const request = jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
@@ -111,15 +112,15 @@ it('paints the header and placeholders before any Skia canvas, then mounts the c
   });
   const cancel = jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(jest.fn());
   // A frame runs every callback queued before it, the shimmer's animation among them.
-  const runFrame = (timestamp: number) => {
+  const runFrame = async (timestamp: number) => {
     const due = frames.splice(0);
-    act(() => due.forEach((callback) => callback(timestamp)));
+    await act(() => due.forEach((callback) => callback(timestamp)));
   };
 
   try {
-    render(screenOn());
+    await render(screenOn());
 
-    expect(screen.getByTestId('training-header')).toBeTruthy();
+    expect(screen.getByTestId('training-screen')).toBeTruthy();
     expect(screen.getByTestId('activity-heatmap-count')).toBeTruthy();
     const placeholder = StyleSheet.flatten(
       screen.getByTestId('activity-heatmap-placeholder').props.style
@@ -131,17 +132,17 @@ it('paints the header and placeholders before any Skia canvas, then mounts the c
     expect(screen.queryByTestId('weekly-summary')).toBeNull();
     expect(screen.queryByTestId('season-comparison')).toBeNull();
 
-    runFrame(0);
+    await runFrame(0);
     expect(screen.queryAllByTestId('skia-canvas')).toHaveLength(1);
     expect(screen.queryByTestId('activity-heatmap-placeholder')).toBeNull();
     expect(screen.getByTestId('wellness-chart-canvas')).toBeTruthy();
     expect(screen.queryByTestId('weekly-summary')).toBeNull();
 
-    runFrame(16);
+    await runFrame(16);
     expect(screen.getByTestId('weekly-summary')).toBeTruthy();
     expect(screen.queryByTestId('season-comparison')).toBeNull();
 
-    runFrame(32);
+    await runFrame(32);
     expect(screen.getByTestId('season-comparison')).toBeTruthy();
   } finally {
     request.mockRestore();

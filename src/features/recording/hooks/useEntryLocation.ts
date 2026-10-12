@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 
 import { useLocationServices } from '@/shared/app/permissions/locationServices';
+import {
+  readLocationGrant,
+  requestLocationGrant,
+  upgradeLocationPrecision,
+  type LocationGrant,
+  type LocationPrecision,
+} from '@/shared/app/permissions/locationGrant';
 
 import { resolveEntryGps, type EntryGpsState } from '../lib/recordEntry';
 
@@ -21,18 +29,28 @@ export interface EntryLocation {
   promptSettled: boolean;
   /** Turns the device's location switch on where the platform allows it. */
   turnOnServices: () => Promise<void>;
+  /** Offer precise location when the grant is approximate. */
+  upgradePrecision: () => void;
 }
 
 type Permission = 'unknown' | 'granted' | 'denied';
 
-async function askForegroundLocation(): Promise<Permission> {
+interface Answer {
+  permission: Permission;
+  precision: LocationPrecision;
+}
+
+function answerOf(grant: LocationGrant): Answer {
+  return { permission: grant.granted ? 'granted' : 'denied', precision: grant.precision };
+}
+
+async function askForegroundLocation(): Promise<Answer> {
   try {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    if (status === 'granted') return 'granted';
-    const asked = await Location.requestForegroundPermissionsAsync();
-    return asked.status === 'granted' ? 'granted' : 'denied';
+    const held = await readLocationGrant();
+    if (held.granted) return answerOf(held);
+    return answerOf(await requestLocationGrant());
   } catch {
-    return 'denied';
+    return { permission: 'denied', precision: 'precise' };
   }
 }
 
@@ -53,6 +71,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
   const services = useLocationServices(active);
   const servicesOn = services.enabled === true;
   const [permission, setPermission] = useState<Permission>('unknown');
+  const [precision, setPrecision] = useState<LocationPrecision>('precise');
   const [fix, setFix] = useState<{
     location: { latitude: number; longitude: number };
     accuracy: number | null;
@@ -63,12 +82,37 @@ export function useEntryLocation(active: boolean): EntryLocation {
     if (!active || permission !== 'unknown') return undefined;
     let cancelled = false;
     void askForegroundLocation().then((answer) => {
-      if (!cancelled) setPermission(answer);
+      if (cancelled) return;
+      setPrecision(answer.precision);
+      setPermission(answer.permission);
     });
     return () => {
       cancelled = true;
     };
   }, [active, permission]);
+
+  // iOS offers the Precise switch only in Settings, so an approximate grant is
+  // read again when the athlete comes back.
+  useEffect(() => {
+    if (!active || permission !== 'granted' || precision !== 'approximate') return undefined;
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      readLocationGrant()
+        .then((grant) => {
+          if (grant.granted) setPrecision(grant.precision);
+        })
+        .catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [active, permission, precision]);
+
+  const upgradePrecision = useCallback(() => {
+    upgradeLocationPrecision()
+      .then((grant) => {
+        if (grant?.granted) setPrecision(grant.precision);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!active || permission !== 'granted' || !servicesOn) return undefined;
@@ -110,6 +154,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
     permission,
     fix,
     timedOut,
+    precision,
   });
   const shown = state === 'servicesOff' || state === 'none' ? null : fix;
   return {
@@ -118,5 +163,6 @@ export function useEntryLocation(active: boolean): EntryLocation {
     accuracy: shown?.accuracy ?? null,
     promptSettled: !active || permission !== 'unknown',
     turnOnServices: services.turnOn,
+    upgradePrecision,
   };
 }

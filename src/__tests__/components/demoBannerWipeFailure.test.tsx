@@ -1,5 +1,5 @@
 /**
- * Scenario: the athlete taps the demo banner to sign in, which signs them out
+ * Scenario: the athlete taps sign in on the demo banner, which signs them out
  * of demo mode at once and discards the fixtures after the navigation settles.
  * Expected behaviour: a discard that fails says so. The banner has already
  * gone, so a silent failure leaves the fixtures on disk with nothing on screen.
@@ -36,8 +36,8 @@ jest.mock('@/shared/storage', () => ({
 async function tapAndSettle(): Promise<void> {
   const idle = stubIdleScheduler('immediate');
   try {
-    const { getByTestId } = render(<DemoBanner />);
-    fireEvent.press(getByTestId('demo-mode-banner'));
+    const { getByTestId } = await render(<DemoBanner />);
+    await fireEvent.press(getByTestId('demo-mode-sign-in'));
     await waitFor(() => expect(mockClearDemoData).toHaveBeenCalled());
     await act(async () => {});
   } finally {
@@ -61,7 +61,12 @@ describe('leaving demo mode from the banner', () => {
     expect(mockExitDemoMode).toHaveBeenCalledTimes(1);
     expect(mockClearDemoData).toHaveBeenCalledTimes(1);
     // No locale is loaded here, so the translator answers with the key.
-    expect(Alert.alert).toHaveBeenCalledWith('alerts.error', 'alerts.failedToClear');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'alerts.clearFailedTitle',
+      'alerts.failedToClear',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
   it('says nothing when the wipe lands', async () => {

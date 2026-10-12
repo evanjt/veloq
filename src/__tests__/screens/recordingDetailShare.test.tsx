@@ -45,20 +45,30 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
+  useHeroMapHeight: () => 300,
+  EmptyState: ({ title }: { title: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{title}</Text>;
+  },
+  ErrorState: () => null,
+}));
+const mockOpenEngine = { id: 'open-handle' };
+jest.mock('@/shared/native/useEngineReady', () => ({
+  useEngineReady: () => mockOpenEngine,
+  useEngineOpening: () => false,
 }));
 jest.mock('@/features/recording/components/RecordingMap', () => ({
   RecordingMap: () => null,
 }));
 jest.mock('@/features/recording', () =>
-  require('../__shared__/recordingBarrelStub').withRecordingOverrides({
-    readRecordingTrack: jest.fn(async () => []),
-  })
+  require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   getVisibleRecording: jest.fn(),
   recordingFitExists: jest.fn(),
 }));
 jest.mock('@/features/recording/hooks/useRecordingLibrary', () => ({
+  ...jest.requireActual('@/features/recording/hooks/useRecordingLibrary'),
   useRecordingLibrary: jest.fn(),
 }));
 
@@ -88,7 +98,7 @@ beforeEach(() => {
 });
 
 it('keeps the named upload control busy while the recording uploads', async () => {
-  const view = render(<RecordingDetailScreen />);
+  const view = await render(<RecordingDetailScreen />);
   const upload = await screen.findByRole('button', { name: 'Upload now' });
   expect(upload).toBe(screen.getByTestId('recording-upload-button'));
 
@@ -97,7 +107,7 @@ it('keeps the named upload control busy while the recording uploads', async () =
     remove: jest.fn(),
     uploadingId: ENTRY.id,
   });
-  view.rerender(<RecordingDetailScreen />);
+  await view.rerender(<RecordingDetailScreen />);
   expect(screen.getByRole('button', { name: 'Upload now' }).props.accessibilityState.busy).toBe(
     true
   );
@@ -110,7 +120,7 @@ it('labels saved recording stats without input units in imperial mode', async ()
     durationSeconds: 1930,
     distanceMeters: 5149,
   });
-  render(<RecordingDetailScreen />);
+  await render(<RecordingDetailScreen />);
 
   expect(await screen.findByText('32:10')).toBeTruthy();
   expect(screen.getByText('3.2 mi')).toBeTruthy();
@@ -125,8 +135,8 @@ it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (upl
     ...ENTRY,
     uploadStatus,
   });
-  render(<RecordingDetailScreen />);
-  fireEvent.press(await screen.findByText('Share FIT file'));
+  await render(<RecordingDetailScreen />);
+  await fireEvent.press(await screen.findByText('Share FIT file'));
   await waitFor(() =>
     expect(Sharing.shareAsync).toHaveBeenCalledWith(ENTRY.fitPath, expect.any(Object))
   );
@@ -139,25 +149,25 @@ it.each([
 ])('hides Share without an available FIT: %s', async (fields) => {
   (getVisibleRecording as jest.Mock).mockResolvedValue({ ...ENTRY, ...fields });
   (recordingFitExists as jest.Mock).mockResolvedValue(false);
-  render(<RecordingDetailScreen />);
+  await render(<RecordingDetailScreen />);
   await screen.findByText('Status');
   expect(screen.queryByText('Share FIT file')).toBeNull();
   expect(Sharing.shareAsync).not.toHaveBeenCalled();
 });
 
 it('does not hand a removed FIT to the share sheet', async () => {
-  render(<RecordingDetailScreen />);
+  await render(<RecordingDetailScreen />);
   const share = await screen.findByText('Share FIT file');
   (recordingFitExists as jest.Mock).mockResolvedValue(false);
-  fireEvent.press(share);
+  await fireEvent.press(share);
   await waitFor(() => expect(recordingFitExists).toHaveBeenCalledTimes(2));
   expect(Sharing.shareAsync).not.toHaveBeenCalled();
 });
 
 it('names the selected recording before offering deletion', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<RecordingDetailScreen />);
-  fireEvent.press(await screen.findByText('Delete'));
+  await render(<RecordingDetailScreen />);
+  await fireEvent.press(await screen.findByText('Delete'));
 
   const body = alert.mock.calls[0][1] as string;
   expect(body).toContain('Ride');
@@ -167,7 +177,7 @@ it('names the selected recording before offering deletion', async () => {
 
 it("offers nothing on another athlete's ride, which reads as not found", async () => {
   (getVisibleRecording as jest.Mock).mockResolvedValue(null);
-  render(<RecordingDetailScreen />);
+  await render(<RecordingDetailScreen />);
 
   await screen.findByText('Recording not found');
   expect(screen.queryByText('Share FIT file')).toBeNull();

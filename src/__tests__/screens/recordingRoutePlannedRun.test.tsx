@@ -33,6 +33,7 @@ jest.mock('@/features/recording/hooks/useRecordingScreenColors', () => {
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app', () => ({
@@ -110,16 +111,19 @@ beforeEach(() => {
   (navigateTo as jest.Mock).mockClear();
 });
 
-it('advances the timer without rendering the recording screen on each clock tick', () => {
+it('advances the timer without rendering the recording screen on each clock tick', async () => {
   mockBodies = [];
   mockParams = { type: 'Ride' };
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
 
   expect(useRecordingStore.getState().status).toBe('recording');
   expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:00');
+  // The mount's own async reads land once; the count starts after them, so
+  // what it measures is the clock.
+  await act(async () => {});
   const rootRenders = mockScreenColorsRender.mock.calls.length;
 
-  act(() => jest.advanceTimersByTime(5000));
+  await act(() => jest.advanceTimersByTime(5000));
 
   expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:05');
   expect(mockScreenColorsRender.mock.calls.length).toBe(rootRenders);
@@ -133,7 +137,7 @@ afterEach(() => {
 it('follows the planned run beside the map and controls, and Stop reaches the paired review', async () => {
   mockBodies = [event(plannedRun)];
   mockParams = { type: 'Run', pairedEventId: '7' };
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
 
   expect(useRecordingStore.getState().status).toBe('recording');
   expect(screen.getByTestId('workout-current-step')).toHaveTextContent('Warm up');
@@ -142,47 +146,47 @@ it('follows the planned run beside the map and controls, and Stop reaches the pa
   );
   expect(screen.getByTestId('workout-step-list')).toHaveTextContent(/Warm up.*Kilometre/);
   expect(screen.getByTestId('recording-map')).toBeTruthy();
-  fireEvent.press(screen.getByTestId('unlock'));
+  await fireEvent.press(screen.getByTestId('unlock'));
   expect(screen.getByTestId('control-stop')).toBeTruthy();
 
   // A calendar refresh that changes the event does not move the plan in hand.
   mockBodies = [event([{ text: 'Something else', duration: 60 }])];
 
-  act(() => jest.advanceTimersByTime(30_000));
+  await act(() => jest.advanceTimersByTime(30_000));
   expect(screen.getByTestId('workout-countdown')).toHaveTextContent('1:30');
 
-  fireEvent.press(screen.getByTestId('control-pause'));
-  act(() => jest.advanceTimersByTime(60_000));
+  await fireEvent.press(screen.getByTestId('control-pause'));
+  await act(() => jest.advanceTimersByTime(60_000));
   expect(screen.getByTestId('workout-countdown')).toHaveTextContent('1:30');
-  fireEvent.press(screen.getByTestId('control-resume'));
+  await fireEvent.press(screen.getByTestId('control-resume'));
 
-  fireEvent.press(screen.getByTestId('workout-next'));
+  await fireEvent.press(screen.getByTestId('workout-next'));
   expect(screen.getByTestId('workout-current-step')).toHaveTextContent('Kilometre');
   expect(screen.getByTestId('workout-current-target')).toHaveTextContent('95% pace');
 
-  fireEvent.press(screen.getByTestId('workout-next'));
+  await fireEvent.press(screen.getByTestId('workout-next'));
   expect(screen.getByTestId('workout-complete')).toBeTruthy();
   expect(useRecordingStore.getState().status).toBe('recording');
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('control-stop'));
+    await fireEvent.press(screen.getByTestId('control-stop'));
   });
   expect(useRecordingStore.getState().status).toBe('stopped');
   expect(useRecordingStore.getState().pairedEventId).toBe(7);
   expect(navigateTo).toHaveBeenCalledWith('/recording/review');
 });
 
-it('records an ordinary run when the planned event has nothing to follow', () => {
+it('records an ordinary run when the planned event has nothing to follow', async () => {
   for (const bodies of [[event([])], ['{not json'], []]) {
     mockBodies = bodies;
     mockParams = { type: 'Run', pairedEventId: '7' };
-    const view = render(<RecordingScreen />);
+    const view = await render(<RecordingScreen />);
     expect(useRecordingStore.getState().status).toBe('recording');
     expect(useRecordingStore.getState().pairedEventId).toBe(7);
     expect(screen.queryByTestId('workout-guide')).toBeNull();
-    fireEvent.press(screen.getByTestId('unlock'));
+    await fireEvent.press(screen.getByTestId('unlock'));
     expect(screen.getByTestId('control-stop')).toBeTruthy();
-    view.unmount();
+    await view.unmount();
     useRecordingStore.getState().reset();
   }
 });

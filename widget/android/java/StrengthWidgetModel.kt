@@ -20,6 +20,11 @@ data class StrengthWindow(
   val top: List<StrengthTopMuscle>,
   /** The words drawn in place of the body when the window has no strength sessions. */
   val emptyText: String?,
+  /**
+   * What the shaded body shows, as a screen reader says it: the most trained muscles and their
+   * sets. Null where no body is drawn, and on a snapshot written before schema 16.
+   */
+  val bodyLabel: String? = null,
 )
 
 /** The snapshot's strength block: the athlete's body, where a tap goes and both windows. */
@@ -38,6 +43,8 @@ data class StrengthContent(
   val sides: List<BodyOutline.Side>,
   val top: List<StrengthTopMuscle>,
   val emptyText: String?,
+  /** What a screen reader says for the body. */
+  val bodyLabel: String?,
   val url: String,
   val demoLabel: String?,
   private val shades: Map<String, Int>,
@@ -93,6 +100,7 @@ object StrengthWidget {
       sides = sides,
       top = if (drawsBody && size == SummarySize.LARGE) window.top.take(TOP_MAX) else emptyList(),
       emptyText = window.emptyText,
+      bodyLabel = window.bodyLabel.takeIf { drawsBody },
       url = block.url,
       demoLabel = snap.demoLabel,
       shades =

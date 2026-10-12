@@ -10,8 +10,8 @@ import { StyleSheet } from 'react-native';
 import { DetailHero } from '@/shared/ui/DetailHero';
 
 describe('DetailHero overlay inset', () => {
-  it('pads the overlay on the right by the inset it is given', () => {
-    const { getByTestId } = render(
+  it('pads the overlay on the right by the inset it is given', async () => {
+    const { getByTestId } = await render(
       <DetailHero height={250} overlayInsetEnd={72} overlay={<></>}>
         <></>
       </DetailHero>

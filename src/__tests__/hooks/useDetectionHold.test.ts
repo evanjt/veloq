@@ -53,8 +53,8 @@ function engineWith({
   };
 }
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb());
   });
 }
@@ -68,44 +68,44 @@ describe('useDetectionHold', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('names the backfill while a pass is running', () => {
+  it('names the backfill while a pass is running', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ phase: 'fetching', remaining: null }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('elevation-running');
   });
 
-  it('tells a queue nothing is working on apart from a pass in flight', () => {
+  it('tells a queue nothing is working on apart from a pass in flight', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 12 }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('elevation-waiting');
   });
 
-  it('names the pause, which is the one hold the athlete can lift', () => {
+  it('names the pause, which is the one hold the athlete can lift', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 12, paused: true }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('elevation-paused');
   });
 
-  it('names the pause over a pass still finishing its batch', () => {
+  it('names the pause over a pass still finishing its batch', async () => {
     (getEngine as jest.Mock).mockReturnValue(
       engineWith({ phase: 'fetching', remaining: null, paused: true })
     );
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('elevation-paused');
   });
 
-  it('does not hold on a pause once the queue is empty', () => {
+  it('does not hold on a pause once the queue is empty', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 0, paused: true }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBeNull();
   });
@@ -118,91 +118,91 @@ describe('useDetectionHold', () => {
     expect(isElevationHold(null)).toBe(false);
   });
 
-  it('names the cutover once the queue is empty', () => {
+  it('names the cutover once the queue is empty', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ cutoverPending: true, remaining: 0 }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('cutover');
   });
 
-  it('names the backfill first when both hold, which is the upgrade path', () => {
+  it('names the backfill first when both hold, which is the upgrade path', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ cutoverPending: true, remaining: 12 }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('elevation-waiting');
   });
 
-  it('names the cutover while one is actually running', () => {
+  it('names the cutover while one is actually running', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ cutoverRunning: true, remaining: 0 }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBe('cutover');
   });
 
-  it('holds on nothing when neither holds', () => {
+  it('holds on nothing when neither holds', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 0 }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBeNull();
   });
 
-  it('treats an unanswerable count as no hold, not as work owed', () => {
+  it('treats an unanswerable count as no hold, not as work owed', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: null }));
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBeNull();
   });
 
-  it('holds on nothing when the engine cannot answer at all', () => {
+  it('holds on nothing when the engine cannot answer at all', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
 
     expect(result.current).toBeNull();
   });
 
-  it('lifts the cutover hold once the migration has run', () => {
+  it('lifts the cutover hold once the migration has run', async () => {
     let pending = true;
     (getEngine as jest.Mock).mockImplementation(() =>
       engineWith({ cutoverPending: pending, remaining: 0 })
     );
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
     expect(result.current).toBe('cutover');
 
     pending = false;
-    act(() => jest.advanceTimersByTime(5000));
+    await act(() => jest.advanceTimersByTime(5000));
     expect(result.current).toBeNull();
   });
 
-  it('hands over from the backfill to the cutover when the queue drains', () => {
+  it('hands over from the backfill to the cutover when the queue drains', async () => {
     let left: number | null = 12;
     (getEngine as jest.Mock).mockImplementation(() =>
       engineWith({ cutoverPending: true, remaining: left })
     );
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
     expect(result.current).toBe('elevation-waiting');
 
     left = 0;
-    emit('backfillPhase');
+    await emit('backfillPhase');
     expect(result.current).toBe('cutover');
   });
 
-  it('stops re-reading the cutover once nothing holds', () => {
+  it('stops re-reading the cutover once nothing holds', async () => {
     const engine = engineWith({ remaining: 0 });
     (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = renderHook(() => useDetectionHold());
+    const { result } = await renderHook(() => useDetectionHold());
     expect(result.current).toBeNull();
 
     const atMount = engine.isCutoverPending.mock.calls.length;
-    act(() => jest.advanceTimersByTime(30_000));
+    await act(() => jest.advanceTimersByTime(30_000));
     expect(engine.isCutoverPending.mock.calls.length).toBe(atMount);
   });
 });

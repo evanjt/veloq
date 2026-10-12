@@ -48,11 +48,11 @@ describe('ClusterCountOverlay in a dev build', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  function mount(visible: boolean) {
+  async function mount(visible: boolean) {
     const queryViewportFeatures = jest.fn().mockResolvedValue([]);
     const surfaceRef = { current: { queryViewportFeatures } as unknown as MapSurfaceRef };
     const ref = React.createRef<ClusterCountOverlayRef>();
-    render(React.createElement(ClusterCountOverlay, { surfaceRef, visible, ref }));
+    await render(React.createElement(ClusterCountOverlay, { surfaceRef, visible, ref }));
     return { queryViewportFeatures, ref };
   }
 
@@ -61,7 +61,7 @@ describe('ClusterCountOverlay in a dev build', () => {
   });
 
   it('does not query the map for an invisible overlay with no screen reader', async () => {
-    const { queryViewportFeatures, ref } = mount(false);
+    const { queryViewportFeatures, ref } = await mount(false);
 
     await act(async () => {
       jest.advanceTimersByTime(1000);
@@ -72,7 +72,7 @@ describe('ClusterCountOverlay in a dev build', () => {
   });
 
   it('queries the map when the overlay is shown', async () => {
-    const { queryViewportFeatures } = mount(true);
+    const { queryViewportFeatures } = await mount(true);
 
     await act(async () => {
       jest.advanceTimersByTime(1000);

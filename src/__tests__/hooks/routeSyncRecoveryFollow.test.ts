@@ -14,7 +14,6 @@ import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContex
 import { DETECTION_FOREGROUND_MS, followDetection } from '@/features/routes/lib/detectionRun';
 import { getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import type { Activity } from '@/types';
 
 const mockSettle = {
   promise: Promise.resolve('timeout'),
@@ -52,8 +51,6 @@ jest.mock('@/features/routes/lib/detectionRun', () => ({
   followDetection: jest.fn(() => ({ settled: mockSettle.promise, cancel: jest.fn() })),
 }));
 
-const activities = [{ id: 'a1', stream_types: [] }] as unknown as Activity[];
-
 let idle: IdleScheduler;
 
 describe('the route sync recovery follow', () => {
@@ -68,6 +65,7 @@ describe('the route sync recovery follow', () => {
     (getNativeModule as jest.Mock).mockReturnValue({
       engine: {
         getActivityCount: () => 0,
+        getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => [],
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
@@ -84,14 +82,14 @@ describe('the route sync recovery follow', () => {
   });
 
   it('follows with the shared budget and moves the percent on a tick', async () => {
-    const { result } = renderHook(() => useRouteDataSync(activities, true));
+    const { result } = await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     const options = (followDetection as jest.Mock).mock.calls[0]?.[1];
     expect(options.timeoutMs).toBe(DETECTION_FOREGROUND_MS);
     expect(typeof options.onProgress).toBe('function');
 
-    act(() => options.onProgress({ phase: 'analysing', percent: 40 }));
+    await act(() => options.onProgress({ phase: 'analysing', percent: 40 }));
     expect(result.current.progress).toMatchObject({ status: 'computing', percent: 30 });
   });
 });

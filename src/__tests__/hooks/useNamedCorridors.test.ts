@@ -9,7 +9,11 @@ import { useNamedCorridors } from '@/features/routes/hooks/useNamedCorridors';
 import { getEngine } from '@/shared/native/engine';
 import { encodeTrack } from '../__shared__/trackBytes';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+// An engine handed back here is an open one, and no handle is a closed one.
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => Boolean(getEngine()) };
+});
 
 // Real decoder, native binding stubbed out: the footprint bytes are the point.
 jest.mock('veloqrs', () =>
@@ -63,23 +67,27 @@ function engineWith(rows: ReturnType<typeof corridor>[]) {
 }
 
 describe('useNamedCorridors', () => {
-  it('is empty when the user has named nothing', () => {
+  it('is empty when the user has named nothing', async () => {
     const engine = engineWith([]);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
     expect(result.current.corridors).toEqual([]);
+    expect(result.current.state).toBe('ready');
   });
 
-  it('is empty and refuses a delete without an engine', () => {
+  it('is empty and refuses a delete without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
     expect(result.current.corridors).toEqual([]);
+    // Empty because nothing could be read, which the screen must not call
+    // "you have named nothing".
+    expect(result.current.state).toBe('closed');
     expect(result.current.remove('intent-1')).toBe(false);
   });
 
-  it('decodes one corridor footprint and carries its resolution through', () => {
+  it('decodes one corridor footprint and carries its resolution through', async () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith([corridor()]));
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
 
     expect(result.current.corridors).toHaveLength(1);
     const only = result.current.corridors[0];
@@ -91,68 +99,68 @@ describe('useNamedCorridors', () => {
     expect(only.footprint[1].longitude).toBeCloseTo(7.2, 6);
   });
 
-  it('marks a corridor dormant when no visible section carries its name', () => {
+  it('marks a corridor dormant when no visible section carries its name', async () => {
     (getEngine as jest.Mock).mockReturnValue(
       engineWith([corridor({ sectionId: undefined, coverage: 0, primary: false })])
     );
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
     expect(result.current.corridors[0].dormant).toBe(true);
   });
 
-  it('keeps both intents when a second name lands on the same ground', () => {
+  it('keeps both intents when a second name lands on the same ground', async () => {
     (getEngine as jest.Mock).mockReturnValue(
       engineWith([
         corridor(),
         corridor({ intentId: 'intent-2', name: 'The river climb', primary: false }),
       ])
     );
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
 
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-1', 'intent-2']);
     expect(result.current.corridors.map((c) => c.primary)).toEqual([true, false]);
   });
 
-  it('deletes only the named intent and re-reads, and a second delete is a no-op', () => {
+  it('deletes only the named intent and re-reads, and a second delete is a no-op', async () => {
     const engine = engineWith([corridor(), corridor({ intentId: 'intent-2', name: 'Back lane' })]);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
 
-    act(() => {
+    await act(() => {
       expect(result.current.remove('intent-1')).toBe(true);
     });
     expect(engine.removeNamedCorridor).toHaveBeenCalledWith('intent-1');
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-2']);
 
-    act(() => {
+    await act(() => {
       result.current.remove('intent-1');
     });
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-2']);
   });
 
-  it('shows a name given again after a delete', () => {
+  it('shows a name given again after a delete', async () => {
     const engine = engineWith([corridor()]);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
 
-    act(() => {
+    await act(() => {
       result.current.remove('intent-1');
     });
     expect(result.current.corridors).toEqual([]);
 
     engine.state.rows = [corridor({ intentId: 'intent-9' })];
-    act(() => {
+    await act(() => {
       engine.listeners.get('sections')?.forEach((cb) => cb());
     });
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-9']);
   });
 
-  it('re-reads once on the announcement a removal makes', () => {
+  it('re-reads once on the announcement a removal makes', async () => {
     const engine = engineWith([corridor()]);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
     const afterMount = engine.getNamedCorridors.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       result.current.remove('intent-1');
     });
 
@@ -162,13 +170,13 @@ describe('useNamedCorridors', () => {
     expect(result.current.corridors).toEqual([]);
   });
 
-  it('reports a failed delete instead of dropping the row', () => {
+  it('reports a failed delete instead of dropping the row', async () => {
     const engine = engineWith([corridor()]);
     engine.removeNamedCorridor.mockReturnValue(false);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useNamedCorridors());
+    const { result } = await renderHook(() => useNamedCorridors());
 
-    act(() => {
+    await act(() => {
       expect(result.current.remove('intent-1')).toBe(false);
     });
     expect(result.current.corridors).toHaveLength(1);

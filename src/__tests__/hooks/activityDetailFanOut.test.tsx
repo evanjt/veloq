@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe('activity detail fan-out', () => {
   it('reads no custom sections when the bundle already carried them', async () => {
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => useCustomSections({ preComputedSections: [nativeSection] }),
       { wrapper }
     );
@@ -73,7 +73,7 @@ describe('activity detail fan-out', () => {
   });
 
   it('reads no custom sections when the bundle carried an empty list', async () => {
-    const { result } = renderHook(() => useCustomSections({ preComputedSections: [] }), {
+    const { result } = await renderHook(() => useCustomSections({ preComputedSections: [] }), {
       wrapper,
     });
 
@@ -86,7 +86,7 @@ describe('activity detail fan-out', () => {
     client.setQueryData(queryKeys.sections.custom, []);
     client.setQueryDefaults(queryKeys.sections.custom, { staleTime: 0 });
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => useCustomSections({ preComputedSections: [nativeSection] }),
       { wrapper }
     );
@@ -96,13 +96,13 @@ describe('activity detail fan-out', () => {
   });
 
   it('still reads the engine when no caller supplied the sections', async () => {
-    renderHook(() => useCustomSections(), { wrapper });
+    await renderHook(() => useCustomSections(), { wrapper });
 
     await waitFor(() => expect(engine.getSectionsByType).toHaveBeenCalledWith('custom'));
   });
 
-  it('reads no activity count when the bundle already carried it', () => {
-    renderHook(() => useCacheDays(42), { wrapper });
+  it('reads no activity count when the bundle already carried it', async () => {
+    await renderHook(() => useCacheDays(42), { wrapper });
 
     expect(engine.getActivityCount).not.toHaveBeenCalled();
   });

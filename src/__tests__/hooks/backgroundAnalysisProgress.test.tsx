@@ -42,29 +42,29 @@ const stillAnalysing = {
 
 const settled = { ...stillAnalysing, analysingInBackground: false, message: 'Synced' };
 
-beforeEach(() => {
-  act(() => useSyncDateRange.getState().setGpsSyncProgress(settled));
+beforeEach(async () => {
+  await act(() => useSyncDateRange.getState().setGpsSyncProgress(settled));
 });
 
 describe('the store', () => {
-  it('settles the sync but holds the analysing state live', () => {
-    act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
+  it('settles the sync but holds the analysing state live', async () => {
+    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
     const s = useSyncDateRange.getState();
 
     expect(s.lastSyncTimestamp).not.toBeNull();
     expect(s.isAnalysingInBackground).toBe(true);
   });
 
-  it('drops it when the run announces its end', () => {
-    act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
+  it('drops it when the run announces its end', async () => {
+    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
+    await act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
 
     expect(useSyncDateRange.getState().isAnalysingInBackground).toBe(false);
   });
 
-  it('drops it when a new sync starts', () => {
-    act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    act(() =>
+  it('drops it when a new sync starts', async () => {
+    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
+    await act(() =>
       useSyncDateRange
         .getState()
         .setGpsSyncProgress({ ...settled, status: 'fetching', percent: 0, message: '' })
@@ -92,14 +92,14 @@ describe('formatGpsSyncProgress', () => {
 });
 
 describe('SyncRangePanel', () => {
-  it('shows the still-analysing message until the run ends', () => {
-    const { queryByText } = render(<SyncRangePanel />);
+  it('shows the still-analysing message until the run ends', async () => {
+    const { queryByText } = await render(<SyncRangePanel />);
     expect(queryByText(/Still analysing routes/)).toBeNull();
 
-    act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
+    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
     expect(queryByText(/Still analysing routes/)).not.toBeNull();
 
-    act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
+    await act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
     expect(queryByText(/Still analysing routes/)).toBeNull();
   });
 });

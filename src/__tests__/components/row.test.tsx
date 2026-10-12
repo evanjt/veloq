@@ -12,10 +12,10 @@ jest.mock('@/shared/app', () => ({
 }));
 
 describe('Row', () => {
-  it('makes a pressable row a full-height button with a chevron', () => {
+  it('makes a navigating row a full-height button with a chevron', async () => {
     const onPress = jest.fn();
-    const { getByRole, getByTestId } = render(
-      <Row onPress={onPress} accessibilityLabel="Open details" testID="row">
+    const { getByRole, getByTestId } = await render(
+      <Row behaviour="navigate" onPress={onPress} accessibilityLabel="Open details" testID="row">
         <Text>Details</Text>
       </Row>
     );
@@ -25,15 +25,16 @@ describe('Row', () => {
       minHeight: layout.minTapTarget,
     });
     expect(getByTestId('row-chevron')).toBeTruthy();
-    fireEvent.press(row);
+    await fireEvent.press(row);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps a trailing accessory a separate control beside a pressable row', () => {
+  it('keeps a trailing accessory a separate control beside a pressable row', async () => {
     const onPress = jest.fn();
     const onAccessory = jest.fn();
-    const { getByRole } = render(
+    const { getByRole } = await render(
       <Row
+        behaviour="navigate"
         onPress={onPress}
         accessibilityLabel="Open details"
         accessory={
@@ -50,15 +51,32 @@ describe('Row', () => {
     const accessory = getByRole('button', { name: 'About details' });
     expect(within(row).queryByRole('button', { name: 'About details' })).toBeNull();
 
-    fireEvent.press(accessory);
+    await fireEvent.press(accessory);
     expect(onAccessory).toHaveBeenCalledTimes(1);
     expect(onPress).not.toHaveBeenCalled();
-    fireEvent.press(row);
+    await fireEvent.press(row);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('renders an inline-control row without a button role or chevron', () => {
-    const { queryByRole, queryByTestId, getByTestId } = render(
+  it('draws no chevron on a row that acts where it stands', async () => {
+    const onPress = jest.fn();
+    const { getByRole, queryByTestId } = await render(
+      <Row behaviour="act" onPress={onPress} accessibilityLabel="Empty the bin" testID="row">
+        <Text>Empty the bin</Text>
+      </Row>
+    );
+
+    const row = getByRole('button', { name: 'Empty the bin' });
+    expect(StyleSheet.flatten(row.props.style) as object).toMatchObject({
+      minHeight: layout.minTapTarget,
+    });
+    expect(queryByTestId('row-chevron')).toBeNull();
+    await fireEvent.press(row);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders an inline-control row without a button role or chevron', async () => {
+    const { queryByRole, queryByTestId, getByTestId } = await render(
       <Row testID="row">
         <Text>Sync</Text>
       </Row>
@@ -74,8 +92,8 @@ describe('Row', () => {
 });
 
 describe('SettingsNavRow', () => {
-  it('uses the shared row frame and one chevron', () => {
-    const { getByTestId, getAllByTestId } = render(
+  it('uses the shared row frame and one chevron', async () => {
+    const { getByTestId, getAllByTestId } = await render(
       <SettingsNavRow icon="cog" title="Settings" onPress={() => {}} testID="settings-row" />
     );
     expect(StyleSheet.flatten(getByTestId('settings-row').props.style) as object).toMatchObject({

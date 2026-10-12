@@ -42,8 +42,8 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-function settle() {
-  act(() => {
+async function settle() {
+  await act(() => {
     jest.runOnlyPendingTimers();
   });
 }
@@ -94,65 +94,67 @@ function section(id: string): FrequentSection {
 }
 
 describe('activity popup focus', () => {
-  it('moves focus to the title once, after the popup has laid out', () => {
-    const view = render(activityPopup(activity('lantern-walk', 'Lantern walk')));
+  it('moves focus to the title once, after the popup has laid out', async () => {
+    const view = await render(activityPopup(activity('lantern-walk', 'Lantern walk')));
     expect(focus).not.toHaveBeenCalled();
 
-    settle();
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
     expect(focus).toHaveBeenCalledWith('activity-popup-title');
 
-    view.rerender(activityPopup(activity('lantern-walk', 'Lantern walk')));
-    settle();
+    await view.rerender(activityPopup(activity('lantern-walk', 'Lantern walk')));
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
   });
 
-  it('moves focus again for another activity, even one with the same name', () => {
-    const view = render(activityPopup(activity('lantern-walk', 'Lantern walk')));
-    settle();
-    view.rerender(activityPopup(activity('lantern-walk-2', 'Lantern walk')));
-    settle();
+  it('moves focus again for another activity, even one with the same name', async () => {
+    const view = await render(activityPopup(activity('lantern-walk', 'Lantern walk')));
+    await settle();
+    await view.rerender(activityPopup(activity('lantern-walk-2', 'Lantern walk')));
+    await settle();
     expect(focus).toHaveBeenCalledTimes(2);
   });
 
-  it('moves nothing while no activity is selected, and focuses on the next selection', () => {
-    const view = render(activityPopup(null));
-    settle();
+  it('moves nothing while no activity is selected, and focuses on the next selection', async () => {
+    const view = await render(activityPopup(null));
+    await settle();
     expect(focus).not.toHaveBeenCalled();
 
-    view.rerender(activityPopup(activity('lantern-walk', 'Lantern walk')));
-    settle();
+    await view.rerender(activityPopup(activity('lantern-walk', 'Lantern walk')));
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
   });
 
-  it('does not move focus when the popup closes before it has laid out', () => {
-    const view = render(activityPopup(activity('lantern-walk', 'Lantern walk')));
-    view.rerender(activityPopup(null));
-    settle();
+  it('does not move focus when the popup closes before it has laid out', async () => {
+    const view = await render(activityPopup(activity('lantern-walk', 'Lantern walk')));
+    await view.rerender(activityPopup(null));
+    await settle();
     expect(focus).not.toHaveBeenCalled();
   });
 });
 
 describe('section and route popup focus', () => {
-  it('moves focus to the section title, and again for another section', () => {
-    const view = render(
+  it('moves focus to the section title, and again for another section', async () => {
+    const view = await render(
       <SectionPopup section={section('quarry')} bottom={0} onClose={jest.fn()} />
     );
-    settle();
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
     expect(focus).toHaveBeenCalledWith('section-popup-title');
 
-    view.rerender(<SectionPopup section={section('quarry')} bottom={0} onClose={jest.fn()} />);
-    settle();
+    await view.rerender(
+      <SectionPopup section={section('quarry')} bottom={0} onClose={jest.fn()} />
+    );
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
 
-    view.rerender(<SectionPopup section={section('ridge')} bottom={0} onClose={jest.fn()} />);
-    settle();
+    await view.rerender(<SectionPopup section={section('ridge')} bottom={0} onClose={jest.fn()} />);
+    await settle();
     expect(focus).toHaveBeenCalledTimes(2);
   });
 
-  it('moves focus to the route title', () => {
-    render(
+  it('moves focus to the route title', async () => {
+    await render(
       <RoutePopup
         route={{ routeId: 'canal-loop', name: 'Canal loop', activityCount: 4 }}
         bottom={0}
@@ -160,7 +162,7 @@ describe('section and route popup focus', () => {
         onViewDetails={jest.fn()}
       />
     );
-    settle();
+    await settle();
     expect(focus).toHaveBeenCalledTimes(1);
     expect(focus).toHaveBeenCalledWith('route-popup-title');
   });

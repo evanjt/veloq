@@ -8,14 +8,16 @@ import {
   type WeeklySummaryData,
 } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, verdictColor } from '@/theme';
 import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
+import { spokenVerdict } from '@/shared/format/spoken';
 import { RangeCoverage } from 'veloqrs';
 import {
   formatDistance,
+  formatFullDate,
   formatLocalDate,
   getMonday,
   formatDurationHuman,
@@ -27,7 +29,7 @@ import {
   usePeriodStats,
   type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { EngineReadFailureRetry, ToggleButton } from '@/shared/ui';
+import { CardHeader, ErrorState, ToggleButton, Spinner, EmptyState } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { likeForLikeWindows } from '@/features/stats/lib/periodWindows';
 
@@ -47,16 +49,18 @@ const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 const RANGE_LABEL_KEYS: Record<TimeRange, { current: ParseKeys; previous: ParseKeys }> = {
   week: { current: 'stats.thisWeek', previous: 'stats.vsLastWeek' },
   month: { current: 'stats.thisMonth', previous: 'stats.vsLastMonth' },
-  '3m': { current: 'stats.last3Months', previous: 'stats.vsPrevious3Months' },
-  '6m': { current: 'stats.last6Months', previous: 'stats.vsPrevious6Months' },
+  '3m': { current: 'stats.monthAndTwoBefore', previous: 'stats.vsPrevious3Months' },
+  '6m': { current: 'stats.monthAndFiveBefore', previous: 'stats.vsPrevious6Months' },
   year: { current: 'stats.thisYear', previous: 'stats.vsLastYear' },
 };
 
+// The 3M and 6M of the other pickers are trailing spans of 90 and 180 days. These
+// two start on the first of a calendar month, so they carry labels of their own.
 const RANGE_BUTTON_KEYS: Record<TimeRange, ParseKeys> = {
   week: 'stats.week',
   month: 'stats.month',
-  '3m': 'stats.threeMonths',
-  '6m': 'stats.sixMonths',
+  '3m': 'stats.threeCalendarMonths',
+  '6m': 'stats.sixCalendarMonths',
   year: 'stats.year',
 };
 
@@ -82,7 +86,7 @@ function getDateRanges(range: TimeRange) {
   return likeForLikeWindows(range, new Date());
 }
 
-/** The engine's totals, with TSS rounded as the cells display it. */
+/** The engine's totals, with training load rounded as the cells display it. */
 function rounded(totals: PeriodTotals) {
   return {
     count: totals.count,
@@ -105,8 +109,12 @@ function TrendCell({
 }) {
   const cell = weeklyTrend(stat, current, previous);
   if (!cell) return null;
+  const spoken = spokenVerdict(cell.verdict, cell.direction);
   return (
-    <Text style={[styles.trendArrow, { color: verdictColor(cell.rung, isDark) }]}>
+    <Text
+      accessibilityLabel={cell.pct ? `${spoken}, ${cell.pct}` : spoken}
+      style={[styles.trendArrow, { color: verdictColor(cell.rung, isDark) }]}
+    >
       {cell.glyph}
       {cell.pct && <RNText style={styles.trendPct}> {cell.pct}</RNText>}
     </Text>
@@ -142,6 +150,19 @@ export function WeeklySummary({
   // The previous window is always the engine's, because the endpoint's earlier
   // week is a whole one and the comparison is the same span of both.
   const ranges = useMemo(() => getDateRanges(timeRange), [timeRange]);
+  const rangeTexts = useMemo(
+    () => ({
+      current: t('stats.calendarRange', {
+        start: formatFullDate(ranges.currentStart),
+        end: formatFullDate(ranges.currentEnd),
+      }),
+      previous: t('stats.calendarRange', {
+        start: formatFullDate(ranges.previousStart),
+        end: formatFullDate(ranges.previousEnd),
+      }),
+    }),
+    [ranges, t]
+  );
   const readsEngine = !(timeRange === 'week' && !!summaryData);
   const current = usePeriodStats(
     localDayStart(ranges.currentStart),
@@ -219,7 +240,11 @@ export function WeeklySummary({
     return (
       <View style={styles.container} testID="weekly-summary">
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
+          <CardHeader
+            title={labels.current}
+            subtitle={rangeTexts.current}
+            testID="weekly-summary-header"
+          />
           <View style={styles.timeRangeSelector}>
             {TIME_RANGE_IDS.map((rangeId) => (
               <ToggleButton
@@ -233,19 +258,20 @@ export function WeeklySummary({
           </View>
         </View>
         {readError != null ? (
-          <EngineReadFailureRetry
+          <ErrorState
+            variant="inline"
             error={readError}
             onRetry={retry}
             testID="weekly-summary-failed"
           />
         ) : (
-          <View style={styles.emptyState} testID="weekly-summary-empty">
-            <Text style={[styles.emptyText, isDark && styles.textDark]}>
-              {currentNotDownloaded
-                ? t('stats.rangeNotDownloaded')
-                : t('stats.noActivitiesInPeriod')}
-            </Text>
-          </View>
+          <EmptyState
+            variant="inline"
+            testID="weekly-summary-empty"
+            title={
+              currentNotDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivitiesInPeriod')
+            }
+          />
         )}
       </View>
     );
@@ -255,7 +281,11 @@ export function WeeklySummary({
     <View style={styles.container} testID="weekly-summary">
       {/* Header with title and time range selector */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
+        <CardHeader
+          title={labels.current}
+          subtitle={rangeTexts.current}
+          testID="weekly-summary-header"
+        />
         <View style={styles.timeRangeSelector}>
           {TIME_RANGE_IDS.map((rangeId) => (
             <ToggleButton
@@ -272,7 +302,7 @@ export function WeeklySummary({
       {/* Loading indicator */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner />
         </View>
       ) : (
         <>
@@ -353,14 +383,18 @@ export function WeeklySummary({
                   isDark={isDark}
                 />
               </View>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
-                {t('stats.loadTss')}
-              </Text>
+              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.load')}</Text>
             </View>
           </View>
 
           {/* Period comparison label */}
           <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>{labels.previous}</Text>
+          <Text
+            testID="weekly-summary-previous-range"
+            style={[styles.comparisonLabel, isDark && styles.textDark]}
+          >
+            {rangeTexts.previous}
+          </Text>
           {partlyNotDownloaded && (
             <Text
               testID="weekly-summary-partial"
@@ -379,12 +413,6 @@ const styles = StyleSheet.create({
   container: {},
   header: {
     marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   textLight: {
     color: colors.textOnDark,
@@ -433,14 +461,6 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xs,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
   },
   loadingContainer: {
     padding: spacing.xl,

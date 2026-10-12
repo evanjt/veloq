@@ -54,7 +54,7 @@ enum SummaryMetric: String, AppEnum {
       .rhr: DisplayRepresentation(title: "RHR"),
       .weekHours: DisplayRepresentation(title: "Week"),
       .weekCount: DisplayRepresentation(title: "Activities"),
-      .ftp: DisplayRepresentation(title: "FTP"),
+      .ftp: DisplayRepresentation(title: "eFTP"),
       .thresholdPace: DisplayRepresentation(title: "Pace"),
       .css: DisplayRepresentation(title: "CSS"),
       .fitness: DisplayRepresentation(title: "Fitness"),

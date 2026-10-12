@@ -31,22 +31,22 @@ const TABS = [
 const AVAILABLE = 750 - spacing.md * 2;
 const PADDING = spacing.sm * 2;
 
-function renderStrip(activeTab = 'one') {
-  const utils = render(
+async function renderStrip(activeTab = 'one') {
+  const utils = await render(
     <SwipeableTabs tabs={TABS} activeTab={activeTab} onTabChange={jest.fn()} isDark={false}>
       {TABS.map((tab) => (
         <React.Fragment key={tab.key} />
       ))}
     </SwipeableTabs>
   );
-  const measure = (widths: number[]) => {
-    widths.forEach((width, i) => {
-      act(() => {
-        fireEvent(utils.getByTestId(`tab-content-${TABS[i].key}`), 'layout', {
+  const measure = async (widths: number[]) => {
+    for (const [i, width] of widths.entries()) {
+      await act(async () => {
+        await fireEvent(utils.getByTestId(`tab-content-${TABS[i].key}`), 'layout', {
           nativeEvent: { layout: { x: 0, y: 0, width, height: 20 } },
         });
       });
-    });
+    }
   };
   return { ...utils, measure };
 }
@@ -55,42 +55,42 @@ describe('the tab strip when labels are measured', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('keeps equal tabs and no scroller while every label fits its share', () => {
-    const { measure, queryByTestId, getByTestId } = renderStrip();
+  it('keeps equal tabs and no scroller while every label fits its share', async () => {
+    const { measure, queryByTestId, getByTestId } = await renderStrip();
 
-    measure([60, 50, 60]);
+    await measure([60, 50, 60]);
 
     expect(queryByTestId('tab-strip-scroll')).toBeNull();
     expect(StyleSheet.flatten(getByTestId('tab-one').props.style).flex).toBe(1);
   });
 
-  it('scrolls, with tabs sized to their labels, when one label is wider than its share', () => {
-    const { measure, getByTestId } = renderStrip();
+  it('scrolls, with tabs sized to their labels, when one label is wider than its share', async () => {
+    const { measure, getByTestId } = await renderStrip();
     const wide = AVAILABLE / TABS.length + 40;
 
-    measure([60, wide, 60]);
+    await measure([60, wide, 60]);
 
     expect(getByTestId('tab-strip-scroll')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('tab-two').props.style).width).toBe(wide + PADDING);
     expect(StyleSheet.flatten(getByTestId('tab-one').props.style).width).toBe(60 + PADDING);
   });
 
-  it('gives the indicator the active tab width in the scrolling strip', () => {
-    const { measure, getByTestId } = renderStrip('two');
+  it('gives the indicator the active tab width in the scrolling strip', async () => {
+    const { measure, getByTestId } = await renderStrip('two');
     const wide = AVAILABLE / TABS.length + 40;
 
-    measure([60, wide, 60]);
-    act(() => advanceAnimationByTime(300));
+    await measure([60, wide, 60]);
+    await act(() => advanceAnimationByTime(300));
 
     expect(StyleSheet.flatten(getAnimatedStyle(getByTestId('tab-indicator'))).width).toBe(
       wide + PADDING
     );
   });
 
-  it('never limits a label to a line that can cut it off', () => {
-    const { measure, getByText } = renderStrip();
+  it('never limits a label to a line that can cut it off', async () => {
+    const { measure, getByText } = await renderStrip();
 
-    measure([60, AVAILABLE, 60]);
+    await measure([60, AVAILABLE, 60]);
 
     expect(getByText('Beta').props.ellipsizeMode).toBeUndefined();
     expect(getByText('Beta').props.numberOfLines).toBe(1);

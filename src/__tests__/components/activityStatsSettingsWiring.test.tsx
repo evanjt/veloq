@@ -9,12 +9,14 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, renderHook } from '@testing-library/react-native';
 
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
-import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
+import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
+import { colors } from '@/theme';
 import type { Activity, SportSettings } from '@/types';
+import { MaxHrSource } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -48,57 +50,125 @@ beforeEach(() => {
 });
 
 describe('InsightfulStats', () => {
-  it('shows the engine impact beside training load', () => {
+  it('shows the engine impact beside training load', async () => {
     const activity = { ...ride, icu_training_load: 100 } as Activity;
     const impact = { fitness: 100 / 42, fatigue: 100 / 7, form: 100 / 42 - 100 / 7 };
-    const card = render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
-    expect(card.getByText('activity.stats.trainingLoad')).toBeTruthy();
+    const card = await render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
+    expect(card.getByText('metrics.trainingLoad')).toBeTruthy();
     expect(card.getByText('activity.stats.fitnessImpact')).toBeTruthy();
     expect(card.getAllByText('+2.4').length).toBeGreaterThan(0);
   });
 
-  it('omits the impact when the engine has no load', () => {
-    const card = render(<InsightfulStats activity={ride} fitnessImpact={null} />);
+  it('omits the impact when the engine has no load', async () => {
+    const card = await render(<InsightfulStats activity={ride} fitnessImpact={null} />);
     expect(card.queryByText('activity.stats.fitnessImpact')).toBeNull();
   });
-  it('reads Fahrenheit and mph for an imperial athlete', () => {
+  it('reads Fahrenheit and mph for an imperial athlete', async () => {
     mockIsMetric = false;
-    const { getByText, queryByText } = render(<InsightfulStats activity={ride} />);
+    const { getByText, queryByText } = await render(<InsightfulStats activity={ride} />);
     expect(getByText('86°F')).toBeTruthy();
     expect(getByText(/activity\.stats\.windSpeed:\{"speed":"11\.2 mph"\}/)).toBeTruthy();
     expect(queryByText('30°C')).toBeNull();
   });
 
-  it('reads Celsius and km/h for a metric athlete', () => {
-    const { getByText } = render(<InsightfulStats activity={ride} />);
+  it('reads Celsius and km/h for a metric athlete', async () => {
+    const { getByText } = await render(<InsightfulStats activity={ride} />);
     expect(getByText('30°C')).toBeTruthy();
     expect(getByText(/activity\.stats\.windSpeed:\{"speed":"18\.0 km\/h"\}/)).toBeTruthy();
   });
 
-  it('divides the heart rate by the 185 the screen read resolved', () => {
-    const { getByText } = render(<InsightfulStats activity={ride} maxHR={185} />);
+  it('divides the heart rate by the 185 the screen read resolved', async () => {
+    const { getByText } = await render(
+      <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
+    );
     expect(getByText('activity.stats.percentOfMaxHR:{"percent":81}')).toBeTruthy();
+  });
+
+  it('leaves the percent of max HR out until the screen read answers', async () => {
+    const { getByText, queryByText } = await render(<InsightfulStats activity={ride} />);
+    expect(getByText('activity.heartRate')).toBeTruthy();
+    expect(queryByText(/percentOf/)).toBeNull();
+  });
+});
+
+describe('the heart rate card over a default max HR', () => {
+  const runner = { ...ride, type: 'Run', average_heartrate: 170 } as Activity;
+  const heartRateCard = async (maxHR: number, maxHrSource: MaxHrSource) => {
+    const { result } = await renderHook(() =>
+      useActivityStats({ activity: runner, isMetric: true, maxHR, maxHrSource })
+    );
+    const card = result.current.stats.find((stat) => stat.title === 'activity.heartRate');
+    if (!card) throw new Error('no heart rate card');
+    return card;
+  };
+
+  it('states a percent of the athlete own max HR as their own', async () => {
+    const card = await heartRateCard(205, MaxHrSource.SportSettings);
+    expect(card.context).toBe('activity.stats.percentOfMaxHR:{"percent":83}');
+    expect((await heartRateCard(185, MaxHrSource.ActivityZones)).context).toBe(
+      'activity.stats.percentOfMaxHR:{"percent":92}'
+    );
+  });
+
+  it('names the default and grades nothing against it', async () => {
+    const card = await heartRateCard(190, MaxHrSource.Default);
+    expect(card.context).toBe('activity.stats.percentOfDefaultMaxHR:{"percent":89,"value":190}');
+    expect(card.color).toBe(colors.chartPinkText);
+    expect(card.details).toContainEqual({
+      label: 'activity.stats.percentOfDefaultMaxHRLabel:{"value":190}',
+      value: '89%',
+    });
   });
 });
 
 describe('HRZonesChart', () => {
   const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 190, seconds: 60, percent: 100 }];
 
-  it('shows the max HR the heart rate card divides by', () => {
-    const { getByText } = render(<HRZonesChart hrZones={hrZones} maxHR={185} movingTime={60} />);
-    expect(getByText('activity.maxHR:{"value":185}')).toBeTruthy();
-    const card = render(<InsightfulStats activity={ride} maxHR={185} />);
+  it('shows the max HR the heart rate card divides by, from the sport settings', async () => {
+    const { getByText } = await render(
+      <HRZonesChart
+        hrZones={hrZones}
+        maxHR={185}
+        maxHrSource={MaxHrSource.SportSettings}
+        movingTime={60}
+      />
+    );
+    expect(getByText('activity.zoneMaxFromSettings:{"value":185}')).toBeTruthy();
+    const card = await render(
+      <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
+    );
     expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":81}')).toBeTruthy();
   });
 
-  it('takes the default with no max HR from the screen read, as the card does', () => {
-    const { getByText } = render(<HRZonesChart hrZones={hrZones} movingTime={60} />);
-    expect(getByText(`activity.maxHR:{"value":${DEFAULT_MAX_HR}}`)).toBeTruthy();
-    const card = render(<InsightfulStats activity={ride} />);
-    expect(
-      card.getByText(
-        `activity.stats.percentOfMaxHR:{"percent":${Math.round((150 / DEFAULT_MAX_HR) * 100)}}`
-      )
-    ).toBeTruthy();
+  it('names the activity own zones as the source of its max', async () => {
+    const { getByText } = await render(
+      <HRZonesChart
+        hrZones={hrZones}
+        maxHR={196}
+        maxHrSource={MaxHrSource.ActivityZones}
+        movingTime={60}
+      />
+    );
+    expect(getByText('activity.zoneMaxFromActivity:{"value":196}')).toBeTruthy();
+  });
+
+  it('says no max HR is set rather than showing the default as the athlete own', async () => {
+    const { getByText, queryByText } = await render(
+      <HRZonesChart
+        hrZones={hrZones}
+        maxHR={190}
+        maxHrSource={MaxHrSource.Default}
+        movingTime={60}
+      />
+    );
+    expect(getByText('activity.zoneMaxDefault:{"value":190}')).toBeTruthy();
+    expect(getByText('activity.zoneMaxDefaultHint')).toBeTruthy();
+    expect(queryByText(/activity\.maxHR/)).toBeNull();
+    expect(queryByText(/zoneMaxFrom/)).toBeNull();
+  });
+
+  it('claims no max HR before the screen read answers', async () => {
+    const { queryByText } = await render(<HRZonesChart hrZones={hrZones} movingTime={60} />);
+    expect(queryByText(/zoneMax|maxHR/)).toBeNull();
   });
 });

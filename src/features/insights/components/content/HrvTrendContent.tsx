@@ -17,10 +17,9 @@ import {
 import { ChartErrorBoundary } from '@/shared/ui';
 import { InsightSeriesChart } from '../InsightSeriesChart';
 import type { Insight } from '@/types';
+import { formatHrv } from '@/shared/format/format';
 
 const CHART_HEIGHT = 180;
-
-const formatHrv = (value: number) => `${Math.round(value)} ms`;
 
 interface HrvTrendContentProps {
   insight: Insight;

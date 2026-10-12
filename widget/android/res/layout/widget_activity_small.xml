@@ -18,8 +18,7 @@
     android:layout_height="0dp"
     android:layout_weight="1"
     android:visibility="gone"
-    android:scaleType="fitCenter"
-    android:contentDescription="@null" />
+    android:scaleType="fitCenter" />
 
   <!-- The row wraps its content, so the record dot follows a short name; a long name fills the
        width, and its weight then shrinks it to leave the dot inside the card. -->
@@ -46,8 +45,7 @@
       android:layout_height="6dp"
       android:layout_marginStart="4dp"
       android:src="@drawable/widget_pr_dot"
-      android:visibility="gone"
-      android:contentDescription="@null" />
+      android:visibility="gone" />
   </LinearLayout>
 
   <TextView
@@ -91,7 +89,7 @@
     android:layout_marginTop="2dp"
     android:visibility="gone"
     android:scaleType="fitStart"
-    android:contentDescription="@null" />
+    android:importantForAccessibility="no" />
 
   <TextView
     android:id="@+id/act_sub"

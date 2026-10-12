@@ -72,8 +72,8 @@ const section = {
   activityPortions: [{ activityId: 'a1' }],
 } as unknown as FrequentSection;
 
-function fire(event: string) {
-  act(() => {
+async function fire(event: string) {
+  await act(() => {
     mockListeners.get(event)?.forEach((listener) => listener());
   });
 }
@@ -87,22 +87,22 @@ beforeEach(() => {
 });
 
 it('reads the records again when the engine announces the sections moved', async () => {
-  const { result } = renderHook(() => useSectionPerformances(section, 'Ride'));
+  const { result } = await renderHook(() => useSectionPerformances(section, 'Ride'));
   await waitFor(() => expect(result.current.records).toHaveLength(1));
 
   getSectionPerformances.mockReturnValue(performances(['a1', 'a2']));
-  fire('sections');
+  await fire('sections');
 
   await waitFor(() => expect(result.current.records).toHaveLength(2));
   expect(getSectionPerformances).toHaveBeenLastCalledWith('sec-1', 'Ride');
 });
 
 it('does not read again on a render that moved nothing', async () => {
-  const { result, rerender } = renderHook(() => useSectionPerformances(section, 'Ride'));
+  const { result, rerender } = await renderHook(() => useSectionPerformances(section, 'Ride'));
   await waitFor(() => expect(result.current.records).toHaveLength(1));
   const reads = getSectionPerformances.mock.calls.length;
 
-  rerender({});
+  await rerender({});
 
   expect(getSectionPerformances).toHaveBeenCalledTimes(reads);
 });
@@ -133,7 +133,7 @@ describe('records read from a partial set', () => {
     syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Held });
     getSectionPerformances.mockReturnValue(withPrs());
 
-    const { result } = renderHook(() => useSectionPerformances(twoActivities, 'Ride'));
+    const { result } = await renderHook(() => useSectionPerformances(twoActivities, 'Ride'));
     await waitFor(() => expect(result.current.records).toHaveLength(1));
 
     expect(result.current.outstanding).toBe(1);
@@ -146,7 +146,7 @@ describe('records read from a partial set', () => {
   it('passes the PR verdict through once every stream is stored', async () => {
     getSectionPerformances.mockReturnValue(withPrs());
 
-    const { result } = renderHook(() => useSectionPerformances(twoActivities, 'Ride'));
+    const { result } = await renderHook(() => useSectionPerformances(twoActivities, 'Ride'));
     await waitFor(() => expect(result.current.records).toHaveLength(1));
 
     expect(result.current.outstanding).toBe(0);

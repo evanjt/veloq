@@ -39,16 +39,16 @@ describe('the preview section card header', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('heads a nameless proposal by its number', () => {
-    const { getByText, queryByText } = render(
+  it('heads a nameless proposal by its number', async () => {
+    const { getByText, queryByText } = await render(
       <PreviewSectionPopover section={row({})} newNumber={2} onClose={() => {}} />
     );
     expect(getByText('New section 2')).toBeTruthy();
     expect(queryByText(/\{\{/)).toBeNull();
   });
 
-  it('keeps the name of a matched row', () => {
-    const { getByText } = render(
+  it('keeps the name of a matched row', async () => {
+    const { getByText } = await render(
       <PreviewSectionPopover
         section={row({ status: 'changed', name: 'Section 7', liveId: 'l7' })}
         newNumber={null}

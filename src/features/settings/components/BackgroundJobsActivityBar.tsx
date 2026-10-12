@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Button } from '@/shared/ui';
+import { Button, DisclosureChevron } from '@/shared/ui';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
 import {
@@ -66,6 +66,7 @@ const OUTCOME_KEYS: Record<
   | undefined
 > = {
   partial: 'backgroundJobs.statePartial',
+  deferred: 'backgroundJobs.statePartial',
   failed: 'backgroundJobs.stateFailed',
   paused: 'backgroundJobs.statePaused',
   stopped: 'backgroundJobs.lastRunStopped',
@@ -212,9 +213,10 @@ export function BackgroundJobsActivityBar() {
         variant="secondary"
         size="sm"
         onPress={() => setExpanded((value) => !value)}
+        expanded={expanded}
         icon={
-          <MaterialCommunityIcons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
+          <DisclosureChevron
+            expanded={expanded}
             size={20}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />

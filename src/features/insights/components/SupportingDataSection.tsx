@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
+import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../lib/rowTrend';
 import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import {
@@ -13,8 +14,6 @@ import {
   darkColors,
   spacing,
   opacity,
-  shadows,
-  ink,
   layout,
   typography,
   verdictColor,
@@ -23,8 +22,9 @@ import {
 import { InsightSeriesChart } from './InsightSeriesChart';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { composeAccessibilityLabel, Row } from '@/shared/ui';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
+import { spokenVerdict } from '@/shared/format/spoken';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import type { LatLngShort } from '@/shared/geo/distance';
 
@@ -50,32 +50,13 @@ function SectionPreview({
   const normalised = useMemo(() => normaliseTrackPoints(points ?? []), [points]);
   if (normalised.length < 2) return null;
   return (
-    <View style={styles.sectionPreview}>
-      <TrackPreview
-        testID={`section-preview-${sectionId}`}
-        points={normalised}
-        color={colors.primary}
-        isDark={isDark}
-      />
-    </View>
+    <TrackPreview
+      testID={`section-preview-${sectionId}`}
+      points={normalised}
+      color={colors.primary}
+      isDark={isDark}
+    />
   );
-}
-
-function getTrendIcon(trend?: number): string {
-  if (trend == null) return 'minus';
-  if (trend > 0) return 'trending-up';
-  if (trend < 0) return 'trending-down';
-  return 'minus';
-}
-
-// A rise and a fall are the two polarity rungs. This used to answer a fall
-// with `colors.warning` while the sparkline below answered the same fall with
-// `colors.error`, so one panel drew one verdict in two colours.
-function getTrendColor(trend?: number, isDark?: boolean): string {
-  if (trend == null) return verdictColor('neutral', !!isDark);
-  if (trend > 0) return verdictColor('positive', !!isDark);
-  if (trend < 0) return verdictColor('negative', !!isDark);
-  return verdictColor('neutral', !!isDark);
 }
 
 function buildSparklinePath(
@@ -116,9 +97,14 @@ function buildSparklineAreaPath(
   return `${linePath} L ${lastX} ${height} L 0 ${height} Z`;
 }
 
-/** A series that carries no unit of its own prints its value bare, as precise as its range needs. */
-function formatSeriesValue(value: number, decimals: number): string {
-  return value.toFixed(decimals);
+/** A series value as precise as its range needs, with the series' unit when it has one. */
+export function formatSeriesValue(
+  value: number,
+  decimals: number,
+  unit: string | undefined
+): string {
+  const number = value.toFixed(decimals);
+  return unit ? `${number} ${unit}` : number;
 }
 
 export const SupportingDataSection = React.memo(function SupportingDataSection({
@@ -129,6 +115,11 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
 
   const history = data.history && 'series' in data.history ? data.history : null;
   const points = history?.series[0]?.points;
+  const seriesUnit = history?.series[0]?.unit;
+  const formatValue = useCallback(
+    (value: number, decimals: number) => formatSeriesValue(value, decimals, seriesUnit),
+    [seriesUnit]
+  );
   const samples = points && points.length >= 3 ? points : null;
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
@@ -152,10 +143,17 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             samples={samples}
             title={history?.series[0]?.label ?? ''}
             color={trendColor}
-            formatValue={formatSeriesValue}
+            formatValue={formatValue}
             accessory={
               trendGlyph && trendGlyph !== 'minus' ? (
-                <MaterialCommunityIcons name={trendGlyph} size={18} color={trendColor} />
+                <MaterialCommunityIcons
+                  name={trendGlyph}
+                  size={18}
+                  color={trendColor}
+                  accessibilityLabel={
+                    trend ? spokenVerdict(trend.verdict, trend.direction) : undefined
+                  }
+                />
               ) : null
             }
           />
@@ -211,50 +209,60 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
       {/* Section Links */}
       {sections ? (
         <View style={styles.sectionsContainer}>
-          {sections.map((section) => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={section.sectionName}
-              key={sectionRowKey(section)}
-              style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
-              android_ripple={pressRipple}
-              onPress={() => tapTo(`/section/${section.sectionId}`)}
-            >
-              <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
-              <View style={styles.sectionContent}>
-                <Text
-                  style={[styles.sectionName, isDark && styles.sectionNameDark]}
-                  numberOfLines={1}
-                >
-                  {sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc)}
-                </Text>
-                <View style={styles.sectionMeta}>
-                  {section.bestTime != null ? (
-                    <Text style={[styles.sectionBestTime, isDark && styles.sectionBestTimeDark]}>
-                      {formatDuration(section.bestTime)}
-                    </Text>
-                  ) : null}
-                  {section.traversalCount != null ? (
-                    <Text
-                      style={[styles.sectionTraversals, isDark && styles.sectionTraversalsDark]}
-                    >
-                      {t('units.times', { value: section.traversalCount })}
-                    </Text>
-                  ) : null}
-                  <MaterialCommunityIcons
-                    name={getTrendIcon(section.trend) as never}
-                    size={16}
-                    color={getTrendColor(section.trend, isDark)}
-                  />
+          {sections.map((section) => {
+            const name = sectionWithSport(
+              section.sectionName,
+              section.sportType,
+              t as unknown as TFunc
+            );
+            const bestTime = section.bestTime != null ? formatDuration(section.bestTime) : null;
+            const traversals =
+              section.traversalCount != null
+                ? t('units.times', { value: section.traversalCount })
+                : null;
+            return (
+              <Row
+                key={sectionRowKey(section)}
+                behaviour="navigate"
+                accessibilityLabel={composeAccessibilityLabel(
+                  name,
+                  bestTime,
+                  traversals,
+                  rowTrendWord(section.trend)
+                )}
+                onPress={() => tapTo(`/section/${section.sectionId}`)}
+              >
+                <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
+                <View style={styles.sectionContent}>
+                  <Text
+                    style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                    numberOfLines={1}
+                  >
+                    {name}
+                  </Text>
+                  <View style={styles.sectionMeta}>
+                    {bestTime != null ? (
+                      <Text style={[styles.sectionBestTime, isDark && styles.sectionBestTimeDark]}>
+                        {bestTime}
+                      </Text>
+                    ) : null}
+                    {traversals != null ? (
+                      <Text
+                        style={[styles.sectionTraversals, isDark && styles.sectionTraversalsDark]}
+                      >
+                        {traversals}
+                      </Text>
+                    ) : null}
+                    <MaterialCommunityIcons
+                      name={rowTrendIcon(section.trend)}
+                      size={16}
+                      color={rowTrendColor(section.trend, isDark)}
+                    />
+                  </View>
                 </View>
-              </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </Pressable>
-          ))}
+              </Row>
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -381,32 +389,12 @@ const styles = StyleSheet.create({
   // Sections
   sectionsContainer: {
     marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  sectionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: ink.white,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  sectionCardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderColor: darkColors.border,
-    ...shadows.none,
-  },
-  sectionPreview: {
-    marginRight: spacing.sm,
   },
   sectionContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginRight: spacing.xs,
   },
   sectionName: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TimelineSlider } from '@/features/maps';
 import { useActivityBoundsCache } from '@/features/activity';
@@ -14,6 +14,7 @@ import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -71,7 +72,10 @@ export function SyncRangePanel() {
       const expand = () => {
         if (syncDateRange(formatLocalDate(start), formatLocalDate(new Date())) === 'locked') {
           putHandleBack();
-          Alert.alert(t('settings.rangeLockedTitle'), t('settings.rangeLockedMessage'));
+          inform({
+            title: t('settings.rangeLockedTitle'),
+            message: t('settings.rangeLockedMessage'),
+          });
         }
       };
 
@@ -83,10 +87,14 @@ export function SyncRangePanel() {
         return;
       }
 
-      Alert.alert(t('settings.largeHistoryTitle'), t('settings.largeHistoryMessage', { count }), [
-        { text: t('common.cancel'), style: 'cancel', onPress: putHandleBack },
-        { text: t('settings.largeHistoryConfirm'), onPress: expand },
-      ]);
+      confirmAction({
+        title: t('settings.largeHistoryTitle'),
+        message: t('settings.largeHistoryMessage', { count }),
+        confirmLabel: t('settings.largeHistoryConfirm'),
+        cancelLabel: t('common.cancel'),
+        onConfirm: expand,
+        onCancel: putHandleBack,
+      });
     },
     [syncDateRange, cachedStartDate, yearCounts, t, putHandleBack]
   );
@@ -115,7 +123,7 @@ export function SyncRangePanel() {
         {/* GPS sync progress */}
         {isSyncing || isFetchingExtended || isAnalysingInBackground ? (
           <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
-            <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarTrack, isDark && styles.progressBarTrackDark]}>
               <View
                 style={[
                   styles.progressBarFill,
@@ -125,9 +133,7 @@ export function SyncRangePanel() {
             </View>
             <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
               {gpsSyncProgress.message ||
-                (isFetchingExtended
-                  ? t('cache.fetchingActivities', 'Fetching activities...')
-                  : t('common.loading'))}
+                (isFetchingExtended ? t('cache.fetchingActivities') : t('common.loading'))}
               {gpsSyncProgress.total > 0 &&
                 ` (${gpsSyncProgress.completed}/${gpsSyncProgress.total})`}
             </Text>
@@ -157,6 +163,9 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     marginBottom: spacing.xs,
+  },
+  progressBarTrackDark: {
+    backgroundColor: darkColors.border,
   },
   progressBarFill: {
     height: '100%',

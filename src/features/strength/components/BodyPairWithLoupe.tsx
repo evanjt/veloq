@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type AccessibilityActionEvent } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -39,6 +39,27 @@ interface BodyPairWithLoupeProps {
   gap?: number | undefined;
   centerContent?: React.ReactNode | undefined;
   centerWidth?: number | undefined;
+  /** What a screen reader calls the pair, which it adjusts through the trained muscles. */
+  accessibilityLabel?: string | undefined;
+  /** The selected muscle and its figures, read as the adjustable's value. */
+  accessibilityValueText?: string | undefined;
+}
+
+const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
+
+/**
+ * The muscle a screen reader's step lands on, in the order the read gave them.
+ * With none selected an increment starts at the first and a decrement at the
+ * last. It holds at either end, because selecting the same muscle again clears it.
+ */
+export function steppedMuscle(
+  order: readonly string[],
+  selected: string | null | undefined,
+  step: 'increment' | 'decrement'
+): string | null {
+  const at = selected == null ? -1 : order.indexOf(selected);
+  if (at === -1) return (step === 'increment' ? order[0] : order[order.length - 1]) ?? null;
+  return order[step === 'increment' ? at + 1 : at - 1] ?? null;
 }
 
 export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
@@ -54,6 +75,8 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   gap = 0,
   centerContent,
   centerWidth = 0,
+  accessibilityLabel,
+  accessibilityValueText,
 }: BodyPairWithLoupeProps) {
   const { isDark } = useTheme();
   const stroke = isDark ? bodyDiagram.selectedStrokeDark : bodyDiagram.selectedStroke;
@@ -213,6 +236,17 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     }
   };
 
+  const handleStep = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const step = event.nativeEvent.actionName;
+      if (!onMuscleTap || !tappableSlugs || (step !== 'increment' && step !== 'decrement')) return;
+      const slug = steppedMuscle([...tappableSlugs], selectedSlug, step);
+      if (slug) onMuscleTap(slug);
+    },
+    [onMuscleTap, tappableSlugs, selectedSlug]
+  );
+  const adjustable = !!(onMuscleTap && tappableSlugs && tappableSlugs.size > 0);
+
   const tapGesture = Gesture.Tap()
     .onEnd((e) => {
       'worklet';
@@ -295,6 +329,24 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const pair = (
     <GestureDetector gesture={composedGesture}>
       <Animated.View style={styles.gestureWrapper}>
+        {/* The drawing is reached by touch at coordinates, so a screen reader
+            gets one element that steps through the muscles instead. It sits
+            over the pair without taking a touch. */}
+        {adjustable && (
+          <View
+            testID="body-pair-adjustable"
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={accessibilityLabel}
+            accessibilityValue={
+              accessibilityValueText ? { text: accessibilityValueText } : undefined
+            }
+            accessibilityActions={STEP_ACTIONS}
+            onAccessibilityAction={handleStep}
+          />
+        )}
         <View onLayout={handleLayout} style={styles.row}>
           <View style={styles.bodyView}>
             <Body

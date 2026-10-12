@@ -50,8 +50,8 @@ async function hardResync(): Promise<void> {
   (Alert.alert as jest.Mock).mockImplementation((_title, _body, buttons) => {
     buttons?.find((b: { style?: string }) => b.style === 'destructive')?.onPress?.();
   });
-  const { getByText } = render(<SyncDebugTab />);
-  fireEvent.press(getByText('Hard Re-sync'));
+  const { getByText } = await render(<SyncDebugTab />);
+  await fireEvent.press(getByText('Hard Re-sync'));
   await wipe.catch(() => {});
   await new Promise(process.nextTick);
 }
@@ -71,7 +71,12 @@ describe('Hard Re-sync', () => {
     await hardResync();
 
     expect(mockEngine.clear).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenLastCalledWith('alerts.error', 'alerts.failedToClear');
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'alerts.clearFailedTitle',
+      'alerts.failedToClear',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(mockInvalidate).not.toHaveBeenCalled();
   });
 
@@ -81,6 +86,11 @@ describe('Hard Re-sync', () => {
     await hardResync();
 
     expect(mockInvalidate).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenLastCalledWith('Done', 'Engine cleared. Full re-sync triggered.');
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'Done',
+      'Engine cleared. Full re-sync triggered.',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 });

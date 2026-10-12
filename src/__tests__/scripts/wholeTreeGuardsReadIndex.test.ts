@@ -73,12 +73,36 @@ const CASES: Record<string, Case> = {
     violation: 'export const a = <Pressable onPress={f} />;\n',
     baseline: true,
   },
+  'lint-heading-tokens': {
+    guard: 'lint-heading-tokens.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'export const a = { ...typography.cardTitle };\n',
+    baseline: true,
+  },
+  'lint-row-chevrons': {
+    guard: 'lint-row-chevrons.mjs',
+    tree: {},
+    target: 'src/app/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'export const a = <Icon name="chevron-right" />;\n',
+    baseline: true,
+  },
   'lint-modal-sheets': {
     guard: 'lint-modal-sheets.mjs',
     tree: {},
     target: 'src/a.tsx',
     clean: 'export const a = 1;\n',
     violation: 'export const a = <Modal visible />;\n',
+    baseline: true,
+  },
+  'lint-empty-state-styles': {
+    guard: 'lint-empty-state-styles.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'const styles = StyleSheet.create({\n  emptyText: {},\n});\n',
     baseline: true,
   },
   'lint-engine-write-lock': {
@@ -138,6 +162,14 @@ const CASES: Record<string, Case> = {
     target: 'src/a.ts',
     clean: 'export const a = 1;\n',
     violation: "export const a = Dimensions.get('window');\n",
+  },
+  'lint-chart-window-width': {
+    guard: 'lint-chart-window-width.mjs',
+    tree: {},
+    target: 'src/features/x/components/LapChart.tsx',
+    clean: 'export const a = 1;\n',
+    violation:
+      'export function LapChart() {\n  const { width } = useWindowDimensions();\n  return width;\n}\n',
   },
   'lint-test-temp-dirs': {
     guard: 'lint-test-temp-dirs.mjs',

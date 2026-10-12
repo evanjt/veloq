@@ -49,11 +49,11 @@ function runInteractions() {
   idle.flush();
 }
 
-function announceOnce() {
-  act(() => {
+async function announceOnce() {
+  await act(() => {
     announce[0]?.();
   });
-  act(() => runInteractions());
+  await act(() => runInteractions());
 }
 
 describe('the insights read on a tab visit', () => {
@@ -74,58 +74,58 @@ describe('the insights read on a tab visit', () => {
     jest.restoreAllMocks();
   });
 
-  it('reads once on the visit itself', () => {
-    renderHook(() => useInsights());
-    act(() => runInteractions());
+  it('reads once on the visit itself', async () => {
+    await renderHook(() => useInsights());
+    await act(() => runInteractions());
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('collapses a burst of announcements into one further read', () => {
-    renderHook(() => useInsights());
-    act(() => runInteractions());
+  it('collapses a burst of announcements into one further read', async () => {
+    await renderHook(() => useInsights());
+    await act(() => runInteractions());
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     for (let i = 0; i < 4; i += 1) {
-      act(() => {
+      await act(() => {
         announce[0]?.();
         jest.advanceTimersByTime(120);
       });
-      act(() => runInteractions());
+      await act(() => runInteractions());
     }
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
-    act(() => runInteractions());
+    await act(() => runInteractions());
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('still reads again once the announcements settle', () => {
-    renderHook(() => useInsights());
-    act(() => runInteractions());
+  it('still reads again once the announcements settle', async () => {
+    await renderHook(() => useInsights());
+    await act(() => runInteractions());
 
-    announceOnce();
-    act(() => {
+    await announceOnce();
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
-    act(() => runInteractions());
+    await act(() => runInteractions());
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
-  it('reports a thrown engine read as failed and recovers on retry', () => {
+  it('reports a thrown engine read as failed and recovers on retry', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     mockFetch.mockImplementationOnce(() => {
       throw new Error('database is locked');
     });
-    const { result } = renderHook(() => useInsights());
-    act(() => runInteractions());
+    const { result } = await renderHook(() => useInsights());
+    await act(() => runInteractions());
 
     expect(result.current.failed).toBe(true);
     expect(result.current.insights).toEqual([]);
 
-    act(() => result.current.retry());
-    act(() => runInteractions());
+    await act(() => result.current.retry());
+    await act(() => runInteractions());
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(result.current.failed).toBe(false);

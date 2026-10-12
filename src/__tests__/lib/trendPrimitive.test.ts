@@ -9,6 +9,7 @@
  */
 
 import {
+  glyphMove,
   TREND_DEADBAND,
   TREND_POLARITY,
   trendArrow,
@@ -153,5 +154,27 @@ describe('the two surfaces that draw the same metrics', () => {
     for (const metric of ['weekHours', 'weekCount', 'ftp', 'thresholdPace', 'css'] as const) {
       expect(TREND_DEADBAND[metric]).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('glyphMove', () => {
+  it('reads an up glyph on a pace that fell as an improvement', () => {
+    const glyph = trendGlyph('thresholdPace', 'down');
+    expect(glyph).toBe('↑');
+    expect(glyphMove('thresholdPace', glyph)).toEqual({ verdict: 'improved', direction: 'down' });
+  });
+
+  it('reads a down glyph on a resting heart rate that rose as a decline', () => {
+    const glyph = trendGlyph('rhr', 'up');
+    expect(glyph).toBe('↓');
+    expect(glyphMove('rhr', glyph)).toEqual({ verdict: 'declined', direction: 'up' });
+  });
+
+  it('reads the bare direction for a metric with no polarity, and flat for the flat glyph', () => {
+    expect(glyphMove('weight', trendGlyph('weight', 'up'))).toEqual({
+      verdict: 'moved',
+      direction: 'up',
+    });
+    expect(glyphMove('fitness', '→')).toEqual({ verdict: 'flat', direction: 'flat' });
   });
 });

@@ -6,7 +6,7 @@
     "explanations": {
       "yourForm": "Tu forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Condición física (CTL) menos Fatiga (ATL)."
     },
-    "maxHR": "Max: {{value}} lpm",
+    "ftp": "Configuración de FTP: {{value}}",
     "stats": {
       "decoupling": "Desacoplamiento",
       "fitnessCTL": "Condición física (CTL)",
@@ -14,7 +14,7 @@
       "maxLabel": "Max",
       "percentOfMaxHR": "{{percent}}% de FC max",
       "percentOfMaxHRLabel": "% de FC Max",
-      "yourFitness": "Tu condición física (CTL)"
+      "fitnessThatDay": "Condición física ese día (CTL)"
     }
   },
   "activityTypes": {
@@ -52,8 +52,7 @@
     "backupFailedFolder": "Veloq ya no puede acceder a la carpeta de respaldos. Elige la carpeta de nuevo.",
     "notEncryptedWarning": "Los respaldos no están cifrados. Cualquiera que abra el archivo puede leer tus ajustes, los nombres de tus rutas y secciones, dónde están esas secciones en el mapa y la ubicación de casa definida para la privacidad de la exportación.",
     "nextcloudQrHint": "Nextcloud → Configuración → Seguridad → Crear nueva contraseña de app → Escanear código QR",
-    "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado.",
-    "grantCameraAccess": "Dar acceso a la cámara"
+    "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado."
   },
   "bestEffortsScreen": {
     "seasonSubtitle": "Records personales de los últimos {{days}} días.",
@@ -80,7 +79,7 @@
       "busy": "Otra cosa estaba ocupando la base de datos. Probá de nuevo en un momento.",
       "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualizá la app para abrirlos.",
       "storageUnavailable": "No se pudo escribir la base de datos. Liberá espacio y probá otra vez.",
-      "failed": "El motor de rutas se detuvo por una razón que la app no puede nombrar.",
+      "failed": "No se pudo abrir tu biblioteca de actividades por una razón que la app no puede nombrar. Sigue en tu dispositivo, intacta.",
       "versionMismatch": "No se pudieron abrir estos datos. Siguen en tu dispositivo: pedí ayuda en el foro desde Configuración."
     }
   },
@@ -147,7 +146,6 @@
       "avgPace": "Ritmo promedio",
       "avgSpeed": "Vel. promedio"
     },
-    "gpsAlertSettings": "Abrir configuración",
     "gpsPermissionDenied": "Permiso de ubicación denegado. Da acceso en Configuración para grabar GPS.",
     "gpsWaiting": "Esperando señal GPS. Ve al exterior para mejor recepción.",
     "resumePreviousMessage": "Una grabación iniciada el {{startTime}} fue interrumpida con {{duration}} de tiempo en movimiento. Descartarla la eliminará permanentemente.",
@@ -176,7 +174,7 @@
   "settings": {
     "heroMetric": "Métrica principal",
     "rangeLockedMessage": "El rango de datos locales se abre cuando termina la primera sincronización. Si nunca empieza, revisa que tengas conexión y hayas iniciado sesión.",
-    "primarySportHintCycling": "FTP se muestra en el encabezado. La página de rendimiento muestra curva de potencia, zonas de potencia, tendencia eFTP y desacoplamiento.",
+    "primarySportHintCycling": "eFTP se muestra en el encabezado. La página de rendimiento muestra curva de potencia, zonas de potencia, tendencia eFTP y desacoplamiento.",
     "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en el encabezado. La página de rendimiento muestra curva de ritmo, potencia de carrera y zonas de FC.",
     "primarySportHintSwimming": "CSS (velocidad crítica de nado) se muestra en el encabezado. La página de rendimiento muestra curva de ritmo de natación y zonas de FC.",
     "syncStep": {
@@ -198,7 +196,7 @@
     "previewKeepRefused": "Tu configuración quedó guardada."
   },
   "statsScreen": {
-    "ftpLabel": "FTP {{value}} W",
+    "ftpLabel": "Configuración de FTP {{value}}",
     "swimPaceCurve": "Curva de ritmo de natación"
   },
   "whatsNew": {

@@ -8,16 +8,15 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, typography, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
-import type { ActivityFitnessImpact } from 'veloqrs';
-import { DEFAULT_MAX_HR } from '../../lib/hrZones';
+import type { ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { Card } from '@/shared/ui/Card';
@@ -29,8 +28,10 @@ interface InsightfulStatsProps {
   activity: Activity;
   /** Wellness data for the activity date (for context) */
   wellness?: WellnessData | null | undefined;
-  /** The max HR from the detail screen read, the one the zones chart divides by. Without one, the default. */
+  /** The max HR from the detail screen read, the one the zones chart divides by. */
   maxHR?: number | undefined;
+  /** Where `maxHR` came from, from the same read. */
+  maxHrSource?: MaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   newGround?: ActivityNewGround | undefined;
 }
@@ -39,6 +40,7 @@ export function InsightfulStats({
   activity,
   wellness,
   maxHR,
+  maxHrSource,
   fitnessImpact,
   newGround,
 }: InsightfulStatsProps) {
@@ -53,7 +55,8 @@ export function InsightfulStats({
     wellness,
     isDark,
     isMetric,
-    maxHR: maxHR ?? DEFAULT_MAX_HR,
+    maxHR,
+    maxHrSource,
     fitnessImpact,
     newGround,
   });
@@ -80,11 +83,10 @@ export function InsightfulStats({
 
   return (
     <View style={styles.frame}>
-      <Card variant="raised">
-        <View style={styles.headerRow}>
-          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-            {t('activity.activityStats')}
-          </Text>
+      <Card
+        variant="raised"
+        title={t('activity.activityStats')}
+        titleAccessory={
           <Button
             label={t('activity.viewInIntervalsICU')}
             variant="ghost"
@@ -92,8 +94,8 @@ export function InsightfulStats({
             onPress={openInIntervalsICU}
             icon={<MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />}
           />
-        </View>
-
+        }
+      >
         <View style={styles.statsGrid}>
           {stats.map((stat, index) => (
             <StatCard key={index} stat={stat} isDark={isDark} onPress={handleStatPress} />
@@ -108,22 +110,6 @@ const styles = StyleSheet.create({
   frame: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  textLight: {
-    color: colors.textOnDark,
   },
   statsGrid: {
     flexDirection: 'row',

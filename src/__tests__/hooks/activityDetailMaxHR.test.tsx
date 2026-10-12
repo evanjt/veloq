@@ -8,6 +8,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { MaxHrSource } from 'veloqrs';
 import {
   prefetchActivityDetailData,
   useActivityDetailData,
@@ -35,6 +36,7 @@ function engineAnswering(maxHr: () => number) {
     sectionTraces: [],
     prSectionIds: [],
     maxHr: maxHr(),
+    maxHrSource: MaxHrSource.SportSettings,
     hrZones: [],
     ledgerChanges: [{ eventId: 7, sectionId: 's1', relation: 'around' }],
   }));
@@ -52,59 +54,60 @@ function engineAnswering(maxHr: () => number) {
 
 afterEach(() => mockGetEngine.mockReset());
 
-it('carries the max HR the engine resolved', () => {
+it('carries the max HR the engine resolved and where it came from', async () => {
   const { engine } = engineAnswering(() => 185);
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data?.maxHR).toBe(185);
+  expect(result.current.data?.maxHrSource).toBe(MaxHrSource.SportSettings);
 });
 
-it('carries the section changes whose ledger rows name the activity', () => {
+it('carries the section changes whose ledger rows name the activity', async () => {
   const { engine } = engineAnswering(() => 185);
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data?.ledgerChanges.map((c) => c.eventId)).toEqual([7]);
 });
 
-it('re-reads when the detail body for this activity lands', () => {
+it('re-reads when the detail body for this activity lands', async () => {
   let maxHr = 185;
   const { engine, emit } = engineAnswering(() => maxHr);
   mockGetEngine.mockReturnValue(engine);
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
   expect(result.current.data?.maxHR).toBe(185);
 
   // The detail body carries the activity's zones, topping out at 196.
   maxHr = 196;
-  emit('bodyStored', { kind: 'activity_detail', activityId: 'a1' });
+  await emit('bodyStored', { kind: 'activity_detail', activityId: 'a1' });
 
   expect(result.current.data?.maxHR).toBe(196);
 });
 
-it('does not re-read for another activity or another kind of body', () => {
+it('does not re-read for another activity or another kind of body', async () => {
   const { engine, emit, getActivityDetailData } = engineAnswering(() => 185);
   mockGetEngine.mockReturnValue(engine);
-  renderHook(() => useActivityDetailData('a1'));
+  await renderHook(() => useActivityDetailData('a1'));
   const reads = getActivityDetailData.mock.calls.length;
 
-  emit('bodyStored', { kind: 'activity_detail', activityId: 'a2' });
-  emit('bodyStored', { kind: 'power_curve', activityId: 'a1' });
+  await emit('bodyStored', { kind: 'activity_detail', activityId: 'a2' });
+  await emit('bodyStored', { kind: 'power_curve', activityId: 'a1' });
 
   expect(getActivityDetailData.mock.calls.length).toBe(reads);
 });
 
-it('drops a bundle read on the tap when the detail body lands before the screen mounts', () => {
+it('drops a bundle read on the tap when the detail body lands before the screen mounts', async () => {
   let maxHr = 185;
   const { engine, emit } = engineAnswering(() => maxHr);
   mockGetEngine.mockReturnValue(engine);
 
   prefetchActivityDetailData('a1');
   maxHr = 196;
-  emit('bodyStored', { kind: 'activity_detail', activityId: 'a1' });
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  await emit('bodyStored', { kind: 'activity_detail', activityId: 'a1' });
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data?.maxHR).toBe(196);
 });
@@ -117,15 +120,15 @@ describe('stream arrival', () => {
 
   it.each(streamAnnouncements)(
     'a mounted screen re-reads when %s announces this activity (%s)',
-    (event, _label, payload) => {
+    async (event, _label, payload) => {
       let maxHr = 0;
       const { engine, emit } = engineAnswering(() => maxHr);
       mockGetEngine.mockReturnValue(engine);
-      const { result } = renderHook(() => useActivityDetailData('a1'));
+      const { result } = await renderHook(() => useActivityDetailData('a1'));
       expect(result.current.data?.maxHR).toBe(0);
 
       maxHr = 196;
-      emit(event, payload('a1'));
+      await emit(event, payload('a1'));
 
       expect(result.current.data?.maxHR).toBe(196);
     }
@@ -133,28 +136,31 @@ describe('stream arrival', () => {
 
   it.each(streamAnnouncements)(
     'a bundle read on the tap is dropped when %s announces this activity (%s)',
-    (event, _label, payload) => {
+    async (event, _label, payload) => {
       let maxHr = 0;
       const { engine, emit } = engineAnswering(() => maxHr);
       mockGetEngine.mockReturnValue(engine);
 
       prefetchActivityDetailData('a1');
       maxHr = 196;
-      emit(event, payload('a1'));
-      const { result } = renderHook(() => useActivityDetailData('a1'));
+      await emit(event, payload('a1'));
+      const { result } = await renderHook(() => useActivityDetailData('a1'));
 
       expect(result.current.data?.maxHR).toBe(196);
     }
   );
 
-  it.each(streamAnnouncements)('ignores %s for another activity (%s)', (event, _label, payload) => {
-    const { engine, emit, getActivityDetailData } = engineAnswering(() => 185);
-    mockGetEngine.mockReturnValue(engine);
-    renderHook(() => useActivityDetailData('a1'));
-    const reads = getActivityDetailData.mock.calls.length;
+  it.each(streamAnnouncements)(
+    'ignores %s for another activity (%s)',
+    async (event, _label, payload) => {
+      const { engine, emit, getActivityDetailData } = engineAnswering(() => 185);
+      mockGetEngine.mockReturnValue(engine);
+      await renderHook(() => useActivityDetailData('a1'));
+      const reads = getActivityDetailData.mock.calls.length;
 
-    emit(event, payload('a2'));
+      await emit(event, payload('a2'));
 
-    expect(getActivityDetailData.mock.calls.length).toBe(reads);
-  });
+      expect(getActivityDetailData.mock.calls.length).toBe(reads);
+    }
+  );
 });

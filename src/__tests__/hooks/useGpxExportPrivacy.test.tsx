@@ -36,7 +36,7 @@ function engineReturning(result: unknown) {
 }
 
 async function run(points: { latitude: number; longitude: number }[]) {
-  const { result } = renderHook(() => useGpxExport());
+  const { result } = await renderHook(() => useGpxExport());
   await act(async () => {
     await result.current.exportGpx({
       name: 'Morning ride',
@@ -76,7 +76,12 @@ it('shares nothing and says why when the trim leaves too little of the track', a
   await run([door, door]);
 
   expect(mockShare).not.toHaveBeenCalled();
-  expect(Alert.alert).toHaveBeenCalledWith('common.error', 'export.gpxTrimmedAway');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'export.failedTitle',
+    'export.gpxTrimmedAway',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
 });
 
 it('shares nothing when the engine is not there to apply the trim', async () => {
@@ -85,5 +90,10 @@ it('shares nothing when the engine is not there to apply the trim', async () => 
   await run([door, away]);
 
   expect(mockShare).not.toHaveBeenCalled();
-  expect(Alert.alert).toHaveBeenCalledWith('common.error', 'export.error');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'export.failedTitle',
+    'export.error',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
 });

@@ -50,14 +50,14 @@ function renderPicker(count: number) {
 }
 
 /** The measurements a real layout pass would deliver. */
-function measure(
-  tree: ReturnType<typeof render>,
+async function measure(
+  tree: Awaited<ReturnType<typeof render>>,
   { viewport, content, offset }: { viewport: number; content: number; offset: number }
 ) {
   const picker = tree.getByTestId('preview-centre-picker');
-  fireEvent(picker, 'layout', { nativeEvent: { layout: { width: viewport, height: 55 } } });
-  fireEvent(picker, 'contentSizeChange', content, 55);
-  fireEvent.scroll(picker, {
+  await fireEvent(picker, 'layout', { nativeEvent: { layout: { width: viewport, height: 55 } } });
+  await fireEvent(picker, 'contentSizeChange', content, 55);
+  await fireEvent.scroll(picker, {
     nativeEvent: {
       contentOffset: { x: offset, y: 0 },
       contentSize: { width: content, height: 55 },
@@ -67,35 +67,35 @@ function measure(
 }
 
 describe('the centre picker edge', () => {
-  it('fades the trailing edge when a chip is cut by it', () => {
-    const tree = renderPicker(3);
-    measure(tree, { viewport: 360, content: 520, offset: 0 });
+  it('fades the trailing edge when a chip is cut by it', async () => {
+    const tree = await renderPicker(3);
+    await measure(tree, { viewport: 360, content: 520, offset: 0 });
     expect(tree.queryByTestId('preview-centre-fade-end')).not.toBeNull();
   });
 
-  it('says nothing when every chip fits', () => {
-    const tree = renderPicker(2);
-    measure(tree, { viewport: 360, content: 300, offset: 0 });
+  it('says nothing when every chip fits', async () => {
+    const tree = await renderPicker(2);
+    await measure(tree, { viewport: 360, content: 300, offset: 0 });
     expect(tree.queryByTestId('preview-centre-fade-end')).toBeNull();
     expect(tree.queryByTestId('preview-centre-fade-start')).toBeNull();
   });
 
-  it('drops the trailing fade at the end of the run', () => {
-    const tree = renderPicker(3);
-    measure(tree, { viewport: 360, content: 520, offset: 160 });
+  it('drops the trailing fade at the end of the run', async () => {
+    const tree = await renderPicker(3);
+    await measure(tree, { viewport: 360, content: 520, offset: 160 });
     expect(tree.queryByTestId('preview-centre-fade-end')).toBeNull();
   });
 
-  it('fades the leading edge once the first chip is behind it', () => {
-    const tree = renderPicker(3);
-    measure(tree, { viewport: 360, content: 520, offset: 0 });
+  it('fades the leading edge once the first chip is behind it', async () => {
+    const tree = await renderPicker(3);
+    await measure(tree, { viewport: 360, content: 520, offset: 0 });
     expect(tree.queryByTestId('preview-centre-fade-start')).toBeNull();
-    measure(tree, { viewport: 360, content: 520, offset: 80 });
+    await measure(tree, { viewport: 360, content: 520, offset: 80 });
     expect(tree.queryByTestId('preview-centre-fade-start')).not.toBeNull();
   });
 
-  it('shows nothing before the first layout, rather than a fade over nothing', () => {
-    const tree = renderPicker(3);
+  it('shows nothing before the first layout, rather than a fade over nothing', async () => {
+    const tree = await renderPicker(3);
     expect(tree.queryByTestId('preview-centre-fade-end')).toBeNull();
     expect(tree.queryByTestId('preview-centre-fade-start')).toBeNull();
   });

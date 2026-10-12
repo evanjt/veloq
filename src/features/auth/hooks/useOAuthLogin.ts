@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -15,6 +15,8 @@ import {
   isOAuthConfigured,
   getAppRedirectUri,
   oauthFailureKey,
+  onInterruptedCallback,
+  takeInterruptedCallback,
 } from '@/features/auth/lib/oauth';
 import { clearPendingApiKey } from '@/features/auth/lib/pendingSignIn';
 
@@ -38,6 +40,45 @@ export function useOAuthLogin({
   const { isOnline } = useNetwork();
 
   const [isLoading, setIsLoading] = useState(false);
+
+  /**
+   * Redeem the redirect and sign its athlete in. Resolves with nothing either
+   * way: a refused account change is the athlete's own choice, not an error.
+   */
+  const completeSignIn = useCallback(
+    async (callbackUrl: string) => {
+      const tokenResponse = await handleOAuthCallback(callbackUrl);
+
+      // Account-identity check (see useApiKeyLogin.ts). Same-account OAuth
+      // refresh keeps cached activities; switching accounts requires
+      // explicit confirmation before we wipe the previous identity.
+      const incomingId = String(tokenResponse.athlete_id);
+      const outcome = await resolveLoginLibrary(incomingId);
+      // A refused sign-in drops the queued key as the API-key path does:
+      // otherwise the next reconnect signs its owner in unasked.
+      if (outcome === 'refused') {
+        await discardQueuedKey();
+        return;
+      }
+      if (outcome === 'keep') {
+        await clearAuthOnly(queryClient);
+      } else {
+        await clearAccountData(queryClient);
+      }
+      resetSyncDateRange();
+
+      await setOAuthCredentials(
+        tokenResponse.access_token,
+        tokenResponse.athlete_id,
+        tokenResponse.athlete_name
+      );
+
+      recordGrantedScope(tokenResponse.scope);
+
+      replaceTo('/');
+    },
+    [queryClient, resetSyncDateRange, setOAuthCredentials, discardQueuedKey]
+  );
 
   const handleOAuthLogin = useCallback(async () => {
     if (!isOAuthConfigured()) {
@@ -66,36 +107,7 @@ export function useOAuthLogin({
           return;
         }
 
-        const tokenResponse = await handleOAuthCallback(result.url);
-
-        // Account-identity check (see useApiKeyLogin.ts). Same-account OAuth
-        // refresh keeps cached activities; switching accounts requires
-        // explicit confirmation before we wipe the previous identity.
-        const incomingId = String(tokenResponse.athlete_id);
-        const outcome = await resolveLoginLibrary(incomingId);
-        // A refused sign-in drops the queued key as the API-key path does:
-        // otherwise the next reconnect signs its owner in unasked.
-        if (outcome === 'refused') {
-          await discardQueuedKey();
-          setIsLoading(false);
-          return;
-        }
-        if (outcome === 'keep') {
-          await clearAuthOnly(queryClient);
-        } else {
-          await clearAccountData(queryClient);
-        }
-        resetSyncDateRange();
-
-        await setOAuthCredentials(
-          tokenResponse.access_token,
-          tokenResponse.athlete_id,
-          tokenResponse.athlete_name
-        );
-
-        recordGrantedScope(tokenResponse.scope);
-
-        replaceTo('/');
+        await completeSignIn(result.url);
       } else if (result.outcome === 'failed') {
         setError(t('login.oauthFailed'));
       }
@@ -104,15 +116,25 @@ export function useOAuthLogin({
     } finally {
       setIsLoading(false);
     }
-  }, [
-    t,
-    isOnline,
-    queryClient,
-    resetSyncDateRange,
-    setOAuthCredentials,
-    setError,
-    discardQueuedKey,
-  ]);
+  }, [t, isOnline, completeSignIn, setError]);
+
+  // A redirect that reached a process which did not open the browser: Android
+  // killed the one that did. The keychain still holds the flow, so it is
+  // completed here, with the button showing progress while the code is
+  // redeemed, or the slot says the sign-in was interrupted.
+  useEffect(() => {
+    const resume = () => {
+      const callbackUrl = takeInterruptedCallback();
+      if (!callbackUrl) return;
+      setIsLoading(true);
+      setError(null);
+      completeSignIn(callbackUrl)
+        .catch((err: unknown) => setError(t(oauthFailureKey(err))))
+        .finally(() => setIsLoading(false));
+    };
+    resume();
+    return onInterruptedCallback(resume);
+  }, [completeSignIn, setError, t]);
 
   return { handleOAuthLogin, isLoading };
 }

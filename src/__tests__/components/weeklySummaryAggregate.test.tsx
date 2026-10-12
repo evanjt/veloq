@@ -56,20 +56,20 @@ beforeEach(() => {
 
 describe('WeeklySummary', () => {
   it('reads a year from the engine rather than from parsed bodies', async () => {
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
 
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalled());
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('asks for the current period and the one before it, and no more', async () => {
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
     await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalled());
     engine.getPeriodStats.mockClear();
 
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(engine.getPeriodStats.mock.calls.length).toBe(2));
     const windows = engine.getPeriodStats.mock.calls.map((c) => (c as unknown as number[])[0]);
@@ -81,7 +81,7 @@ describe('WeeklySummary', () => {
       .requireMock('@/features/fitness/hooks')
       .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
 
-    render(<WeeklySummary />, { wrapper });
+    await render(<WeeklySummary />, { wrapper });
 
     await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalledTimes(1));
     // Monday 15 June 2026 is the current week, so the previous window starts a week before it.
@@ -90,9 +90,9 @@ describe('WeeklySummary', () => {
   });
 
   it('shows the engine totals for the period', async () => {
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
 
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByText('3')).toBeTruthy());
   });

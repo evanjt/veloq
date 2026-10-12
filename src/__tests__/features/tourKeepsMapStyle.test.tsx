@@ -84,7 +84,7 @@ beforeEach(() => {
 
 describe('the tour map slide', () => {
   it('leaves a new install on the light style', async () => {
-    render(
+    await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
         <MapPreferencesSlide />
@@ -98,7 +98,7 @@ describe('the tour map slide', () => {
 
   it('leaves a style the athlete chose, and their terrain choice, alone', async () => {
     storedPreferences('dark');
-    render(
+    await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
         <MapPreferencesSlide />
@@ -116,7 +116,7 @@ describe('Show Me on the tour map slide', () => {
     storedPreferences('dark');
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
-    render(
+    await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
         <WhatsNewModal />
@@ -128,11 +128,11 @@ describe('Show Me on the tour map slide', () => {
     expect(MAP_SLIDE).toBeGreaterThanOrEqual(0);
     for (let step = 0; step < MAP_SLIDE; step++) {
       await act(async () => {
-        fireEvent.press(screen.getByText('whatsNew.nextButton'));
+        await fireEvent.press(screen.getByText('whatsNew.nextButton'));
       });
     }
     await act(async () => {
-      fireEvent.press(screen.getByText('whatsNew.showMeButton'));
+      await fireEvent.press(screen.getByText('whatsNew.showMeButton'));
     });
 
     expect(useWhatsNewStore.getState().tourState?.exploring).toBeTruthy();

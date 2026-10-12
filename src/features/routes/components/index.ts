@@ -18,7 +18,6 @@ export { PlaceNameButton } from './PlaceNameButton';
 export { SectionHistoryPanel, SectionLapList } from './section';
 export { RouteDetailMap } from './RouteDetailMap';
 export { SportTypeSelector } from './SportTypeSelector';
-export { SportFilterMenu } from './SportFilterMenu';
 export { RouteDetailDebugPanel } from './RouteDetailDebugPanel';
 export { styles as routeDetailScreenStyles } from './RouteDetailScreen.styles';
 export { PreviewCentrePicker } from './preview/PreviewCentrePicker';

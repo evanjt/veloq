@@ -23,6 +23,7 @@ jest.mock('@/shared/app', () => ({
   }),
 }));
 jest.mock('@/shared/ui', () => ({
+  accessibleActions: jest.requireActual('@/shared/ui/accessibleActions').accessibleActions,
   pressable: (styles: unknown) => styles,
   pressRipple: {},
 }));
@@ -44,13 +45,13 @@ const metrics = {
   movingTime: 20,
 };
 
-it('renders only a tile whose displayed value changes', () => {
+it('renders only a tile whose displayed value changes', async () => {
   const props = { fields: [...fields], metrics, isMetric: true };
-  const { rerender } = render(<DataFieldGrid {...props} />);
+  const { rerender } = await render(<DataFieldGrid {...props} />);
   expect(mockTextRender).toHaveBeenCalledTimes(8);
 
   mockTextRender.mockClear();
-  rerender(
+  await rerender(
     <DataFieldGrid
       {...props}
       metrics={{ ...metrics, elapsedTime: 21, movingTime: 21, lapTime: 11 }}
@@ -58,7 +59,7 @@ it('renders only a tile whose displayed value changes', () => {
   );
   expect(mockTextRender).not.toHaveBeenCalled();
 
-  rerender(<DataFieldGrid {...props} metrics={{ ...metrics, speed: 5 }} />);
+  await rerender(<DataFieldGrid {...props} metrics={{ ...metrics, speed: 5 }} />);
   expect(mockTextRender).toHaveBeenCalledTimes(2);
   expect(mockTextRender).toHaveBeenCalledWith('recording.fields.speed');
 });

@@ -2,7 +2,7 @@
  * Scenario: each wellness row carries only the days its metric was logged,
  * while the header names the scrubbed day or, at rest, one date for every row.
  *
- * Expected behaviour: a scrubbed day a metric has no reading on shows '-' for
+ * Expected behaviour: a scrubbed day a metric has no reading on shows the absent mark for
  * it, and at rest no row's last reading is presented as a later day's.
  */
 
@@ -14,6 +14,7 @@ import { Gesture } from 'react-native-gesture-handler';
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -39,10 +40,10 @@ function captureGestures() {
   return built;
 }
 
-function layout(tree: ReturnType<typeof render>) {
+async function layout(tree: Awaited<ReturnType<typeof render>>) {
   const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(container!, 'layout', { nativeEvent: { layout: { width: 360, height: 300 } } });
+  await act(async () => {
+    await fireEvent(container!, 'layout', { nativeEvent: { layout: { width: 360, height: 300 } } });
   });
 }
 
@@ -58,21 +59,21 @@ describe('wellness row dates', () => {
 
   it('shows no HRV on a scrubbed day HRV was not logged', async () => {
     const built = captureGestures();
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
+    await layout(tree);
 
     await scrubTo(built[built.length - 1], 1000);
 
     expect(tree.getByText(formatShortDateWithWeekday('2026-06-30'))).toBeTruthy();
     expect(tree.queryByText('87')).toBeNull();
-    expect(tree.getByText('-')).toBeTruthy();
+    expect(tree.getByText(ABSENT)).toBeTruthy();
     expect(tree.getByText('50')).toBeTruthy();
   });
 
   it('shows a logged reading on the day it was logged', async () => {
     const built = captureGestures();
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
+    await layout(tree);
 
     await scrubTo(built[built.length - 1], 0);
 
@@ -80,9 +81,9 @@ describe('wellness row dates', () => {
     expect(tree.getByText('61')).toBeTruthy();
   });
 
-  it('at rest, names the newest day and dates a row whose reading is older', () => {
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
-    layout(tree);
+  it('at rest, names the newest day and dates a row whose reading is older', async () => {
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="7d" />);
+    await layout(tree);
 
     expect(tree.queryByText('time.today')).toBeNull();
     expect(tree.getByText(formatShortDateWithWeekday('2026-06-30'))).toBeTruthy();

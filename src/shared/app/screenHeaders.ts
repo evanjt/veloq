@@ -3,17 +3,21 @@
  *
  * `null` is a screen that draws its own and takes no header: the tab group,
  * the two auth screens, the redirect, the full-screen recorder and the routes
- * list. Everything else takes the platform's header, titled from one i18n key,
+ * list. The recorder's route turns the platform's header on itself when it
+ * shows the manual or strength form, titled with the sport. Everything else
+ * takes the platform's header, titled from one i18n key,
  * which is the rule in `src/shared/ui/CLAUDE.md`. A screen has no header code
  * of its own. `overMap` is the header of a map-hero detail screen: transparent
- * with an empty title, so the platform's back control floats over the hero.
+ * and visually untitled, so the platform's back control floats over the hero.
+ * A state of that screen with no hero to show takes the opaque header instead,
+ * through `noHeroHeaderOptions`.
  *
- * The tab group's children belong to `(tabs)/_layout`, so they are not here.
+ * The tab group's children are not root-stack routes, so their headers are in `TAB_HEADERS`.
  */
 
 import type { ParseKeys } from 'i18next';
 
-import { colors, darkColors } from '@/theme';
+import { colors, colorWithOpacity, darkColors } from '@/theme';
 import { layout } from '@/theme/spacing';
 
 export interface ScreenHeader {
@@ -23,7 +27,7 @@ export interface ScreenHeader {
   title?: string;
   /** The layout supplies a headerTitle of its own; the key above is what shows until it loads. */
   dynamic?: boolean;
-  /** Transparent header with no title, laid over a full-bleed map hero. */
+  /** Transparent header with no visible title, laid over a full-bleed map hero. */
   overMap?: boolean;
   /**
    * Collapsing large title on iOS. Only a screen whose first child is its scroll view can take
@@ -48,11 +52,11 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'sheets/smoothing': null,
   'sheets/stat-detail': null,
   'sheets/strength-pairs-info': null,
-  'sheets/restore-prompt': null,
   'sheets/field-picker': null,
   'sheets/route-overlay': null,
   'sheets/merge-candidates': null,
   'sheets/merge-confirm': null,
+  'sheets/section-chooser': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history', largeTitle: true },
@@ -91,6 +95,49 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
 };
 
 /**
+ * The header of each tab root, by the name the tab group registers it under. A headered tab is a
+ * stack of one screen, so the platform draws its title, its trailing items and its search field
+ * the way it draws every other screen's. `null` is the map, which is full-bleed under its own
+ * controls. The Feed and Insights keep a small title: the Feed's pinned cards and the Insights
+ * page strip sit above their scroll views.
+ */
+export const TAB_HEADERS: Record<string, ScreenHeader | null> = {
+  '(feed)': { titleKey: 'navigation.feed' },
+  fitness: { titleKey: 'fitnessScreen.title', largeTitle: true },
+  map: null,
+  insights: { titleKey: 'insights.title' },
+  training: { titleKey: 'healthScreen.title', largeTitle: true },
+};
+
+/** The title a header shows: the literal one, else its key translated, else none. */
+export function headerTitleOf(
+  header: ScreenHeader | null | undefined,
+  t: (key: ParseKeys) => string
+): string {
+  return header?.title ?? (header?.titleKey ? t(header.titleKey) : '');
+}
+
+/**
+ * The title of each tab, by its route name in `(tabs)/_layout`. The tab group's entry in the root
+ * stack takes the focused tab's title, which is what the next screen's back control is named
+ * after.
+ */
+export const TAB_TITLE_KEYS: Record<string, ParseKeys> = {
+  '(feed)': 'navigation.feed',
+  fitness: 'navigation.fitness',
+  map: 'navigation.map',
+  insights: 'navigation.insights',
+  training: 'navigation.health',
+};
+
+/**
+ * The colour an over-map header draws its title in: the least alpha a colour can carry, which the
+ * eye cannot see. Not fully transparent, because that packs to 0 and the Android header reads a
+ * title colour of 0 as unset and draws its default colour instead.
+ */
+export const OVER_MAP_TITLE_COLOR = colorWithOpacity(colors.textOnDark, 1 / 255);
+
+/**
  * The transition a root-stack route opens with. The tabs switch instantly. Every
  * other route takes the platform's own default. The stack sets no animation of
  * its own, so this is the only place a route's transition is chosen.
@@ -102,7 +149,7 @@ export function screenAnimation(name: string): 'none' | 'default' {
 /**
  * Routes presented as a platform sheet, by name to the detents the sheet rests
  * at. Each is also listed in `SCREEN_HEADERS` as `null`, because a sheet draws
- * its own title row.
+ * its title row with `SheetHeader` from `src/shared/ui`.
  */
 export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/activity-type': [0.6, 1],
@@ -113,11 +160,11 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/smoothing': 'fitToContents',
   'sheets/stat-detail': 'fitToContents',
   'sheets/strength-pairs-info': 'fitToContents',
-  'sheets/restore-prompt': [0.6, 1],
   'sheets/field-picker': [0.6, 1],
   'sheets/route-overlay': [0.6, 1],
   'sheets/merge-candidates': [0.6, 1],
   'sheets/merge-confirm': [0.6, 1],
+  'sheets/section-chooser': 'fitToContents',
 };
 
 /**
@@ -201,4 +248,59 @@ export function largeTitleScreenOptions(
 export function overMapHeaderTint({ overHero, isDark }: { overHero: boolean; isDark: boolean }) {
   if (overHero) return colors.textOnDark;
   return isDark ? darkColors.textPrimary : colors.textPrimary;
+}
+
+/** The stack header's own colours: the theme surface behind it, the theme text for its controls. */
+export function themeHeaderColors(isDark: boolean) {
+  return {
+    headerStyle: { backgroundColor: isDark ? darkColors.surface : colors.surface },
+    headerTintColor: overMapHeaderTint({ overHero: false, isDark }),
+  };
+}
+
+/**
+ * The header of a map-hero detail screen while it shows its hero: a transparent bar with a title
+ * nobody can see. The native stack hands a string `headerTitle` to the native item in place of
+ * `title`, so neither this nor the route sets one, and the screen's `title` is its subject's name
+ * once the read has it. Both screen readers then find the screen's name in its header and iOS
+ * names the next screen's back control after it, while nothing is drawn over the hero.
+ */
+export function overMapHeaderOptions({
+  title,
+  isDark,
+}: {
+  title?: string | undefined;
+  isDark: boolean;
+}) {
+  return {
+    headerTransparent: true,
+    headerShadowVisible: false,
+    headerStyle: { backgroundColor: 'transparent' },
+    headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
+    headerTintColor: overMapHeaderTint({ overHero: true, isDark }),
+    ...(title !== undefined && { title }),
+  };
+}
+
+/**
+ * The header of a map-hero detail screen in a state with no hero: the opaque platform header in
+ * the theme, so content starts directly under it. With a title it names the screen; without one
+ * the route keeps the title it has. It sets every option `overMapHeaderOptions` does, because
+ * options a screen sets outlast the state that set them.
+ */
+export function noHeroHeaderOptions({
+  title,
+  isDark,
+}: {
+  title?: string | undefined;
+  isDark: boolean;
+}) {
+  const themed = themeHeaderColors(isDark);
+  return {
+    headerTransparent: false,
+    headerShadowVisible: true,
+    ...themed,
+    headerTitleStyle: { color: themed.headerTintColor },
+    ...(title !== undefined && { title }),
+  };
 }

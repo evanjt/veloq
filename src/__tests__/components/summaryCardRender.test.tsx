@@ -21,6 +21,7 @@ import {
   type MetricId,
 } from '@/features/settings/stores/summaryCardPreferences';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { ABSENT } from '@/shared/format/absent';
 import { colors } from '@/theme';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -46,7 +47,7 @@ jest.mock('@/features/home/lib/formBar', () => {
 
 /** The card defers its sparklines until the first frame's interactions finish. */
 async function renderCard(props: Partial<SummaryCardProps>) {
-  const tree = render(
+  const tree = await render(
     <SummaryCard
       onProfilePress={() => {}}
       heroValue={0}
@@ -75,8 +76,8 @@ describe('the fitness sparkline', () => {
     expect(hrv.queryByTestId('summary-card-hrv-sparkline')).toBeNull();
   });
 
-  it('draws nothing of its own on a single day, whoever mounts it', () => {
-    const tree = render(
+  it('draws nothing of its own on a single day, whoever mounts it', async () => {
+    const tree = await render(
       <SummaryCardSparkline fitnessData={[40]} fatigueData={[42]} formData={[-2]} width={300} />
     );
 
@@ -114,11 +115,13 @@ describe('the form bar under the fitness sparkline', () => {
 
   it.each([true, false])(
     'zones each day on its own fitness with form as percent %s',
-    (asPercent) => {
+    async (asPercent) => {
       useFormPreference.setState({ formAsPercent: asPercent });
       mockFormBar.mockClear();
 
-      render(<SummaryCardSparkline fitnessData={[40, 100]} formData={[-8, -8]} width={300} />);
+      await render(
+        <SummaryCardSparkline fitnessData={[40, 100]} formData={[-8, -8]} width={300} />
+      );
 
       expect(mockFormBar).toHaveBeenLastCalledWith([-8, -8], [40, 100], asPercent, 300);
     }
@@ -154,7 +157,7 @@ describe('form on a half-unit day', () => {
       hrvRead: [],
       rhrRead: [],
     };
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useSummaryCardData(card, { awaitPrecomputed: true, precomputedSparklines: sparklines })
     );
 
@@ -169,7 +172,7 @@ describe('form on a half-unit day', () => {
 describe('form under the percentage preference', () => {
   afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
-  function supportingForm(fitness: number, form: number) {
+  async function supportingForm(fitness: number, form: number) {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULTS, heroMetric: 'fitness', supportingMetrics: ['form'] },
     });
@@ -190,24 +193,26 @@ describe('form under the percentage preference', () => {
       hrvRead: [],
       rhrRead: [],
     };
-    return renderHook(() =>
-      useSummaryCardData(card, { awaitPrecomputed: true, precomputedSparklines: sparklines })
+    return (
+      await renderHook(() =>
+        useSummaryCardData(card, { awaitPrecomputed: true, precomputedSparklines: sparklines })
+      )
     ).result.current.supportingMetrics[0].value;
   }
 
-  it('prints the supporting form as a signed percentage of fitness', () => {
+  it('prints the supporting form as a signed percentage of fitness', async () => {
     useFormPreference.setState({ formAsPercent: true });
-    expect(supportingForm(40, -8)).toBe('-20%');
+    expect(await supportingForm(40, -8)).toBe('-20%');
   });
 
-  it('prints no number when fitness is zero', () => {
+  it('prints no number when fitness is zero', async () => {
     useFormPreference.setState({ formAsPercent: true });
-    expect(supportingForm(0, -8)).toBe('-');
+    expect(await supportingForm(0, -8)).toBe(ABSENT);
   });
 
-  it('prints the absolute number with the preference off', () => {
+  it('prints the absolute number with the preference off', async () => {
     useFormPreference.setState({ formAsPercent: false });
-    expect(supportingForm(40, -8)).toBe('-8');
+    expect(await supportingForm(40, -8)).toBe('-8');
   });
 });
 
@@ -216,10 +221,10 @@ describe('a tap on a supporting metric', () => {
 
   it.each(EVERY)('opens the chart %s summarises', async (metric) => {
     useDashboardPreferences.setState({ summaryCard: { ...DEFAULTS, supportingMetrics: [metric] } });
-    const { result } = renderHook(() => useSummaryCardData());
+    const { result } = await renderHook(() => useSummaryCardData());
     const tree = await renderCard({ supportingMetrics: result.current.supportingMetrics });
 
-    fireEvent.press(tree.getByTestId('summary-card-metric-0'));
+    await fireEvent.press(tree.getByTestId('summary-card-metric-0'));
 
     expect(router.push).toHaveBeenLastCalledWith(summaryCardTarget(metric));
   });

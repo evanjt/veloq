@@ -12,45 +12,19 @@ import { Shimmer } from '@/shared/ui/Shimmer';
 import { tapTo } from '@/shared/app/navigation';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import {
-  brand,
-  colors,
-  darkColors,
-  spacing,
-  shadows,
-  opacity,
-  ink,
-  verdictColor,
-  layout,
-  typography,
-} from '@/theme';
+import { brand, colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 import {
+  composeAccessibilityLabel,
   pressable,
   pressRipple,
   Button,
-  EngineReadFailure,
-  EngineReadFailureRetry,
+  Card,
+  ErrorState,
 } from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
-
-function getTrendIcon(trend?: number): string {
-  if (trend == null) return 'minus';
-  if (trend > 0) return 'trending-up';
-  if (trend < 0) return 'trending-down';
-  return 'minus';
-}
-
-// A section trend above zero is a faster time, so a decline is the negative
-// rung and not the caution one: nothing here is a warning about what comes
-// next, it is a judgement on what already happened.
-export function getTrendColor(trend: number | undefined, isDark: boolean): string {
-  if (trend == null) return verdictColor('neutral', isDark);
-  if (trend > 0) return verdictColor('positive', isDark);
-  if (trend < 0) return verdictColor('negative', isDark);
-  return verdictColor('neutral', isDark);
-}
+import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../../lib/rowTrend';
 
 interface SectionTrendContentProps {
   insight: Insight;
@@ -104,9 +78,11 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 }) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const { section: fullSection, error: sectionError } = useSectionDetail(
-    expanded ? section.sectionId : null
-  );
+  const {
+    section: fullSection,
+    error: sectionError,
+    retry: retrySection,
+  } = useSectionDetail(expanded ? section.sectionId : null);
   // The trend's sport, which is what the row was ranked under. Read
   // unfiltered, the accordion opened on every sport's efforts.
   const {
@@ -126,17 +102,31 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
     tapTo(`/section/${section.sectionId}`);
   }, [section.sectionId]);
 
+  const name = sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc);
+  const bestTime = section.bestTime != null ? formatDuration(section.bestTime) : null;
+  const traversals =
+    section.traversalCount != null ? t('units.times', { value: section.traversalCount }) : null;
+
+  // The whole header is one toggle, so a screen reader meets each row once and
+  // hears everything the row draws.
   return (
-    <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
-      <View style={styles.sectionHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={section.sectionName}
-          accessibilityState={{ expanded }}
-          onPress={handleToggle}
-          style={pressable(styles.sectionContent)}
-          android_ripple={pressRipple}
-        >
+    <Card variant="flat" padding="none">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={composeAccessibilityLabel(
+          name,
+          section.hasRecentPR && t('a11y.personalRecord'),
+          bestTime,
+          traversals,
+          rowTrendWord(section.trend)
+        )}
+        accessibilityState={{ expanded }}
+        onPress={handleToggle}
+        testID={`section-trend-toggle-${section.sectionId}`}
+        style={pressable(styles.sectionHeader)}
+        android_ripple={pressRipple}
+      >
+        <View style={styles.sectionContent}>
           <View style={styles.sectionNameRow}>
             {section.sportType ? (
               <MaterialCommunityIcons
@@ -147,58 +137,50 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               />
             ) : null}
             <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
-              {sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc)}
+              {name}
             </Text>
             {section.hasRecentPR ? (
               <View style={styles.prChip}>
-                <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
+                <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
               </View>
             ) : null}
           </View>
           <View style={styles.sectionMeta}>
-            {section.bestTime != null ? (
-              <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
-                {formatDuration(section.bestTime)}
-              </Text>
+            {bestTime != null ? (
+              <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>
             ) : null}
-            {section.traversalCount != null ? (
-              <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
-                {t('units.times', { value: section.traversalCount })}
-              </Text>
+            {traversals != null ? (
+              <Text style={[styles.traversals, isDark && styles.traversalsDark]}>{traversals}</Text>
             ) : null}
             <MaterialCommunityIcons
-              name={getTrendIcon(section.trend) as never}
+              name={rowTrendIcon(section.trend)}
               size={16}
-              color={getTrendColor(section.trend, isDark)}
+              color={rowTrendColor(section.trend, isDark)}
             />
           </View>
-        </Pressable>
+        </View>
 
-        {/* Chevron: tappable to toggle accordion */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={section.sectionName}
-          accessibilityState={{ expanded }}
-          onPress={handleToggle}
-          testID={`section-trend-toggle-${section.sectionId}`}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 4 }}
-          style={pressable(styles.chevronButton)}
-          android_ripple={pressRipple}
-        >
+        <View style={styles.chevronButton}>
           <MaterialCommunityIcons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </Pressable>
-      </View>
+        </View>
+      </Pressable>
 
       {expanded ? (
         <View style={styles.expandedContent}>
           {sectionError !== undefined ? (
-            <EngineReadFailure error={sectionError} testID="section-read-failure" />
+            <ErrorState
+              variant="inline"
+              error={sectionError}
+              onRetry={retrySection}
+              testID="section-read-failure"
+            />
           ) : streamsError ? (
-            <EngineReadFailureRetry
+            <ErrorState
+              variant="inline"
               error={streamsError}
               onRetry={refetchStreams}
               testID="section-stream-failure"
@@ -223,7 +205,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           />
         </View>
       ) : null}
-    </View>
+    </Card>
   );
 });
 
@@ -280,7 +262,11 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
       {hasAnyPR ? (
         <View style={styles.legend}>
-          <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+          <MaterialCommunityIcons
+            name="trophy"
+            size={12}
+            color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+          />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('insights.recentPersonalRecord')}
           </Text>
@@ -319,19 +305,6 @@ const styles = StyleSheet.create({
   contextMetaDark: {
     color: darkColors.textSecondary,
   },
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    ...shadows.card,
-  },
-  sectionCardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderColor: darkColors.border,
-    ...shadows.none,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -343,6 +316,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginRight: spacing.xs,
+  },
+  chevronButton: {
+    padding: spacing.xs,
   },
   sectionNameRow: {
     flex: 1,
@@ -390,9 +366,6 @@ const styles = StyleSheet.create({
   },
   traversalsDark: {
     color: darkColors.textSecondary,
-  },
-  chevronButton: {
-    padding: spacing.xs,
   },
   expandedContent: {
     paddingHorizontal: spacing.sm,

@@ -69,7 +69,7 @@ describe('useAthlete', () => {
       JSON.stringify({ id: 'i1', name: 'Demo', measurement_preference: 'feet', fahrenheit: true })
     );
 
-    const { result } = renderHook(() => useAthlete(), { wrapper });
+    const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
     expect(result.current.data?.name).toBe('Demo');
@@ -79,7 +79,7 @@ describe('useAthlete', () => {
   });
 
   it('reads as absent when nothing has been synced', async () => {
-    const { result } = renderHook(() => useAthlete(), { wrapper });
+    const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
@@ -88,7 +88,7 @@ describe('useAthlete', () => {
   it('survives an unparseable body', async () => {
     engine.getAthleteProfile.mockReturnValue('{not json');
 
-    const { result } = renderHook(() => useAthlete(), { wrapper });
+    const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
@@ -101,7 +101,7 @@ describe('useSportSettings', () => {
       JSON.stringify([{ types: ['Ride'], ftp: 250, power_zones: [55, 75, 90] }])
     );
 
-    const { result } = renderHook(() => useSportSettings(), { wrapper });
+    const { result } = await renderHook(() => useSportSettings(), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
     expect(result.current.data?.[0].ftp).toBe(250);
@@ -110,7 +110,7 @@ describe('useSportSettings', () => {
   it('reads as empty when the stored body is not an array', async () => {
     engine.getSportSettings.mockReturnValue(JSON.stringify({ ftp: 250 }));
 
-    const { result } = renderHook(() => useSportSettings(), { wrapper });
+    const { result } = await renderHook(() => useSportSettings(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([]);
@@ -126,7 +126,7 @@ describe('useWellness', () => {
       ])
     );
 
-    const { result } = renderHook(() => useWellness('1m'), { wrapper });
+    const { result } = await renderHook(() => useWellness('1m'), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(2));
     expect(result.current.data?.map((d) => d.id)).toEqual(['2026-07-01', '2026-07-02']);
@@ -147,7 +147,7 @@ describe('useWellness', () => {
       ])
     );
 
-    const { result } = renderHook(() => useWellness('1m'), { wrapper });
+    const { result } = await renderHook(() => useWellness('1m'), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
     const total = result.current.data?.[0].sportInfo?.reduce((sum, s) => sum + (s.load ?? 0), 0);
@@ -155,7 +155,7 @@ describe('useWellness', () => {
   });
 
   it('asks for the window the range covers', async () => {
-    const { result } = renderHook(() => useWellness('7d'), { wrapper });
+    const { result } = await renderHook(() => useWellness('7d'), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const [oldest, newest] = engine.getWellnessDays.mock.calls[0];
@@ -171,7 +171,7 @@ describe('useWellnessForDate', () => {
       stored([{ date: '2026-07-04', ctl: 62, sportLoad: [] }])
     );
 
-    const { result } = renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
+    const { result } = await renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
     expect(result.current.data?.ctl).toBe(62);
@@ -179,7 +179,7 @@ describe('useWellnessForDate', () => {
   });
 
   it('returns null for a date with no stored day', async () => {
-    const { result } = renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
+    const { result } = await renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();

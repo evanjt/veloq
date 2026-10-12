@@ -31,8 +31,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 /** Background then active, which is the only pair that counts as a return. */
-function leaveAndComeBack() {
-  act(() => {
+async function leaveAndComeBack() {
+  await act(() => {
     appStateListeners.forEach((l) => l('background'));
     appStateListeners.forEach((l) => l('active'));
   });
@@ -57,32 +57,32 @@ afterEach(() => {
 });
 
 describe('what the app takes on the way back', () => {
-  it('re-reads the screens a push can have changed', () => {
+  it('re-reads the screens a push can have changed', async () => {
     mockTakeExternalWrites.mockReturnValue(true);
-    renderHook(() => usePushedWritesOnForeground(), { wrapper });
+    await renderHook(() => usePushedWritesOnForeground(), { wrapper });
 
-    leaveAndComeBack();
+    await leaveAndComeBack();
 
     const keys = invalidate.mock.calls.map((call) => JSON.stringify(call[0]));
     expect(keys).toContain(JSON.stringify({ queryKey: queryKeys.activities.all }));
     expect(keys).toContain(JSON.stringify({ queryKey: queryKeys.sections.all }));
   });
 
-  it('invalidates nothing when no push landed while it was away', () => {
+  it('invalidates nothing when no push landed while it was away', async () => {
     mockTakeExternalWrites.mockReturnValue(false);
-    renderHook(() => usePushedWritesOnForeground(), { wrapper });
+    await renderHook(() => usePushedWritesOnForeground(), { wrapper });
 
-    leaveAndComeBack();
+    await leaveAndComeBack();
 
     expect(mockTakeExternalWrites).toHaveBeenCalled();
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('does not ask on the inactive flicker of a notification shade', () => {
+  it('does not ask on the inactive flicker of a notification shade', async () => {
     mockTakeExternalWrites.mockReturnValue(true);
-    renderHook(() => usePushedWritesOnForeground(), { wrapper });
+    await renderHook(() => usePushedWritesOnForeground(), { wrapper });
 
-    act(() => {
+    await act(() => {
       appStateListeners.forEach((l) => l('inactive'));
       appStateListeners.forEach((l) => l('active'));
     });

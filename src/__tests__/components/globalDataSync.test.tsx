@@ -21,12 +21,12 @@ import {
 import { SyncState } from 'veloqrs';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
-import { useActivities } from '@/features/activity/hooks';
+import { useActivityWindowRequest } from '@/features/activity/hooks';
 import { getEngine } from '@/shared/native/engine';
 import { onBackupReconnect } from '@/features/settings/lib/autobackup';
 
 jest.mock('@/features/activity/hooks', () => ({
-  useActivities: jest.fn(() => ({ data: [], isFetching: false })),
+  useActivityWindowRequest: jest.fn(),
   useActivityBoundsCache: jest.fn(() => ({ progress: { status: 'idle' } })),
 }));
 jest.mock('@/features/routes/hooks/useRouteDataSync', () => ({
@@ -57,7 +57,9 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 let mockOnline = true;
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
-const mockUseActivities = useActivities as jest.MockedFunction<typeof useActivities>;
+const mockUseWindowRequest = useActivityWindowRequest as jest.MockedFunction<
+  typeof useActivityWindowRequest
+>;
 const mockUseRouteDataSync = useRouteDataSync as jest.MockedFunction<typeof useRouteDataSync>;
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
@@ -100,9 +102,6 @@ beforeEach(() => {
   >);
   engine.getAvailableSportTypes.mockReturnValue([]);
   engine.getPaceCurve.mockReturnValue(null);
-  mockUseActivities.mockReturnValue({ data: [], isFetching: false } as unknown as ReturnType<
-    typeof useActivities
-  >);
   mockUseRouteDataSync.mockReturnValue({
     progress: { status: 'idle' },
     isSyncing: false,
@@ -119,21 +118,21 @@ afterEach(() => {
 });
 
 describe('GlobalDataSync', () => {
-  it('asks the backup for an owed copy on the offline to online edge, once', () => {
-    const view = renderSyncTree();
+  it('asks the backup for an owed copy on the offline to online edge, once', async () => {
+    const view = await renderSyncTree();
     expect(onBackupReconnect).not.toHaveBeenCalled();
 
     mockOnline = false;
-    view.rerender(
+    await view.rerender(
       React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
     );
     expect(onBackupReconnect).not.toHaveBeenCalled();
 
     mockOnline = true;
-    view.rerender(
+    await view.rerender(
       React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
     );
-    view.rerender(
+    await view.rerender(
       React.createElement(QueryClientProvider, { client }, React.createElement(GlobalDataSync))
     );
     expect(onBackupReconnect).toHaveBeenCalledTimes(1);
@@ -142,126 +141,117 @@ describe('GlobalDataSync', () => {
   it.each([
     [['TrailRun'], 'Run'],
     [['OpenWaterSwim'], 'Swim'],
-  ])('leaves the %s variant library curve for %s to Rust', (sportTypes) => {
+  ])('leaves the %s variant library curve for %s to Rust', async (sportTypes) => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
     engine.getAvailableSportTypes.mockReturnValue(sportTypes);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 3.5, endDate: '2026-08-20' });
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
-  it('leaves both canonical curves to Rust for plain and variant sports', () => {
+  it('leaves both canonical curves to Rust for plain and variant sports', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
     engine.getAvailableSportTypes.mockReturnValue(['Run', 'TrailRun', 'Swim', 'OpenWaterSwim']);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 3.5, endDate: '2026-08-20' });
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
-  it('leaves a missing curve request to Rust', () => {
+  it('leaves a missing curve request to Rust', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
     engine.getAvailableSportTypes.mockReturnValue(['Run']);
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
-  it('requests no curves in JavaScript when the library and curve store are empty', () => {
+  it('requests no curves in JavaScript when the library and curve store are empty', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
-  it('expires an accepted window when the mounted sync tree sees no pickup', () => {
+  it('expires an accepted window when the mounted sync tree sees no pickup', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
     try {
-      renderSyncTree();
-      act(() => useSyncDateRange.getState().windowAccepted());
-      act(() => jest.advanceTimersByTime(PICKUP_DEADLINE_MS - 1));
+      await renderSyncTree();
+      await act(() => useSyncDateRange.getState().windowAccepted());
+      await act(() => jest.advanceTimersByTime(PICKUP_DEADLINE_MS - 1));
       expect(useSyncDateRange.getState().extendedFetch.phase).toBe('awaitingPickup');
-      act(() => jest.advanceTimersByTime(1));
+      await act(() => jest.advanceTimersByTime(1));
       expect(useSyncDateRange.getState().extendedFetch.phase).toBe('expired');
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it('invalidates nothing on mount, leaving the engine event as the rule', () => {
+  it('invalidates nothing on mount, leaving the engine event as the rule', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const reset = jest.spyOn(client, 'resetQueries');
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(invalidate).not.toHaveBeenCalled();
     expect(reset).not.toHaveBeenCalled();
   });
 
-  it('does not write a pace snapshot when the GPS pass completes', () => {
+  it('does not write a pace snapshot when the GPS pass completes', async () => {
     mockUseRouteDataSync.mockReturnValue({
       progress: { status: 'complete' },
     } as unknown as ReturnType<typeof useRouteDataSync>);
     engine.getAvailableSportTypes.mockReturnValue(['Run']);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 4.2, endDate: '2026-08-20' });
 
-    renderSyncTree();
+    await renderSyncTree();
 
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
-  it('keeps the widened range running while the engine still holds the slot', () => {
-    renderSyncTree();
+  it('keeps the widened range running while the engine still holds the slot', async () => {
+    await renderSyncTree();
 
-    act(() => {
+    await act(() => {
       useSyncDateRange.getState().windowAccepted();
       announceSync(true);
     });
 
-    // The SQLite read behind the feed settles in milliseconds. It used to be
-    // what this flag followed, which cleared every banner named after a
-    // download that was still seconds from finishing.
-    act(() => {
-      mockUseActivities.mockReturnValue({ data: [], isFetching: false } as unknown as ReturnType<
-        typeof useActivities
-      >);
-    });
-
     expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(true);
 
-    act(() => announceSync(false));
+    await act(() => announceSync(false));
 
     expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(false);
   });
 
-  it('does not re-render when route settings change', () => {
-    renderSyncTree();
-    const rendersAtMount = mockUseActivities.mock.calls.length;
+  it('does not re-render when route settings change', async () => {
+    await renderSyncTree();
+    const rendersAtMount = mockUseWindowRequest.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       useRouteSettings.setState({ isLoaded: true });
     });
 
-    expect(mockUseActivities.mock.calls.length).toBe(rendersAtMount);
+    expect(mockUseWindowRequest.mock.calls.length).toBe(rendersAtMount);
   });
 });

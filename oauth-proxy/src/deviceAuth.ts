@@ -15,7 +15,19 @@
 /** What a request proved, or why it proved nothing. */
 export type DeviceAuth =
   | { ok: true; athleteId: string }
-  | { ok: false; status: 401 | 403; error: string };
+  | { ok: false; status: 401 | 403; error: string }
+  | { ok: false; status: 429; error: string; retryAfter: string | null };
+
+/**
+ * intervals.icu refused the lookup, 429, so it said nothing about the
+ * credential. Carries the `Retry-After` it sent, when it sent one.
+ */
+export class UpstreamRefusal extends Error {
+  constructor(readonly retryAfter: string | null) {
+    super("intervals.icu refused the athlete lookup");
+    this.name = "UpstreamRefusal";
+  }
+}
 
 /** Answers the athlete a credential belongs to, or null when it belongs to none. */
 export type AthleteResolver = (authorizationHeader: string) => Promise<string | null>;
@@ -38,7 +50,10 @@ export function credentialHeader(header: string | null): string | null {
  *
  * A resolver that throws is an intervals.icu outage, and an outage must not
  * read as a valid caller, so it refuses with the same answer a forged
- * credential gets. The resolver is called once: it is a network round trip.
+ * credential gets. A refusal from intervals.icu is answered as one, 429 with
+ * its wait, so the device asks again later rather than treating a working
+ * sign-in as a bad one. The resolver is called once: it is a network round
+ * trip.
  */
 export async function authoriseDevice(
   authorizationHeader: string | null,
@@ -53,7 +68,15 @@ export async function authoriseDevice(
   let athleteId: string | null;
   try {
     athleteId = await resolveAthlete(credential);
-  } catch {
+  } catch (e) {
+    if (e instanceof UpstreamRefusal) {
+      return {
+        ok: false,
+        status: 429,
+        error: "intervals.icu asked for a pause",
+        retryAfter: e.retryAfter,
+      };
+    }
     athleteId = null;
   }
   if (!athleteId) {
@@ -82,6 +105,7 @@ export function intervalsAthleteResolver(fetchImpl: typeof fetch = fetch): Athle
     const response = await fetchImpl(INTERVALS_SELF_URL, {
       headers: { Authorization: authorizationHeader },
     });
+    if (response.status === 429) throw new UpstreamRefusal(response.headers.get("Retry-After"));
     if (!response.ok) return null;
     const body = (await response.json()) as { id?: unknown };
     return typeof body.id === "string" && body.id.length > 0 ? body.id : null;

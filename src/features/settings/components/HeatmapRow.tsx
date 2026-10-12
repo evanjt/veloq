@@ -7,12 +7,9 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, View, StyleSheet } from 'react-native';
-import { Switch, Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { formatFileSize } from '@/shared/format/format';
 import {
@@ -22,12 +19,10 @@ import {
   readHeatmapTilesCacheSize,
   useHeatmapPreference,
 } from '@/features/maps';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import { settingsStyles } from './settingsStyles';
-import { Row } from '@/shared/ui/Row';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
+import { inform } from '@/shared/ui/dialog';
 
 export function HeatmapRow() {
-  const { isDark } = useTheme();
   const { t } = useTranslation();
   const enabled = useHeatmapPreference((s) => s.enabled);
   const setEnabled = useHeatmapPreference((s) => s.setEnabled);
@@ -56,7 +51,7 @@ export function HeatmapRow() {
       engine?.disableHeatmapTiles();
       engine?.cancelHeatmapWork();
       if (!(await clearHeatmapTileSets([HEATMAP_TILES_DIR, LEGACY_HEATMAP_TILES_DIR]))) {
-        Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+        inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
       }
       refreshSize();
     },
@@ -64,36 +59,22 @@ export function HeatmapRow() {
   );
 
   return (
-    <Row testID="heatmap-row">
-      <MaterialCommunityIcons
-        name="map-legend"
-        size={22}
-        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-      />
-      <View style={styles.textWrap}>
-        <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-          {t('settings.heatmapGeneration', 'Heatmap')}
-        </Text>
-        <Text style={[styles.hint, isDark && settingsStyles.textSecondary]}>
-          {enabled && size > 0
+    <View testID="heatmap-row">
+      <SwitchRow
+        icon="map-legend"
+        title={t('settings.heatmapGeneration', 'Heatmap')}
+        description={
+          enabled && size > 0
             ? t('settings.heatmapStorageUsed', {
                 defaultValue: 'Using {{size}} of device storage',
                 size: formatFileSize(size),
               })
-            : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
-        </Text>
-      </View>
-      <Switch
+            : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')
+        }
         value={enabled}
         onValueChange={handleToggle}
-        color={colors.primary}
         testID="heatmap-switch"
       />
-    </Row>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  textWrap: { flex: 1, marginLeft: spacing.sm },
-  hint: { ...typography.caption, color: colors.textSecondary },
-});

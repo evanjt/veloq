@@ -1,5 +1,4 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
@@ -9,7 +8,7 @@ import { tapTo } from '@/shared/app/navigation';
 import type { Period } from '@/shared/app/period';
 import { bestEffortsHref } from '@/features/stats';
 
-/** Opens Best Efforts on the range Fitness shows. */
+/** The Fitness tab's trailing header item, which opens Best Efforts on the range Fitness shows. */
 export function BestEffortsHeaderButton({ period }: { period: Period }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -28,13 +27,6 @@ export function BestEffortsHeaderButton({ period }: { period: Period }) {
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
       }
-      style={styles.button}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    marginLeft: 'auto',
-  },
-});

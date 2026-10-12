@@ -50,69 +50,69 @@ function renderCreation(track: { latitude: number; longitude: number }[]) {
   );
 }
 
-function tap(
+async function tap(
   result: { current: ReturnType<typeof useSectionCreation> },
   point: { latitude: number; longitude: number }
 ) {
-  act(() => {
+  await act(() => {
     result.current.handleCreationTap(point.longitude, point.latitude);
   });
 }
 
 describe('useSectionCreation snap on a retraced track', () => {
-  it('keeps the end on the outbound pass when the tap sits nearer the return pass', () => {
-    const { result } = renderCreation(outAndBack);
+  it('keeps the end on the outbound pass when the tap sits nearer the return pass', async () => {
+    const { result } = await renderCreation(outAndBack);
 
-    tap(result, at(20 * SPACING_M, 0));
-    tap(result, at(40 * SPACING_M, 0.6));
+    await tap(result, at(20 * SPACING_M, 0));
+    await tap(result, at(40 * SPACING_M, 0.6));
 
     expect(result.current.startIndex).toBe(20);
     expect(result.current.endIndex).toBe(40);
     expect(result.current.sectionDistance).toBeCloseTo(200, 0);
   });
 
-  it('keeps the section on the return pass when the start is tapped there', () => {
-    const { result } = renderCreation(outAndBack);
+  it('keeps the section on the return pass when the start is tapped there', async () => {
+    const { result } = await renderCreation(outAndBack);
 
-    tap(result, at(60 * SPACING_M, 0.6));
+    await tap(result, at(60 * SPACING_M, 0.6));
     expect(result.current.startIndex).toBe(returnIndexBeside(60));
 
-    tap(result, at(80 * SPACING_M, 0.4));
+    await tap(result, at(80 * SPACING_M, 0.4));
 
     expect(result.current.startIndex).toBe(returnIndexBeside(80));
     expect(result.current.endIndex).toBe(returnIndexBeside(60));
     expect(result.current.sectionDistance).toBeCloseTo(200, 0);
   });
 
-  it('still swaps when the end is tapped before the start on the same pass', () => {
-    const { result } = renderCreation(outAndBack);
+  it('still swaps when the end is tapped before the start on the same pass', async () => {
+    const { result } = await renderCreation(outAndBack);
 
-    tap(result, at(50 * SPACING_M, 0));
-    tap(result, at(30 * SPACING_M, 0.6));
+    await tap(result, at(50 * SPACING_M, 0));
+    await tap(result, at(30 * SPACING_M, 0.6));
 
     expect(result.current.startIndex).toBe(30);
     expect(result.current.endIndex).toBe(50);
   });
 
-  it('snaps to the nearest vertex on a track that never retraces', () => {
-    const { result } = renderCreation(outbound);
+  it('snaps to the nearest vertex on a track that never retraces', async () => {
+    const { result } = await renderCreation(outbound);
 
-    tap(result, at(60 * SPACING_M + 3, 4));
-    tap(result, at(30 * SPACING_M - 2, -5));
+    await tap(result, at(60 * SPACING_M + 3, 4));
+    await tap(result, at(30 * SPACING_M - 2, -5));
 
     expect(result.current.startIndex).toBe(30);
     expect(result.current.endIndex).toBe(60);
     expect(result.current.sectionDistance).toBeCloseTo(300, 0);
   });
 
-  it('takes the nearest pass for the end when the other pass is beyond the tolerance', () => {
+  it('takes the nearest pass for the end when the other pass is beyond the tolerance', async () => {
     const farReturn = Array.from({ length: LEG_VERTICES }, (_, j) =>
       at((LEG_VERTICES - 1 - j) * SPACING_M, 200)
     );
-    const { result } = renderCreation([...outbound, ...farReturn]);
+    const { result } = await renderCreation([...outbound, ...farReturn]);
 
-    tap(result, at(20 * SPACING_M, 0));
-    tap(result, at(40 * SPACING_M, 199));
+    await tap(result, at(20 * SPACING_M, 0));
+    await tap(result, at(40 * SPACING_M, 199));
 
     expect(result.current.startIndex).toBe(20);
     expect(result.current.endIndex).toBe(returnIndexBeside(40));

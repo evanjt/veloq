@@ -206,7 +206,9 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
           </View>
         ) : null}
 
-        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
+        {children ? (
+          <View style={[styles.childrenSlot, isDark && styles.childrenSlotDark]}>{children}</View>
+        ) : null}
       </Card>
     </View>
   );
@@ -331,5 +333,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
+  },
+  childrenSlotDark: {
+    borderTopColor: darkColors.divider,
   },
 });

@@ -34,8 +34,8 @@ const params = {
 // The composite, not the host node getByTestId returns: the style props under
 // test are the ones the card is given, before ScrollView splits them across
 // RCTScrollView and its content view.
-function panel(disabled?: boolean) {
-  const tree = render(
+async function panel(disabled?: boolean) {
+  const tree = await render(
     <PreviewParamPanel params={params} onChange={jest.fn()} disabled={disabled} />
   );
   const cards = tree.UNSAFE_getAllByType(ScrollView);
@@ -48,23 +48,23 @@ function flatten(style: unknown) {
 }
 
 describe('the parameter panel on a short screen', () => {
-  it('scrolls the card rather than overdrawing its own rows', () => {
-    const { node } = panel();
+  it('scrolls the card rather than overdrawing its own rows', async () => {
+    const { node } = await panel();
 
     expect(node.props.testID).toBe('preview-param-panel');
     expect(node.props.horizontal).toBeFalsy();
   });
 
-  it('still shares the leftover height out when there is room for all five', () => {
-    const { node } = panel();
+  it('still shares the leftover height out when there is room for all five', async () => {
+    const { node } = await panel();
 
     expect(flatten(node.props.style).flex).toBe(1);
     expect(flatten(node.props.style).height).toBeUndefined();
     expect(flatten(node.props.contentContainerStyle).flexGrow).toBe(1);
   });
 
-  it('carries the padding and the gap on the content, where they still apply', () => {
-    const { node } = panel();
+  it('carries the padding and the gap on the content, where they still apply', async () => {
+    const { node } = await panel();
 
     const content = flatten(node.props.contentContainerStyle);
     expect(content.paddingHorizontal).toBeGreaterThan(0);
@@ -72,8 +72,8 @@ describe('the parameter panel on a short screen', () => {
     expect(content.gap).toBeGreaterThan(0);
   });
 
-  it('floors every row at a tap target so a caption and its slider both fit', () => {
-    const { tree } = panel();
+  it('floors every row at a tap target so a caption and its slider both fit', async () => {
+    const { tree } = await panel();
 
     const rows = tree.UNSAFE_getAllByType(Slider).map((slider) => slider.parent);
     expect(rows).toHaveLength(5);
@@ -82,8 +82,8 @@ describe('the parameter panel on a short screen', () => {
     }
   });
 
-  it('leaves the card scrollable during a run, and disables the sliders instead', () => {
-    const { tree, node } = panel(true);
+  it('leaves the card scrollable during a run, and disables the sliders instead', async () => {
+    const { tree, node } = await panel(true);
 
     expect(node.props.pointerEvents).not.toBe('none');
     expect(node.props.pointerEvents).not.toBe('box-none');
@@ -93,23 +93,23 @@ describe('the parameter panel on a short screen', () => {
     }
   });
 
-  it('leaves the card able to take a scroll touch when idle', () => {
-    const { node } = panel();
+  it('leaves the card able to take a scroll touch when idle', async () => {
+    const { node } = await panel();
 
     expect(node.props.pointerEvents).not.toBe('none');
     expect(node.props.pointerEvents).not.toBe('box-none');
   });
 
-  it('leaves the sliders live when no run is going', () => {
-    const { tree } = panel();
+  it('leaves the sliders live when no run is going', async () => {
+    const { tree } = await panel();
 
     for (const slider of tree.UNSAFE_getAllByType(Slider)) {
       expect(slider.props.disabled).toBeFalsy();
     }
   });
 
-  it('gives each slider a stable selector for drag checks', () => {
-    const { tree } = panel();
+  it('gives each slider a stable selector for drag checks', async () => {
+    const { tree } = await panel();
 
     expect(tree.UNSAFE_getAllByType(Slider).map((slider) => slider.props.testID)).toEqual([
       'param-slider-proximityThreshold',

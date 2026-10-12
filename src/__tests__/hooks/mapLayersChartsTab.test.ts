@@ -35,28 +35,28 @@ const sectionIds = (collection: GeoJSON.FeatureCollection) => [
   ...new Set(collection.features.map((f) => f.properties?.id ?? f.properties?.sectionId)),
 ];
 
-it('draws only the PR sections on the charts tab', () => {
-  const { result } = renderHook(() => useLayers('charts', null));
+it('draws only the PR sections on the charts tab', async () => {
+  const { result } = await renderHook(() => useLayers('charts', null));
 
   expect(sectionIds(result.current.consolidatedPortionsGeoJSON)).toEqual(['pr']);
   expect(sectionIds(result.current.sectionBoundariesGeoJSON)).toEqual(['pr']);
   expect(sectionIds(result.current.sectionMarkersGeoJSON)).toEqual(['pr']);
 });
 
-it('draws every section on the sections tab', () => {
-  const { result } = renderHook(() => useLayers('sections', null));
+it('draws every section on the sections tab', async () => {
+  const { result } = await renderHook(() => useLayers('sections', null));
 
   expect(sectionIds(result.current.consolidatedPortionsGeoJSON)).toEqual(['pr', 'plain']);
 });
 
-it('keeps every section source across a scrub on the charts tab', () => {
-  const { result, rerender } = renderHook(
+it('keeps every section source across a scrub on the charts tab', async () => {
+  const { result, rerender } = await renderHook(
     ({ index }: { index: number | null }) => useLayers('charts', index),
     { initialProps: { index: 0 } }
   );
   const first = result.current;
 
-  for (const index of [1, 2, 3]) rerender({ index });
+  for (const index of [1, 2, 3]) await rerender({ index });
 
   expect(result.current.consolidatedPortionsGeoJSON).toBe(first.consolidatedPortionsGeoJSON);
   expect(result.current.sectionBoundariesGeoJSON).toBe(first.sectionBoundariesGeoJSON);

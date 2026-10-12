@@ -10,12 +10,12 @@
  * const shared = createSharedStyles(isDark);
  *
  * <View style={shared.container}>
- *   <Text style={shared.screenTitle}>Title</Text>
+ *   <Text style={shared.text}>Body</Text>
  * </View>
  * ```
  */
-import { StyleSheet, TextStyle } from 'react-native';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { StyleSheet } from 'react-native';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 // Two-slot cache: light and dark styles (only 2 possible values of isDark)
 let cachedLight: ReturnType<typeof buildSharedStyles> | null = null;
@@ -60,20 +60,6 @@ const buildSharedStyles = (isDark: boolean) => {
       alignItems: 'center',
       backgroundColor: isDark ? darkColors.background : colors.background,
     },
-
-    // =========================================================================
-    // SCREEN TITLE
-    // =========================================================================
-
-    /**
-     * In-page title for a tab screen, which has no native stack header of its
-     * own. Every pushed screen takes the platform's header instead, so there
-     * is no shared header row or back button here any more.
-     */
-    screenTitle: {
-      ...typography.cardTitle,
-      color: isDark ? darkColors.textPrimary : colors.textPrimary,
-    } as TextStyle,
 
     // =========================================================================
     // TEXT STYLES

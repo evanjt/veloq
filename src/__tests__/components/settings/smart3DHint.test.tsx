@@ -104,12 +104,12 @@ describe.each([
     `[settings.terrain3DSmartHint|${formatElevation(SMART_3D_MIN_RELIEF_M, isMetric)}]`;
 
   it('is drawn in the Maps settings', async () => {
-    const tree = surface(<MapsSection />);
+    const tree = await surface(<MapsSection />);
     expect(await tree.findByText(expected())).toBeTruthy();
   });
 
   it('is drawn on the map tour slide', async () => {
-    const tree = surface(<MapPreferencesSlide />);
+    const tree = await surface(<MapPreferencesSlide />);
     expect(await tree.findByText(expected())).toBeTruthy();
   });
 });

@@ -101,7 +101,7 @@ async function settle() {
 
 async function showExpiry() {
   useAuthStore.setState({ sessionExpired: 'signed_out' });
-  render(<LoginScreen />);
+  await render(<LoginScreen />);
   await settle();
   expect(screen.getByTestId('login-session-notice')).toBeTruthy();
 }
@@ -157,8 +157,8 @@ describe('a signed-out session', () => {
 
     expect(useAuthStore.getState().sessionExpired).toBeNull();
 
-    screen.unmount();
-    render(<LoginScreen />);
+    await screen.unmount();
+    await render(<LoginScreen />);
     await settle();
     expect(screen.queryByTestId('login-session-notice')).toBeNull();
   });
@@ -167,7 +167,7 @@ describe('a signed-out session', () => {
 describe('a rejected API key', () => {
   async function showKeyRejected() {
     useAuthStore.setState({ sessionExpired: 'key_rejected' });
-    render(<LoginScreen />);
+    await render(<LoginScreen />);
     await settle();
     expect(screen.getByTestId('login-session-notice')).toBeTruthy();
   }
@@ -194,9 +194,9 @@ describe('a rejected API key', () => {
 describe('a login failure', () => {
   it('keeps the red error slot to itself', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    render(<LoginScreen />);
+    await render(<LoginScreen />);
 
-    act(() => reportLoginError?.('Invalid API key'));
+    await act(() => reportLoginError?.('Invalid API key'));
 
     expect(screen.getByTestId('login-error-text')).toHaveTextContent('Invalid API key');
     expect(screen.queryByTestId('login-session-notice')).toBeNull();
@@ -206,7 +206,7 @@ describe('a login failure', () => {
     await rememberCachedAthleteId(ATHLETE);
     await showExpiry();
 
-    act(() => reportLoginError?.('Invalid API key'));
+    await act(() => reportLoginError?.('Invalid API key'));
 
     expect(screen.queryByTestId('login-session-notice')).toBeNull();
     expect(screen.getByTestId('login-error-text')).toHaveTextContent('Invalid API key');
@@ -214,10 +214,10 @@ describe('a login failure', () => {
 
   it('does not survive an expiry that arrives after it', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    render(<LoginScreen />);
-    act(() => reportLoginError?.('Invalid API key'));
+    await render(<LoginScreen />);
+    await act(() => reportLoginError?.('Invalid API key'));
 
-    act(() => useAuthStore.setState({ sessionExpired: 'signed_out' }));
+    await act(() => useAuthStore.setState({ sessionExpired: 'signed_out' }));
     await settle();
 
     expect(screen.getByTestId('login-session-notice')).toBeTruthy();

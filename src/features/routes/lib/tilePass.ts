@@ -6,10 +6,14 @@
  * after it expires and the map picks the tiles up as they land.
  */
 
+import type { TFunction } from 'i18next';
 import { engine } from 'veloqrs';
 
+import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 import { engineErrorTag } from '@/shared/native/engineError';
+
+import { scalePercent } from './scalePercent';
 
 /** The channel `EngineObserver.tiles_generated` lands on. */
 const GENERATED_CHANNEL = 'tilesGenerated';
@@ -17,6 +21,29 @@ const GENERATED_CHANNEL = 'tilesGenerated';
 /** How long to hold the banner for a pass of `total` tiles. */
 function budgetFor(total: number): number {
   return total > 0 ? Math.min(5_000, Math.max(2_000, total * 10)) : 3_000;
+}
+
+/**
+ * The banner row for a tile pass `processed` of `total` through, placed inside
+ * the overall sync's `rangeStart` to `rangeEnd`. The figure is the overall one,
+ * and the message names the stage with no figure of its own, so the line the
+ * banner prints holds one percentage.
+ */
+export function tilePassProgress(
+  processed: number,
+  total: number,
+  t: TFunction,
+  rangeStart = 75,
+  rangeEnd = 100
+): SyncProgress {
+  const tilePct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+  return {
+    status: 'computing',
+    completed: 0,
+    total: 0,
+    percent: scalePercent(tilePct, rangeStart, rangeEnd),
+    message: t('cache.finalizingHeatmap') as string,
+  };
 }
 
 /**

@@ -62,9 +62,9 @@ jest.mock('veloqrs', () =>
 );
 
 async function openBackgroundNotifications() {
-  const screen = render(<DebugScreen />);
+  const screen = await render(<DebugScreen />);
   await act(async () => {});
-  fireEvent.press(screen.getByTestId('debug-section-background-notifications'));
+  await fireEvent.press(screen.getByTestId('debug-section-background-notifications'));
   await act(async () => {});
   return screen;
 }

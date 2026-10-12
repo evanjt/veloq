@@ -64,9 +64,9 @@ function generated() {
   ];
 }
 
-function renderInsights() {
-  const hook = renderHook(() => useInsights());
-  act(() => {
+async function renderInsights() {
+  const hook = await renderHook(() => useInsights());
+  await act(() => {
     jest.runOnlyPendingTimers();
   });
   return hook;
@@ -95,21 +95,21 @@ describe('the new dot on a stale PR and a section-changed card', () => {
     useInsightsStore.getState().reset();
   });
 
-  it('is gone once the stored fingerprint holds the ids', () => {
+  it('is gone once the stored fingerprint holds the ids', async () => {
     const ids = generated().map((i) => i.id);
     useInsightsStore.setState({ lastSeenFingerprint: [...ids].sort().join('|') });
 
-    const { result } = renderInsights();
+    const { result } = await renderInsights();
 
     expect(result.current.insights.map((i) => [i.id, i.isNew])).toEqual(
       ids.map((id) => [id, false])
     );
   });
 
-  it('is there while the stored fingerprint does not hold them', () => {
+  it('is there while the stored fingerprint does not hold them', async () => {
     useInsightsStore.setState({ lastSeenFingerprint: 'some_other_card' });
 
-    const { result } = renderInsights();
+    const { result } = await renderInsights();
 
     expect(result.current.insights).toHaveLength(2);
     expect(result.current.insights.every((i) => i.isNew)).toBe(true);

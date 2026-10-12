@@ -7,6 +7,8 @@ import {
   resolveEntryGps,
 } from '@/features/recording/lib/recordEntry';
 import { planRecordingStart } from '@/features/recording/lib/armCountdown';
+import { locationGrant } from '@/shared/app/permissions/locationGrant';
+import type { LocationPermissionResponse } from 'expo-location';
 
 describe('the sport Start begins', () => {
   it('is the last one recorded', () => {
@@ -74,6 +76,7 @@ describe('GPS state before a ride', () => {
     permission: 'granted',
     fix: null,
     timedOut: false,
+    precision: 'precise',
   } as const;
 
   it('names the device switch at once when location is off', () => {
@@ -111,5 +114,44 @@ describe('GPS state before a ride', () => {
   it('is checking until the wait for a first fix runs out, then weak', () => {
     expect(resolveEntryGps(granted)).toBe('checking');
     expect(resolveEntryGps({ ...granted, timedOut: true })).toBe('weak');
+  });
+
+  it('names an approximate grant before the first fix rather than waiting it out', () => {
+    expect(resolveEntryGps({ ...granted, precision: 'approximate' })).toBe('approximate');
+  });
+
+  it('names an approximate grant over a coarse fix', () => {
+    expect(resolveEntryGps({ ...granted, precision: 'approximate', fix: { accuracy: 500 } })).toBe(
+      'approximate'
+    );
+  });
+
+  it('names the switch over an approximate grant', () => {
+    expect(resolveEntryGps({ ...granted, servicesEnabled: false, precision: 'approximate' })).toBe(
+      'servicesOff'
+    );
+  });
+});
+
+describe('GPS readiness under an approximate location grant', () => {
+  const coarse = {
+    status: 'granted',
+    granted: true,
+    canAskAgain: true,
+    expires: 'never',
+    android: { accuracy: 'coarse' },
+  } as LocationPermissionResponse;
+
+  it('reads a granted coarse response with a 500 m fix as approximate, not weak', () => {
+    expect(entryGpsState(500, locationGrant(coarse).precision)).toBe('approximate');
+  });
+
+  it('is approximate before the first fix, since no fix will be tight enough', () => {
+    expect(entryGpsState(null, 'approximate')).toBe('approximate');
+  });
+
+  it('keeps a precise grant on the fix alone', () => {
+    expect(entryGpsState(500, 'precise')).toBe('weak');
+    expect(entryGpsState(8, 'precise')).toBe('ready');
   });
 });

@@ -17,7 +17,8 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { colors } from '@/theme';
+import { colors, themePalette } from '@/theme';
+import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
@@ -49,6 +50,8 @@ import {
 import { type MapStyleType, isDarkStyle, getNextStyle, MAP_ATTRIBUTIONS } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
+import { GradientMapKey } from './GradientMapKey';
+import { useMapControlColumn } from '../lib/mapControlColumnLayout';
 import {
   buildActivity3DCollections,
   buildActivityLayers,
@@ -196,6 +199,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   initial3DCamera,
   streams,
 }: ActivityMapViewProps) {
+  // The app's theme, which the placeholder follows; `isDark` below is the map style's.
+  const palette = themePalette(useTheme().isDark);
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId);
   const [chosenStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
@@ -603,6 +608,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
   const isDark = isDarkStyle(mapStyle);
+  // The key sits opposite the control column, at the same height.
+  const { top: keyTop } = useMapControlColumn(height);
 
   const endpointsGeoJSON = useMemo(() => {
     const start = lngLatFromLatLngPoint(startPoint);
@@ -797,8 +804,8 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   if (!bounds || validCoordinates.length === 0) {
     return (
-      <View style={[styles.placeholder, { height }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
+      <View style={[styles.placeholder, { height, backgroundColor: palette.background }]}>
+        <MaterialCommunityIcons name="map-marker-off" size={48} color={palette.textSecondary} />
       </View>
     );
   }
@@ -910,6 +917,8 @@ export const ActivityMapView = memo(function ActivityMapView({
           />
         )}
       </View>
+
+      {gradientActive && !isFullscreen && <GradientMapKey isDark={isDark} top={keyTop} />}
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
       {showStyleToggle && !isFullscreen && (

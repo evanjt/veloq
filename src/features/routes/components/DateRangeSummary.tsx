@@ -15,6 +15,7 @@ import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
+import { ABSENT } from '@/shared/format/absent';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -26,7 +27,7 @@ interface DateRangeSummaryProps {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-';
+  if (!dateStr) return ABSENT;
   const date = new Date(dateStr);
   return date.toLocaleDateString(getIntlLocale(), {
     month: 'short',

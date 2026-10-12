@@ -40,27 +40,27 @@ beforeEach(() => {
 });
 
 describe('the settings backup time is read on focus', () => {
-  it('reads once however many times the screen re-renders', () => {
-    const { result, rerender } = renderHook(() => useLastBackupTimestamp());
+  it('reads once however many times the screen re-renders', async () => {
+    const { result, rerender } = await renderHook(() => useLastBackupTimestamp());
     expect(result.current).toBe(1_700_000_000_000);
 
-    for (let render = 0; render < 20; render++) rerender(undefined);
+    for (let render = 0; render < 20; render++) await rerender(undefined);
 
     expect(mockRead).toHaveBeenCalledTimes(1);
   });
 
-  it('reads again when the screen is focused after a backup elsewhere', () => {
-    const { result } = renderHook(() => useLastBackupTimestamp());
+  it('reads again when the screen is focused after a backup elsewhere', async () => {
+    const { result } = await renderHook(() => useLastBackupTimestamp());
     mockRead.mockReturnValue(1_700_000_999_000);
 
-    act(() => focusCallback?.());
+    await act(() => focusCallback?.());
 
     expect(result.current).toBe(1_700_000_999_000);
   });
 
-  it('reports never backed up as null rather than a date at the epoch', () => {
+  it('reports never backed up as null rather than a date at the epoch', async () => {
     mockRead.mockReturnValue(null);
-    const { result } = renderHook(() => useLastBackupTimestamp());
+    const { result } = await renderHook(() => useLastBackupTimestamp());
 
     expect(result.current).toBeNull();
   });

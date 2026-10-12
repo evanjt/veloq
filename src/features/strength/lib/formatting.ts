@@ -1,8 +1,27 @@
+import { ABSENT } from '@/shared/format/absent';
+import { formatWeight } from '@/shared/format/weight';
+
 import type { StrengthBalancePair, StrengthBalanceStatus } from '../types';
 
 /** Format a set count: integers stay integer, fractions get one decimal. */
 export function formatSetCount(sets: number): string {
   return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
+}
+
+/**
+ * A best set as the figures it carries: load and repetitions, the repetitions
+ * alone for a body-weight set the engine sends with no load, the load alone
+ * when no count was logged, and the absent mark when it carries neither.
+ */
+export function formatBestSet(
+  set: { weightKg?: number | undefined; repetitions?: number | undefined },
+  isMetric: boolean,
+  t: (key: 'strength.repsCount', values: { count: number }) => string
+): string {
+  const load = set.weightKg == null ? null : formatWeight(set.weightKg, isMetric);
+  const reps = set.repetitions == null ? null : t('strength.repsCount', { count: set.repetitions });
+  if (load && reps) return `${load} · ${reps}`;
+  return load ?? reps ?? ABSENT;
 }
 
 export type BalanceCopyKey =

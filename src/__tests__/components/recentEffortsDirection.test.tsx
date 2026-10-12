@@ -50,14 +50,14 @@ const records = [
 ];
 
 describe('the recent efforts list', () => {
-  it('leaves a lone reverse descent unmarked and measures each climb within its direction', () => {
+  it('leaves a lone reverse descent unmarked and measures each climb within its direction', async () => {
     const bests: DirectionBests = {
       forward: climbBest,
       reverse: records[3],
       forwardIsPr: true,
       reverseIsPr: false,
     };
-    const { queryAllByText, getByText } = render(
+    const { queryAllByText, getByText } = await render(
       <RecentEffortsList records={records} bests={bests} />
     );
 
@@ -67,7 +67,7 @@ describe('the recent efforts list', () => {
     expect(queryAllByText(/^\+3:/)).toHaveLength(0);
   });
 
-  it('marks both directions when each holds a record, and a descent has no delta of its own', () => {
+  it('marks both directions when each holds a record, and a descent has no delta of its own', async () => {
     const slower = record('descent2', 5, 400, 'reverse');
     const bests: DirectionBests = {
       forward: climbBest,
@@ -75,7 +75,7 @@ describe('the recent efforts list', () => {
       forwardIsPr: true,
       reverseIsPr: true,
     };
-    const { queryAllByText, getByText } = render(
+    const { queryAllByText, getByText } = await render(
       <RecentEffortsList records={[...records, slower]} bests={bests} />
     );
 
@@ -83,7 +83,7 @@ describe('the recent efforts list', () => {
     getByText('+1:00');
   });
 
-  it('splits an out-and-back into a forward effort and a reverse effort, each with its own verdict', () => {
+  it('splits an out-and-back into a forward effort and a reverse effort, each with its own verdict', async () => {
     const outAndBack = {
       ...record('x', 6, 450, 'same'),
       bestForwardTime: 450,
@@ -101,7 +101,7 @@ describe('the recent efforts list', () => {
       forwardIsPr: true,
       reverseIsPr: true,
     };
-    const { queryAllByText, getByText } = render(
+    const { queryAllByText, getByText } = await render(
       <RecentEffortsList records={[forwardBest, outAndBack]} bests={bests} />
     );
 
@@ -111,7 +111,7 @@ describe('the recent efforts list', () => {
     expect(queryAllByText('sections.legendPr')).toHaveLength(2);
   });
 
-  it('shows no cross-direction delta for a record whose first-direction lap has no time', () => {
+  it('shows no cross-direction delta for a record whose first-direction lap has no time', async () => {
     const reverseOnly = record('r', 7, 400, 'reverse');
     const bests: DirectionBests = {
       forward: climbBest,
@@ -119,7 +119,7 @@ describe('the recent efforts list', () => {
       forwardIsPr: true,
       reverseIsPr: false,
     };
-    const { queryAllByText, getByText } = render(
+    const { queryAllByText, getByText } = await render(
       <RecentEffortsList records={[climbBest, reverseOnly]} bests={bests} />
     );
 

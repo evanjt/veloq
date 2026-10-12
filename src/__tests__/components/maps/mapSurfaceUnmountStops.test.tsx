@@ -44,8 +44,8 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: true }) }));
 beforeEach(() => stopLoading.mockClear());
 
 describe('a map surface that unmounts mid-load', () => {
-  it('stops the WebView the 3D surface was holding', () => {
-    const view = render(
+  it('stops the WebView the 3D surface was holding', async () => {
+    const view = await render(
       <Map3DWebView
         coordinates={[[7.448, 46.949]]}
         mapStyle="light"
@@ -53,13 +53,13 @@ describe('a map surface that unmounts mid-load', () => {
       />
     );
 
-    view.unmount();
+    await view.unmount();
 
     expect(stopLoading).toHaveBeenCalledTimes(1);
   });
 
-  it('stops the WebView it was holding', () => {
-    const view = render(
+  it('stops the WebView it was holding', async () => {
+    const view = await render(
       <MapSurface
         mapStyle="light"
         initialCamera={{ center: [7.448, 46.949], zoom: 12 }}
@@ -68,7 +68,7 @@ describe('a map surface that unmounts mid-load', () => {
       />
     );
 
-    view.unmount();
+    await view.unmount();
 
     expect(stopLoading).toHaveBeenCalledTimes(1);
   });

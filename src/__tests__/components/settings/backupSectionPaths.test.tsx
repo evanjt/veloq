@@ -1,9 +1,10 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { Alert, Platform } from 'react-native';
+import { AccessibilityInfo, Alert, Platform, StyleSheet } from 'react-native';
 import { SyncState, SyncStep } from 'veloqrs';
 
 import { BackupSection } from '@/features/settings/components/BackupSection';
+import { darkColors } from '@/theme';
 import { performBackup } from '@/features/settings/lib/autobackup';
 import {
   discardRecordImport,
@@ -81,7 +82,8 @@ jest.mock('@/features/settings/lib/autobackup/autoBackup', () => ({
 }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+let mockIsDark = false;
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 let mockSyncStatus: Record<string, unknown> | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncStatus: () => mockSyncStatus }));
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 402 }));
@@ -203,6 +205,7 @@ beforeEach(() => {
   mockWebdavUrl = null;
   mockFolderName = null;
   mockFailures = {};
+  mockIsDark = false;
   mockAutoEnabled = true;
   mockDestinationStamps = {};
   mockLocalBackups = [];
@@ -244,14 +247,14 @@ it('keeps the backup action busy until its run finishes', async () => {
         finishBackup = resolve;
       })
   );
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   const backupButton = screen.getByRole('button', { name: 'backup.backupNow' });
-  fireEvent.press(backupButton);
+  void fireEvent.press(backupButton);
   expect(
     screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
   ).toBe(true);
-  fireEvent.press(backupButton);
+  void fireEvent.press(backupButton);
   expect(performBackup).toHaveBeenCalledTimes(1);
 
   await act(async () => finishBackup?.({ wroteZip: true, carriers: {} }));
@@ -261,10 +264,10 @@ it('keeps the backup action busy until its run finishes', async () => {
 });
 
 it('reports the archive destination and an import path after Back Up Now', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-now-button'));
+    await fireEvent.press(screen.getByTestId('backup-now-button'));
   });
 
   expect(screen.getByTestId('backup-success-message')).toHaveTextContent('backup.recordSavedLocal');
@@ -278,10 +281,10 @@ it('names the WebDAV server as the destination after Back Up Now', async () => {
     wroteZip: true,
     carriers: { webdav: { status: 'written' } },
   });
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-now-button'));
+    await fireEvent.press(screen.getByTestId('backup-now-button'));
   });
 
   expect(screen.getByTestId('backup-success-message')).toHaveTextContent(
@@ -297,7 +300,7 @@ it('shows records still waiting for placement as one line with their count', asy
       reason: 'ground_not_detected',
     }))
   );
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
   expect(screen.getAllByText('backup.unplacedRecords:{"count":114}')).toHaveLength(1);
@@ -306,7 +309,7 @@ it('shows records still waiting for placement as one line with their count', asy
 });
 
 it('names no waiting record on its own line', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
   expect(screen.getAllByText('backup.unplacedRecords:{"count":2}')).toHaveLength(1);
@@ -320,7 +323,7 @@ it('collapses restored records waiting on an activity into one line, never one p
     { kind: 'sections', name: 'Mill road', reason: 'activity_pending' },
     { kind: 'sections', name: null, reason: 'activity_pending' },
   ]);
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   expect(await screen.findByTestId('backup-restore-fetch')).toHaveTextContent(
     'backup.unplacedActivityPending'
@@ -338,7 +341,7 @@ it('shows the shared sync step count as a progress bar while the restore fetch r
     stepItemsDone: 3,
     stepItemsTotal: 40,
   };
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   const bar = await screen.findByTestId('backup-restore-fetch-progress');
   expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 40, now: 3 });
@@ -352,19 +355,19 @@ it('shows no bar when the sync is on another step', async () => {
     stepItemsDone: 3,
     stepItemsTotal: 40,
   };
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   await screen.findByTestId('backup-restore-fetch');
   expect(screen.queryByTestId('backup-restore-fetch-progress')).toBeNull();
 });
 
 it('clears the waiting list after detection places the records', async () => {
-  const view = render(<BackupSection />);
+  const view = await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   mockUnplaced.mockReturnValue([]);
   mockGeneration += 1;
-  view.rerender(<BackupSection />);
+  await view.rerender(<BackupSection />);
 
   await act(async () => {
     await Promise.resolve();
@@ -376,7 +379,7 @@ it('reports when the waiting list cannot be read', async () => {
   mockUnplaced.mockImplementationOnce(() => {
     throw new Error('read failed');
   });
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   expect(await screen.findByTestId('backup-unplaced-read-error')).toHaveTextContent(
     'backup.unplacedReadError'
@@ -384,12 +387,12 @@ it('reports when the waiting list cannot be read', async () => {
 });
 
 it('refreshes the waiting list after importing a record archive', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
   expect(mockUnplaced).toHaveBeenCalledTimes(1);
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-button'));
   });
 
   expect(mockUnplaced).toHaveBeenCalledTimes(2);
@@ -397,11 +400,11 @@ it('refreshes the waiting list after importing a record archive', async () => {
 
 it('refreshes the waiting list after an import that failed', async () => {
   mockImportBackup.mockResolvedValueOnce(null as never);
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-button'));
   });
 
   expect(mockUnplaced).toHaveBeenCalledTimes(2);
@@ -414,7 +417,7 @@ it('shows a paused import apart from the waiting records, with Try again', async
     PAUSED,
     { kind: 'section_pins', name: 'Alpine climb', reason: 'activity_unavailable' },
   ]);
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   expect(await screen.findByTestId('backup-import-paused')).toHaveTextContent(
     'backup.importPaused'
@@ -426,17 +429,22 @@ it('shows a paused import apart from the waiting records, with Try again', async
 it('resumes the paused import on Try again and reads the list again', async () => {
   mockUnplaced.mockReturnValue([PAUSED]);
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-import-paused')).toBeTruthy();
   expect(screen.queryByTestId('backup-unplaced-records')).toBeNull();
 
   mockUnplaced.mockReturnValue([]);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-resume-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-resume-button'));
   });
 
   expect(resumeRecordImport).toHaveBeenCalledTimes(1);
-  expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+  expect(alert).toHaveBeenCalledWith(
+    'backup.restoreComplete',
+    'backup.recordRestored',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
   expect(screen.queryByTestId('backup-import-paused')).toBeNull();
 });
 
@@ -444,14 +452,19 @@ it('keeps the import paused when Try again fails', async () => {
   mockUnplaced.mockReturnValue([PAUSED]);
   (resumeRecordImport as jest.Mock).mockRejectedValueOnce(new Error('database or disk is full'));
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-import-paused')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-resume-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-resume-button'));
   });
 
-  expect(alert).toHaveBeenCalledWith('common.error', 'backup.importPausedError');
+  expect(alert).toHaveBeenCalledWith(
+    'backup.notRestoredTitle',
+    'backup.importPausedError',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
   expect(screen.getByTestId('backup-import-paused')).toBeTruthy();
 });
 
@@ -474,11 +487,11 @@ function discardButtons(alert: jest.SpyInstance): AlertButtons {
 it('discards the paused import only once the athlete confirms', async () => {
   mockUnplaced.mockReturnValue([PAUSED]);
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-import-paused')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-discard-button'));
   });
   expect(discardRecordImport).not.toHaveBeenCalled();
   const buttons = discardButtons(alert);
@@ -496,11 +509,11 @@ it('discards the paused import only once the athlete confirms', async () => {
 it('keeps the paused import when Discard is declined', async () => {
   mockUnplaced.mockReturnValue([PAUSED]);
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-import-paused')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-discard-button'));
   });
   await act(async () => {
     discardButtons(alert)[0].onPress?.();
@@ -513,16 +526,21 @@ it('says so when the discard fails, and keeps the import paused', async () => {
   mockUnplaced.mockReturnValue([PAUSED]);
   (discardRecordImport as jest.Mock).mockRejectedValueOnce(new Error('disk I/O error'));
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-import-paused')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-import-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-import-discard-button'));
   });
   await act(async () => {
     discardButtons(alert)[1].onPress?.();
   });
-  expect(alert).toHaveBeenCalledWith('common.error', 'backup.discardImportError');
+  expect(alert).toHaveBeenCalledWith(
+    'backup.importNotDiscardedTitle',
+    'backup.discardImportError',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
   expect(screen.getByTestId('backup-import-paused')).toBeTruthy();
 });
 
@@ -535,11 +553,11 @@ function discardWaitingButtons(alert: jest.SpyInstance): AlertButtons {
 
 it('discards the waiting records only once the athlete confirms, then reads the list again', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
   });
   expect(discardUnplacedRecords).not.toHaveBeenCalled();
   const buttons = discardWaitingButtons(alert);
@@ -556,11 +574,11 @@ it('discards the waiting records only once the athlete confirms, then reads the 
 
 it('keeps the waiting records when their discard is declined', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
   });
   await act(async () => {
     discardWaitingButtons(alert)[0].onPress?.();
@@ -572,31 +590,36 @@ it('keeps the waiting records when their discard is declined', async () => {
 it('says so when discarding the waiting records fails, and keeps them', async () => {
   (discardUnplacedRecords as jest.Mock).mockRejectedValueOnce(new Error('disk I/O error'));
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
+    await fireEvent.press(screen.getByTestId('backup-unplaced-discard-button'));
   });
   await act(async () => {
     discardWaitingButtons(alert)[1].onPress?.();
   });
-  expect(alert).toHaveBeenCalledWith('common.error', 'backup.discardWaitingError');
+  expect(alert).toHaveBeenCalledWith(
+    'backup.importNotDiscardedTitle',
+    'backup.discardWaitingError',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
   expect(screen.getByTestId('backup-unplaced-records')).toBeTruthy();
 });
 
 it('downloads and restores a selected archive from WebDAV', async () => {
   mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
   acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
-  render(<BackupSection />);
+  await render(<BackupSection />);
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-list-button'));
+    await fireEvent.press(screen.getByTestId('backup-list-button'));
   });
   expect(screen.getByTestId('backup-entry-webdav-veloq-2026-09-30.zip')).toBeTruthy();
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-entry-webdav-veloq-2026-09-30.zip'));
+    await fireEvent.press(screen.getByTestId('backup-entry-webdav-veloq-2026-09-30.zip'));
   });
 
   expect(mockDownload).toHaveBeenCalledWith(
@@ -609,15 +632,14 @@ it('downloads and restores a selected archive from WebDAV', async () => {
 it('starts one restore when a selected archive is tapped twice', async () => {
   mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
   acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
-  render(<BackupSection />);
+  await render(<BackupSection />);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-list-button'));
+    await fireEvent.press(screen.getByTestId('backup-list-button'));
   });
 
   await act(async () => {
     const entry = screen.getByTestId('backup-entry-webdav-veloq-2026-09-30.zip');
-    fireEvent.press(entry);
-    fireEvent.press(entry);
+    await Promise.all([fireEvent.press(entry), fireEvent.press(entry)]);
   });
 
   expect(mockDownload).toHaveBeenCalledTimes(1);
@@ -642,15 +664,20 @@ it('shows an account warning when a selected legacy database belongs to another 
   });
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   acceptReplacement(alert);
-  render(<BackupSection />);
+  await render(<BackupSection />);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-list-button'));
+    await fireEvent.press(screen.getByTestId('backup-list-button'));
   });
   await act(async () => {
-    fireEvent.press(screen.getByTestId('backup-entry-webdav-older.veloqdb'));
+    await fireEvent.press(screen.getByTestId('backup-entry-webdav-older.veloqdb'));
   });
 
-  expect(alert).toHaveBeenCalledWith('common.error', 'backup.backupDifferentAccount');
+  expect(alert).toHaveBeenCalledWith(
+    'backup.notRestoredTitle',
+    'backup.backupDifferentAccount',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
 });
 
 it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
@@ -663,12 +690,12 @@ it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       (buttons as AlertButtons | undefined)?.find((b) => b.style === 'cancel')?.onPress?.();
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
     await act(async () => {
-      fireEvent.press(screen.getByTestId(`backup-entry-webdav-${id}`));
+      await fireEvent.press(screen.getByTestId(`backup-entry-webdav-${id}`));
     });
 
     expect(alert).toHaveBeenCalledWith(
@@ -684,8 +711,8 @@ it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
 );
 
 describe('carriers', () => {
-  it('shows the device backup, WebDAV and folder rows with no destination picker', () => {
-    render(<BackupSection />);
+  it('shows the device backup, WebDAV and folder rows with no destination picker', async () => {
+    await render(<BackupSection />);
 
     expect(screen.queryByText('backup.selectBackend')).toBeNull();
     expect(screen.getByTestId('backup-carrier-device')).toBeTruthy();
@@ -693,16 +720,22 @@ describe('carriers', () => {
     expect(screen.getByTestId('backup-carrier-folder')).toBeTruthy();
   });
 
+  it('names the automatic backup switch', async () => {
+    await render(<BackupSection />);
+
+    expect(screen.getByRole('switch', { name: 'backup.autoBackup' })).toBeTruthy();
+  });
+
   it('leaves the switch on when WebDAV is removed', async () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('webdav-remove'));
+      await fireEvent.press(screen.getByTestId('webdav-remove'));
     });
 
     expect(mockSetAutoEnabled).not.toHaveBeenCalled();
-    expect(screen.getByTestId('backup-auto-switch').props.value).toBe(true);
+    expect(screen.getByTestId('backup-auto-switch')).toBeChecked();
   });
 
   it('names every destination a Back Up Now run wrote', async () => {
@@ -712,10 +745,10 @@ describe('carriers', () => {
       wroteZip: true,
       carriers: { webdav: { status: 'written' }, folder: { status: 'written' } },
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-now-button'));
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
     });
 
     const text = screen.getByTestId('backup-success-message');
@@ -733,16 +766,50 @@ describe('carriers', () => {
         folder: { status: 'failed', kind: 'folder_unavailable' },
       },
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-now-button'));
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
     });
 
     expect(screen.getByTestId('backup-success-message')).toHaveTextContent(
       /backup\.recordSavedWebdav/
     );
     expect(screen.getByTestId('backup-carrier-failed-folder')).toBeTruthy();
+  });
+
+  it('speaks a run with a failed WebDAV copy once, from an assertive live region', async () => {
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { webdav: { status: 'failed', kind: 'auth' } },
+    });
+    const os = Platform.OS;
+    Platform.OS = 'ios';
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    announce.mockClear();
+    try {
+      await render(<BackupSection />);
+      await act(async () => {
+        await fireEvent.press(screen.getByTestId('backup-now-button'));
+      });
+
+      let node: { props: Record<string, unknown>; parent: unknown } | null = screen.getByTestId(
+        'backup-carrier-failed-webdav'
+      );
+      let region: unknown;
+      while (node && region === undefined) {
+        region = node.props.accessibilityLiveRegion;
+        node = node.parent as typeof node;
+      }
+      expect(region).toBe('assertive');
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith(
+        expect.stringMatching(/backup\.recordSavedLocal[\s\S]*backup\.backupFailedAuth/)
+      );
+    } finally {
+      Platform.OS = os;
+    }
   });
 
   it('says a WebDAV copy skipped offline was not written and goes once the device is online', async () => {
@@ -752,10 +819,10 @@ describe('carriers', () => {
       wroteZip: true,
       carriers: { webdav: { status: 'skipped', reason: 'no-radio' } },
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-now-button'));
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
     });
 
     expect(screen.getByTestId('backup-success-message')).not.toHaveTextContent(
@@ -771,10 +838,10 @@ describe('carriers', () => {
       wroteZip: true,
       carriers: { folder: { status: 'skipped', reason: 'unavailable' } },
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-now-button'));
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
     });
 
     expect(screen.queryByTestId('backup-carrier-owed-folder')).toBeNull();
@@ -786,15 +853,15 @@ describe('carriers', () => {
       mockFolderName = 'Records';
       return 'Records';
     });
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-folder-choose'));
+      await fireEvent.press(screen.getByTestId('backup-folder-choose'));
     });
     expect(screen.getByTestId('backup-carrier-folder')).toHaveTextContent(/Records/);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-folder-remove'));
+      await fireEvent.press(screen.getByTestId('backup-folder-remove'));
     });
     expect(mockForgetFolder).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('backup-carrier-folder')).not.toHaveTextContent(/Records/);
@@ -802,23 +869,23 @@ describe('carriers', () => {
   });
 
   it('keeps the folder when the picker is dismissed', async () => {
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-folder-choose'));
+      await fireEvent.press(screen.getByTestId('backup-folder-choose'));
     });
 
     expect(screen.queryByTestId('backup-folder-remove')).toBeNull();
   });
 
-  it('shows each carrier its own failure', () => {
+  it('shows each carrier its own failure', async () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockFolderName = 'Records';
     mockFailures = {
       webdav: { kind: 'auth', status: 401, at: Date.now() },
       folder: { kind: 'folder_unavailable', status: null, at: Date.now() },
     };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-webdav')).toHaveTextContent(
       /backup\.backupFailedAuth/
@@ -831,20 +898,32 @@ describe('carriers', () => {
     );
   });
 
+  it('draws a carrier failure in the dark error tone in the dark theme', async () => {
+    mockIsDark = true;
+    mockFolderName = 'Records';
+    mockFailures = { folder: { kind: 'folder_unavailable', status: null, at: Date.now() } };
+    await render(<BackupSection />);
+
+    const failure = screen.getByTestId('backup-carrier-failure-folder');
+    expect(StyleSheet.flatten(failure.props.style).color).toBe(darkColors.errorDeep);
+  });
+
   it('groups the restore list by carrier and restores from the carrier of the entry', async () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockFolderName = 'Records';
     acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
 
     expect(screen.getByTestId('backup-group-webdav')).toBeTruthy();
     expect(screen.getByTestId('backup-group-folder')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-entry-folder-veloq-2026-10-01T06-00-00-000Z.zip'));
+      await fireEvent.press(
+        screen.getByTestId('backup-entry-folder-veloq-2026-10-01T06-00-00-000Z.zip')
+      );
     });
     expect(mockDownload).toHaveBeenCalledWith(
       'veloq-2026-10-01T06-00-00-000Z.zip',
@@ -855,10 +934,10 @@ describe('carriers', () => {
 
 describe('restoring with only the device backup', () => {
   it('says the device backup comes back on a new phone rather than that nothing was found', async () => {
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
 
     const message = screen.getByTestId('backup-none-found');
@@ -871,10 +950,10 @@ describe('restoring with only the device backup', () => {
     mockLocalBackups = [
       { id: 'older.zip', timestamp: '2026-03-01T10:00:00.000Z', sizeBytes: 1, appVersion: '' },
     ];
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
 
     expect(screen.getByTestId('backup-entry-local-older.zip')).toBeTruthy();
@@ -888,10 +967,10 @@ describe('restoring with only the device backup', () => {
     setUp();
     mockListBackups.mockResolvedValueOnce([]);
     mockFolderBackups = [];
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
 
     expect(screen.getByTestId('backup-none-found')).toHaveTextContent(
@@ -899,8 +978,8 @@ describe('restoring with only the device backup', () => {
     );
   });
 
-  it('says on the device backup row that it is restored when a new phone is set up', () => {
-    render(<BackupSection />);
+  it('says on the device backup row that it is restored when a new phone is set up', async () => {
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-device')).toHaveTextContent(
       /backup\.carrierDeviceRestore/
@@ -909,7 +988,7 @@ describe('restoring with only the device backup', () => {
 });
 
 describe('each destination shows when it last received a backup', () => {
-  it('dates every destination that has received one', () => {
+  it('dates every destination that has received one', async () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockFolderName = 'Records';
     mockDestinationStamps = {
@@ -917,7 +996,7 @@ describe('each destination shows when it last received a backup', () => {
       webdav: Date.parse('2026-05-03T06:30:00Z'),
       folder: Date.parse('2026-05-02T06:30:00Z'),
     };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     for (const id of ['device', 'webdav', 'folder']) {
       expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
@@ -926,10 +1005,10 @@ describe('each destination shows when it last received a backup', () => {
     }
   });
 
-  it('says a set up destination has not received one yet', () => {
+  it('says a set up destination has not received one yet', async () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockFolderName = 'Records';
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     for (const id of ['device', 'webdav', 'folder']) {
       expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
@@ -938,8 +1017,8 @@ describe('each destination shows when it last received a backup', () => {
     }
   });
 
-  it('shows no date on a destination that is not set up', () => {
-    render(<BackupSection />);
+  it('shows no date on a destination that is not set up', async () => {
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-last-device')).toBeTruthy();
     expect(screen.queryByTestId('backup-carrier-last-webdav')).toBeNull();
@@ -966,14 +1045,14 @@ describe("the device row on Android reads what Android's backup did", () => {
     Platform.OS = originalOS;
   });
 
-  it("dates the row by Android's backup, not by when Veloq wrote its zip", () => {
+  it("dates the row by Android's backup, not by when Veloq wrote its zip", async () => {
     mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
     mockAndroidBackup = {
       ...status,
       backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
       backedUpBytes: 4_200_000,
     };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
       /^backup\.androidLastBackup:\{"date":".+","size":"4\.2 MB"\}$/
@@ -981,17 +1060,17 @@ describe("the device row on Android reads what Android's backup did", () => {
     expect(screen.queryByText(/^backup\.lastBackup:/)).toBeNull();
   });
 
-  it('says Android has not backed Veloq up when it never has, whatever Veloq wrote', () => {
+  it('says Android has not backed Veloq up when it never has, whatever Veloq wrote', async () => {
     mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
     mockAndroidBackup = status;
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
       'backup.androidBackupNever'
     );
   });
 
-  it('shows a quota overrun as a failure with both sizes', () => {
+  it('shows a quota overrun as a failure with both sizes', async () => {
     mockAndroidBackup = {
       ...status,
       backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
@@ -1000,25 +1079,39 @@ describe("the device row on Android reads what Android's backup did", () => {
       quotaExceededBytes: 30_000_000,
       quotaBytes: 25_000_000,
     };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-device-quota')).toHaveTextContent(
       /^backup\.androidQuotaExceeded:\{"date":".+","size":"30\.0 MB","quota":"25\.0 MB"\}$/
     );
   });
 
-  it('says when Veloq was restored from an Android backup', () => {
+  it('draws the quota overrun in the dark error tone in the dark theme', async () => {
+    mockIsDark = true;
+    mockAndroidBackup = {
+      ...status,
+      quotaExceededAt: Date.parse('2026-05-02T02:00:00Z'),
+      quotaExceededBytes: 30_000_000,
+      quotaBytes: 25_000_000,
+    };
+    await render(<BackupSection />);
+
+    const quota = screen.getByTestId('backup-carrier-device-quota');
+    expect(StyleSheet.flatten(quota.props.style).color).toBe(darkColors.errorDeep);
+  });
+
+  it('says when Veloq was restored from an Android backup', async () => {
     mockAndroidBackup = { ...status, restoredAt: Date.parse('2026-04-30T09:00:00Z') };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.getByTestId('backup-carrier-device-restored')).toHaveTextContent(
       /^backup\.androidRestored:\{"date":".+"\}$/
     );
   });
 
-  it('shows no failure or restore that did not happen', () => {
+  it('shows no failure or restore that did not happen', async () => {
     mockAndroidBackup = { ...status, backedUpAt: 1_000, backedUpBytes: 4_096 };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(screen.queryByTestId('backup-carrier-device-quota')).toBeNull();
     expect(screen.queryByTestId('backup-carrier-device-restored')).toBeNull();
@@ -1036,8 +1129,8 @@ describe('one layout', () => {
     'backup.localRestorePath',
   ];
 
-  it('draws no explanation inline, only labels and states', () => {
-    render(<BackupSection />);
+  it('draws no explanation inline, only labels and states', async () => {
+    await render(<BackupSection />);
 
     for (const key of explanations) {
       expect(screen.queryByText(new RegExp(`^${key}`))).toBeNull();
@@ -1052,19 +1145,19 @@ describe('one layout', () => {
     ['backup-info-restore', ['backup.restoreInfo', 'backup.manualRestorePath']],
     ['backup-info-destinations', ['backup.carrierDeviceDescription', 'backup.platformRestorePath']],
     ['backup-info-export', ['backup.notEncryptedWarning']],
-  ])('keeps the explanation behind %s', (testID, keys) => {
+  ])('keeps the explanation behind %s', async (testID, keys) => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
-    fireEvent.press(screen.getByTestId(testID));
+    await fireEvent.press(screen.getByTestId(testID));
 
     expect(alert).toHaveBeenCalledTimes(1);
     const message = String(alert.mock.calls[0]?.[1]);
     for (const key of keys) expect(message).toContain(key);
   });
 
-  it('names every info button after its topic, each one a control of its own', () => {
-    render(<BackupSection />);
+  it('names every info button after its topic, each one a control of its own', async () => {
+    await render(<BackupSection />);
 
     const names = ['auto', 'restore', 'destinations', 'export'].map((id) => {
       const name = screen.getByTestId(`backup-info-${id}`).props.accessibilityLabel as string;
@@ -1084,21 +1177,21 @@ describe('one layout', () => {
 });
 
 describe('the Google Drive destination', () => {
-  it('is not offered where the build cannot reach Google Drive', () => {
-    render(<BackupSection />);
+  it('is not offered where the build cannot reach Google Drive', async () => {
+    await render(<BackupSection />);
     expect(screen.queryByTestId('backup-carrier-google-drive')).toBeNull();
   });
 
   it('signs in from its row, names the account and sends a copy it was owed', async () => {
     mockDriveSupported = true;
     mockDriveSignIn.mockResolvedValue('rider@example.org');
-    render(<BackupSection />);
+    await render(<BackupSection />);
     expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
       'backup.carrierGoogleDriveNone'
     );
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
+      await fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
     });
 
     expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
@@ -1111,10 +1204,10 @@ describe('the Google Drive destination', () => {
 
   it('keeps the row signed out when the athlete dismisses the picker', async () => {
     mockDriveSupported = true;
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
+      await fireEvent.press(screen.getByTestId('backup-google-drive-sign-in'));
     });
 
     expect(screen.getByTestId('backup-google-drive-account')).toHaveTextContent(
@@ -1127,7 +1220,7 @@ describe('the Google Drive destination', () => {
     mockDriveSupported = true;
     mockDriveAccount = 'rider@example.org';
     mockFailures = { googleDrive: { kind: 'signin', status: 401, at: Date.now() } };
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     expect(await screen.findByTestId('backup-carrier-failure-google-drive')).toBeTruthy();
     expect(screen.getByTestId('backup-google-drive-sign-in')).toBeTruthy();
@@ -1138,15 +1231,15 @@ describe('the Google Drive destination', () => {
     mockDriveSupported = true;
     mockDriveAccount = 'rider@example.org';
     acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
-    render(<BackupSection />);
+    await render(<BackupSection />);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-list-button'));
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
     expect(screen.getByTestId('backup-group-googleDrive')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByTestId('backup-entry-googleDrive-veloq-2026-10-02T06-00-00-000Z.zip')
       );
     });
@@ -1159,11 +1252,11 @@ describe('the Google Drive destination', () => {
   it('signs out and forgets the account, which leaves the row signed out', async () => {
     mockDriveSupported = true;
     mockDriveAccount = 'rider@example.org';
-    render(<BackupSection />);
+    await render(<BackupSection />);
     await act(async () => {});
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('backup-google-drive-sign-out'));
+      await fireEvent.press(screen.getByTestId('backup-google-drive-sign-out'));
     });
 
     expect(mockDriveForget).toHaveBeenCalledTimes(1);

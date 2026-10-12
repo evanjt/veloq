@@ -26,53 +26,53 @@ const ZURICH = { center: [8.54, 47.37] as [number, number], zoom: 13 };
 describe('useInitialRegionalCamera', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('opens on the camera a previous launch stored', () => {
+  it('opens on the camera a previous launch stored', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
-    const { result } = renderHook(() => useInitialRegionalCamera(null));
+    const { result } = await renderHook(() => useInitialRegionalCamera(null));
 
     expect(result.current).toEqual({ camera: BERN, restored: true });
   });
 
-  it('opens on the world view when nothing was stored', () => {
+  it('opens on the world view when nothing was stored', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(null);
 
-    const { result } = renderHook(() => useInitialRegionalCamera(null));
+    const { result } = await renderHook(() => useInitialRegionalCamera(null));
 
     expect(result.current).toEqual({ camera: WORLD_CAMERA, restored: false });
   });
 
-  it('prefers where the tab was left over what a previous launch stored', () => {
+  it('prefers where the tab was left over what a previous launch stored', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
-    const { result } = renderHook(() => useInitialRegionalCamera(ZURICH));
+    const { result } = await renderHook(() => useInitialRegionalCamera(ZURICH));
 
     expect(result.current).toEqual({ camera: ZURICH, restored: true });
   });
 
-  it('reads storage once, however many times it re-renders', () => {
+  it('reads storage once, however many times it re-renders', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ blur }: { blur: RegionalCamera | null }) => useInitialRegionalCamera(blur),
       { initialProps: { blur: null as RegionalCamera | null } }
     );
-    rerender({ blur: ZURICH });
-    rerender({ blur: null });
+    await rerender({ blur: ZURICH });
+    await rerender({ blur: null });
 
     expect(getMapCameraState).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the stored camera again once the tab blur value clears', () => {
+  it('falls back to the stored camera again once the tab blur value clears', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ blur }: { blur: RegionalCamera | null }) => useInitialRegionalCamera(blur),
       { initialProps: { blur: ZURICH as RegionalCamera | null } }
     );
     expect(result.current).toEqual({ camera: ZURICH, restored: true });
 
-    rerender({ blur: null });
+    await rerender({ blur: null });
     expect(result.current).toEqual({ camera: BERN, restored: true });
   });
 });

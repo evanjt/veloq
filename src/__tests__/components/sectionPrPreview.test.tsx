@@ -41,18 +41,18 @@ function sectionData(previewPoints?: { lat: number; lng: number }[]): InsightSup
 }
 
 describe('the PR card section row', () => {
-  it('draws the section the record was set on', () => {
-    const { getByTestId } = render(<SupportingDataSection data={sectionData(LINE)} />);
+  it('draws the section the record was set on', async () => {
+    const { getByTestId } = await render(<SupportingDataSection data={sectionData(LINE)} />);
     expect(getByTestId('section-preview-auto1')).toBeTruthy();
   });
 
-  it('draws nothing when the engine handed over no line', () => {
-    const { queryByTestId } = render(<SupportingDataSection data={sectionData()} />);
+  it('draws nothing when the engine handed over no line', async () => {
+    const { queryByTestId } = await render(<SupportingDataSection data={sectionData()} />);
     expect(queryByTestId('section-preview-auto1')).toBeNull();
   });
 
-  it('draws nothing for a line too short to have two ends', () => {
-    const { queryByTestId } = render(
+  it('draws nothing for a line too short to have two ends', async () => {
+    const { queryByTestId } = await render(
       <SupportingDataSection data={sectionData([{ lat: 46.2, lng: 7.35 }])} />
     );
     expect(queryByTestId('section-preview-auto1')).toBeNull();

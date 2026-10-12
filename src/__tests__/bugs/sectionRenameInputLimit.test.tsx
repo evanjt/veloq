@@ -1,18 +1,18 @@
 import React, { createRef } from 'react';
-import { TextInput } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { HeroNameRow } from '@/shared/ui/DetailHero';
+import type { TextFieldHandle } from '@/shared/ui/TextField';
 
-it('limits a pasted section name to the engine validation boundary', () => {
-  render(
+it('limits a pasted section name to the engine validation boundary', async () => {
+  await render(
     <HeroNameRow
       name="Old climb"
       editable={{
         isEditing: true,
         editName: '',
-        inputRef: createRef<TextInput>(),
-        placeholder: 'Name',
+        inputRef: createRef<TextFieldHandle>(),
+        label: 'Name',
         testIDPrefix: 'section',
         onStartEdit: jest.fn(),
         onSave: jest.fn(),

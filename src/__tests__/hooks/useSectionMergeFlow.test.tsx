@@ -68,15 +68,15 @@ beforeEach(() => {
 describe('the section merge flow', () => {
   it('merges the chosen pair once and moves to the surviving section', async () => {
     mockMerge.mockReturnValue('sec-c');
-    const flow = mount(TWO);
-    act(() => void flow.result.current());
+    const flow = await mount(TWO);
+    await act(() => void flow.result.current());
     expect(pushedPaths()).toEqual(['sheets/merge-candidates']);
 
-    answerSheet(mockPush, mockParams, TWO[1]);
+    await answerSheet(mockPush, mockParams, TWO[1]);
     await act(async () => {});
     expect(pushedPaths()).toEqual(['sheets/merge-candidates', 'sheets/merge-confirm']);
 
-    answerSheet(mockPush, mockParams, { primaryId: 'sec-a', secondaryId: 'sec-c' });
+    await answerSheet(mockPush, mockParams, { primaryId: 'sec-a', secondaryId: 'sec-c' });
     await act(async () => {});
     expect(mockMerge).toHaveBeenCalledTimes(1);
     expect(mockMerge).toHaveBeenCalledWith('sec-a', 'sec-c');
@@ -85,55 +85,55 @@ describe('the section merge flow', () => {
 
   it('stays on the section when it survives the merge', async () => {
     mockMerge.mockReturnValue('sec-a');
-    const flow = mount([TWO[0]]);
-    act(() => void flow.result.current());
-    answerSheet(mockPush, mockParams, { primaryId: 'sec-a', secondaryId: 'sec-b' });
+    const flow = await mount([TWO[0]]);
+    await act(() => void flow.result.current());
+    await answerSheet(mockPush, mockParams, { primaryId: 'sec-a', secondaryId: 'sec-b' });
     await act(async () => {});
     expect(mockMerge).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('skips the candidates sheet for a single candidate', () => {
-    const flow = mount([TWO[0]]);
-    act(() => void flow.result.current());
+  it('skips the candidates sheet for a single candidate', async () => {
+    const flow = await mount([TWO[0]]);
+    await act(() => void flow.result.current());
     expect(pushedPaths()).toEqual(['sheets/merge-confirm']);
     expect(mockPush.mock.calls[0][0].params.request).toBeTruthy();
   });
 
   it('opens nothing and merges nothing when the candidates sheet is dismissed', async () => {
-    const flow = mount(TWO);
-    act(() => void flow.result.current());
-    answerSheet(mockPush, mockParams, null);
+    const flow = await mount(TWO);
+    await act(() => void flow.result.current());
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(pushedPaths()).toEqual(['sheets/merge-candidates']);
     expect(mockMerge).not.toHaveBeenCalled();
   });
 
   it('merges nothing when the confirmation sheet is dismissed', async () => {
-    const flow = mount(TWO);
-    act(() => void flow.result.current());
-    answerSheet(mockPush, mockParams, TWO[0]);
+    const flow = await mount(TWO);
+    await act(() => void flow.result.current());
+    await answerSheet(mockPush, mockParams, TWO[0]);
     await act(async () => {});
-    answerSheet(mockPush, mockParams, null);
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(mockMerge).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('opens nothing when there is no candidate', () => {
-    const flow = mount([]);
-    act(() => void flow.result.current());
+  it('opens nothing when there is no candidate', async () => {
+    const flow = await mount([]);
+    await act(() => void flow.result.current());
     expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('hands the confirmation both sections', async () => {
-    const flow = mount(TWO);
-    act(() => void flow.result.current());
-    answerSheet(mockPush, mockParams, TWO[1]);
+    const flow = await mount(TWO);
+    await act(() => void flow.result.current());
+    await answerSheet(mockPush, mockParams, TWO[1]);
     await act(async () => {});
     const { useSheetRequest } = jest.requireActual('@/shared/app/sheetRequest');
     mockParams.request = mockPush.mock.calls.at(-1)[0].params.request;
-    const reader = renderHook(() => useSheetRequest());
+    const reader = await renderHook(() => useSheetRequest());
     expect(reader.result.current.input).toEqual({
       primary: {
         id: 'sec-a',
@@ -150,6 +150,6 @@ describe('the section merge flow', () => {
         distanceMeters: 650,
       },
     });
-    reader.unmount();
+    await reader.unmount();
   });
 });

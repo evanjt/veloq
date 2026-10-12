@@ -24,9 +24,9 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 afterEach(() => useDashboardPreferences.setState({ summaryCard: DEFAULTS }));
 
-it('offers Form as a hero in the summary card settings', () => {
-  const tree = render(<SummaryCardSection />);
-  fireEvent.press(tree.getByRole('button', { name: 'metrics.form' }));
+it('offers Form as a hero in the summary card settings', async () => {
+  const tree = await render(<SummaryCardSection />);
+  await fireEvent.press(tree.getByRole('button', { name: 'metrics.form' }));
   expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe('form');
 });
 
@@ -53,10 +53,10 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
     hrvRead: [],
     rhrRead: [],
   };
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useSummaryCardData(card, { awaitPrecomputed: true, precomputedSparklines: sparklines })
   );
-  const tree = render(<SummaryCard onProfilePress={() => {}} {...result.current} />);
+  const tree = await render(<SummaryCard onProfilePress={() => {}} {...result.current} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
@@ -69,7 +69,7 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
 
   const scrub = tree.UNSAFE_root.findAll((node) => typeof node.props.onScrub === 'function')[0]
     .props.onScrub;
-  act(() => {
+  await act(() => {
     scrub({
       fitness: 39,
       fatigue: 32,
@@ -80,8 +80,8 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
   expect(tree.getByText('+7')).toBeTruthy();
   expect(tree.queryByText('+8')).toBeNull();
 
-  act(() => scrub(null));
-  tree.rerender(
+  await act(() => scrub(null));
+  await tree.rerender(
     <SummaryCard onProfilePress={() => {}} {...result.current} showSparkline={false} />
   );
   expect(tree.getByText('+8')).toBeTruthy();

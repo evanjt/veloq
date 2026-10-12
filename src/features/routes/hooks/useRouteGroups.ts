@@ -65,6 +65,8 @@ interface UseRouteGroupsResult {
   renameRoute: (routeId: string, name: string) => void;
   /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
   error?: unknown;
+  /** Reads the groups again after a failure. */
+  retry: () => void;
   measureLiveOverlap: (groupIds: string[], coordinates: number[]) => Promise<LiveRouteOverlap[]>;
 }
 
@@ -73,7 +75,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   // Use lightweight summaries instead of full groups (no activityIds arrays)
   // Activity-count filter + sort pushed into Rust.
-  const { totalCount, summaries, error } = useGroupSummaries({
+  const { totalCount, summaries, error, retry } = useGroupSummaries({
     minActivities,
     sortBy,
   });
@@ -133,9 +135,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
       renameRoute,
       error,
+      retry,
       measureLiveOverlap,
     };
-  }, [summaries, type, totalCount, renameRoute, error, measureLiveOverlap]);
+  }, [summaries, type, totalCount, renameRoute, error, retry, measureLiveOverlap]);
 
   return result;
 }

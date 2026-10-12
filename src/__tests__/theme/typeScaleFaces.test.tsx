@@ -85,21 +85,21 @@ describe('surfaces drawing through the scale', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('draws the method formula in the code role', () => {
+  it('draws the method formula in the code role', async () => {
     const { typography } = require('@/theme/typography');
     const { MethodologySection } = require('@/features/insights/components/MethodologySection');
     const insight = {
       id: 'formula-probe',
       methodology: { name: 'Probe', description: 'Probe', formula: 'k = a / b' },
     } as unknown as Insight;
-    render(<MethodologySection insight={insight} />);
-    fireEvent.press(screen.getByTestId('methodology-toggle'));
+    await render(<MethodologySection insight={insight} />);
+    await fireEvent.press(screen.getByTestId('methodology-toggle'));
     const style = flatStyle(screen.getByText('k = a / b'));
     expect(style.fontFamily).toBe(typography.code.fontFamily);
     expect(style.lineHeight).toBe(typography.code.lineHeight);
   });
 
-  it('draws every intervals table cell with tabular figures', () => {
+  it('draws every intervals table cell with tabular figures', async () => {
     const { IntervalsTable } = require('@/features/activity/components/IntervalsTable');
     const interval = {
       id: 1,
@@ -114,7 +114,9 @@ describe('surfaces drawing through the scale', () => {
       average_watts: 248,
       zone: 4,
     } as ActivityInterval;
-    render(<IntervalsTable intervals={[interval]} activityType="Ride" isMetric isDark={false} />);
+    await render(
+      <IntervalsTable intervals={[interval]} activityType="Ride" isMetric isDark={false} />
+    );
     for (const text of ['1', '248']) {
       const cell = screen.getAllByText(new RegExp(`^${text}`))[0];
       expect(flatStyle(cell).fontVariant).toContain('tabular-nums');

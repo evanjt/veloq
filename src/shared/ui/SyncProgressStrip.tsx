@@ -2,7 +2,8 @@
  * The one place a running sync reports its step.
  *
  * A slim pill in the app colour, centred just under the top safe-area inset so
- * it clears the camera cutout and the status bar. It floats over the page and
+ * it clears the camera cutout and the status bar, or under the banners in the
+ * top slot when there are any, so it never covers a sync failure's headline. It floats over the page and
  * passes touches through, so showing or hiding it moves nothing underneath. The
  * mark turns slowly, the line holds one row with the label giving way before
  * the counts, and each step stays on screen for a minimum time and cross-fades
@@ -22,11 +23,11 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SyncState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
+import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -104,7 +105,7 @@ function SyncMark({ color }: { color: string }) {
 export function SyncProgressStrip() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
+  const top = useFloatingPillTop();
   const status = useSyncStatus();
 
   const syncing = status?.state === SyncState.Syncing;
@@ -120,7 +121,7 @@ export function SyncProgressStrip() {
   return (
     <View
       testID="sync-progress-strip"
-      style={[styles.strip, { top: insets.top + spacing.xs }]}
+      style={[styles.strip, { top }]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
     >

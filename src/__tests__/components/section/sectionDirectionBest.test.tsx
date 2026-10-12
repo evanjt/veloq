@@ -30,7 +30,7 @@ function card(props: Record<string, unknown>) {
       bestReverseRecord={null}
       forwardStats={null}
       reverseStats={null}
-      sportType="Ride"
+      basis="speed"
       isDark={false}
       {...props}
     />
@@ -50,8 +50,8 @@ describe('direction Best and Avg', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('shows a Best and an Avg for each direction on the Summary card', () => {
-    const { getByTestId, queryByText } = card({
+  it('shows a Best and an Avg for each direction on the Summary card', async () => {
+    const { getByTestId, queryByText } = await card({
       bestForwardRecord: record(550),
       bestReverseRecord: record(340),
       forwardStats: stats(600),
@@ -65,8 +65,8 @@ describe('direction Best and Avg', () => {
     expect(queryByText('8:00')).toBeNull();
   });
 
-  it('keeps one Best and one Avg when only one direction has laps', () => {
-    const { getAllByText, queryByTestId } = card({
+  it('keeps one Best and one Avg when only one direction has laps', async () => {
+    const { getAllByText, queryByTestId } = await card({
       bestForwardRecord: record(550),
       forwardStats: stats(600),
     });
@@ -76,7 +76,7 @@ describe('direction Best and Avg', () => {
     expect(queryByTestId('section-best-reverse')).toBeNull();
   });
 
-  it('shows both directions on the calendar year row', () => {
+  it('shows both directions on the calendar year row', async () => {
     const calendar: CalendarSummary = {
       years: [
         {
@@ -92,11 +92,11 @@ describe('direction Best and Avg', () => {
       reversePr: best('down', 340),
       sectionDistance: 2000,
     };
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <SectionStatsCards
         calendarSummary={calendar}
         isDark={false}
-        isRunning={false}
+        basis="speed"
         activityColor="#3B82F6"
       />
     );
@@ -105,8 +105,8 @@ describe('direction Best and Avg', () => {
     expect(getByTestId('year-best-reverse-2026').props.children).toBe('5:40');
   });
 
-  it('names the direction of every Best and Avg on the Summary card in words', () => {
-    const { getByTestId } = card({
+  it('names the direction of every Best and Avg on the Summary card in words', async () => {
+    const { getByTestId } = await card({
       bestForwardRecord: record(550),
       bestReverseRecord: record(340),
       forwardStats: stats(600),
@@ -126,7 +126,7 @@ describe('direction Best and Avg', () => {
     }
   });
 
-  it('names each direction in words on the calendar year row and month entries', () => {
+  it('names each direction in words on the calendar year row and month entries', async () => {
     const calendar: CalendarSummary = {
       years: [
         {
@@ -150,11 +150,11 @@ describe('direction Best and Avg', () => {
       reversePr: best('down', 340),
       sectionDistance: 2000,
     };
-    const { getAllByText, getByLabelText } = render(
+    const { getAllByText, getByLabelText } = await render(
       <SectionStatsCards
         calendarSummary={calendar}
         isDark={false}
-        isRunning={false}
+        basis="speed"
         activityColor="#3B82F6"
       />
     );

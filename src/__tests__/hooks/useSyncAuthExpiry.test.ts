@@ -28,40 +28,40 @@ describe('useSyncAuthExpiry', () => {
     useAuthStore.setState({ handleSessionExpired });
   });
 
-  it('leaves a healthy session alone', () => {
+  it('leaves a healthy session alone', async () => {
     mockUseSyncState.mockReturnValue(SyncState.Idle);
 
-    renderHook(() => useSyncAuthExpiry());
+    await renderHook(() => useSyncAuthExpiry());
 
     expect(handleSessionExpired).not.toHaveBeenCalled();
   });
 
-  it('tears down the session when the service reports authExpired', () => {
+  it('tears down the session when the service reports authExpired', async () => {
     mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
 
-    renderHook(() => useSyncAuthExpiry());
+    await renderHook(() => useSyncAuthExpiry());
 
     expect(handleSessionExpired).toHaveBeenCalledTimes(1);
   });
 
-  it('tears down once while the state stays authExpired', () => {
+  it('tears down once while the state stays authExpired', async () => {
     mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
 
-    const { rerender } = renderHook(() => useSyncAuthExpiry());
-    rerender({});
-    rerender({});
+    const { rerender } = await renderHook(() => useSyncAuthExpiry());
+    await rerender({});
+    await rerender({});
 
     expect(handleSessionExpired).toHaveBeenCalledTimes(1);
   });
 
-  it('arms again after the service recovers', () => {
+  it('arms again after the service recovers', async () => {
     mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
-    const { rerender } = renderHook(() => useSyncAuthExpiry());
+    const { rerender } = await renderHook(() => useSyncAuthExpiry());
 
     mockUseSyncState.mockReturnValue(SyncState.Syncing);
-    rerender({});
+    await rerender({});
     mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
-    rerender({});
+    await rerender({});
 
     expect(handleSessionExpired).toHaveBeenCalledTimes(2);
   });

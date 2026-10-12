@@ -13,7 +13,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, getIntlLocale } from '@/shared/format/format';
-import { Button, Card } from '@/shared/ui';
+import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography, layout, slopToMinTapTarget } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -52,9 +53,9 @@ function collapsedActivities(lapped: SectionPerformanceRecord[]): SectionPerform
   return recent.filter((r) => keep.has(r));
 }
 
-function RecordMark({ testID, isDark }: { testID: string; isDark: boolean }) {
+function RecordMark({ testID, isDark, label }: { testID: string; isDark: boolean; label: string }) {
   return (
-    <View testID={testID}>
+    <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={label}>
       <MaterialCommunityIcons
         name="trophy"
         size={12}
@@ -85,37 +86,58 @@ export function SectionLapList({
           size={18}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
-        <Text style={[styles.title, isDark && styles.textDark]}>{t('sections.laps')}</Text>
+        <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
+          {t('sections.laps')}
+        </Text>
       </View>
       {!showAll
         ? collapsedActivities(lapped).map((r) => {
             const best = bestLapTime(r);
+            const date = r.activityDate.toLocaleDateString(locale, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
+            const record = holdsRecord(r);
+            const bestLap =
+              best !== null ? t('sections.bestLapValue', { time: formatDuration(best) }) : null;
+            const lapCount = `×${r.laps.length}`;
             return (
-              <View
+              <Pressable
                 key={r.activityId}
-                style={styles.summaryRow}
+                style={pressable(styles.summaryRow)}
                 testID={`section-lap-summary-${r.activityId}`}
+                accessibilityRole="button"
+                accessibilityLabel={composeAccessibilityLabel(
+                  r.activityName,
+                  date,
+                  record && t('a11y.recordLap'),
+                  bestLap,
+                  t('a11y.laps', { n: r.laps.length })
+                )}
+                onPress={() => tapTo(`/activity/${r.activityId}`)}
+                android_ripple={pressRipple}
               >
                 <View style={styles.summaryName}>
                   <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
                     {r.activityName}
                   </Text>
                   <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
-                    {r.activityDate.toLocaleDateString(locale, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    {date}
                   </Text>
                 </View>
-                {holdsRecord(r) ? (
-                  <RecordMark testID={`section-lap-record-${r.activityId}`} isDark={isDark} />
+                {record ? (
+                  <RecordMark
+                    testID={`section-lap-record-${r.activityId}`}
+                    isDark={isDark}
+                    label={t('a11y.recordLap')}
+                  />
                 ) : null}
                 {best !== null ? (
                   <Text
                     style={[styles.lapTime, isDark && styles.textDark]}
                     numberOfLines={1}
-                    accessibilityLabel={t('sections.bestLap')}
+                    accessibilityLabel={bestLap ?? undefined}
                   >
                     {formatDuration(best)}
                   </Text>
@@ -124,9 +146,9 @@ export function SectionLapList({
                   style={[styles.lapCount, isDark && styles.textSecondaryDark]}
                   numberOfLines={1}
                 >
-                  ×{r.laps.length}
+                  {lapCount}
                 </Text>
-              </View>
+              </Pressable>
             );
           })
         : lapped.map((r) => (
@@ -157,7 +179,11 @@ export function SectionLapList({
                         {lap.direction === 'reverse' ? ` · ${t('sections.reverse')}` : ''}
                       </Text>
                       {lap.isRecord ? (
-                        <RecordMark testID={`section-lap-record-${id}`} isDark={isDark} />
+                        <RecordMark
+                          testID={`section-lap-record-${id}`}
+                          isDark={isDark}
+                          label={t('a11y.recordLap')}
+                        />
                       ) : null}
                       <Text style={[styles.lapTime, isDark && styles.textDark]}>
                         {formatDuration(lap.time)}
@@ -236,6 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    minHeight: layout.minTapTarget,
     paddingVertical: spacing.xs,
   },
   summaryName: { flex: 1 },

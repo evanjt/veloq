@@ -312,7 +312,8 @@ pub(super) fn measure_match_percentages(
     scope: Option<&HashSet<String>>,
     representative_override: Option<&str>,
 ) -> HashMap<String, Vec<ActivityMatchInfo>> {
-    use crate::matching::{amd_to_percentage, average_min_distance};
+    use super::track_index::TrackIndex;
+    use crate::matching::amd_to_percentage;
     use std::collections::HashMap;
     use std::time::Instant;
 
@@ -364,13 +365,14 @@ pub(super) fn measure_match_percentages(
         load_ms
     );
 
-    // Second pass: recalculate match percentages using AMD
-    // PERF: CPU bound - O(n*m) distance calculations per pair
-    // OPTIMISATION 1: Give the representative its self-match without AMD
-    // OPTIMISATION 2: Parallelize with rayon
+    // Second pass: recalculate match percentages using AMD. The
+    // representative is indexed once per group and each member once, so a
+    // pair costs a tree descent per point in each direction rather than a
+    // haversine against every point of the other track. The representative
+    // takes its self-match without AMD, and the pairs run in parallel.
     let calc_start = Instant::now();
 
-    type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>);
+    type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<TrackIndex>);
     let mut work_items: Vec<WorkItem> = Vec::new();
     let mut skipped_self = 0u32;
 
@@ -396,6 +398,7 @@ pub(super) fn measure_match_percentages(
             Some(t) => t,
             None => continue,
         };
+        let mut rep_index: Option<Arc<TrackIndex>> = None;
 
         for activity_id in &group.activity_ids {
             if activity_id == representative_id {
@@ -407,11 +410,13 @@ pub(super) fn measure_match_percentages(
                 None => continue,
             };
 
+            let rep_index =
+                rep_index.get_or_insert_with(|| Arc::new(TrackIndex::new(Arc::clone(rep_track))));
             work_items.push((
                 group.group_id.clone(),
                 activity_id.clone(),
                 Arc::clone(activity_track),
-                Arc::clone(rep_track),
+                Arc::clone(rep_index),
             ));
         }
     }
@@ -427,9 +432,11 @@ pub(super) fn measure_match_percentages(
 
     let results: Vec<(String, String, f64, usize, usize, Direction)> = work_items
         .par_iter()
-        .map(|(group_id, activity_id, activity_track, rep_track)| {
-            let amd_1_to_2 = average_min_distance(activity_track, rep_track);
-            let amd_2_to_1 = average_min_distance(rep_track, activity_track);
+        .map(|(group_id, activity_id, activity_track, rep_index)| {
+            let rep_track = rep_index.points();
+            let amd_1_to_2 = rep_index.average_min_distance_from(activity_track);
+            let amd_2_to_1 =
+                TrackIndex::new(Arc::clone(activity_track)).average_min_distance_from(rep_track);
             let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
             (
                 group_id.clone(),

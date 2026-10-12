@@ -63,8 +63,8 @@ function flatStyle(node: { props: Record<string, unknown> }): Record<string, unk
 }
 
 describe('preview map legend chips', () => {
-  it('gives each chip the colour of the layer it toggles', () => {
-    const tree = renderMap();
+  it('gives each chip the colour of the layer it toggles', async () => {
+    const tree = await renderMap();
 
     expect(flatStyle(tree.getByTestId('preview-layer-current-swatch')).backgroundColor).toBe(
       lineColour('current-line')
@@ -74,16 +74,16 @@ describe('preview map legend chips', () => {
     );
   });
 
-  it('gives the removed catalogue its own chip in the error colour', () => {
-    const tree = renderMap();
+  it('gives the removed catalogue its own chip in the error colour', async () => {
+    const tree = await renderMap();
 
     expect(flatStyle(tree.getByTestId('preview-layer-removed-swatch')).backgroundColor).toBe(
       lineColour('gone-line')
     );
   });
 
-  it('does not paint both chips the same colour when both are on', () => {
-    const tree = renderMap();
+  it('does not paint both chips the same colour when both are on', async () => {
+    const tree = await renderMap();
 
     const current = flatStyle(tree.getByTestId('preview-layer-current-swatch')).backgroundColor;
     const proposed = flatStyle(tree.getByTestId('preview-layer-proposed-swatch')).backgroundColor;
@@ -91,18 +91,18 @@ describe('preview map legend chips', () => {
     expect(current).not.toBe(proposed);
   });
 
-  it('shows an off chip as off rather than as a slightly different grey', () => {
-    const on = flatStyle(renderMap().getByTestId('preview-layer-current-swatch'));
+  it('shows an off chip as off rather than as a slightly different grey', async () => {
+    const on = flatStyle((await renderMap()).getByTestId('preview-layer-current-swatch'));
     const off = flatStyle(
-      renderMap({ showCurrent: false }).getByTestId('preview-layer-current-swatch')
+      (await renderMap({ showCurrent: false })).getByTestId('preview-layer-current-swatch')
     );
 
     expect(off.backgroundColor).not.toBe(on.backgroundColor);
     expect(off.backgroundColor).toBe('transparent');
   });
 
-  it('reports each chip as a switch carrying its own state', () => {
-    const tree = renderMap({ showProposed: false });
+  it('reports each chip as a switch carrying its own state', async () => {
+    const tree = await renderMap({ showProposed: false });
 
     const current = tree.getByTestId('preview-layer-current');
     const proposed = tree.getByTestId('preview-layer-proposed');

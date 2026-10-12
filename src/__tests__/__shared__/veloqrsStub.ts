@@ -134,6 +134,13 @@ export enum DayLoadStatus {
   Rest = 3,
 }
 
+/** `FfiMaxHrSource` as generated, where an activity's max HR came from. */
+export enum MaxHrSource {
+  ActivityZones = 0,
+  SportSettings = 1,
+  Default = 2,
+}
+
 /** `FfiSectionSort` as generated, held to the source by the same test. */
 export enum SectionSort {
   Nearby = 0,
@@ -334,6 +341,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     SectionSort,
     LoadMetric,
     DayLoadStatus,
+    MaxHrSource,
     StartOutcome,
     InitOutcome,
     RangeCoverage,

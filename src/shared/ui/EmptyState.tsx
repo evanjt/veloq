@@ -1,43 +1,125 @@
+/**
+ * The app's empty state, and the only one.
+ *
+ * Three fixed forms, by where the empty sits:
+ * - `screen` fills a list or a screen, with the icon on a 96 pt disc.
+ * - `compact` sits in a section of a detail screen, on a 64 pt disc.
+ * - `inline` sits inside a card or under a chart's title. It draws no disc, so
+ *   the card keeps its density: the title at `bodySmall` 600, the hint at
+ *   `caption`, and a small secondary button when there is an action.
+ *
+ * The title is the cause line, what is missing, and every form requires it. The
+ * description says what fills it, where something does.
+ */
+
 import React, { ComponentProps } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from './Button';
+import { StatusLine, type StatusTone } from './StatusLine';
 import { useTheme } from '@/shared/app';
-import { spacing, layout, colorWithOpacity, ink, typography } from '@/theme';
+import { spacing, layout, colorWithOpacity, ink, typography, themePalette } from '@/theme';
 
-interface EmptyStateProps {
-  /** Icon name from MaterialCommunityIcons */
-  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
-  /** Main title text */
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+interface EmptyStateCommon {
+  /** The cause line: what is missing. */
   title: string;
-  /** Description text */
-  description?: string;
+  /** What fills it, where something does. */
+  description?: string | undefined;
   /** Action button text */
   actionLabel?: string | undefined;
   /** Action button callback */
   onAction?: (() => void) | undefined;
   /** testID for the action button */
-  actionTestID?: string;
-  /** Compact mode for inline display */
-  compact?: boolean;
+  actionTestID?: string | undefined;
+  /** The action is running: its button shows a spinner and refuses a press. */
+  actionLoading?: boolean;
+  /** How urgently a screen reader speaks it: `error` interrupts, the rest wait. */
+  tone?: StatusTone;
+  /** Defaults to `empty-state`; the title and hint take it as their prefix. */
+  testID?: string;
 }
 
-export function EmptyState({
+type EmptyStateProps = EmptyStateCommon &
+  ({ variant?: 'screen' | 'compact'; icon: IconName } | { variant: 'inline'; icon?: never });
+
+export function EmptyState(props: EmptyStateProps) {
+  if (props.variant === 'inline') return <InlineEmptyState {...props} />;
+  return <DiscEmptyState {...props} />;
+}
+
+function InlineEmptyState({
+  title,
+  description,
+  actionLabel,
+  onAction,
+  actionTestID,
+  actionLoading = false,
+  tone = 'info',
+  testID = 'empty-state',
+}: EmptyStateCommon) {
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+
+  return (
+    <StatusLine
+      tone={tone}
+      message={[title, description]}
+      style={styles.inlineContainer}
+      testID={testID}
+    >
+      <Text style={[styles.inlineTitle, { color: palette.textPrimary }]} testID={`${testID}-title`}>
+        {title}
+      </Text>
+      {description ? (
+        <Text
+          style={[styles.inlineDescription, { color: palette.textSecondary }]}
+          testID={`${testID}-description`}
+        >
+          {description}
+        </Text>
+      ) : null}
+      {actionLabel && onAction ? (
+        <Button
+          {...(actionTestID ? { testID: actionTestID } : {})}
+          label={actionLabel}
+          onPress={onAction}
+          loading={actionLoading}
+          variant="secondary"
+          size="sm"
+        />
+      ) : null}
+    </StatusLine>
+  );
+}
+
+function DiscEmptyState({
+  variant = 'screen',
   icon,
   title,
   description,
   actionLabel,
   onAction,
   actionTestID,
-  compact = false,
-}: EmptyStateProps) {
-  const { isDark, colors } = useTheme();
+  actionLoading = false,
+  tone = 'info',
+  testID = 'empty-state',
+}: EmptyStateCommon & { variant?: 'screen' | 'compact'; icon: IconName }) {
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const compact = variant === 'compact';
 
   return (
-    <View style={[styles.container, compact && styles.containerCompact]} testID="empty-state">
+    <StatusLine
+      tone={tone}
+      message={[title, description]}
+      style={[styles.container, compact && styles.containerCompact]}
+      testID={testID}
+    >
       <View
+        testID={`${testID}-icon`}
         style={[
           styles.iconContainer,
           {
@@ -55,50 +137,43 @@ export function EmptyState({
         />
       </View>
 
-      <Text style={[styles.title, { color: colors.text }, compact && styles.titleCompact]}>
+      <Text
+        style={[styles.title, { color: palette.textPrimary }, compact && styles.titleCompact]}
+        testID={`${testID}-title`}
+      >
         {title}
       </Text>
 
-      {description && (
+      {description ? (
         <Text
           style={[
             styles.description,
-            { color: colors.textSecondary },
+            { color: palette.textSecondary },
             compact && styles.descriptionCompact,
           ]}
+          testID={`${testID}-description`}
         >
           {description}
         </Text>
-      )}
+      ) : null}
 
       {actionLabel && onAction && (
         <Button
           {...(actionTestID ? { testID: actionTestID } : {})}
           label={actionLabel}
           onPress={onAction}
+          loading={actionLoading}
           variant="primary"
           style={styles.actionButton}
         />
       )}
-    </View>
-  );
-}
-
-// Preset for generic error
-export function ErrorStatePreset({ message, onRetry }: { message?: string; onRetry?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="alert-circle-outline"
-      title={t('emptyState.error.title')}
-      description={message || t('emptyState.error.description')}
-      actionLabel={onRetry ? t('errorState.tryAgain') : undefined}
-      onAction={onRetry}
-    />
+    </StatusLine>
   );
 }
 
 const EMPTY_STATE_VERTICAL_PADDING = spacing.xl * 2;
+/** The inline form's one spacing step, above, between and below its lines. */
+const INLINE_SPACING = spacing.sm;
 
 const styles = StyleSheet.create({
   container: {
@@ -145,5 +220,20 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginTop: spacing.lg,
+  },
+  inlineContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: INLINE_SPACING,
+    gap: INLINE_SPACING,
+  },
+  inlineTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  inlineDescription: {
+    ...typography.caption,
+    textAlign: 'center',
   },
 });

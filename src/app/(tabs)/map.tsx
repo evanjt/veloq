@@ -20,7 +20,7 @@ import {
 } from '@/features/maps';
 import {
   ComponentErrorBoundary,
-  EngineReadFailureRetry,
+  ErrorState,
   useTabBarClearance,
   Shimmer,
   Button,
@@ -28,13 +28,22 @@ import {
   pressRipple,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { useActivityBoundsCache, useActivities } from '@/features/activity';
+import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteSettings } from '@/features/routes';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { useAuthStore } from '@/shared/app/AuthStore';
-import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { MapDistanceBand } from 'veloqrs';
-import { colors, darkColors, ink, spacing, typography, layout, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  controlHeight,
+  darkColors,
+  ink,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
+import { ToggleButton } from '@/shared/ui/Button';
 import { SportChipRow } from '@/shared/ui/SportChipRow';
 import { ACTIVITY_CATEGORIES, groupTypesByCategory } from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -80,12 +89,10 @@ function FilterChipRow<K extends string | number>({
   options,
   selected,
   onSelect,
-  isDark,
 }: {
   options: { key: K; label: string }[];
   selected: K;
   onSelect: (key: K) => void;
-  isDark: boolean;
 }) {
   return (
     <ScrollView
@@ -94,34 +101,14 @@ function FilterChipRow<K extends string | number>({
       contentContainerStyle={styles.chipRow}
     >
       {options.map(({ key, label }) => (
-        <Pressable
+        <ToggleButton
           key={key}
+          label={label}
+          selected={selected === key}
           onPress={() => onSelect(key)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: selected === key }}
-          style={pressable([
-            styles.chip,
-            selected === key
-              ? styles.chipFilterActive
-              : isDark
-                ? styles.chipDark
-                : styles.chipInactive,
-          ])}
-          android_ripple={pressRipple}
-        >
-          <Text
-            style={[
-              styles.chipText,
-              selected === key
-                ? styles.chipTextFilterActive
-                : isDark
-                  ? styles.chipTextDark
-                  : styles.chipTextInactive,
-            ]}
-          >
-            {label}
-          </Text>
-        </Pressable>
+          fill={FILTER_CHIP.fill}
+          ink={FILTER_CHIP.ink}
+        />
       ))}
     </ScrollView>
   );
@@ -140,24 +127,9 @@ function MapScreenContent() {
   const { isDark } = useTheme();
   const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Attribution text from map (updated dynamically)
   const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
-
-  // Get the sync date range from global store
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
-  // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const {
-    isError: isActivitiesError,
-    error: activitiesError,
-    refetch: refetchActivities,
-  } = useActivities({
-    oldest: syncOldest,
-    newest: syncNewest,
-    enabled: isAuthenticated,
-  });
 
   // Get sync state from engine cache
   const { isReady, cacheStats } = useActivityBoundsCache();
@@ -202,6 +174,9 @@ function MapScreenContent() {
     sectionCount,
     sections,
     sectionsGeoJSON,
+    isError: isMapReadError,
+    error: mapReadError,
+    refetch: refetchMapRead,
   } = useEngineMapActivities({
     startDate: periodStart,
     endDate: ALL_TIME_END,
@@ -238,6 +213,18 @@ function MapScreenContent() {
       .sort((a, b) => b.count - a.count);
   }, [availableTypes, categoryCounts]);
 
+  // The sports the map draws: those in the window, narrowed to the chosen ones.
+  const keyCategories = useMemo(
+    () =>
+      categorySorted
+        .filter(
+          ({ category, count }) =>
+            count > 0 && (selectedCategories.size === 0 || selectedCategories.has(category))
+        )
+        .map(({ category }) => category),
+    [categorySorted, selectedCategories]
+  );
+
   const changeNeedle = (text: string) => {
     setNameNeedle(text);
     setFocusActivityId(undefined);
@@ -270,12 +257,13 @@ function MapScreenContent() {
       );
     });
 
-  // The map draws what the engine already holds, so a failed read of the sync
-  // window is named over it rather than taking the map away.
-  const activitiesFailure = isActivitiesError ? (
-    <EngineReadFailureRetry
-      error={activitiesError}
-      onRetry={() => void refetchActivities()}
+  // A failed map read is named over the map and its sheet rather than taking
+  // the tab away, so the period and filters stay to retry from.
+  const mapReadFailure = isMapReadError ? (
+    <ErrorState
+      variant="inline"
+      error={mapReadError}
+      onRetry={refetchMapRead}
       testID="map-activities-failed"
     />
   ) : null;
@@ -291,7 +279,7 @@ function MapScreenContent() {
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t('mapScreen.loadingActivities')}
         </Text>
-        {activitiesFailure}
+        {mapReadFailure}
         <View style={styles.loadingBannerContainer}>
           <SyncProgressBanner />
         </View>
@@ -315,6 +303,7 @@ function MapScreenContent() {
           focusActivityId={focusActivityId}
           sectionsEnabled={sectionsEnabled}
           selectSectionId={sectionsEnabled ? selectSectionId : undefined}
+          keyCategories={keyCategories}
         />
       </ComponentErrorBoundary>
 
@@ -343,14 +332,14 @@ function MapScreenContent() {
               sheetExpanded ? t('mapScreen.hideFilters') : t('mapScreen.showFilters')
             }
             accessibilityState={{ expanded: sheetExpanded }}
-            hitSlop={{ top: spacing.md, bottom: spacing.xs }}
+            hitSlop={HANDLE_SLOP}
             style={pressable(styles.handleRow)}
             android_ripple={pressRipple}
           >
             <View style={[styles.handle, isDark && styles.handleDark]} />
           </Pressable>
 
-          {activitiesFailure}
+          {mapReadFailure}
 
           {sheetExpanded && (
             <Animated.View
@@ -374,7 +363,6 @@ function MapScreenContent() {
             }))}
             selected={period}
             onSelect={setPeriod}
-            isDark={isDark}
           />
 
           {sheetExpanded && (
@@ -387,7 +375,6 @@ function MapScreenContent() {
                 options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
                 selected={distanceFilter}
                 onSelect={setDistanceFilter}
-                isDark={isDark}
               />
 
               {/* Sport type filter chips */}
@@ -425,6 +412,16 @@ function MapScreenContent() {
     </View>
   );
 }
+
+const HANDLE_HEIGHT = spacing.xs;
+const HANDLE_ROW_PADDING = spacing.sm;
+const HANDLE_ROW_HEIGHT = HANDLE_HEIGHT + 2 * HANDLE_ROW_PADDING;
+// The handle's target reaches the floor mostly upward, over the sheet's edge,
+// and only a little downward, where the filter chips start.
+const HANDLE_SLOP = {
+  top: layout.minTapTarget - HANDLE_ROW_HEIGHT - spacing.xs,
+  bottom: spacing.xs,
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -471,11 +468,11 @@ const styles = StyleSheet.create({
   },
   handleRow: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: HANDLE_ROW_PADDING,
   },
   handle: {
     width: spacing.xl,
-    height: spacing.xs,
+    height: HANDLE_HEIGHT,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.black, 0.25),
   },
@@ -485,37 +482,12 @@ const styles = StyleSheet.create({
   infoBarDark: {
     backgroundColor: colorWithOpacity(darkColors.backgroundAlt, 0.92),
   },
-  chipFilterActive: {
-    backgroundColor: FILTER_CHIP.fill,
-  },
+  // A horizontal scroller clips its children, so the row is as tall as the
+  // chips' tap targets or the slop above and below would take no touch.
   chipRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  chip: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-  },
-  chipInactive: {
-    backgroundColor: colorWithOpacity(ink.black, 0.08),
-  },
-  chipDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.15),
-  },
-  chipTextFilterActive: {
-    color: FILTER_CHIP.ink,
-  },
-  chipText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-  },
-  chipTextInactive: {
-    color: colors.textSecondary,
-  },
-  chipTextDark: {
-    color: colorWithOpacity(ink.white, 0.8),
+    paddingVertical: Math.max(spacing.xs, slopToMinTapTarget(controlHeight.chip).top),
   },
   infoRow: {
     flexDirection: 'row',

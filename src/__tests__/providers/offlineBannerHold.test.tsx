@@ -68,8 +68,8 @@ function Edges() {
   return <Text testID="edges">{screenEdges.join(',')}</Text>;
 }
 
-function mount() {
-  render(
+async function mount() {
+  await render(
     <NetworkProvider>
       <TopSafeAreaProvider>
         <OfflineBanner />
@@ -78,15 +78,15 @@ function mount() {
       </TopSafeAreaProvider>
     </NetworkProvider>
   );
-  act(() => mockNetwork.listener!(ONLINE));
+  await act(() => mockNetwork.listener!(ONLINE));
 }
 
-function reading(state: Reading) {
-  act(() => mockNetwork.listener!(state));
+async function reading(state: Reading) {
+  await act(() => mockNetwork.listener!(state));
 }
 
-function wait(ms: number) {
-  act(() => {
+async function wait(ms: number) {
+  await act(() => {
     jest.advanceTimersByTime(ms);
   });
 }
@@ -96,9 +96,9 @@ function wait(ms: number) {
  * as the two are separate renders on a device: one clock advance renders only
  * at its end, which would start the delay late.
  */
-function waitThroughBoth(lessMs = 0) {
-  wait(DEBOUNCE_MS);
-  wait(HOLD_MS - lessMs);
+async function waitThroughBoth(lessMs = 0) {
+  await wait(DEBOUNCE_MS);
+  await wait(HOLD_MS - lessMs);
 }
 
 function topEdgeKept(): boolean {
@@ -116,46 +116,46 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('shows nothing for a handoff shorter than both waits', () => {
-  mount();
-  reading(UNREACHABLE);
+it('shows nothing for a handoff shorter than both waits', async () => {
+  await mount();
+  await reading(UNREACHABLE);
 
-  wait(DEBOUNCE_MS);
-  wait(HOLD_MS - 500);
+  await wait(DEBOUNCE_MS);
+  await wait(HOLD_MS - 500);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
 
-  reading(ONLINE);
-  wait(HOLD_MS * 2);
+  await reading(ONLINE);
+  await wait(HOLD_MS * 2);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
   expect(topEdgeKept()).toBe(true);
 });
 
-it('shows nothing for a drop shorter than the debounce', () => {
-  mount();
-  reading(UNREACHABLE);
-  wait(DEBOUNCE_MS - 1);
-  reading(ONLINE);
-  wait(DEBOUNCE_MS + HOLD_MS);
+it('shows nothing for a drop shorter than the debounce', async () => {
+  await mount();
+  await reading(UNREACHABLE);
+  await wait(DEBOUNCE_MS - 1);
+  await reading(ONLINE);
+  await wait(DEBOUNCE_MS + HOLD_MS);
 
   expect(screen.queryByTestId('offline-banner')).toBeNull();
 });
 
-it('shows the pill four seconds after the drop, and the screens keep their top edge', () => {
-  mount();
-  reading(UNREACHABLE);
+it('shows the pill four seconds after the drop, and the screens keep their top edge', async () => {
+  await mount();
+  await reading(UNREACHABLE);
 
-  waitThroughBoth(1);
+  await waitThroughBoth(1);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
 
-  wait(1);
+  await wait(1);
   expect(screen.getByTestId('offline-banner')).toBeTruthy();
   expect(topEdgeKept()).toBe(true);
 });
 
-it('floats the pill under the status bar, passing touches through, on one line', () => {
-  mount();
-  reading(UNREACHABLE);
-  waitThroughBoth();
+it('floats the pill under the status bar, passing touches through, on one line', async () => {
+  await mount();
+  await reading(UNREACHABLE);
+  await waitThroughBoth();
 
   const pill = screen.getByTestId('offline-banner');
   const style = StyleSheet.flatten(pill.props.style) as { position?: string; top?: number };
@@ -165,28 +165,28 @@ it('floats the pill under the status bar, passing touches through, on one line',
   expect(screen.getByTestId('offline-banner-text').props.numberOfLines).toBe(1);
 });
 
-it('takes the pill away on the render the online reading lands', () => {
-  mount();
-  reading(UNREACHABLE);
-  waitThroughBoth();
+it('takes the pill away on the render the online reading lands', async () => {
+  await mount();
+  await reading(UNREACHABLE);
+  await waitThroughBoth();
   expect(screen.getByTestId('offline-banner')).toBeTruthy();
 
-  reading(ONLINE);
+  await reading(ONLINE);
 
   expect(screen.queryByTestId('offline-banner')).toBeNull();
 });
 
-it('starts the wait over for a second drop after coming back', () => {
-  mount();
-  reading(UNREACHABLE);
-  waitThroughBoth();
-  reading(ONLINE);
+it('starts the wait over for a second drop after coming back', async () => {
+  await mount();
+  await reading(UNREACHABLE);
+  await waitThroughBoth();
+  await reading(ONLINE);
 
-  reading(UNREACHABLE);
-  waitThroughBoth(1);
+  await reading(UNREACHABLE);
+  await waitThroughBoth(1);
   expect(screen.queryByTestId('offline-banner')).toBeNull();
 
-  wait(1);
+  await wait(1);
   expect(screen.getByTestId('offline-banner')).toBeTruthy();
 });
 
@@ -195,36 +195,36 @@ describe('with a sync error holding the slot', () => {
     mockHealth.lastError = 'HTTP 503';
   });
 
-  it('keeps the sync-error banner and the edges through a handoff shorter than both waits', () => {
-    mount();
+  it('keeps the sync-error banner and the edges through a handoff shorter than both waits', async () => {
+    await mount();
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
     expect(topEdgeKept()).toBe(false);
 
-    reading(UNREACHABLE);
-    wait(DEBOUNCE_MS);
-    wait(500);
+    await reading(UNREACHABLE);
+    await wait(DEBOUNCE_MS);
+    await wait(500);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
     expect(topEdgeKept()).toBe(false);
 
-    reading(ONLINE);
+    await reading(ONLINE);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
     expect(topEdgeKept()).toBe(false);
   });
 
-  it('gives way to the pill and hands the top edge back to the screen', () => {
-    mount();
-    reading(UNREACHABLE);
+  it('gives way to the pill and hands the top edge back to the screen', async () => {
+    await mount();
+    await reading(UNREACHABLE);
 
-    waitThroughBoth(1);
+    await waitThroughBoth(1);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
     expect(screen.queryByTestId('offline-banner')).toBeNull();
 
-    wait(1);
+    await wait(1);
     expect(screen.queryByTestId('sync-error-banner')).toBeNull();
     expect(screen.getByTestId('offline-banner')).toBeTruthy();
     expect(topEdgeKept()).toBe(true);
 
-    reading(ONLINE);
+    await reading(ONLINE);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
     expect(screen.queryByTestId('offline-banner')).toBeNull();
     expect(topEdgeKept()).toBe(false);

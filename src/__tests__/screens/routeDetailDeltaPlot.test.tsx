@@ -36,6 +36,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'grp-quarry' }),
   router: { back: jest.fn(), push: jest.fn() },
 }));
@@ -183,11 +184,11 @@ beforeEach(() => {
 });
 
 describe('route page delta plot', () => {
-  it('offers the delta plot and colours the route line by the newest attempt', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('offers the delta plot and colours the route line by the newest attempt', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(lastMapDeltaLine()).toBeFalsy();
-    fireEvent.press(screen.getByTestId('chart-plot-delta'));
+    await fireEvent.press(screen.getByTestId('chart-plot-delta'));
 
     expect(screen.getByTestId('section-delta-chart')).toBeTruthy();
     expect(lastMapDeltaLine()).toEqual({
@@ -198,18 +199,18 @@ describe('route page delta plot', () => {
     });
   });
 
-  it('takes the colouring back when the scatter is chosen again', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('takes the colouring back when the scatter is chosen again', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
-    fireEvent.press(screen.getByTestId('chart-plot-delta'));
-    fireEvent.press(screen.getByTestId('chart-plot-scatter'));
+    await fireEvent.press(screen.getByTestId('chart-plot-delta'));
+    await fireEvent.press(screen.getByTestId('chart-plot-scatter'));
 
     expect(lastMapDeltaLine()).toBeNull();
   });
 
-  it('offers no delta plot when the read carries no curves', () => {
+  it('offers no delta plot when the read carries no curves', async () => {
     mockCurves = undefined;
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.queryByTestId('chart-plot-delta')).toBeNull();
     expect(lastMapDeltaLine()).toBeFalsy();
@@ -223,7 +224,7 @@ describe('route page curves owed', () => {
   });
 
   it('reads once and loads the curves when no attempt is missing its stream', async () => {
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
     expect(screen.queryByTestId('chart-plot-delta')).toBeNull();
 
     await act(async () => {});
@@ -232,7 +233,7 @@ describe('route page curves owed', () => {
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
     expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledTimes(1);
     expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledWith('grp-quarry', 0, undefined);
-    fireEvent.press(screen.getByTestId('chart-plot-delta'));
+    await fireEvent.press(screen.getByTestId('chart-plot-delta'));
     expect(lastMapDeltaLine()?.splits).toEqual(Float32Array.from([2, -1, 4]));
   });
 
@@ -246,7 +247,7 @@ describe('route page curves owed', () => {
       if (channel === 'timeStreamsStored') announce = listener;
       return () => {};
     }) as never);
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     expect(mockStreams.syncTimeStreams).toHaveBeenCalledWith(['q2']);
     expect(mockEngine.loadRouteDetailPerformance).not.toHaveBeenCalled();
@@ -262,7 +263,7 @@ describe('route page curves owed', () => {
   it('loads no curves when the wait ends with a stream still missing', async () => {
     mockMissingStreams = ['q2'];
     jest.mocked(mockStreams.syncTimeStreams).mockReturnValueOnce({ outcome: StartOutcome.Held });
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     await act(async () => {});
 
@@ -273,7 +274,7 @@ describe('route page curves owed', () => {
 
   it('keeps every figure the read drew when the load fails', async () => {
     mockEngine.loadRouteDetailPerformance.mockRejectedValueOnce(new Error('engine down'));
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     await act(async () => {});
 
@@ -285,7 +286,7 @@ describe('route page curves owed', () => {
   it('loads nothing when the read holds its curves', async () => {
     mockCurves = CURVES;
     mockCurvesPending = false;
-    render(<RouteDetailScreen />);
+    await render(<RouteDetailScreen />);
 
     await act(async () => {});
 

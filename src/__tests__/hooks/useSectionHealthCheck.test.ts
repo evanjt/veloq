@@ -50,15 +50,15 @@ describe('section health check redetect', () => {
     const refusedEngine = engineWith(refusal);
     mockedGetEngine.mockReturnValue(refusedEngine as never);
 
-    const firstLaunch = renderHook(() => useSectionHealthCheck(true));
+    const firstLaunch = await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(refusedEngine.forceRedetectSections).toHaveBeenCalledTimes(1));
     await act(async () => {});
     expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBeUndefined();
-    firstLaunch.unmount();
+    await firstLaunch.unmount();
 
     const acceptedEngine = engineWith(StartOutcome.Started);
     mockedGetEngine.mockReturnValue(acceptedEngine as never);
-    renderHook(() => useSectionHealthCheck(true));
+    await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(acceptedEngine.forceRedetectSections).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBe('1'));
   });
@@ -67,13 +67,13 @@ describe('section health check redetect', () => {
     const engine = engineWith(StartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const first = renderHook(() => useSectionHealthCheck(true));
+    const first = await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(engine.forceRedetectSections).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBe('1'));
-    first.unmount();
+    await first.unmount();
 
     settings.clear();
-    renderHook(() => useSectionHealthCheck(true));
+    await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(engine.forceRedetectSections).toHaveBeenCalledTimes(2));
   });
 
@@ -82,7 +82,7 @@ describe('section health check redetect', () => {
     const engine = engineWith(StartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
-    renderHook(() => useSectionHealthCheck(true));
+    await renderHook(() => useSectionHealthCheck(true));
     await act(async () => {});
 
     expect(engine.forceRedetectSections).not.toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('section health check redetect', () => {
     const engine = engineWith(StartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
-    renderHook(() => useSectionHealthCheck(true));
+    await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBe('1'));
 
     expect(engine.forceRedetectSections).not.toHaveBeenCalled();

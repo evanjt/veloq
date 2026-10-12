@@ -42,6 +42,7 @@ jest.mock('@/shared/native/engine', () => ({
     subscribe: () => () => undefined,
     getRetiredSections: () => [],
   }),
+  isEngineReady: () => true,
 }));
 
 // The feature barrels are replaced by components that render nothing, so the screen under test is
@@ -95,10 +96,10 @@ describe('large-title list and form screens', () => {
     expect(headerLargeTitle(route, 'android')).toBe(false);
   });
 
-  it.each(ROUTES)('%s lets the system inset its scroll view on iOS', (route) => {
+  it.each(ROUTES)('%s lets the system inset its scroll view on iOS', async (route) => {
     Platform.OS = 'ios';
     const Screen: React.ComponentType = require(`@/app/${route}`).default;
-    const { UNSAFE_getAllByType } = render(<Screen />);
+    const { UNSAFE_getAllByType } = await render(<Screen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');

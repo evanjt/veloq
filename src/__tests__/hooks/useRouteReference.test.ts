@@ -10,41 +10,42 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 const translate = ((key: string) => key) as TFunction;
 
 describe('useRouteReference', () => {
-  it('offers reset when the current reference is tapped', () => {
+  it('offers reset when the current reference is tapped', async () => {
     const resetRouteRepresentative = jest.fn().mockReturnValue(true);
     jest.mocked(getEngine).mockReturnValue({ resetRouteRepresentative } as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       buttons?.find((button) => button.text === 'common.reset')?.onPress?.();
     });
-    const { result } = renderHook(() => useRouteReference('r_1', 'A', translate));
+    const { result } = await renderHook(() => useRouteReference('r_1', 'A', translate));
 
-    act(() => result.current.handleSetAsReference('A'));
+    await act(() => result.current.handleSetAsReference('A'));
 
     expect(alert).toHaveBeenCalledWith(
       'routes.resetReference',
       'routes.resetReferenceConfirm',
-      expect.any(Array)
+      expect.any(Array),
+      expect.objectContaining({ cancelable: true })
     );
     expect(resetRouteRepresentative).toHaveBeenCalledWith('r_1');
     alert.mockRestore();
   });
 
-  it('follows the representative refreshed by the engine after a regroup', () => {
+  it('follows the representative refreshed by the engine after a regroup', async () => {
     const setRouteRepresentative = jest.fn().mockReturnValue(true);
     jest.mocked(getEngine).mockReturnValue({ setRouteRepresentative } as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       buttons?.find((button) => button.text === 'common.confirm')?.onPress?.();
     });
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ representativeId }: { representativeId: string }) =>
         useRouteReference('r_1', representativeId, translate),
       { initialProps: { representativeId: 'A' } }
     );
 
-    act(() => result.current.handleSetAsReference('C'));
-    rerender({ representativeId: 'C' });
+    await act(() => result.current.handleSetAsReference('C'));
+    await rerender({ representativeId: 'C' });
     expect(result.current.effectiveRepresentativeId).toBe('C');
-    rerender({ representativeId: 'B' });
+    await rerender({ representativeId: 'B' });
     expect(result.current.effectiveRepresentativeId).toBe('B');
     alert.mockRestore();
   });

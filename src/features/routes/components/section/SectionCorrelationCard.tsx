@@ -5,12 +5,12 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, Switch } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { FfiCorrelation_Tags } from 'veloqrs';
 import type { FfiSectionCorrelation } from 'veloqrs';
-import { Card } from '@/shared/ui';
+import { Card, Switch } from '@/shared/ui';
 import { correlationReading, type CorrelationStrength } from '../../lib/correlationReading';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -170,7 +170,7 @@ export function SectionCorrelationCard({
       accessibilityRole="summary"
       style={{ gap: spacing.xs }}
     >
-      <Text style={[styles.heading, isDark && styles.headingDark]}>
+      <Text accessibilityRole="header" style={[styles.heading, isDark && styles.headingDark]}>
         {t('sections.correlationTitle')}
       </Text>
       <Text style={mutedStyle}>{t('sections.correlationMethod')}</Text>

@@ -7,7 +7,11 @@
 import { useCallback, useMemo } from 'react';
 import { decodeCoords, type LatLng } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import {
+  useEngineRead,
+  useEngineReadState,
+  type EngineReadState,
+} from '@/shared/native/useEngineSubscription';
 
 export interface NamedCorridor {
   intentId: string;
@@ -27,11 +31,14 @@ export interface NamedCorridor {
 
 export interface UseNamedCorridorsResult {
   corridors: NamedCorridor[];
+  /** Only a `ready` read with no corridors means the user has named nothing. */
+  state: EngineReadState;
   remove: (intentId: string) => boolean;
 }
 
 export function useNamedCorridors(): UseNamedCorridorsResult {
   const readCorridors = useEngineRead(['sections']);
+  const state = useEngineReadState();
 
   const corridors = useMemo(() => {
     // Engine order is the persisted order. Sorting here would fight it.
@@ -60,5 +67,5 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
     return engine.removeNamedCorridor(intentId);
   }, []);
 
-  return { corridors, remove };
+  return { corridors, state, remove };
 }

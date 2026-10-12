@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Switch } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { isAutoBackupEnabled, setAutoBackupEnabled } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, spacing, layout, colorWithOpacity, ink, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
 
 const ICON_SIZE = 36;
 
@@ -59,20 +59,12 @@ export function BackupSlide() {
         </View>
       </View>
       <View style={[styles.switchRow, { backgroundColor: bgColor }]}>
-        <MaterialCommunityIcons name="cloud-sync-outline" size={22} color={mutedColor} />
-        <Text
-          style={[
-            styles.switchLabel,
-            { color: isDark ? darkColors.textPrimary : colors.textPrimary },
-          ]}
-        >
-          {t('backup.autoBackup')}
-        </Text>
-        <Switch
-          testID="tour-backup-auto-switch"
+        <SwitchRow
+          icon="cloud-sync-outline"
+          title={t('backup.autoBackup')}
           value={autoEnabled}
           onValueChange={handleToggle}
-          trackColor={{ false: colors.border, true: colors.primary }}
+          testID="tour-backup-auto-switch"
         />
       </View>
     </View>
@@ -92,18 +84,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     alignSelf: 'stretch',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusMd,
-  },
-  switchLabel: {
-    flex: 1,
-    fontSize: typography.body.fontSize,
-    fontWeight: '500',
+    overflow: 'hidden',
   },
   iconBox: {
     width: 60,

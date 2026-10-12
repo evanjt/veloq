@@ -179,7 +179,7 @@ async function signInAndSaveAnyReview(athleteId: string) {
   signIn(athleteId);
   const route = await resumeHeldRecordingForAthlete(athleteId);
   if (route) {
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
   }
   return route;
@@ -207,7 +207,7 @@ afterEach(() => {
 it('does not hold or save again a ride whose upload met a rejected credential', async () => {
   await stopRide('athlete-a');
   mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.AuthExpired });
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
   expect(await loadRecordingBackup()).toBeNull();
 
@@ -215,7 +215,7 @@ it('does not hold or save again a ride whose upload met a rejected credential', 
   // while the toast is still on screen.
   await holdRecordingOnSignOut('athlete-a');
   signOut();
-  review.unmount();
+  await review.unmount();
 
   expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
   expect(await loadRecordingBackup()).toBeNull();
@@ -230,13 +230,13 @@ it.each([
   async (_name, outcome) => {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome });
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(review.result.current.queuedMessage).not.toBeNull();
 
     await holdRecordingOnSignOut('athlete-a');
     signOut();
-    review.unmount();
+    await review.unmount();
     expect(useRecordingStore.getState().status).toBe('idle');
 
     expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
@@ -247,13 +247,13 @@ it.each([
 it('does not hold a ride saved on the device alone when the athlete signs out in the toast', async () => {
   useRecordingPreferences.setState({ autoUploadEnabled: false });
   await stopRide('athlete-a');
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
   expect(review.result.current.queuedMessage).not.toBeNull();
 
   await holdRecordingOnSignOut('athlete-a');
   signOut();
-  review.unmount();
+  await review.unmount();
 
   expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
   expect(mockSaveRecording).toHaveBeenCalledTimes(1);
@@ -269,9 +269,9 @@ it('does not reopen a ride whose library write finished after the sign-out held 
         finishSave = resolve;
       })
   );
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   let saving!: Promise<void>;
-  act(() => {
+  await act(() => {
     saving = review.result.current.handleSave();
   });
   await act(async () => {
@@ -285,7 +285,7 @@ it('does not reopen a ride whose library write finished after the sign-out held 
     finishSave(libraryRow(START));
     await saving;
   });
-  review.unmount();
+  await review.unmount();
 
   signIn('athlete-a');
   expect(await loadRecordingBackup()).toBeNull();
@@ -296,9 +296,9 @@ it('does not reopen a ride whose library write finished after the sign-out held 
 it('does not hand a saved ride to its athlete again after another athlete signs in', async () => {
   await stopRide('athlete-a');
   mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
-  review.unmount();
+  await review.unmount();
 
   // Signed in as another athlete while the saved ride still sits in the store.
   signIn('athlete-b');
@@ -313,13 +313,13 @@ it('does not hand a saved ride to its athlete again after another athlete signs 
 it('still holds a stopped ride that never reached the library', async () => {
   await stopRide('athlete-a');
   mockSaveRecording.mockResolvedValue(null);
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
   expect(review.result.current.canRetry).toBe(true);
 
   await holdRecordingOnSignOut('athlete-a');
   signOut();
-  review.unmount();
+  await review.unmount();
 
   signIn('athlete-a');
   expect(await loadRecordingBackup()).toEqual(
@@ -331,10 +331,10 @@ it('still holds a stopped ride that never reached the library', async () => {
 it('does not save from a second review of a ride the library already holds', async () => {
   await stopRide('athlete-a');
   mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
-  const first = renderHook(() => useReviewSave(reviewArgs));
+  const first = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => first.result.current.handleSave());
 
-  const second = renderHook(() => useReviewSave(reviewArgs));
+  const second = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => second.result.current.handleSave());
   expect(mockSaveRecording).toHaveBeenCalledTimes(1);
 });
@@ -349,9 +349,9 @@ it('reopens nothing when the held ride stayed in memory and its save finished af
         finishSave = resolve;
       })
   );
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   let saving!: Promise<void>;
-  act(() => {
+  await act(() => {
     saving = review.result.current.handleSave();
   });
   await act(async () => {
@@ -367,7 +367,7 @@ it('reopens nothing when the held ride stayed in memory and its save finished af
     finishSave(libraryRow(START));
     await saving;
   });
-  review.unmount();
+  await review.unmount();
 
   expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
   expect(useRecordingStore.getState().status).toBe('idle');
@@ -427,7 +427,7 @@ describe('a backup that outlived the library save of its ride', () => {
     expect(await resumeRecordingBackup()).toBe('/recording/review');
     mockLibraryUnreadable = false;
 
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();
@@ -440,7 +440,7 @@ describe('a backup that outlived the library save of its ride', () => {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
     mockLibraryUnreadable = true;
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
   });
@@ -464,9 +464,9 @@ it("does not reopen a saved ride held in memory through another athlete's sign-i
         finishSave = resolve;
       })
   );
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   let saving!: Promise<void>;
-  act(() => {
+  await act(() => {
     saving = review.result.current.handleSave();
   });
   await act(async () => {
@@ -486,7 +486,7 @@ it("does not reopen a saved ride held in memory through another athlete's sign-i
     finishSave(libraryRow(START));
     await saving;
   });
-  review.unmount();
+  await review.unmount();
   signOut();
 
   expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
@@ -503,11 +503,11 @@ describe('a review left after its upload failed', () => {
     async (_name, outcome) => {
       await stopRide('athlete-a');
       mockUploadRecording.mockResolvedValue({ outcome });
-      const review = renderHook(() => useReviewSave(reviewArgs));
+      const review = await renderHook(() => useReviewSave(reviewArgs));
       await act(() => review.result.current.handleSave());
       expect(review.result.current.errorMessage).not.toBeNull();
 
-      review.unmount();
+      await review.unmount();
       expect(sessionReturnRoute(useRecordingStore.getState())).toBeNull();
       expect(useRecordingStore.getState().status).toBe('idle');
     }
@@ -516,7 +516,7 @@ describe('a review left after its upload failed', () => {
   it('still retries the upload from the same review', async () => {
     await stopRide('athlete-a');
     mockUploadRecording.mockRejectedValueOnce(new Error('socket closed'));
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(review.result.current.canRetry).toBe(true);
 
@@ -524,24 +524,24 @@ describe('a review left after its upload failed', () => {
     await act(() => review.result.current.handleSave());
     expect(mockUploadRecording).toHaveBeenCalledTimes(2);
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 
   it('settles a second review of it instead of offering a Save that does nothing', async () => {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
-    const first = renderHook(() => useReviewSave(reviewArgs));
+    const first = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => first.result.current.handleSave());
 
-    const second = renderHook(() => useReviewSave(reviewArgs));
+    const second = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => second.result.current.handleSave());
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
     expect(second.result.current.queuedMessage).toBe('recording.savedLocally');
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1500);
     });
     expect(useRecordingStore.getState().status).toBe('idle');
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 });
 
@@ -555,9 +555,9 @@ it('stamps a ride whose save finishes after another athlete signs in with its ow
         finishSave = resolve;
       })
   );
-  const review = renderHook(() => useReviewSave(reviewArgs));
+  const review = await renderHook(() => useReviewSave(reviewArgs));
   let saving!: Promise<void>;
-  act(() => {
+  await act(() => {
     saving = review.result.current.handleSave();
   });
   await act(async () => {
@@ -571,7 +571,7 @@ it('stamps a ride whose save finishes after another athlete signs in with its ow
     finishSave(libraryRow(START, 'fit', 'athlete-a'));
     await saving;
   });
-  review.unmount();
+  await review.unmount();
 
   expect(mockSaveRecording).toHaveBeenCalledTimes(1);
   expect(mockSaveRecording).toHaveBeenCalledWith(
@@ -584,7 +584,7 @@ describe('a saved ride while the library cannot be read', () => {
   it('writes no backup when its athlete signs out with the review still open', async () => {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(await loadRecordingBackup()).toBeNull();
 
@@ -592,7 +592,7 @@ describe('a saved ride while the library cannot be read', () => {
     await holdRecordingOnSignOut('athlete-a');
     expect(await loadRecordingBackup()).toBeNull();
     signOut();
-    review.unmount();
+    await review.unmount();
 
     expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
@@ -601,7 +601,7 @@ describe('a saved ride while the library cannot be read', () => {
   it('writes no backup when another athlete signs in while it sits in the store', async () => {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(useRecordingStore.getState()).toEqual(
       expect.objectContaining({ status: 'stopped', savedToLibrary: true })
@@ -612,7 +612,7 @@ describe('a saved ride while the library cannot be read', () => {
     expect(await resumeHeldRecordingForAthlete('athlete-b')).toBeNull();
     expect(useRecordingStore.getState().status).toBe('idle');
     expect(await loadRecordingBackup()).toBeNull();
-    review.unmount();
+    await review.unmount();
     signOut();
 
     expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
@@ -631,15 +631,15 @@ describe('a review left while its library write is in flight', () => {
           finishSave = resolve;
         })
     );
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     let saving!: Promise<void>;
-    act(() => {
+    await act(() => {
       saving = review.result.current.handleSave();
     });
     await act(async () => {
       await Promise.resolve();
     });
-    review.unmount();
+    await review.unmount();
     expect(useRecordingStore.getState().status).toBe('stopped');
     await act(async () => {
       finishSave(libraryRow(START));
@@ -678,15 +678,15 @@ describe('a review left while its library write is in flight', () => {
           finishSave = resolve;
         })
     );
-    const review = renderHook(() => useReviewSave(reviewArgs));
+    const review = await renderHook(() => useReviewSave(reviewArgs));
     let saving!: Promise<void>;
-    act(() => {
+    await act(() => {
       saving = review.result.current.handleSave();
     });
     await act(async () => {
       await Promise.resolve();
     });
-    review.unmount();
+    await review.unmount();
     useRecordingStore.setState({
       status: 'stopped',
       athleteId: 'athlete-a',

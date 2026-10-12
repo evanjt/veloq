@@ -28,7 +28,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 const mockSectionCommits = jest.fn();
 
 describe('a collapsible section opening for the first time', () => {
-  it('mounts its children on the commit that expands it', () => {
+  it('mounts its children on the commit that expands it', async () => {
     function Host({ expanded }: { expanded: boolean }) {
       return (
         <Profiler id="section" onRender={mockSectionCommits}>
@@ -39,17 +39,17 @@ describe('a collapsible section opening for the first time', () => {
       );
     }
 
-    const tree = render(<Host expanded={false} />);
+    const tree = await render(<Host expanded={false} />);
     expect(tree.queryByTestId('child')).toBeNull();
 
     mockSectionCommits.mockClear();
-    tree.rerender(<Host expanded />);
+    await tree.rerender(<Host expanded />);
 
     expect(tree.getByTestId('child')).toBeTruthy();
     expect(mockSectionCommits).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the children mounted once it has been collapsed again', () => {
+  it('keeps the children mounted once it has been collapsed again', async () => {
     function Host({ expanded }: { expanded: boolean }) {
       return (
         <CollapsibleSection title="Records" expanded={expanded} onToggle={jest.fn()}>
@@ -58,8 +58,8 @@ describe('a collapsible section opening for the first time', () => {
       );
     }
 
-    const tree = render(<Host expanded />);
-    tree.rerender(<Host expanded={false} />);
+    const tree = await render(<Host expanded />);
+    await tree.rerender(<Host expanded={false} />);
     expect(tree.getByTestId('child')).toBeTruthy();
   });
 });
@@ -89,18 +89,18 @@ describe('entering section creation mode', () => {
     return { commits, Probe, tapAt: (i: number) => tap?.(coords[i].longitude, coords[i].latitude) };
   }
 
-  it('never commits a frame holding the previous run picks', () => {
+  it('never commits a frame holding the previous run picks', async () => {
     const { commits, Probe, tapAt } = creationProbe();
-    const tree = render(<Probe creationMode />);
+    const tree = await render(<Probe creationMode />);
 
-    act(() => {
+    await act(() => {
       tapAt(1);
     });
     expect(commits[commits.length - 1]).toBe(1);
 
-    tree.rerender(<Probe creationMode={false} />);
+    await tree.rerender(<Probe creationMode={false} />);
     commits.length = 0;
-    tree.rerender(<Probe creationMode />);
+    await tree.rerender(<Probe creationMode />);
 
     expect(commits.length).toBeGreaterThan(0);
     expect(commits).not.toContain(1);

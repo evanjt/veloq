@@ -120,9 +120,9 @@ function traces(count: number): Record<string, RoutePoint[]> {
   return out;
 }
 
-function ready() {
+async function ready() {
   for (const onMessage of mockPages.values()) {
-    act(() => onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await act(() => onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
   }
 }
 
@@ -172,13 +172,13 @@ describe('activity detail map mount', () => {
     longitude: 7.447 + (i / SIX_HOURS) * 0.4,
   }));
 
-  it('sends the track once', () => {
-    render(
+  it('sends the track once', async () => {
+    await render(
       <SafeAreaProvider initialMetrics={METRICS}>
         <ActivityMapView activityType="Ride" coordinates={coordinates} activeTab="charts" />
       </SafeAreaProvider>
     );
-    ready();
+    await ready();
 
     const applies = mockInjected.filter((s) => s.includes('window._veloq.apply('));
     expect(applies).toHaveLength(1);
@@ -194,7 +194,7 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
   const all = traces(count);
   const ids = Object.keys(all);
 
-  it('section detail map', () => {
+  it('section detail map', async () => {
     const section: FrequentSection = {
       id: 'section-1',
       sectionType: 'auto',
@@ -218,14 +218,14 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
         />
       </SafeAreaProvider>
     );
-    const view = render(map(null));
-    ready();
+    const view = await render(map(null));
+    await ready();
     mockTicks.length = 0;
-    for (let i = 0; i < SCRUB_TICKS; i++) view.rerender(map(ids[i % ids.length]));
+    for (let i = 0; i < SCRUB_TICKS; i++) await view.rerender(map(ids[i % ids.length]));
     expectScrubTicks(mockTicks, SECTION_TICK);
   });
 
-  it('route detail map', () => {
+  it('route detail map', async () => {
     const signatures: Record<string, { points: RoutePoint[] }> = {};
     for (const id of ids) signatures[id] = { points: all[id] };
     const routeGroup = {
@@ -247,10 +247,10 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
         />
       </SafeAreaProvider>
     );
-    const view = render(map(null));
-    ready();
+    const view = await render(map(null));
+    await ready();
     mockTicks.length = 0;
-    for (let i = 0; i < SCRUB_TICKS; i++) view.rerender(map(ids[i % ids.length]));
+    for (let i = 0; i < SCRUB_TICKS; i++) await view.rerender(map(ids[i % ids.length]));
     expectScrubTicks(mockTicks, ROUTE_TICK);
   });
 });

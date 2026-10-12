@@ -9,14 +9,9 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
-import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
-import { amberBanner, spacing, typography } from '@/theme';
-import { Button } from './Button';
+import { NoticeBanner } from './NoticeBanner';
 
 export type StartupArea =
   | 'language'
@@ -60,61 +55,26 @@ interface StartupErrorBannerProps {
 
 export function StartupErrorBanner({ areas, onDismiss }: StartupErrorBannerProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const padsStatusBar = useBannerPadsStatusBar('startupError');
-  const { isDark } = useTheme();
-  const palette = isDark ? amberBanner.dark : amberBanner.light;
   const named = areas
     .map((area) => t(AREA_KEY[area], { defaultValue: AREA_DEFAULT[area] }))
     .join(', ');
 
   return (
-    <View
-      testID="startup-error-banner"
-      style={[
-        styles.container,
-        {
-          backgroundColor: palette.bg,
-          borderBottomColor: palette.border,
-          paddingTop: spacing.sm + (padsStatusBar ? insets.top : 0),
-        },
-      ]}
-    >
-      <Text style={[styles.title, { color: palette.text }]}>
-        {t('emptyState.startupError.title', {
-          defaultValue: 'Some parts of the app did not load',
-        })}
-      </Text>
-      <Text style={[styles.detail, { color: palette.subtext }]}>
-        {t('emptyState.startupError.detail', {
+    <NoticeBanner
+      slot="startupError"
+      tone="error"
+      icon="alert-circle-outline"
+      title={t('emptyState.startupError.title', {
+        defaultValue: 'Some parts of the app did not load',
+      })}
+      detail={[
+        t('emptyState.startupError.detail', {
           areas: named,
           defaultValue: 'Could not load: {{areas}}. Restart the app to try again.',
-        })}
-      </Text>
-      <Button
-        label={t('emptyState.startupError.dismiss', { defaultValue: 'Dismiss' })}
-        onPress={onDismiss}
-        variant="ghost"
-        size="sm"
-        testID="startup-error-dismiss"
-      />
-    </View>
+        }),
+      ]}
+      onDismiss={onDismiss}
+      testID="startup-error-banner"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    borderBottomWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-  },
-  detail: {
-    fontSize: typography.caption.fontSize,
-  },
-});

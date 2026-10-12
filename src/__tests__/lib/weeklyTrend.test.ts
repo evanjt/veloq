@@ -15,7 +15,13 @@ describe('weeklyTrend', () => {
     const same = { count: 5, duration: 5 * 3600, distance: 120_000, tss: 320 };
     for (const metric of ['count', 'duration', 'distance', 'tss'] as const) {
       const cell = weeklyTrend(metric, same[metric], same[metric]);
-      expect(cell).toEqual({ glyph: '→', rung: 'neutral', pct: null });
+      expect(cell).toEqual({
+        glyph: '→',
+        rung: 'neutral',
+        verdict: 'flat',
+        direction: 'flat',
+        pct: null,
+      });
     }
   });
 
@@ -32,16 +38,40 @@ describe('weeklyTrend', () => {
   });
 
   it('reads more activities, hours and distance as improved', () => {
-    expect(weeklyTrend('count', 6, 5)).toEqual({ glyph: '↑', rung: 'positive', pct: '20%' });
+    expect(weeklyTrend('count', 6, 5)).toEqual({
+      glyph: '↑',
+      rung: 'positive',
+      verdict: 'improved',
+      direction: 'up',
+      pct: '20%',
+    });
     expect(weeklyTrend('duration', 6 * 3600, 5 * 3600)?.rung).toBe('positive');
     expect(weeklyTrend('distance', 130_000, 120_000)?.rung).toBe('positive');
-    expect(weeklyTrend('count', 4, 5)).toEqual({ glyph: '↓', rung: 'negative', pct: '20%' });
+    expect(weeklyTrend('count', 4, 5)).toEqual({
+      glyph: '↓',
+      rung: 'negative',
+      verdict: 'declined',
+      direction: 'down',
+      pct: '20%',
+    });
   });
 
   it('gives a heavier load week a direction and no judgement', () => {
     // Load is fatigue's number: a bare arrow on the neutral rung, the way
     // intervals.icu draws it, rather than a warning the component invented.
-    expect(weeklyTrend('tss', 360, 300)).toEqual({ glyph: '↑', rung: 'neutral', pct: '20%' });
-    expect(weeklyTrend('tss', 240, 300)).toEqual({ glyph: '↓', rung: 'neutral', pct: '20%' });
+    expect(weeklyTrend('tss', 360, 300)).toEqual({
+      glyph: '↑',
+      rung: 'neutral',
+      verdict: 'moved',
+      direction: 'up',
+      pct: '20%',
+    });
+    expect(weeklyTrend('tss', 240, 300)).toEqual({
+      glyph: '↓',
+      rung: 'neutral',
+      verdict: 'moved',
+      direction: 'down',
+      pct: '20%',
+    });
   });
 });

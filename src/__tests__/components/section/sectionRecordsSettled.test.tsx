@@ -9,8 +9,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
-import { View } from 'react-native';
+import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle } from '@shopify/react-native-skia';
 
@@ -23,6 +22,7 @@ import { SectionScatterChart } from '@/features/routes/components/section/Sectio
 import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
 import type { PerformanceDataPoint } from '@/types';
 import { colors } from '@/theme';
+import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -59,7 +59,7 @@ const summary: CalendarSummary = {
   sectionDistance: 2000,
 };
 
-function trophies(tree: ReturnType<typeof render>) {
+function trophies(tree: Awaited<ReturnType<typeof render>>) {
   return tree
     .UNSAFE_getAllByType(MaterialCommunityIcons)
     .filter((icon) => icon.props.name === 'trophy');
@@ -70,7 +70,7 @@ function renderCalendar(recordsSettled: boolean) {
     <SectionStatsCards
       calendarSummary={summary}
       isDark={false}
-      isRunning={false}
+      basis="speed"
       activityColor="#3B82F6"
       recordsSettled={recordsSettled}
     />
@@ -82,8 +82,8 @@ describe('the calendar card while time streams are outstanding', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('draws no overall-record trophy on the year row or the month row', () => {
-    const tree = renderCalendar(false);
+  it('draws no overall-record trophy on the year row or the month row', async () => {
+    const tree = await renderCalendar(false);
 
     // The month row keeps its year-best trophies, in the direction colours,
     // and never the gold overall mark or its word.
@@ -94,8 +94,8 @@ describe('the calendar card while time streams are outstanding', () => {
     expect(yearTrophies).toHaveLength(0);
   });
 
-  it('keeps the year-best mark on the month row', () => {
-    const tree = renderCalendar(false);
+  it('keeps the year-best mark on the month row', async () => {
+    const tree = await renderCalendar(false);
 
     const monthTrophies = trophies(tree).filter((icon) => icon.props.size === 12);
     expect(monthTrophies.map((icon) => icon.props.color)).toEqual([
@@ -104,8 +104,8 @@ describe('the calendar card while time streams are outstanding', () => {
     ]);
   });
 
-  it('draws the overall-record trophies once the streams are in', () => {
-    const tree = renderCalendar(true);
+  it('draws the overall-record trophies once the streams are in', async () => {
+    const tree = await renderCalendar(true);
 
     expect(trophies(tree).filter((icon) => icon.props.size === 14)).toHaveLength(2);
     expect(trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark)).toHaveLength(
@@ -137,7 +137,7 @@ const POINTS = [
   },
 ] as unknown as (PerformanceDataPoint & { x: number })[];
 
-function scatterCircles(recordsSettled: boolean) {
+async function scatterCircles(recordsSettled: boolean) {
   const rendered: Record<string, unknown>[] = [];
   const circleComponent = Circle as unknown as {
     render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
@@ -147,7 +147,7 @@ function scatterCircles(recordsSettled: boolean) {
     rendered.push(props);
     return originalRender(props, ref);
   });
-  const tree = render(
+  const tree = await render(
     <SectionScatterChart
       chartData={POINTS}
       activityType="Ride"
@@ -162,26 +162,22 @@ function scatterCircles(recordsSettled: boolean) {
       recordsSettled={recordsSettled}
     />
   );
-  for (const view of tree.UNSAFE_getAllByType(View)) {
-    if (view.props.onLayout) {
-      fireEvent(view, 'layout', { nativeEvent: { layout: { width: 400, height: 300 } } });
-    }
-  }
+  await layoutViews(tree, 400, 300);
   return rendered;
 }
 
 describe('the scatter while time streams are outstanding', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('draws no record ring on the best point', () => {
-    const circles = scatterCircles(false);
+  it('draws no record ring on the best point', async () => {
+    const circles = await scatterCircles(false);
 
     expect(circles.length).toBeGreaterThan(0);
     expect(circles.filter((circle) => circle.color === colors.chartGoldMark)).toHaveLength(0);
   });
 
-  it('rings the best point once the streams are in', () => {
-    const circles = scatterCircles(true);
+  it('rings the best point once the streams are in', async () => {
+    const circles = await scatterCircles(true);
 
     expect(circles.filter((circle) => circle.color === colors.chartGoldMark)).toHaveLength(1);
   });
@@ -197,7 +193,7 @@ describe('the scrub tooltip while time streams are outstanding', () => {
       <PerformanceTooltip
         selectedPoint={POINTS[0]}
         isDark={false}
-        showPace={false}
+        basis="speed"
         activityColor="#000000"
         recordsSettled={recordsSettled}
         onClearSelection={() => {}}
@@ -205,15 +201,15 @@ describe('the scrub tooltip while time streams are outstanding', () => {
     );
   }
 
-  it('does not call the best point a PR', () => {
-    const tree = renderTooltip(false);
+  it('does not call the best point a PR', async () => {
+    const tree = await renderTooltip(false);
 
     expect(trophies(tree)).toHaveLength(0);
     expect(tree.queryAllByText('PR')).toHaveLength(0);
   });
 
-  it('calls it a PR once the streams are in', () => {
-    const tree = renderTooltip(true);
+  it('calls it a PR once the streams are in', async () => {
+    const tree = await renderTooltip(true);
 
     expect(trophies(tree)).toHaveLength(1);
     expect(tree.getAllByText('PR')).toHaveLength(1);

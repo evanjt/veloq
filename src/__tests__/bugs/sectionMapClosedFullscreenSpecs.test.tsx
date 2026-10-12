@@ -106,18 +106,18 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
     mockBuildLayers.mockClear();
   });
 
-  it('builds no fullscreen spec on mount', () => {
-    renderSection(null);
+  it('builds no fullscreen spec on mount', async () => {
+    await renderSection(null);
 
     expect(fullscreenCalls(mockBuildSources)).toHaveLength(0);
     expect(fullscreenCalls(mockBuildLayers)).toHaveLength(0);
   });
 
-  it('builds no fullscreen spec across a scrub', () => {
-    const { rerender } = renderSection(null);
+  it('builds no fullscreen spec across a scrub', async () => {
+    const { rerender } = await renderSection(null);
 
     for (const id of ['a1', 'a2', 'a3']) {
-      rerender(
+      await rerender(
         <SafeAreaProvider initialMetrics={METRICS}>
           <SectionMapView
             section={section()}
@@ -133,11 +133,11 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
     expect(fullscreenCalls(mockBuildLayers)).toHaveLength(0);
   });
 
-  it('builds the fullscreen pair on open, carrying the highlight the scrub left', () => {
-    renderSection('a2');
+  it('builds the fullscreen pair on open, carrying the highlight the scrub left', async () => {
+    await renderSection('a2');
     expect(fullscreenCalls(mockBuildSources)).toHaveLength(0);
 
-    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
+    await fireEvent.press(screen.getByTestId('section-map-fullscreen'));
 
     const sources = fullscreenCalls(mockBuildSources);
     const layers = fullscreenCalls(mockBuildLayers);
@@ -146,16 +146,16 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
     expect(sources[sources.length - 1].sectionOpacity).toBe(0.4);
   });
 
-  it('stops building fullscreen specs again once it is closed', () => {
-    renderSection('a1');
-    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+  it('stops building fullscreen specs again once it is closed', async () => {
+    await renderSection('a1');
+    await fireEvent.press(screen.getByTestId('section-map-fullscreen'));
+    await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
 
     mockBuildSources.mockClear();
     mockBuildLayers.mockClear();
 
-    const { rerender } = renderSection('a3');
-    rerender(
+    const { rerender } = await renderSection('a3');
+    await rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <SectionMapView
           section={section()}

@@ -40,11 +40,11 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 type Input = { selectedType: ActivityType; mode: 'review' | 'recording' };
 
-function open(input: Input) {
+async function open(input: Input) {
   const result = openSheet<Input, ActivityType>('sheets/activity-type', input);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  render(<ActivityTypeSheet />);
-  return result;
+  await render(<ActivityTypeSheet />);
+  return { result };
 }
 
 beforeAll(async () => {
@@ -58,37 +58,37 @@ beforeEach(() => {
 
 describe('activity type sheet', () => {
   it('resolves the caller with the tapped type and dismisses', async () => {
-    const result = open({ selectedType: 'Ride', mode: 'review' });
-    fireEvent.press(screen.getByTestId('activity-type-option-Run'));
+    const { result } = await open({ selectedType: 'Ride', mode: 'review' });
+    await fireEvent.press(screen.getByTestId('activity-type-option-Run'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'Run' });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {
-    const result = open({ selectedType: 'Ride', mode: 'recording' });
-    screen.unmount();
+    const { result } = await open({ selectedType: 'Ride', mode: 'recording' });
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 
-  it('lists the curated set in review and every category in recording', () => {
-    open({ selectedType: 'Ride', mode: 'review' });
+  it('lists the curated set in review and every category in recording', async () => {
+    await open({ selectedType: 'Ride', mode: 'review' });
     expect(screen.queryByTestId('activity-type-option-Kayaking')).toBeNull();
-    screen.unmount();
-    open({ selectedType: 'Ride', mode: 'recording' });
+    await screen.unmount();
+    await open({ selectedType: 'Ride', mode: 'recording' });
     expect(screen.UNSAFE_getByType(FlatList).props.data).toContain('Kayaking');
   });
 
-  it('keeps its scroll view where the iOS sheet sizes it', () => {
-    open({ selectedType: 'Ride', mode: 'review' });
+  it('keeps its scroll view where the iOS sheet sizes it', async () => {
+    await open({ selectedType: 'Ride', mode: 'review' });
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
-  it('turns the dismiss gesture off in review only', () => {
-    open({ selectedType: 'Ride', mode: 'review' });
+  it('turns the dismiss gesture off in review only', async () => {
+    await open({ selectedType: 'Ride', mode: 'review' });
     expect(mockScreenOptions.at(-1)).toMatchObject({ gestureEnabled: false });
-    screen.unmount();
+    await screen.unmount();
     mockScreenOptions.length = 0;
-    open({ selectedType: 'Ride', mode: 'recording' });
+    await open({ selectedType: 'Ride', mode: 'recording' });
     expect(mockScreenOptions.at(-1)).toMatchObject({ gestureEnabled: true });
   });
 });

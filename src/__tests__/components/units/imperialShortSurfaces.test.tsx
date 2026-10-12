@@ -41,16 +41,16 @@ afterEach(() => {
 });
 
 describe('the GPS accuracy header', () => {
-  it('reads metres for a metric athlete', () => {
+  it('reads metres for a metric athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
-    render(<GpsSignalIndicator accuracy={12} />);
+    await render(<GpsSignalIndicator accuracy={12} />);
 
     expect(screen.getByText('12 m')).toBeTruthy();
   });
 
-  it('reads feet for an imperial athlete', () => {
+  it('reads feet for an imperial athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
-    render(<GpsSignalIndicator accuracy={12} />);
+    await render(<GpsSignalIndicator accuracy={12} />);
 
     expect(screen.getByText('39 ft')).toBeTruthy();
     expect(screen.queryByText(/m$/)).toBeNull();
@@ -58,22 +58,22 @@ describe('the GPS accuracy header', () => {
 });
 
 describe('the power curve per-kilogram legend', () => {
-  function showPerKg() {
-    render(<PowerCurveChart ftp={300} />);
-    fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
+  async function showPerKg() {
+    await render(<PowerCurveChart ftp={300} />);
+    await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
     return screen.getByTestId('power-curve-ftp-legend');
   }
 
-  it('names the weight in kilograms for a metric athlete', () => {
+  it('names the weight in kilograms for a metric athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
 
-    expect(showPerKg()).toHaveTextContent(/at 80 kg$/);
+    expect(await showPerKg()).toHaveTextContent(/at 80 kg$/);
   });
 
-  it('names the weight in pounds for an imperial athlete', () => {
+  it('names the weight in pounds for an imperial athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
 
-    const legend = showPerKg();
+    const legend = await showPerKg();
     expect(legend).toHaveTextContent(/at 176 lbs$/);
     expect(legend).not.toHaveTextContent(/\d kg/);
   });

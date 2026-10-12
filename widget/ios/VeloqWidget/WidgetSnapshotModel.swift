@@ -1,6 +1,6 @@
 import Foundation
 
-// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 15). The
+// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 16). The
 // widget only renders this, it never computes. Optional fields decode to nil when the
 // key is missing, so a partial or older-schema snapshot degrades gracefully instead of
 // failing to decode. Version skew happens in both directions: keep every field added
@@ -17,6 +17,9 @@ struct SnapshotMetric: Codable {
   let zone: String?
   /// Form only: the pre-formatted readout, so a percentage setting needs no maths here.
   let text: String?
+  /// The name, the reading and the verdict as a screen reader says them, since the arrow
+  /// carries the verdict in colour alone. Nil on a snapshot written before schema 16.
+  let spoken: String?
 }
 
 struct WidgetRamp: Codable {
@@ -88,6 +91,10 @@ struct WidgetLatest: Codable {
   let loadText: String?
   /// "Section PRs 3", already worded; nil when the activity holds none.
   let sectionPrsText: String?
+  /// What the drawn route is, as a screen reader says it. Nil with no route drawn.
+  let routeLabel: String?
+  /// What the record mark beside the name says. Nil when no record was set.
+  let prLabel: String?
 }
 
 struct WidgetImpact: Codable {
@@ -111,6 +118,9 @@ struct WidgetSummaryEntry: Codable {
   let trendDir: String
   let verdict: String?
   let colorKey: String
+  /// The name, the reading and the verdict as a screen reader says them. Nil on a snapshot
+  /// written before schema 16.
+  let spoken: String?
 }
 
 /// Ready-to-render mirror of the in-app summary card, following the app settings.
@@ -154,6 +164,19 @@ struct WidgetDisplay: Codable {
   /// library, in demo mode and while nobody is signed in. Absent on a real
   /// library.
   let demoLabel: String?
+  /// One line for each chart, since a drawn line says nothing aloud. Nil on a snapshot written
+  /// before schema 16.
+  let chartLabels: WidgetChartLabels?
+}
+
+/// What each chart shows, as a screen reader says it. Nil for a chart too short to draw.
+struct WidgetChartLabels: Codable {
+  /// Fitness and fatigue, the chart beside every hero but HRV.
+  let fitness: String?
+  /// HRV, the chart beside an HRV hero.
+  let hrv: String?
+  /// Form over its zones, the large size's chart.
+  let form: String?
 }
 
 struct WidgetPaletteData: Codable {

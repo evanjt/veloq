@@ -26,6 +26,9 @@ import {
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
+import { MapKeyRamp, MapKeySwatch } from '../MapKey';
+import { ACTIVITY_CATEGORIES } from '../../lib/activityCategories';
+import { RECENCY_FADE } from './regionalMapLayerSpecs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -35,6 +38,18 @@ const COLUMN_ICON_SIZE = 20;
 const MENU_ICON_SIZE = 18;
 /** Controls above the layers control, which the menu lines up beside. */
 const CONTROLS_ABOVE_LAYERS = 3;
+/** Steps in the key's recency strip, newest to a year old. */
+const RECENCY_STEPS = 6;
+
+/** The recency strip: one dot colour at each opacity the fade passes through. */
+function recencyRamp(dot: string): string[] {
+  return Array.from({ length: RECENCY_STEPS }, (_, i) =>
+    colorWithOpacity(
+      dot,
+      RECENCY_FADE.newest + ((RECENCY_FADE.oldest - RECENCY_FADE.newest) * i) / (RECENCY_STEPS - 1)
+    )
+  );
+}
 
 /** One round control in the column, on a disc that carries the map shadow. */
 function ColumnButton({
@@ -163,6 +178,10 @@ interface MapControlStackProps {
   onToggleRoutes?: (() => void) | undefined;
   /** Callback to fit all activities in view */
   onFitAll: () => void;
+  /** Sport categories whose dots the map draws, keyed by their colour while activities show. */
+  keyCategories?: readonly string[] | undefined;
+  /** The heatmap ramp as the layer draws it, faintest first, keyed while the heatmap shows. */
+  heatKeyColours?: readonly string[] | undefined;
 }
 
 export function MapControlStack({
@@ -188,11 +207,14 @@ export function MapControlStack({
   onToggleSections,
   onToggleRoutes,
   onFitAll,
+  keyCategories = [],
+  heatKeyColours = [],
 }: MapControlStackProps) {
   const { t } = useTranslation();
   const [layersOpen, setLayersOpen] = useState(false);
   const show3D = is3DMode && can3D;
   const iconColor = isDark ? colors.textOnDark : colors.textSecondary;
+  const palette = isDark ? darkColors : colors;
 
   const hasActivities = activityCount > 0;
   const sectionsToggle = sectionCount > 0 ? onToggleSections : undefined;
@@ -232,7 +254,7 @@ export function MapControlStack({
           <MaterialCommunityIcons
             name="terrain"
             size={COLUMN_ICON_SIZE}
-            color={show3D ? colors.textOnDark : iconColor}
+            color={show3D ? colors.textOnPrimary : iconColor}
           />
         </ColumnButton>
 
@@ -264,7 +286,7 @@ export function MapControlStack({
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={COLUMN_ICON_SIZE}
-              color={userLocationActive ? colors.textOnDark : iconColor}
+              color={userLocationActive ? colors.textOnPrimary : iconColor}
             />
           )}
         </ColumnButton>
@@ -281,7 +303,7 @@ export function MapControlStack({
             <MaterialCommunityIcons
               name="layers-outline"
               size={COLUMN_ICON_SIZE}
-              color={menuOpen ? colors.textOnDark : iconColor}
+              color={menuOpen ? colors.textOnPrimary : iconColor}
             />
           </ColumnButton>
         )}
@@ -306,6 +328,30 @@ export function MapControlStack({
               onPress={onToggleActivities}
             />
           )}
+          {hasActivities && showActivities && (
+            <View style={styles.menuKey}>
+              {keyCategories.map((category) => {
+                const config = ACTIVITY_CATEGORIES[category];
+                if (!config) return null;
+                return (
+                  <MapKeySwatch
+                    key={category}
+                    testID={`map-key-category-${category}`}
+                    swatch={config.color}
+                    shape="dot"
+                    label={t(`maps.activityTypes.${config.labelKey}` as never)}
+                    isDark={isDark}
+                  />
+                );
+              })}
+              <MapKeyRamp
+                testID="map-key-recency"
+                ramp={recencyRamp(palette.textPrimary)}
+                ends={[t('maps.keyRecent'), t('maps.keyYearOrMore')]}
+                isDark={isDark}
+              />
+            </View>
+          )}
           {sectionsToggle && (
             <MenuRow
               testID="map-toggle-sections"
@@ -325,6 +371,16 @@ export function MapControlStack({
               isDark={isDark}
               onPress={onToggleHeatmap}
             />
+          )}
+          {onToggleHeatmap && showHeatmap && heatKeyColours.length > 0 && (
+            <View style={styles.menuKey}>
+              <MapKeyRamp
+                testID="map-key-heat"
+                ramp={heatKeyColours}
+                ends={[t('maps.keyFewerPasses'), t('maps.keyMorePasses')]}
+                isDark={isDark}
+              />
+            </View>
           )}
           {routesToggle && (
             <MenuRow
@@ -392,6 +448,11 @@ const styles = StyleSheet.create({
     gap: spacing.smPlus,
     minHeight: layout.minTapTarget,
     paddingHorizontal: spacing.md,
+  },
+  menuKey: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
   },
   menuLabel: {
     ...typography.bodySmall,

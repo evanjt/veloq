@@ -78,8 +78,8 @@ function expectNoFixedWidth(row: ReactTestInstance) {
 }
 
 describe('BestEffortRow', () => {
-  it('sizes its columns from content and keeps the value whole', () => {
-    render(
+  it('sizes its columns from content and keeps the value whole', async () => {
+    await render(
       <BestEffortRow
         testID="row"
         label="Ironman"
@@ -99,9 +99,9 @@ describe('BestEffortRow', () => {
     expect(StyleSheet.flatten(valueColumn.props.style).flexShrink).toBe(0);
   });
 
-  it('opens its target from the whole row when it has one', () => {
+  it('opens its target from the whole row when it has one', async () => {
     const onPress = jest.fn();
-    render(
+    await render(
       <BestEffortRow
         testID="row"
         label="5K"
@@ -113,21 +113,21 @@ describe('BestEffortRow', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: '5K' }));
+    await fireEvent.press(screen.getByRole('button', { name: '5K' }));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('the three surfaces that draw a best', () => {
-  it('draw Best Efforts rows with no fixed column', () => {
-    render(<BestEffortsScreen />);
+  it('draw Best Efforts rows with no fixed column', async () => {
+    await render(<BestEffortsScreen />);
 
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-3.8km'));
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-400m'));
   });
 
-  it('draw Season Bests rows with no fixed column', () => {
-    render(
+  it('draw Season Bests rows with no fixed column', async () => {
+    await render(
       <SeasonBestsSection
         efforts={[{ label: '3.8km', activityId: 'long-swim', value: 0.7, time: 5565 }] as never}
         sport="Swimming"
@@ -139,11 +139,11 @@ describe('the three surfaces that draw a best', () => {
     expectNoFixedWidth(screen.getByTestId('season-bests-row-3.8km'));
   });
 
-  it('draw climbing rows with no fixed column', () => {
+  it('draw climbing rows with no fixed column', async () => {
     const bests = [
       { label: '60m', windowS: 3600, vam: 1250, wattsPerKg: 3.4, activityId: 'long-swim' },
     ] as ClimbBest[];
-    render(<ClimbingBestRows bests={bests} sport="Running" />);
+    await render(<ClimbingBestRows bests={bests} sport="Running" />);
 
     expectNoFixedWidth(screen.getByTestId('season-bests-climbing-3600'));
   });

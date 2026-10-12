@@ -78,13 +78,14 @@ function showing(heroMetric: 'fitness' | 'form' | 'hrv', supportingMetrics: Metr
   });
 }
 
-function cardData(card: Card) {
-  return renderHook(() => useSummaryCardData(card, { awaitPrecomputed: true })).result.current;
+async function cardData(card: Card) {
+  const { result } = await renderHook(() => useSummaryCardData(card, { awaitPrecomputed: true }));
+  return result.current;
 }
 
 /** The card defers its sparklines until the first frame's interactions finish. */
 async function renderCard(props: Omit<SummaryCardProps, 'onProfilePress'>) {
-  const tree = render(<SummaryCard onProfilePress={() => {}} {...props} />);
+  const tree = await render(<SummaryCard onProfilePress={() => {}} {...props} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
@@ -101,68 +102,89 @@ describe('a supporting metric label', () => {
   it('names the earlier HRV reading and the day it was read', async () => {
     showing('fitness', ['hrv']);
 
-    const tree = await renderCard(cardData(CARD));
+    const tree = await renderCard(await cardData(CARD));
 
     expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe(
-      'HRV 52, improved. Compared with 48 on 8 Oct.'
+      'Heart rate variability 52, improved. Compared with 48 on 8 Oct.'
     );
   });
 
-  it('says improved for a resting heart rate that fell', () => {
+  it('says improved for a resting heart rate that fell', async () => {
     showing('fitness', ['rhr']);
 
-    expect(cardData(CARD).supportingMetrics[0].accessibilityLabel).toBe(
-      'RHR 47, improved. Compared with 50 on 8 Oct.'
+    expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
+      'Resting heart rate 47, improved. Compared with 50 on 8 Oct.'
     );
   });
 
-  it('says which way weight went, in the athlete units, against the week before', () => {
+  it('says which way weight went, in the athlete units, against the week before', async () => {
     showing('fitness', ['weight']);
 
-    expect(cardData(CARD).supportingMetrics[0].accessibilityLabel).toBe(
+    expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
       'Weight 71.2kg, falling. Compared with 72kg on 2 Oct.'
     );
   });
 
-  it('compares the week with the same part of the week before', () => {
+  it('compares the week with the same part of the week before', async () => {
     showing('fitness', ['weekHours', 'weekCount']);
 
-    const [hours, count] = cardData(CARD).supportingMetrics;
+    const [hours, count] = (await cardData(CARD)).supportingMetrics;
 
     expect(hours.accessibilityLabel).toBe(
-      'Week 2h, improved. Compared with 1h at this point last week.'
+      'Week 2 hours, improved. Compared with 1 hour at this point last week.'
     );
     expect(count.accessibilityLabel).toBe(
       'Activities 4, improved. Compared with 2 at this point last week.'
     );
   });
 
-  it('names the FTP estimate the step was measured from', () => {
+  it('names the eFTP estimate the step was measured from', async () => {
     showing('fitness', ['ftp']);
 
-    expect(cardData(CARD).supportingMetrics[0].accessibilityLabel).toBe(
-      'FTP 250, improved. Compared with 240 on 8 Sept.'
+    expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
+      'eFTP 250, improved. Compared with 240 on 8 Sept.'
     );
   });
 
-  it('states only the value when the engine named no baseline', () => {
+  it('states only the value when the engine named no baseline', async () => {
     showing('fitness', ['hrv']);
     const card = {
       ...CARD,
       wellness: { ...CARD.wellness, hrvPrevious: undefined, hrvPreviousDate: undefined },
     } as unknown as Card;
 
-    expect(cardData(card).supportingMetrics[0].accessibilityLabel).toBe('HRV 52');
+    expect((await cardData(card)).supportingMetrics[0].accessibilityLabel).toBe(
+      'Heart rate variability 52'
+    );
   });
 
-  it('states only the value when there is no arrow to explain', () => {
+  it('states only the value when there is no arrow to explain', async () => {
     showing('fitness', ['hrv']);
     const card = {
       ...CARD,
       wellness: { ...CARD.wellness, hrvTrend: undefined },
     } as unknown as Card;
 
-    expect(cardData(card).supportingMetrics[0].accessibilityLabel).toBe('HRV 52');
+    expect((await cardData(card)).supportingMetrics[0].accessibilityLabel).toBe(
+      'Heart rate variability 52'
+    );
+  });
+
+  it('speaks the name alone, never the dash, for a metric with no reading', async () => {
+    showing('fitness', ['ftp']);
+    const card = { ...CARD, ftpTrend: {} } as unknown as Card;
+
+    const tree = await renderCard(await cardData(card));
+
+    expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe('eFTP');
+  });
+
+  it('speaks only the name, not its glyph, while the values load', async () => {
+    showing('fitness', ['weekCount']);
+
+    const tree = await renderCard({ ...(await cardData(CARD)), isLoading: true });
+
+    expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe('Activities');
   });
 });
 
@@ -170,26 +192,26 @@ describe('the hero label', () => {
   it('names the earlier reading when the hero is a number and its arrow', async () => {
     showing('form', []);
 
-    const tree = await renderCard(cardData(CARD));
+    const tree = await renderCard(await cardData(CARD));
 
     expect(tree.getByLabelText('Form +10, falling. Compared with +14 on 8 Oct.')).toBeTruthy();
   });
 });
 
 describe('the arrows the card draws', () => {
-  it('are the week and FTP arrows the engine judged, not a second judgement', () => {
+  it('are the week and FTP arrows the engine judged, not a second judgement', async () => {
     showing('fitness', ['weekHours', 'weekCount', 'ftp']);
     // Each of these moves is past its deadband on the raw numbers, so an arrow
     // re-judged here would differ from the one the engine sent.
     const card = { ...CARD, weekHoursTrend: '→', weekCountTrend: '↓' } as Card;
     card.ftpTrend = { ...CARD.ftpTrend, glyph: '→' };
 
-    const trends = cardData(card).supportingMetrics.map((m) => m.trend);
+    const trends = (await cardData(card)).supportingMetrics.map((m) => m.trend);
 
     expect(trends).toEqual(['→', '↓', '→']);
   });
 
-  it('draws no week or FTP arrow the engine did not send', () => {
+  it('draws no week or FTP arrow the engine did not send', async () => {
     showing('fitness', ['weekHours', 'weekCount', 'ftp']);
     const card = {
       ...CARD,
@@ -198,7 +220,7 @@ describe('the arrows the card draws', () => {
       ftpTrend: { latestFtp: 250 },
     } as unknown as Card;
 
-    const trends = cardData(card).supportingMetrics.map((m) => m.trend);
+    const trends = (await cardData(card)).supportingMetrics.map((m) => m.trend);
 
     expect(trends).toEqual([undefined, undefined, undefined]);
   });

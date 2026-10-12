@@ -68,10 +68,10 @@ describe('TimelineSlider expandOnly start drag', () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  it('does not snap right of where the drag began', () => {
+  it('does not snap right of where the drag began', async () => {
     const onRangeChange = jest.fn();
     const from = positionToDate(tick.position - 0.02);
-    const view = render(
+    const view = await render(
       <TimelineSlider
         minDate={minDate}
         maxDate={maxDate}
@@ -81,7 +81,7 @@ describe('TimelineSlider expandOnly start drag', () => {
         expandOnly
       />
     );
-    act(() => {
+    await act(() => {
       view.getByTestId('timeline-slider-track').props.onLayout({
         nativeEvent: { layout: { width: TRACK_WIDTH } },
       });
@@ -89,7 +89,7 @@ describe('TimelineSlider expandOnly start drag', () => {
     const begin = dateToPosition(from);
     // Each render captures the track tap, then the start handle, then the end handle.
     const drag = mockGestures[mockGestures.length - 2];
-    act(() => {
+    await act(() => {
       drag?.handlers?.onBegin?.();
       drag?.handlers?.onUpdate?.({ translationX: -0.01 * TRACK_WIDTH });
       drag?.handlers?.onEnd?.({ x: 0 });

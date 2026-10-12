@@ -45,104 +45,104 @@ function section(id: string): PreviewSection {
 }
 
 describe('usePreviewCurrentSections', () => {
-  it('reads the live catalogue for the area on mount', () => {
+  it('reads the live catalogue for the area on mount', async () => {
     const getPreviewCurrentSections = jest.fn(() => [section('a'), section('b')]);
     const client = { getPreviewCurrentSections } as never;
 
-    const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    const { result } = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(getPreviewCurrentSections).toHaveBeenCalledWith(CENTRE.lat, CENTRE.lng);
     expect(result.current.sections.map((s) => s.id)).toEqual(['a', 'b']);
     expect(result.current.failed).toBe(false);
   });
 
-  it('re-reads when the chosen area changes and not otherwise', () => {
+  it('re-reads when the chosen area changes and not otherwise', async () => {
     const getPreviewCurrentSections = jest.fn(() => [section('a')]);
     const client = { getPreviewCurrentSections } as never;
 
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ centre }: { centre: PreviewCentre }) => usePreviewCurrentSections(client, centre),
       { initialProps: { centre: CENTRE } }
     );
 
-    rerender({ centre: { ...CENTRE } });
+    await rerender({ centre: { ...CENTRE } });
     expect(getPreviewCurrentSections).toHaveBeenCalledTimes(1);
 
-    rerender({ centre: OTHER_CENTRE });
+    await rerender({ centre: OTHER_CENTRE });
     expect(getPreviewCurrentSections).toHaveBeenCalledTimes(2);
     expect(getPreviewCurrentSections).toHaveBeenLastCalledWith(OTHER_CENTRE.lat, OTHER_CENTRE.lng);
   });
 
-  it('holds an empty catalogue when the area has no sections yet', () => {
+  it('holds an empty catalogue when the area has no sections yet', async () => {
     const client = { getPreviewCurrentSections: jest.fn(() => []) } as never;
 
-    const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    const { result } = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(result.current.sections).toEqual([]);
     expect(result.current.failed).toBe(false);
   });
 
-  it('holds an empty catalogue when there is no client or no area', () => {
+  it('holds an empty catalogue when there is no client or no area', async () => {
     const getPreviewCurrentSections = jest.fn(() => [section('a')]);
     const client = { getPreviewCurrentSections } as never;
 
-    const withoutClient = renderHook(() => usePreviewCurrentSections(null, CENTRE));
+    const withoutClient = await renderHook(() => usePreviewCurrentSections(null, CENTRE));
     expect(withoutClient.result.current.sections).toEqual([]);
     expect(withoutClient.result.current.failed).toBe(false);
 
-    const withoutCentre = renderHook(() => usePreviewCurrentSections(client, null));
+    const withoutCentre = await renderHook(() => usePreviewCurrentSections(client, null));
     expect(withoutCentre.result.current.sections).toEqual([]);
     expect(withoutCentre.result.current.failed).toBe(false);
     expect(getPreviewCurrentSections).not.toHaveBeenCalled();
   });
 
-  it('survives an engine that throws, and says the read failed', () => {
+  it('survives an engine that throws, and says the read failed', async () => {
     const client = {
       getPreviewCurrentSections: jest.fn(() => {
         throw new Error('engine gone');
       }),
     } as never;
 
-    const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    const { result } = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(result.current.sections).toEqual([]);
     expect(result.current.failed).toBe(true);
   });
 
-  it('says the read failed when the engine hands back no answer at all', () => {
+  it('says the read failed when the engine hands back no answer at all', async () => {
     const client = { getPreviewCurrentSections: jest.fn(() => null) } as never;
 
-    const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    const { result } = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(result.current.sections).toEqual([]);
     expect(result.current.failed).toBe(true);
   });
 
-  it('clears a failure once a later area reads cleanly', () => {
+  it('clears a failure once a later area reads cleanly', async () => {
     const getPreviewCurrentSections = jest.fn((lat: number) => {
       if (lat === CENTRE.lat) throw new Error('engine gone');
       return [section('a')];
     });
     const client = { getPreviewCurrentSections } as never;
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ centre }: { centre: PreviewCentre }) => usePreviewCurrentSections(client, centre),
       { initialProps: { centre: CENTRE } }
     );
     expect(result.current.failed).toBe(true);
 
-    rerender({ centre: OTHER_CENTRE });
+    await rerender({ centre: OTHER_CENTRE });
     expect(result.current.failed).toBe(false);
     expect(result.current.sections.map((s) => s.id)).toEqual(['a']);
   });
 
-  it('reads again when the screen is opened a second time', () => {
+  it('reads again when the screen is opened a second time', async () => {
     const getPreviewCurrentSections = jest.fn(() => [section('a')]);
     const client = { getPreviewCurrentSections } as never;
 
-    const first = renderHook(() => usePreviewCurrentSections(client, CENTRE));
-    first.unmount();
-    const second = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    const first = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
+    await first.unmount();
+    const second = await renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(getPreviewCurrentSections).toHaveBeenCalledTimes(2);
     expect(second.result.current.sections.map((s) => s.id)).toEqual(['a']);

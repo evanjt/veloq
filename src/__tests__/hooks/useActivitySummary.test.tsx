@@ -31,9 +31,9 @@ function streamsWithPause(): RecordingStreams {
 
 const PAUSES = [{ start: 10, end: 610 }];
 
-function summaryFor(overrides: Partial<Parameters<typeof useActivitySummary>[0]> = {}) {
+async function summaryFor(overrides: Partial<Parameters<typeof useActivitySummary>[0]> = {}) {
   const streams = streamsWithPause();
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useActivitySummary({
       streams,
       startTime: START,
@@ -61,26 +61,26 @@ describe('pausedSecondsBetween', () => {
 });
 
 describe('useActivitySummary trim start', () => {
-  it('names the store index the saved streams begin at', () => {
-    const trimmed = summaryFor({ trimStart: 2, trimEnd: 3 });
+  it('names the store index the saved streams begin at', async () => {
+    const trimmed = await summaryFor({ trimStart: 2, trimEnd: 3 });
     expect(trimmed.trimStartIndex).toBe(2);
     expect(trimmed.getTrimmedStreams().time[0]).toBe(streamsWithPause().time[2]);
   });
 
-  it('starts at the first sample when the recording cannot be trimmed', () => {
-    expect(summaryFor({ trimStart: 2, trimEnd: 3, canTrim: false }).trimStartIndex).toBe(0);
+  it('starts at the first sample when the recording cannot be trimmed', async () => {
+    expect((await summaryFor({ trimStart: 2, trimEnd: 3, canTrim: false })).trimStartIndex).toBe(0);
   });
 });
 
 describe('useActivitySummary duration', () => {
-  it('excludes paused time from the whole recording', () => {
-    const { summary } = summaryFor();
+  it('excludes paused time from the whole recording', async () => {
+    const { summary } = await summaryFor();
     expect(summary.duration).toBe(20);
     expect(summary.avgSpeed).toBeCloseTo(300 / 20);
   });
 
-  it('excludes only the pause inside a trimmed window', () => {
-    const { summary, pausedSecondsInWindow } = summaryFor({
+  it('excludes only the pause inside a trimmed window', async () => {
+    const { summary, pausedSecondsInWindow } = await summaryFor({
       trimStart: 1,
       trimEnd: 3,
     });
@@ -88,8 +88,8 @@ describe('useActivitySummary duration', () => {
     expect(summary.duration).toBe(10);
   });
 
-  it('reports no paused time for a window after the pause', () => {
-    const { summary, pausedSecondsInWindow } = summaryFor({
+  it('reports no paused time for a window after the pause', async () => {
+    const { summary, pausedSecondsInWindow } = await summaryFor({
       trimStart: 2,
       trimEnd: 3,
     });
@@ -114,8 +114,8 @@ describe('useActivitySummary over a trimmed window', () => {
     distance: [0, 100, 200, 300, 400, 500],
   };
 
-  function richSummary(trimStart: number, trimEnd: number) {
-    const { result } = renderHook(() =>
+  async function richSummary(trimStart: number, trimEnd: number) {
+    const { result } = await renderHook(() =>
       useActivitySummary({
         streams: RICH,
         startTime: START,
@@ -143,8 +143,8 @@ describe('useActivitySummary over a trimmed window', () => {
     [2, 5],
     [3, 3],
     [0, 2],
-  ])('matches a walk of the slice for [%i, %i]', (from, to) => {
-    const summary = richSummary(from, to);
+  ])('matches a walk of the slice for [%i, %i]', async (from, to) => {
+    const summary = await richSummary(from, to);
 
     expect(summary.elevationGain).toBeCloseTo(
       elevationOver(RICH.altitude.slice(from, to + 1)).gain,
@@ -154,5 +154,55 @@ describe('useActivitySummary over a trimmed window', () => {
     expect(summary.avgPower).toEqual(walkedAverage(RICH.power.slice(from, to + 1)));
     expect(summary.distance).toBe(RICH.distance[to] - RICH.distance[from]);
     expect(summary.hasGps).toBe(true);
+  });
+});
+
+/**
+ * Scenario: the review screen previews a trim before saving.
+ *
+ * Expected behaviour: the delta is the amount removed, so it reads as a
+ * positive distance and duration rather than one the formatters clamp to zero.
+ */
+describe('useActivitySummary trim delta', () => {
+  const N = 100;
+  const LONG: RecordingStreams = {
+    time: Array.from({ length: N }, (_, i) => i * 10),
+    latlng: Array.from({ length: N }, (_, i) => [1 + i * 0.001, 2] as [number, number]),
+    altitude: Array.from({ length: N }, () => 0),
+    heartrate: Array.from({ length: N }, () => 0),
+    power: Array.from({ length: N }, () => 0),
+    cadence: Array.from({ length: N }, () => 0),
+    speed: Array.from({ length: N }, () => 0),
+    distance: Array.from({ length: N }, (_, i) => i * 50),
+  };
+
+  function deltaFor(trimStart: number, trimEnd: number) {
+    const { result } = renderHook(() =>
+      useActivitySummary({
+        streams: LONG,
+        startTime: START,
+        stopTime: START + (N - 1) * 10_000,
+        pausedDuration: 0,
+        pauseIntervals: [],
+        trimStart,
+        trimEnd,
+        canTrim: true,
+        isManual: false,
+        params: {},
+      })
+    );
+    return result.current.trimDelta;
+  }
+
+  it('reports the removed start as positive amounts', () => {
+    expect(deltaFor(10, 99)).toEqual({ distance: 500, duration: 100 });
+  });
+
+  it('adds the removed start and end together', () => {
+    expect(deltaFor(10, 89)).toEqual({ distance: 1000, duration: 200 });
+  });
+
+  it('is absent when nothing is trimmed', () => {
+    expect(deltaFor(0, N - 1)).toBeNull();
   });
 });

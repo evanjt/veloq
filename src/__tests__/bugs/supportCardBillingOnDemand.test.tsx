@@ -60,17 +60,17 @@ beforeEach(() => {
 });
 
 describe('the support card and the billing connection', () => {
-  it('opens no billing connection on a launch where it does not show', () => {
-    const { toJSON } = render(<SupportCard />);
+  it('opens no billing connection on a launch where it does not show', async () => {
+    const { toJSON } = await render(<SupportCard />);
 
     expect(toJSON()).toBeNull();
     expect(mockUseIAP).not.toHaveBeenCalled();
   });
 
-  it('opens one once the store says the card should show', () => {
+  it('opens one once the store says the card should show', async () => {
     mockShouldShow = true;
 
-    const { getByTestId, UNSAFE_getByType } = render(<SupportCard />);
+    const { getByTestId, UNSAFE_getByType } = await render(<SupportCard />);
 
     expect(getByTestId('support-card')).toBeTruthy();
     expect(UNSAFE_getByType(Card).props.variant).toBe('raised');

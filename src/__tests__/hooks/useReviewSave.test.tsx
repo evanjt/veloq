@@ -169,7 +169,7 @@ describe('useReviewSave', () => {
     useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
     useRecordingStore.getState().reset();
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe('useReviewSave', () => {
     useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
     useRecordingStore.setState({ status: 'stopped', athleteId: 'athlete-a' });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();
@@ -201,17 +201,17 @@ describe('useReviewSave', () => {
       return { outcome: UploadOutcome.Uploaded };
     });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(order).toEqual(['save', 'clearBackup', 'upload']);
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 
   it('does not clear the backup when the library save fails', async () => {
     mockSaveRecording.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockClearBackup).not.toHaveBeenCalled();
@@ -233,7 +233,7 @@ describe('useReviewSave', () => {
       freeSpace(10 * MB);
       mockSaveRecording.mockResolvedValue(null);
 
-      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
 
       expect(result.current.errorMessage).toBe('recording.saveErrorNoSpace');
@@ -246,7 +246,7 @@ describe('useReviewSave', () => {
       mockSaveRecording.mockResolvedValue(null);
       useRecordingStore.setState({ status: 'recording', mode: 'manual' });
 
-      const { result } = renderHook(() => useReviewSave(makeArgs({ isManual: true })));
+      const { result } = await renderHook(() => useReviewSave(makeArgs({ isManual: true })));
       await act(() => result.current.handleSave());
 
       expect(result.current.errorMessage).toBe('recording.saveErrorNoSpace');
@@ -257,7 +257,7 @@ describe('useReviewSave', () => {
       freeSpace(4096 * MB);
       mockSaveRecording.mockResolvedValue(null);
 
-      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
 
       expect(result.current.errorMessage).toBe('recording.saveError');
@@ -268,7 +268,7 @@ describe('useReviewSave', () => {
       freeSpace(new Error('no answer from the platform'));
       mockSaveRecording.mockResolvedValue(null);
 
-      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
 
       expect(result.current.errorMessage).toBe('recording.saveError');
@@ -280,7 +280,7 @@ describe('useReviewSave', () => {
       mockSaveRecording.mockResolvedValueOnce(null);
       mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-      const { result } = renderHook(() => useReviewSave(makeArgs()));
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
       expect(result.current.lowStorage).toBe(true);
 
@@ -293,7 +293,7 @@ describe('useReviewSave', () => {
   it('skips upload entirely when auto-upload is off', async () => {
     useRecordingPreferences.setState({ autoUploadEnabled: false });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).toHaveBeenCalledWith(
@@ -308,7 +308,7 @@ describe('useReviewSave', () => {
       .mockRejectedValueOnce(new Error('socket closed'))
       .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.canRetry).toBe(true);
@@ -317,7 +317,7 @@ describe('useReviewSave', () => {
     await act(() => result.current.handleSave());
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
     expect(mockUploadRecording).toHaveBeenCalledTimes(2);
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 
   /**
@@ -334,7 +334,7 @@ describe('useReviewSave', () => {
       errorDetail: 'Duplicate activity',
     });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.canRetry).toBe(false);
@@ -349,7 +349,7 @@ describe('useReviewSave', () => {
   it('leaves the detail out when the refusal carries none', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.errorMessage).toBe('recording.uploadRejected');
@@ -362,7 +362,7 @@ describe('useReviewSave', () => {
       errorDetail: 'no such file /data/recordings/rec-1.fit',
     });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.canRetry).toBe(false);
@@ -374,7 +374,7 @@ describe('useReviewSave', () => {
   it('offers a retry for a thrown upload, in its translated line rather than the raw message', async () => {
     mockUploadRecording.mockRejectedValue(new Error('socket closed'));
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.canRetry).toBe(true);
@@ -388,7 +388,7 @@ describe('useReviewSave', () => {
       .mockResolvedValueOnce({ outcome: UploadOutcome.Rejected, errorDetail: 'Duplicate activity' })
       .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleSave());
 
@@ -400,19 +400,19 @@ describe('useReviewSave', () => {
   it('explains the missing permission and offers the OAuth fix on 403', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.errorMessage).toBe('recording.permissionExplanation');
     expect(result.current.showPermissionFix).toBe(true);
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.dismissTo).not.toHaveBeenCalled();
   });
 
   it('shows why the permission grant failed and keeps the fix on screen', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleUpgradeToOAuth());
 
@@ -425,10 +425,10 @@ describe('useReviewSave', () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleUpgradeToOAuth());
-    act(() => result.current.setErrorMessage(null));
+    await act(() => result.current.setErrorMessage(null));
     await act(() => result.current.handleUpgradeToOAuth());
 
     expect(result.current.errorMessage).toBe('login.oauthUnreachable');
@@ -439,7 +439,7 @@ describe('useReviewSave', () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: null });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleUpgradeToOAuth());
 
@@ -454,7 +454,7 @@ describe('useReviewSave', () => {
       .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded, activityId: 'i1' });
     mockUpgradeOutcome.mockResolvedValue({ granted: true, error: null });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleUpgradeToOAuth());
 
@@ -465,7 +465,7 @@ describe('useReviewSave', () => {
   it('treats network failure as saved-and-queued, not an error', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.errorMessage).toBeNull();
@@ -476,14 +476,14 @@ describe('useReviewSave', () => {
     useRecordingStore.setState({ status: 'stopped' });
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.AuthExpired });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(result.current.isUploading).toBe(false);
     expect(result.current.errorMessage).toBeNull();
     expect(result.current.queuedMessage).not.toBeNull();
     expect(useRecordingStore.getState().status).toBe('idle');
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
   });
 
@@ -494,7 +494,9 @@ describe('useReviewSave', () => {
       mockSaveRecording.mockImplementation(async (params) => ({ ...params, id: 'manual-1' }));
       mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
       useRecordingStore.setState({ status: 'recording', mode: 'manual' });
-      const { result } = renderHook(() => useReviewSave(makeArgs({ isManual: true, startTime })));
+      const { result } = await renderHook(() =>
+        useReviewSave(makeArgs({ isManual: true, startTime }))
+      );
 
       await act(() => result.current.handleSave());
 
@@ -522,7 +524,7 @@ describe('useReviewSave', () => {
     };
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useReviewSave(makeArgs({ getTrimmedStreams: () => trimmed, canTrim: true }))
     );
     await act(() => result.current.handleSave());
@@ -544,7 +546,7 @@ describe('useReviewSave', () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockRequestSyncRefresh).toHaveBeenCalledTimes(1);
@@ -557,17 +559,17 @@ describe('useReviewSave', () => {
       throw new Error('engine gone');
     });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 
   it('requests no sync when the upload fails', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockRequestSyncRefresh).not.toHaveBeenCalled();
@@ -577,7 +579,7 @@ describe('useReviewSave', () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockWriteProvisional).toHaveBeenCalledWith(ENTRY);
@@ -595,7 +597,9 @@ describe('useReviewSave', () => {
   it("saves the review's notes and effort on the ride", async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs({ notes: 'legs heavy', rpe: 8 })));
+    const { result } = await renderHook(() =>
+      useReviewSave(makeArgs({ notes: 'legs heavy', rpe: 8 }))
+    );
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).toHaveBeenCalledWith(
@@ -606,7 +610,7 @@ describe('useReviewSave', () => {
   it('saves no effort when the slider was never moved', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs({ rpe: null })));
+    const { result } = await renderHook(() => useReviewSave(makeArgs({ rpe: null })));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording.mock.calls[0][0].rpe).toBeUndefined();
@@ -621,7 +625,7 @@ describe('useReviewSave', () => {
     });
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockAttachEngineActivity).toHaveBeenCalledWith('rec-1', 'local-deadbeef');
@@ -636,7 +640,7 @@ describe('useReviewSave', () => {
     mockWriteProvisional.mockResolvedValue(null);
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockAttachEngineActivity).not.toHaveBeenCalled();
@@ -674,12 +678,12 @@ describe('useReviewSave', () => {
   ])('follows the outcome the upload export answered (%s)', async (outcome, expected) => {
     mockUploadRecording.mockResolvedValue({ outcome, errorDetail: 'detail from the engine' });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockUploadRecording).toHaveBeenCalledTimes(1);
     expect(mockUploadRecording).toHaveBeenCalledWith('rec-1');
-    expect((router.replace as jest.Mock).mock.calls.length > 0).toBe(expected.home);
+    expect((router.dismissTo as jest.Mock).mock.calls.length > 0).toBe(expected.home);
     expect(result.current.queuedMessage !== null).toBe(expected.queued);
     expect(result.current.errorMessage !== null).toBe(expected.error);
     expect(result.current.canRetry).toBe(expected.retry);
@@ -711,7 +715,7 @@ it('clips laps to the saved GPS window and rebases their indices and clock', asy
     avgCadence: null,
   };
   mockSaveRecording.mockResolvedValue(ENTRY);
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useReviewSave(makeArgs({ canTrim: true, getTrimmedStreams: () => sliced, laps: [lap] }))
   );
   await act(async () => {
@@ -749,7 +753,7 @@ it('drops a lap the trim removes and reads the next one from its own samples', a
     avgCadence: null,
   });
   mockSaveRecording.mockResolvedValue(ENTRY);
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useReviewSave(
       makeArgs({
         canTrim: true,
@@ -781,12 +785,12 @@ describe('the save haptic', () => {
 
   it('plays one success once the library holds the ride, before it leaves the review', async () => {
     let successesAtLeave = -1;
-    (router.replace as jest.Mock).mockImplementationOnce(() => {
+    (router.dismissTo as jest.Mock).mockImplementationOnce(() => {
       successesAtLeave = successes();
     });
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(successes()).toBe(1);
@@ -797,7 +801,7 @@ describe('the save haptic', () => {
     useRecordingStore.setState({ status: 'recording', mode: 'manual' });
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs({ isManual: true })));
+    const { result } = await renderHook(() => useReviewSave(makeArgs({ isManual: true })));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
@@ -807,7 +811,7 @@ describe('the save haptic', () => {
   it('plays nothing when the library save fails', async () => {
     mockSaveRecording.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(successes()).toBe(0);
@@ -816,7 +820,7 @@ describe('the save haptic', () => {
   it('plays no second success when a failed upload is retried', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected, errorDetail: 'x' });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
     await act(() => result.current.handleSave());
 
@@ -827,7 +831,7 @@ describe('the save haptic', () => {
   it('plays nothing for a ride the library already held', async () => {
     useRecordingStore.setState({ savedToLibrary: true });
 
-    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();

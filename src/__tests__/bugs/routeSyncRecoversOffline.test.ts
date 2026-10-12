@@ -15,7 +15,6 @@ import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
 import { getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
@@ -116,6 +115,7 @@ describe('the hook, offline with a new track', () => {
     mockGetNativeModule.mockReturnValue({
       engine: {
         getActivityCount: () => 0,
+        getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => [{ activityId: 'a1', sportType: 'Ride' }],
         getUnprocessedStrengthIds: mockStrengthIds,
         batchFetchExerciseSets: () => 0,
@@ -133,8 +133,7 @@ describe('the hook, offline with a new track', () => {
 
   it('runs the local recovery and fetches nothing', async () => {
     // One array for every render: the hook syncs again on a new identity.
-    const activities = [{ id: 'a1', stream_types: ['latlng'] } as unknown as Activity];
-    renderHook(() => useRouteDataSync(activities, true));
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     expect(mockPollDetection).toHaveBeenCalled();

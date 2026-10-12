@@ -7,9 +7,11 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
 import SectionRetiredScreen from '@/app/section-retired';
+import { layout } from '@/theme/layout';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
@@ -35,7 +37,7 @@ jest.mock('@/features/routes/lib/sectionDisplayNames', () => ({
 
 const mockListeners = new Map<string, Set<() => void>>();
 const mockGetRetiredSections = jest.fn<
-  { sectionId: string; kind: string; at: string; versions: [] }[],
+  { sectionId: string; kind: string; at: string; versions: []; into?: string }[],
   []
 >(() => []);
 
@@ -49,10 +51,11 @@ jest.mock('@/shared/native/engine', () => ({
     },
     getRetiredSections: () => mockGetRetiredSections(),
   }),
+  isEngineReady: () => true,
 }));
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     mockListeners.get(event)?.forEach((cb) => cb());
   });
 }
@@ -68,32 +71,49 @@ beforeEach(() => {
 });
 
 describe('retired sections screen', () => {
-  it('shows a retirement that lands while the screen is open', () => {
-    const screen = render(<SectionRetiredScreen />);
+  it('shows a retirement that lands while the screen is open', async () => {
+    const screen = await render(<SectionRetiredScreen />);
     expect(screen.queryByTestId('section-retired-sec-1')).toBeNull();
 
     mockGetRetiredSections.mockReturnValue([retirement('sec-1')]);
-    emit('sections');
+    await emit('sections');
 
     expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
   });
 
-  it('drops one that a later event no longer reports', () => {
+  it('drops one that a later event no longer reports', async () => {
     mockGetRetiredSections.mockReturnValue([retirement('sec-1')]);
-    const screen = render(<SectionRetiredScreen />);
+    const screen = await render(<SectionRetiredScreen />);
     expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
 
     mockGetRetiredSections.mockReturnValue([]);
-    emit('sections');
+    await emit('sections');
 
     expect(screen.queryByTestId('section-retired-sec-1')).toBeNull();
   });
 
-  it('does not re-read on an event it does not depend on', () => {
-    render(<SectionRetiredScreen />);
+  it('does not re-read on an event it does not depend on', async () => {
+    await render(<SectionRetiredScreen />);
     const afterMount = mockGetRetiredSections.mock.calls.length;
 
-    emit('groups');
+    await emit('groups');
     expect(mockGetRetiredSections.mock.calls.length).toBe(afterMount);
+  });
+});
+
+describe('a retirement merged into another section', () => {
+  it('takes the press on the whole card, named by the link, at the tap-target floor', () => {
+    mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), into: 'sec-2' }]);
+    const screen = render(<SectionRetiredScreen />);
+
+    const card = screen.getByTestId('section-retired-sec-1');
+    expect(card.props.accessibilityRole).toBe('link');
+    expect(screen.getByText(card.props.accessibilityLabel)).toBeTruthy();
+    const style = StyleSheet.flatten(
+      typeof card.props.style === 'function'
+        ? card.props.style({ pressed: false })
+        : card.props.style
+    ) as { minHeight?: number };
+    expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 });

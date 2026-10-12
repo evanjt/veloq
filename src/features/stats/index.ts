@@ -42,6 +42,7 @@ export {
   type SeriesInfo,
   type ChartMetricValue,
   type ChartDataResult,
+  type EmptyPlotCause,
   type IntervalBand,
   type BandColourToken,
   resolveBandColour,

@@ -400,7 +400,7 @@ describe('the scale a card graphic prints', () => {
       t
     );
     expect(byLoad.supportingData?.history).toMatchObject({
-      scale: { top: '320 TSS', bottom: '0 TSS' },
+      scale: { top: '320', bottom: '0' },
     });
 
     const [byTime] = generatePeriodComparisonInsights(

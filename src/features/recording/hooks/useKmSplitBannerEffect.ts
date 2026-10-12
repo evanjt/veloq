@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { calculateSplitPace } from '../lib/splitPaceCalculator';
+import { calculateSplitPace, splitMovingSeconds } from '../lib/splitPaceCalculator';
+import { spokenSplit } from '../lib/splitAnnouncement';
+import type { SplitBanner } from '../lib/statusSlot';
 import { SPLIT_BANNER_DURATION_MS } from '../lib/constants';
 import type { RecordingMode, RecordingStatus } from '../types';
 
@@ -20,7 +22,7 @@ export function useKmSplitBannerEffect({
   /** The ride the tracker counts for, so a second ride starts from zero. */
   startTime: number | null;
   isMetric: boolean;
-  setSplitBanner: (banner: string | null) => void;
+  setSplitBanner: (banner: SplitBanner | null) => void;
 }) {
   const { t } = useTranslation();
   const lastSplitDistanceRef = useRef(0);
@@ -61,13 +63,22 @@ export function useKmSplitBannerEffect({
       );
 
       const unitLabel = isMetric ? 'km' : 'mi';
-      const banner = t('recording.splitBanner', {
+      const text = t('recording.splitBanner', {
         unit: unitLabel,
         index: splitIndex,
         pace: splitPace,
       });
+      const movingSeconds = splitMovingSeconds(
+        distance,
+        time,
+        splitIndex,
+        splitUnit,
+        pauseIntervals
+      );
 
-      setSplitBanner(banner);
+      const speed = movingSeconds === null ? null : splitUnit / movingSeconds;
+
+      setSplitBanner({ text, spoken: spokenSplit(t, splitIndex, speed, isMetric) });
       if (splitBannerTimerRef.current) clearTimeout(splitBannerTimerRef.current);
       splitBannerTimerRef.current = setTimeout(
         () => setSplitBanner(null),

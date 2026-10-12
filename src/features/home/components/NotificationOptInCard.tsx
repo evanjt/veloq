@@ -11,12 +11,18 @@ import {
   isPrivacyNoticeOwed,
   useNotificationPrompt,
   requestNotificationPermission,
+  useLaunchSurfaces,
 } from '@/features/settings';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { Button } from '@/shared/ui';
+import { Button, PermissionNotice, TextLink } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 
-export function NotificationOptInCard() {
+interface NotificationOptInCardProps {
+  /** Activities the feed holds; the card asks nothing of an empty library. */
+  libraryCount: number;
+}
+
+export function NotificationOptInCard({ libraryCount }: NotificationOptInCardProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
@@ -30,7 +36,11 @@ export function NotificationOptInCard() {
   const dismiss = useNotificationPrompt((s) => s.dismiss);
   const owed = useNotificationPreferences(isPrivacyNoticeOwed);
   const [enabling, setEnabling] = useState(false);
+  // Set when the system will no longer show its dialog, so Enable alone would do nothing.
+  const [blocked, setBlocked] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Waits out the tour and the restore offer, so a first launch asks one thing at a time.
+  const { notificationCard: mayShow } = useLaunchSurfaces(libraryCount);
 
   const isOAuth = authMethod === 'oauth';
   const shouldOptIn =
@@ -43,11 +53,12 @@ export function NotificationOptInCard() {
   // disclosure is one tap away in this card and the tap that turns on is the consent.
   const turnOn = useCallback(async () => {
     setEnabling(true);
-    const granted = await requestNotificationPermission();
-    if (granted) {
+    const outcome = await requestNotificationPermission();
+    if (outcome === 'granted') {
       acceptPrivacy();
       setNotificationsEnabled(true);
     }
+    setBlocked(outcome === 'blocked');
     setEnabling(false);
   }, [acceptPrivacy, setNotificationsEnabled]);
 
@@ -73,7 +84,7 @@ export function NotificationOptInCard() {
     );
   }
 
-  if (!owed && !shouldOptIn) return null;
+  if (!mayShow || (!owed && !shouldOptIn)) return null;
 
   return (
     <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
@@ -96,27 +107,33 @@ export function NotificationOptInCard() {
           </Text>
         )}
         {!owed && (
-          <Text
+          <TextLink
+            label={t('notifications.prompt.howItWorks')}
             onPress={() => setExpanded((v) => !v)}
-            accessibilityRole="link"
+            accessibilityRole="button"
             accessibilityState={{ expanded }}
-            style={[styles.linkText, isDark && styles.linkTextDark]}
-          >
-            {t('notifications.prompt.howItWorks')}
-          </Text>
+          />
         )}
         {disclosed && (
           <>
             <Text style={[styles.description, isDark && styles.descriptionDark]}>
               {t(owed ? 'notifications.privacy.briefEnabled' : 'notifications.privacy.brief')}
             </Text>
-            <Text
+            <TextLink
+              label={t('login.privacyPolicy')}
               onPress={() => Linking.openURL('https://veloq.fit/privacy')}
-              style={[styles.linkText, isDark && styles.linkTextDark]}
-            >
-              {t('login.privacyPolicy')}
-            </Text>
+            />
           </>
+        )}
+
+        {!owed && blocked && (
+          <PermissionNotice
+            testID="notification-optin-blocked"
+            outcome="blocked"
+            icon="bell-off-outline"
+            reason={t('permissionNotice.notificationsOff')}
+            onAllow={turnOn}
+          />
         )}
 
         {/* Actions */}
@@ -160,13 +177,6 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  linkText: {
-    ...typography.bodySmall,
-    color: colors.linkTeal,
-  },
-  linkTextDark: {
-    color: darkColors.linkTeal,
   },
   actions: {
     flexDirection: 'row',

@@ -7,19 +7,29 @@
  * listens on a port. Every request the page makes is answered here, the page
  * document included, so a run reaches no network and a missing tile can never
  * be mistaken for a renderer fault: the page is served on the origin the app
- * loads it on, a TileJSON names tiles under that answer, an image is a grey
- * PNG, a protobuf is empty and a JSON document is `{}`.
+ * loads it on, the renderer and its stylesheet are the files the app ships,
+ * answered under `veloq-asset/` as the platform interceptors answer them, a
+ * TileJSON names tiles under that answer, an image is a grey PNG, a protobuf
+ * is empty and a JSON document is `{}`.
  *
  * Chromium is found from `CHROME_PATH`, then on `PATH`.
  */
 
 import { spawn, execFileSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { crc32, deflateSync } from 'node:zlib';
+
+/** Where the app's bundled renderer files sit, as `veloq-asset/` names them. */
+const ASSET_ROOT = resolve(__dirname, '../../../modules/veloqrs/assets/basemap');
+const ASSET_PATH = '/veloq-asset/';
+const RENDERER_TYPES: Record<string, string> = {
+  js: 'text/javascript; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+};
 
 const BROWSERS = ['chromium', 'chromium-browser', 'google-chrome-stable', 'google-chrome'];
 
@@ -101,7 +111,7 @@ const INSTRUMENT = `
 /** The page with `script` run straight after the renderer's own tag. */
 function withAfterRenderer(html: string, script: string | undefined): string {
   if (!script) return html;
-  const start = html.indexOf('<script id="maplibre-gl">');
+  const start = html.indexOf('<script id="maplibre-gl"');
   const end = html.indexOf('</script>', start) + '</script>'.length;
   return `${html.slice(0, end)}<script>${script}</script>${html.slice(end)}`;
 }
@@ -115,6 +125,15 @@ function answer(
   const path = url.split(/[?#]/)[0];
   if (url === served.url) {
     return { contentType: 'text/html', body: withAfterRenderer(served.html, served.afterRenderer) };
+  }
+  const assetAt = path.indexOf(`${ASSET_PATH}renderer/`);
+  if (assetAt >= 0) {
+    const file = join(ASSET_ROOT, path.slice(assetAt + ASSET_PATH.length));
+    const type = RENDERER_TYPES[path.slice(path.lastIndexOf('.') + 1)];
+    if (!type || !existsSync(file)) {
+      throw new Error(`the page asked for a renderer file the app does not ship: ${url}`);
+    }
+    return { contentType: type, body: readFileSync(file) };
   }
   if (served.tileJsonUrls.includes(url)) {
     const tileJson = {
@@ -270,13 +289,20 @@ export async function launchChromium(executable: string): Promise<Chromium> {
   protocol.on('Fetch.requestPaused', (params, sessionId) => {
     const page = pages.get(sessionId ?? '');
     if (!page) return;
-    const { contentType, body } = answer((params.request as { url: string }).url, page.served, png);
+    let reply: { status: number; contentType: string; body: Buffer | string };
+    try {
+      reply = { status: 200, ...answer((params.request as { url: string }).url, page.served, png) };
+    } catch (error) {
+      page.errors.push((error as Error).message);
+      reply = { status: 404, contentType: 'text/plain', body: '' };
+    }
+    const { status, contentType, body } = reply;
     protocol
       .send(
         'Fetch.fulfillRequest',
         {
           requestId: params.requestId,
-          responseCode: 200,
+          responseCode: status,
           responseHeaders: [
             { name: 'Content-Type', value: contentType },
             { name: 'Access-Control-Allow-Origin', value: '*' },

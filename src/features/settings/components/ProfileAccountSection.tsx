@@ -1,5 +1,5 @@
 import React, { useState, memo } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -13,9 +13,9 @@ import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
 import * as haptics from '@/shared/ui/haptics';
-import { pressable, pressRipple } from '@/shared/ui';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { useExportRecordBackup } from '../hooks/useBackup';
+import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
 
 interface Athlete {
   name?: string;
@@ -59,7 +59,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       // navigates to /login after the navigation settles to avoid an Android crash.
       await clearCredentials();
     } catch {
-      Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
+      inform({ title: t('alerts.disconnectFailedTitle'), message: t('alerts.failedToDisconnect') });
     }
   };
 
@@ -68,21 +68,21 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   // instant and works with no network. Only the credentials go. "Sign out and
   // clear data" is the path that takes the rest.
   const handleLogout = () => {
-    Alert.alert(
-      t('alerts.disconnectTitle'),
-      offlineConfirmMessage(t('alerts.disconnectMessage'), t('alerts.disconnectOffline'), isOnline),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('alerts.disconnect'),
-          style: 'destructive',
-          onPress: () => {
-            haptics.medium();
-            finishLogout(false);
-          },
-        },
-      ]
-    );
+    confirmAction({
+      title: t('alerts.disconnectTitle'),
+      message: offlineConfirmMessage(
+        t('alerts.disconnectMessage'),
+        t('alerts.disconnectOffline'),
+        isOnline
+      ),
+      confirmLabel: t('alerts.disconnect'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: () => {
+        haptics.medium();
+        finishLogout(false);
+      },
+    });
   };
 
   // Destructive option - wipe everything. For switching to a different
@@ -90,31 +90,35 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   // back at the next sign-in and what is deleted for good, from the wipe's own
   // inventory, and the athlete can take a backup before accepting.
   const handleLogoutAndClearData = () => {
-    Alert.alert(
-      t('alerts.disconnectAndClearTitle', {
+    chooseAction({
+      title: t('alerts.disconnectAndClearTitle', {
         defaultValue: 'Sign out and delete data?',
       }),
-      offlineConfirmMessage(wipeConfirmMessage(t), t('alerts.disconnectOffline'), isOnline),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
+      message: offlineConfirmMessage(
+        wipeConfirmMessage(t),
+        t('alerts.disconnectOffline'),
+        isOnline
+      ),
+      cancelLabel: t('common.cancel'),
+      actions: [
         {
-          text: t('alerts.disconnectAndClearBackUpFirst'),
+          label: t('alerts.disconnectAndClearBackUpFirst'),
           onPress: () => {
             void backUpFirst();
           },
         },
         {
-          text: t('alerts.disconnectAndClearConfirm', {
+          label: t('alerts.disconnectAndClearConfirm', {
             defaultValue: 'Delete and sign out',
           }),
-          style: 'destructive',
+          destructive: true,
           onPress: () => {
             haptics.medium();
             finishLogout(true);
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   // The record export, then the same confirm again once its file has been
@@ -181,88 +185,83 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const isDemo = authMethod === 'demo';
   const isOAuth = authMethod === 'oauth';
   const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
+  const profile = (
+    <>
+      <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
+        {hasValidProfileUrl && !profileImageError ? (
+          <Image
+            source={{ uri: profileUrl }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            onError={() => setProfileImageError(true)}
+          />
+        ) : (
+          <MaterialCommunityIcons
+            name="account"
+            size={32}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+        )}
+      </View>
+      <View style={styles.profileInfo}>
+        <Text style={[styles.profileName, isDark && settingsStyles.textLight]}>
+          {athlete?.name || t('settings.athleteFallback', 'Athlete')}
+        </Text>
+        <Text style={[styles.profileEmail, isDark && settingsStyles.textSecondary]}>
+          {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
+        </Text>
+        {isOAuth && parsedScopes.length > 0 && (
+          <View style={styles.scopeContainer}>
+            <Text style={[styles.scopeTitle, isDark && settingsStyles.textSecondary]}>
+              {t('settings.permissions', 'Permissions')}
+            </Text>
+            <View style={styles.scopeRow}>
+              {parsedScopes.map((s) => (
+                <View
+                  key={s.label}
+                  style={[settingsStyles.scopeBadge, isDark && settingsStyles.scopeBadgeDark]}
+                >
+                  <Text
+                    style={[settingsStyles.scopeBadgeText, isDark && settingsStyles.textSecondary]}
+                  >
+                    {s.label}: {s.level}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
+    </>
+  );
+
   return (
     <View
       testID="settings-profile-section"
       style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
     >
-      {/* Profile row */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={athlete?.name || t('settings.athleteFallback', 'Athlete')}
-        style={pressable(styles.profileRow)}
-        onPress={
-          isDemo
-            ? undefined
-            : () =>
-                WebBrowser.openBrowserAsync(
-                  `https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`
-                )
-        }
-        disabled={isDemo}
-        android_ripple={pressRipple}
-      >
-        <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-          {hasValidProfileUrl && !profileImageError ? (
-            <Image
-              source={{ uri: profileUrl }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-              onError={() => setProfileImageError(true)}
-            />
-          ) : (
-            <MaterialCommunityIcons
-              name="account"
-              size={32}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          )}
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, isDark && settingsStyles.textLight]}>
-            {athlete?.name || t('settings.athleteFallback', 'Athlete')}
-          </Text>
-          <Text style={[styles.profileEmail, isDark && settingsStyles.textSecondary]}>
-            {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
-          </Text>
-          {isOAuth && parsedScopes.length > 0 && (
-            <View style={styles.scopeContainer}>
-              <Text style={[styles.scopeTitle, isDark && settingsStyles.textSecondary]}>
-                {t('settings.permissions', 'Permissions')}
-              </Text>
-              <View style={styles.scopeRow}>
-                {parsedScopes.map((s) => (
-                  <View
-                    key={s.label}
-                    style={[settingsStyles.scopeBadge, isDark && settingsStyles.scopeBadgeDark]}
-                  >
-                    <Text
-                      style={[
-                        settingsStyles.scopeBadgeText,
-                        isDark && settingsStyles.textSecondary,
-                      ]}
-                    >
-                      {s.label}: {s.level}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-        </View>
-        {!isDemo && (
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={24}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        )}
-      </Pressable>
+      {/* Profile row: the athlete's intervals.icu page, which a demo account has none of. */}
+      {isDemo ? (
+        <Row>{profile}</Row>
+      ) : (
+        <Row
+          behaviour="navigate"
+          accessibilityLabel={athlete?.name || t('settings.athleteFallback', 'Athlete')}
+          onPress={() =>
+            WebBrowser.openBrowserAsync(
+              `https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`
+            )
+          }
+        >
+          {profile}
+        </Row>
+      )}
 
       {/* Logout row - keeps cached data for instant re-login */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
       <Row
         testID="settings-logout-button"
+        behaviour="act"
         onPress={handleLogout}
         accessibilityLabel={t('settings.disconnectAccount')}
       >
@@ -278,6 +277,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
           <Row
             testID="settings-logout-clear-button"
+            behaviour="act"
             onPress={handleLogoutAndClearData}
             accessibilityLabel={t('settings.disconnectAndClearData', {
               defaultValue: 'Sign out and delete all data',
@@ -300,12 +300,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
 export const ProfileAccountSection = memo(ProfileAccountSectionComponent);
 
 const styles = StyleSheet.create({
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.md,
-  },
   profilePhoto: {
     width: 56,
     height: 56,

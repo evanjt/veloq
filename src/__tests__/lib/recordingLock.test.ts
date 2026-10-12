@@ -17,44 +17,44 @@ function lockFor(initial: RecordingStatus) {
 }
 
 describe('useRecordingLock', () => {
-  it('locks when a recording starts', () => {
-    const { result, rerender } = lockFor('stopped');
-    act(() => result.current.unlock());
+  it('locks when a recording starts', async () => {
+    const { result, rerender } = await lockFor('stopped');
+    await act(() => result.current.unlock());
     expect(result.current.isLocked).toBe(false);
 
-    rerender({ status: 'recording' });
+    await rerender({ status: 'recording' });
 
     expect(result.current.isLocked).toBe(true);
   });
 
-  it('keeps an explicit unlock across a pause and resume', () => {
-    const { result, rerender } = lockFor('stopped');
-    rerender({ status: 'recording' });
-    act(() => result.current.unlock());
+  it('keeps an explicit unlock across a pause and resume', async () => {
+    const { result, rerender } = await lockFor('stopped');
+    await rerender({ status: 'recording' });
+    await act(() => result.current.unlock());
 
-    rerender({ status: 'paused' });
-    rerender({ status: 'recording' });
+    await rerender({ status: 'paused' });
+    await rerender({ status: 'recording' });
 
     expect(result.current.isLocked).toBe(false);
   });
 
-  it('locks again for a new recording after the previous one stopped', () => {
-    const { result, rerender } = lockFor('stopped');
-    rerender({ status: 'recording' });
-    act(() => result.current.unlock());
-    rerender({ status: 'stopped' });
+  it('locks again for a new recording after the previous one stopped', async () => {
+    const { result, rerender } = await lockFor('stopped');
+    await rerender({ status: 'recording' });
+    await act(() => result.current.unlock());
+    await rerender({ status: 'stopped' });
 
-    rerender({ status: 'recording' });
+    await rerender({ status: 'recording' });
 
     expect(result.current.isLocked).toBe(true);
   });
 
-  it('still locks on demand', () => {
-    const { result, rerender } = lockFor('stopped');
-    rerender({ status: 'recording' });
-    act(() => result.current.unlock());
+  it('still locks on demand', async () => {
+    const { result, rerender } = await lockFor('stopped');
+    await rerender({ status: 'recording' });
+    await act(() => result.current.unlock());
 
-    act(() => result.current.lock());
+    await act(() => result.current.lock());
 
     expect(result.current.isLocked).toBe(true);
   });

@@ -87,15 +87,15 @@ describe('signing in with no network', () => {
     useAuthStore.setState({ setCredentials: jest.fn(async () => undefined) } as never);
   });
 
-  function login() {
+  async function login() {
     const setError = jest.fn();
-    const { result } = renderHook(() => useApiKeyLogin({ setError }));
+    const { result } = await renderHook(() => useApiKeyLogin({ setError }));
     return { setError, result };
   }
 
   it('asks the network for nothing and signs nobody in', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { result } = login();
+    const { result } = await login();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-valid-key');
@@ -108,7 +108,7 @@ describe('signing in with no network', () => {
 
   it('holds the key and says it will sign in when the radio is back', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { result } = login();
+    const { result } = await login();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-valid-key');
@@ -120,7 +120,7 @@ describe('signing in with no network', () => {
 
   it('runs the real check and signs in when the radio comes back', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { result, rerender } = renderHookWithNetwork();
+    const { result, rerender } = await renderHookWithNetwork();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-valid-key');
@@ -128,7 +128,7 @@ describe('signing in with no network', () => {
 
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
-      rerender({});
+      await rerender({});
     });
 
     expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'a-valid-key');
@@ -138,7 +138,7 @@ describe('signing in with no network', () => {
 
   it('drops a held key the server rejects, rather than retrying it for ever', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { setError, result, rerender } = renderHookWithNetwork();
+    const { setError, result, rerender } = await renderHookWithNetwork();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-stale-key');
@@ -147,7 +147,7 @@ describe('signing in with no network', () => {
     mockValidateCredentials.mockResolvedValue({ kind: CallKind.Http, status: 401 });
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
-      rerender({});
+      await rerender({});
     });
 
     expect(setError).toHaveBeenCalledWith('login.invalidApiKey');
@@ -157,7 +157,7 @@ describe('signing in with no network', () => {
 
   it('holds the key when the radio comes back and the server cannot be reached', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { result, rerender } = renderHookWithNetwork();
+    const { result, rerender } = await renderHookWithNetwork();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-valid-key');
@@ -166,14 +166,14 @@ describe('signing in with no network', () => {
     mockValidateCredentials.mockResolvedValue({ kind: CallKind.Http, status: 503 });
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
-      rerender({});
+      await rerender({});
     });
 
     expect(held.key).toBe('a-valid-key');
   });
 
   it('still validates straight away while the radio is up', async () => {
-    const { result } = login();
+    const { result } = await login();
 
     await act(async () => {
       await result.current.handleApiKeyLogin('a-valid-key');
@@ -186,7 +186,7 @@ describe('signing in with no network', () => {
 
   it('validates a held key once on an online relaunch', async () => {
     held.key = 'held-key';
-    login();
+    await login();
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -199,7 +199,7 @@ describe('signing in with no network', () => {
   it('shows a held key on an offline relaunch and lets the athlete discard it', async () => {
     held.key = 'held-key';
     mockIsOnline.mockReturnValue(false);
-    const { result } = login();
+    const { result } = await login();
     await act(async () => {
       await Promise.resolve();
     });
@@ -221,10 +221,10 @@ describe('signing in with no network', () => {
           finishRead = resolve;
         })
     );
-    const { rerender } = renderHookWithNetwork();
+    const { rerender } = await renderHookWithNetwork();
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
-      rerender({});
+      await rerender({});
     });
     await act(async () => {
       finishRead('held-key');
@@ -236,7 +236,7 @@ describe('signing in with no network', () => {
 
   it('does not validate a queued key discarded during its storage read', async () => {
     mockIsOnline.mockReturnValue(false);
-    const { result, rerender } = renderHookWithNetwork();
+    const { result, rerender } = await renderHookWithNetwork();
     await act(async () => {
       await result.current.handleApiKeyLogin('held-key');
     });
@@ -249,7 +249,7 @@ describe('signing in with no network', () => {
     );
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
-      rerender({});
+      await rerender({});
     });
     await act(async () => {
       await result.current.discardQueuedKey();
@@ -259,9 +259,9 @@ describe('signing in with no network', () => {
     expect(held.key).toBeNull();
   });
 
-  function renderHookWithNetwork() {
+  async function renderHookWithNetwork() {
     const setError = jest.fn();
-    const { result, rerender } = renderHook(() => useApiKeyLogin({ setError }), {
+    const { result, rerender } = await renderHook(() => useApiKeyLogin({ setError }), {
       initialProps: {},
     });
     return { setError, result, rerender };

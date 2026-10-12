@@ -15,6 +15,7 @@ import { renderHook } from '@testing-library/react-native';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
@@ -56,15 +57,15 @@ beforeEach(() => {
 });
 afterEach(() => useDashboardPreferences.setState({ summaryCard: DEFAULTS }));
 
-function metrics(bundle: ReturnType<typeof card>) {
-  const { result } = renderHook(() => useSummaryCardData(bundle, { awaitPrecomputed: true }));
+async function metrics(bundle: ReturnType<typeof card>) {
+  const { result } = await renderHook(() => useSummaryCardData(bundle, { awaitPrecomputed: true }));
   const [pace, css] = result.current.supportingMetrics;
   return { pace, css };
 }
 
 describe('the pace arrows', () => {
-  it('draw the glyph the engine judged, up for a faster pace', () => {
-    const { pace, css } = metrics(
+  it('draw the glyph the engine judged, up for a faster pace', async () => {
+    const { pace, css } = await metrics(
       card(
         { latestPace: 3.95, previousPace: 3.8, glyph: '↑' },
         { latestPace: 1.25, previousPace: 1.35, glyph: '↓' }
@@ -75,14 +76,14 @@ describe('the pace arrows', () => {
     expect(css.trend).toBe('↓');
   });
 
-  it('draw flat for a move the engine called flat', () => {
-    const { pace } = metrics(card({ latestPace: 3.83, previousPace: 3.8, glyph: '→' }, {}));
+  it('draw flat for a move the engine called flat', async () => {
+    const { pace } = await metrics(card({ latestPace: 3.83, previousPace: 3.8, glyph: '→' }, {}));
 
     expect(pace.trend).toBe('→');
   });
 
-  it('draw nothing when the engine judged nothing', () => {
-    const { pace, css } = metrics(card({}, {}));
+  it('draw nothing when the engine judged nothing', async () => {
+    const { pace, css } = await metrics(card({}, {}));
 
     expect(pace.trend).toBeUndefined();
     expect(css.trend).toBeUndefined();
@@ -93,8 +94,8 @@ describe('the pace values', () => {
   const RUN = { latestPace: 3.5, previousPace: 3.4, glyph: '↑' };
   const SWIM = { latestPace: 1.35, previousPace: 1.25, glyph: '↑' };
 
-  it('print the measured critical speed the arrow describes, not the setting', () => {
-    const { pace, css } = metrics(card(RUN, SWIM));
+  it('print the measured critical speed the arrow describes, not the setting', async () => {
+    const { pace, css } = await metrics(card(RUN, SWIM));
 
     expect(css.value).toBe(formatSwimPace(1.35, true));
     expect(pace.value).toBe(formatPaceCompact(3.5, true));
@@ -106,18 +107,21 @@ describe('the pace values', () => {
   it.each([
     [true, '4:46', '1:14'],
     [false, '7:40', '1:08'],
-  ])('print what the widget prints for the same bundle (metric %s)', (isMetric, run, swim) => {
-    mockMetric = isMetric;
-    const { pace, css } = metrics(card(RUN, SWIM));
+  ])(
+    'print what the widget prints for the same bundle (metric %s)',
+    async (isMetric, run, swim) => {
+      mockMetric = isMetric;
+      const { pace, css } = await metrics(card(RUN, SWIM));
 
-    expect(pace.value).toBe(run);
-    expect(css.value).toBe(swim);
-  });
+      expect(pace.value).toBe(run);
+      expect(css.value).toBe(swim);
+    }
+  );
 
-  it('print a placeholder with no measured pace', () => {
-    const { pace, css } = metrics(card({}, {}));
+  it('print a placeholder with no measured pace', async () => {
+    const { pace, css } = await metrics(card({}, {}));
 
-    expect(pace.value).toBe('-');
-    expect(css.value).toBe('-');
+    expect(pace.value).toBe(ABSENT);
+    expect(css.value).toBe(ABSENT);
   });
 });

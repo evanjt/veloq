@@ -39,9 +39,9 @@ const mockWebView = React.forwardRef(function MockWebView(
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: true }) }));
 
-function mount() {
+async function mount() {
   const surface = React.createRef<MapSurfaceRef>();
-  const view = render(
+  const view = await render(
     <MapSurface
       ref={surface}
       mapStyle="light"
@@ -53,8 +53,8 @@ function mount() {
   return { surface, view };
 }
 
-function ready(): void {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+async function ready(): Promise<void> {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
 }
 
 const clusterRequests = () => injected.filter((script) => script.includes('cluster'));
@@ -69,37 +69,37 @@ afterEach(() => jest.useRealTimers());
 
 describe('map surface requests always settle', () => {
   it('answers empty at once, without asking, before the page is ready', async () => {
-    const { surface, view } = mount();
+    const { surface, view } = await mount();
 
     await expect(surface.current!.getClusterLeaves('clusters', 7)).resolves.toEqual([]);
     await expect(surface.current!.getClusterExpansionZoom('clusters', 7)).resolves.toBeNull();
     await expect(surface.current!.queryFeatures([10, 10], ['clusters'])).resolves.toEqual([]);
     expect(clusterRequests()).toEqual([]);
-    view.unmount();
+    await view.unmount();
   });
 
   it('answers empty when a ready page never replies', async () => {
-    const { surface, view } = mount();
-    ready();
+    const { surface, view } = await mount();
+    await ready();
 
     const leaves = surface.current!.getClusterLeaves('clusters', 7);
     const zoom = surface.current!.getClusterExpansionZoom('clusters', 7);
     expect(clusterRequests()).toHaveLength(2);
 
-    act(() => jest.advanceTimersByTime(5000));
+    await act(() => jest.advanceTimersByTime(5000));
 
     await expect(leaves).resolves.toEqual([]);
     await expect(zoom).resolves.toBeNull();
-    view.unmount();
+    await view.unmount();
   });
 
   it('passes the page answer through when it replies in time', async () => {
-    const { surface, view } = mount();
-    ready();
+    const { surface, view } = await mount();
+    await ready();
 
     const zoom = surface.current!.getClusterExpansionZoom('clusters', 7);
     const requestId = /req_\d+/.exec(clusterRequests()[0])![0];
-    act(() =>
+    await act(() =>
       onMessage?.({
         nativeEvent: {
           data: JSON.stringify({ type: 'clusterExpansionZoom', requestId, zoom: 13 }),
@@ -108,6 +108,6 @@ describe('map surface requests always settle', () => {
     );
 
     await expect(zoom).resolves.toBe(13);
-    view.unmount();
+    await view.unmount();
   });
 });

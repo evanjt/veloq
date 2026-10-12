@@ -1,7 +1,36 @@
 use std::sync::Arc;
 
+use super::engine::InFlight;
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::lap_curves::pooled::CurveRead;
+
+/// One representative choice at a time. Cleared by the choice itself rather
+/// than by the caller's future, so a caller that stops waiting does not free
+/// the slot while the choice still holds the engine.
+static REPRESENTATIVE_EDIT_IN_FLIGHT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Choose the representative in the library open at `install`, holding `slot`
+/// until the choice ends. A library installed since, by a restore or a wipe,
+/// is not written, and the choice resolves as the closed engine's error.
+async fn representative_edit_for(
+    install: u64,
+    route_id: String,
+    activity_id: Option<String>,
+    slot: InFlight,
+) -> Result<(), VeloqError> {
+    crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
+        let done = match activity_id {
+            Some(activity_id) => e.set_route_representative(&route_id, &activity_id),
+            None => e.reset_route_representative(&route_id),
+        }
+        .map_err(|msg| VeloqError::Database { msg });
+        drop(slot);
+        done
+    })
+    .await
+    .ok_or(VeloqError::NotInitialized)?
+}
 
 #[derive(uniffi::Object)]
 pub struct RouteManager {
@@ -232,19 +261,26 @@ impl RouteManager {
         })
     }
 
-    fn set_representative(
+    /// Choose the route's representative, or with no activity restore the
+    /// one grouping chose, off the JS thread. Every member is measured again
+    /// against the new representative's full track, which on a well-ridden
+    /// route runs past a tap's budget.
+    async fn set_representative(
         &self,
         route_id: String,
         activity_id: Option<String>,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            match activity_id {
-                Some(activity_id) => e.set_route_representative(&route_id, &activity_id),
-                None => e.reset_route_representative(&route_id),
-            }
-            .map_err(|e| VeloqError::Database { msg: e })?;
-            Ok(())
-        })?
+        let slot = InFlight::claim(
+            &REPRESENTATIVE_EDIT_IN_FLIGHT,
+            "A route representative is already being chosen",
+        )?;
+        representative_edit_for(
+            crate::persistence::engine_install(),
+            route_id,
+            activity_id,
+            slot,
+        )
+        .await
     }
 }
 
@@ -566,3 +602,7 @@ mod pooled_tests;
 #[cfg(test)]
 #[path = "tests/routes_side_pooled.rs"]
 mod side_pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/route_representative_edit.rs"]
+mod route_representative_edit_tests;

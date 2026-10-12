@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, Linking, type AlertButton } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { NotificationSection } from '@/features/settings/components/NotificationSection';
@@ -19,7 +19,7 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly()
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   hasNotificationPermission: jest.fn().mockResolvedValue(true),
-  requestNotificationPermission: jest.fn().mockResolvedValue(true),
+  requestNotificationPermission: jest.fn().mockResolvedValue('granted'),
   registerForPushNotifications: jest.fn().mockResolvedValue(undefined),
   unregisterFromPushNotifications: jest.fn().mockResolvedValue(undefined),
 }));
@@ -42,8 +42,8 @@ function givenFirstRun() {
   } as never);
 }
 
-function turnOn(tree: ReturnType<typeof render>) {
-  fireEvent(tree.getByTestId('settings-notifications-toggle'), 'valueChange', true);
+async function turnOn(tree: Awaited<ReturnType<typeof render>>) {
+  await fireEvent.press(tree.getByTestId('settings-notifications-toggle'));
 }
 
 function lastAlert() {
@@ -67,8 +67,8 @@ beforeEach(() => {
 afterEach(() => alertSpy.mockRestore());
 
 describe('the notification privacy notice', () => {
-  it('is an alert with the privacy strings and the decline button first', () => {
-    turnOn(render(<NotificationSection />));
+  it('is an alert with the privacy strings and the decline button first', async () => {
+    await turnOn(await render(<NotificationSection />));
 
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const { title, body, buttons } = lastAlert();
@@ -78,14 +78,14 @@ describe('the notification privacy notice', () => {
     expect(buttons[0].style).toBe('cancel');
   });
 
-  it('is not shown again once the privacy notice has been accepted', () => {
+  it('is not shown again once the privacy notice has been accepted', async () => {
     useNotificationPreferences.setState({ privacyAccepted: true } as never);
-    turnOn(render(<NotificationSection />));
+    await turnOn(await render(<NotificationSection />));
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it('accepting records consent and asks for the permission', async () => {
-    turnOn(render(<NotificationSection />));
+    await turnOn(await render(<NotificationSection />));
     await act(async () => {
       lastAlert().buttons[1].onPress?.();
     });
@@ -96,7 +96,7 @@ describe('the notification privacy notice', () => {
   });
 
   it('declining and dismissing leave notifications off and consent unrecorded', async () => {
-    turnOn(render(<NotificationSection />));
+    await turnOn(await render(<NotificationSection />));
     const { buttons, options } = lastAlert();
     expect(options.cancelable).toBe(true);
 
@@ -108,5 +108,25 @@ describe('the notification privacy notice', () => {
     expect(acceptPrivacy).not.toHaveBeenCalled();
     expect(requestNotificationPermission).not.toHaveBeenCalled();
     expect(setEnabled).not.toHaveBeenCalled();
+  });
+});
+
+describe('notifications refused for good', () => {
+  beforeEach(() => {
+    useNotificationPreferences.setState({ privacyAccepted: true } as never);
+    (requestNotificationPermission as jest.Mock).mockResolvedValueOnce('blocked');
+  });
+
+  it('leaves the switch off and says so, with the settings page one tap away', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const tree = await render(<NotificationSection />);
+    await act(async () => turnOn(tree));
+
+    expect(setEnabled).not.toHaveBeenCalled();
+    expect(tree.getByTestId('settings-notifications-blocked')).toBeTruthy();
+    expect(tree.getByText('permissionNotice.notificationsOff')).toBeTruthy();
+    await fireEvent.press(tree.getByText('common.openSettings'));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    openSettings.mockRestore();
   });
 });

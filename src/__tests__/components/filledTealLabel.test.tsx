@@ -42,8 +42,8 @@ function flattened(style: unknown): Record<string, unknown> {
   return (StyleSheet.flatten(style as never) ?? {}) as Record<string, unknown>;
 }
 
-it('paints the selected range label in the ink the fill can carry', () => {
-  const { getByTestId, getByText } = render(
+it('paints the selected range label in the ink the fill can carry', async () => {
+  const { getByTestId, getByText } = await render(
     <TimeRangeSelector timeRange="3m" onTimeRangeChange={() => {}} isDark={false} />
   );
 
@@ -62,8 +62,8 @@ describe('filled teal controls outside the range selector', () => {
   const fillOf = (node: { props: { style?: unknown } }) =>
     flattened(node.props.style).backgroundColor as string;
 
-  it('draws the tip price and label in the ink the fill can carry', () => {
-    const { getByText, getByRole } = render(
+  it('draws the tip price and label in the ink the fill can carry', async () => {
+    const { getByText, getByRole } = await render(
       <TipButtons
         products={[{ id: 'tip_small', displayPrice: '$1' }]}
         isPurchasing={false}
@@ -79,8 +79,8 @@ describe('filled teal controls outside the range selector', () => {
     }
   });
 
-  it('draws the grant access label on the primary fill in dark ink', () => {
-    const { getByText, getByRole } = render(
+  it('draws the grant access label on the primary fill in dark ink', async () => {
+    const { getByText, getByRole } = await render(
       <GrantAccessButton onPress={() => {}} loading={false} />
     );
     const fill = fillOf(getByRole('button'));
@@ -89,8 +89,8 @@ describe('filled teal controls outside the range selector', () => {
     expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
   });
 
-  it('draws the retry label on the primary fill in dark ink', () => {
-    const { getByText, getByRole } = render(
+  it('draws the retry label on the primary fill in dark ink', async () => {
+    const { getByText, getByRole } = await render(
       <SaveErrorBanner
         errorMessage="failed"
         showPermissionFix={false}

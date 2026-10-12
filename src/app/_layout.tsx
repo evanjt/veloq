@@ -26,6 +26,7 @@ import { useEngineStatus, useRouteReoptimisation } from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { NavigationThemeProvider } from '@/shared/app/NavigationThemeProvider';
 import { startMemoryPressureListener } from '@/shared/app/memoryPressure';
 import {
   registerEngineReclaimer,
@@ -36,10 +37,12 @@ import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   SCREEN_HEADERS,
+  headerTitleOf,
   largeTitleScreenOptions,
-  overMapHeaderTint,
+  overMapHeaderOptions,
   screenAnimation,
   sheetScreenOptions,
+  themeHeaderColors,
 } from '@/shared/app/screenHeaders';
 import {
   adoptOwnerlessRecordingBackup,
@@ -66,7 +69,6 @@ import {
   GlobalErrorBoundary,
 } from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
-import { navigateTo } from '@/shared/app/navigation';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import {
@@ -292,13 +294,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             const launchCount = stats?.activityCount ?? 0;
             applyHeldImport(i18n.t)
               .then(() => applyPlatformRecord(launchCount, i18n.t))
-              .then(() =>
-                offerRestorePrompt(
-                  launchCount,
-                  () => run.live,
-                  () => navigateTo('/sheets/restore-prompt')
-                )
-              )
+              .then(() => offerRestorePrompt(launchCount, () => run.live))
               .catch(() => {});
           }
           // Initialise SyncDateRangeStore from engine's actual cached data
@@ -485,6 +481,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         } catch {
           // An unreadable identity is not stamped over: the next launch reads it again.
           enterApp();
+          // empty-on-error: an effect's cleanup slot, not a value any screen reads.
           return undefined;
         }
         if (stampedId !== currentAthleteId) {
@@ -661,49 +658,46 @@ export default function RootLayout() {
                     <TourReturnPill />
                     <RecordingReturnPill />
                     <ShaderWarmup />
-                    <Stack
-                      screenLayout={sheetScreenLayout}
-                      screenOptions={{
-                        // Enable swipe-back gesture on both platforms
-                        gestureEnabled: true,
-                        gestureDirection: 'horizontal',
-                        headerStyle: {
-                          backgroundColor: isDark ? darkColors.surface : colors.surface,
-                        },
-                        headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
-                      }}
-                    >
-                      {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
-                        <Stack.Screen
-                          key={name}
-                          name={name}
-                          options={{
-                            headerShown: header !== null,
-                            title: header?.title ?? (header?.titleKey ? t(header.titleKey) : ''),
-                            animation: screenAnimation(name),
-                            // An active recording must not be swipeable away. The
-                            // back gesture runs in the same direction as the
-                            // slide-to-unlock track, so a stray palm swipe would
-                            // drop the rider out of the screen mid-ride. The screen has
-                            // no header: during a ride leaving is the stop flow, and
-                            // before one starts the close control is the way off.
-                            gestureEnabled: name !== 'recording/[type]',
-                            ...largeTitleScreenOptions(name, Platform.OS),
-                            ...sheetScreenOptions(name, Platform.OS),
-                            ...(header?.overMap && {
-                              headerTransparent: true,
-                              headerTitle: '',
-                              headerShadowVisible: false,
-                              headerStyle: { backgroundColor: 'transparent' },
-                              headerTintColor: overMapHeaderTint({ overHero: true, isDark }),
-                            }),
-                            ...(name === 'recordings/[id]' && {
-                              headerTitle: () => <RecordingTitle />,
-                            }),
-                          }}
-                        />
-                      ))}
-                    </Stack>
+                    <NavigationThemeProvider>
+                      <Stack
+                        screenLayout={sheetScreenLayout}
+                        screenOptions={{
+                          // The iOS edge swipe. Android's back key and gesture are not
+                          // governed by this, and a screen that must hold back does it
+                          // with useBackIntercept.
+                          gestureEnabled: true,
+                          gestureDirection: 'horizontal',
+                          ...themeHeaderColors(isDark),
+                        }}
+                      >
+                        {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
+                          <Stack.Screen
+                            key={name}
+                            name={name}
+                            options={{
+                              headerShown: header !== null,
+                              title: headerTitleOf(header, t),
+                              animation: screenAnimation(name),
+                              // An active recording must not be swipeable away on iOS.
+                              // The edge swipe runs in the same direction as the
+                              // slide-to-unlock track, so a stray palm swipe would
+                              // drop the rider out of the screen mid-ride. The screen has
+                              // no header: during a ride leaving is the stop flow, and
+                              // before one starts the close control is the way off. This
+                              // setting is iOS only; the screen holds Android's back
+                              // itself while it is locked.
+                              gestureEnabled: name !== 'recording/[type]',
+                              ...largeTitleScreenOptions(name, Platform.OS),
+                              ...sheetScreenOptions(name, Platform.OS),
+                              ...(header?.overMap && overMapHeaderOptions({ isDark })),
+                              ...(name === 'recordings/[id]' && {
+                                headerTitle: () => <RecordingTitle />,
+                              }),
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    </NavigationThemeProvider>
                     <BottomTabBar />
                   </AuthGate>
                 </PaperProvider>

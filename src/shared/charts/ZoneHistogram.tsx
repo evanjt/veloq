@@ -1,8 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 /** One bar of a zone histogram. `percent` is of the whole, 0 to 100. */
 export interface ZoneBand {
@@ -21,12 +23,13 @@ interface ZoneHistogramProps {
   testID?: string;
 }
 
-/** Below this share a band reads as empty and its numbers are replaced by a dash. */
+/** Below this share a band reads as empty and its numbers are replaced by the absent mark. */
 const EMPTY_BELOW_PERCENT = 0.5;
 
 /** Horizontal bars, one per zone, with the share on the left and the time and range on the right. */
 export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const compact = bands.length > 5;
   const barHeight = compact ? 14 : 16;
   const rowPadding = compact ? 2 : 3;
@@ -35,6 +38,8 @@ export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
     <View testID={testID}>
       {bands.map((band) => {
         const filled = band.percent > EMPTY_BELOW_PERCENT;
+        const share = filled ? `${Math.round(band.percent)}%` : ABSENT;
+        const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
         return (
           <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
             <Text style={[styles.label, compact && styles.labelCompact, { color: band.colour }]}>
@@ -46,8 +51,9 @@ export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
                 compact && styles.percentCompact,
                 isDark && styles.textOnDark,
               ]}
+              accessibilityLabel={absentLabel(share, t)}
             >
-              {filled ? `${Math.round(band.percent)}%` : '-'}
+              {share}
             </Text>
             <View
               style={[
@@ -74,8 +80,9 @@ export function ZoneHistogram({ bands, testID }: ZoneHistogramProps) {
                   compact && styles.primaryCompact,
                   isDark && styles.textOnDark,
                 ]}
+                accessibilityLabel={absentLabel(primary, t)}
               >
-                {filled ? (band.primary ?? '-') : '-'}
+                {primary}
               </Text>
               {band.secondary != null && (
                 <Text style={[styles.secondary, isDark && styles.secondaryDark]}>

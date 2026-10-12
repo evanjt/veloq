@@ -27,20 +27,20 @@ function summary(customName?: string) {
   };
 }
 
-function namesFor(customName?: string) {
+async function namesFor(customName?: string) {
   (useGroupSummaries as jest.Mock).mockReturnValue({
     summaries: [summary(customName)],
     totalCount: 1,
     refresh: jest.fn(),
   });
-  const { result } = renderHook(() => useRouteGroups({}));
+  const { result } = await renderHook(() => useRouteGroups({}));
   return result.current.groups.map((group) => group.name);
 }
 
-it('leaves an unnamed group unnamed rather than naming it by its id', () => {
-  expect(namesFor(undefined)).toEqual(['']);
+it('leaves an unnamed group unnamed rather than naming it by its id', async () => {
+  expect(await namesFor(undefined)).toEqual(['']);
 });
 
-it('keeps the name the engine minted or the athlete set', () => {
-  expect(namesFor('Route 3')).toEqual(['Route 3']);
+it('keeps the name the engine minted or the athlete set', async () => {
+  expect(await namesFor('Route 3')).toEqual(['Route 3']);
 });

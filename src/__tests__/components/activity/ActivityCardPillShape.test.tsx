@@ -1,15 +1,22 @@
 /**
  * Scenario: the map feed card draws a route chip and section pills side by side.
  * Expected behaviour: a route PR chip and a section PR pill share one shape, and the
- * route delta label and a pill count share one label type, in light and dark.
+ * route delta label and a pill count share one label type, in light and dark. With
+ * the system asking for less transparency or more contrast, the delta chip drops its
+ * translucent fill over the map for an opaque one.
  */
 
 import React from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
-import { render, screen, within } from '@testing-library/react-native';
+import { configure, render, screen, within } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
+import { useOpaqueChromeStore } from '@/shared/app/ThemeProvider';
 import type { Activity } from '@/types';
+
+// The card's drawn text is hidden from assistive technology, which reads the
+// card's own label instead, and these cases check what is drawn.
+configure({ defaultIncludeHiddenElements: true });
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -86,8 +93,8 @@ describe.each(['light', 'dark'])('feed card pills in %s', (scheme) => {
       />
     );
 
-  it('draws the route PR chip and the section PR pill in one shape', () => {
-    draw(true);
+  it('draws the route PR chip and the section PR pill in one shape', async () => {
+    await draw(true);
     const route = flat('activity-card-a1-route-chip');
     const pill = flat('activity-card-a1-pr-pill');
     for (const key of SHAPE) expect(route[key]).toEqual(pill[key]);
@@ -97,8 +104,8 @@ describe.each(['light', 'dark'])('feed card pills in %s', (scheme) => {
     expect(pill.elevation).toBeUndefined();
   });
 
-  it('draws the route delta chip in the same radius and padding as a pill', () => {
-    draw(false);
+  it('draws the route delta chip in the same radius and padding as a pill', async () => {
+    await draw(false);
     const route = flat('activity-card-a1-route-chip');
     const pill = flat('activity-card-a1-improving-pill');
     for (const key of [
@@ -111,8 +118,25 @@ describe.each(['light', 'dark'])('feed card pills in %s', (scheme) => {
     expect(route.elevation).toBeUndefined();
   });
 
-  it('gives the route label and a pill count one label type', () => {
-    draw(false);
+  it('fills the route delta chip opaque when the system asks for opaque chrome', async () => {
+    await draw(false);
+    const translucent = flat('activity-card-a1-route-chip').backgroundColor;
+    await screen.unmount();
+
+    useOpaqueChromeStore.setState({ preferOpaqueChrome: true });
+    try {
+      await draw(false);
+      const opaque = flat('activity-card-a1-route-chip');
+      expect(opaque.backgroundColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(opaque.backgroundColor).not.toEqual(translucent);
+      expect(opaque.borderColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    } finally {
+      useOpaqueChromeStore.setState({ preferOpaqueChrome: false });
+    }
+  });
+
+  it('gives the route label and a pill count one label type', async () => {
+    await draw(false);
     const label = StyleSheet.flatten(
       within(screen.getByTestId('activity-card-a1-route-chip')).getByText(/\d/).props.style
     );

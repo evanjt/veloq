@@ -22,7 +22,7 @@ import {
 } from '@/features/activity/components/ChartDistanceIndicator';
 
 /** A root that counts its own renders and hands the pill a stable ref. */
-function harness(maxX = 42.2) {
+async function harness(maxX = 42.2) {
   const renders = jest.fn();
   const ref = React.createRef<ChartDistanceIndicatorHandle>();
 
@@ -40,32 +40,32 @@ function harness(maxX = 42.2) {
     );
   }
 
-  return { renders, ref, tree: render(<Root />) };
+  return { renders, ref, tree: await render(<Root />) };
 }
 
 describe('chart scrub re-renders', () => {
-  it('keeps the series accessors stable while the series are', () => {
+  it('keeps the series accessors stable while the series are', async () => {
     const series = [{ id: 'watts' }, { id: 'heartrate' }];
-    const { result, rerender } = renderHook<SeriesAccessors, { s: { id: string }[] }>(
+    const { result, rerender } = await renderHook<SeriesAccessors, { s: { id: string }[] }>(
       ({ s }) => useSeriesAccessors(s),
       { initialProps: { s: series } }
     );
     const first = result.current;
 
-    rerender({ s: series });
+    await rerender({ s: series });
 
     expect(result.current).toBe(first);
     expect(first.watts({ watts: 210 })).toBe(210);
   });
 
-  it('builds new accessors when the series themselves change', () => {
-    const { result, rerender } = renderHook<SeriesAccessors, { s: { id: string }[] }>(
+  it('builds new accessors when the series themselves change', async () => {
+    const { result, rerender } = await renderHook<SeriesAccessors, { s: { id: string }[] }>(
       ({ s }) => useSeriesAccessors(s),
       { initialProps: { s: [{ id: 'watts' }] } }
     );
     const first = result.current;
 
-    rerender({ s: [{ id: 'watts' }, { id: 'cadence' }] });
+    await rerender({ s: [{ id: 'watts' }, { id: 'cadence' }] });
 
     expect(result.current).not.toBe(first);
     expect(Object.keys(result.current)).toEqual(['watts', 'cadence']);
@@ -76,22 +76,22 @@ describe('chart scrub re-renders', () => {
    * tick never reaches the chart root. A render count that moves here is the
    * rebuild of every Skia path coming back.
    */
-  it('moves the scrub value without rendering the chart root', () => {
-    const { renders, ref, tree } = harness();
+  it('moves the scrub value without rendering the chart root', async () => {
+    const { renders, ref, tree } = await harness();
     const before = renders.mock.calls.length;
     expect(tree.getByText('42.2 km')).toBeTruthy();
 
-    act(() => ref.current!.setScrub(12.5));
+    await act(() => ref.current!.setScrub(12.5));
 
     expect(tree.getByText('12.50 km')).toBeTruthy();
     expect(renders.mock.calls.length).toBe(before);
   });
 
-  it('goes back to the total when the gesture ends', () => {
-    const { ref, tree } = harness();
+  it('goes back to the total when the gesture ends', async () => {
+    const { ref, tree } = await harness();
 
-    act(() => ref.current!.setScrub(12.5));
-    act(() => ref.current!.setScrub(null));
+    await act(() => ref.current!.setScrub(12.5));
+    await act(() => ref.current!.setScrub(null));
 
     expect(tree.getByText('42.2 km')).toBeTruthy();
   });
@@ -100,10 +100,10 @@ describe('chart scrub re-renders', () => {
    * Zero is a position, not an absent one. Treating a falsy scrub as the end of
    * the gesture puts the total back on screen at the start of the ride.
    */
-  it('treats the start of the ride as a position, not as no scrub', () => {
-    const { ref, tree } = harness();
+  it('treats the start of the ride as a position, not as no scrub', async () => {
+    const { ref, tree } = await harness();
 
-    act(() => ref.current!.setScrub(0));
+    await act(() => ref.current!.setScrub(0));
 
     expect(tree.getByText('0.00 km')).toBeTruthy();
   });

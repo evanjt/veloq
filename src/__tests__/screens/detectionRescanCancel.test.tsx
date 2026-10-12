@@ -58,6 +58,7 @@ jest.mock('react-native-iap', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/settings/components', () => ({
+  ...jest.requireActual('@/features/settings/components'),
   BackgroundJobsActivityBar: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
@@ -75,28 +76,28 @@ beforeEach(() => {
   mockScanning = false;
 });
 
-it('asks the run to stop when the button is pressed mid-scan', () => {
+it('asks the run to stop when the button is pressed mid-scan', async () => {
   mockScanning = true;
-  render(<DetectionSettingsScreen />);
+  await render(<DetectionSettingsScreen />);
 
-  fireEvent.press(screen.getByTestId('detection-rescan-button'));
+  await fireEvent.press(screen.getByTestId('detection-rescan-button'));
 
   expect(mockCancelSectionDetection).toHaveBeenCalledTimes(1);
 });
 
-it('leaves the button pressable while a scan runs', () => {
+it('leaves the button pressable while a scan runs', async () => {
   mockScanning = true;
-  render(<DetectionSettingsScreen />);
+  await render(<DetectionSettingsScreen />);
 
   expect(screen.getByTestId('detection-rescan-button').props.accessibilityState?.disabled).not.toBe(
     true
   );
 });
 
-it('does not cancel when no scan is running', () => {
-  render(<DetectionSettingsScreen />);
+it('does not cancel when no scan is running', async () => {
+  await render(<DetectionSettingsScreen />);
 
-  fireEvent.press(screen.getByTestId('detection-rescan-button'));
+  await fireEvent.press(screen.getByTestId('detection-rescan-button'));
 
   expect(mockCancelSectionDetection).not.toHaveBeenCalled();
 });

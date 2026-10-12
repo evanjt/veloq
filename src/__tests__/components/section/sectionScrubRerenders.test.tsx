@@ -35,7 +35,7 @@ const SECTION: FrequentSection = {
 
 const LAP = [{ lat: 1, lng: 2 }];
 
-function setup() {
+async function setup() {
   const store = createMapHighlightStore();
   const rootRenders = jest.fn();
 
@@ -52,7 +52,7 @@ function setup() {
     );
   }
 
-  const tree = render(<Root />);
+  const tree = await render(<Root />);
   return { store, rootRenders, tree };
 }
 
@@ -61,13 +61,13 @@ const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.lengt
 beforeEach(() => mockMapProps.mockClear());
 
 describe('a chart scrub on the section screen', () => {
-  it('renders the map per index and never the root that owns the store', () => {
-    const { store, rootRenders } = setup();
+  it('renders the map per index and never the root that owns the store', async () => {
+    const { store, rootRenders } = await setup();
     expect(rootRenders).toHaveBeenCalledTimes(1);
     mockMapProps.mockClear();
 
     for (const id of ['a', 'b', 'c', 'd', 'e']) {
-      act(() => store.set(id, LAP));
+      await act(() => store.set(id, LAP));
       expect(lastMapProps()).toMatchObject({
         highlightedActivityId: id,
         highlightedLapPoints: LAP,
@@ -78,15 +78,15 @@ describe('a chart scrub on the section screen', () => {
     expect(rootRenders).toHaveBeenCalledTimes(1);
   });
 
-  it('hands the map nothing before a scrub and after a clear', () => {
-    const { store } = setup();
+  it('hands the map nothing before a scrub and after a clear', async () => {
+    const { store } = await setup();
     expect(lastMapProps()).toMatchObject({
       highlightedActivityId: null,
       highlightedLapPoints: undefined,
     });
 
-    act(() => store.set('a', LAP));
-    act(() => store.set(null));
+    await act(() => store.set('a', LAP));
+    await act(() => store.set(null));
 
     expect(lastMapProps()).toMatchObject({
       highlightedActivityId: null,
@@ -94,27 +94,27 @@ describe('a chart scrub on the section screen', () => {
     });
   });
 
-  it('keeps a lap trace that arrives with the same attempt', () => {
-    const { store } = setup();
-    act(() => store.set('a'));
-    act(() => store.set('a', LAP));
+  it('keeps a lap trace that arrives with the same attempt', async () => {
+    const { store } = await setup();
+    await act(() => store.set('a'));
+    await act(() => store.set('a', LAP));
     expect(lastMapProps().highlightedLapPoints).toBe(LAP);
   });
 
-  it('does not render the map again for the value it already holds', () => {
-    const { store } = setup();
-    act(() => store.set('a', LAP));
+  it('does not render the map again for the value it already holds', async () => {
+    const { store } = await setup();
+    await act(() => store.set('a', LAP));
     mockMapProps.mockClear();
 
-    act(() => store.set('a', LAP));
+    await act(() => store.set('a', LAP));
 
     expect(mockMapProps).not.toHaveBeenCalled();
   });
 
-  it('takes a set that works detached, as a chart calls it', () => {
+  it('takes a set that works detached, as a chart calls it', async () => {
     const store = createMapHighlightStore();
     const { set } = store;
-    act(() => set('a', LAP));
+    await act(() => set('a', LAP));
     expect(store.get()).toEqual({ activityId: 'a', lapPoints: LAP });
   });
 });

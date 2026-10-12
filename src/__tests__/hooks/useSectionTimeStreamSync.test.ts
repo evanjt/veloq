@@ -40,8 +40,8 @@ const missing = engine.getActivitiesMissingTimeStreams as unknown as jest.Mock;
 const syncTimeStreams = engine.syncTimeStreams as unknown as jest.Mock;
 
 /** Stands in for the announcement Rust makes off the JS thread. */
-function announce(activityIds: string[]) {
-  act(() => {
+async function announce(activityIds: string[]) {
+  await act(() => {
     mockListeners.get('timeStreamsStored')?.forEach((listener) => listener({ activityIds }));
   });
 }
@@ -64,7 +64,7 @@ describe('useSectionTimeStreamSync', () => {
   });
 
   it('is ready without asking for anything when every stream is stored', async () => {
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
 
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(syncTimeStreams).not.toHaveBeenCalled();
@@ -75,7 +75,7 @@ describe('useSectionTimeStreamSync', () => {
     missing.mockReturnValue(['a1', 'a2']);
     jest.useFakeTimers();
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
     expect(syncTimeStreams).toHaveBeenCalledWith(['a1', 'a2']);
     const callsAtRequest = missing.mock.calls.length;
@@ -86,7 +86,7 @@ describe('useSectionTimeStreamSync', () => {
     expect(missing).toHaveBeenCalledTimes(callsAtRequest);
     expect(result.current.ready).toBe(false);
 
-    announce(['a1', 'a2']);
+    await announce(['a1', 'a2']);
     await act(async () => {});
 
     expect(result.current.ready).toBe(true);
@@ -97,14 +97,14 @@ describe('useSectionTimeStreamSync', () => {
   it('stays waiting until every activity it asked for has landed', async () => {
     missing.mockReturnValue(['a1', 'a2']);
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
 
-    announce(['a1']);
+    await announce(['a1']);
     await act(async () => {});
     expect(result.current.ready).toBe(false);
 
-    announce(['a2']);
+    await announce(['a2']);
     await act(async () => {});
     expect(result.current.ready).toBe(true);
     expect(result.current.outstanding).toBe(0);
@@ -114,9 +114,9 @@ describe('useSectionTimeStreamSync', () => {
     missing.mockReturnValue(['a1', 'a2']);
     jest.useFakeTimers();
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
-    announce(['a1']);
+    await announce(['a1']);
 
     await act(async () => {
       jest.advanceTimersByTime(30_000);
@@ -128,24 +128,24 @@ describe('useSectionTimeStreamSync', () => {
   });
 
   it('takes the gap the caller already read rather than re-reading it', async () => {
-    const { result } = renderSync(['a1'], ['a1']);
+    const { result } = await renderSync(['a1'], ['a1']);
     await act(async () => {});
 
     expect(missing).not.toHaveBeenCalled();
     expect(syncTimeStreams).toHaveBeenCalledWith(['a1']);
 
-    announce(['a1']);
+    await announce(['a1']);
     await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
   it('leaves no listener behind once the wait is over', async () => {
     missing.mockReturnValue(['a1']);
 
-    const { unmount } = renderSync(['a1']);
+    const { unmount } = await renderSync(['a1']);
     await act(async () => {});
-    announce(['a1']);
+    await announce(['a1']);
     await act(async () => {});
-    unmount();
+    await unmount();
 
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
   });
@@ -175,7 +175,7 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1', 'a2']);
     jest.useFakeTimers();
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
     await act(async () => {
       jest.advanceTimersByTime(30_001);
@@ -188,7 +188,7 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1', 'a2']);
     startsWith(StartOutcome.Held);
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
 
     expect(result.current).toMatchObject({ ready: true, error: null, outstanding: 2 });
@@ -199,7 +199,7 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1']);
     startsWith(StartOutcome.NotReady);
 
-    const { result } = renderSync(['a1']);
+    const { result } = await renderSync(['a1']);
     await act(async () => {});
 
     expect(result.current).toMatchObject({ ready: true, outstanding: 1 });
@@ -209,11 +209,11 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1']);
     startsWith(StartOutcome.Busy);
 
-    const { result } = renderSync(['a1']);
+    const { result } = await renderSync(['a1']);
     await act(async () => {});
     expect(result.current.ready).toBe(false);
 
-    announce(['a1']);
+    await announce(['a1']);
     await act(async () => {});
 
     expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
@@ -224,18 +224,18 @@ describe('streams that do not arrive', () => {
     startsWith(StartOutcome.Held);
     mockIsOnline = false;
 
-    const { result, rerender } = renderSync(['a1', 'a2']);
+    const { result, rerender } = await renderSync(['a1', 'a2']);
     await act(async () => {});
     expect(syncTimeStreams).toHaveBeenCalledTimes(1);
 
     startsWith(StartOutcome.Started);
     mockIsOnline = true;
-    rerender({});
+    await rerender({});
     await act(async () => {});
 
     expect(syncTimeStreams).toHaveBeenCalledTimes(2);
     expect(result.current.ready).toBe(false);
-    announce(['a1', 'a2']);
+    await announce(['a1', 'a2']);
     await act(async () => {});
     expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
   });
@@ -244,13 +244,13 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1']);
     mockIsOnline = false;
 
-    const { rerender } = renderSync(['a1']);
+    const { rerender } = await renderSync(['a1']);
     await act(async () => {});
-    announce(['a1']);
+    await announce(['a1']);
     await act(async () => {});
 
     mockIsOnline = true;
-    rerender({});
+    await rerender({});
     await act(async () => {});
 
     expect(syncTimeStreams).toHaveBeenCalledTimes(1);
@@ -260,11 +260,11 @@ describe('streams that do not arrive', () => {
     missing.mockReturnValue(['a1']);
     startsWith(StartOutcome.Held);
 
-    const { result } = renderSync(['a1']);
+    const { result } = await renderSync(['a1']);
     await act(async () => {});
     expect(result.current.outstanding).toBe(1);
 
-    act(() => result.current.refetch());
+    await act(() => result.current.refetch());
     await act(async () => {});
 
     expect(syncTimeStreams).toHaveBeenCalledTimes(2);
@@ -295,20 +295,20 @@ describe('a retry after some streams landed', () => {
 
   it('waits only on the streams still missing, not the list it was handed', async () => {
     jest.useFakeTimers();
-    const { result } = renderSync(ids, ids);
+    const { result } = await renderSync(ids, ids);
     await act(async () => {});
-    announce(['a', 'b', 'c']);
+    await announce(['a', 'b', 'c']);
     await act(async () => {
       jest.advanceTimersByTime(30_001);
     });
     expect(result.current).toMatchObject({ ready: true, outstanding: 2 });
 
     missing.mockReturnValue(['d', 'e']);
-    act(() => result.current.refetch());
+    await act(() => result.current.refetch());
     await act(async () => {});
     expect(syncTimeStreams).toHaveBeenLastCalledWith(['d', 'e']);
 
-    announce(['d', 'e']);
+    await announce(['d', 'e']);
     await act(async () => {});
 
     expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
@@ -316,12 +316,12 @@ describe('a retry after some streams landed', () => {
 
   it('settles at once on retry when every stream has landed since', async () => {
     startsWith(StartOutcome.Held);
-    const { result } = renderSync(ids, ids);
+    const { result } = await renderSync(ids, ids);
     await act(async () => {});
     expect(result.current.outstanding).toBe(5);
 
     missing.mockReturnValue([]);
-    act(() => result.current.refetch());
+    await act(() => result.current.refetch());
     await act(async () => {});
 
     expect(syncTimeStreams).toHaveBeenCalledTimes(1);
@@ -330,16 +330,16 @@ describe('a retry after some streams landed', () => {
 
   it('takes the caller list again for a new activity set after a retry', async () => {
     startsWith(StartOutcome.Held);
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ all, known }: { all: string[]; known: string[] }) => useSectionTimeStreamSync(all, known),
       { initialProps: { all: ['a'], known: ['a'] } }
     );
     await act(async () => {});
-    act(() => result.current.refetch());
+    await act(() => result.current.refetch());
     await act(async () => {});
     const readsBefore = missing.mock.calls.length;
 
-    rerender({ all: ['x', 'y'], known: ['y'] });
+    await rerender({ all: ['x', 'y'], known: ['y'] });
     await act(async () => {});
 
     expect(missing).toHaveBeenCalledTimes(readsBefore);
@@ -363,7 +363,7 @@ describe('a wait the caller has moved on from', () => {
   /// Expected behaviour: starting a new wait ends the one before it.
   it('does not flip the new wait ready when the old one settles', async () => {
     missing.mockReturnValue(['old']);
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ ids }: { ids: string[] }) => useSectionTimeStreamSync(ids),
       { initialProps: { ids: ['old'] } }
     );
@@ -371,12 +371,12 @@ describe('a wait the caller has moved on from', () => {
     expect(syncTimeStreams).toHaveBeenCalledWith(['old']);
 
     missing.mockReturnValue(['new']);
-    rerender({ ids: ['new'] });
+    await rerender({ ids: ['new'] });
     await act(async () => {});
     expect(result.current.ready).toBe(false);
 
     // The stream the first section was waiting on lands late.
-    announce(['old']);
+    await announce(['old']);
     await act(async () => {});
 
     expect(result.current.ready).toBe(false);
@@ -384,17 +384,17 @@ describe('a wait the caller has moved on from', () => {
 
   it('is ready once the stream the current wait asked for lands', async () => {
     missing.mockReturnValue(['old']);
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ ids }: { ids: string[] }) => useSectionTimeStreamSync(ids),
       { initialProps: { ids: ['old'] } }
     );
     await act(async () => {});
 
     missing.mockReturnValue(['new']);
-    rerender({ ids: ['new'] });
+    await rerender({ ids: ['new'] });
     await act(async () => {});
 
-    announce(['new']);
+    await announce(['new']);
     await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
@@ -402,11 +402,11 @@ describe('a wait the caller has moved on from', () => {
   /// second timer for nothing.
   it('drops its subscription when the component goes away', async () => {
     missing.mockReturnValue(['a1']);
-    const { unmount } = renderSync(['a1']);
+    const { unmount } = await renderSync(['a1']);
     await act(async () => {});
     expect(mockListeners.get('timeStreamsStored')?.size).toBe(1);
 
-    unmount();
+    await unmount();
     await act(async () => {});
 
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
@@ -449,7 +449,7 @@ describe('an engine read that throws', () => {
       throw { tag: 'Database', message: 'reader pool refused' };
     });
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await settleRejections();
 
     expect(rejections).toEqual([]);
@@ -466,7 +466,7 @@ describe('an engine read that throws', () => {
       throw { tag: 'Database', message: 'writer refused' };
     });
 
-    const { result } = renderSync(['a1', 'a2']);
+    const { result } = await renderSync(['a1', 'a2']);
     await settleRejections();
 
     expect(rejections).toEqual([]);
@@ -481,11 +481,11 @@ describe('an engine read that throws', () => {
       throw { tag: 'Database', message: 'reader pool refused' };
     });
 
-    const { result } = renderSync(['a1']);
+    const { result } = await renderSync(['a1']);
     await settleRejections();
     expect(result.current.error).not.toBeNull();
 
-    act(() => result.current.refetch());
+    await act(() => result.current.refetch());
     await act(async () => {});
 
     expect(result.current).toMatchObject({ ready: true, error: null, outstanding: 0 });

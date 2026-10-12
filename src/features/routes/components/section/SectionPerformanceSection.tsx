@@ -19,7 +19,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import type { FfiAttemptHistograms, FfiSectionLapCurves, FfiSectionTrendCurves } from 'veloqrs';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
-import { ChipSelector, Shimmer, EngineReadFailureRetry } from '@/shared/ui';
+import { ChipSelector, EmptyState, ErrorState, Shimmer } from '@/shared/ui';
 import { FLOW_EXPAND, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
 import type { UseSectionTimeStreamSyncResult } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -191,7 +191,8 @@ export function SectionPerformanceSection({
           <Shimmer height={PERFORMANCE_PLACEHOLDER_HEIGHT} />
         </View>
       ) : streams?.status === 'failed' ? (
-        <EngineReadFailureRetry
+        <ErrorState
+          variant="inline"
           testID="section-performance-stream-failure"
           error={streams.error}
           onRetry={streams.onRetry}
@@ -206,9 +207,7 @@ export function SectionPerformanceSection({
               onToggle={onToggleShowExcluded}
             />
           )}
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {t('sections.noActivitiesFound')}
-          </Text>
+          <EmptyState variant="inline" title={t('sections.noActivitiesFound')} />
         </View>
       )}
     </View>
@@ -252,12 +251,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  emptyTextDark: {
-    color: darkColors.textSecondary,
   },
 });

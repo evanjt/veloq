@@ -45,7 +45,7 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 const remove = jest.fn(() => true);
 
 function withCorridors(corridors: unknown[]) {
-  (useNamedCorridors as jest.Mock).mockReturnValue({ corridors, remove });
+  (useNamedCorridors as jest.Mock).mockReturnValue({ corridors, state: 'ready', remove });
 }
 
 const RESOLVED = {
@@ -79,42 +79,42 @@ describe('NamedCorridorsScreen', () => {
     remove.mockReturnValue(true);
   });
 
-  it('says so when the user has named nothing', () => {
+  it('says so when the user has named nothing', async () => {
     withCorridors([]);
-    const { getByTestId, queryByTestId } = render(<NamedCorridorsScreen />);
+    const { getByTestId, queryByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridors-empty')).toBeTruthy();
     expect(queryByTestId('named-corridor-intent-1')).toBeNull();
   });
 
-  it('lists one name with the section carrying it', () => {
+  it('lists one name with the section carrying it', async () => {
     withCorridors([RESOLVED]);
-    const { getByTestId, getByText } = render(<NamedCorridorsScreen />);
+    const { getByTestId, getByText } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-1')).toBeTruthy();
     expect(getByText('The river climb')).toBeTruthy();
-    fireEvent.press(getByTestId('named-corridor-intent-1-open'));
+    await fireEvent.press(getByTestId('named-corridor-intent-1-open'));
     expect(mockPush).toHaveBeenCalledWith('/section/sec-1');
   });
 
-  it('marks a dormant name and gives it nothing to open', () => {
+  it('marks a dormant name and gives it nothing to open', async () => {
     withCorridors([DORMANT]);
-    const { getByTestId, queryByTestId } = render(<NamedCorridorsScreen />);
+    const { getByTestId, queryByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-2-dormant')).toBeTruthy();
     expect(queryByTestId('named-corridor-intent-2-open')).toBeNull();
   });
 
-  it('keeps two names that landed on the same ground apart', () => {
+  it('keeps two names that landed on the same ground apart', async () => {
     withCorridors([RESOLVED, { ...DORMANT, sectionId: 'sec-1', dormant: false }]);
-    const { getByTestId } = render(<NamedCorridorsScreen />);
+    const { getByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-1')).toBeTruthy();
     expect(getByTestId('named-corridor-intent-2')).toBeTruthy();
     expect(getByTestId('named-corridor-intent-2-secondary')).toBeTruthy();
   });
 
-  it('asks before deleting and does nothing when the user cancels', () => {
+  it('asks before deleting and does nothing when the user cancels', async () => {
     withCorridors([RESOLVED]);
     const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = render(<NamedCorridorsScreen />);
-    fireEvent.press(getByTestId('named-corridor-intent-1-delete'));
+    const { getByTestId } = await render(<NamedCorridorsScreen />);
+    await fireEvent.press(getByTestId('named-corridor-intent-1-delete'));
 
     const buttons = spy.mock.calls[0][2] as { style?: string; onPress?: () => void }[];
     buttons.find((b) => b.style === 'cancel')?.onPress?.();
@@ -125,16 +125,16 @@ describe('NamedCorridorsScreen', () => {
     spy.mockRestore();
   });
 
-  it('confirms a second delete on its own, not off the first', () => {
+  it('confirms a second delete on its own, not off the first', async () => {
     withCorridors([RESOLVED, DORMANT]);
     const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = render(<NamedCorridorsScreen />);
+    const { getByTestId } = await render(<NamedCorridorsScreen />);
 
-    fireEvent.press(getByTestId('named-corridor-intent-1-delete'));
+    await fireEvent.press(getByTestId('named-corridor-intent-1-delete'));
     (spy.mock.calls[0][2] as { style?: string; onPress?: () => void }[])
       .find((b) => b.style === 'destructive')
       ?.onPress?.();
-    fireEvent.press(getByTestId('named-corridor-intent-2-delete'));
+    await fireEvent.press(getByTestId('named-corridor-intent-2-delete'));
     (spy.mock.calls[1][2] as { style?: string; onPress?: () => void }[])
       .find((b) => b.style === 'destructive')
       ?.onPress?.();

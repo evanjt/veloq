@@ -9,6 +9,10 @@ export const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: darkColors.background,
   },
+  readFailure: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   rescanRefusal: {
     flexDirection: 'row',
     alignItems: 'center',

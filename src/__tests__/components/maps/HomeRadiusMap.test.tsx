@@ -56,15 +56,15 @@ beforeEach(() => {
 });
 
 describe('HomeRadiusMap', () => {
-  it('draws the home as a point at the coordinate it was given', () => {
-    render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
+  it('draws the home as a point at the coordinate it was given', async () => {
+    await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     const point = geojson(last(), 'home-point').features[0];
     expect(point.geometry).toEqual({ type: 'Point', coordinates: HOME });
   });
 
-  it('draws the radius as a circle on the ground, sized in metres', () => {
-    render(<HomeRadiusMap home={HOME} radiusM={250} onMove={jest.fn()} />);
+  it('draws the radius as a circle on the ground, sized in metres', async () => {
+    await render(<HomeRadiusMap home={HOME} radiusM={250} onMove={jest.fn()} />);
 
     const circle = geojson(last(), 'home-radius').features[0];
     expect(circle.geometry.type).toBe('Polygon');
@@ -74,8 +74,8 @@ describe('HomeRadiusMap', () => {
     }
   });
 
-  it('fits the camera to the circle and refuses to zoom past street level', () => {
-    render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
+  it('fits the camera to the circle and refuses to zoom past street level', async () => {
+    await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     const camera = last().initialCamera;
     expect(boundsOf(camera).sw[1]).toBeLessThan(HOME[1]);
@@ -83,29 +83,29 @@ describe('HomeRadiusMap', () => {
     expect(camera.maxZoom).toBeDefined();
   });
 
-  it('refits when the radius changes so a wider circle stays in frame', () => {
-    const tree = render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
+  it('refits when the radius changes so a wider circle stays in frame', async () => {
+    const tree = await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
     expect(mockSetCamera).not.toHaveBeenCalled();
 
-    tree.rerender(<HomeRadiusMap home={HOME} radiusM={500} onMove={jest.fn()} />);
+    await tree.rerender(<HomeRadiusMap home={HOME} radiusM={500} onMove={jest.fn()} />);
 
     expect(mockSetCamera).toHaveBeenCalledTimes(1);
     const bounds = boundsOf(mockSetCamera.mock.calls[0][0]);
     expect(haversineDistance(bounds.sw[1], HOME[0], bounds.ne[1], HOME[0])).toBeCloseTo(1000, -2);
   });
 
-  it('relays a tap as the new home', () => {
+  it('relays a tap as the new home', async () => {
     const onMove = jest.fn();
-    render(<HomeRadiusMap home={HOME} radiusM={100} onMove={onMove} />);
+    await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={onMove} />);
 
     const moved: LngLat = [7.3612, 46.2341];
-    act(() => last().onPress?.({ coordinate: moved, point: [10, 10], feature: null }));
+    await act(() => last().onPress?.({ coordinate: moved, point: [10, 10], feature: null }));
 
     expect(onMove).toHaveBeenCalledWith(moved);
   });
 
-  it('keeps both sources declared with no circle when the radius is zero', () => {
-    render(<HomeRadiusMap home={HOME} radiusM={0} onMove={jest.fn()} />);
+  it('keeps both sources declared with no circle when the radius is zero', async () => {
+    await render(<HomeRadiusMap home={HOME} radiusM={0} onMove={jest.fn()} />);
 
     expect(geojson(last(), 'home-radius').features).toHaveLength(0);
     expect(geojson(last(), 'home-point').features).toHaveLength(1);
@@ -114,8 +114,8 @@ describe('HomeRadiusMap', () => {
     );
   });
 
-  it('leaves panning off so the settings list underneath still scrolls', () => {
-    render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
+  it('leaves panning off so the settings list underneath still scrolls', async () => {
+    await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     expect(last().scrollEnabled).toBe(false);
     expect(last().zoomEnabled).not.toBe(false);

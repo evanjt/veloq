@@ -49,7 +49,7 @@ if (!below(bundled, SAFE_FROM)) process.exit(0);
 
 const offenders = [];
 for (const [file, bytes] of treeSources(ROOT, [PAGES])) {
-  if (file === RENDERER || !/\.(ts|tsx)$/.test(file)) continue;
+  if (!/\.(ts|tsx)$/.test(file)) continue;
   const lines = bytes.toString('utf8').split('\n');
   const code = lines.filter((line) => !COMMENT.test(line));
   lines.forEach((line, i) => {

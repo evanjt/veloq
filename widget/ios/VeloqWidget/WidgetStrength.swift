@@ -53,6 +53,7 @@ struct StrengthTopRow: View {
       Circle()
         .fill(color)
         .frame(width: 8, height: 8)
+        .unspoken()
       Text(muscle.name)
         .measuredText("muscle name")
         .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
@@ -121,6 +122,7 @@ struct StrengthWidgetView: View {
         BodyView(female: content.female, side: side, shades: content.shades, palette: palette)
       }
     }
+    .spoken("body", content.bodyLabel)
   }
 
   /// Medium is wide and short, so the bodies take its whole height and the words stand beside

@@ -107,36 +107,44 @@ function view(props: {
 describe('the preview camera', () => {
   beforeEach(() => mockFitBounds.mockClear());
 
-  it('frames the area once when the screen opens', () => {
-    render(view({ centre: ZURICH, currentSections: [section('a')], result: null }));
+  it('frames the area once when the screen opens', async () => {
+    await render(view({ centre: ZURICH, currentSections: [section('a')], result: null }));
     expect(mockFitBounds).toHaveBeenCalledTimes(1);
   });
 
-  it('holds the viewport when a run finishes on the area already framed', () => {
-    const tree = render(view({ centre: ZURICH, currentSections: [section('a')], result: null }));
+  it('holds the viewport when a run finishes on the area already framed', async () => {
+    const tree = await render(
+      view({ centre: ZURICH, currentSections: [section('a')], result: null })
+    );
     mockFitBounds.mockClear();
 
     // A run empties the geometry, then lands a new catalogue.
-    tree.rerender(view({ centre: ZURICH, currentSections: [], result: null }));
-    tree.rerender(view({ centre: ZURICH, currentSections: [], result: resultOf([section('b')]) }));
+    await tree.rerender(view({ centre: ZURICH, currentSections: [], result: null }));
+    await tree.rerender(
+      view({ centre: ZURICH, currentSections: [], result: resultOf([section('b')]) })
+    );
 
     expect(mockFitBounds).not.toHaveBeenCalled();
   });
 
-  it('holds the viewport when a run comes back with nothing', () => {
-    const tree = render(view({ centre: ZURICH, currentSections: [section('a')], result: null }));
+  it('holds the viewport when a run comes back with nothing', async () => {
+    const tree = await render(
+      view({ centre: ZURICH, currentSections: [section('a')], result: null })
+    );
     mockFitBounds.mockClear();
 
-    tree.rerender(view({ centre: ZURICH, currentSections: [], result: resultOf([]) }));
+    await tree.rerender(view({ centre: ZURICH, currentSections: [], result: resultOf([]) }));
 
     expect(mockFitBounds).not.toHaveBeenCalled();
   });
 
-  it('refits when the athlete picks a different area', () => {
-    const tree = render(view({ centre: ZURICH, currentSections: [section('a')], result: null }));
+  it('refits when the athlete picks a different area', async () => {
+    const tree = await render(
+      view({ centre: ZURICH, currentSections: [section('a')], result: null })
+    );
     mockFitBounds.mockClear();
 
-    tree.rerender(view({ centre: SYDNEY, currentSections: [section('c')], result: null }));
+    await tree.rerender(view({ centre: SYDNEY, currentSections: [section('c')], result: null }));
 
     expect(mockFitBounds).toHaveBeenCalledTimes(1);
   });

@@ -5,7 +5,9 @@
  *
  * Expected behaviour: while the library is empty and a first sync is running,
  * the feed says so and stands by, rather than showing "No activities" over a
- * summary card full of zeros. Every other empty case reads as it did.
+ * summary card full of zeros. An engine that has not opened is never read as
+ * an empty library: one still opening shows the skeletons, one that failed
+ * says so. Every other empty case reads as it did.
  */
 
 import { SyncErrorReason, SyncState } from 'veloqrs';
@@ -19,6 +21,7 @@ const base = {
   isError: false,
   isLoading: false,
   hasFilter: false,
+  engine: 'ready' as const,
 };
 
 describe('what an empty feed shows', () => {
@@ -72,6 +75,27 @@ describe('what an empty feed shows', () => {
 
   it('treats an unknown sync state as no sync, rather than standing by for ever', () => {
     expect(feedEmptyState({ ...base, syncState: undefined })).toBe('empty');
+  });
+
+  it('says the library cannot be opened when the engine failed, never that it is empty', () => {
+    // The rows are the engine's empty default, not the athlete's history.
+    expect(feedEmptyState({ ...base, engine: 'failed' })).toBe('engineUnavailable');
+  });
+
+  it('says the library cannot be opened when a search ran against a failed engine', () => {
+    // A search reads the same engine, so "no match" would be the same untruth.
+    expect(feedEmptyState({ ...base, engine: 'failed', hasFilter: true })).toBe(
+      'engineUnavailable'
+    );
+  });
+
+  it('keeps the skeletons while the engine is still opening, rather than reading empty', () => {
+    expect(feedEmptyState({ ...base, engine: 'closed' })).toBe('skeletons');
+    expect(feedEmptyState({ ...base, engine: 'closed', syncState: undefined })).toBe('skeletons');
+  });
+
+  it('shows the cards it already holds whatever the engine says now', () => {
+    expect(feedEmptyState({ ...base, storedCount: 5, engine: 'failed' })).toBe('none');
   });
 });
 

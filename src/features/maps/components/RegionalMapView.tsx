@@ -5,7 +5,7 @@ import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows, controlHeight } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, controlHeight, ink } from '@/theme';
 import { getActivityTypeConfig } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
@@ -13,6 +13,7 @@ import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './ma
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { heatmapKeyColours } from '@/features/maps/lib/heatmapPaint';
 import type { ActivityBoundsItem } from '@/types';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
@@ -39,7 +40,6 @@ import {
   SectionPopup,
   RoutePopup,
   type MapRouteSummary,
-  SectionChooser,
   MapControlStack,
   ClusterCountOverlay,
   type ClusterCountOverlayRef,
@@ -62,6 +62,7 @@ import {
   type LngLatBounds,
 } from '../lib/coordinates';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { useSectionChooser } from './regional/useSectionChooser';
 import { tapTo } from '@/shared/app/navigation';
 
 /**
@@ -76,6 +77,8 @@ import { tapTo } from '@/shared/app/navigation';
  *    a paint expression over the selected id, so choosing an activity does not
  *    re-upload the point set.
  */
+const NO_SECTIONS: MapSection[] = [];
+
 interface RegionalMapViewProps {
   /** Activities to display */
   activities: ActivityBoundsItem[];
@@ -97,6 +100,8 @@ interface RegionalMapViewProps {
   focusActivityId?: string | undefined;
   /** Section to open the popup for. */
   selectSectionId?: string | undefined;
+  /** Sport categories among the activities drawn, which the layers menu keys by colour. */
+  keyCategories?: readonly string[] | undefined;
 }
 
 export function RegionalMapView({
@@ -105,12 +110,13 @@ export function RegionalMapView({
   routeLines,
   sectionCount = 0,
   sectionsEnabled = true,
-  sections = [],
+  sections = NO_SECTIONS,
   sectionsGeoJSON = EMPTY_FEATURE_COLLECTION,
   onAttributionChange,
   selectActivityId,
   focusActivityId,
   selectSectionId,
+  keyCategories,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
@@ -142,15 +148,7 @@ export function RegionalMapView({
     selectSectionId ?? null
   );
   const { section: selectedSection } = useSectionDetail(selectedSectionId);
-  const [sectionChoices, setSectionChoices] = useState<string[]>([]);
-  const sectionById = useMemo(
-    () => new Map(sections.map((section) => [section.id, section])),
-    [sections]
-  );
-  const chosenSections = sectionChoices.flatMap((id) => {
-    const section = sectionById.get(id);
-    return section ? [section] : [];
-  });
+  const chooseSection = useSectionChooser(sections, setSelectedSectionId);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   // The popup reads the route from the map read's own lines, so a rename or a
   // new member shows on the next read.
@@ -198,6 +196,11 @@ export function RegionalMapView({
   const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
   const isDark = isDarkStyle(mapStyle);
+  // The heat ramp as the layer draws it, over the ground of the menu it is keyed in.
+  const heatKeyColours = useMemo(
+    () => heatmapKeyColours(mapStyle, isDark ? darkColors.surfaceCard : ink.white),
+    [mapStyle, isDark]
+  );
 
   // Camera position for satellite attribution (updated by onCameraSettled callback, not on every gesture)
   const [cameraForAttribution, setCameraForAttribution] = useState<{
@@ -304,7 +307,7 @@ export function RegionalMapView({
     selected,
     setSelected,
     setSelectedSectionId,
-    setSectionChoices,
+    chooseSection,
     showActivities,
     setShowActivities,
     showSections,
@@ -403,9 +406,8 @@ export function RegionalMapView({
     if (selected) setSelected(null);
     if (spider) setSpider(null);
   }
-  if (!showSections && (selectedSection || sectionChoices.length > 0)) {
+  if (!showSections && selectedSection) {
     setSelectedSectionId(null);
-    setSectionChoices([]);
   }
   // A route the read no longer draws, hidden or regrouped away, has no popup.
   if (selectedRouteId && (!showRoutes || (routeLines && !selectedRoute))) {
@@ -423,7 +425,6 @@ export function RegionalMapView({
   // Handle 3D section click - receives section ID string, looks up section to select
   const handle3DSectionClick = useCallback((sectionId: string) => {
     setSelectedRouteId(null);
-    setSectionChoices([]);
     setSelectedSectionId(sectionId);
   }, []);
 
@@ -431,7 +432,6 @@ export function RegionalMapView({
   useBackDismiss(!!selected, handleClosePopup);
   useBackDismiss(!!selectedSection, () => setSelectedSectionId(null));
   useBackDismiss(!!selectedRoute, () => setSelectedRouteId(null));
-  useBackDismiss(chosenSections.length > 1, () => setSectionChoices([]));
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
@@ -707,6 +707,8 @@ export function RegionalMapView({
         onToggleSections={toggleSections}
         onToggleRoutes={toggleRoutes}
         onFitAll={handleFitAll}
+        keyCategories={keyCategories}
+        heatKeyColours={heatKeyColours}
       />
       {/* Selected activity popup - sits just above the bottom info bar
           (attribution pill + filter chips). Tuned to leave a small breathing
@@ -741,16 +743,6 @@ export function RegionalMapView({
           onViewDetails={() => {
             setSelectedRouteId(null);
             tapTo(`/route/${selectedRoute.routeId}`);
-          }}
-        />
-      )}
-      {chosenSections.length > 1 && (
-        <SectionChooser
-          sections={chosenSections}
-          onClose={() => setSectionChoices([])}
-          onSelect={(id) => {
-            setSectionChoices([]);
-            setSelectedSectionId(id);
           }}
         />
       )}

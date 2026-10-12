@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { EmptyState, ErrorState, ScreenSafeAreaView, useHeroMapHeight } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -14,21 +14,20 @@ import {
   formatDistance,
   formatDuration,
   formatElevation,
+  formatHeartRate,
   getIntlLocale,
 } from '@/shared/format/format';
 import {
   recordingActions,
   RecordingMap,
-  getVisibleRecording,
-  recordingFitExists,
-  readRecordingTrack,
   shareRecordingFit,
   useRecordingLibrary,
+  useVisibleRecording,
 } from '@/features/recording';
-import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
+import { confirmAction } from '@/shared/ui/dialog';
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -37,26 +36,16 @@ function RecordingDetailScreenContent() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { uploadNow, remove, uploadingId } = useRecordingLibrary();
-
-  const [entry, setEntry] = useState<RecordingLibraryEntry | null>(null);
-  const [coordinates, setCoordinates] = useState<[number, number][]>([]);
-  const [fitAvailable, setFitAvailable] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!id) return;
-    const found = await getVisibleRecording(id);
-    setFitAvailable(found ? await recordingFitExists(found) : false);
-    setEntry(found);
-    if (found) {
-      setCoordinates(await readRecordingTrack(found));
-    }
-    setLoading(false);
-  }, [id]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const mapHeight = useHeroMapHeight();
+  const {
+    entry,
+    coordinates,
+    fitAvailable,
+    setFitAvailable,
+    isLoading,
+    error: loadError,
+    reload: load,
+  } = useVisibleRecording(id);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
@@ -74,34 +63,30 @@ function RecordingDetailScreenContent() {
   const handleShare = useCallback(async () => {
     if (!entry || !recordingActions(entry, uploadingId).canShare) return;
     setFitAvailable(await shareRecordingFit(entry));
-  }, [entry, uploadingId]);
+  }, [entry, uploadingId, setFitAvailable]);
 
   const handleDelete = useCallback(() => {
     if (!entry) return;
-    Alert.alert(
-      t('recording.library.deleteConfirmTitle', 'Delete recording?'),
-      t('recording.library.deleteConfirmMessage', {
+    confirmAction({
+      title: t('recording.library.deleteConfirmTitle', 'Delete recording?'),
+      message: t('recording.library.deleteConfirmMessage', {
         sport: t(`activityTypes.${entry.activityType}`, entry.activityType),
         startTime: new Date(entry.startTime).toLocaleString(getIntlLocale()),
         defaultValue:
           'This permanently removes the {{sport}} recording from {{startTime}} from this device.',
       }),
-      [
-        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-        {
-          text: t('recording.library.delete', 'Delete'),
-          style: 'destructive',
-          onPress: async () => {
-            haptics.medium();
-            await remove(entry.id);
-            goBack();
-          },
-        },
-      ]
-    );
+      confirmLabel: t('recording.library.delete', 'Delete'),
+      cancelLabel: t('common.cancel', 'Cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        haptics.medium();
+        await remove(entry.id);
+        goBack();
+      },
+    });
   }, [entry, remove, t]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <ScreenSafeAreaView
         hasNativeHeader
@@ -112,12 +97,34 @@ function RecordingDetailScreenContent() {
     );
   }
 
+  if (loadError != null) {
+    return (
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, styles.center, { backgroundColor: bg }]}
+      >
+        <ErrorState
+          error={loadError}
+          fallbackKey="engine.failure.database"
+          onRetry={() => void load()}
+          testID="recording-detail-read-failure"
+        />
+      </ScreenSafeAreaView>
+    );
+  }
+
   if (!entry) {
     return (
-      <ScreenSafeAreaView style={[styles.container, styles.center, { backgroundColor: bg }]}>
-        <Text style={{ color: textSecondary }}>
-          {t('recording.library.notFound', 'Recording not found')}
-        </Text>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, styles.center, { backgroundColor: bg }]}
+      >
+        <EmptyState
+          icon="record-circle-outline"
+          title={t('recording.library.notFound', 'Recording not found')}
+          actionLabel={t('common.back')}
+          onAction={goBack}
+        />
       </ScreenSafeAreaView>
     );
   }
@@ -149,15 +156,15 @@ function RecordingDetailScreenContent() {
   if (entry.avgHeartrate != null && entry.avgHeartrate > 0) {
     stats.push({
       label: t('recording.avgHrLabel', 'Avg HR'),
-      value: `${Math.round(entry.avgHeartrate)} bpm`,
+      value: formatHeartRate(entry.avgHeartrate),
     });
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
         {coordinates.length >= 2 && (
-          <View style={[styles.mapContainer, { borderColor: border }]}>
+          <View style={[styles.mapContainer, { height: mapHeight, borderColor: border }]}>
             <RecordingMap coordinates={coordinates} currentLocation={null} fitBounds />
           </View>
         )}
@@ -238,7 +245,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mapContainer: {
-    height: 220,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     borderRadius: layout.borderRadius,

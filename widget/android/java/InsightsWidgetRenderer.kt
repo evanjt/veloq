@@ -78,6 +78,7 @@ object InsightsWidgetRenderer {
   private fun renderShort(context: Context, p: WidgetPalette, insight: WidgetInsight): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_insights_short)
     p.colorFilter(v, R.id.ins_dot0, p.color(toneColor(insight.tone)))
+    v.setContentDescription(R.id.ins_dot0, insight.toneLabel)
     v.setTextViewText(R.id.ins_title0, insight.title)
     v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, insight.url, 21))
     return v
@@ -122,6 +123,8 @@ object InsightsWidgetRenderer {
       v.setViewVisibility(ids.row, if (insight == null) View.GONE else View.VISIBLE)
       if (insight == null) continue
       p.colorFilter(v, ids.dot, p.color(toneColor(insight.tone)))
+      // The tone is a colour alone, so the dot says it in words.
+      v.setContentDescription(ids.dot, insight.toneLabel)
       v.setTextViewText(ids.title, insight.title)
       v.setInt(ids.title, "setMaxLines", titleLines)
       if (insight.subtitle.isEmpty()) {

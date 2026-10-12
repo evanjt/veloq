@@ -12,6 +12,8 @@ import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils
 import type { ActivityType } from '@/types';
 import { TIME } from '@/shared/app/time';
 
+import { ABSENT } from './absent';
+
 // Unit conversion constants
 export const KM_TO_MI = 0.621371;
 export const M_TO_FT = 3.28084;
@@ -26,7 +28,7 @@ export const YARDS_100_IN_METRES = 91.44;
 // scientific notation (e.g. "1.66e+301:08"). These bounds are far beyond any real
 // value, so they only ever reject garbage, never a legitimate pace or duration.
 const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m - non-physical
-const MAX_DURATION_SECONDS = 1e9; // ~31 years
+export const MAX_DURATION_SECONDS = 1e9; // ~31 years
 
 /**
  * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting.
@@ -54,53 +56,62 @@ export function getIntlLocale(): string {
  *
  * Shows meters for distances < 1km, kilometers with 1 decimal for larger distances.
  * In imperial mode, shows feet for < 0.25 miles, miles with 1 decimal otherwise.
- * Handles invalid values gracefully.
+ * A value that is missing or cannot be a distance prints the absent mark.
  *
  * ```ts
  * formatDistance(500);          // "500 m"
  * formatDistance(1500);         // "1.5 km"
  * formatDistance(1500, false);  // "0.9 mi"
- * formatDistance(NaN);          // "0 m"
+ * formatDistance(NaN);          // "--"
  * ```
  */
 export function formatDistance(meters: number, isMetric = true): string {
-  if (!Number.isFinite(meters) || meters < 0) {
-    return isMetric ? '0 m' : '0 ft';
-  }
+  const parts = distanceParts(meters, isMetric);
+  if (!parts) return ABSENT;
+  return `${parts.value.toFixed(parts.decimals)} ${parts.unit}`;
+}
+
+/** The unit a distance is shown in, chosen by its size and the unit system. */
+export type DistanceUnit = 'm' | 'km' | 'ft' | 'mi';
+
+/**
+ * The value, unit and decimals `formatDistance` prints, so the spoken form says
+ * the same quantity in the same unit. Null for a value that is not a distance.
+ */
+export function distanceParts(
+  meters: number,
+  isMetric: boolean
+): { value: number; unit: DistanceUnit; decimals: 0 | 1 } | null {
+  if (!Number.isFinite(meters) || meters < 0) return null;
 
   if (isMetric) {
-    if (meters < 1000) {
-      return `${Math.round(meters)} m`;
-    }
-    const km = meters / 1000;
-    return `${km.toFixed(1)} km`;
-  } else {
-    const feet = meters * M_TO_FT;
-    const miles = (meters / 1000) * KM_TO_MI;
-    // Show feet for short distances (< 0.25 miles = ~400m)
-    if (miles < 0.25) {
-      return `${Math.round(feet)} ft`;
-    }
-    return `${miles.toFixed(1)} mi`;
+    if (meters < 1000) return { value: Math.round(meters), unit: 'm', decimals: 0 };
+    return { value: roundTo(meters / 1000, 1), unit: 'km', decimals: 1 };
   }
+  const miles = (meters / 1000) * KM_TO_MI;
+  // Show feet for short distances (< 0.25 miles = ~400m)
+  if (miles < 0.25) return { value: Math.round(meters * M_TO_FT), unit: 'ft', decimals: 0 };
+  return { value: roundTo(miles, 1), unit: 'mi', decimals: 1 };
+}
+
+function roundTo(value: number, decimals: number): number {
+  return Number(value.toFixed(decimals));
 }
 
 /**
  * Format duration in hours:minutes:seconds or minutes:seconds.
  *
  * Shows HH:MM:SS format for durations >= 1 hour, MM:SS for shorter durations.
- * Handles invalid values gracefully.
+ * A value that is missing or cannot be a duration prints the absent mark.
  *
  * ```ts
  * formatDuration(90);     // "1:30"
  * formatDuration(3665);   // "1:01:05"
- * formatDuration(NaN);    // "0:00"
+ * formatDuration(NaN);    // "--"
  * ```
  */
 export function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) {
-    return '0:00';
-  }
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return ABSENT;
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -116,9 +127,7 @@ export function formatDuration(seconds: number): string {
  * above. Unsigned; the surrounding wording carries direction.
  */
 export function formatDurationDelta(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) {
-    return '0s';
-  }
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return ABSENT;
   const total = Math.round(seconds);
   if (total < 60) {
     return `${total}s`;
@@ -131,7 +140,7 @@ export function formatDurationDelta(seconds: number): string {
  * Drops zero trailing components (e.g., "5m" not "5m 0s").
  */
 export function formatDurationHuman(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return '0s';
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return ABSENT;
   const totalSeconds = Math.round(seconds);
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const mins = Math.floor(totalSeconds / 60);
@@ -147,7 +156,8 @@ export function formatDurationHuman(seconds: number): string {
  * from `formatDurationHuman`, which spaces its parts out.
  */
 export function formatDurationCompact(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0m';
+  if (!Number.isFinite(seconds) || seconds < 0) return ABSENT;
+  if (seconds === 0) return '0m';
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   if (hours > 0) return minutes > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
@@ -173,6 +183,12 @@ export function formatDurationOrNull(seconds: number | null): string | null {
  * drew "1:60".
  */
 export function formatMinSec(totalSeconds: number): string {
+  const { minutes, seconds } = splitMinSec(totalSeconds);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/** The minutes and seconds `formatMinSec` prints, for the spoken form to say. */
+export function splitMinSec(totalSeconds: number): { minutes: number; seconds: number } {
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = Math.round(totalSeconds % 60);
 
@@ -181,7 +197,7 @@ export function formatMinSec(totalSeconds: number): string {
     seconds = 0;
   }
 
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return { minutes, seconds };
 }
 
 /**
@@ -218,7 +234,19 @@ export function formatPrImprovement(seconds: number | null | undefined): string 
  * ```
  */
 export function formatPace(metersPerSecond: number, isMetric: boolean): string {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
+  const totalSeconds = paceSeconds(metersPerSecond, isMetric);
+  if (totalSeconds == null) return '--:--';
+
+  const unit = isMetric ? '/km' : '/mi';
+  return `${formatMinSec(totalSeconds)} ${unit}`;
+}
+
+/**
+ * Seconds per kilometre, or per mile when imperial, for a speed. Null where
+ * the pace formatters show '--:--'.
+ */
+export function paceSeconds(metersPerSecond: number, isMetric: boolean): number | null {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return null;
 
   // Seconds per km
   const secondsPerKm = 1000 / metersPerSecond;
@@ -226,10 +254,8 @@ export function formatPace(metersPerSecond: number, isMetric: boolean): string {
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
   // A tiny-but-positive speed overflows 1000/mps to a finite-but-absurd value;
   // reject both Infinity and the non-physical range.
-  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
-
-  const unit = isMetric ? '/km' : '/mi';
-  return `${formatMinSec(totalSeconds)} ${unit}`;
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return null;
+  return totalSeconds;
 }
 
 /**
@@ -252,6 +278,11 @@ export function formatPaceFromSecsPerKm(secondsPerKm: number, isMetric: boolean)
 export function metersToLongDistance(meters: number, isMetric: boolean): number {
   const km = meters / 1000;
   return isMetric ? km : km * KM_TO_MI;
+}
+
+/** A distance typed in the athlete's long-distance unit, in metres: the inverse of `metersToLongDistance`. */
+export function longDistanceToMeters(value: number, isMetric: boolean): number {
+  return (isMetric ? value : value / KM_TO_MI) * 1000;
 }
 
 /** The label of `metersToLongDistance`. */
@@ -288,13 +319,8 @@ export function paceSecondsForUnit(
  * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
  */
 export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): string {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
-
-  const secondsPerKm = 1000 / metersPerSecond;
-  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
-  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
-
-  return formatMinSec(totalSeconds);
+  const totalSeconds = paceSeconds(metersPerSecond, isMetric);
+  return totalSeconds == null ? '--:--' : formatMinSec(totalSeconds);
 }
 
 /**
@@ -303,13 +329,18 @@ export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): s
  * Swimming uses per-100m or per-100yd pace instead of per-km.
  */
 export function formatSwimPace(metersPerSecond: number, isMetric: boolean): string {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
+  const totalSeconds = swimPaceSeconds(metersPerSecond, isMetric);
+  return totalSeconds == null ? '--:--' : formatMinSec(totalSeconds);
+}
+
+/** Whole seconds per 100 m, or per 100 yd when imperial. Null where the swim pace shows '--:--'. */
+export function swimPaceSeconds(metersPerSecond: number, isMetric: boolean): number | null {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return null;
 
   const distance = isMetric ? 100 : YARDS_100_IN_METRES;
   const totalSeconds = Math.round(distance / metersPerSecond);
-  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
-
-  return formatMinSec(totalSeconds);
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return null;
+  return totalSeconds;
 }
 
 /**
@@ -338,31 +369,36 @@ export function formatSportSpeed(
  * ```ts
  * formatSpeed(10);          // "36.0 km/h"
  * formatSpeed(10, false);   // "22.4 mph"
- * formatSpeed(-1);          // "0.0 km/h"
+ * formatSpeed(-1);          // "--"
  * ```
  */
 export function formatSpeed(metersPerSecond: number, isMetric: boolean): string {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
-    return isMetric ? '0.0 km/h' : '0.0 mph';
-  }
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) return ABSENT;
 
   const value = isMetric ? metersPerSecond * MPS_TO_KPH : metersPerSecond * MPS_TO_MPH;
   // An extreme finite speed can overflow the conversion to Infinity.
-  if (!Number.isFinite(value)) return isMetric ? '0.0 km/h' : '0.0 mph';
+  if (!Number.isFinite(value)) return ABSENT;
   return `${value.toFixed(1)} ${isMetric ? 'km/h' : 'mph'}`;
 }
 
 /**
- * Format elevation in meters (metric) or feet (imperial).
+ * Format elevation in meters (metric) or feet (imperial), or the absent mark
+ * for an activity that carries none.
  */
 export function formatElevation(meters: number | undefined | null, isMetric = true): string {
-  if (meters == null || !Number.isFinite(meters)) return isMetric ? '0 m' : '0 ft';
+  const value = elevationValue(meters, isMetric);
+  if (value == null) return ABSENT;
+  return `${value} ${isMetric ? 'm' : 'ft'}`;
+}
 
-  if (isMetric) {
-    return `${Math.round(meters)} m`;
-  }
-  const feet = Math.round(meters * M_TO_FT);
-  return Number.isFinite(feet) ? `${feet} ft` : '0 ft';
+/** The whole metres, or feet when imperial, `formatElevation` prints. Null for no value. */
+export function elevationValue(
+  meters: number | undefined | null,
+  isMetric: boolean
+): number | null {
+  if (meters == null || !Number.isFinite(meters)) return null;
+  const value = Math.round(isMetric ? meters : meters * M_TO_FT);
+  return Number.isFinite(value) ? value : null;
 }
 
 export function celsiusToFahrenheit(celsius: number): number {
@@ -373,27 +409,66 @@ export function celsiusToFahrenheit(celsius: number): number {
  * Format temperature in Celsius (metric) or Fahrenheit (imperial).
  */
 export function formatTemperature(celsius: number | undefined | null, isMetric = true): string {
-  if (celsius == null || !Number.isFinite(celsius)) return isMetric ? '--°C' : '--°F';
+  if (celsius == null || !Number.isFinite(celsius)) return ABSENT;
 
   if (isMetric) {
     return `${Math.round(celsius)}°C`;
   }
   const fahrenheit = Math.round(celsiusToFahrenheit(celsius));
-  return Number.isFinite(fahrenheit) ? `${fahrenheit}°F` : '--°F';
+  return Number.isFinite(fahrenheit) ? `${fahrenheit}°F` : ABSENT;
 }
 
 export function formatHeartRate(bpm: number): string {
-  if (!Number.isFinite(bpm) || bpm < 0) {
-    return '0 bpm';
-  }
+  if (!Number.isFinite(bpm) || bpm < 0) return ABSENT;
   return `${Math.round(bpm)} bpm`;
 }
 
 export function formatPower(watts: number): string {
-  if (!Number.isFinite(watts) || watts < 0) {
-    return '0 W';
-  }
+  if (!Number.isFinite(watts) || watts < 0) return ABSENT;
   return `${Math.round(watts)} W`;
+}
+
+/** A whole, non-negative bound for a range, so an invalid one reads 0. */
+function rangeBound(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+
+/**
+ * A power zone, `200-250 W`, with the symbol once after the range. An open top
+ * zone, with no upper bound, reads `300+ W`.
+ */
+export function formatPowerRange(lowWatts: number, highWatts: number | null): string {
+  const low = rangeBound(lowWatts);
+  if (highWatts == null || !Number.isFinite(highWatts)) return `${low}+ W`;
+  return `${low}-${rangeBound(highWatts)} W`;
+}
+
+/**
+ * A heart rate zone, `140-155 bpm`, with the symbol once after the range. An
+ * open top zone reads `180+ bpm`.
+ */
+export function formatHeartRateRange(lowBpm: number, highBpm: number | null): string {
+  const low = rangeBound(lowBpm);
+  if (highBpm == null || !Number.isFinite(highBpm)) return `${low}+ bpm`;
+  return `${low}-${rangeBound(highBpm)} bpm`;
+}
+
+/** Joules as kilojoules to one decimal, `12.8 kJ`, a whole number left whole. */
+export function formatEnergy(joules: number): string {
+  if (!Number.isFinite(joules) || joules < 0) return ABSENT;
+  return `${(joules / 1000).toFixed(1).replace(/\.0$/, '')} kJ`;
+}
+
+/** Heart rate variability in milliseconds, `52 ms`. */
+export function formatHrv(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return ABSENT;
+  return `${Math.round(milliseconds)} ms`;
+}
+
+/** Cadence in revolutions per minute, `90 rpm`. */
+export function formatCadence(rpm: number): string {
+  if (!Number.isFinite(rpm) || rpm < 0) return ABSENT;
+  return `${Math.round(rpm)} rpm`;
 }
 
 /**
@@ -600,10 +675,10 @@ export function formatFullDate(date: Date | string): string {
 }
 
 /**
- * A full date, or a dash when there is none.
+ * A full date, or the absent mark when there is none.
  */
 export function formatDateOrDash(date: string | null): string {
-  return date ? formatFullDate(date) : '-';
+  return date ? formatFullDate(date) : ABSENT;
 }
 
 /**
@@ -620,19 +695,28 @@ export function formatFullDateWithWeekday(date: Date | string): string {
   });
 }
 
-export function formatTSS(load: number): string {
-  if (!Number.isFinite(load) || load < 0) return '0 TSS';
-  return `${Math.round(load)} TSS`;
+/**
+ * A training load as a bare number. intervals.icu computes it from power, heart
+ * rate or pace depending on the activity, so it carries no method suffix.
+ */
+export function formatLoad(load: number): string {
+  if (!Number.isFinite(load) || load < 0) return ABSENT;
+  return `${Math.round(load)}`;
 }
 
+/**
+ * Energy in kilocalories, the one unit every energy figure in the app uses,
+ * written in full through the locale's number format rather than abbreviated.
+ */
 export function formatCalories(kcal: number): string {
-  if (!Number.isFinite(kcal) || kcal < 0) {
-    return '0 cal';
-  }
-  if (kcal >= 1000) {
-    return `${(kcal / 1000).toFixed(1)}k cal`;
-  }
-  return `${Math.round(kcal)} cal`;
+  if (!Number.isFinite(kcal) || kcal < 0) return ABSENT;
+  return `${Math.round(kcal).toLocaleString(getIntlLocale())} kcal`;
+}
+
+/** An energy rate in kilocalories per hour, `546 kcal/h`. */
+export function formatCalorieRate(kcalPerHour: number): string {
+  if (!Number.isFinite(kcalPerHour) || kcalPerHour < 0) return ABSENT;
+  return `${Math.round(kcalPerHour).toLocaleString(getIntlLocale())} kcal/h`;
 }
 
 /**

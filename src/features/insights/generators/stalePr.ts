@@ -2,6 +2,7 @@ import type { Insight, SeriesPoint, SupportingSection, TFunc } from '../types';
 import {
   formatDuration,
   formatPaceCompact,
+  formatPower,
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
@@ -128,12 +129,12 @@ export function stalePROpportunityToInsight(
   const isSwimPace = opportunity.unit === '/100m';
   const metricLabel = metricLabelFor(opportunity, t);
   const currentStr = isPower
-    ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
+    ? formatPower(opportunity.currentValue)
     : isSwimPace
       ? formatSwimPace(opportunity.currentValue, isMetric)
       : formatPaceCompact(opportunity.currentValue, isMetric);
   const previousStr = isPower
-    ? `${Math.round(opportunity.previousValue)}${opportunity.unit}`
+    ? formatPower(opportunity.previousValue)
     : isSwimPace
       ? formatSwimPace(opportunity.previousValue, isMetric)
       : formatPaceCompact(opportunity.previousValue, isMetric);
@@ -257,7 +258,7 @@ export function generateStalePRInsights(
   if (powerOpps.length > 0) {
     const p = powerOpps[0];
     subtitleParts.push(
-      `${metricLabelFor(p, t)}: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`
+      `${metricLabelFor(p, t)}: ${formatPower(p.previousValue)} → ${formatPower(p.currentValue)}`
     );
   }
   if (runPaceOpps.length > 0) {

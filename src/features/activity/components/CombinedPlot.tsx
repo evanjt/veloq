@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import {
   LinearGradient,
@@ -18,10 +18,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, layout, chartStyles, ink, colorWithOpacity } from '@/theme';
+import { layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
-import { ChartErrorBoundary } from '@/shared/ui';
+import { ChartErrorBoundary, EmptyState } from '@/shared/ui';
 import { ChartCanvas, CurveArea, CurveLine } from '@/shared/charts';
 import {
   buildChartData,
@@ -31,6 +31,7 @@ import {
   seriesAverage,
   resolveBandColour,
   type ChartMetricValue,
+  type EmptyPlotCause,
 } from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
 import { ChartYAxisLabel } from './ChartYAxisLabel';
@@ -40,6 +41,7 @@ import {
 } from './ChartDistanceIndicator';
 import { useSeriesAccessors } from './useSeriesAccessors';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { ABSENT } from '@/shared/format/absent';
 
 export type { ChartMetricValue };
 
@@ -70,6 +72,12 @@ interface CombinedPlotProps {
 const CHART_PADDING = { top: 2, bottom: 20 } as const;
 const NORMALISED_DOMAIN: [number, number] = [0, 1];
 const xOf = (d: Record<string, number>) => d.x;
+
+const EMPTY_CAUSE_KEYS = {
+  noDistance: 'activity.chartNoDistance',
+  noSamples: 'activity.chartNoSamples',
+  noMetrics: 'activity.chartNoMetrics',
+} as const satisfies Record<EmptyPlotCause, string>;
 
 export const CombinedPlot = React.memo(function CombinedPlot({
   streams,
@@ -112,7 +120,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build normalised data for all selected series (+ preview if unselected)
-  const { chartData, seriesInfo, indexMap, maxX } = useMemo(
+  const { chartData, seriesInfo, indexMap, maxX, emptyCause } = useMemo(
     () =>
       buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
     [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]
@@ -283,7 +291,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Format Y-axis values for single metric display
   const formatYAxisValue = useCallback(
     (value: number, series: (typeof seriesInfo)[0]) => {
-      if (!series?.config) return '-';
+      if (!series?.config) return ABSENT;
       return formatScrubValue(series.config, value, isMetric);
     },
     [isMetric]
@@ -324,9 +332,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
-          {t('activity.noDataAvailable')}
-        </Text>
+        <EmptyState
+          variant="inline"
+          title={t('activity.noDataAvailable')}
+          description={emptyCause ? t(EMPTY_CAUSE_KEYS[emptyCause]) : undefined}
+        />
       </View>
     );
   }
@@ -543,13 +553,6 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.5),
   },
   placeholder: {
-    backgroundColor: colors.background,
     justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: layout.borderRadiusSm,
-  },
-  placeholderText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
   },
 });

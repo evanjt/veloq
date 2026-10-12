@@ -1205,6 +1205,13 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
+    where: 'oauth_pending_flow in SecureStore',
+    writers: ['src/features/auth/lib/oauth.ts'],
+    holds: 'the state and PKCE verifier of a sign-in waiting on the browser',
+    kept: 'it holds no athlete data, the callback spends it before the sign-in wipes anything, and it is refused ten minutes after the start',
+  },
+  {
+    confirm: [],
     where: 'intervals_pending_api_key in SecureStore',
     writers: ['src/features/auth/lib/pendingSignIn.ts'],
     holds: 'a key typed offline',
@@ -1686,7 +1693,7 @@ describe('the stores the wipe empties', () => {
   });
 
   it('forgets the per-activity map overrides a mounted provider holds', async () => {
-    const { result } = renderHook(() => useMapPreferences(), {
+    const { result } = await renderHook(() => useMapPreferences(), {
       wrapper: ({ children }: { children: React.ReactNode }) =>
         React.createElement(MapPreferencesProvider, null, children),
     });

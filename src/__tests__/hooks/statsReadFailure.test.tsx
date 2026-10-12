@@ -56,13 +56,13 @@ beforeEach(() => {
 
 describe('stats hooks', () => {
   it('usePeriodStats reports a thrown read rather than zero totals', async () => {
-    const { result } = renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
+    const { result } = await renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
     await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
     expect(result.current.isPending).toBe(false);
   });
 
   it('useTrainingScreenData reports a thrown read rather than an empty year', async () => {
-    const { result } = renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
+    const { result } = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
     await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
     expect(result.current.isPending).toBe(false);
     expect(result.current.data.months).toEqual([]);
@@ -70,13 +70,13 @@ describe('stats hooks', () => {
   });
 
   it('useAthleteSummary reports a thrown read rather than an empty week', async () => {
-    const { result } = renderHook(() => useAthleteSummary(4), { wrapper: wrapper() });
+    const { result } = await renderHook(() => useAthleteSummary(4), { wrapper: wrapper() });
     await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
     expect(result.current.data.currentWeek).toBeNull();
   });
 
   it('useActivityLabels reports a thrown read rather than no labels', async () => {
-    const { result } = renderHook(() => useActivityLabels(['a1']), { wrapper: wrapper() });
+    const { result } = await renderHook(() => useActivityLabels(['a1']), { wrapper: wrapper() });
     await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
     expect(result.current.labels.size).toBe(0);
   });
@@ -97,8 +97,8 @@ describe('stats hooks', () => {
           monthPrevious: none,
         }) as never
     );
-    const period = renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
-    const training = renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
+    const period = await renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
+    const training = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
     await waitFor(() => expect(period.result.current.isPending).toBe(false));
     await waitFor(() => expect(training.result.current.isPending).toBe(false));
     expect(period.result.current.error).toBeNull();

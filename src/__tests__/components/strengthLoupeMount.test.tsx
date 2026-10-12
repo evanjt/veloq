@@ -88,7 +88,7 @@ function diagram() {
 }
 
 /** The bodies standing in the tree right now, by which pair they belong to. */
-const mounted = (tree: ReturnType<typeof render>) => ({
+const mounted = (tree: Awaited<ReturnType<typeof render>>) => ({
   pair: tree.queryAllByTestId('body').length,
   loupe: tree.queryAllByTestId('loupe-body').length,
 });
@@ -103,15 +103,15 @@ afterEach(() => {
 });
 
 describe('the strength loupe', () => {
-  it('mounts no body of its own until a scrub starts', () => {
-    const tree = render(diagram());
+  it('mounts no body of its own until a scrub starts', async () => {
+    const tree = await render(diagram());
 
     expect(mounted(tree)).toEqual({ pair: 2, loupe: 0 });
   });
 
   it('mounts its pair for the scrub', async () => {
     const { press } = captureGestures();
-    const tree = render(diagram());
+    const tree = await render(diagram());
 
     await settle(() => handlersOf(newest(press)).onStart({ x: 10, y: 10 }));
 
@@ -120,13 +120,13 @@ describe('the strength loupe', () => {
 
   it('keeps them for the fade and drops them after it', async () => {
     const { press, pan } = captureGestures();
-    const tree = render(diagram());
+    const tree = await render(diagram());
     await settle(() => handlersOf(newest(press)).onStart({ x: 10, y: 10 }));
 
     await settle(() => handlersOf(newest(pan)).onEnd());
     expect(mounted(tree).loupe).toBe(2);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(400);
     });
 

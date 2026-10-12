@@ -24,13 +24,13 @@ jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
-function open(budgetMb: number) {
+async function open(budgetMb: number) {
   const result = openSheet<TileCacheBudgetSheetInput, number>('sheets/tile-cache-budget', {
     budgetMb,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  render(<TileCacheBudgetSheet />);
-  return result;
+  await render(<TileCacheBudgetSheet />);
+  return { result };
 }
 
 beforeEach(() => {
@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe('tile cache budget sheet', () => {
   it('shows every budget and marks the current one', async () => {
-    const result = open(100);
+    const { result } = await open(100);
     expect(screen.getByTestId('settings-tile-cache-picker')).toBeTruthy();
     for (const mb of TILE_CACHE_BUDGET_CHOICES_MB) {
       expect(screen.getByTestId(`settings-tile-cache-choice-${mb}`)).toBeTruthy();
@@ -50,14 +50,14 @@ describe('tile cache budget sheet', () => {
     ).toMatchObject({
       selected: true,
     });
-    fireEvent.press(screen.getByTestId('settings-tile-cache-choice-400'));
+    await fireEvent.press(screen.getByTestId('settings-tile-cache-choice-400'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 400 });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('cancels when dismissed without a selection', async () => {
-    const result = open(50);
-    screen.unmount();
+    const { result } = await open(50);
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 });

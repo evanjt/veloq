@@ -79,11 +79,11 @@ afterEach(() => {
 });
 
 it('shows the count the worker reports while the export runs', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
   expect(screen.queryByTestId('bulk-export-count')).toBeNull();
 
   mockProgress = { running: true, visited: 150, total: 402 };
-  fireEvent.press(screen.getByText('GPX'));
+  void fireEvent.press(screen.getByText('GPX'));
   await act(async () => {
     await jest.advanceTimersByTimeAsync(600);
   });
@@ -95,9 +95,9 @@ it('shows the count the worker reports while the export runs', async () => {
 });
 
 it('keeps showing the count once the foreground wait lapses and the worker runs on', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
   mockProgress = { running: true, visited: 150, total: 402 };
-  fireEvent.press(screen.getByText('GPX'));
+  void fireEvent.press(screen.getByText('GPX'));
   await act(async () => {
     await jest.advanceTimersByTimeAsync(61_000);
   });

@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import FeedScreen from '@/app/(tabs)/index';
+import FeedScreen from '@/app/(tabs)/(feed)';
 
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
@@ -24,6 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   useIsFocused: () => true,
 }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
@@ -110,7 +111,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-const renderFeed = () => {
+const renderFeed = async () => {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -119,7 +120,7 @@ const renderFeed = () => {
   });
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  await render(
     <QueryClientProvider client={client}>
       <FeedScreen />
     </QueryClientProvider>
@@ -131,7 +132,7 @@ it('mounts the snapshot pool only after its defer, with a stale pending list sto
     PENDING_KEY,
     JSON.stringify([{ activityId: 'i1', timestamp: Date.now() }])
   );
-  renderFeed();
+  await renderFeed();
 
   await act(async () => {
     await jest.advanceTimersByTimeAsync(499);
@@ -150,23 +151,23 @@ it('mounts the snapshot pool only after its defer, with a stale pending list sto
  * so no map render starts under the scroll.
  */
 it('holds the snapshot pool from a drag until its fling settles', async () => {
-  renderFeed();
+  await renderFeed();
   await act(async () => {
     await jest.advanceTimersByTimeAsync(500);
   });
   const list = screen.getByTestId('home-activity-list');
   const fling = { nativeEvent: { velocity: { x: 0, y: 2 } } };
 
-  fireEvent(list, 'scrollBeginDrag', fling);
-  fireEvent(list, 'scrollEndDrag', fling);
-  fireEvent(list, 'momentumScrollBegin', fling);
+  await fireEvent(list, 'scrollBeginDrag', fling);
+  await fireEvent(list, 'scrollEndDrag', fling);
+  await fireEvent(list, 'momentumScrollBegin', fling);
   await act(async () => {
     await jest.advanceTimersByTimeAsync(1000);
   });
 
   expect(mockHoldForScroll.mock.calls).toEqual([[true], [true]]);
 
-  fireEvent(list, 'momentumScrollEnd', fling);
+  await fireEvent(list, 'momentumScrollEnd', fling);
 
   expect(mockHoldForScroll.mock.calls).toEqual([[true], [true], [false]]);
 });

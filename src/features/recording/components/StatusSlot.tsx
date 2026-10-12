@@ -16,8 +16,9 @@ import { tapTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
-import { pressable, pressRipple } from '@/shared/ui';
+import { OpenSettingsButton, pressable, pressRipple } from '@/shared/ui';
 import { IconButton } from '@/shared/ui/IconButton';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
@@ -26,6 +27,7 @@ interface StatusSlotProps extends StatusSlotInput {
 function StatusSlotInner({
   backgroundTrackingWarning,
   gpsWarning,
+  gpsWarningOpensSettings,
   sensorIssue,
   splitBanner,
   onDismissGpsWarning,
@@ -35,9 +37,13 @@ function StatusSlotInner({
   const message = selectStatusMessage({
     backgroundTrackingWarning,
     gpsWarning,
+    gpsWarningOpensSettings,
     sensorIssue,
     splitBanner,
   });
+  // A rider with the phone mounted or pocketed learns the slot by ear. A fault
+  // interrupts, through an assertive live region on Android; a split waits.
+  useAnnounceOnAppear(message?.spoken);
   if (!message) return null;
 
   // The amber has to be the mark here, not the ground: `colors.warning` is
@@ -54,6 +60,7 @@ function StatusSlotInner({
         exiting={FadeOutUp.duration(150)}
         style={[styles.row, styles.warnRow]}
         testID="status-slot-background"
+        accessibilityLiveRegion="assertive"
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
@@ -69,9 +76,11 @@ function StatusSlotInner({
         exiting={FadeOutUp.duration(150)}
         style={[styles.row, styles.warnRow]}
         testID="status-slot-gps"
+        accessibilityLiveRegion="assertive"
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
+        {message.opensSettings && <OpenSettingsButton testID="status-slot-gps-settings" />}
         <IconButton onPress={onDismissGpsWarning} accessibilityLabel={t('common.close', 'Close')}>
           <MaterialCommunityIcons name="close" size={16} color={amber} />
         </IconButton>
@@ -86,6 +95,7 @@ function StatusSlotInner({
         entering={FadeInDown.duration(200)}
         exiting={FadeOutUp.duration(150)}
         testID="status-slot-sensor"
+        accessibilityLiveRegion="assertive"
       >
         <Pressable
           style={pressable([styles.row, styles.warnRow])}
@@ -109,6 +119,9 @@ function StatusSlotInner({
       exiting={FadeOutUp.duration(150)}
       style={[styles.row, styles.splitRow]}
       testID="status-slot-split"
+      accessibilityLiveRegion="polite"
+      accessible
+      accessibilityLabel={message.spoken}
     >
       <MaterialCommunityIcons name="flag-variant" size={16} color={colors.textOnDark} />
       <Text style={[styles.text, { color: colors.textOnDark }]}>{message.text}</Text>

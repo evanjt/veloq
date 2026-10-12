@@ -148,7 +148,7 @@ function section() {
 
 async function openFullscreen() {
   await act(async () => {
-    fireEvent.press(screen.getByLabelText('maps.openFullscreen'));
+    await fireEvent.press(screen.getByLabelText('maps.openFullscreen'));
   });
   expect(lockAsync).toHaveBeenLastCalledWith(ScreenOrientation.OrientationLock.LANDSCAPE);
 }
@@ -160,33 +160,33 @@ function lastLock() {
 beforeEach(() => lockAsync.mockClear());
 
 it('puts the portrait lock back when the section unmounts in full screen', async () => {
-  const view = render(section());
+  const view = await render(section());
   await openFullscreen();
 
-  view.unmount();
+  await view.unmount();
 
   expect(lastLock()).toBe(ScreenOrientation.OrientationLock.PORTRAIT_UP);
 });
 
 it('puts the portrait lock back on close', async () => {
-  render(section());
+  await render(section());
   await openFullscreen();
 
   await act(async () => {
-    fireEvent.press(screen.getByLabelText('common.close'));
+    await fireEvent.press(screen.getByLabelText('common.close'));
   });
 
   expect(lastLock()).toBe(ScreenOrientation.OrientationLock.PORTRAIT_UP);
 });
 
-it('takes no lock on unmount when full screen was never opened', () => {
-  const view = render(section());
-  view.unmount();
+it('takes no lock on unmount when full screen was never opened', async () => {
+  const view = await render(section());
+  await view.unmount();
   expect(lockAsync).not.toHaveBeenCalled();
 });
 
 it('places the close button from the full-screen window insets', async () => {
-  render(section());
+  await render(section());
   await openFullscreen();
 
   const style = StyleSheet.flatten(screen.getByLabelText('common.close').props.style);
@@ -195,13 +195,13 @@ it('places the close button from the full-screen window insets', async () => {
 });
 
 it('sizes the plot from the room the measured chrome leaves', async () => {
-  render(section());
+  await render(section());
   await openFullscreen();
 
   // Two rows of chips under a larger text size.
   const chromeHeight = 96;
-  act(() => {
-    fireEvent(screen.getByTestId('fullscreen-chart-controls'), 'layout', {
+  await act(async () => {
+    await fireEvent(screen.getByTestId('fullscreen-chart-controls'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 800, height: chromeHeight } },
     });
   });

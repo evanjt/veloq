@@ -51,9 +51,9 @@ function selected(id: string): boolean | undefined {
 }
 
 describe('the period Best Efforts opens on', () => {
-  it('is the one its link names', () => {
+  it('is the one its link names', async () => {
     mockParams = { period: '1y' };
-    render(<BestEffortsScreen />);
+    await render(<BestEffortsScreen />);
 
     expect(selected('1y')).toBe(true);
     expect(selected('6m')).toBe(false);
@@ -63,9 +63,9 @@ describe('the period Best Efforts opens on', () => {
   it.each([
     ['no period', {}],
     ['an unknown period', { period: '2y' }],
-  ])('is the default for a link with %s', (_name, params) => {
+  ])('is the default for a link with %s', async (_name, params) => {
     mockParams = params;
-    render(<BestEffortsScreen />);
+    await render(<BestEffortsScreen />);
 
     expect(selected('6m')).toBe(true);
     expect(mockUseBestEfforts).toHaveBeenLastCalledWith(180, expect.anything());

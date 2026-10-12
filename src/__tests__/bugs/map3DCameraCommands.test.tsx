@@ -41,6 +41,9 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', canAskAgain: true }),
   requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   getCurrentPositionAsync: jest.fn(async () => ({ coords: { longitude: 7.5, latitude: 46.5 } })),
   Accuracy: { Balanced: 3 },
@@ -71,16 +74,16 @@ const activities = [
   },
 ];
 
-function mountHandlers(is3DMode: boolean, selected: unknown = null) {
+async function mountHandlers(is3DMode: boolean, selected: unknown = null) {
   const s2 = surface2D();
   const s3 = surface3D();
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities,
       selected,
       setSelected: jest.fn(),
       setSelectedSectionId: jest.fn(),
-      setSectionChoices: jest.fn(),
+      chooseSection: jest.fn(),
       showActivities: true,
       setShowActivities: jest.fn(),
       showSections: true,
@@ -106,9 +109,9 @@ function mountHandlers(is3DMode: boolean, selected: unknown = null) {
 }
 
 describe('camera handlers while 3D is showing', () => {
-  it('fit all fits every activity on the 3D map', () => {
-    const { rendered, s3 } = mountHandlers(true);
-    act(() => rendered.result.current.handleFitAll());
+  it('fit all fits every activity on the 3D map', async () => {
+    const { rendered, s3 } = await mountHandlers(true);
+    await act(() => rendered.result.current.handleFitAll());
     expect(s3.fitBounds).toHaveBeenCalledWith(
       { sw: [7.0, 46.0], ne: [7.8, 46.9] },
       expect.anything(),
@@ -116,9 +119,9 @@ describe('camera handlers while 3D is showing', () => {
     );
   });
 
-  it('fit all still drives the 2D surface in 2D', () => {
-    const { rendered, s2, s3 } = mountHandlers(false);
-    act(() => rendered.result.current.handleFitAll());
+  it('fit all still drives the 2D surface in 2D', async () => {
+    const { rendered, s2, s3 } = await mountHandlers(false);
+    await act(() => rendered.result.current.handleFitAll());
     expect(s2.fitBounds).toHaveBeenCalledWith(
       { sw: [7.0, 46.0], ne: [7.8, 46.9] },
       expect.anything(),
@@ -127,9 +130,9 @@ describe('camera handlers while 3D is showing', () => {
     expect(s3.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('the popup zoom fits the selected activity on the 3D map', () => {
-    const { rendered, s3 } = mountHandlers(true, { activity: activities[1] });
-    act(() => rendered.result.current.handleZoomToActivity());
+  it('the popup zoom fits the selected activity on the 3D map', async () => {
+    const { rendered, s3 } = await mountHandlers(true, { activity: activities[1] });
+    await act(() => rendered.result.current.handleZoomToActivity());
     expect(s3.fitBounds).toHaveBeenCalledWith(
       { sw: [7.4, 46.5], ne: [7.8, 46.9] },
       expect.anything(),
@@ -138,7 +141,7 @@ describe('camera handlers while 3D is showing', () => {
   });
 
   it('locate centres the 3D map on the fix', async () => {
-    const { rendered, s3 } = mountHandlers(true);
+    const { rendered, s3 } = await mountHandlers(true);
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });
@@ -148,30 +151,32 @@ describe('camera handlers while 3D is showing', () => {
 });
 
 describe('Map3DWebViewRef camera commands', () => {
-  function mountPage() {
+  async function mountPage() {
     const ref = React.createRef<Map3DWebViewRef>();
-    const view = render(<Map3DWebView ref={ref} coordinates={[[7.4, 46.9]]} mapStyle="light" />);
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    const view = await render(
+      <Map3DWebView ref={ref} coordinates={[[7.4, 46.9]]} mapStyle="light" />
+    );
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
     injected.length = 0;
     return { ref, view };
   }
 
-  it('fitBounds injects a fit of the box with its padding and duration', () => {
-    const { ref, view } = mountPage();
-    act(() => ref.current?.fitBounds({ sw: [7.0, 46.0], ne: [7.8, 46.9] }, 40, 500));
+  it('fitBounds injects a fit of the box with its padding and duration', async () => {
+    const { ref, view } = await mountPage();
+    await act(() => ref.current?.fitBounds({ sw: [7.0, 46.0], ne: [7.8, 46.9] }, 40, 500));
     const script = injected.join('\n');
     expect(script).toContain('window.map.fitBounds([[7,46],[7.8,46.9]]');
     expect(script).toContain('duration: 500');
-    view.unmount();
+    await view.unmount();
   });
 
-  it('setCamera eases to the centre and zoom', () => {
-    const { ref, view } = mountPage();
-    act(() => ref.current?.setCamera({ center: [7.5, 46.5], zoom: 13 }, 500));
+  it('setCamera eases to the centre and zoom', async () => {
+    const { ref, view } = await mountPage();
+    await act(() => ref.current?.setCamera({ center: [7.5, 46.5], zoom: 13 }, 500));
     const script = injected.join('\n');
     expect(script).toContain('window.map.easeTo');
     expect(script).toContain('"center":[7.5,46.5]');
     expect(script).toContain('"zoom":13');
-    view.unmount();
+    await view.unmount();
   });
 });

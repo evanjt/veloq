@@ -22,21 +22,23 @@ const ALL_BUT_DEVICE = {
 };
 
 describe('SectionChangeCardSlide', () => {
-  it('draws no claim rows and no elevation line, whatever the engine supports', () => {
+  it('draws no claim rows and no elevation line, whatever the engine supports', async () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
       getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
-    const { getByTestId, queryByTestId, queryByText } = render(<SectionChangeCardSlide />);
+    const { getByTestId, queryByTestId, queryByText } = await render(<SectionChangeCardSlide />);
     expect(getByTestId('change-card')).toBeTruthy();
     expect(queryByTestId('change-card-row-ledger')).toBeNull();
     expect(queryByTestId('change-card-elevation')).toBeNull();
     expect(queryByText(/whatsNew\.v040\.row/)).toBeNull();
   });
 
-  it('shows no engine-support rows even when the engine is not open', () => {
+  it('shows no engine-support rows even when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
-    expect(render(<SectionChangeCardSlide />).queryByTestId('change-card-row-ledger')).toBeNull();
+    expect(
+      await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-row-ledger')
+    ).toBeNull();
   });
 
   it('is registered as the 0.4.0 slide', () => {
@@ -67,16 +69,16 @@ describe('SectionChangeCardSlide', () => {
       });
     }
 
-    it('names the phase while the re-cut runs and shows no counts', () => {
+    it('names the phase while the re-cut runs and shows no counts', async () => {
       engineWith({ phase: 'detecting', running: true }, { counts: COUNTS });
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-progress')).toHaveTextContent(/phaseNames.detecting/);
       expect(queryByTestId('change-card-counts')).toBeNull();
     });
 
-    it('reports the totals and the breakdown once the run has settled', () => {
+    it('reports the totals and the breakdown once the run has settled', async () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS });
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-progress')).toBeNull();
       const line = getByTestId('change-card-counts');
       expect(line).toHaveTextContent(/"current":40/);
@@ -86,7 +88,7 @@ describe('SectionChangeCardSlide', () => {
       expect(line).toHaveTextContent(/"gone":2/);
     });
 
-    it('reads a catalogue that came through untouched as unchanged', () => {
+    it('reads a catalogue that came through untouched as unchanged', async () => {
       engineWith(
         { phase: 'complete', running: false },
         {
@@ -100,38 +102,40 @@ describe('SectionChangeCardSlide', () => {
           },
         }
       );
-      const line = render(<SectionChangeCardSlide />).getByTestId('change-card-counts');
+      const line = await (
+        await render(<SectionChangeCardSlide />)
+      ).getByTestId('change-card-counts');
       expect(line).toHaveTextContent(/diffUnchanged/);
       expect(line).toHaveTextContent(/"sections":40/);
     });
 
-    it('shows neither progress nor counts when there is no stored diff', () => {
+    it('shows neither progress nor counts when there is no stored diff', async () => {
       engineWith({ phase: 'idle', running: false }, null);
-      const { queryByTestId } = render(<SectionChangeCardSlide />);
+      const { queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('shows neither when the engine has no cutover calls at all', () => {
+    it('shows neither when the engine has no cutover calls at all', async () => {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
       });
-      const { queryByTestId } = render(<SectionChangeCardSlide />);
+      const { queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('says the re-cut failed, and shows no counts from the run before it', () => {
+    it('says the re-cut failed, and shows no counts from the run before it', async () => {
       engineWith({ phase: 'failed', running: false }, { counts: COUNTS });
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailed/);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('says the sections were replaced when the run failed after the apply', () => {
+    it('says the sections were replaced when the run failed after the apply', async () => {
       engineWith({ phase: 'failed_after_apply', running: false }, { counts: COUNTS });
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailedAfterApply/);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
@@ -154,9 +158,11 @@ describe('SectionChangeCardSlide', () => {
       },
     };
 
-    it('names each setting the flip moved, and only those', () => {
+    it('names each setting the flip moved, and only those', async () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: RESET });
-      const row = render(<SectionChangeCardSlide />).getByTestId('change-card-settings-reset');
+      const row = await (
+        await render(<SectionChangeCardSlide />)
+      ).getByTestId('change-card-settings-reset');
       expect(row).toHaveTextContent(/settingsReset/);
       expect(row).toHaveTextContent(/settingsResetProximity/);
       expect(row).toHaveTextContent(/from\\":\\"100 m\\",\\"to\\":\\"200 m/);
@@ -169,32 +175,34 @@ describe('SectionChangeCardSlide', () => {
       expect(row).not.toHaveTextContent(/settingsResetMaxLength/);
     });
 
-    it('draws no reset row when the flip moved nothing', () => {
+    it('draws no reset row when the flip moved nothing', async () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: null });
       expect(
-        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+        await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
       ).toBeNull();
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS });
       expect(
-        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+        await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
       ).toBeNull();
     });
 
-    it('withholds the reset row while a run is in flight and after a failure', () => {
+    it('withholds the reset row while a run is in flight and after a failure', async () => {
       engineWith({ phase: 'detecting', running: true }, { counts: COUNTS, settingsReset: RESET });
       expect(
-        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+        await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
       ).toBeNull();
       engineWith({ phase: 'failed', running: false }, { counts: COUNTS, settingsReset: RESET });
       expect(
-        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+        await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
       ).toBeNull();
     });
 
-    it('names the draining and archiving steps', () => {
+    it('names the draining and archiving steps', async () => {
       for (const phase of ['draining', 'archiving']) {
         engineWith({ phase, running: true }, null);
-        const line = render(<SectionChangeCardSlide />).getByTestId('change-card-progress');
+        const line = await (
+          await render(<SectionChangeCardSlide />)
+        ).getByTestId('change-card-progress');
         expect(line).toHaveTextContent(new RegExp(`phaseNames\\.${phase}`));
       }
     });

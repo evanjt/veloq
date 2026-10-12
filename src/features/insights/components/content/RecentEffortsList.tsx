@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, ink, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import { pressable, pressRipple } from '@/shared/ui';
 import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
@@ -66,7 +66,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               <Text style={[styles.time, isDark && styles.timeDark]}>{formatDuration(time)}</Text>
               {isPR ? (
                 <View style={styles.prBadge}>
-                  <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
+                  <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
                   <Text style={styles.prText}>{t('sections.legendPr')}</Text>
                 </View>
               ) : delta != null ? (
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   prText: {
-    color: ink.white,
+    color: colors.textOnPrimary,
     fontSize: typography.micro.fontSize,
     fontWeight: '700',
   },

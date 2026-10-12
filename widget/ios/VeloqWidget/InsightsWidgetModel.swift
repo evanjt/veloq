@@ -20,6 +20,9 @@ struct WidgetInsight: Codable {
   let tone: String?
   /// Where a tap on the row goes.
   let url: String
+  /// The tone as a screen reader says it, since the row draws it as a colour alone. Nil on a
+  /// snapshot written before schema 16.
+  let toneLabel: String?
 }
 
 enum InsightsSize {

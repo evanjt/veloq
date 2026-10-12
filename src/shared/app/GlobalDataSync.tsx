@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useActivities } from '@/features/activity/hooks';
+import { useActivityWindowRequest } from '@/features/activity/hooks';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { useStrengthReconnect } from '@/features/strength/hooks/useExerciseSets';
@@ -57,13 +57,9 @@ export function GlobalDataSync() {
   useMutatedPreviewTracks();
   useStoredPreviewTracks();
 
-  // The window every other reader shares. Rust's engine event is what wakes
-  // it, so nothing is invalidated here at mount.
-  const { data: activities } = useActivities({
-    oldest: syncOldest,
-    newest: syncNewest,
-    enabled: isAuthenticated,
-  });
+  // Ask the engine for the selected window. Nothing here reads it: the route
+  // sync takes its candidates and its count from the engine.
+  useActivityWindowRequest(syncOldest, syncNewest, isAuthenticated);
 
   // The widened-range download is the engine holding its sync slot, so that is
   // what the flag follows. It used to follow `isFetching` above, which is a
@@ -77,10 +73,11 @@ export function GlobalDataSync() {
   // named state, or the banner stays up for the rest of the session.
   usePickupDeadline();
 
-  // Use the route data sync hook to automatically sync GPS data.
-  // Always enabled - GPS tracks are needed for heatmap even when route matching is off.
+  // Use the route data sync hook to automatically sync GPS data, on every
+  // `activities` announcement while signed in. Route matching does not gate it:
+  // GPS tracks are needed for the heatmap even when route matching is off.
   // Section detection is gated separately in useGpsDataFetcher.
-  const { progress } = useRouteDataSync(activities, true);
+  const { progress, activityCount } = useRouteDataSync(isAuthenticated);
 
   // A push handler can have written to the database from another process while
   // the app was away, which leaves the engine's in-memory tiers behind the file
@@ -119,9 +116,8 @@ export function GlobalDataSync() {
 
   // Unlock expansion once the sync has stopped, however it stopped (with a
   // delay to let the UI stabilise). A pass that errors, and an athlete with
-  // nothing in the window, both have to release the latch: neither ever
-  // reaches 'complete', and the slider would stay locked for the session.
-  const activityCount = activities ? activities.length : null;
+  // nothing stored, both have to release the latch: neither ever reaches
+  // 'complete', and the slider would stay locked for the session.
   useEffect(() => {
     if (isExpansionLocked && syncSettledForExpansion(progress.status, activityCount)) {
       delayedUnlockExpansion();

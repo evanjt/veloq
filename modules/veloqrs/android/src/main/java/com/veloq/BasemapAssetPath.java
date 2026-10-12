@@ -9,13 +9,23 @@ import java.util.Locale;
  * `basemap` asset directory, and refuses everything that is not one.
  *
  * <p>The page decides the path, so this is the one place that keeps a request
- * inside the two directories the app ships: any segment that is empty, `.` or
- * `..`, a backslash, a NUL, or a first segment other than `sprites` or `fonts`
- * resolves to nothing.
+ * inside the three directories the app ships: any segment that is empty, `.` or
+ * `..`, a backslash, a NUL, or a first segment other than `renderer`, `sprites`
+ * or `fonts` resolves to nothing.
  */
 final class BasemapAssetPath {
 
   static final String ROOT = "basemap/";
+
+  /** Where the map renderer and its stylesheet sit, each named by its version. */
+  static final String RENDERER = "renderer";
+
+  /**
+   * The renderer's file name changes with its version, so the WebView may keep
+   * it for good. Everything else is answered fresh every time.
+   */
+  private static final String KEEP = "public, max-age=31536000, immutable";
+  private static final String NO_STORE = "no-store";
 
   private BasemapAssetPath() {}
 
@@ -47,7 +57,10 @@ final class BasemapAssetPath {
     for (String segment : segments) {
       if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) return null;
     }
-    if (!segments[0].equals("sprites") && !segments[0].equals("fonts")) return null;
+    if (!segments[0].equals(RENDERER) && !segments[0].equals("sprites")
+        && !segments[0].equals("fonts")) {
+      return null;
+    }
     return ROOT + decoded;
   }
 
@@ -72,6 +85,19 @@ final class BasemapAssetPath {
     if (lower.endsWith(".json")) return "application/json";
     if (lower.endsWith(".png")) return "image/png";
     if (lower.endsWith(".pbf")) return "application/x-protobuf";
+    if (lower.endsWith(".js")) return "text/javascript";
+    if (lower.endsWith(".css")) return "text/css";
     return "application/octet-stream";
+  }
+
+  /** The charset of a text file the page runs, or null for binary bytes. */
+  static String encodingFor(String path) {
+    String lower = path.toLowerCase(Locale.ROOT);
+    return lower.endsWith(".js") || lower.endsWith(".css") ? "utf-8" : null;
+  }
+
+  /** Whether the WebView may keep the answer, from what was asked for. */
+  static String cacheControlFor(String path) {
+    return path != null && path.startsWith(ROOT + RENDERER + "/") ? KEEP : NO_STORE;
   }
 }

@@ -166,15 +166,17 @@ struct WidgetPalette {
 
 // MARK: - formatting helpers
 
-/// The arrow by the direction the number went, and its variant by the judgement the app made:
-/// filled for a change judged better, outlined for one judged worse, bare when flat or unjudged.
-/// A Home Screen that draws the widget in one colour keeps the variant and loses the colour.
+/// The arrow by the direction the number went, the one the app draws beside the same number, and
+/// its variant by the judgement the app made: filled for a change judged better, outlined for one
+/// judged worse, bare when flat or unjudged. Flat is drawn as a right arrow rather than left blank,
+/// and a direction this build does not know draws flat. A Home Screen that draws the widget in one
+/// colour keeps the variant and loses the colour.
 func trendSymbol(_ dir: String, _ verdict: String?) -> String {
   let arrow: String
   switch dir {
   case "up": arrow = "arrow.up"
   case "down": arrow = "arrow.down"
-  default: arrow = "minus"
+  default: arrow = "arrow.right"
   }
   switch verdict {
   case "improved": return arrow + ".circle.fill"
@@ -399,6 +401,7 @@ struct EmptyWidgetView: View {
       Image(systemName: "chart.line.uptrend.xyaxis")
         .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
         .foregroundColor(palette.primary)
+        .unspoken()
       Text("Open Veloq")
         .measuredText("empty title")
         .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
@@ -591,6 +594,7 @@ struct SummaryWidgetView: View {
           if let zones = content.formZones {
             Divider().background(palette.border)
             FormZoneChartView(chart: zones, palette: palette)
+              .spoken("form chart", snapshot.display.chartLabels?.form)
               .frame(maxHeight: .infinity)
           } else {
             Spacer(minLength: 0)
@@ -616,23 +620,27 @@ private struct SummaryHero: View {
     let hero = content.hero
     let color = palette.summaryColor(hero.colorKey, formZone: formZone)
     VStack(alignment: .leading, spacing: 2) {
-      Text(hero.label.uppercased())
-        .measuredText("hero label")
-        .font(.system(size: WidgetTheme.TypeScale.label))
-        .foregroundColor(palette.textSecondary)
-        .lineLimit(1)
-      HStack(spacing: 4) {
-        Text(hero.value)
-          .measuredText("hero value")
-          .font(.system(size: valueSize, weight: .bold))
-          .foregroundColor(color)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(hero.label.uppercased())
+          .measuredText("hero label")
+          .font(.system(size: WidgetTheme.TypeScale.label))
+          .foregroundColor(palette.textSecondary)
           .lineLimit(1)
-          .minimumScaleFactor(0.6)
-          .widgetAccentable()
-        Image(systemName: trendSymbol(hero.trendDir, hero.verdict))
-          .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
-          .foregroundColor(trendColor(hero.verdict, palette))
+        HStack(spacing: 4) {
+          Text(hero.value)
+            .measuredText("hero value")
+            .font(.system(size: valueSize, weight: .bold))
+            .foregroundColor(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .widgetAccentable()
+          Image(systemName: trendSymbol(hero.trendDir, hero.verdict))
+            .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
+            .foregroundColor(trendColor(hero.verdict, palette))
+            .unspoken()
+        }
       }
+      .spoken("hero", hero.spoken, otherwise: .combine)
       if let line = content.heroLine, !line.isEmpty {
         Text(line)
           .measuredText("hero line")
@@ -657,8 +665,10 @@ private struct SummaryChartView: View {
       EmptyView()
     case .fitnessForm:
       FitnessChartView(snapshot: snapshot, palette: palette)
+        .spoken("chart", snapshot.display.chartLabels?.fitness)
     case .hrv:
       SingleTrendChart(values: snapshot.sparklines.hrv, color: palette.primary, palette: palette)
+        .spoken("chart", snapshot.display.chartLabels?.hrv)
     }
   }
 }
@@ -680,23 +690,29 @@ private struct SummarySupportingRow: View {
           Divider().background(palette.border)
         }
         VStack(alignment: .leading, spacing: 2) {
-          Text(entry.label)
-            .measuredText("metric label")
-            .font(.system(size: WidgetTheme.TypeScale.caption))
-            .foregroundColor(palette.textSecondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-          HStack(spacing: 3) {
-            Text(entry.value)
-              .measuredText("metric value")
-              .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-              .foregroundColor(color)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(entry.label)
+              .measuredText("metric label")
+              .font(.system(size: WidgetTheme.TypeScale.caption))
+              .foregroundColor(palette.textSecondary)
               .lineLimit(1)
-              .minimumScaleFactor(0.6)
-            Image(systemName: trendSymbol(entry.trendDir, entry.verdict))
-              .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
-              .foregroundColor(trendColor(entry.verdict, palette))
+              .minimumScaleFactor(0.7)
+            HStack(spacing: 3) {
+              Text(entry.value)
+                .measuredText("metric value")
+                .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+              Image(systemName: trendSymbol(entry.trendDir, entry.verdict))
+                .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
+                .foregroundColor(trendColor(entry.verdict, palette))
+                .unspoken()
+            }
           }
+          // The caption is the form zone in words, which the metric's spoken label leaves out,
+          // so it stays a text of its own.
+          .spoken("metric", entry.spoken, otherwise: .combine)
           if let caption = supporting.caption, !caption.isEmpty {
             Text(caption)
               .measuredText("metric caption")

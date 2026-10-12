@@ -4,7 +4,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
-import { colors, darkColors, spacing, brand, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  brand,
+  layout,
+  slopToMinTapTarget,
+  typography,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 import { LanguageList, pressable, pressRipple } from '@/shared/ui';
 
@@ -36,6 +44,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
             isDialectSelected && isDark && styles.languageButtonDialectDark,
           ])}
           android_ripple={pressRipple}
+          hitSlop={slopToMinTapTarget(LANGUAGE_BUTTON_HEIGHT)}
           onPress={() => setShowLanguages(!showLanguages)}
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.language')}: ${currentLanguageLabel}`}
@@ -67,6 +76,10 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
   );
 });
 
+const BUTTON_BORDER_WIDTH = 1;
+const LANGUAGE_BUTTON_HEIGHT =
+  typography.bodySmall.lineHeight + 2 * (spacing.xs + BUTTON_BORDER_WIDTH);
+
 const styles = StyleSheet.create({
   languagePickerContainer: {
     alignItems: 'flex-end',
@@ -78,9 +91,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: LANGUAGE_BUTTON_HEIGHT,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: BUTTON_BORDER_WIDTH,
     borderColor: colors.border,
   },
   languageButtonDark: {

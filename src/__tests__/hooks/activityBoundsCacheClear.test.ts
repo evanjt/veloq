@@ -71,7 +71,7 @@ describe('the cache panel count after a clear', () => {
 
   it('reports what the engine says once the clear has emptied it', async () => {
     setEngineCount(412);
-    const { result } = renderHook(() => useActivityBoundsCache());
+    const { result } = await renderHook(() => useActivityBoundsCache());
     await waitFor(() => expect(result.current.cacheStats.totalActivities).toBe(412));
 
     setEngineCount(0);
@@ -88,7 +88,7 @@ describe('the cache panel count after a clear', () => {
     // is still a zero the user saw.
     setEngineCount(412);
     const seen: number[] = [];
-    const { result } = renderHook(() => {
+    const { result } = await renderHook(() => {
       const hook = useActivityBoundsCache();
       seen.push(hook.cacheStats.totalActivities);
       return hook;
@@ -119,14 +119,14 @@ describe('the bounds sync progress that no longer exists', () => {
     mockEngine.subscribe.mockReturnValue(() => {});
   });
 
-  it('is not offered by the hook', () => {
-    const { result } = renderHook(() => useActivityBoundsCache());
+  it('is not offered by the hook', async () => {
+    const { result } = await renderHook(() => useActivityBoundsCache());
 
     expect(result.current).not.toHaveProperty('progress');
   });
 
-  it('is not offered as a cache statistic either', () => {
-    const { result } = renderHook(() => useActivityBoundsCache());
+  it('is not offered as a cache statistic either', async () => {
+    const { result } = await renderHook(() => useActivityBoundsCache());
 
     expect(result.current.cacheStats).not.toHaveProperty('isSyncing');
   });

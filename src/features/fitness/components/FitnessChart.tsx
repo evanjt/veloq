@@ -9,11 +9,22 @@ import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  chartStyles,
+  opacity,
+  slopToMinTapTarget,
+  themedStyles,
+  type Palette,
+} from '@/theme';
 import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import { formatShortDate } from '@/shared/format/format';
-import { ChartErrorBoundary, pressable, pressRipple } from '@/shared/ui';
+import { formatLocalDate, formatShortDate } from '@/shared/format/format';
+import { ChartErrorBoundary, EmptyState, pressable, pressRipple } from '@/shared/ui';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -23,10 +34,11 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
-import { displayedDay } from '../lib/pinnedDay';
+import { displayedDay, headerDay } from '../lib/pinnedDay';
 import { formatForm, formZoneTextColor, formZoneFromLoads } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 interface FitnessChartProps {
   data: WellnessData[];
@@ -90,6 +102,7 @@ export const FitnessChart = React.memo(function FitnessChart({
 }: FitnessChartProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const asPercent = useFormPreference((state) => state.formAsPercent) === true;
   const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -185,37 +198,48 @@ export const FitnessChart = React.memo(function FitnessChart({
     }
   }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
-  if (chartData.length === 0) {
+  const newest = chartData[chartData.length - 1];
+  if (!newest) {
     return (
       <View style={[styles.placeholder, { height }]}>
         {coverage === RangeCoverage.NotFetched ? (
-          <Text
+          <EmptyState
+            variant="inline"
             testID="fitness-chart-not-downloaded"
-            style={[styles.placeholderText, isDark && chartStyles.textDark]}
-          >
-            {t('stats.rangeNotDownloaded')}
-          </Text>
+            title={t('stats.rangeNotDownloaded')}
+          />
         ) : (
-          <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
-            {t('fitness.noData')}
-          </Text>
+          <EmptyState
+            variant="inline"
+            title={t('fitness.noData')}
+            description={t('fitness.noDataCause')}
+          />
         )}
       </View>
     );
   }
 
   // Get current (latest) values
+  const header = headerDay({
+    selectedDate,
+    isActive,
+    selectedRowDate: tooltipData?.date,
+    newestDate: newest.date,
+    today: formatLocalDate(new Date()),
+  });
   const displayData = displayedDay({
     selectedDate,
     isActive,
     selected: tooltipData,
-    newest: chartData[chartData.length - 1],
+    newest,
   });
   const formZone = displayData
     ? formZoneFromLoads(displayData.fitness, displayData.fatigue, asPercent)
     : null;
   const formText =
-    (displayData ? formatForm(displayData.form, displayData.fitness, asPercent) : null) ?? '-';
+    (displayData ? formatForm(displayData.form, displayData.fitness, asPercent) : null) ?? ABSENT;
+  const fitnessText = displayData ? String(Math.round(displayData.fitness)) : ABSENT;
+  const fatigueText = displayData ? String(Math.round(displayData.fatigue)) : ABSENT;
   const rampRate = displayData?.rampRate ?? null;
   const yDomain: [number, number] = [0, maxFitness * 1.1];
   const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
@@ -227,10 +251,8 @@ export const FitnessChart = React.memo(function FitnessChart({
         {/* Header with values */}
         <View style={styles.header}>
           <View style={styles.dateContainer}>
-            <Text style={[styles.dateText, isDark && styles.textLight]}>
-              {(isActive && tooltipData) || selectedDate
-                ? formatShortDate(tooltipData?.date || selectedDate || '')
-                : t('time.current')}
+            <Text testID="fitness-chart-day" style={[styles.dateText, isDark && styles.textLight]}>
+              {header.isToday ? t('time.today') : formatShortDate(header.date)}
             </Text>
             {markerChanges.length > 0 && (
               <Text
@@ -246,37 +268,33 @@ export const FitnessChart = React.memo(function FitnessChart({
           </View>
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-                {t('metrics.fitness')}
-              </Text>
+              <Text style={styles.valueLabel}>{t('metrics.fitness')}</Text>
               <Text
                 testID="fitness-ctl-value"
                 style={[
                   styles.valueNumber,
                   { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
                 ]}
+                accessibilityLabel={absentLabel(fitnessText, t)}
               >
-                {displayData ? Math.round(displayData.fitness) : '-'}
+                {fitnessText}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-                {t('metrics.fatigue')}
-              </Text>
+              <Text style={styles.valueLabel}>{t('metrics.fatigue')}</Text>
               <Text
                 testID="fitness-atl-value"
                 style={[
                   styles.valueNumber,
                   { color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText },
                 ]}
+                accessibilityLabel={absentLabel(fatigueText, t)}
               >
-                {displayData ? Math.round(displayData.fatigue) : '-'}
+                {fatigueText}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-                {t('metrics.form')}
-              </Text>
+              <Text style={styles.valueLabel}>{t('metrics.form')}</Text>
               <Text
                 testID="fitness-form-value"
                 style={[
@@ -285,15 +303,14 @@ export const FitnessChart = React.memo(function FitnessChart({
                     color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
                   },
                 ]}
+                accessibilityLabel={absentLabel(formText, t)}
               >
                 {formText}
               </Text>
             </View>
             {rampRate != null && (
               <View style={styles.valueItem}>
-                <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-                  {t('fitnessScreen.rampRate')}
-                </Text>
+                <Text style={styles.valueLabel}>{t('fitnessScreen.rampRate')}</Text>
                 <View style={styles.rampValue}>
                   <Text
                     testID="fitness-ramp-value"
@@ -313,9 +330,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                   >
                     {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
                   </Text>
-                  <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-                    {t('fitnessScreen.perWeek')}
-                  </Text>
+                  <Text style={styles.valueLabel}>{t('fitnessScreen.perWeek')}</Text>
                 </View>
               </View>
             )}
@@ -408,63 +423,33 @@ export const FitnessChart = React.memo(function FitnessChart({
           </View>
         </GestureDetector>
 
-        {/* Legend - pressable to toggle lines */}
+        {/* Legend: each item is a switch that shows or hides its line */}
         <View style={styles.legend}>
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole="switch"
             accessibilityLabel={t('fitness.fitnessCTL')}
-            accessibilityState={{ selected: visibleLines.fitness }}
-            style={pressable([
-              styles.legendItem,
-              !visibleLines.fitness && styles.legendItemDisabled,
-            ])}
+            accessibilityState={{ checked: visibleLines.fitness }}
+            style={pressable([styles.legendItem, !visibleLines.fitness && styles.legendItemHidden])}
             android_ripple={pressRipple}
             onPress={() => toggleLine('fitness')}
-            hitSlop={8}
+            hitSlop={LEGEND_SLOP}
           >
-            <View
-              style={[
-                styles.legendDot,
-                { backgroundColor: chartColors.fitness },
-                !visibleLines.fitness && styles.legendDotDisabled,
-              ]}
-            />
-            <Text
-              style={[
-                styles.legendText,
-                isDark && chartStyles.textDark,
-                !visibleLines.fitness && styles.legendTextDisabled,
-              ]}
-            >
+            <View style={[styles.legendDot, { backgroundColor: chartColors.fitness }]} />
+            <Text style={[styles.legendText, !visibleLines.fitness && styles.legendTextHidden]}>
               {t('fitness.fitnessCTL')}
             </Text>
           </Pressable>
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole="switch"
             accessibilityLabel={t('fitness.fatigueATL')}
-            accessibilityState={{ selected: visibleLines.fatigue }}
-            style={pressable([
-              styles.legendItem,
-              !visibleLines.fatigue && styles.legendItemDisabled,
-            ])}
+            accessibilityState={{ checked: visibleLines.fatigue }}
+            style={pressable([styles.legendItem, !visibleLines.fatigue && styles.legendItemHidden])}
             android_ripple={pressRipple}
             onPress={() => toggleLine('fatigue')}
-            hitSlop={8}
+            hitSlop={LEGEND_SLOP}
           >
-            <View
-              style={[
-                styles.legendDot,
-                { backgroundColor: chartColors.fatigue },
-                !visibleLines.fatigue && styles.legendDotDisabled,
-              ]}
-            />
-            <Text
-              style={[
-                styles.legendText,
-                isDark && chartStyles.textDark,
-                !visibleLines.fatigue && styles.legendTextDisabled,
-              ]}
-            >
+            <View style={[styles.legendDot, { backgroundColor: chartColors.fatigue }]} />
+            <Text style={[styles.legendText, !visibleLines.fatigue && styles.legendTextHidden]}>
               {t('fitness.fatigueATL')}
             </Text>
           </Pressable>
@@ -474,94 +459,92 @@ export const FitnessChart = React.memo(function FitnessChart({
   );
 });
 
-const styles = StyleSheet.create({
-  container: {},
-  placeholder: {
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: layout.borderRadiusSm,
-  },
-  placeholderText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  dateContainer: {
-    flex: 1,
-  },
-  dateText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  markerText: {
-    ...typography.caption,
-    marginTop: spacing.xxs,
-  },
-  valuesRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  valueItem: {
-    alignItems: 'center',
-  },
-  valueLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  rampValue: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  valueNumber: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 4,
-    right: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
-    marginRight: spacing.xs,
-  },
-  legendText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  legendItemDisabled: {
-    opacity: 0.5,
-  },
-  legendDotDisabled: {
-    opacity: 0.4,
-  },
-  legendTextDisabled: {
-    textDecorationLine: 'line-through',
-  },
-});
+// The two toggles sit side by side a gap apart, so the slop lifts only their
+// height and each keeps its own width.
+const LEGEND_ITEM_HEIGHT = typography.label.lineHeight;
+const LEGEND_SLOP = slopToMinTapTarget(LEGEND_ITEM_HEIGHT);
+
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    placeholder: {
+      justifyContent: 'center',
+    },
+    textLight: {
+      color: colors.textOnDark,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    dateContainer: {
+      flex: 1,
+    },
+    dateText: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    markerText: {
+      ...typography.caption,
+      marginTop: spacing.xxs,
+    },
+    valuesRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    valueItem: {
+      alignItems: 'center',
+    },
+    valueLabel: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+      marginBottom: spacing.xxs,
+    },
+    rampValue: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+    },
+    valueNumber: {
+      fontSize: typography.cardTitle.fontSize,
+      fontWeight: '700',
+    },
+    xAxisOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 4,
+      right: 4,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    legend: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: spacing.md,
+      marginTop: spacing.xs,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: LEGEND_ITEM_HEIGHT,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: layout.borderRadiusFull,
+      marginRight: spacing.xs,
+    },
+    legendText: {
+      fontSize: typography.label.fontSize,
+      lineHeight: LEGEND_ITEM_HEIGHT,
+      color: palette.textSecondary,
+    },
+    legendItemHidden: {
+      opacity: opacity.dimmed,
+    },
+    legendTextHidden: {
+      textDecorationLine: 'line-through',
+    },
+  });

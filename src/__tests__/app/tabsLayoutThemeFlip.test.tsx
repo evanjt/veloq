@@ -87,15 +87,15 @@ beforeEach(async () => {
 });
 
 describe('tab navigator across a colour-scheme flip', () => {
-  it('mounts once and stays mounted on a re-render with the scheme unchanged (control)', () => {
-    const api = render(<Harness />);
-    api.rerender(<Harness />);
+  it('mounts once and stays mounted on a re-render with the scheme unchanged (control)', async () => {
+    const api = await render(<Harness />);
+    await api.rerender(<Harness />);
 
     expect(mockMounts).toEqual({ navigator: 1, screen: 1 });
   });
 
   it('does not remount the navigator or a screen when the scheme flips', async () => {
-    const api = render(<Harness />);
+    const api = await render(<Harness />);
 
     await setPreference('dark');
 
@@ -104,7 +104,7 @@ describe('tab navigator across a colour-scheme flip', () => {
   });
 
   it('does not remount across two flips in a row', async () => {
-    const api = render(<Harness />);
+    const api = await render(<Harness />);
 
     await setPreference('dark');
     await setPreference('light');
@@ -114,7 +114,7 @@ describe('tab navigator across a colour-scheme flip', () => {
   });
 
   it('does not remount on a switch to system when the system scheme equals the current one', async () => {
-    render(<Harness />);
+    await render(<Harness />);
 
     await setPreference('system');
 

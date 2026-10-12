@@ -1,11 +1,18 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { ScreenSafeAreaView, Button, pressable, pressRipple } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  Button,
+  SectionTitle,
+  StatusLine,
+  TextLink,
+} from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
@@ -121,12 +128,14 @@ function LoginScreenContent() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="login-screen">
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScreenScrollView contentContainerStyle={styles.scrollContent}>
         <LanguagePicker />
 
         {/* Logo/Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{t('login.title')}</Text>
+          <SectionTitle level="screen" align="center" style={styles.title}>
+            {t('login.title')}
+          </SectionTitle>
           <Text style={[styles.subtitle, isDark && styles.textDark]}>{t('login.subtitle')}</Text>
         </View>
 
@@ -135,7 +144,7 @@ function LoginScreenContent() {
           {sessionNotice && <SessionExpiredNotice notice={sessionNotice} />}
 
           {error && !sessionNotice && (
-            <View style={styles.errorContainer}>
+            <StatusLine tone="error" message={error} style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
               <Text
                 style={[styles.errorText, isDark && styles.errorTextDark]}
@@ -143,11 +152,11 @@ function LoginScreenContent() {
               >
                 {error}
               </Text>
-            </View>
+            </StatusLine>
           )}
 
           {queuedMessage && !error && (
-            <View style={styles.queuedContainer}>
+            <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
               <MaterialCommunityIcons name="cloud-off-outline" size={20} color={colors.secondary} />
               <Text
                 style={[styles.queuedText, isDark && styles.queuedTextDark]}
@@ -162,7 +171,7 @@ function LoginScreenContent() {
                 size="sm"
                 onPress={discardQueuedKey}
               />
-            </View>
+            </StatusLine>
           )}
 
           {/* OAuth Login */}
@@ -245,46 +254,28 @@ function LoginScreenContent() {
             {t('login.disclaimer')}
           </Text>
 
-          <Pressable
+          <TextLink
+            label={t('about.veloqPrivacy')}
             onPress={handleOpenVeloqPrivacy}
-            accessibilityRole="link"
-            accessibilityLabel={t('about.veloqPrivacy')}
-            style={pressable(styles.veloqPrivacyLink)}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons name="shield-lock" size={14} color={colors.primary} />
-            <Text style={[styles.linkText, isDark && { color: darkColors.linkTeal }]}>
-              {t('about.veloqPrivacy')}
-            </Text>
-          </Pressable>
+            icon="shield-lock"
+            style={styles.veloqPrivacyLink}
+          />
 
           <Text style={[styles.intervalsLabel, isDark && styles.textSecondary]}>
             intervals.icu:
           </Text>
           <View style={styles.linksRow}>
-            <Pressable
+            <TextLink
+              label={t('login.privacyPolicy')}
               onPress={handleOpenIntervalsPrivacy}
-              accessibilityRole="link"
-              accessibilityLabel={t('login.privacyPolicy')}
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.linkTextSmall, isDark && { color: darkColors.linkTeal }]}>
-                {t('login.privacyPolicy')}
-              </Text>
-            </Pressable>
+              size="caption"
+            />
             <Text style={[styles.linkSeparator, isDark && styles.textSecondary]}>|</Text>
-            <Pressable
+            <TextLink
+              label={t('login.termsOfService')}
               onPress={handleOpenIntervalsTerms}
-              accessibilityRole="link"
-              accessibilityLabel={t('login.termsOfService')}
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.linkTextSmall, isDark && { color: darkColors.linkTeal }]}>
-                {t('login.termsOfService')}
-              </Text>
-            </Pressable>
+              size="caption"
+            />
           </View>
         </View>
 
@@ -295,7 +286,7 @@ function LoginScreenContent() {
             {t('login.securityNote')}
           </Text>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }
@@ -311,9 +302,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: typography.headlineNumber.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   textLight: {
@@ -424,9 +412,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   veloqPrivacyLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
     marginBottom: spacing.md,
   },
   intervalsLabel: {
@@ -438,16 +423,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  linkText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.linkTeal,
-    textDecorationLine: 'underline',
-  },
-  linkTextSmall: {
-    fontSize: typography.caption.fontSize,
-    color: colors.linkTeal,
-    textDecorationLine: 'underline',
   },
   linkSeparator: {
     color: colors.textSecondary,

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
@@ -10,8 +11,18 @@ import {
   formatPower,
 } from '@/shared/format/format';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { colors, darkColors, spacing, typography, ink, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  ink,
+  colorWithOpacity,
+  themedStyles,
+  type Palette,
+} from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 interface IntervalsTableProps {
   intervals: ActivityInterval[];
@@ -21,6 +32,8 @@ interface IntervalsTableProps {
 }
 
 export function IntervalsTable({ intervals, activityType, isMetric, isDark }: IntervalsTableProps) {
+  const { t } = useTranslation();
+  const styles = themedStyles(makeStyles, isDark);
   const hasPowerZones = measuresPower(activityType);
   const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);
   const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
@@ -38,6 +51,16 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         : null;
     if (isDark && zoneColor && item.zone === 7) zoneColor = darkColors.zone7;
 
+    const distance = item.distance != null ? formatDistance(item.distance, isMetric) : ABSENT;
+    const duration = item.moving_time != null ? formatDuration(item.moving_time) : ABSENT;
+    const speed =
+      item.average_speed == null || item.average_speed <= 0
+        ? ABSENT
+        : formatSportSpeed(item.average_speed, activityType, isMetric);
+    const heartRate =
+      item.average_heartrate != null ? formatHeartRate(item.average_heartrate) : ABSENT;
+    const power = item.average_watts != null ? formatPower(item.average_watts) : ABSENT;
+
     const typeLabel = intervalTypeLabel({
       type: item.type,
       zone: item.zone,
@@ -51,14 +74,13 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
           styles.intervalRow,
           isRecovery && styles.intervalRowRecovery,
           index > 0 && styles.intervalRowBorder,
-          index > 0 && isDark && styles.intervalRowBorderDark,
         ]}
       >
-        <Text style={[styles.indexText, isDark && styles.textLight]}>{index + 1}</Text>
+        <Text style={styles.indexText}>{index + 1}</Text>
         <Text
           style={[
             styles.typeText,
-            isWork && !zoneColor && { color: colors.primary },
+            isWork && !zoneColor && { color: isDark ? darkColors.linkTeal : colors.linkTeal },
             isWork && zoneColor != null && { color: zoneColor },
             isRecovery && { color: isDark ? darkColors.successDeep : colors.successDeep },
           ]}
@@ -67,16 +89,14 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
           {typeLabel}
         </Text>
         <View style={styles.statsRow}>
-          <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {item.distance != null ? formatDistance(item.distance, isMetric) : '--'}
+          <Text style={styles.colStat} accessibilityLabel={absentLabel(distance, t)}>
+            {distance}
           </Text>
-          <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {item.moving_time != null ? formatDuration(item.moving_time) : '--'}
+          <Text style={styles.colStat} accessibilityLabel={absentLabel(duration, t)}>
+            {duration}
           </Text>
-          <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {item.average_speed == null || item.average_speed <= 0
-              ? '--'
-              : formatSportSpeed(item.average_speed, activityType, isMetric)}
+          <Text style={styles.colStat} accessibilityLabel={absentLabel(speed, t)}>
+            {speed}
           </Text>
           {hasHR && (
             <Text
@@ -86,8 +106,9 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
                   color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
                 },
               ]}
+              accessibilityLabel={absentLabel(heartRate, t)}
             >
-              {item.average_heartrate != null ? formatHeartRate(item.average_heartrate) : ''}
+              {heartRate}
             </Text>
           )}
           {hasPower && (
@@ -98,8 +119,9 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
                   color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
                 },
               ]}
+              accessibilityLabel={absentLabel(power, t)}
             >
-              {item.average_watts != null ? formatPower(item.average_watts) : ''}
+              {power}
             </Text>
           )}
         </View>
@@ -119,58 +141,53 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
   );
 }
 
-const styles = StyleSheet.create({
-  listContent: {
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  intervalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xxs,
-    gap: spacing.xsPlus,
-  },
-  intervalRowRecovery: {},
-  intervalRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colorWithOpacity(ink.black, 0.08),
-  },
-  intervalRowBorderDark: {
-    borderTopColor: colorWithOpacity(ink.white, 0.08),
-  },
-  indexText: {
-    ...typography.tableValue,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    width: 18,
-    textAlign: 'center',
-  },
-  typeText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    width: 40,
-  },
-  statsRow: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
-  },
-  colStat: {
-    ...typography.tableValue,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    textAlign: 'right',
-    flex: 1,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-});
+const makeStyles = (palette: Palette, isDark: boolean) =>
+  StyleSheet.create({
+    listContent: {
+      paddingHorizontal: spacing.sm,
+      paddingTop: spacing.sm,
+    },
+    intervalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xxs,
+      gap: spacing.xsPlus,
+    },
+    intervalRowRecovery: {},
+    intervalRowBorder: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colorWithOpacity(isDark ? ink.white : ink.black, 0.08),
+    },
+    indexText: {
+      ...typography.tableValue,
+      fontSize: typography.caption.fontSize,
+      lineHeight: typography.caption.lineHeight,
+      fontWeight: '600',
+      color: palette.textSecondary,
+      width: 18,
+      textAlign: 'center',
+    },
+    typeText: {
+      fontSize: typography.micro.fontSize,
+      fontWeight: '600',
+      color: palette.textSecondary,
+      textTransform: 'uppercase',
+      width: 40,
+    },
+    statsRow: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.xs,
+    },
+    colStat: {
+      ...typography.tableValue,
+      fontSize: typography.caption.fontSize,
+      lineHeight: typography.caption.lineHeight,
+      fontWeight: '500',
+      color: palette.textPrimary,
+      textAlign: 'right',
+      flex: 1,
+    },
+  });

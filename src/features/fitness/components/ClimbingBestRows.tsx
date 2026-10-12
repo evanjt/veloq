@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { Button, EngineReadFailure } from '@/shared/ui';
+import { Button, ErrorState } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatClimbValue } from '../lib/bestEfforts';
 import { SPORT_TEXT_COLORS, SPORT_TEXT_COLORS_DARK, type PrimarySport } from '../stores';
@@ -32,12 +32,17 @@ export function ClimbingBestRows({ bests, sport }: ClimbingBestRowsProps) {
     () => bests.map((b) => b.activityId).filter((id): id is string => !!id),
     [bests]
   );
-  const { labels, error } = useActivityLabels(ids);
+  const { labels, error, refetch } = useActivityLabels(ids);
 
   return (
     <View>
       {error != null && (
-        <EngineReadFailure error={error} testID={`climbing-labels-failed-${sport}`} />
+        <ErrorState
+          variant="inline"
+          error={error}
+          onRetry={refetch}
+          testID={`climbing-labels-failed-${sport}`}
+        />
       )}
       {bests.map((best, index) => {
         const name = best.activityId ? labels.get(best.activityId)?.name : undefined;

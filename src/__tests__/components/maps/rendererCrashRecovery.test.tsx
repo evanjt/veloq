@@ -93,26 +93,26 @@ const originalOs = Platform.OS;
 let clock = Date.now();
 
 /** The renderer death as the platform under test reports it, to one view. */
-function die(view: { props: MockProps }) {
-  act(() => {
+async function die(view: { props: MockProps }) {
+  await act(() => {
     if (Platform.OS === 'android') view.props.onRenderProcessGone?.();
     else view.props.onContentProcessDidTerminate?.();
   });
 }
 
 /** Long enough for any restart already scheduled to have run. */
-function settle() {
-  act(() => jest.advanceTimersByTime(RENDERER_RESTART_STAGGER_MS * 8));
+async function settle() {
+  await act(() => jest.advanceTimersByTime(RENDERER_RESTART_STAGGER_MS * 8));
 }
 
 /** One renderer death past the budget, inside one window, settling between. */
-function dieUntilSpent(current: () => { props: MockProps }) {
+async function dieUntilSpent(current: () => { props: MockProps }) {
   for (let i = 0; i < RENDERER_CRASH_LIMIT; i++) {
-    die(current());
-    settle();
+    await die(current());
+    await settle();
   }
-  die(current());
-  settle();
+  await die(current());
+  await settle();
 }
 
 const surface2D = () => (
@@ -150,13 +150,13 @@ describe('a map renderer dying on Android', () => {
     Platform.OS = 'android';
   });
 
-  it('brings the 2D surface back as a new view and never reloads the dead one', () => {
-    const view = render(surface2D());
+  it('brings the 2D surface back as a new view and never reloads the dead one', async () => {
+    const view = await render(surface2D());
     const dead = live[0];
     expect(mountedEver).toBe(1);
 
-    die(dead);
-    settle();
+    await die(dead);
+    await settle();
 
     expect(reload).not.toHaveBeenCalled();
     expect(mountedEver).toBe(2);
@@ -165,70 +165,70 @@ describe('a map renderer dying on Android', () => {
     expect(recordCrash).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'webview-renderer', fatal: false })
     );
-    view.unmount();
+    await view.unmount();
   });
 
-  it('shows the 2D surface unavailable and mounts nothing once it keeps dying', () => {
-    const view = render(surface2D());
+  it('shows the 2D surface unavailable and mounts nothing once it keeps dying', async () => {
+    const view = await render(surface2D());
 
-    dieUntilSpent(() => live[0]);
+    await dieUntilSpent(() => live[0]);
 
     expect(mountedEver).toBe(RENDERER_CRASH_LIMIT + 1);
     expect(live).toHaveLength(0);
     expect(view.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
     expect(reload).not.toHaveBeenCalled();
     expect(recordCrash).toHaveBeenCalledTimes(RENDERER_CRASH_LIMIT + 1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('keeps recovering a surface whose deaths are a window apart', () => {
-    const view = render(surface2D());
+  it('keeps recovering a surface whose deaths are a window apart', async () => {
+    const view = await render(surface2D());
 
     for (let i = 0; i < RENDERER_CRASH_LIMIT + 2; i++) {
-      die(live[0]);
-      settle();
-      act(() => jest.advanceTimersByTime(RENDERER_CRASH_WINDOW_MS));
+      await die(live[0]);
+      await settle();
+      await act(() => jest.advanceTimersByTime(RENDERER_CRASH_WINDOW_MS));
     }
 
     expect(live).toHaveLength(1);
     expect(view.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();
-    view.unmount();
+    await view.unmount();
   });
 
-  it('brings the 3D surface back as a new view and never reloads the dead one', () => {
-    const view = render(surface3D());
+  it('brings the 3D surface back as a new view and never reloads the dead one', async () => {
+    const view = await render(surface3D());
     const dead = live[0];
 
-    die(dead);
-    settle();
+    await die(dead);
+    await settle();
 
     expect(reload).not.toHaveBeenCalled();
     expect(mountedEver).toBe(2);
     expect(live).toHaveLength(1);
     expect(live[0]).not.toBe(dead);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('reports the 3D surface failed and mounts nothing once it keeps dying', () => {
+  it('reports the 3D surface failed and mounts nothing once it keeps dying', async () => {
     const onMapFailed = jest.fn();
-    const view = render(surface3D(onMapFailed));
+    const view = await render(surface3D(onMapFailed));
 
-    dieUntilSpent(() => live[0]);
+    await dieUntilSpent(() => live[0]);
 
     expect(onMapFailed).toHaveBeenCalledTimes(1);
     expect(mountedEver).toBe(RENDERER_CRASH_LIMIT + 1);
     expect(live).toHaveLength(0);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('brings a snapshot worker back as a new view, and leaves it down once it keeps dying', () => {
+  it('brings a snapshot worker back as a new view, and leaves it down once it keeps dying', async () => {
     const ref = React.createRef<TerrainSnapshotWebViewRef>();
-    const view = render(<TerrainSnapshotWebView ref={ref} />);
+    const view = await render(<TerrainSnapshotWebView ref={ref} />);
     expect(live).toHaveLength(2);
     const [first, second] = live;
 
-    die(first);
-    settle();
+    await die(first);
+    await settle();
 
     expect(reload).not.toHaveBeenCalled();
     expect(mountedEver).toBe(3);
@@ -238,50 +238,50 @@ describe('a map renderer dying on Android', () => {
 
     const replaced = () => live.find((entry) => entry !== second)!;
     for (let i = 1; i < RENDERER_CRASH_LIMIT; i++) {
-      die(replaced());
-      settle();
+      await die(replaced());
+      await settle();
     }
-    die(replaced());
-    settle();
+    await die(replaced());
+    await settle();
 
     expect(live).toEqual([second]);
     expect(mountedEver).toBe(RENDERER_CRASH_LIMIT + 2);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('brings surfaces that die together back one after another', () => {
-    const flat = render(surface2D());
-    const terrain = render(surface3D());
+  it('brings surfaces that die together back one after another', async () => {
+    const flat = await render(surface2D());
+    const terrain = await render(surface3D());
     const [a, b] = live;
 
-    die(a);
-    die(b);
+    await die(a);
+    await die(b);
 
     expect(mountedEver).toBe(3);
-    act(() => jest.advanceTimersByTime(RENDERER_RESTART_STAGGER_MS - 1));
+    await act(() => jest.advanceTimersByTime(RENDERER_RESTART_STAGGER_MS - 1));
     expect(mountedEver).toBe(3);
-    act(() => jest.advanceTimersByTime(1));
+    await act(() => jest.advanceTimersByTime(1));
     expect(mountedEver).toBe(4);
     expect(live).not.toContain(a);
     expect(live).not.toContain(b);
 
-    flat.unmount();
-    terrain.unmount();
+    await flat.unmount();
+    await terrain.unmount();
   });
 
-  it('mounts nothing for a surface that unmounts while its restart waits', () => {
-    const first = render(surface2D());
-    const second = render(surface2D());
+  it('mounts nothing for a surface that unmounts while its restart waits', async () => {
+    const first = await render(surface2D());
+    const second = await render(surface2D());
     const [a, b] = live;
-    die(a);
-    die(b);
+    await die(a);
+    await die(b);
     const before = mountedEver;
 
-    second.unmount();
-    settle();
+    await second.unmount();
+    await settle();
 
     expect(mountedEver).toBe(before);
-    first.unmount();
+    await first.unmount();
   });
 });
 
@@ -290,35 +290,35 @@ describe('a map renderer dying on iOS', () => {
     Platform.OS = 'ios';
   });
 
-  it('reloads the 2D surface in place', () => {
-    const view = render(surface2D());
+  it('reloads the 2D surface in place', async () => {
+    const view = await render(surface2D());
 
-    die(live[0]);
-    settle();
+    await die(live[0]);
+    await settle();
 
     expect(reload).toHaveBeenCalledTimes(1);
     expect(mountedEver).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('stops reloading the 2D surface once it keeps dying', () => {
-    const view = render(surface2D());
+  it('stops reloading the 2D surface once it keeps dying', async () => {
+    const view = await render(surface2D());
 
-    dieUntilSpent(() => live[0]);
+    await dieUntilSpent(() => live[0]);
 
     expect(reload).toHaveBeenCalledTimes(RENDERER_CRASH_LIMIT);
     expect(view.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
-    view.unmount();
+    await view.unmount();
   });
 
-  it('reloads the 3D surface in place', () => {
-    const view = render(surface3D());
+  it('reloads the 3D surface in place', async () => {
+    const view = await render(surface3D());
 
-    die(live[0]);
-    settle();
+    await die(live[0]);
+    await settle();
 
     expect(reload).toHaveBeenCalledTimes(1);
     expect(mountedEver).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 });

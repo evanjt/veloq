@@ -26,15 +26,15 @@ function renderCard() {
 }
 
 describe('ActivityStatsCard elevation', () => {
-  it('converts metres to feet for an imperial athlete', () => {
+  it('converts metres to feet for an imperial athlete', async () => {
     (useMetricSystem as jest.Mock).mockReturnValue(false);
-    const { getByText } = renderCard();
+    const { getByText } = await renderCard();
     expect(getByText('2008 ft ↑')).toBeTruthy();
   });
 
-  it('shows metres for a metric athlete', () => {
+  it('shows metres for a metric athlete', async () => {
     (useMetricSystem as jest.Mock).mockReturnValue(true);
-    const { getByText } = renderCard();
+    const { getByText } = await renderCard();
     expect(getByText('612 m ↑')).toBeTruthy();
   });
 });

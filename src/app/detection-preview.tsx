@@ -17,14 +17,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { Button, EngineReadFailure, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
+import { Button, ErrorState, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   usePreviewDetect,
@@ -51,6 +51,7 @@ import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { goBack, tapBack } from '@/shared/app/navigation';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const PARAM_KEYS = [
   'proximityThreshold',
@@ -67,7 +68,12 @@ function DetectionPreviewScreenContent() {
   const tabBarClearance = useTabBarClearance();
 
   const client = useMemo(() => getEngine(), []);
-  const { centres, labels, error: centresReadError } = usePreviewCentres(client);
+  const {
+    centres,
+    labels,
+    error: centresReadError,
+    retry: retryCentres,
+  } = usePreviewCentres(client);
   const { status, progress, result, refusal, lapsed, start, request, cancel, reset } =
     usePreviewDetect(client);
   const phaseKey = progress ? getPhaseDisplayKey(progress.phase) : null;
@@ -174,36 +180,36 @@ function DetectionPreviewScreenContent() {
   );
 
   const handleKeep = useCallback(() => {
-    Alert.alert(t('settings.previewKeepTitle'), t('settings.previewKeepWarning'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.confirm'),
-        onPress: () => {
-          const config = client?.getSectionConfig();
-          if (!client || !config || migrating || !previewedConfig) return;
-          client.setSectionConfig({ ...config, ...previewedConfig });
-          // Through the rescan hook, not the client: the re-cut is global and
-          // the athlete has to be able to see it run, and the hook is what
-          // starts the poll every progress indicator reads.
-          //
-          // The engine refuses a re-cut while a detect runs or the elevation
-          // backfill holds detection. The config above is already written and
-          // the evidence cache already cleared, so closing here would report a
-          // change that never ran. Stay, say why, and let Keep be pressed again.
-          const outcome = forceRescan();
-          if (!hasStarted(outcome)) {
-            const reasonKey = rescanRefusalKey(outcome);
-            const saved = t('settings.previewKeepRefused');
-            Alert.alert(
-              t('settings.previewKeepRefusedTitle'),
-              reasonKey ? `${saved} ${t(reasonKey)}` : saved
-            );
-            return;
-          }
-          goBack();
-        },
+    confirmAction({
+      title: t('settings.previewKeepTitle'),
+      message: t('settings.previewKeepWarning'),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: () => {
+        const config = client?.getSectionConfig();
+        if (!client || !config || migrating || !previewedConfig) return;
+        client.setSectionConfig({ ...config, ...previewedConfig });
+        // Through the rescan hook, not the client: the re-cut is global and
+        // the athlete has to be able to see it run, and the hook is what
+        // starts the poll every progress indicator reads.
+        //
+        // The engine refuses a re-cut while a detect runs or the elevation
+        // backfill holds detection. The config above is already written and
+        // the evidence cache already cleared, so closing here would report a
+        // change that never ran. Stay, say why, and let Keep be pressed again.
+        const outcome = forceRescan();
+        if (!hasStarted(outcome)) {
+          const reasonKey = rescanRefusalKey(outcome);
+          const saved = t('settings.previewKeepRefused');
+          inform({
+            title: t('settings.previewKeepRefusedTitle'),
+            message: reasonKey ? `${saved} ${t(reasonKey)}` : saved,
+          });
+          return;
+        }
+        goBack();
       },
-    ]);
+    });
   }, [t, client, previewedConfig, forceRescan, migrating]);
 
   const handleDiscard = useCallback(() => {
@@ -258,7 +264,12 @@ function DetectionPreviewScreenContent() {
         testID="preview-control-panel"
       >
         {centresReadError !== undefined ? (
-          <EngineReadFailure error={centresReadError} testID="preview-centres-failure" />
+          <ErrorState
+            variant="inline"
+            error={centresReadError}
+            onRetry={retryCentres}
+            testID="preview-centres-failure"
+          />
         ) : null}
         <View style={styles.pickerWrap}>
           <PreviewCentrePicker

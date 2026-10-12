@@ -25,19 +25,28 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 describe('recording settings threshold labels', () => {
-  it('labels the catch-all row as walking and every other sport', () => {
-    const { getByTestId } = render(<RecordingSettingsScreen />);
+  it('labels the catch-all row as walking and every other sport', async () => {
+    const { getByTestId } = await render(<RecordingSettingsScreen />);
     const row = getByTestId('settings-threshold-walking');
     expect(within(row).queryByText('recording.settingsAutoPauseWalkingAndOther')).not.toBeNull();
   });
 
-  it('names both accuracy filter controls', () => {
-    const { getByRole, getByTestId } = render(<RecordingSettingsScreen />);
+  it('names both accuracy filter controls', async () => {
+    const { getByRole, getByTestId } = await render(<RecordingSettingsScreen />);
     expect(getByRole('button', { name: 'recording.accuracyFilterDecrease' })).toBe(
       getByTestId('settings-accuracy-filter-minus')
     );
     expect(getByRole('button', { name: 'recording.accuracyFilterIncrease' })).toBe(
       getByTestId('settings-accuracy-filter-plus')
     );
+  });
+
+  it('names every switch by the label beside it', async () => {
+    const { getByRole, getAllByRole } = await render(<RecordingSettingsScreen />);
+
+    expect(getByRole('switch', { name: 'recording.autoUpload' })).toBeTruthy();
+    expect(getByRole('switch', { name: 'recording.keepAwake' })).toBeTruthy();
+    expect(getByRole('switch', { name: 'recording.settingsAutoPause' })).toBeTruthy();
+    expect(getAllByRole('switch')).toHaveLength(3);
   });
 });

@@ -53,24 +53,24 @@ jest.mock('@/features/activity/hooks/useActivities', () => ({
 }));
 
 describe('the pace curve threshold legend', () => {
-  it('names the critical speed the dashed rule marks', () => {
+  it('names the critical speed the dashed rule marks', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
-    render(<PaceCurveChart />);
+    await render(<PaceCurveChart />);
 
     expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^metrics\.cs 5:00\/km$/);
   });
 
-  it('reads the critical speed per mile when imperial', () => {
+  it('reads the critical speed per mile when imperial', async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
-    render(<PaceCurveChart />);
+    await render(<PaceCurveChart />);
 
     expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^metrics\.cs 8:03\/mi$/);
   });
 
-  it('draws no legend for a curve with no critical speed', () => {
+  it('draws no legend for a curve with no critical speed', async () => {
     mockCurve.current = { ...mockCurve.current, criticalSpeed: undefined };
 
-    render(<PaceCurveChart />);
+    await render(<PaceCurveChart />);
 
     expect(screen.queryByTestId('pace-curve-cs-legend')).toBeNull();
   });

@@ -29,32 +29,32 @@ describe('useExcludedActivities write', () => {
     (getEngine as jest.Mock).mockReturnValue(engine);
   });
 
-  it('asks for a fresh bundle after an exclusion', () => {
+  it('asks for a fresh bundle after an exclusion', async () => {
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
+    const { result } = await renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
-    act(() => result.current.handleExcludeActivity('a1'));
+    await act(() => result.current.handleExcludeActivity('a1'));
 
     expect(engine.excludeActivityFromRoute).toHaveBeenCalledWith('route-1', 'a1');
     expect(onRouteRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('asks for a fresh bundle after an inclusion', () => {
+  it('asks for a fresh bundle after an inclusion', async () => {
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
+    const { result } = await renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
-    act(() => result.current.handleIncludeActivity('a1'));
+    await act(() => result.current.handleIncludeActivity('a1'));
 
     expect(engine.includeActivityInRoute).toHaveBeenCalledWith('route-1', 'a1');
     expect(onRouteRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('writes and refreshes nothing without an engine', () => {
+  it('writes and refreshes nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
+    const { result } = await renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
-    act(() => result.current.handleExcludeActivity('a1'));
+    await act(() => result.current.handleExcludeActivity('a1'));
 
     expect(onRouteRefresh).not.toHaveBeenCalled();
   });

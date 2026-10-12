@@ -50,9 +50,9 @@ describe('activity stream hues', () => {
 });
 
 describe('curve charts', () => {
-  it.each(['light', 'dark'] as const)('draw each sport in its sport colour, %s', (scheme) => {
+  it.each(['light', 'dark'] as const)('draw each sport in its sport colour, %s', async (scheme) => {
     mockScheme = scheme;
-    const { result } = renderHook(() => useChartColors());
+    const { result } = await renderHook(() => useChartColors());
 
     expect(result.current.powerCurve).toBe(SPORT_COLORS.Cycling);
     expect(result.current.paceCurve).toBe(SPORT_COLORS.Running);
@@ -61,12 +61,12 @@ describe('curve charts', () => {
 });
 
 describe('the feed card HRV sparkline', () => {
-  function strokeColours(scheme: 'light' | 'dark') {
+  async function strokeColours(scheme: 'light' | 'dark') {
     mockScheme = scheme;
     jest
       .spyOn(Skia.Path, 'MakeFromSVGString')
       .mockReturnValue({} as ReturnType<typeof Skia.Path.MakeFromSVGString>);
-    const view = render(
+    const view = await render(
       <SummaryCardHRVSparkline
         hrvData={[52, 58, 61, 55, 60]}
         rhrData={[50, 48, 47, 49, 46]}
@@ -78,20 +78,20 @@ describe('the feed card HRV sparkline', () => {
     return { view, colours: paths.map((p) => p.props.color as string) };
   }
 
-  it('draws HRV and resting HR in the dark wellness series colours', () => {
-    const { colours } = strokeColours('dark');
+  it('draws HRV and resting HR in the dark wellness series colours', async () => {
+    const { colours } = await strokeColours('dark');
 
     expect(colours).toContain(darkColors.chartHrv);
     expect(colours).toContain(darkColors.chartRhr);
   });
 
-  it('labels HRV and resting HR in the text tones of those series', () => {
-    const dark = strokeColours('dark').view;
+  it('labels HRV and resting HR in the text tones of those series', async () => {
+    const dark = (await strokeColours('dark')).view;
     expect(dark.getByText('metrics.hrv')).toHaveStyle({ color: darkColors.chartHrvText });
     expect(dark.getByText('metrics.rhr')).toHaveStyle({ color: darkColors.chartRhrText });
-    dark.unmount();
+    await dark.unmount();
 
-    const light = strokeColours('light').view;
+    const light = (await strokeColours('light')).view;
     expect(light.getByText('metrics.hrv')).toHaveStyle({ color: colors.chartHrvText });
     expect(light.getByText('metrics.rhr')).toHaveStyle({ color: colors.chartRhrText });
   });

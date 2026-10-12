@@ -39,10 +39,10 @@ const ride = (id: string, name: string): ActivityBoundsItem => ({
 });
 
 describe('MapNameSearch', () => {
-  it('reports typing and offers each match as a choice', () => {
+  it('reports typing and offers each match as a choice', async () => {
     const onChangeNeedle = jest.fn();
     const onChoose = jest.fn();
-    render(
+    await render(
       <MapNameSearch
         needle="vent"
         onChangeNeedle={onChangeNeedle}
@@ -51,38 +51,38 @@ describe('MapNameSearch', () => {
       />
     );
 
-    fireEvent.changeText(screen.getByTestId('map-search-input'), 'ventoux');
+    await fireEvent.changeText(screen.getByTestId('map-search-input'), 'ventoux');
     expect(onChangeNeedle).toHaveBeenCalledWith('ventoux');
 
-    fireEvent.press(screen.getByTestId('map-search-result-a2'));
+    await fireEvent.press(screen.getByTestId('map-search-result-a2'));
     expect(onChoose).toHaveBeenCalledWith('a2');
     expect(
       screen.getAllByText(formatShortDateWithYear(new Date('2026-04-10T08:00:00Z')))
     ).toHaveLength(2);
   });
 
-  it('shows no list without results and clears the field on request', () => {
+  it('shows no list without results and clears the field on request', async () => {
     const onChangeNeedle = jest.fn();
-    render(
+    await render(
       <MapNameSearch needle="x" onChangeNeedle={onChangeNeedle} results={[]} onChoose={jest.fn()} />
     );
 
     expect(screen.queryByTestId('map-search-results')).toBeNull();
-    fireEvent.press(screen.getByLabelText('common.clearSearch'));
+    await fireEvent.press(screen.getByLabelText('common.clearSearch'));
     expect(onChangeNeedle).toHaveBeenCalledWith('');
   });
 
-  it('offers no clear control for an empty field', () => {
-    render(
+  it('offers no clear control for an empty field', async () => {
+    await render(
       <MapNameSearch needle="" onChangeNeedle={jest.fn()} results={[]} onChoose={jest.fn()} />
     );
 
     expect(screen.queryByLabelText('common.clearSearch')).toBeNull();
   });
 
-  it('draws the shared search bar, so input handling follows the app theme', () => {
+  it('draws the shared search bar, so input handling follows the app theme', async () => {
     mockIsDark = true;
-    render(
+    await render(
       <MapNameSearch needle="" onChangeNeedle={jest.fn()} results={[]} onChoose={jest.fn()} />
     );
 
@@ -95,7 +95,7 @@ describe('MapNameSearch', () => {
   it('shows a localised date with year in each result', async () => {
     await initialiseI18n('en-GB');
     const activity = { ...ride('a1', 'Morning ride'), date: '2026-10-05T07:00:00' };
-    render(
+    await render(
       <MapNameSearch
         needle="ride"
         onChangeNeedle={jest.fn()}
@@ -106,5 +106,21 @@ describe('MapNameSearch', () => {
 
     expect(screen.getByText(formatShortDateWithYear(new Date(activity.date)))).toBeTruthy();
     expect(screen.queryByText('2026-10-05')).toBeNull();
+  });
+
+  it('names each result with the date it draws beside the name', () => {
+    const activity = { ...ride('a3', 'Orchard spin'), date: '2026-06-14T09:00:00' };
+    render(
+      <MapNameSearch
+        needle="orchard"
+        onChangeNeedle={jest.fn()}
+        results={[activity]}
+        onChoose={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('map-search-result-a3').props.accessibilityLabel).toBe(
+      `Orchard spin, ${formatShortDateWithYear(new Date(activity.date))}`
+    );
   });
 });

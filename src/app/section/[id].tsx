@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, ScrollView, StatusBar, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
@@ -28,7 +28,6 @@ import {
   useSectionUIState,
   useSectionMergeFlow,
   useSectionChartDataEnriched,
-  useSectionMapData,
   useSectionTrim,
   useSectionLedger,
   hasPartialExclusion,
@@ -42,6 +41,7 @@ import {
   useRevealMapOnDraw,
   createMapHighlightStore,
   SectionHeader,
+  sectionHeroName,
   SectionActionRow,
   SectionContentArea,
   sectionStreamsState,
@@ -53,15 +53,10 @@ import {
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { isEngineReady } from '@/shared/native/engine';
+import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
+import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import {
-  Button,
-  EmptyState,
-  EngineReadFailure,
-  useHeroMapHeight,
-  useTabBarClearance,
-} from '@/shared/ui';
+import { Button, EmptyState, ErrorState, useHeroMapHeight, useTabBarClearance } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, spacing } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -255,11 +250,13 @@ function SectionDetailScreenContent() {
 
   // Second call: everything that needs lap times. With no chip picked, the
   // engine answers for the sport with the most outings and says which.
+  const [performanceAttempt, retryPerformance] = useReadRetry();
   const { data: performance, error: performanceReadError } = useSectionDetailPerformance(
     id,
     RANGE_DAYS[sectionTimeRange],
     selectedSportType,
-    streamsReady
+    streamsReady,
+    performanceAttempt
   );
   if (
     performance &&
@@ -303,21 +300,26 @@ function SectionDetailScreenContent() {
   );
   const partlyExcluded = useMemo(() => hasPartialExclusion(lapRecords), [lapRecords]);
 
-  const { isRunning } = useSectionMapData(effectiveSportType, section);
-
   // An activity still missing its stream could hold a faster effort, so a best
   // read without it is shown as a best and never as the record.
   const recordsSettled = streamSync.outstanding === 0;
   const bestForwardIsRecord = recordsSettled && (performance?.bestForwardIsRecord ?? false);
   const bestReverseIsRecord = recordsSettled && (performance?.bestReverseIsRecord ?? false);
 
+  const heroTitle = section ? sectionHeroName(section, customName) : undefined;
+
+  // A fallback state takes the opaque header, so the hero puts the transparent one back, named
+  // after the section.
+  const heroHeaderOptions = useMemo(
+    () => overMapHeaderOptions({ title: heroTitle, isDark }),
+    [heroTitle, isDark]
+  );
+
   if (!section) {
     return (
       <DetailFallback
         isDark={isDark}
-        insetTop={insets.top}
         status={detailStatus}
-        loading={!isEngineReady()}
         onRetry={bumpSectionRefresh}
         notFoundMessage={t('sections.sectionNotFound')}
         retired={
@@ -348,6 +350,7 @@ function SectionDetailScreenContent() {
         testID="section-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
+        <Stack.Screen options={heroHeaderOptions} />
         <StatusBar barStyle="light-content" />
         <ScrollView
           ref={scrollRef}
@@ -356,10 +359,6 @@ function SectionDetailScreenContent() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {performanceReadError !== undefined ? (
-            <EngineReadFailure error={performanceReadError} testID="section-performance-failure" />
-          ) : null}
-
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
@@ -387,6 +386,16 @@ function SectionDetailScreenContent() {
             onSaveName={handleSaveName}
             canNameFromPlaces={detail?.canNameFromPlaces ?? false}
           />
+
+          {performanceReadError !== undefined ? (
+            <ErrorState
+              variant="inline"
+              error={performanceReadError}
+              onRetry={retryPerformance}
+              testID="section-performance-failure"
+              style={styles.readFailure}
+            />
+          ) : null}
 
           {/* Action row - always visible below map, hidden during trim */}
           {!isTrimming && (
@@ -478,7 +487,6 @@ function SectionDetailScreenContent() {
               recordsSettled={recordsSettled}
               calendarSummary={calendarSummary}
               effectiveSportType={effectiveSportType}
-              isRunning={isRunning}
               activityColor={activityColor}
               navActivityId={navActivityId}
               effectiveReferenceId={effectiveReferenceId}

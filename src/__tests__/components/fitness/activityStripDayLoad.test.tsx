@@ -63,52 +63,52 @@ function strip(selectedDate: string | null) {
 }
 
 describe('the activity strip selected-day load', () => {
-  it('reads the total of a complete day without opening the picker', () => {
-    const tree = render(strip('2026-03-10'));
+  it('reads the total of a complete day without opening the picker', async () => {
+    const tree = await render(strip('2026-03-10'));
 
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/100/);
     expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/fitness\.loadPartial/);
   });
 
-  it('marks a partial day as partial and keeps its known total', () => {
-    const tree = render(strip('2026-03-11'));
+  it('marks a partial day as partial and keeps its known total', async () => {
+    const tree = await render(strip('2026-03-11'));
 
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/40/);
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadPartial/);
   });
 
-  it('reads unavailable, never a zero, for a day whose activities carry no load', () => {
-    const tree = render(strip('2026-03-12'));
+  it('reads unavailable, never a zero, for a day whose activities carry no load', async () => {
+    const tree = await render(strip('2026-03-12'));
 
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadUnavailable/);
     expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/\b0\b/);
   });
 
-  it('reads an explicit zero as a known zero', () => {
-    const tree = render(strip('2026-03-13'));
+  it('reads an explicit zero as a known zero', async () => {
+    const tree = await render(strip('2026-03-13'));
 
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/\b0\b/);
     expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/fitness\.loadUnavailable/);
   });
 
-  it('prints nothing on a rest day', () => {
-    const tree = render(strip('2026-03-14'));
+  it('prints nothing on a rest day', async () => {
+    const tree = await render(strip('2026-03-14'));
 
     expect(tree.queryByTestId('fitness-day-load')).toBeNull();
   });
 
-  it('follows the selected date and carries no total into the next selection', () => {
-    const tree = render(strip('2026-03-10'));
+  it('follows the selected date and carries no total into the next selection', async () => {
+    const tree = await render(strip('2026-03-10'));
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/100/);
 
-    tree.rerender(strip('2026-03-12'));
+    await tree.rerender(strip('2026-03-12'));
     expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadUnavailable/);
     expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/100/);
 
-    tree.rerender(strip('2026-03-14'));
+    await tree.rerender(strip('2026-03-14'));
     expect(tree.queryByTestId('fitness-day-load')).toBeNull();
 
-    tree.rerender(strip(null));
+    await tree.rerender(strip(null));
     expect(tree.queryByTestId('fitness-day-load')).toBeNull();
   });
 });
@@ -140,8 +140,8 @@ describe('the activity strip title and key', () => {
     withLoad(activity('w1', '2026-03-12'), 'Walk', 0),
   ];
 
-  it('titles the strip as a header and keys both sports and the neutral state', () => {
-    const tree = render(mixed(null, MIXED));
+  it('titles the strip as a header and keys both sports and the neutral state', async () => {
+    const tree = await render(mixed(null, MIXED));
 
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
     expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(
@@ -153,18 +153,18 @@ describe('the activity strip title and key', () => {
     expect(tree.getByTestId('fitness-strip-gloss')).toHaveTextContent(/fitness\.stripGloss/);
   });
 
-  it('keeps the title and key through selecting and clearing a day', () => {
-    const tree = render(mixed('2026-03-10', MIXED));
+  it('keeps the title and key through selecting and clearing a day', async () => {
+    const tree = await render(mixed('2026-03-10', MIXED));
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
     expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
 
-    tree.rerender(mixed(null, MIXED));
+    await tree.rerender(mixed(null, MIXED));
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
     expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
   });
 
-  it('keys sports of one group as that group, once', () => {
-    const tree = render(
+  it('keys sports of one group as that group, once', async () => {
+    const tree = await render(
       mixed(null, [
         withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
         withLoad(activity('v1', '2026-03-11'), 'VirtualRide', 40),
@@ -179,16 +179,16 @@ describe('the activity strip title and key', () => {
     expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
   });
 
-  it('omits sports and the neutral entry that the window does not show', () => {
-    const tree = render(mixed(null, [withLoad(activity('r1', '2026-03-10'), 'Ride', 50)]));
+  it('omits sports and the neutral entry that the window does not show', async () => {
+    const tree = await render(mixed(null, [withLoad(activity('r1', '2026-03-10'), 'Ride', 50)]));
 
     expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
     expect(tree.queryByTestId('fitness-strip-key-Run')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
   });
 
-  it('keeps the title with no key on a window of rest days', () => {
-    const tree = render(mixed(null, []));
+  it('keeps the title with no key on a window of rest days', async () => {
+    const tree = await render(mixed(null, []));
 
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
     expect(tree.queryByTestId('fitness-strip-gloss')).toBeNull();

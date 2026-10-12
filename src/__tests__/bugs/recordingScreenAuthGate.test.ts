@@ -19,29 +19,29 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 describe('useCanRecord separates a missing account from a missing scope', () => {
-  it('says not signed in when there is no account at all', () => {
+  it('says not signed in when there is no account at all', async () => {
     useAuthStore.setState({ authMethod: null });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: false, reason: 'not_signed_in' });
   });
 
-  it('still says no permission for an OAuth account without write', () => {
+  it('still says no permission for an OAuth account without write', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.setState({ hasWritePermission: false });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: false, reason: 'no_permission' });
   });
 
-  it.each(['apiKey', 'demo'] as const)('lets a %s account record', (authMethod) => {
+  it.each(['apiKey', 'demo'] as const)('lets a %s account record', async (authMethod) => {
     useAuthStore.setState({ authMethod });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current.canRecord).toBe(true);
   });
 
-  it('lets an OAuth account with write record', () => {
+  it('lets an OAuth account with write record', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.setState({ hasWritePermission: true });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current.canRecord).toBe(true);
   });
 });
@@ -55,13 +55,13 @@ describe('the recording screen starts nothing it is not allowed to start', () =>
     jest.restoreAllMocks();
   });
 
-  it('does not start when the athlete cannot record', () => {
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, false));
+  it('does not start when the athlete cannot record', async () => {
+    await renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, false));
     expect(useRecordingStore.getState().startRecording).not.toHaveBeenCalled();
   });
 
-  it('starts when the athlete can', () => {
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true));
+  it('starts when the athlete can', async () => {
+    await renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true));
     expect(useRecordingStore.getState().startRecording).toHaveBeenCalledWith(
       'Ride',
       'gps',

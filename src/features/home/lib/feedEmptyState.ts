@@ -1,9 +1,12 @@
 import { SyncErrorReason, SyncState } from 'veloqrs';
 
+import type { EngineReadState } from '@/shared/native/useEngineSubscription';
+
 /** What the feed draws in place of cards, or `none` when it has cards. */
 export type FeedEmptyState =
   | 'none'
   | 'error'
+  | 'engineUnavailable'
   | 'standby'
   | 'skeletons'
   | 'paused'
@@ -21,8 +24,10 @@ interface FeedEmptyInput {
   isError: boolean;
   /** Whether the activities query has yet to answer. */
   isLoading: boolean;
-  /** Whether a search or a sport filter is narrowing the feed. */
+  /** Whether a search, a sport chip or a date range is narrowing the feed. */
   hasFilter: boolean;
+  /** Whether the engine the rows came from is open, still opening, or gave up. */
+  engine: EngineReadState;
 }
 
 /**
@@ -42,6 +47,11 @@ interface FeedEmptyInput {
  * The filter is what separates "nothing has arrived yet" from "nothing matches
  * what you asked for": a narrowed feed with no results is the athlete's own
  * doing and a sync has nothing to say about it.
+ *
+ * Neither holds while the engine is not open, because its rows are then its
+ * empty default and not the library. One still opening keeps the skeletons,
+ * and one that gave up says so, filtered or not, since a search reads the
+ * same engine.
  */
 export function feedEmptyState({
   storedCount,
@@ -50,9 +60,12 @@ export function feedEmptyState({
   isError,
   isLoading,
   hasFilter,
+  engine,
 }: FeedEmptyInput): FeedEmptyState {
   if (isError) return 'error';
   if (storedCount > 0) return 'none';
+  if (engine === 'failed') return 'engineUnavailable';
+  if (engine === 'closed') return 'skeletons';
   if (!hasFilter && syncState === SyncState.Syncing) return 'standby';
   if (isLoading) return 'skeletons';
   if (hasFilter) return 'empty';

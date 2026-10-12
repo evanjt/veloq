@@ -77,10 +77,10 @@ beforeEach(() => {
 });
 
 describe('the hero paints the snapshot the feed already drew', () => {
-  it('shows the cached preview before the surface reports ready', () => {
+  it('shows the cached preview before the surface reports ready', async () => {
     mockCached.add('a1-light-false');
 
-    renderHero();
+    await renderHero();
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/a1-light-false.jpg',
@@ -88,47 +88,47 @@ describe('the hero paints the snapshot the feed already drew', () => {
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.fadeDuration).toBe(0);
   });
 
-  it('shows nothing of the sort when no snapshot was ever written', () => {
-    renderHero();
+  it('shows nothing of the sort when no snapshot was ever written', async () => {
+    await renderHero();
 
     expect(screen.queryByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeNull();
   });
 
-  it('paints the flat entry when the card drew flat and the hero opens in 3D', () => {
+  it('paints the flat entry when the card drew flat and the hero opens in 3D', async () => {
     mockCached.add('a1-light-false');
 
-    renderHero({ initial3DCamera: { bearing: 0, pitch: 60 } as never });
+    await renderHero({ initial3DCamera: { bearing: 0, pitch: 60 } as never });
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/a1-light-false.jpg',
     });
   });
 
-  it('paints the 3D entry when the card drew 3D and the hero opens flat', () => {
+  it('paints the 3D entry when the card drew 3D and the hero opens flat', async () => {
     mockCached.add('a1-light-true');
 
-    renderHero();
+    await renderHero();
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/a1-light-true.jpg',
     });
   });
 
-  it('prefers the entry for its own mode when both exist', () => {
+  it('prefers the entry for its own mode when both exist', async () => {
     mockCached.add('a1-light-false');
     mockCached.add('a1-light-true');
 
-    renderHero({ initial3DCamera: { bearing: 0, pitch: 60 } as never });
+    await renderHero({ initial3DCamera: { bearing: 0, pitch: 60 } as never });
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/a1-light-true.jpg',
     });
   });
 
-  it('needs an activity id to find one, and does not guess', () => {
+  it('needs an activity id to find one, and does not guess', async () => {
     mockCached.add('a1-light-false');
 
-    renderHero({ activityId: undefined });
+    await renderHero({ activityId: undefined });
 
     expect(screen.queryByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeNull();
   });

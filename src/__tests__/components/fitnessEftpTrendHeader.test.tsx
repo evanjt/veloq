@@ -40,6 +40,7 @@ function renderCycling() {
         previous: 295,
         change: 10,
         changePercent: 3.4,
+        lookbackDays: 30,
       }}
       ftpTrend="up"
       trendsExpanded={false}
@@ -52,8 +53,8 @@ function renderCycling() {
 }
 
 describe('the eFTP Trend row headline', () => {
-  it('states the latest estimate of the series its chart and arrow read', () => {
-    const tree = renderCycling();
+  it('states the latest estimate of the series its chart and arrow read', async () => {
+    const tree = await renderCycling();
 
     expect(tree.getAllByText(/305/).length).toBeGreaterThan(0);
   });

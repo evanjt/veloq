@@ -290,3 +290,40 @@ describe('a query hook that drops its error', () => {
     expect(status).toBe(0);
   });
 });
+
+describe('screens under the app directory', () => {
+  const SCREEN = 'src/app/orchard-preview.tsx';
+
+  it('fails a screen catch around an engine read that answers empty', () => {
+    const { status, output } = runGuard({ [SCREEN]: readWith('[]') });
+
+    expect(status).toBe(1);
+    expect(output).toContain('orchard-preview.tsx:6');
+  });
+
+  it('fails a screen reading a query as data ?? [] without its error', () => {
+    const { status, output } = runGuard({
+      'src/app/(tabs)/orchards.tsx': [
+        "import { useQuery } from '@tanstack/react-query';",
+        'export default function OrchardsScreen() {',
+        '  const query = useQuery({ queryKey: [1], queryFn: () => readPears() });',
+        '  const pears = query.data ?? [];',
+        '  return pears.length;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(status).toBe(1);
+    expect(output).toContain('orchards.tsx');
+  });
+
+  it('passes a screen that lets the error through', () => {
+    const screen = [
+      'export function countPears(host: Host): number {',
+      '  return host.engine.orchards().countPears();',
+      '}',
+    ].join('\n');
+
+    expect(runGuard({ [SCREEN]: screen }).status).toBe(0);
+  });
+});

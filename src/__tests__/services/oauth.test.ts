@@ -47,6 +47,20 @@ jest.mock('expo-crypto', () => ({
   CryptoEncoding: { BASE64: 'base64' },
 }));
 
+// The keychain outlives the process and module memory does not, so a flow
+// started in one module instance and completed in another is a process death.
+const mockKeychain = new Map<string, string>();
+jest.mock('expo-secure-store', () => ({
+  ...jest.requireActual('expo-secure-store'),
+  getItemAsync: jest.fn(async (key: string) => mockKeychain.get(key) ?? null),
+  setItemAsync: jest.fn(async (key: string, value: string) => {
+    mockKeychain.set(key, value);
+  }),
+  deleteItemAsync: jest.fn(async (key: string) => {
+    mockKeychain.delete(key);
+  }),
+}));
+
 // Mock expo-web-browser: stub openAuthSessionAsync
 jest.mock('expo-web-browser', () => ({
   ...jest.requireActual('expo-web-browser'),
@@ -78,9 +92,21 @@ const mockedOpenAuth = WebBrowser.openAuthSessionAsync as jest.MockedFunction<
 // fetch is used for state registration with the proxy
 const originalFetch = global.fetch;
 
+/** Start a flow and resolve once the browser is in front, which never returns. */
+function browserOpenedBy(oauth: typeof import('@/features/auth/lib/oauth')): Promise<void> {
+  return new Promise((opened) => {
+    mockedOpenAuth.mockImplementationOnce(() => {
+      opened();
+      return new Promise(() => {});
+    });
+    void oauth.startOAuthFlow();
+  });
+}
+
 describe('OAuth service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockKeychain.clear();
     // Reset global fetch to a passing stub by default
     global.fetch = jest.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
   });
@@ -90,14 +116,9 @@ describe('OAuth service', () => {
   });
 
   describe('buildAuthorizationUrl()', () => {
-    afterEach(() => {
-      // Clear module-level state by calling validateState with something
-      // validateState clears oauthState after reading
-      try {
-        validateState('anything');
-      } catch {
-        // no-op
-      }
+    afterEach(async () => {
+      // validateState spends whatever flow is in progress.
+      await validateState('anything');
     });
 
     it('throws if oauth state has not been initialised', () => {
@@ -270,10 +291,10 @@ describe('OAuth service', () => {
   });
 
   describe('validateState()', () => {
-    it('returns false when no state has been generated', () => {
+    it('returns false when no state has been generated', async () => {
       // Ensure state is cleared
-      validateState('dummy'); // this returns false AND clears anyway
-      expect(validateState('anything')).toBe(false);
+      await validateState('dummy'); // this returns false AND clears anyway
+      expect(await validateState('anything')).toBe(false);
     });
 
     it('returns true when received state matches generated state', async () => {
@@ -286,7 +307,7 @@ describe('OAuth service', () => {
       const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       const state = body.state;
 
-      expect(validateState(state)).toBe(true);
+      expect(await validateState(state)).toBe(true);
     });
 
     it('returns false when received state does not match', async () => {
@@ -294,7 +315,7 @@ describe('OAuth service', () => {
         type: 'dismiss',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
-      expect(validateState('wrong-state')).toBe(false);
+      expect(await validateState('wrong-state')).toBe(false);
     });
 
     it('is single-use: second call returns false even with correct state', async () => {
@@ -305,9 +326,9 @@ describe('OAuth service', () => {
 
       const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       const state = body.state;
-      expect(validateState(state)).toBe(true);
+      expect(await validateState(state)).toBe(true);
       // State is cleared after validation - calling again returns false
-      expect(validateState(state)).toBe(false);
+      expect(await validateState(state)).toBe(false);
     });
   });
 
@@ -442,6 +463,232 @@ describe('OAuth service', () => {
     it('propagates parseCallbackUrl errors (OAuth-level failure)', async () => {
       const url = 'veloq://oauth/callback?success=false&error=consent_denied';
       await expect(handleOAuthCallback(url)).rejects.toThrow('consent_denied');
+    });
+  });
+
+  describe('a flow interrupted by process death', () => {
+    type OAuthModule = typeof import('@/features/auth/lib/oauth');
+
+    /** A fresh module instance: what a recreated process loads. */
+    function freshProcess(): OAuthModule {
+      let loaded: OAuthModule | undefined;
+      jest.isolateModules(() => {
+        loaded = require('@/features/auth/lib/oauth');
+      });
+      return loaded!;
+    }
+
+    /** Start a flow in a process that then dies, handing back what it registered. */
+    async function startInDyingProcess() {
+      await browserOpenedBy(freshProcess());
+      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      return { state: body.state as string, challenge: body.code_challenge as string };
+    }
+
+    function redeemsTo(token: Record<string, string>) {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => token });
+    }
+
+    let startedAt: number;
+    beforeEach(() => {
+      startedAt = Date.now();
+    });
+    afterEach(() => {
+      jest.setSystemTime(startedAt);
+    });
+
+    it('completes in the recreated process with the verifier the challenge was made from', async () => {
+      const { state, challenge } = await startInDyingProcess();
+      redeemsTo({ access_token: 'resumed-token', athlete_id: 'i42', athlete_name: 'Ana' });
+
+      const result = await freshProcess().handleOAuthCallback(
+        `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+      );
+
+      expect(result.access_token).toBe('resumed-token');
+      expect(result.athlete_id).toBe('i42');
+      const sent = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body);
+      const expected = createHash('sha256')
+        .update(sent.code_verifier)
+        .digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      expect(challenge).toBe(expected);
+    });
+
+    it('leaves nothing stored once the flow completes', async () => {
+      const { state } = await startInDyingProcess();
+      expect(mockKeychain.size).toBe(1);
+      redeemsTo({ access_token: 'tok', athlete_id: 'i1' });
+
+      await freshProcess().handleOAuthCallback(
+        `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+      );
+
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('leaves nothing stored when the redemption fails', async () => {
+      const { state } = await startInDyingProcess();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+
+      await expect(
+        freshProcess().handleOAuthCallback(
+          `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+        )
+      ).rejects.toThrow(/could not be redeemed/);
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('leaves nothing stored when the browser comes back with a refusal', async () => {
+      const { state } = await startInDyingProcess();
+      const oauth = freshProcess();
+
+      await expect(
+        oauth.handleOAuthCallback(
+          `veloq://oauth/callback?success=false&error=access_denied&state=${state}`
+        )
+      ).rejects.toThrow('access_denied');
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('leaves nothing stored when the proxy refuses to register the flow', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
+
+      await expect(freshProcess().startOAuthFlow()).rejects.toThrow(/register OAuth state/i);
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('refuses a flow older than ten minutes and drops it', async () => {
+      const { state } = await startInDyingProcess();
+      jest.setSystemTime(startedAt + 10 * 60 * 1000 + 1);
+      const oauth = freshProcess();
+
+      const attempt = oauth.handleOAuthCallback(
+        `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+      );
+
+      await expect(attempt).rejects.toThrow(/no sign-in in progress/);
+      await attempt.catch((err) =>
+        expect(oauth.oauthFailureKey(err)).toBe('login.oauthInterrupted')
+      );
+      expect(mockKeychain.size).toBe(0);
+      // Only the registration: an expired code is never presented.
+      expect((global.fetch as jest.Mock).mock.calls).toHaveLength(1);
+    });
+
+    it('still completes a flow at exactly ten minutes', async () => {
+      const { state } = await startInDyingProcess();
+      jest.setSystemTime(startedAt + 10 * 60 * 1000);
+      redeemsTo({ access_token: 'tok', athlete_id: 'i1' });
+
+      const result = await freshProcess().handleOAuthCallback(
+        `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+      );
+
+      expect(result.access_token).toBe('tok');
+    });
+
+    it('refuses an expired flow in the process that started it too', async () => {
+      mockedOpenAuth.mockResolvedValue({
+        type: 'dismiss',
+      } as WebBrowser.WebBrowserAuthSessionResult);
+      const oauth = freshProcess();
+      await oauth.startOAuthFlow();
+      const { state } = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      jest.setSystemTime(startedAt + 11 * 60 * 1000);
+
+      await expect(
+        oauth.handleOAuthCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`)
+      ).rejects.toThrow(/no sign-in in progress/);
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('names the interruption when a callback arrives with nothing stored', async () => {
+      const oauth = freshProcess();
+
+      const attempt = oauth.handleOAuthCallback(
+        'veloq://oauth/callback?success=true&code=onetime&state=from-a-lost-flow'
+      );
+
+      await expect(attempt).rejects.toThrow(/no sign-in in progress/);
+      await attempt.catch((err) =>
+        expect(oauth.oauthFailureKey(err)).toBe('login.oauthInterrupted')
+      );
+    });
+
+    it('refuses a stored flow whose state the callback does not carry', async () => {
+      await startInDyingProcess();
+
+      await expect(
+        freshProcess().handleOAuthCallback(
+          'veloq://oauth/callback?success=true&code=onetime&state=not-the-state'
+        )
+      ).rejects.toThrow(/state validation failed/);
+      expect(mockKeychain.size).toBe(0);
+    });
+
+    it('treats an unreadable keychain entry as nothing stored', async () => {
+      const { state } = await startInDyingProcess();
+      const [key] = [...mockKeychain.keys()];
+      mockKeychain.set(key, '{not json');
+
+      await expect(
+        freshProcess().handleOAuthCallback(
+          `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+        )
+      ).rejects.toThrow(/no sign-in in progress/);
+      expect(mockKeychain.size).toBe(0);
+    });
+  });
+
+  describe('a callback the app was relaunched by', () => {
+    type OAuthModule = typeof import('@/features/auth/lib/oauth');
+
+    function freshProcess(): OAuthModule {
+      let loaded: OAuthModule | undefined;
+      jest.isolateModules(() => {
+        loaded = require('@/features/auth/lib/oauth');
+      });
+      return loaded!;
+    }
+
+    it('is left to the sign-in that started it when this process opened the browser', async () => {
+      const oauth = freshProcess();
+      await browserOpenedBy(oauth);
+      const { state } = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+
+      expect(
+        oauth.holdInterruptedCallback(`veloq://oauth/callback?success=true&code=c&state=${state}`)
+      ).toBe(false);
+      expect(oauth.takeInterruptedCallback()).toBeNull();
+    });
+
+    it('is held once for the sign-in screen when another process opened the browser', () => {
+      const oauth = freshProcess();
+      const heard = jest.fn();
+      const unsubscribe = oauth.onInterruptedCallback(heard);
+      const url = 'veloq://oauth/callback?success=true&code=c&state=s';
+
+      expect(oauth.holdInterruptedCallback(url)).toBe(true);
+      expect(heard).toHaveBeenCalledTimes(1);
+      expect(oauth.takeInterruptedCallback()).toBe(url);
+      expect(oauth.takeInterruptedCallback()).toBeNull();
+      unsubscribe();
+    });
+
+    it('holds nothing for a bare callback link', () => {
+      const oauth = freshProcess();
+      expect(oauth.holdInterruptedCallback('veloq://oauth/callback')).toBe(false);
+      expect(oauth.takeInterruptedCallback()).toBeNull();
+    });
+
+    it('rebuilds the link from the route parameters it arrived with', () => {
+      const oauth = freshProcess();
+      expect(
+        oauth.callbackUrlFromParams({ success: 'true', code: 'a b', state: ['s1', 's2'] })
+      ).toBe(`${OAUTH.APP_SCHEME}://oauth/callback?success=true&code=a+b&state=s1`);
     });
   });
 });

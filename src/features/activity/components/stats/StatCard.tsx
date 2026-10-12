@@ -5,9 +5,9 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, typography, layout, spacing } from '@/theme';
+import { darkColors, typography, layout, spacing, themedStyles, type Palette } from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
-import { pressable, pressRipple } from '@/shared/ui';
+import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
 
 import type { StatDetail } from './types';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -19,14 +19,15 @@ interface StatCardProps {
 }
 
 export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: StatCardProps) {
+  const styles = themedStyles(makeStyles, isDark);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={stat.title}
+      accessibilityLabel={composeAccessibilityLabel(stat.title, stat.value, stat.context)}
       onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
       delayLongPress={PREVIEW_HOLD_MS}
-      style={pressable([styles.statCard, isDark && styles.statCardDark])}
+      style={pressable(styles.statCard)}
       android_ripple={pressRipple}
     >
       {/* Icon with colored background */}
@@ -36,7 +37,10 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
 
       {/* Value and title */}
       <View style={styles.statContent}>
-        <DenseText style={[styles.statValue, isDark && styles.textLight]}>{stat.value}</DenseText>
+        <DenseText style={styles.statValue}>
+          {stat.value}
+          {stat.unit ? <DenseText style={styles.statUnit}> {stat.unit}</DenseText> : null}
+        </DenseText>
         <DenseText style={styles.statTitle}>{stat.title}</DenseText>
       </View>
 
@@ -50,42 +54,44 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
   );
 });
 
-const styles = StyleSheet.create({
-  statCard: {
-    width: '31%', // 3 columns with gaps
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    position: 'relative',
-  },
-  statCardDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  iconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadiusSm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xsPlus,
-  },
-  statContent: {
-    marginBottom: spacing.xxs,
-  },
-  statValue: {
-    fontSize: typography.metricValue.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  statTitle: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-  contextText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-});
+// The elevated surface is a role only the dark theme has, so the light card
+// takes the background.
+const makeStyles = (palette: Palette, isDark: boolean) =>
+  StyleSheet.create({
+    statCard: {
+      width: '31%', // 3 columns with gaps
+      backgroundColor: isDark ? darkColors.surfaceElevated : palette.background,
+      borderRadius: layout.borderRadiusMd,
+      padding: spacing.sm,
+      position: 'relative',
+    },
+    iconContainer: {
+      width: 28,
+      height: 28,
+      borderRadius: layout.borderRadiusSm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: spacing.xsPlus,
+    },
+    statContent: {
+      marginBottom: spacing.xxs,
+    },
+    statValue: {
+      fontSize: typography.metricValue.fontSize,
+      fontWeight: '700',
+      color: palette.textPrimary,
+    },
+    statUnit: {
+      fontSize: typography.micro.fontSize,
+      fontWeight: '600',
+      color: palette.textSecondary,
+    },
+    statTitle: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+    },
+    contextText: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+    },
+  });

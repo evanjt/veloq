@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Linking, Platform, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { useTheme } from '@/shared/app';
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { Button } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
+import { OpenSettingsButton } from '@/shared/ui/PermissionNotice';
 import { SignalStatus, signalColor } from '@/shared/ui/SignalStatus';
 import { layout, spacing } from '@/theme';
 import { isLiveActivityAvailable, isLiveActivitySupported } from '../lib/liveActivity/bridge';
@@ -80,14 +81,7 @@ export function OutsideAppNotice({ askOnArrival }: { askOnArrival: boolean }) {
         size="sm"
       />
     ) : (
-      <Button
-        onPress={() => {
-          Linking.openSettings().catch(() => undefined);
-        }}
-        label={t('common.openSettings')}
-        variant="ghost"
-        size="sm"
-      />
+      <OpenSettingsButton testID="record-outside-app-notice-settings" />
     );
 
   return (

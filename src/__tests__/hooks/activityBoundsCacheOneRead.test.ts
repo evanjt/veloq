@@ -71,14 +71,14 @@ beforeEach(() => {
 
 describe('useActivityBoundsCache', () => {
   it('takes the write lock once at mount, not twice', async () => {
-    renderHook(() => useActivityBoundsCache());
+    await renderHook(() => useActivityBoundsCache());
 
     await waitFor(() => expect(mockEngine.getStats).toHaveBeenCalled());
     expect(mockEngine.getActivityCount).not.toHaveBeenCalled();
   });
 
   it('takes it once more per activities event, not twice', async () => {
-    const { result } = renderHook(() => useActivityBoundsCache());
+    const { result } = await renderHook(() => useActivityBoundsCache());
     await waitFor(() => expect(mockEngine.getStats).toHaveBeenCalled());
     const notify = activitiesSubscriber();
     jest.clearAllMocks();
@@ -88,7 +88,7 @@ describe('useActivityBoundsCache', () => {
       oldestDate: 1_700_000_000n,
       newestDate: 1_760_000_000n,
     });
-    act(() => notify());
+    await act(() => notify());
 
     expect(mockEngine.getStats).toHaveBeenCalledTimes(1);
     expect(mockEngine.getActivityCount).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe('useActivityBoundsCache', () => {
   });
 
   it('still takes the count from the stats it read', async () => {
-    const { result } = renderHook(() => useActivityBoundsCache());
+    const { result } = await renderHook(() => useActivityBoundsCache());
 
     await waitFor(() => expect(result.current.cacheStats.totalActivities).toBe(490));
   });

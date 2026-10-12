@@ -7,10 +7,12 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
+import { streamsFromArrays } from '@/features/activity/lib/streams';
+import { initialiseI18n } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -70,54 +72,54 @@ beforeEach(() => {
 });
 
 describe('ActivityMapView', () => {
-  it('mounts a map from a coordinate array', () => {
-    renderActivityMap();
+  it('mounts a map from a coordinate array', async () => {
+    await renderActivityMap();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
   });
 
-  it('hides the control stack when the caller turns it off', () => {
-    renderActivityMap({ showStyleToggle: false });
+  it('hides the control stack when the caller turns it off', async () => {
+    await renderActivityMap({ showStyleToggle: false });
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     expect(screen.queryByTestId('activity-map-style-toggle')).toBeNull();
   });
 
-  it('opens and closes fullscreen', () => {
-    renderActivityMap({ enableFullscreen: true });
+  it('opens and closes fullscreen', async () => {
+    await renderActivityMap({ enableFullscreen: true });
 
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
+    await fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
     expect(screen.getByTestId('map-fullscreen-close')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('unmounts the inline surface while fullscreen holds its own', () => {
-    renderActivityMap({ enableFullscreen: true });
+  it('unmounts the inline surface while fullscreen holds its own', async () => {
+    await renderActivityMap({ enableFullscreen: true });
     expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
 
-    fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
+    await fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
     expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
 
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
     expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
   });
 
-  it('reports style changes to the caller', () => {
+  it('reports style changes to the caller', async () => {
     const onStyleChange = jest.fn();
-    renderActivityMap({ onStyleChange });
+    await renderActivityMap({ onStyleChange });
 
-    fireEvent.press(screen.getByTestId('activity-map-style-toggle'));
+    await fireEvent.press(screen.getByTestId('activity-map-style-toggle'));
 
     expect(onStyleChange).toHaveBeenCalled();
   });
 
-  it('renders section overlays for the sections tab', () => {
-    renderActivityMap({
+  it('renders section overlays for the sections tab', async () => {
+    await renderActivityMap({
       activeTab: 'sections',
       sectionOverlays: [
         {
@@ -134,39 +136,40 @@ describe('ActivityMapView', () => {
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('renders a route overlay alongside the activity trace', () => {
-    renderActivityMap({ routeOverlay: COORDINATES });
+  it('renders a route overlay alongside the activity trace', async () => {
+    await renderActivityMap({ routeOverlay: COORDINATES });
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('accepts a scrub highlight index', () => {
-    const { rerender } = renderActivityMap({ highlightIndex: 0 });
+  it('accepts a scrub highlight index', async () => {
+    const { rerender } = await renderActivityMap({ highlightIndex: 0 });
 
-    expect(() =>
-      rerender(
-        <SafeAreaProvider initialMetrics={METRICS}>
-          <ActivityMapView
-            activityType="Ride"
-            coordinates={COORDINATES}
-            showStyleToggle
-            highlightIndex={2}
-          />
-        </SafeAreaProvider>
-      )
-    ).not.toThrow();
+    await expect(
+      (async () =>
+        rerender(
+          <SafeAreaProvider initialMetrics={METRICS}>
+            <ActivityMapView
+              activityType="Ride"
+              coordinates={COORDINATES}
+              showStyleToggle
+              highlightIndex={2}
+            />
+          </SafeAreaProvider>
+        ))()
+    ).resolves.not.toThrow();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
   describe('degenerate input', () => {
-    it('falls back to a placeholder with no geometry at all', () => {
-      renderActivityMap({ coordinates: [] });
+    it('falls back to a placeholder with no geometry at all', async () => {
+      await renderActivityMap({ coordinates: [] });
 
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
 
-    it('falls back to a placeholder with no coordinates at all', () => {
-      renderActivityMap({ coordinates: undefined });
+    it('falls back to a placeholder with no coordinates at all', async () => {
+      await renderActivityMap({ coordinates: undefined });
 
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
@@ -195,11 +198,57 @@ describe('ActivityMapView', () => {
       ['no streams', { streams: null }],
     ];
 
-    it.each(cases)('survives %s', (_label, props) => {
-      expect(() => renderActivityMap(props)).not.toThrow();
+    it.each(cases)('survives %s', async (_label, props) => {
+      await expect((async () => renderActivityMap(props))()).resolves.not.toThrow();
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
   });
+  describe('colour by gradient', () => {
+    beforeAll(async () => {
+      await initialiseI18n('en-GB');
+    });
+
+    const GRADED = streamsFromArrays({
+      grade_smooth: [-12, -3, 4, 14],
+      distance: [0, 100, 200, 300],
+    });
+    const TICKS = ['-10%', '0%', '+10%', '+20%'];
+
+    it('shows no gradient key while the line is in the sport colour', async () => {
+      await renderActivityMap({ streams: GRADED });
+
+      expect(screen.getByTestId('activity-map-gradient-toggle')).toBeTruthy();
+      expect(screen.queryByTestId('activity-map-gradient-key')).toBeNull();
+    });
+
+    it('labels the scale with its gradient ticks while the line is coloured by gradient', async () => {
+      await renderActivityMap({ streams: GRADED });
+
+      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+
+      const key = screen.getByTestId('activity-map-gradient-key');
+      for (const tick of TICKS) {
+        expect(within(key).getByText(tick)).toBeTruthy();
+      }
+      expect(within(key).getAllByTestId('map-key-ramp-step').length).toBeGreaterThan(1);
+
+      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+      expect(screen.queryByTestId('activity-map-gradient-key')).toBeNull();
+    });
+
+    it('keeps the key on the 3D map, which draws the gradient too', async () => {
+      await renderActivityMap({
+        streams: GRADED,
+        initial3DCamera: { center: [7.448, 46.949], zoom: 13, bearing: 20, pitch: 60 },
+      });
+
+      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+
+      expect(screen.getByTestId('webview')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-gradient-key')).toBeTruthy();
+    });
+  });
+
   describe('3D terrain hero', () => {
     const CAMERA_3D = {
       center: [7.448, 46.949] as [number, number],
@@ -208,46 +257,46 @@ describe('ActivityMapView', () => {
       pitch: 60,
     };
 
-    function post(message: Record<string, unknown>) {
-      fireEvent(screen.getByTestId('webview'), 'message', {
+    async function post(message: Record<string, unknown>) {
+      await fireEvent(screen.getByTestId('webview'), 'message', {
         nativeEvent: { data: JSON.stringify(message) },
       });
     }
 
-    it('shows a spinner while the terrain page is still loading', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('shows a spinner while the terrain page is still loading', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
       expect(screen.getByTestId('webview')).toBeTruthy();
     });
 
-    it('clears the spinner once the terrain page reports ready', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('clears the spinner once the terrain page reports ready', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      post({ type: 'mapReady' });
+      await post({ type: 'mapReady' });
 
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
     });
 
-    it('restores the 2D surface while a crashed terrain page reloads', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
-      post({ type: 'mapReady' });
+    it('restores the 2D surface while a crashed terrain page reloads', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await post({ type: 'mapReady' });
       expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
 
-      fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
 
-      post({ type: 'mapReady' });
+      await post({ type: 'mapReady' });
       expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
 
-      fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
     });
 
-    it('falls back to the 2D map when the terrain page reports failure', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('falls back to the 2D map when the terrain page reports failure', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      post({ type: 'mapFailed', reason: 'load timeout' });
+      await post({ type: 'mapFailed', reason: 'load timeout' });
 
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
       expect(screen.queryByTestId('webview')).toBeNull();
@@ -259,61 +308,61 @@ describe('ActivityMapView', () => {
      * with nothing to clear it, so a page that failed once turned 3D off for
      * that activity for ever on a device where nobody touched the toggle.
      */
-    it('does not report a failure as the athlete turning 3D off', () => {
+    it('does not report a failure as the athlete turning 3D off', async () => {
       const on3DModeChange = jest.fn();
-      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
-      post({ type: 'mapFailed', reason: 'load timeout' });
+      await post({ type: 'mapFailed', reason: 'load timeout' });
 
       expect(on3DModeChange).not.toHaveBeenCalled();
     });
 
-    it('does not report a terrain page with nothing to drape as a choice either', () => {
+    it('does not report a terrain page with nothing to drape as a choice either', async () => {
       const on3DModeChange = jest.fn();
-      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
-      post({ type: 'mapReady' });
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      await post({ type: 'mapReady' });
 
-      post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
       expect(on3DModeChange).not.toHaveBeenCalled();
     });
 
-    it('does not report a WebView that could not load as a choice either', () => {
+    it('does not report a WebView that could not load as a choice either', async () => {
       const on3DModeChange = jest.fn();
-      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
-      fireEvent(screen.getByTestId('webview'), 'error', {
+      await fireEvent(screen.getByTestId('webview'), 'error', {
         nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
       });
 
       expect(on3DModeChange).not.toHaveBeenCalled();
     });
 
-    it('reports the toggle, which is the athlete choosing', () => {
+    it('reports the toggle, which is the athlete choosing', async () => {
       const on3DModeChange = jest.fn();
-      renderActivityMap({ on3DModeChange });
+      await renderActivityMap({ on3DModeChange });
 
-      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(true);
 
-      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(false);
     });
 
-    it('reports a toggle that follows a failure, so a retry is still a choice', () => {
+    it('reports a toggle that follows a failure, so a retry is still a choice', async () => {
       const on3DModeChange = jest.fn();
-      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
-      post({ type: 'mapFailed', reason: 'load timeout' });
-      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      await post({ type: 'mapFailed', reason: 'load timeout' });
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
       expect(on3DModeChange).toHaveBeenCalledWith(true);
     });
 
-    it('falls back to the 2D map when the WebView itself fails to load', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('falls back to the 2D map when the WebView itself fails to load', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      fireEvent(screen.getByTestId('webview'), 'error', {
+      await fireEvent(screen.getByTestId('webview'), 'error', {
         nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
       });
 
@@ -322,12 +371,12 @@ describe('ActivityMapView', () => {
     });
 
     describe('a camera that arrives after mount', () => {
-      function rerenderWith(
-        view: ReturnType<typeof renderActivityMap>,
+      async function rerenderWith(
+        view: Awaited<ReturnType<typeof renderActivityMap>>,
         camera: typeof CAMERA_3D,
         on3DModeChange?: () => void
       ) {
-        view.rerender(
+        await view.rerender(
           <SafeAreaProvider initialMetrics={METRICS}>
             <ActivityMapView
               activityType="Ride"
@@ -340,74 +389,74 @@ describe('ActivityMapView', () => {
         );
       }
 
-      it('switches to 3D once, without reporting it as a choice', () => {
+      it('switches to 3D once, without reporting it as a choice', async () => {
         const on3DModeChange = jest.fn();
-        const view = renderActivityMap({ on3DModeChange });
+        const view = await renderActivityMap({ on3DModeChange });
         expect(screen.queryByTestId('webview')).toBeNull();
 
-        rerenderWith(view, CAMERA_3D, on3DModeChange);
+        await rerenderWith(view, CAMERA_3D, on3DModeChange);
 
         expect(screen.getByTestId('webview')).toBeTruthy();
         expect(on3DModeChange).not.toHaveBeenCalled();
       });
 
-      it('stays flat when the athlete has already used the toggle', () => {
-        const view = renderActivityMap();
-        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
-        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      it('stays flat when the athlete has already used the toggle', async () => {
+        const view = await renderActivityMap();
+        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
-        rerenderWith(view, CAMERA_3D);
+        await rerenderWith(view, CAMERA_3D);
 
         expect(screen.queryByTestId('webview')).toBeNull();
       });
 
-      it('stays flat after a failure', () => {
-        const view = renderActivityMap({ initial3DCamera: CAMERA_3D });
-        post({ type: 'mapFailed', reason: 'load timeout' });
+      it('stays flat after a failure', async () => {
+        const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
+        await post({ type: 'mapFailed', reason: 'load timeout' });
 
-        rerenderWith(view, { ...CAMERA_3D, bearing: 90 });
+        await rerenderWith(view, { ...CAMERA_3D, bearing: 90 });
 
         expect(screen.queryByTestId('webview')).toBeNull();
       });
     });
 
-    it('does not re-enter 3D after a failure', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('does not re-enter 3D after a failure', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      post({ type: 'mapFailed', reason: 'load timeout' });
-      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      await post({ type: 'mapFailed', reason: 'load timeout' });
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
       expect(screen.getByTestId('webview')).toBeTruthy();
       expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
     });
 
-    it('reaches a terminal state again on a second mount', () => {
-      const first = renderActivityMap({ initial3DCamera: CAMERA_3D });
-      post({ type: 'mapFailed', reason: 'load timeout' });
-      first.unmount();
+    it('reaches a terminal state again on a second mount', async () => {
+      const first = await renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await post({ type: 'mapFailed', reason: 'load timeout' });
+      await first.unmount();
 
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
       expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
 
-      post({ type: 'mapFailed', reason: 'load timeout' });
+      await post({ type: 'mapFailed', reason: 'load timeout' });
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
     });
 
-    it('unmounts the 2D surface once the terrain page is ready', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('unmounts the 2D surface once the terrain page is ready', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
 
-      post({ type: 'mapReady' });
+      await post({ type: 'mapReady' });
 
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
       expect(screen.getAllByTestId('webview')).toHaveLength(1);
     });
 
-    it('brings the 2D surface back when the terrain page has nothing to drape', () => {
-      renderActivityMap({ initial3DCamera: CAMERA_3D });
-      post({ type: 'mapReady' });
+    it('brings the 2D surface back when the terrain page has nothing to drape', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await post({ type: 'mapReady' });
 
-      post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
       expect(screen.queryByTestId('webview')).toBeNull();
@@ -416,8 +465,8 @@ describe('ActivityMapView', () => {
     describe('with the feed poster cached', () => {
       const ACTIVITY_ID = 'ride-poster';
 
-      function post2D(message: Record<string, unknown>) {
-        fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+      async function post2D(message: Record<string, unknown>) {
+        await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
           nativeEvent: { data: JSON.stringify(message) },
         });
       }
@@ -426,60 +475,60 @@ describe('ActivityMapView', () => {
         mockCached.add(`${ACTIVITY_ID}-light-true`);
       });
 
-      it('builds only the terrain page while the poster covers the hero', () => {
-        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+      it('builds only the terrain page while the poster covers the hero', async () => {
+        await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
 
         expect(screen.getByTestId('activity-map-poster')).toBeTruthy();
         expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
         expect(screen.getAllByTestId('webview')).toHaveLength(1);
 
-        post({ type: 'mapReady' });
+        await post({ type: 'mapReady' });
 
         expect(screen.queryByTestId('activity-map-poster')).toBeNull();
         expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
       });
 
-      it('mounts the 2D surface while a crashed terrain page reloads', () => {
-        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
-        post({ type: 'mapReady' });
+      it('mounts the 2D surface while a crashed terrain page reloads', async () => {
+        await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+        await post({ type: 'mapReady' });
 
-        fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+        await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
       });
 
-      it('mounts the 2D surface when the terrain page fails before it is ready', () => {
-        renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
+      it('mounts the 2D surface when the terrain page fails before it is ready', async () => {
+        await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
 
-        post({ type: 'mapFailed', reason: 'load timeout' });
+        await post({ type: 'mapFailed', reason: 'load timeout' });
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
         expect(screen.queryByTestId('webview')).toBeNull();
       });
 
-      it('keeps a 2D map already on screen while the toggled terrain page boots', () => {
-        renderActivityMap({ activityId: ACTIVITY_ID });
-        post2D({ type: 'mapReady' });
+      it('keeps a 2D map already on screen while the toggled terrain page boots', async () => {
+        await renderActivityMap({ activityId: ACTIVITY_ID });
+        await post2D({ type: 'mapReady' });
 
-        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
         expect(screen.getByTestId('webview')).toBeTruthy();
       });
     });
 
-    it('mounts the 2D surface under a booting terrain page with no poster to show', () => {
-      renderActivityMap({ activityId: 'ride-uncached', initial3DCamera: CAMERA_3D });
+    it('mounts the 2D surface under a booting terrain page with no poster to show', async () => {
+      await renderActivityMap({ activityId: 'ride-uncached', initial3DCamera: CAMERA_3D });
 
       expect(screen.queryByTestId('activity-map-poster')).toBeNull();
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
     });
 
-    it('tolerates unmounting while the terrain page is still loading', () => {
-      const view = renderActivityMap({ initial3DCamera: CAMERA_3D });
+    it('tolerates unmounting while the terrain page is still loading', async () => {
+      const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
-      expect(() => view.unmount()).not.toThrow();
+      await expect((async () => view.unmount())()).resolves.not.toThrow();
     });
   });
 });

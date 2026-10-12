@@ -107,15 +107,15 @@ afterEach(() => {
 });
 
 describe('TodayBanner', () => {
-  it('renders no habit sentence when nothing is planned', () => {
-    const { queryByText } = render(<TodayBanner form={{ ctl: 50, atl: 40 }} />);
+  it('renders no habit sentence when nothing is planned', async () => {
+    const { queryByText } = await render(<TodayBanner form={{ ctl: 50, atl: 40 }} />);
 
     expect(queryByText(/you usually/)).toBeNull();
     expect(engineCall).not.toHaveBeenCalled();
   });
 
-  it('draws no readiness row and no TSB when there is no form reading', () => {
-    const { queryByText } = render(<TodayBanner form={null} />);
+  it('draws no readiness row and no TSB when there is no form reading', async () => {
+    const { queryByText } = await render(<TodayBanner form={null} />);
 
     expect(queryByText(/TSB/)).toBeNull();
     expect(queryByText(/TODAY|routeIntelligence\.today/)).toBeNull();
@@ -123,14 +123,14 @@ describe('TodayBanner', () => {
 });
 
 describe('useInsights', () => {
-  it('returns no pattern from the insights bundle', () => {
+  it('returns no pattern from the insights bundle', async () => {
     mockFetch.mockReturnValue({
       insightsData: { sportTypes: [] },
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
 
-    const { result } = renderHook(() => useInsights());
+    const { result } = await renderHook(() => useInsights());
 
-    act(() => {
+    await act(() => {
       idle.flush();
     });
 

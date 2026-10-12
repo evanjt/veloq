@@ -53,15 +53,15 @@ jest.mock('react-i18next', () => ({
 }));
 
 /** The text the info button holds, which is where the row's description lives. */
-function describedRadius(tree: ReturnType<typeof render>): string {
+async function describedRadius(tree: Awaited<ReturnType<typeof render>>): Promise<string> {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  fireEvent.press(tree.getByTestId('export-privacy-info'));
+  await fireEvent.press(tree.getByTestId('export-privacy-info'));
   const message = String(alert.mock.calls.at(-1)?.[1]);
   alert.mockRestore();
   return message;
 }
 
-function titleColour(tree: ReturnType<typeof render>): unknown {
+function titleColour(tree: Awaited<ReturnType<typeof render>>): unknown {
   return StyleSheet.flatten(tree.getByTestId('export-privacy-title').props.style).color;
 }
 
@@ -121,40 +121,40 @@ afterEach(() => {
 const lastMap = () => mapProps[mapProps.length - 1];
 
 describe('the export privacy row', () => {
-  it('reads the fixed settings in one screen call', () => {
+  it('reads the fixed settings in one screen call', async () => {
     const { engine } = engineWith({
       getSetting: jest.fn(() => {
         throw new Error('separate read');
       }),
     });
-    render(<ExportPrivacyRow />);
+    await render(<ExportPrivacyRow />);
     expect(engine.getBackupScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getSetting).not.toHaveBeenCalled();
   });
 
   it('offers the home the engine guessed', async () => {
     engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-home')).toBeTruthy());
   });
 
   it('cannot be turned on before a home is confirmed', async () => {
     const { settings } = engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
 
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
 
     expect(settings.get('__export_privacy_radius_m')).toBeUndefined();
   });
 
   it('looks off limits before a home is set, and says the home is what it needs', async () => {
     engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
 
-    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(true);
+    expect(tree.getByTestId('export-privacy-switch')).toBeDisabled();
     expect(titleColour(tree)).toBe(colors.textDisabled);
     // The reason names where the home is set, which is the suggestion and the map below.
     expect(tree.getByTestId('export-privacy-needs-home').props.children).toBe(
@@ -164,26 +164,26 @@ describe('the export privacy row', () => {
 
   it('says a home is needed even when there is no place to suggest', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-needs-home')).toBeTruthy());
     expect(tree.getByTestId('export-privacy-needs-home').props.children).toBe(
       'settings.exportPrivacyNeedsHomeNoSuggestion'
     );
-    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(true);
+    expect(tree.getByTestId('export-privacy-switch')).toBeDisabled();
   });
 
   it('looks switchable and drops the reason once the home is confirmed', async () => {
     const { settings } = engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-confirm')).toBeTruthy());
 
-    fireEvent.press(tree.getByTestId('export-privacy-confirm'));
+    await fireEvent.press(tree.getByTestId('export-privacy-confirm'));
 
     await waitFor(() => expect(tree.queryByTestId('export-privacy-needs-home')).toBeNull());
-    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(false);
+    expect(tree.getByTestId('export-privacy-switch')).not.toBeDisabled();
     expect(titleColour(tree)).toBe(colors.textPrimary);
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
   });
 
@@ -193,20 +193,20 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '0');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
-    expect(tree.getByTestId('export-privacy-switch').props.disabled).toBe(false);
+    expect(tree.getByTestId('export-privacy-switch')).not.toBeDisabled();
     expect(tree.queryByTestId('export-privacy-needs-home')).toBeNull();
   });
 
   it('writes all three settings once the home is confirmed', async () => {
     const { settings } = engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-confirm')).toBeTruthy());
 
-    fireEvent.press(tree.getByTestId('export-privacy-confirm'));
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+    await fireEvent.press(tree.getByTestId('export-privacy-confirm'));
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
     expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(HOME.latitude, 4);
@@ -218,10 +218,10 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
 
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', false);
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('0'));
     // The home stays, so turning it back on does not ask again.
@@ -230,7 +230,7 @@ describe('the export privacy row', () => {
 
   it('says there is nothing to suggest rather than offering a point at zero', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());
     expect(tree.queryByTestId('export-privacy-confirm')).toBeNull();
@@ -242,9 +242,9 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
-    await waitFor(() => expect(tree.getByTestId('export-privacy-switch').props.value).toBe(true));
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeChecked());
   });
 
   it('names how many rides the radius reaches, not just the metres', async () => {
@@ -253,7 +253,7 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     const count = await waitFor(() => tree.getByTestId('export-privacy-count'));
     expect(count.props.children).toContain('10');
@@ -265,10 +265,10 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
 
-    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+    await fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
     expect(tree.getByTestId('export-privacy-count').props.children).toContain('50');
@@ -279,13 +279,13 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
 
-    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+    await fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
-    const description = describedRadius(tree);
+    const description = await describedRadius(tree);
     expect(description).toContain('"radius":"500 m"');
     expect(description).not.toContain('"radius":"100 m"');
   });
@@ -296,16 +296,16 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
 
     expect(tree.getByTestId('export-privacy-radius-100-label')).toHaveTextContent('328 ft');
     expect(tree.getByTestId('export-privacy-radius-250-label')).toHaveTextContent('820 ft');
     expect(tree.getByTestId('export-privacy-radius-500-label')).toHaveTextContent('1640 ft');
     expect(tree.getByTestId('export-privacy-count').props.children).toContain('"radius":"328 ft"');
-    expect(describedRadius(tree)).toContain('"radius":"328 ft"');
+    expect(await describedRadius(tree)).toContain('"radius":"328 ft"');
     // What is stored stays in metres: the unit is how it reads, not what it is.
-    fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
+    await fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('250'));
   });
 
@@ -315,10 +315,10 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '0');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
-    expect(describedRadius(tree)).toContain('"radius":"100 m"');
+    expect(await describedRadius(tree)).toContain('"radius":"100 m"');
   });
 
   it('describes the radius a switch back on applies after a pick and a switch off', async () => {
@@ -326,15 +326,15 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
-    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+    await fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
 
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', false);
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('0'));
-    expect(describedRadius(tree)).toContain('"radius":"500 m"');
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', true);
+    expect(await describedRadius(tree)).toContain('"radius":"500 m"');
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
   });
 
@@ -344,7 +344,7 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '0');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-count')).toBeTruthy());
     expect(tree.getByTestId('export-privacy-count').props.children).toContain(
@@ -359,7 +359,7 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
     expect(tree.queryByTestId('export-privacy-count')).toBeNull();
@@ -367,7 +367,7 @@ describe('the export privacy row', () => {
 
   it('shows the share of ride ends beside the count as a whole percentage', async () => {
     engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-home')).toBeTruthy());
     expect(JSON.stringify(tree.toJSON())).toContain('\\"share\\":24');
@@ -382,7 +382,7 @@ describe('the export privacy row', () => {
 
   it('draws the suggested home on a map before it is confirmed', async () => {
     engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
     expect(lastMap().home).toEqual([HOME.longitude, HOME.latitude]);
@@ -396,12 +396,12 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '500');
 
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
     expect(lastMap().radiusM).toBe(500);
 
-    fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
+    await fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
     await waitFor(() => expect(lastMap().radiusM).toBe(250));
   });
 
@@ -410,10 +410,10 @@ describe('the export privacy row', () => {
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
     settings.set('__export_privacy_radius_m', '100');
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
 
-    act(() => lastMap().onMove([7.3612, 46.2341]));
+    await act(() => lastMap().onMove([7.3612, 46.2341]));
 
     await waitFor(() => expect(Number(settings.get('__export_home_lng'))).toBeCloseTo(7.3612, 4));
     expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(46.2341, 4);
@@ -424,11 +424,11 @@ describe('the export privacy row', () => {
 
   it('takes a moved pin as the confirmed home, so the switch can then turn on', async () => {
     const { settings } = engineWith();
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
 
-    act(() => lastMap().onMove([7.3612, 46.2341]));
-    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+    await act(() => lastMap().onMove([7.3612, 46.2341]));
+    await fireEvent.press(tree.getByTestId('export-privacy-switch'));
 
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
     expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(46.2341, 4);
@@ -437,7 +437,7 @@ describe('the export privacy row', () => {
 
   it('draws no map when there is nothing to suggest, rather than one at zero', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
-    const tree = render(<ExportPrivacyRow />);
+    const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());
     expect(tree.queryByTestId('export-privacy-map')).toBeNull();

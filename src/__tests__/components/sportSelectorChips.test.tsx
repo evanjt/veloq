@@ -85,9 +85,9 @@ function expectSportChips(selectedId: string, unselectedIds: string[]) {
 }
 
 describe('sport selector chips', () => {
-  it('draws the Fitness sport toggle as readable, reachable chips', () => {
+  it('draws the Fitness sport toggle as readable, reachable chips', async () => {
     const onChange = jest.fn();
-    render(<SportToggleSelector sportMode="Running" onSportModeChange={onChange} />);
+    await render(<SportToggleSelector sportMode="Running" onSportModeChange={onChange} />);
 
     expectSportChips('fitness-sport-toggle-Running', [
       'fitness-sport-toggle-Cycling',
@@ -95,8 +95,8 @@ describe('sport selector chips', () => {
     ]);
   });
 
-  it('draws the route and section sport pills as readable, reachable chips with counts', () => {
-    render(
+  it('draws the route and section sport pills as readable, reachable chips with counts', async () => {
+    await render(
       <SportTypeSelector
         options={[{ type: 'Ride', count: 12 }, { type: 'Run', count: 4 }, { type: 'VirtualRide' }]}
         selectedType="Run"
@@ -109,9 +109,9 @@ describe('sport selector chips', () => {
     expect(screen.getByText('activityTypes.Run 4')).toBeTruthy();
   });
 
-  it('hands the tapped sport to the caller, the selected one included', () => {
+  it('hands the tapped sport to the caller, the selected one included', async () => {
     const onSelect = jest.fn();
-    render(
+    await render(
       <SportTypeSelector
         options={[{ type: 'Ride' }, { type: 'Run' }]}
         selectedType="Run"
@@ -119,8 +119,8 @@ describe('sport selector chips', () => {
       />
     );
 
-    fireEvent.press(screen.getByTestId('sport-pill-Ride'));
-    fireEvent.press(screen.getByTestId('sport-pill-Run'));
+    await fireEvent.press(screen.getByTestId('sport-pill-Ride'));
+    await fireEvent.press(screen.getByTestId('sport-pill-Run'));
     expect(onSelect.mock.calls).toEqual([['Ride'], ['Run']]);
   });
 });

@@ -286,7 +286,6 @@ const ROUTES_NAMES = [
   'useSectionDisplayNames',
   'useSectionLaps',
   'useSectionLedger',
-  'useSectionMapData',
   'useSectionMatches',
   'useSectionMergeFlow',
   'useSectionPerformances',

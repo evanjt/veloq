@@ -5,6 +5,16 @@ import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/confi
 import { sparkline } from '../lib/sparkline';
 
 /**
+ * The slope to three significant figures, which is what the regression over a
+ * handful of efforts supports, and never in exponent notation: below a
+ * thousandth of a unit a day it reads as no change.
+ */
+function formatSlope(slope: number): string {
+  if (!Number.isFinite(slope) || Math.abs(slope) < 0.001) return '0';
+  return String(Number(slope.toPrecision(3)));
+}
+
+/**
  * Aerobic Efficiency Trend Insights
  *
  * Detects changes in aerobic efficiency on frequently visited sections by
@@ -41,6 +51,8 @@ export function generateEfficiencyTrendInsights(
   const insights: Insight[] = [];
   const quantity = t('insights.efficiencyTrend.quantity');
   const unit = t('units.bpmSecondsPerKm');
+  // The slope is the ratio's change per day of the window.
+  const slopeUnit = `${unit}/d`;
 
   const ordered = [...trends].sort(
     (a, b) =>
@@ -105,6 +117,7 @@ export function generateEfficiencyTrendInsights(
           t('insights.efficiencyTrend.seriesLabel', { quantity }),
           `/section/${trend.sectionId}`,
           {
+            unit,
             mark:
               firstEffort && lastEffort
                 ? { from: firstEffort.date, to: lastEffort.date }
@@ -133,7 +146,8 @@ export function generateEfficiencyTrendInsights(
           },
           {
             label: t('insights.data.trendSlope'),
-            value: trend.trendSlope.toFixed(4),
+            value: formatSlope(trend.trendSlope),
+            unit: slopeUnit,
             context: 'neutral' as const,
           },
         ],

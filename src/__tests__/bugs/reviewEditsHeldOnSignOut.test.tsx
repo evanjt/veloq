@@ -16,6 +16,7 @@ import { loadRecordingBackup } from '@/features/recording/lib/storage/recordingB
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import type { RecordingStreams } from '@/features/recording/types';
+import { inStack } from '../__shared__/testStack';
 
 const mockFiles = new Map<string, string>();
 jest.mock('expo-file-system/legacy', () => ({
@@ -115,20 +116,20 @@ function signIn() {
 }
 
 async function editReview() {
-  const view = render(<ReviewScreen />);
-  fireEvent.changeText(view.getByTestId('review-activity-name'), 'Hill repeats');
-  fireEvent.changeText(view.getByTestId('review-notes'), 'Legs heavy on the third climb');
+  const view = await render(inStack(<ReviewScreen />));
+  await fireEvent.changeText(view.getByTestId('review-activity-name'), 'Hill repeats');
+  await fireEvent.changeText(view.getByTestId('review-notes'), 'Legs heavy on the third climb');
   await act(async () => {
-    fireEvent.press(view.getByTestId('review-activity-type'));
+    await fireEvent.press(view.getByTestId('review-activity-type'));
   });
-  act(() => {
+  await act(() => {
     (mockHero.props!.onTrimChange as (a: number, b: number) => void)(1, 3);
     (mockHero.props!.onTrimCommit as (a: number, b: number) => void)(1, 3);
   });
   return view;
 }
 
-function expectEdits(view: ReturnType<typeof render>) {
+function expectEdits(view: Awaited<ReturnType<typeof render>>) {
   expect(view.getByTestId('review-activity-name').props.value).toBe('Hill repeats');
   expect(view.getByTestId('review-notes').props.value).toBe('Legs heavy on the third climb');
   expect(view.getByText('activityTypes.Run')).toBeTruthy();
@@ -165,7 +166,7 @@ it('reopens review with the edits a forced sign-out interrupted', async () => {
     await useAuthStore.getState().handleSessionExpired();
   });
   expect(useRecordingStore.getState().status).toBe('idle');
-  first.unmount();
+  await first.unmount();
 
   signIn();
   let route: string | null = null;
@@ -174,7 +175,7 @@ it('reopens review with the edits a forced sign-out interrupted', async () => {
   });
   expect(route).toBe('/recording/review');
 
-  expectEdits(render(<ReviewScreen />));
+  expectEdits(await render(inStack(<ReviewScreen />)));
 });
 
 it('writes the edits to the backup while review is open, so a kill keeps them', async () => {
@@ -204,7 +205,7 @@ it('drops a trim the reopened ride no longer has room for', async () => {
   useRecordingStore.setState({
     review: { name: 'Hill repeats', trimStart: 2, trimEnd: 40 },
   });
-  const view = render(<ReviewScreen />);
+  const view = await render(inStack(<ReviewScreen />));
   expect(view.getByTestId('review-activity-name').props.value).toBe('Hill repeats');
   expect(mockHero.props).toEqual(expect.objectContaining({ trimStart: 0, trimEnd: 4 }));
 });

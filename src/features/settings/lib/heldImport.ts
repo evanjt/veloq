@@ -10,7 +10,6 @@
  * back. One is held at a time: a later pick replaces it.
  */
 
-import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -24,6 +23,7 @@ import {
   restoreBackup,
   restoreRecordBackup,
 } from './backup';
+import { inform } from '@/shared/ui/dialog';
 
 const log = debug.create('HeldImport');
 
@@ -140,12 +140,12 @@ async function applyHeld(t: TFunction): Promise<boolean> {
     log.warn('Held import not restored:', message);
     await discardHeld().catch(() => {});
     markPlatformRecordAnswered();
-    Alert.alert(
-      t('common.error'),
-      message.includes('another athlete')
+    inform({
+      title: t('backup.notRestoredTitle'),
+      message: message.includes('another athlete')
         ? t('backup.backupDifferentAccount')
-        : t('backup.importError')
-    );
+        : t('backup.importError'),
+    });
     return true;
   }
   if (unplaced === null) return false;
@@ -153,7 +153,7 @@ async function applyHeld(t: TFunction): Promise<boolean> {
   // The athlete chose this backup, which answers the one restore a first
   // signed-in launch offers.
   markPlatformRecordAnswered();
-  Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+  inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
   return true;
 }
 

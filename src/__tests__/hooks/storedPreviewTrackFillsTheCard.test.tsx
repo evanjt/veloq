@@ -78,7 +78,7 @@ afterEach(() => client.clear());
 it('re-reads the card whose track has just been stored', async () => {
   // No line yet, which is a head card the moment before the bulk run reaches it.
   engine.getPreviewTrack.mockReturnValueOnce(null as never);
-  const { result } = renderHook(() => useCard('a1'), { wrapper });
+  const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1));
   expect(result.current.coordinates).toHaveLength(0);
@@ -91,7 +91,7 @@ it('re-reads the card whose track has just been stored', async () => {
 });
 
 it('leaves every other card alone', async () => {
-  const { result } = renderHook(() => useCard('a1'), { wrapper });
+  const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(result.current.coordinates).toHaveLength(1));
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1);
@@ -106,7 +106,7 @@ it('leaves every other card alone', async () => {
 });
 
 it('does not read for a card the startup bundle already filled', async () => {
-  renderHook(() => useCard('a1', { coordinates: [], altitude: [] }), { wrapper });
+  await renderHook(() => useCard('a1', { coordinates: [], altitude: [] }), { wrapper });
 
   await act(async () => {
     announceStored('a1');
@@ -116,7 +116,7 @@ it('does not read for a card the startup bundle already filled', async () => {
 });
 
 it('costs nothing when the announcement names no activity', async () => {
-  renderHook(() => useCard('a1'), { wrapper });
+  await renderHook(() => useCard('a1'), { wrapper });
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1));
 
   await act(async () => {
@@ -137,7 +137,7 @@ it('waits for a preview line before considering the stream body', async () => {
         settlePreview = resolve;
       }),
   });
-  const { result } = renderHook(() => useCard('a1'), { wrapper });
+  const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   expect(result.current.isLoading).toBe(true);
   expect(result.current.coordinates).toHaveLength(0);
@@ -150,7 +150,7 @@ it('waits for a preview line before considering the stream body', async () => {
 
 it('reads the stream body once after the preview query settles empty', async () => {
   engine.getPreviewTrack.mockReturnValueOnce(null as never);
-  renderHook(() => useCard('a1'), { wrapper });
+  await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(engine.getActivityStreams).toHaveBeenCalledTimes(1));
 });
@@ -159,7 +159,7 @@ it('reads the stream body once when the preview read throws', async () => {
   engine.getPreviewTrack.mockImplementationOnce(() => {
     throw new Error('preview row unreadable');
   });
-  renderHook(() => useCard('a1'), { wrapper });
+  await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(engine.getActivityStreams).toHaveBeenCalledTimes(1));
 });

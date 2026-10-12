@@ -4,7 +4,7 @@
  * on arrival with nothing between, and raised the notification prompt over the
  * screen it opened.
  *
- * Expected behaviour: Start navigates to the armed recording screen and does
+ * Expected behaviour: Start replaces the entry screen with the armed recording screen and does
  * nothing else, the chips choose the sport it starts, and today's planned
  * workouts follow the engine's calendar announcement. The notification dialog
  * is raised at most once ever, and while notifications or the lock-screen card
@@ -22,7 +22,7 @@ import { useRecordingPreferences } from '@/features/recording/stores/RecordingPr
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { isLiveActivitySupported } from '@/features/recording/lib/liveActivity/bridge';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { navigateTo } from '@/shared/app/navigation';
+import { replaceTo } from '@/shared/app/navigation';
 import type { CalendarEvent } from '@/types';
 
 type Listener = (payload?: unknown) => void;
@@ -173,7 +173,7 @@ describe('a Start tap is answered at once', () => {
           answerLocation = resolve;
         })
     );
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     await waitFor(() => expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled());
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
@@ -183,105 +183,105 @@ describe('a Start tap is answered at once', () => {
     });
     expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(screen.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
+    await fireEvent.press(screen.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
     expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
   });
 
   it('asks for nothing when a live session sends the athlete straight back to it', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     await act(async () => {});
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
     expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
-  it('navigates to the armed recording screen and does nothing else', () => {
-    render(<RecordScreen />);
+  it('navigates to the armed recording screen and does nothing else', async () => {
+    await render(<RecordScreen />);
     const asksBefore = askRequested();
 
-    fireEvent.press(screen.getByTestId('record-start'));
+    await fireEvent.press(screen.getByTestId('record-start'));
 
-    expect(navigateTo).toHaveBeenCalledTimes(1);
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
+    expect(replaceTo).toHaveBeenCalledTimes(1);
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
     expect(askRequested()).toBe(asksBefore);
     expect(useRecordingStore.getState().status).toBe('idle');
   });
 
-  it('names the header cog for the recording settings it opens', () => {
-    render(<RecordScreen />);
+  it('names the header cog for the recording settings it opens', async () => {
+    await render(<RecordScreen />);
 
     expect(screen.getByTestId('record-settings').props.accessibilityLabel).toBe(
       'Recording Settings'
     );
   });
 
-  it('starts the sport the athlete last recorded, and says so on the button', () => {
+  it('starts the sport the athlete last recorded, and says so on the button', async () => {
     useRecordingPreferences.setState({ recentActivityTypes: ['Run', 'Ride'] });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     expect(screen.getByTestId('record-start')).toHaveTextContent(/Run/);
-    fireEvent.press(screen.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Run?from=entry');
+    await fireEvent.press(screen.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Run?from=entry');
   });
 
-  it('a chip chooses the sport without leaving the screen', () => {
-    render(<RecordScreen />);
+  it('a chip chooses the sport without leaving the screen', async () => {
+    await render(<RecordScreen />);
 
-    fireEvent.press(screen.getByTestId('record-type-Walk'));
-    expect(navigateTo).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('record-type-Walk'));
+    expect(replaceTo).not.toHaveBeenCalled();
     expect(screen.getByTestId('record-start')).toHaveTextContent(/Walk/);
 
-    fireEvent.press(screen.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Walk?from=entry');
+    await fireEvent.press(screen.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Walk?from=entry');
   });
 
   it('a sport chosen from More joins the chips and is the one Start starts', async () => {
-    const entry = render(<RecordScreen />);
+    const entry = await render(<RecordScreen />);
 
-    fireEvent.press(entry.getByTestId('record-sport-more'));
+    void fireEvent.press(entry.getByTestId('record-sport-more'));
     mockOpenedSheets.at(-1)!.settle({ kind: 'selected', value: 'GravelRide' });
     await act(async () => {});
 
     expect(entry.getByTestId('record-type-GravelRide')).toBeTruthy();
-    fireEvent.press(entry.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/GravelRide?from=entry');
+    await fireEvent.press(entry.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/GravelRide?from=entry');
   });
 
   it('keeps the sport when the sheet is dismissed without a choice', async () => {
-    const entry = render(<RecordScreen />);
+    const entry = await render(<RecordScreen />);
 
-    fireEvent.press(entry.getByTestId('record-sport-more'));
+    void fireEvent.press(entry.getByTestId('record-sport-more'));
     expect(mockOpenedSheets.at(-1)).toMatchObject({
       route: 'sheets/activity-type',
       input: { selectedType: 'Ride', mode: 'recording' },
     });
     mockOpenedSheets.at(-1)!.settle({ kind: 'cancelled' });
     await act(async () => {});
-    fireEvent.press(entry.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
+    await fireEvent.press(entry.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
   });
 
   it('swaps the map for the sport surface indoors', async () => {
-    const entry = render(<RecordScreen />);
+    const entry = await render(<RecordScreen />);
     expect(entry.getByTestId('recording-map')).toBeTruthy();
 
-    fireEvent.press(entry.getByTestId('record-sport-more'));
+    void fireEvent.press(entry.getByTestId('record-sport-more'));
     mockOpenedSheets.at(-1)!.settle({ kind: 'selected', value: 'VirtualRide' });
     await act(async () => {});
     expect(entry.queryByTestId('recording-map')).toBeNull();
     expect(entry.getByTestId('record-surface-indoor')).toBeTruthy();
   });
 
-  it('opens on the manual surface when the last sport is entered by hand', () => {
+  it('opens on the manual surface when the last sport is entered by hand', async () => {
     useRecordingPreferences.setState({ recentActivityTypes: ['Yoga', 'Ride'] });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     expect(screen.queryByTestId('recording-map')).toBeNull();
     expect(screen.getByTestId('record-surface-manual')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Yoga?from=entry');
+    await fireEvent.press(screen.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Yoga?from=entry');
   });
 });
 
@@ -302,11 +302,11 @@ describe('notifications on Android, which carry the ride outside the app', () =>
   it('raises the dialog once, not again on the next visit after a refusal', async () => {
     notificationsAre({ status: 'denied', canAskAgain: true });
 
-    const first = render(<RecordScreen />);
+    const first = await render(<RecordScreen />);
     await waitFor(() => expect(askRequested()).toBe(1));
-    first.unmount();
+    await first.unmount();
 
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await act(async () => {});
     expect(askRequested()).toBe(1);
   });
@@ -316,7 +316,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     useRecordingPreferences.setState({ isLoaded: false });
     useRecordingPreferences.setState({ initialise: jest.fn(async () => undefined) } as never);
 
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await act(async () => {});
     expect(askRequested()).toBe(0);
   });
@@ -324,7 +324,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
   it('says what a refusal costs, and Allow raises the dialog again while it can', async () => {
     notificationsAre({ status: 'denied', canAskAgain: true });
     useRecordingPreferences.setState({ notificationsAsked: true } as never);
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     const notice = await screen.findByTestId('record-outside-app-notice');
     expect(notice).toHaveTextContent(/outside the app/);
@@ -335,7 +335,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
       canAskAgain: true,
     });
     await act(async () => {
-      fireEvent.press(screen.getByText('Allow'));
+      await fireEvent.press(screen.getByText('Allow'));
     });
     expect(askRequested()).toBe(1);
     await waitFor(() => expect(screen.queryByTestId('record-outside-app-notice')).toBeNull());
@@ -344,11 +344,11 @@ describe('notifications on Android, which carry the ride outside the app', () =>
   it('offers the app settings once the system will not ask again', async () => {
     const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     notificationsAre({ status: 'denied', canAskAgain: false });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     await screen.findByTestId('record-outside-app-notice');
     expect(screen.queryByText('Allow')).toBeNull();
-    fireEvent.press(screen.getByText('Open settings'));
+    await fireEvent.press(screen.getByText('Open settings'));
     expect(openSettings).toHaveBeenCalledTimes(1);
     expect(askRequested()).toBe(0);
     openSettings.mockRestore();
@@ -356,7 +356,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
 
   it('drops the line when the athlete comes back from settings having allowed them', async () => {
     notificationsAre({ status: 'denied', canAskAgain: false });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await screen.findByTestId('record-outside-app-notice');
 
     notificationsAre({ status: 'granted', canAskAgain: true });
@@ -372,7 +372,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
 
   it('shows nothing and asks nothing when notifications are allowed', async () => {
     notificationsAre({ status: 'granted', canAskAgain: true });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     await act(async () => {});
     expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
@@ -381,11 +381,11 @@ describe('notifications on Android, which carry the ride outside the app', () =>
 
   it('never stands between the athlete and Start', async () => {
     notificationsAre({ status: 'denied', canAskAgain: false });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await screen.findByTestId('record-outside-app-notice');
 
-    fireEvent.press(screen.getByTestId('record-start'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
+    await fireEvent.press(screen.getByTestId('record-start'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
   });
 });
 
@@ -403,7 +403,7 @@ describe('the lock-screen card on iOS', () => {
 
   it('says the controls stay in the app when Live Activities are off', async () => {
     (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     const notice = await screen.findByTestId('record-outside-app-notice');
     expect(notice).toHaveTextContent(/lock screen/);
@@ -412,7 +412,7 @@ describe('the lock-screen card on iOS', () => {
   });
 
   it('shows nothing while the card is on', async () => {
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await act(async () => {});
     expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
   });
@@ -420,62 +420,62 @@ describe('the lock-screen card on iOS', () => {
   it('shows nothing on a tablet, which has no lock-screen card to turn on', async () => {
     Object.defineProperty(Platform, 'isPad', { value: true, configurable: true });
     (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
     await act(async () => {});
     expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
   });
 });
 
 describe("today's planned workout", () => {
-  it('is absent when nothing is planned, not an empty card', () => {
-    render(<RecordScreen />);
+  it('is absent when nothing is planned, not an empty card', async () => {
+    await render(<RecordScreen />);
     expect(screen.queryByTestId('record-event-77')).toBeNull();
   });
 
-  it('follows a planned workout on the armed route with its event', () => {
+  it('follows a planned workout on the armed route with its event', async () => {
     mockEvents = [planned];
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
-    fireEvent.press(screen.getByTestId('record-event-77'));
-    expect(navigateTo).toHaveBeenCalledWith('/recording/Run?from=entry&pairedEventId=77');
+    await fireEvent.press(screen.getByTestId('record-event-77'));
+    expect(replaceTo).toHaveBeenCalledWith('/recording/Run?from=entry&pairedEventId=77');
   });
 
-  it('offers only the workout when a note shares its day', () => {
+  it('offers only the workout when a note shares its day', async () => {
     mockEvents = [note, planned];
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     expect(screen.getByTestId('record-event-77')).toBeTruthy();
     expect(screen.queryByTestId('record-event-78')).toBeNull();
   });
 
-  it('appears when the engine stores the calendar body for today', () => {
-    render(<RecordScreen />);
+  it('appears when the engine stores the calendar body for today', async () => {
+    await render(<RecordScreen />);
     expect(screen.queryByTestId('record-event-77')).toBeNull();
 
     mockEvents = [planned];
-    act(() => {
+    await act(() => {
       for (const listener of mockListeners.bodyStored ?? []) listener({ kind: 'calendar' });
     });
 
     expect(screen.getByTestId('record-event-77')).toBeTruthy();
   });
 
-  it('does not re-read for a body of another kind', () => {
-    render(<RecordScreen />);
+  it('does not re-read for a body of another kind', async () => {
+    await render(<RecordScreen />);
 
     mockEvents = [planned];
-    act(() => {
+    await act(() => {
       for (const listener of mockListeners.bodyStored ?? []) listener({ kind: 'wellness' });
     });
 
     expect(screen.queryByTestId('record-event-77')).toBeNull();
   });
 
-  it('still re-reads when a sync settles on the activities channel', () => {
-    render(<RecordScreen />);
+  it('still re-reads when a sync settles on the activities channel', async () => {
+    await render(<RecordScreen />);
 
     mockEvents = [planned];
-    act(() => {
+    await act(() => {
       for (const listener of mockListeners.activities ?? []) listener();
     });
 
@@ -489,7 +489,7 @@ describe("today's planned workout", () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: 'denied',
     });
-    render(<RecordScreen />);
+    await render(<RecordScreen />);
 
     const line = await screen.findByTestId('record-gps-warning');
     const inner = StyleSheet.flatten(line.props.style) as ViewStyle;

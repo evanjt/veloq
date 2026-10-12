@@ -364,8 +364,8 @@ pub struct FfiFtpTrend {
     pub latest_ftp: Option<u16>,
     /// That day's epoch (Unix timestamp seconds)
     pub latest_date: Option<f64>,
-    /// eFTP of the newest day on or before 30 days earlier than `latest_date`.
-    /// It may equal `latest_ftp`
+    /// eFTP of the newest day on or before `lookback_days` earlier than
+    /// `latest_date`. It may equal `latest_ftp`
     pub previous_ftp: Option<u16>,
     /// That day's epoch (Unix timestamp seconds)
     pub previous_date: Option<f64>,
@@ -378,6 +378,10 @@ pub struct FfiFtpTrend {
     /// for a gain, flat inside the deadband, `None` when there is nothing to
     /// compare against.
     pub glyph: Option<String>,
+    /// The window in days `delta_watts` was measured across, carried so a
+    /// caption names the window of the step it shows rather than the range of
+    /// the chart it sits on, which can be longer.
+    pub lookback_days: u32,
     /// Days carrying an estimate from the one compared against to the newest,
     /// inclusive. The insight ranker weighs a claim by what it stands on, and
     /// a step measured off three days is not the one measured off thirty.
@@ -1000,13 +1004,18 @@ pub struct FfiSectionEventDetails {
     pub around: Vec<String>,
     /// Activities a fork at the line's end collected.
     pub fork_around: Vec<String>,
-    /// The era's records, one per sport; a row written before records were
-    /// held per sport carries one record and no sport.
+    /// The era's records, one per sport and direction; a row written before
+    /// records were held per direction carries no direction, and one written
+    /// before they were held per sport carries one record and no sport.
     pub prs: Vec<FfiSectionEraRecord>,
-    /// A re-based record's time before and after, within `pr_sport`.
+    /// A re-based record's time before and after, within `pr_sport` and
+    /// `pr_direction`.
     pub pr_from: Option<f64>,
     pub pr_to: Option<f64>,
     pub pr_sport: Option<String>,
+    /// `same` or `reverse`; absent on a row written before records were held
+    /// per direction.
+    pub pr_direction: Option<String>,
     /// The sections a split left behind, in line order.
     pub siblings: Vec<String>,
     pub version: Option<f64>,
@@ -1023,11 +1032,14 @@ pub struct FfiSectionEventDetails {
     pub reasons: Vec<String>,
 }
 
-/// One sport's record on a section when an era ended.
+/// One sport's record in one direction on a section when an era ended.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionEraRecord {
     pub sport: Option<String>,
+    /// `same` or `reverse`; absent on a row written before records were held
+    /// per direction.
+    pub direction: Option<String>,
     /// Seconds.
     pub time: f64,
 }
@@ -2587,9 +2599,12 @@ pub struct FfiActivityDetailData {
     /// Sections where this activity currently holds the best record
     pub pr_section_ids: Vec<String>,
     /// The max HR this activity's heart rate is read against: the top of its
-    /// own zones, then the sport setting for its type, then the local zones
-    /// setting, then 190. The stat card and the zones chart both divide by it.
+    /// own zones, then the sport setting for its type, then 190. The stat card
+    /// and the zones chart both divide by it.
     pub max_hr: f64,
+    /// Which of those `max_hr` came from, so a screen can tell the athlete's
+    /// own maximum from the default.
+    pub max_hr_source: FfiMaxHrSource,
     /// The heart rate zone bands for this activity and the time in each, from
     /// the same resolver live recording classifies with. Empty when the
     /// activity has no heart rate time to show.
@@ -2600,6 +2615,17 @@ pub struct FfiActivityDetailData {
     pub power_zones: Vec<FfiPowerZoneBand>,
     /// Section changes whose ledger rows name this activity, newest first.
     pub ledger_changes: Vec<FfiActivityLedgerChange>,
+}
+
+/// Where an activity's max HR came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiMaxHrSource {
+    /// The top bound of the activity's own heart rate zones.
+    ActivityZones,
+    /// The `max_hr` of the athlete's sport settings for the activity's type.
+    SportSettings,
+    /// Neither carries one, so the value is the engine's default.
+    Default,
 }
 
 /// An activity's contribution against a rest day, before display rounding.

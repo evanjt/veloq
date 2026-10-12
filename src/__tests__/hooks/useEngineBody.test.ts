@@ -72,9 +72,9 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('asks once and then makes no engine call on a timer', () => {
+it('asks once and then makes no engine call on a timer', async () => {
   const request = jest.fn();
-  renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+  await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
   expect(request).toHaveBeenCalledTimes(1);
   const before = engine.subscribe.mock.calls.length;
@@ -83,7 +83,7 @@ it('asks once and then makes no engine call on a timer', () => {
   // hook is here not to have.
   const countReads = engine.getBodiesStored.mock.calls.length;
 
-  act(() => {
+  await act(() => {
     jest.advanceTimersByTime(30_000);
   });
 
@@ -93,41 +93,41 @@ it('asks once and then makes no engine call on a timer', () => {
   expect(engine.subscribe.mock.calls.length).toBe(before);
 });
 
-it('invalidates its query when the engine announces a landing', () => {
+it('invalidates its query when the engine announces a landing', async () => {
   const invalidate = jest.spyOn(client, 'invalidateQueries');
-  renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
-  act(() => {
+  await act(() => {
     engine.announce('bodyStored');
   });
 
   expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
 });
 
-it('still invalidates on the coarse activities channel', () => {
+it('still invalidates on the coarse activities channel', async () => {
   const invalidate = jest.spyOn(client, 'invalidateQueries');
-  renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+  await renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
 
-  act(() => {
+  await act(() => {
     engine.announce('activities');
   });
 
   expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
 });
 
-it('does not ask for a body that is already present', () => {
+it('does not ask for a body that is already present', async () => {
   const request = jest.fn();
-  renderHook(() => useEngineBody(true, request, KEY), { wrapper });
+  await renderHook(() => useEngineBody(true, request, KEY), { wrapper });
 
   expect(request).not.toHaveBeenCalled();
 });
 
-it('does nothing at all when disabled', () => {
+it('does nothing at all when disabled', async () => {
   const request = jest.fn();
   const invalidate = jest.spyOn(client, 'invalidateQueries');
-  renderHook(() => useEngineBody(false, request, KEY, false), { wrapper });
+  await renderHook(() => useEngineBody(false, request, KEY, false), { wrapper });
 
-  act(() => {
+  await act(() => {
     engine.announce('bodyStored');
     engine.announce('activities');
   });
@@ -136,22 +136,22 @@ it('does nothing at all when disabled', () => {
   expect(invalidate).not.toHaveBeenCalled();
 });
 
-it('drops every subscription on unmount', () => {
-  const { unmount } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
-  unmount();
+it('drops every subscription on unmount', async () => {
+  const { unmount } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  await unmount();
 
   const live = [...engine.listeners.values()].reduce((n, set) => n + set.size, 0);
   expect(live).toBe(0);
 });
 
-it('leaves a second reader subscribed when the first unmounts', () => {
+it('leaves a second reader subscribed when the first unmounts', async () => {
   const invalidate = jest.spyOn(client, 'invalidateQueries');
-  const first = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
-  renderHook(() => useEngineBody(false, jest.fn(), ['body', 'a2']), { wrapper });
-  first.unmount();
+  const first = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  await renderHook(() => useEngineBody(false, jest.fn(), ['body', 'a2']), { wrapper });
+  await first.unmount();
   invalidate.mockClear();
 
-  act(() => {
+  await act(() => {
     engine.announce('bodyStored');
   });
 
@@ -159,14 +159,14 @@ it('leaves a second reader subscribed when the first unmounts', () => {
   expect(invalidate).not.toHaveBeenCalledWith({ queryKey: KEY });
 });
 
-it('still asks when the engine is not up yet, and subscribes to nothing', () => {
+it('still asks when the engine is not up yet, and subscribes to nothing', async () => {
   mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
   const request = jest.fn();
-  const { unmount } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+  const { unmount } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
   expect(request).toHaveBeenCalledTimes(1);
   expect(engine.subscribe).not.toHaveBeenCalled();
-  expect(() => unmount()).not.toThrow();
+  await expect((async () => unmount())()).resolves.not.toThrow();
 });
 
 /**
@@ -180,7 +180,7 @@ it('still asks when the engine is not up yet, and subscribes to nothing', () => 
  * query the announcement would have.
  */
 describe('a body that lands before the subscription', () => {
-  it('invalidates on the counter, since the announcement went to nobody', () => {
+  it('invalidates on the counter, since the announcement went to nobody', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     // Moves once, between the request effect and the subscribe effect.
     let count = 0;
@@ -190,27 +190,27 @@ describe('a body that lands before the subscription', () => {
       return now;
     });
 
-    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
   });
 
-  it('invalidates nothing when the count did not move', () => {
+  it('invalidates nothing when the count did not move', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     engine.getBodiesStored = jest.fn(() => 7);
 
-    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('reads the counter twice and never on a timer', () => {
+  it('reads the counter twice and never on a timer', async () => {
     engine.getBodiesStored = jest.fn(() => 3);
 
-    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
     const reads = engine.getBodiesStored.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(30_000);
     });
 
@@ -218,52 +218,52 @@ describe('a body that lands before the subscription', () => {
     expect(engine.getBodiesStored).toHaveBeenCalledTimes(2);
   });
 
-  it('reads no counter at all when the body is already present', () => {
+  it('reads no counter at all when the body is already present', async () => {
     engine.getBodiesStored = jest.fn(() => 0);
 
-    renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+    await renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
 
     expect(engine.getBodiesStored).not.toHaveBeenCalled();
   });
 
-  it('reads no counter when the hook is disabled', () => {
+  it('reads no counter when the hook is disabled', async () => {
     engine.getBodiesStored = jest.fn(() => 0);
 
-    renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
+    await renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
 
     expect(engine.getBodiesStored).not.toHaveBeenCalled();
   });
 });
 
 describe('the deadline', () => {
-  it('reports waiting while the request is outstanding', () => {
-    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  it('reports waiting while the request is outstanding', async () => {
+    const { result } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
     expect(result.current.status).toBe('waiting');
   });
 
-  it('gives up at the deadline and says so', () => {
-    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  it('gives up at the deadline and says so', async () => {
+    const { result } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS - 1);
     });
     expect(result.current.status).toBe('waiting');
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1);
     });
     expect(result.current.status).toBe('timedOut');
   });
 
-  it('reads nothing and asks for nothing when it expires', () => {
+  it('reads nothing and asks for nothing when it expires', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const request = jest.fn();
-    renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
     invalidate.mockClear();
     const reads = engine.getBodiesStored.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
 
@@ -274,102 +274,105 @@ describe('the deadline', () => {
     expect(engine.getBodiesStored).toHaveBeenCalledTimes(reads);
   });
 
-  it('ends the wait when the body is actually present, not when one is announced', () => {
-    const { result, rerender } = renderHook(
+  it('ends the wait when the body is actually present, not when one is announced', async () => {
+    const { result, rerender } = await renderHook(
       ({ present }: { present: boolean }) => useEngineBody(present, jest.fn(), KEY),
       { wrapper, initialProps: { present: false } }
     );
 
     // An announcement on the coarse channel may be about some other body, so
     // it invalidates the query and nothing more. The deadline still stands.
-    act(() => {
+    await act(() => {
       engine.announce('activities');
     });
     expect(result.current.status).toBe('waiting');
 
-    rerender({ present: true });
+    await rerender({ present: true });
     expect(result.current.status).toBe('idle');
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS * 2);
     });
     expect(result.current.status).toBe('idle');
   });
 
-  it('is idle from the start for a body that is already present', () => {
-    const { result } = renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+  it('is idle from the start for a body that is already present', async () => {
+    const { result } = await renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
 
-    act(() => {
-      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
-    });
-
-    expect(result.current.status).toBe('idle');
-  });
-
-  it('is idle when it is disabled, so a screen that asked for nothing never times out', () => {
-    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
-
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS * 2);
     });
 
     expect(result.current.status).toBe('idle');
   });
 
-  it('starts a fresh deadline when the parameters change', () => {
-    const { result, rerender } = renderHook(
+  it('is idle when it is disabled, so a screen that asked for nothing never times out', async () => {
+    const { result } = await renderHook(() => useEngineBody(false, jest.fn(), KEY, false), {
+      wrapper,
+    });
+
+    await act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('starts a fresh deadline when the parameters change', async () => {
+    const { result, rerender } = await renderHook(
       ({ key }: { key: string[] }) => useEngineBody(false, jest.fn(), key),
       { wrapper, initialProps: { key: KEY } }
     );
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
     expect(result.current.status).toBe('timedOut');
 
-    rerender({ key: ['body', 'a2'] });
+    await rerender({ key: ['body', 'a2'] });
     expect(result.current.status).toBe('waiting');
   });
 
-  it('asks again on a retry, and waits again', () => {
+  it('asks again on a retry, and waits again', async () => {
     const request = jest.fn();
-    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
     expect(result.current.status).toBe('timedOut');
     expect(request).toHaveBeenCalledTimes(1);
 
-    act(() => result.current.retry());
+    await act(() => result.current.retry());
 
     expect(request).toHaveBeenCalledTimes(2);
     expect(result.current.status).toBe('waiting');
   });
 
-  it('runs the second deadline out too, rather than waiting for ever', () => {
-    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  it('runs the second deadline out too, rather than waiting for ever', async () => {
+    const { result } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
-    act(() => result.current.retry());
+    await act(() => result.current.retry());
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
     expect(result.current.status).toBe('timedOut');
   });
 
-  it('drops its timer on unmount', () => {
-    const { unmount } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
-    unmount();
+  it('drops its timer on unmount', async () => {
+    const { unmount } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    await unmount();
 
-    expect(() =>
-      act(() => {
-        jest.advanceTimersByTime(BODY_WAIT_MS * 2);
-      })
-    ).not.toThrow();
+    await expect(
+      (async () =>
+        act(() => {
+          jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+        }))()
+    ).resolves.not.toThrow();
   });
 });
 
@@ -382,113 +385,176 @@ describe('the deadline', () => {
  * nothing on the edge.
  */
 describe('the reconnect edge', () => {
-  function goOffline(rerender: (props: object) => void) {
+  async function goOffline(rerender: (props: object) => void) {
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(() => rerender({}));
   }
 
-  function comeBack(rerender: (props: object) => void) {
+  async function comeBack(rerender: (props: object) => void) {
     mockIsOnline = true;
-    act(() => rerender({}));
+    await act(() => rerender({}));
   }
 
-  it('asks once more for a body whose wait ran out offline, and waits again', () => {
+  it('asks once more for a body whose wait ran out offline, and waits again', async () => {
     const request = jest.fn();
-    const { result, rerender } = renderHook(() => useEngineBody(false, request, KEY), {
+    const { result, rerender } = await renderHook(() => useEngineBody(false, request, KEY), {
       wrapper,
     });
-    goOffline(rerender);
-    act(() => {
+    await goOffline(rerender);
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
     expect(result.current.status).toBe('timedOut');
     expect(request).toHaveBeenCalledTimes(1);
 
-    comeBack(rerender);
+    await comeBack(rerender);
 
     expect(request).toHaveBeenCalledTimes(2);
     expect(result.current.status).toBe('waiting');
 
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     expect(request).toHaveBeenCalledTimes(2);
   });
 
-  it('asks nothing on the edge when the body is present', () => {
+  it('asks nothing on the edge when the body is present', async () => {
     const request = jest.fn();
-    const { rerender } = renderHook(() => useEngineBody(true, request, KEY), { wrapper });
-    goOffline(rerender);
+    const { rerender } = await renderHook(() => useEngineBody(true, request, KEY), { wrapper });
+    await goOffline(rerender);
 
-    comeBack(rerender);
+    await comeBack(rerender);
 
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('asks nothing on the edge when disabled', () => {
+  it('asks nothing on the edge when disabled', async () => {
     const request = jest.fn();
-    const { result, rerender } = renderHook(() => useEngineBody(false, request, KEY, false), {
+    const { result, rerender } = await renderHook(() => useEngineBody(false, request, KEY, false), {
       wrapper,
     });
-    goOffline(rerender);
+    await goOffline(rerender);
 
-    comeBack(rerender);
+    await comeBack(rerender);
 
     expect(request).not.toHaveBeenCalled();
     expect(result.current.status).toBe('idle');
   });
 
-  it('asks nothing while the connection never drops', () => {
+  it('asks nothing while the connection never drops', async () => {
     const request = jest.fn();
-    const { rerender } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
-    act(() => {
+    const { rerender } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
 
-    act(() => rerender({}));
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
+    await act(async () => await rerender({}));
 
     expect(request).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('a request the engine answers with a verdict', () => {
-  it('ends the wait at once on a refusal asking again cannot change', () => {
+  it('ends the wait at once on a missing credential, which signing in fixes', async () => {
     const request = jest.fn(() => StartOutcome.NotConfigured);
-    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
-    expect(result.current.status).toBe('refused');
-    act(() => {
+    expect(result.current.status).toBe('notConfigured');
+    await act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
+    expect(result.current.status).toBe('notConfigured');
+  });
+
+  it('ends the wait at once on a start that threw', async () => {
+    const { result } = await renderHook(
+      () => useEngineBody(false, () => StartOutcome.Failed, KEY),
+      {
+        wrapper,
+      }
+    );
     expect(result.current.status).toBe('refused');
   });
 
-  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.NotReady, StartOutcome.Offline])(
+  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.NotReady])(
     'keeps waiting to the deadline on %s',
-    (outcome) => {
-      const { result } = renderHook(() => useEngineBody(false, () => outcome, KEY), { wrapper });
+    async (outcome) => {
+      const { result } = await renderHook(() => useEngineBody(false, () => outcome, KEY), {
+        wrapper,
+      });
 
       expect(result.current.status).toBe('waiting');
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(BODY_WAIT_MS);
       });
       expect(result.current.status).toBe('timedOut');
     }
   );
 
-  it('keeps waiting when there is no verdict to read', () => {
-    const { result } = renderHook(() => useEngineBody(false, () => undefined, KEY), { wrapper });
+  it('keeps waiting when there is no verdict to read', async () => {
+    const { result } = await renderHook(() => useEngineBody(false, () => undefined, KEY), {
+      wrapper,
+    });
     expect(result.current.status).toBe('waiting');
   });
 
-  it('leaves the refusal when retry asks again and is accepted', () => {
+  it('leaves the refusal when retry asks again and is accepted', async () => {
     const request = jest
       .fn<StartOutcome, []>()
       .mockReturnValueOnce(StartOutcome.NotConfigured)
       .mockReturnValue(StartOutcome.Started);
-    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
-    expect(result.current.status).toBe('refused');
+    const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    expect(result.current.status).toBe('notConfigured');
 
-    act(() => result.current.retry());
+    await act(() => result.current.retry());
+    expect(result.current.status).toBe('waiting');
+  });
+});
+
+/**
+ * Scenario: the device has told the engine it is offline, and a screen asks
+ * for a body it has not downloaded. The engine answers `Offline` rather than
+ * starting a fetch that cannot land.
+ *
+ * Expected behaviour: the wait ends at once as `offline`, with no deadline to
+ * sit out, so the screen says what will fix it instead of spinning. The
+ * reconnect edge asks again, and a `Started` then waits as any request does.
+ */
+describe('a request the engine answers offline', () => {
+  it('reads offline at once and never times out', async () => {
+    const request = jest.fn(() => StartOutcome.Offline);
+    const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+
+    expect(result.current.status).toBe('offline');
+    await act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current.status).toBe('offline');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the verdict inside a start result too', async () => {
+    const { result } = await renderHook(
+      () => useEngineBody(false, () => ({ outcome: StartOutcome.Offline }), KEY),
+      { wrapper }
+    );
+    expect(result.current.status).toBe('offline');
+  });
+
+  it('asks again on the reconnect edge and waits for the landing', async () => {
+    const request = jest
+      .fn<StartOutcome, []>()
+      .mockReturnValueOnce(StartOutcome.Offline)
+      .mockReturnValue(StartOutcome.Started);
+    mockIsOnline = false;
+    const { result, rerender } = await renderHook(() => useEngineBody(false, request, KEY), {
+      wrapper,
+    });
+    expect(result.current.status).toBe('offline');
+
+    mockIsOnline = true;
+    await act(() => rerender({}));
+
+    expect(request).toHaveBeenCalledTimes(2);
     expect(result.current.status).toBe('waiting');
   });
 });

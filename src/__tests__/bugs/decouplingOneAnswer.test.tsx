@@ -13,7 +13,6 @@ import React from 'react';
 import { render, renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import { FitnessTrendSections } from '@/features/fitness/components/sections/FitnessTrendSections';
 import { useFitnessScreenData } from '@/features/fitness/hooks/useFitnessScreenData';
 import { decouplingSource, storedDecoupling } from '@/features/activity/lib/decoupling';
@@ -100,10 +99,8 @@ function FitnessDecouplingCard() {
   );
 }
 
-function activityDecouplingRow(activity: Activity) {
-  const { result } = renderHook(() =>
-    useActivityStats({ activity, isMetric: true, maxHR: DEFAULT_MAX_HR })
-  );
+async function activityDecouplingRow(activity: Activity) {
+  const { result } = await renderHook(() => useActivityStats({ activity, isMetric: true }));
   const power = result.current.stats.find((s) => s.title === 'activity.power');
   return power?.details?.find((d) => d.label === 'activity.stats.decoupling')?.value;
 }
@@ -113,19 +110,19 @@ beforeEach(() => {
 });
 
 describe('aerobic decoupling', () => {
-  it('prints the stored value on the activity screen', () => {
-    expect(activityDecouplingRow(descentRide)).toBe('3.4%');
+  it('prints the stored value on the activity screen', async () => {
+    expect(await activityDecouplingRow(descentRide)).toBe('3.4%');
   });
 
-  it('prints the stored value on the Fitness card, not a split of the streams', () => {
-    const tree = render(<FitnessDecouplingCard />);
+  it('prints the stored value on the Fitness card, not a split of the streams', async () => {
+    const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.getAllByText('3.4%').length).toBeGreaterThan(0);
     expect(tree.queryByText(/^(?!3\.4%)-?\d+\.\d%$/)).toBeNull();
   });
 
-  it('names the ride and its date on the Fitness card', () => {
-    const tree = render(<FitnessDecouplingCard />);
+  it('names the ride and its date on the Fitness card', async () => {
+    const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.getByText(new RegExp(descentRide.name))).toBeTruthy();
     expect(
@@ -133,24 +130,24 @@ describe('aerobic decoupling', () => {
     ).toBeTruthy();
   });
 
-  it('grades nothing: no verdict badge and no target line', () => {
-    const tree = render(<FitnessDecouplingCard />);
+  it('grades nothing: no verdict badge and no target line', async () => {
+    const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.queryByText('stats.goodAerobicFitness')).toBeNull();
     expect(tree.queryByText('stats.needsImprovement')).toBeNull();
     expect(tree.queryByText('stats.targetLessThan5')).toBeNull();
   });
 
-  it('heads the Fitness card with the title of the measurement inside it', () => {
-    const tree = render(<FitnessDecouplingCard />);
+  it('heads the Fitness card with the title of the measurement inside it', async () => {
+    const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.getAllByText('stats.aerobicDecoupling')).toHaveLength(2);
     expect(tree.queryByText('statsScreen.decoupling')).toBeNull();
   });
 
-  it('shows the empty state for a library whose rides carry no stored value', () => {
+  it('shows the empty state for a library whose rides carry no stored value', async () => {
     mockActivities = [{ ...descentRide, decoupling: undefined }];
-    const tree = render(<FitnessDecouplingCard />);
+    const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.queryByText(/%$/)).toBeNull();
     expect(tree.getByText('stats.noDecouplingData')).toBeTruthy();
@@ -168,9 +165,9 @@ describe('the stored decoupling reader', () => {
     expect(storedDecoupling({})).toBeNull();
   });
 
-  it('keeps an activity whose stored value is a string off the activity screen', () => {
+  it('keeps an activity whose stored value is a string off the activity screen', async () => {
     const notANumber = { ...descentRide, decoupling: '-Infinity' } as unknown as Activity;
-    expect(activityDecouplingRow(notANumber)).toBeUndefined();
+    expect(await activityDecouplingRow(notANumber)).toBeUndefined();
   });
 
   it('picks the newest qualifying ride that carries a stored value', () => {

@@ -80,7 +80,7 @@ afterEach(() => {
 
 describe('season bests', () => {
   it('reads the running bests from the screen read and no curve', async () => {
-    const { result } = renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
+    const { result } = await renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
       wrapper,
     });
 
@@ -95,7 +95,7 @@ describe('season bests', () => {
   });
 
   it('asks for the cycling curve only when cycling is shown and it was never fetched', async () => {
-    const { result } = renderHook(() => useSeasonBests({ sport: 'Cycling', days: 42 }), {
+    const { result } = await renderHook(() => useSeasonBests({ sport: 'Cycling', days: 42 }), {
       wrapper,
     });
 
@@ -105,7 +105,7 @@ describe('season bests', () => {
   });
 
   it('asks for nothing when the shown curve is already stored', async () => {
-    const { result } = renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
+    const { result } = await renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
       wrapper,
     });
 
@@ -117,7 +117,9 @@ describe('season bests', () => {
 
 describe('the Best Efforts screen read', () => {
   it('reads every sport in one call and asks only for the curves never fetched', async () => {
-    const { result } = renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), { wrapper });
+    const { result } = await renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 0));
@@ -127,7 +129,9 @@ describe('the Best Efforts screen read', () => {
   });
 
   it('hands back each curve wait, so the screen can tell never fetched from no efforts', async () => {
-    const { result } = renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), { wrapper });
+    const { result } = await renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.curves.Ride.status).toBe('waiting'));
     expect(result.current.curves.Ride.fetched).toBe(false);
@@ -143,7 +147,7 @@ describe('the Best Efforts screen read', () => {
       throw new Error('database is locked');
     });
 
-    const { result } = renderHook(() => useBestEfforts(90, ['Run']), { wrapper });
+    const { result } = await renderHook(() => useBestEfforts(90, ['Run']), { wrapper });
 
     await waitFor(() => expect(result.current.error).toBeTruthy());
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();

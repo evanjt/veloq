@@ -17,9 +17,9 @@ const minDate = new Date(2020, 0, 1);
 const maxDate = new Date(2026, 0, 1);
 const endDate = new Date(2026, 0, 1);
 
-function setup(props: { startDate?: Date; expandOnly?: boolean; fixedEnd?: boolean } = {}) {
+async function setup(props: { startDate?: Date; expandOnly?: boolean; fixedEnd?: boolean } = {}) {
   const onRangeChange = jest.fn();
-  const view = render(
+  const view = await render(
     <TimelineSlider
       minDate={minDate}
       maxDate={maxDate}
@@ -36,8 +36,8 @@ function setup(props: { startDate?: Date; expandOnly?: boolean; fixedEnd?: boole
 }
 
 describe('TimelineSlider accessibility', () => {
-  it('exposes the start handle as an adjustable element with the date as its value', () => {
-    const { view } = setup();
+  it('exposes the start handle as an adjustable element with the date as its value', async () => {
+    const { view } = await setup();
     const handle = view.getByTestId('timeline-slider-start-handle');
     expect(handle.props.accessible).toBe(true);
     expect(handle.props.accessibilityRole).toBe('adjustable');
@@ -49,58 +49,58 @@ describe('TimelineSlider accessibility', () => {
     ]);
   });
 
-  it('decrement moves the start one month earlier, clamping the day to the month length', () => {
-    const { onRangeChange, act } = setup();
-    act('timeline-slider-start-handle', 'decrement');
+  it('decrement moves the start one month earlier, clamping the day to the month length', async () => {
+    const { onRangeChange, act } = await setup();
+    await act('timeline-slider-start-handle', 'decrement');
     expect(onRangeChange).toHaveBeenCalledTimes(1);
     const [start, end] = onRangeChange.mock.calls[0];
     expect(start).toEqual(new Date(2024, 1, 29));
     expect(end).toEqual(endDate);
   });
 
-  it('increment moves the start one month later when the range is not expand-only', () => {
-    const { onRangeChange, act } = setup({ startDate: new Date(2024, 0, 15) });
-    act('timeline-slider-start-handle', 'increment');
+  it('increment moves the start one month later when the range is not expand-only', async () => {
+    const { onRangeChange, act } = await setup({ startDate: new Date(2024, 0, 15) });
+    await act('timeline-slider-start-handle', 'increment');
     expect(onRangeChange.mock.calls[0][0]).toEqual(new Date(2024, 1, 15));
   });
 
-  it('increment is a no-op when the range is expand-only', () => {
-    const { onRangeChange, act } = setup({ expandOnly: true });
-    act('timeline-slider-start-handle', 'increment');
+  it('increment is a no-op when the range is expand-only', async () => {
+    const { onRangeChange, act } = await setup({ expandOnly: true });
+    await act('timeline-slider-start-handle', 'increment');
     expect(onRangeChange).not.toHaveBeenCalled();
   });
 
-  it('decrement stops at the oldest date on the track', () => {
-    const { onRangeChange, act } = setup({ startDate: minDate, expandOnly: true });
-    act('timeline-slider-start-handle', 'decrement');
+  it('decrement stops at the oldest date on the track', async () => {
+    const { onRangeChange, act } = await setup({ startDate: minDate, expandOnly: true });
+    await act('timeline-slider-start-handle', 'decrement');
     expect(onRangeChange).not.toHaveBeenCalled();
   });
 
-  it('decrement lands on the oldest date when less than a month remains', () => {
-    const { onRangeChange, act } = setup({ startDate: new Date(2020, 0, 20) });
-    act('timeline-slider-start-handle', 'decrement');
+  it('decrement lands on the oldest date when less than a month remains', async () => {
+    const { onRangeChange, act } = await setup({ startDate: new Date(2020, 0, 20) });
+    await act('timeline-slider-start-handle', 'decrement');
     expect(onRangeChange.mock.calls[0][0]).toEqual(minDate);
   });
 
-  it('increment never carries the start to or past the end', () => {
-    const { onRangeChange, act } = setup({ startDate: new Date(2025, 11, 20) });
-    act('timeline-slider-start-handle', 'increment');
+  it('increment never carries the start to or past the end', async () => {
+    const { onRangeChange, act } = await setup({ startDate: new Date(2025, 11, 20) });
+    await act('timeline-slider-start-handle', 'increment');
     expect(onRangeChange).not.toHaveBeenCalled();
   });
 
-  it('adjusts the end handle when it is not fixed', () => {
-    const { view, onRangeChange, act } = setup({ startDate: new Date(2024, 0, 1) });
+  it('adjusts the end handle when it is not fixed', async () => {
+    const { view, onRangeChange, act } = await setup({ startDate: new Date(2024, 0, 1) });
     expect(view.getByTestId('timeline-slider-end-handle').props.accessibilityRole).toBe(
       'adjustable'
     );
-    act('timeline-slider-end-handle', 'decrement');
+    await act('timeline-slider-end-handle', 'decrement');
     expect(onRangeChange.mock.calls[0][1]).toEqual(new Date(2025, 11, 1));
-    act('timeline-slider-end-handle', 'increment');
+    await act('timeline-slider-end-handle', 'increment');
     expect(onRangeChange).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves a fixed end handle out of the accessibility tree actions', () => {
-    const { view } = setup({ fixedEnd: true });
+  it('leaves a fixed end handle out of the accessibility tree actions', async () => {
+    const { view } = await setup({ fixedEnd: true });
     expect(view.queryByTestId('timeline-slider-end-handle')).toBeNull();
   });
 });

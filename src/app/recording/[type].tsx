@@ -1,18 +1,20 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { tapTo } from '@/shared/app/navigation';
+import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useTabBarClearance } from '@/shared/ui';
 import {
   screenRecordingMode,
   useRecordingStore,
   useRecordingLiveStore,
   useRecordingPreferences,
+  fieldsForMode,
   RecordingMap,
   ConnectedDataFieldGrid,
   ControlBar,
@@ -41,6 +43,7 @@ import {
   useUploadPermissionStore,
   useRecordingKeepAwake,
   useRecordingHandlers,
+  recordingBackAction,
   styles,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -53,6 +56,8 @@ import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import type { ActivityType, DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+
+const NO_HEADER = { headerShown: false };
 
 function RecordingScreenContent() {
   const recordingAthleteId = useRecordingStore((s) => s.athleteId);
@@ -104,12 +109,13 @@ function RecordingContent() {
   // costs one point rather than a copy of the ride.
   const coordinates = useRecordingStore((s) => s.streams.latlng);
 
-  const { gpsWarning, setGpsWarning, splitBanner, setSplitBanner } = useRecordingScreenState();
+  const { gpsWarning, gpsWarningOpensSettings, setGpsWarning, splitBanner, setSplitBanner } =
+    useRecordingScreenState();
 
   const { textPrimary, textSecondary, bg, surface, border } = useRecordingScreenColors();
 
-  const dataFields = useRecordingPreferences((s) => s.dataFields[mode]);
-  const setDataFields = useRecordingPreferences((s) => s.setDataFields);
+  const dataFields = useRecordingPreferences((s) => s.dataFields);
+  const setSlotField = useRecordingPreferences((s) => s.setSlotField);
 
   const statusPulse = useStatusPulseAnimation(status);
   const { isLocked, lock, unlock } = useRecordingLock(status);
@@ -121,10 +127,10 @@ function RecordingContent() {
   const autoPaused = useRecordingLiveStore((s) => s.autoPaused);
   const backgroundTrackingFailed = useRecordingLiveStore((s) => s.backgroundTrackingFailed);
   const { t } = useTranslation();
-  const { hasPermission, requestPermission } = useLocationPermission();
+  const { hasPermission, precision, requestPermission, upgradePrecision } = useLocationPermission();
   useAnnounceOnAppear(t(isLocked ? 'recording.controlsLocked' : 'recording.controlsUnlocked'));
 
-  useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
+  useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning, precision);
 
   const startTime = useRecordingStore((s) => s.startTime);
   useKmSplitBannerEffect({ mode, status, distanceLength, startTime, isMetric, setSplitBanner });
@@ -136,7 +142,9 @@ function RecordingContent() {
     mode,
     status,
     hasPermission,
+    precision,
     requestPermission,
+    upgradePrecision,
     setGpsWarning,
   });
   const { startNow } = useInitRecordingEffect(
@@ -168,14 +176,7 @@ function RecordingContent() {
     [bottomPadding]
   );
   const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
-  const effectiveFields = useMemo(
-    () =>
-      dataFields ??
-      ((mode === 'gps'
-        ? ['speed', 'distance', 'heartrate', 'power']
-        : ['heartrate', 'power', 'cadence', 'timer']) as DataFieldType[]),
-    [dataFields, mode]
-  );
+  const effectiveFields = useMemo(() => fieldsForMode(dataFields, mode), [dataFields, mode]);
 
   // In-place tile customisation (long-press a tile while unlocked)
   const openSheet = useSheetOpener();
@@ -184,17 +185,9 @@ function RecordingContent() {
       const result = await openSheet<FieldPickerSheetInput, DataFieldType>('sheets/field-picker', {
         selectedField: effectiveFields[index] ?? null,
       });
-      if (result.kind !== 'selected') return;
-      const field = result.value;
-      const next = [...effectiveFields];
-      const existing = next.indexOf(field);
-      if (existing >= 0 && existing !== index) {
-        next[existing] = next[index];
-      }
-      next[index] = field;
-      setDataFields(mode, next);
+      if (result.kind === 'selected') setSlotField(mode, index, result.value);
     },
-    [openSheet, effectiveFields, mode, setDataFields]
+    [openSheet, effectiveFields, mode, setSlotField]
   );
 
   const currentActivityType = storeActivityType ?? activityType;
@@ -215,27 +208,56 @@ function RecordingContent() {
     if (result.kind === 'selected') setOverlayRouteId(result.value);
   }, [openSheet, currentActivityType, overlayRouteId]);
 
+  // The manual and strength forms take the platform's header, titled with the
+  // sport. Swipe-back is off on this route, so its back is the way off. The
+  // live recorder, its gate and its wait draw their own close control and take
+  // none. Every branch sets it, because options set by one outlive it.
+  const formHeader = (
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        title: t(`activityTypes.${currentActivityType}`, currentActivityType),
+      }}
+    />
+  );
+  const noHeader = <Stack.Screen options={NO_HEADER} />;
+
   // An answer that has not arrived is not a refusal. A cold start from a widget,
   // tile, shortcut or Siri can beat the permission store, and gating there shows
   // the athlete a wall for a permission they may well have.
-  if (reason === 'checking') {
+  const checking = reason === 'checking';
+  // A missing account is the only refusal: that ride has nowhere to go. A missing
+  // scope stops the upload rather than the ride, so it warns once and the athlete
+  // decides, and the ride they take that way stays on the device.
+  const gated = !canRecord && reason !== 'ok' && !warnedPastScope;
+
+  // The lock covers the system back control too, which the screen's swipe setting
+  // does not reach on Android. Back while locked nudges the unlock track instead.
+  const lockShown = isLocked && !checking && !gated && mode !== 'manual';
+  const [unlockHint, setUnlockHint] = useState(0);
+  const hintUnlock = useCallback(() => setUnlockHint((n) => n + 1), []);
+  useBackIntercept(
+    recordingBackAction({ status, isLocked: lockShown, isProcessing: false }) === 'consume',
+    hintUnlock
+  );
+
+  if (checking) {
     return (
       <View
         style={[styles.container, styles.centred, { backgroundColor: bg, paddingTop: insets.top }]}
         testID="recording-checking"
       >
+        {noHeader}
         <ActivityIndicator size="large" color={colors.primary} />
         <RecordingCloseButton />
       </View>
     );
   }
 
-  // A missing account is the only refusal: that ride has nowhere to go. A missing
-  // scope stops the upload rather than the ride, so it warns once and the athlete
-  // decides, and the ride they take that way stays on the device.
-  if (!canRecord && reason !== 'ok' && !warnedPastScope) {
+  if (gated) {
     return (
       <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
+        {noHeader}
         <RecordingGate
           reason={reason}
           onGrantAccess={upgradePermissions}
@@ -250,24 +272,31 @@ function RecordingContent() {
 
   if (mode === 'manual' && currentActivityType === 'WeightTraining') {
     return (
-      <StrengthSession
-        activityType={currentActivityType}
-        pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
-      />
+      <>
+        {formHeader}
+        <StrengthSession
+          activityType={currentActivityType}
+          pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
+        />
+      </>
     );
   }
 
   if (mode === 'manual') {
     return (
-      <ManualEntry
-        activityType={currentActivityType}
-        pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
-      />
+      <>
+        {formHeader}
+        <ManualEntry
+          activityType={currentActivityType}
+          pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
+        />
+      </>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
+      {noHeader}
       <TimerHeader
         currentActivityType={currentActivityType}
         status={status}
@@ -288,6 +317,7 @@ function RecordingContent() {
           backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
         }
         gpsWarning={gpsWarning}
+        gpsWarningOpensSettings={gpsWarningOpensSettings}
         sensorIssue={sensorIssue}
         splitBanner={splitBanner}
         onDismissGpsWarning={dismissGpsWarning}
@@ -336,7 +366,7 @@ function RecordingContent() {
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (
         <View testID="recording-unlock-slot" style={unlockTrackStyle}>
-          <UnlockTrack onUnlock={unlock} />
+          <UnlockTrack onUnlock={unlock} hint={unlockHint} />
         </View>
       ) : (
         <ControlBar

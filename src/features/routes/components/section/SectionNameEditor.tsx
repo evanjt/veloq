@@ -5,9 +5,9 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, TextInput } from 'react-native';
+import { Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { HeroNameRow } from '@/shared/ui';
+import { HeroNameRow, type TextFieldHandle } from '@/shared/ui';
 import type { MaterialIconName } from '@/shared/activity/activityUtils';
 
 /** Delay before the input takes focus, so the row has mounted it. */
@@ -37,7 +37,7 @@ export function SectionNameEditor({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextFieldHandle>(null);
 
   useEffect(() => {
     const timer = isEditing
@@ -71,7 +71,7 @@ export function SectionNameEditor({
         isEditing,
         editName,
         inputRef,
-        placeholder: t('sections.sectionNamePlaceholder'),
+        label: t('sections.sectionNamePlaceholder'),
         testIDPrefix: 'section',
         onStartEdit: handleStart,
         onSave: handleSave,

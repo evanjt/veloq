@@ -15,6 +15,7 @@ export interface ActivitySummary {
   hasGps: boolean;
 }
 
+/** The distance (metres) and moving time (seconds) a trim removes. */
 export interface TrimDelta {
   distance: number;
   duration: number;
@@ -189,11 +190,11 @@ export function useActivitySummary({
           )
         : 0;
 
-    const distDelta = summary.distance - fullDist;
-    const durationDelta = summary.duration - fullElapsed;
+    const distRemoved = Math.max(0, fullDist - summary.distance);
+    const durationRemoved = Math.max(0, fullElapsed - summary.duration);
 
-    if (distDelta === 0 && durationDelta === 0) return null;
-    return { distance: distDelta, duration: durationDelta };
+    if (distRemoved === 0 && durationRemoved === 0) return null;
+    return { distance: distRemoved, duration: durationRemoved };
   }, [canTrim, trimStart, trimEnd, streams, startTime, pauseIntervals, summary]);
 
   // Pauses inside the window actually saved, whether trimmed or whole.

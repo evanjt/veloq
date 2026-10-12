@@ -76,12 +76,12 @@ function Detail({
   return null;
 }
 
-function renderFeed() {
+async function renderFeed() {
   const requestSnapshot = jest.fn();
   const snapshotRef = {
     current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
   };
-  render(
+  await render(
     <MapPreferencesProvider>
       <Detail
         report={(current, isLoaded) => {
@@ -105,7 +105,7 @@ describe('a 3D feed card after a camera angle is saved', () => {
   });
 
   it('asks for a render from the saved angle', async () => {
-    const requestSnapshot = renderFeed();
+    const requestSnapshot = await renderFeed();
     await waitFor(() => expect(loaded).toBe(true));
     await waitFor(() => expect(requestSnapshot).toHaveBeenCalled());
     const autoAngle = lastCamera(requestSnapshot);

@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
 import { CurveChart } from '@/shared/charts';
+import { CardHeader } from '@/shared/ui/CardHeader';
 import { formatShortDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { seriesChartModel, type SeriesDatum, type SeriesSample } from '../lib/seriesChart';
@@ -26,7 +27,7 @@ interface InsightSeriesChartProps {
   pointColor?: string;
   /** A ringed dot on the sample at this index in `samples`. */
   marker?: { index: number; color: string } | null;
-  /** Shown beside the title, such as a glyph for the series' verdict. */
+  /** Shown at the title's trailing edge, such as a glyph for the series' verdict. */
   accessory?: React.ReactNode;
 }
 
@@ -71,30 +72,30 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
 
   return (
     <View>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, isDark && styles.secondaryDark]} numberOfLines={2}>
-            {title}
-          </Text>
-          {accessory}
-        </View>
-        <View style={styles.readout}>
-          <Text
-            testID="insight-series-readout-value"
-            style={[styles.readoutValue, isDark && styles.primaryDark]}
-          >
-            {formatValue(shown.value, decimals)}
-          </Text>
-          {shown.date != null ? (
-            <Text
-              testID="insight-series-readout-date"
-              style={[styles.readoutDate, isDark && styles.secondaryDark]}
-            >
-              {formatDate(shown.date)}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      <CardHeader
+        title={title}
+        accessory={
+          <View style={styles.trailing}>
+            {accessory}
+            <View style={styles.readout}>
+              <Text
+                testID="insight-series-readout-value"
+                style={[styles.readoutValue, isDark && styles.primaryDark]}
+              >
+                {formatValue(shown.value, decimals)}
+              </Text>
+              {shown.date != null ? (
+                <Text
+                  testID="insight-series-readout-date"
+                  style={[styles.readoutDate, isDark && styles.secondaryDark]}
+                >
+                  {formatDate(shown.date)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        }
+      />
       <View style={styles.chart}>
         <CurveChart
           testID="insight-series-chart"
@@ -119,23 +120,10 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
 });
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  titleRow: {
-    flex: 1,
+  trailing: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  title: {
-    flexShrink: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   readout: {
     alignItems: 'flex-end',

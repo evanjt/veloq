@@ -52,8 +52,8 @@ beforeEach(() => {
 });
 
 describe('the strength tour slide', () => {
-  it('draws the body pair the strength tab draws, shaded and not tappable', () => {
-    render(<StrengthSlide />);
+  it('draws the body pair the strength tab draws, shaded and not tappable', async () => {
+    await render(<StrengthSlide />);
 
     expect(screen.getByTestId('tour-bodies')).toBeTruthy();
     const body = mockBodies[mockBodies.length - 1]!;
@@ -66,8 +66,8 @@ describe('the strength tour slide', () => {
     expect(body.onMuscleScrub).toBeUndefined();
   });
 
-  it('draws two volume split rows, each a pair the strength tab compares', () => {
-    render(<StrengthSlide />);
+  it('draws two volume split rows, each a pair the strength tab compares', async () => {
+    await render(<StrengthSlide />);
     const drawn = drawnText();
 
     expect(drawn).toContain('[insights.strengthBalance.volumeSplit]');
@@ -76,8 +76,8 @@ describe('the strength tour slide', () => {
     expect(screen.getAllByTestId('strength-balance-scale')).toHaveLength(2);
   });
 
-  it('draws no week-on-week muscle bars, which the app has nowhere', () => {
-    render(<StrengthSlide />);
+  it('draws no week-on-week muscle bars, which the app has nowhere', async () => {
+    await render(<StrengthSlide />);
     const drawn = drawnText();
 
     expect(drawn).not.toContain('[whatsNew.v030.strengthThisWeek]');

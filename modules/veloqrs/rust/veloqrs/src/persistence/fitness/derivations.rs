@@ -1152,6 +1152,7 @@ pub(crate) mod pooled {
         history_days: i64,
     ) -> crate::FfiFtpTrend {
         let changes = eftp_changes(conn);
+        let lookback = u32::try_from(lookback_days).unwrap_or(0);
         let default = crate::FfiFtpTrend {
             changes: changes.clone(),
             history: Vec::new(),
@@ -1161,6 +1162,7 @@ pub(crate) mod pooled {
             previous_date: None,
             delta_watts: None,
             glyph: None,
+            lookback_days: lookback,
             sample_count: 0,
         };
 
@@ -1200,6 +1202,7 @@ pub(crate) mod pooled {
                 Some(f64::from(latest_ftp)),
                 previous.map(|(_, ftp)| f64::from(*ftp)),
             ),
+            lookback_days: lookback,
             sample_count,
             // The chart keeps its history even when the step has a shorter window.
             history: crate::persistence::screens::series_tail(

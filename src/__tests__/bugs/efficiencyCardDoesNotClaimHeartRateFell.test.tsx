@@ -90,8 +90,8 @@ describe.each([
     expect(row?.label).toMatch(/modelled|modeled/i);
   });
 
-  it('does not say on the section page that heart rate fell', () => {
-    const { getByTestId } = render(
+  it('does not say on the section page that heart rate fell', async () => {
+    const { getByTestId } = await render(
       <SectionEfficiencyCard trend={mockConstantHeartRateTrend()} isDark={false} />
     );
     const detail = String(getByTestId('section-efficiency-detail').props.children);

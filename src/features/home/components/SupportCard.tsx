@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,16 +7,17 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
 import { useSupportStore } from '@/shared/app/SupportStore';
+import {
+  GITHUB_ISSUES_URL,
+  GITHUB_SPONSORS_URL,
+  openForum,
+  openStorePage,
+} from '@/shared/app/supportLinks';
 import { useDonation } from '@/shared/app/useDonation';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import { Button, pressable, pressRipple } from '@/shared/ui';
-
-const FORUM_URL =
-  'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
-const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
+import { Button, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 
 /**
  * Whether the card is on screen, and nothing else.
@@ -57,14 +58,8 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
     setTipsExpanded((expanded) => !expanded);
   }, []);
 
-  const handleReview = useCallback(async () => {
-    if (Platform.OS === 'android') {
-      Linking.openURL('market://details?id=com.veloq.app');
-    } else if (Platform.OS === 'ios') {
-      Linking.openURL('itms-apps://apps.apple.com/app/id6757836732?action=write-review');
-    } else {
-      WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
-    }
+  const handleReview = useCallback(() => {
+    openStorePage({ review: true });
     recordAction();
   }, [recordAction]);
 
@@ -73,7 +68,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   }, []);
 
   const handleForum = useCallback(() => {
-    WebBrowser.openBrowserAsync(FORUM_URL);
+    openForum();
   }, []);
 
   const handleTip = useCallback(
@@ -160,17 +155,12 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           accessibilityState={{ expanded: tipsExpanded }}
           style={pressable(styles.tipToggle)}
           android_ripple={pressRipple}
-          hitSlop={4}
         >
           <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
           <Text style={[styles.tipToggleText, { color: mutedColor }]}>
             {t('support.supportDevelopment')}
           </Text>
-          <MaterialCommunityIcons
-            name={tipsExpanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={mutedColor}
-          />
+          <DisclosureChevron expanded={tipsExpanded} size={18} color={mutedColor} />
         </Pressable>
 
         {/* Mounted only while open: the panel is as tall as its buttons at any text
@@ -279,7 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
+    minHeight: layout.minTapTarget,
   },
   tipToggleText: {
     ...typography.caption,

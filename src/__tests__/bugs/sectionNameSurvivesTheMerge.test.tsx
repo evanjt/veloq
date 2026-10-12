@@ -80,37 +80,37 @@ describe('the name on a section the athlete was moved to', () => {
     committed.length = 0;
   });
 
-  it('clears when the survivor of a merge has no name of its own', () => {
-    const tree = render(<Probe section={sectionOf('s_a', 'The Wall')} />);
+  it('clears when the survivor of a merge has no name of its own', async () => {
+    const tree = await render(<Probe section={sectionOf('s_a', 'The Wall')} />);
     expect(tree.getByTestId('name').props.children).toBe('The Wall');
 
-    tree.rerender(<Probe section={sectionOf('s_b')} />);
+    await tree.rerender(<Probe section={sectionOf('s_b')} />);
 
     expect(tree.getByTestId('name').props.children).toBe('none');
   });
 
-  it('follows the survivor when it has a name of its own', () => {
-    const tree = render(<Probe section={sectionOf('s_a', 'The Wall')} />);
+  it('follows the survivor when it has a name of its own', async () => {
+    const tree = await render(<Probe section={sectionOf('s_a', 'The Wall')} />);
 
-    tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
+    await tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
 
     expect(tree.getByTestId('name').props.children).toBe('River Loop');
   });
 
-  it('never commits a frame carrying the previous section name', () => {
-    const tree = render(<Probe section={sectionOf('s_a', 'The Wall')} />);
+  it('never commits a frame carrying the previous section name', async () => {
+    const tree = await render(<Probe section={sectionOf('s_a', 'The Wall')} />);
 
     // The hook's other state settles on its own schedule, so only what is
     // committed from the move onwards says anything about the name.
     committed.length = 0;
-    tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
+    await tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
 
     expect(committed.length).toBeGreaterThan(0);
     expect(committed).not.toContain('The Wall');
   });
 
-  it('shows no name at all for a first section that was never named', () => {
-    const tree = render(<Probe section={sectionOf('s_a')} />);
+  it('shows no name at all for a first section that was never named', async () => {
+    const tree = await render(<Probe section={sectionOf('s_a')} />);
 
     expect(tree.getByTestId('name').props.children).toBe('none');
   });

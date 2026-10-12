@@ -32,7 +32,7 @@ jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined })
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
 async function renderCard(props: Partial<SummaryCardProps>) {
-  const tree = render(
+  const tree = await render(
     <SummaryCard
       onProfilePress={() => {}}
       heroValue={0}

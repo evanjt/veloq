@@ -8,6 +8,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   useFocusEffect: jest.fn(),
   useLocalSearchParams: () => ({ tab: 'routes' }),
   router: { push: jest.fn(), setParams: jest.fn() },
@@ -82,10 +83,10 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => jest.fn() }));
 
-it('asks the engine to sync when the routes list refreshes', () => {
-  render(<InsightsScreen />);
+it('asks the engine to sync when the routes list refreshes', async () => {
+  await render(<InsightsScreen />);
 
-  fireEvent.press(screen.getByTestId('routes-refresh'));
+  await fireEvent.press(screen.getByTestId('routes-refresh'));
 
   expect(requestSyncRefresh).toHaveBeenCalledTimes(1);
 });

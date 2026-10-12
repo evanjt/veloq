@@ -1,14 +1,13 @@
 import React from 'react';
-import { View, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { MergeCandidate } from 'veloqrs';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Button, pressable, pressRipple } from '@/shared/ui';
+import { Row, SheetHeader } from '@/shared/ui';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -33,55 +32,50 @@ function MergeCandidatesSheetContent() {
   const border = isDark ? darkColors.border : colors.border;
 
   const renderItem = ({ item }: { item: MergeCandidate }) => (
-    <Pressable
-      testID={`merge-candidate-${item.sectionId}`}
-      style={pressable([styles.row, { borderBottomColor: border }])}
-      android_ripple={pressRipple}
-      accessibilityRole="button"
-      accessibilityLabel={item.name ?? item.sectionId}
-      onPress={() => resolve(item)}
-    >
-      <SportIcons sportTypes={item.sportTypes} size={22} color={textSecondary} />
-      <View style={styles.rowContent}>
-        <Text style={[styles.rowName, { color: textPrimary }]} numberOfLines={1}>
-          {item.name ?? item.sectionId}
-        </Text>
-        <Text style={[styles.rowMeta, { color: textSecondary }]}>
-          {t('sections.visitsCount', { count: item.visitCount })}
-          {' · '}
-          {formatDistance(item.distanceMeters, isMetric)}
-          {' · '}
-          {Math.round(item.overlapPct * 100)}% {t('sections.overlapLabel')}
-          {' · '}
-          {t('sections.distanceAway', {
-            distance: formatDistance(item.centerDistanceMeters, isMetric),
-          })}
-        </Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-    </Pressable>
+    <View style={[styles.row, { borderBottomColor: border }]}>
+      <Row
+        testID={`merge-candidate-${item.sectionId}`}
+        behaviour="navigate"
+        accessibilityLabel={item.name ?? item.sectionId}
+        onPress={() => resolve(item)}
+      >
+        <SportIcons sportTypes={item.sportTypes} size={22} color={textSecondary} />
+        <View style={styles.rowContent}>
+          <Text style={[styles.rowName, { color: textPrimary }]} numberOfLines={1}>
+            {item.name ?? item.sectionId}
+          </Text>
+          <Text style={[styles.rowMeta, { color: textSecondary }]}>
+            {t('sections.visitsCount', { count: item.visitCount })}
+            {' · '}
+            {formatDistance(item.distanceMeters, isMetric)}
+            {' · '}
+            {Math.round(item.overlapPct * 100)}% {t('sections.overlapLabel')}
+            {' · '}
+            {t('sections.distanceAway', {
+              distance: formatDistance(item.centerDistanceMeters, isMetric),
+            })}
+          </Text>
+        </View>
+      </Row>
+    </View>
   );
 
   return (
     <View style={[styles.sheet, { backgroundColor: surface }]}>
-      <Text accessibilityRole="header" style={[styles.title, { color: textPrimary }]}>
-        {t('sections.mergeCandidatesTitle')}
-      </Text>
-      <Text style={[styles.subtitle, { color: textSecondary }]}>
-        {t('sections.mergeCandidatesSubtitle', { count: candidates.length })}
-      </Text>
-      <FlatList
-        data={candidates}
-        keyExtractor={(item) => item.sectionId}
-        renderItem={renderItem}
-        style={styles.list}
+      <SheetHeader
+        title={t('sections.mergeCandidatesTitle')}
+        onCancel={() => tapBack()}
+        cancelTestID="merge-candidates-cancel"
       />
-      <View style={styles.actions}>
-        <Button
-          testID="merge-candidates-cancel"
-          label={t('common.cancel')}
-          onPress={() => tapBack()}
-          variant="ghost"
+      <View style={styles.body}>
+        <Text style={[styles.subtitle, { color: textSecondary }]}>
+          {t('sections.mergeCandidatesSubtitle', { count: candidates.length })}
+        </Text>
+        <FlatList
+          data={candidates}
+          keyExtractor={(item) => item.sectionId}
+          renderItem={renderItem}
+          style={styles.list}
         />
       </View>
     </View>
@@ -93,11 +87,11 @@ export default withScreenBoundary(MergeCandidatesSheetContent, 'Merge Candidates
 const styles = StyleSheet.create({
   sheet: {
     flex: 1,
-    padding: layout.screenPadding,
   },
-  title: {
-    ...typography.cardTitle,
-    marginBottom: spacing.xs,
+  body: {
+    flex: 1,
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: layout.screenPadding,
   },
   subtitle: {
     ...typography.bodySmall,
@@ -107,12 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: layout.minTapTarget,
   },
   rowContent: {
     flex: 1,
@@ -123,10 +112,5 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     ...typography.caption,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: spacing.md,
   },
 });

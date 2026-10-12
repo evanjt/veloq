@@ -70,7 +70,7 @@ describe('a refused section rename', () => {
     'restores the previous name and alerts when the engine rejects %s',
     async (name) => {
       mockRenameSection.mockRejectedValueOnce(new Error('Section name rejected'));
-      const hook = mount();
+      const hook = await mount();
 
       await act(async () => {
         hook.result.current.handleSaveName(name);
@@ -84,18 +84,23 @@ describe('a refused section rename', () => {
 
   it('tells the athlete the name is taken rather than to try again', async () => {
     mockRenameSection.mockRejectedValueOnce(new SectionRenameError('taken', 'nameTaken'));
-    const hook = mount();
+    const hook = await mount();
 
     await act(async () => {
       hook.result.current.handleSaveName('Taken');
     });
 
-    expect(Alert.alert).toHaveBeenCalledWith('sections.renameFailedTitle', 'sections.nameTaken');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'sections.renameFailedTitle',
+      'sections.nameTaken',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
   it('restores the old name when clearing it is refused', async () => {
     mockRenameSection.mockRejectedValueOnce(new Error('Section name rejected'));
-    const hook = mount();
+    const hook = await mount();
 
     await act(async () => {
       hook.result.current.handleSaveName('   ');
@@ -115,7 +120,7 @@ describe('section haptics', () => {
 
   it.each(['', '   '])('clears a name when the input is %j', async (name) => {
     mockRenameSection.mockResolvedValueOnce(undefined);
-    const hook = mount();
+    const hook = await mount();
     await act(async () => {
       hook.result.current.handleSaveName(name);
     });
@@ -126,7 +131,7 @@ describe('section haptics', () => {
 
   it('fires one success when a name passes its checks', async () => {
     mockRenameSection.mockResolvedValueOnce(undefined);
-    const hook = mount();
+    const hook = await mount();
     await act(async () => {
       hook.result.current.handleSaveName('New climb');
     });
@@ -134,14 +139,14 @@ describe('section haptics', () => {
     expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
-  function confirmButtons(): AlertButton[] {
-    const hook = mount();
-    act(() => hook.result.current.handleDeleteSection());
+  async function confirmButtons(): Promise<AlertButton[]> {
+    const hook = await mount();
+    await act(() => hook.result.current.handleDeleteSection());
     return (Alert.alert as jest.Mock).mock.calls[0][2] as AlertButton[];
   }
 
-  it('fires nothing when the delete confirm is cancelled', () => {
-    const cancel = confirmButtons().find((b) => b.style === 'cancel');
+  it('fires nothing when the delete confirm is cancelled', async () => {
+    const cancel = (await confirmButtons()).find((b) => b.style === 'cancel');
     cancel?.onPress?.();
     expect(haptics.medium).not.toHaveBeenCalled();
     expect(mockRemoveSection).not.toHaveBeenCalled();
@@ -149,7 +154,7 @@ describe('section haptics', () => {
 
   it('fires one medium impact when the delete is accepted', async () => {
     mockRemoveSection.mockResolvedValueOnce(undefined);
-    const destructive = confirmButtons().find((b) => b.style === 'destructive');
+    const destructive = (await confirmButtons()).find((b) => b.style === 'destructive');
     await act(async () => {
       await destructive?.onPress?.();
     });

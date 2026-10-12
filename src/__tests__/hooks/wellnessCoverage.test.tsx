@@ -51,7 +51,7 @@ describe('useWellnessCoverage', () => {
   it('answers the coverage of the thirty days back to today that the month range draws', async () => {
     engine.getWellnessDays.mockReturnValue({ days: [], coverage: RangeCoverage.Empty });
 
-    const { result } = renderHook(() => useWellnessCoverage('1m'), { wrapper });
+    const { result } = await renderHook(() => useWellnessCoverage('1m'), { wrapper });
 
     await waitFor(() => expect(result.current).toBe(RangeCoverage.Empty));
     const today = new Date();
@@ -69,7 +69,7 @@ describe('useWellnessCoverage', () => {
       coverage: RangeCoverage.Loaded,
     });
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => ({ days: useWellness('1m'), coverage: useWellnessCoverage('1m') }),
       { wrapper }
     );
@@ -82,7 +82,7 @@ describe('useWellnessCoverage', () => {
   it('answers not downloaded while the engine is not open', async () => {
     mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => ({ days: useWellness('1m'), coverage: useWellnessCoverage('1m') }),
       { wrapper }
     );
@@ -96,7 +96,7 @@ describe('useWellnessCoverage', () => {
       throw new Error('engine closed');
     });
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => ({ days: useWellness('1m'), coverage: useWellnessCoverage('1m') }),
       { wrapper }
     );
@@ -105,10 +105,10 @@ describe('useWellnessCoverage', () => {
     expect(result.current.coverage).toBe(RangeCoverage.NotFetched);
   });
 
-  it('answers not downloaded signed out, without reading', () => {
+  it('answers not downloaded signed out, without reading', async () => {
     useAuthStore.setState({ isAuthenticated: false });
 
-    const { result } = renderHook(() => useWellnessCoverage('1m'), { wrapper });
+    const { result } = await renderHook(() => useWellnessCoverage('1m'), { wrapper });
 
     expect(result.current).toBe(RangeCoverage.NotFetched);
     expect(engine.getWellnessDays).not.toHaveBeenCalled();

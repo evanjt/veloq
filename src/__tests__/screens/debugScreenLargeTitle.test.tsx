@@ -54,9 +54,9 @@ describe('developer dashboard scroll view', () => {
     expect(headerLargeTitle('debug', 'android')).toBe(false);
   });
 
-  it('keeps the refresh control and pads nothing for a tab bar', () => {
+  it('keeps the refresh control and pads nothing for a tab bar', async () => {
     Platform.OS = 'ios';
-    const { UNSAFE_getAllByType, UNSAFE_getByType } = render(<DebugScreen />);
+    const { UNSAFE_getAllByType, UNSAFE_getByType } = await render(<DebugScreen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');

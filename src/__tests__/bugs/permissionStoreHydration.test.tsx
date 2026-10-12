@@ -99,45 +99,45 @@ beforeEach(() => {
 });
 
 describe('an answer that has not arrived is not an answer of no', () => {
-  it('says checking while the store is still loading', () => {
+  it('says checking while the store is still loading', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: false, reason: 'checking' });
   });
 
-  it('says no permission once the store has loaded and there is none', () => {
+  it('says no permission once the store has loaded and there is none', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: false });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: false, reason: 'no_permission' });
   });
 
-  it('records once the store has loaded and there is', () => {
+  it('records once the store has loaded and there is', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: true });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: true, reason: 'ok' });
   });
 
-  it('does not wait for a store that cannot answer for this account', () => {
+  it('does not wait for a store that cannot answer for this account', async () => {
     for (const authMethod of ['apiKey', 'demo'] as const) {
       useAuthStore.setState({ authMethod });
-      const { result } = renderHook(() => useCanRecord());
+      const { result } = await renderHook(() => useCanRecord());
       expect(result.current).toEqual({ canRecord: true, reason: 'ok' });
     }
   });
 
-  it('still says not signed in first, whatever the store is doing', () => {
+  it('still says not signed in first, whatever the store is doing', async () => {
     useAuthStore.setState({ authMethod: null });
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current.reason).toBe('not_signed_in');
   });
 
-  it('does not answer early on a scope that arrived before the store loaded', () => {
+  it('does not answer early on a scope that arrived before the store loaded', async () => {
     // setFromOAuthScope is how a fresh sign-in answers, and it answers for good.
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.getState().setFromOAuthScope('ACTIVITY:READ,ACTIVITY:WRITE');
-    const { result } = renderHook(() => useCanRecord());
+    const { result } = await renderHook(() => useCanRecord());
     expect(result.current).toEqual({ canRecord: true, reason: 'ok' });
   });
 });
@@ -182,8 +182,8 @@ describe('the screens act on the difference', () => {
     useRecordingStore.getState().reset();
   });
 
-  it('the recording screen waits rather than gating, and starts nothing while it waits', () => {
-    render(<RecordingScreen />);
+  it('the recording screen waits rather than gating, and starts nothing while it waits', async () => {
+    await render(<RecordingScreen />);
 
     expect(screen.getByTestId('recording-checking')).toBeTruthy();
     expect(screen.getByTestId('recording-close')).toBeTruthy();
@@ -191,24 +191,24 @@ describe('the screens act on the difference', () => {
     expect(useRecordingStore.getState().status).toBe('idle');
   });
 
-  it('the recording screen offers a way off beside the gate', () => {
+  it('the recording screen offers a way off beside the gate', async () => {
     mockCanRecord.mockReturnValue({ canRecord: false, reason: 'no_permission' as const });
-    render(<RecordingScreen />);
+    await render(<RecordingScreen />);
 
     expect(mockGate).toHaveBeenCalled();
     expect(screen.getByTestId('recording-close')).toBeTruthy();
   });
 
-  it('the recording screen starts the ride once the answer is yes', () => {
+  it('the recording screen starts the ride once the answer is yes', async () => {
     mockCanRecord.mockReturnValue({ canRecord: true, reason: 'ok' });
-    render(<RecordingScreen />);
+    await render(<RecordingScreen />);
 
     expect(screen.queryByTestId('recording-checking')).toBeNull();
     expect(useRecordingStore.getState().status).not.toBe('idle');
   });
 
-  it('the picker keeps gating, where an athlete is still choosing a sport', () => {
-    render(<RecordScreen />);
+  it('the picker keeps gating, where an athlete is still choosing a sport', async () => {
+    await render(<RecordScreen />);
 
     expect(mockGate).toHaveBeenCalled();
     // The gate is never handed an answer that has not come: the picker shows

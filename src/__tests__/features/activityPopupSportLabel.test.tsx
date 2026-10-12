@@ -33,8 +33,8 @@ function selectedActivity(type: ActivityBoundsItem['type']): SelectedActivity {
   };
 }
 
-function showPopup(type: ActivityBoundsItem['type']) {
-  render(
+async function showPopup(type: ActivityBoundsItem['type']) {
+  await render(
     <ActivityPopup
       selected={selectedActivity(type)}
       bottom={0}
@@ -50,14 +50,14 @@ beforeAll(async () => {
 });
 
 describe('activity popup sport label', () => {
-  it('shows the translated sport name', () => {
-    showPopup('VirtualRide');
+  it('shows the translated sport name', async () => {
+    await showPopup('VirtualRide');
     expect(screen.getByText('Virtual Ride')).toBeTruthy();
     expect(screen.queryByText('VirtualRide')).toBeNull();
   });
 
-  it('shows an unknown sport key when it has no translation', () => {
-    showPopup('FutureSport' as ActivityBoundsItem['type']);
+  it('shows an unknown sport key when it has no translation', async () => {
+    await showPopup('FutureSport' as ActivityBoundsItem['type']);
     expect(screen.getByText('FutureSport')).toBeTruthy();
   });
 });

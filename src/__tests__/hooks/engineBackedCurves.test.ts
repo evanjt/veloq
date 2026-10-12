@@ -87,7 +87,7 @@ function paceCurve(extra: Partial<PaceCurveRow> = {}): PaceCurveRow {
 
 describe('usePowerCurve', () => {
   it('asks Rust for a curve it has never stored', async () => {
-    renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
+    await renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
 
     await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 90));
   });
@@ -95,7 +95,9 @@ describe('usePowerCurve', () => {
   it('does not re-request a curve it already holds', async () => {
     engine.getPowerCurve.mockReturnValue(powerCurve());
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.data?.watts).toEqual([9]));
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
@@ -104,13 +106,15 @@ describe('usePowerCurve', () => {
   it('hands back the time the stored body was fetched', async () => {
     engine.getPowerCurve.mockReturnValue(powerCurve());
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.fetchedAt).toBe(FETCHED_AT));
   });
 
   it('has no fetch time for a curve it has never stored', async () => {
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.fetchedAt).toBeNull();
@@ -121,7 +125,7 @@ describe('usePowerCurve', () => {
     // window never fetched: neither is a curve to draw.
     engine.getPowerCurve.mockReturnValue(null);
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.fetchedAt).toBeNull();
@@ -129,7 +133,7 @@ describe('usePowerCurve', () => {
   });
 
   it('renders an empty curve while the fetch is in flight', async () => {
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.watts).toEqual([]);
@@ -140,14 +144,16 @@ describe('usePaceCurve', () => {
   it('leaves the 42-day snapshot with the Rust curve writer', async () => {
     engine.getPaceCurve.mockReturnValue(paceCurve({ criticalSpeed: 3.4 }));
 
-    const { result } = renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), { wrapper });
+    const { result } = await renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.data?.criticalSpeed).toBe(3.4));
     expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('keys the request on the gap flag', async () => {
-    renderHook(() => usePaceCurve({ sport: 'Run', days: 42, gap: true }), { wrapper });
+    await renderHook(() => usePaceCurve({ sport: 'Run', days: 42, gap: true }), { wrapper });
 
     await waitFor(() => expect(engine.syncPaceCurve).toHaveBeenCalledWith('Run', 42, true));
   });
@@ -156,7 +162,7 @@ describe('usePaceCurve', () => {
     // The fitness screen holds a Run and a Swim curve for its threshold
     // readouts, and only the sport in view renders one. A disabled curve that
     // still fetched cost a download and a `curve_bodies` row per time range.
-    renderHook(() => usePaceCurve({ sport: 'Swim', days: 42, enabled: false }), { wrapper });
+    await renderHook(() => usePaceCurve({ sport: 'Swim', days: 42, enabled: false }), { wrapper });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -167,7 +173,7 @@ describe('usePaceCurve', () => {
   it('snapshots critical speed once the curve is stored', async () => {
     engine.getPaceCurve.mockReturnValue(paceCurve({ criticalSpeed: 3.4 }));
 
-    renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
+    await renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
 
     await waitFor(() =>
       expect(engine.savePaceSnapshot).toHaveBeenCalledWith(
@@ -196,7 +202,7 @@ describe('usePaceCurve', () => {
       })
     );
 
-    renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
+    await renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
 
     await waitFor(() => expect(engine.savePaceSnapshot).toHaveBeenCalled());
     const stampedAt = engine.savePaceSnapshot.mock.calls[0][5];
@@ -225,7 +231,7 @@ describe('useAthleteSummary', () => {
       },
     ]);
 
-    const { result } = renderHook(() => useAthleteSummary(1), { wrapper });
+    const { result } = await renderHook(() => useAthleteSummary(1), { wrapper });
 
     await waitFor(() => expect(result.current.data.allWeeks.length).toBe(1));
     // Weeks with no activities are dropped, matching what the endpoint returned.
@@ -235,7 +241,7 @@ describe('useAthleteSummary', () => {
   });
 
   it('asks for one week per requested Monday plus the current one', async () => {
-    renderHook(() => useAthleteSummary(4), { wrapper });
+    await renderHook(() => useAthleteSummary(4), { wrapper });
 
     await waitFor(() => expect(engine.getWeeklySummaries).toHaveBeenCalled());
     const [weekStarts, weekLength] = engine.getWeeklySummaries.mock.calls[0];
@@ -248,7 +254,7 @@ describe.each(CLOCK_EDGES)('useAthleteSummary on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
   it('anchors each week on a local Monday at midnight, seven days apart', async () => {
-    renderHook(() => useAthleteSummary(4), { wrapper });
+    await renderHook(() => useAthleteSummary(4), { wrapper });
 
     await waitFor(() => expect(engine.getWeeklySummaries).toHaveBeenCalled());
     const [weekStarts] = engine.getWeeklySummaries.mock.calls[0] as unknown as [number[]];

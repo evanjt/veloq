@@ -23,7 +23,9 @@ const groups = [
   { groupId: 'g2', representativeId: 'a2', encodedPolyline: new ArrayBuffer(0), bounds: undefined },
 ];
 
-const mockGetRoutesScreenData = jest.fn(() => ({ groups }));
+const mockGetRoutesScreenData = jest.fn((_query?: unknown): { groups: typeof groups } => ({
+  groups,
+}));
 const mockStart = jest.fn(() => true);
 let mockPreviewGroups: { key: string; activityIds: string[] }[] | null = null;
 let mockPreviewStatus = 'idle';
@@ -31,6 +33,7 @@ let mockStrictness: { minMatchPct: number; endpointThreshold: number } | null = 
 const AREA_A = { binKey: '1043:165', lat: 46.948, lng: 7.447, visitTotal: 40, sectionCount: 3 };
 const AREA_B = { binKey: '-755:3358', lat: -33.9, lng: 151.2, visitTotal: 12, sectionCount: 1 };
 let mockCentres: (typeof AREA_A)[] = [AREA_A, AREA_B];
+let mockCentresThrow: unknown = null;
 let mockSelectCentre: ((centre: typeof AREA_A) => void) | null = null;
 let mockMapProps: { centre?: unknown } | null = null;
 
@@ -62,7 +65,10 @@ jest.mock('@/shared/native/engine', () => {
     takeRouteGroupingPreviewResult: () => mockPreviewGroups,
     cancelRouteGroupingPreview: jest.fn(),
     getMatchStrictness: () => mockStrictness,
-    getPreviewCentres: () => mockCentres,
+    getPreviewCentres: () => {
+      if (mockCentresThrow != null) throw mockCentresThrow;
+      return mockCentres;
+    },
     setMatchStrictness: (...args: unknown[]) => mockSetMatchStrictness(...args),
   };
   return { getEngine: () => engine };
@@ -158,6 +164,7 @@ beforeEach(() => {
   mockPreviewStatus = 'idle';
   mockStrictness = null;
   mockCentres = [AREA_A, AREA_B];
+  mockCentresThrow = null;
   mockSelectCentre = null;
   mockMapProps = null;
   mockTransitionPending = false;
@@ -166,42 +173,42 @@ beforeEach(() => {
 
 afterEach(() => idle.restore());
 
-it('asks for a grouping at the value it opens with, without being dragged', () => {
-  render(<RouteGroupingPreviewScreen />);
+it('asks for a grouping at the value it opens with, without being dragged', async () => {
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(mockStart).toHaveBeenCalledWith({ minMatchPercentage: 55, endpointThreshold: 250 });
 });
 
-it('says it is working until the first answer lands', () => {
+it('says it is working until the first answer lands', async () => {
   mockPreviewStatus = 'running';
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(screen.getByTestId('grouping-status').props.children).toBe('Grouping your rides…');
 });
 
-it('counts the routes the setting produces once the answer lands', () => {
+it('counts the routes the setting produces once the answer lands', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [
     { key: 'p1', activityIds: ['a1', 'a2'] },
     { key: 'p2', activityIds: ['a9'] },
   ];
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(screen.getByTestId('grouping-status').props.children).toBe('2 routes at this setting');
 });
 
-it('says the grouping did not finish rather than that it is still running', () => {
+it('says the grouping did not finish rather than that it is still running', async () => {
   mockPreviewStatus = 'error';
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(screen.getByTestId('grouping-status').props.children).toBe(
     'The grouping did not finish. Move a knob to try again.'
   );
 });
 
-it('says nothing was cancelled when a knob change supersedes a run', () => {
+it('says nothing was cancelled when a knob change supersedes a run', async () => {
   mockPreviewStatus = 'cancelled';
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   // A cancel is a knob that moved, and the next run is already being asked
   // for, so the row reads as working rather than as a failure.
@@ -211,20 +218,20 @@ it('says nothing was cancelled when a knob change supersedes a run', () => {
 it('names the routes a setting would leave on their own', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [{ key: 'p1', activityIds: ['a1'] }];
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
   // The route read waits for the push transition, so the paint is a frame behind.
   await act(async () => {});
 
   expect(screen.getByTestId('grouping-dropped')).toBeTruthy();
 });
 
-it('draws no dropped line when every route keeps a group', () => {
+it('draws no dropped line when every route keeps a group', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [
     { key: 'p1', activityIds: ['a1'] },
     { key: 'p2', activityIds: ['a2'] },
   ];
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(screen.queryByTestId('grouping-dropped')).toBeNull();
 });
@@ -233,19 +240,19 @@ it('reads the routes once, and applies nothing on mount', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
 
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
   await act(async () => {});
 
   expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
   expect(mockSetMatchStrictness).not.toHaveBeenCalled();
 });
 
-it('waits for the opening transition before reading routes', () => {
+it('waits for the opening transition before reading routes', async () => {
   mockTransitionPending = true;
-  render(<RouteGroupingPreviewScreen />);
+  await render(<RouteGroupingPreviewScreen />);
 
   expect(mockGetRoutesScreenData).not.toHaveBeenCalled();
-  act(() => mockTransitionListeners.get('transitionEnd')?.({ data: { closing: false } }));
+  await act(() => mockTransitionListeners.get('transitionEnd')?.({ data: { closing: false } }));
   expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
 });
 
@@ -264,7 +271,7 @@ describe('the area the preview opens on', () => {
     (mockGetRoutesScreenData.mock.calls.at(-1) as unknown as [Record<string, unknown>])[0];
 
   it('offers the ranked areas and selects the first', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
     expect(screen.getByTestId('grouping-area-picker').props.children).toBe('2 areas, 1043:165');
@@ -272,7 +279,7 @@ describe('the area the preview opens on', () => {
   });
 
   it('reads the routes nearest the selected area', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
     expect(lastRead()).toMatchObject({
@@ -283,9 +290,9 @@ describe('the area the preview opens on', () => {
   });
 
   it('re-reads the routes when another area is chosen', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockSelectCentre?.(AREA_B));
+    await act(() => mockSelectCentre?.(AREA_B));
 
     expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(2);
     expect(lastRead()).toMatchObject({ userLat: AREA_B.lat, userLng: AREA_B.lng });
@@ -294,16 +301,16 @@ describe('the area the preview opens on', () => {
   });
 
   it('does not re-read when the selected area is chosen again', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockSelectCentre?.(AREA_A));
+    await act(() => mockSelectCentre?.(AREA_A));
 
     expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
   });
 
   it('reads the most-ridden routes when the library has no area yet', async () => {
     mockCentres = [];
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
     expect(lastRead()).toMatchObject({ groupSort: GroupSort.Activities });
@@ -335,17 +342,17 @@ describe('applying the setting', () => {
     mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
   });
 
-  it('offers neither Keep nor Discard until a knob moves', () => {
-    render(<RouteGroupingPreviewScreen />);
+  it('offers neither Keep nor Discard until a knob moves', async () => {
+    await render(<RouteGroupingPreviewScreen />);
 
     expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
     expect(screen.queryByTestId('grouping-discard-button')).toBeNull();
   });
 
   it('writes nothing while a knob moves', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockOnChange?.(moved));
+    await act(() => mockOnChange?.(moved));
 
     expect(mockSetMatchStrictness).not.toHaveBeenCalled();
     expect(screen.getByTestId('grouping-keep-button')).toBeTruthy();
@@ -353,22 +360,22 @@ describe('applying the setting', () => {
 
   it('hides Keep again when the knobs return to the applied value', async () => {
     mockStrictness = { minMatchPct: 62, endpointThreshold: 190 };
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockOnChange?.(moved));
-    act(() => mockOnChange?.({ minMatchPercentage: 62, endpointThreshold: 190 }));
+    await act(() => mockOnChange?.(moved));
+    await act(() => mockOnChange?.({ minMatchPercentage: 62, endpointThreshold: 190 }));
 
     expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
   });
 
   it('writes the panel values once on a confirmed Keep, regroups and leaves', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockOnChange?.(moved));
-    fireEvent.press(screen.getByTestId('grouping-keep-button'));
+    await act(() => mockOnChange?.(moved));
+    await fireEvent.press(screen.getByTestId('grouping-keep-button'));
 
     expect(mockSetMatchStrictness).not.toHaveBeenCalled();
-    act(confirmKeep);
+    await act(confirmKeep);
 
     expect(mockSetMatchStrictness).toHaveBeenCalledTimes(1);
     expect(mockSetMatchStrictness).toHaveBeenCalledWith(65, 180);
@@ -377,10 +384,10 @@ describe('applying the setting', () => {
   });
 
   it('writes nothing when the confirmation is cancelled', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockOnChange?.(moved));
-    fireEvent.press(screen.getByTestId('grouping-keep-button'));
+    await act(() => mockOnChange?.(moved));
+    await fireEvent.press(screen.getByTestId('grouping-keep-button'));
 
     expect(Alert.alert).toHaveBeenCalledTimes(1);
     expect(mockSetMatchStrictness).not.toHaveBeenCalled();
@@ -388,10 +395,10 @@ describe('applying the setting', () => {
   });
 
   it('writes nothing on Discard and leaves', async () => {
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
-    act(() => mockOnChange?.(moved));
-    fireEvent.press(screen.getByTestId('grouping-discard-button'));
+    await act(() => mockOnChange?.(moved));
+    await fireEvent.press(screen.getByTestId('grouping-discard-button'));
 
     expect(mockSetMatchStrictness).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalledTimes(1);
@@ -412,7 +419,7 @@ describe('the strictness the screen opens on', () => {
     mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
     mockStrictness = { minMatchPct: 62, endpointThreshold: 190 };
 
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
     expect(mockStart).toHaveBeenCalledWith({
@@ -426,9 +433,61 @@ describe('the strictness the screen opens on', () => {
     mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
     mockStrictness = null;
 
-    render(<RouteGroupingPreviewScreen />);
+    await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
     expect(mockStart).toHaveBeenCalledWith(GROUPING_DEFAULTS);
+  });
+});
+
+/**
+ * Scenario: the engine throws while the preview reads the athlete's routes or
+ * their riding areas.
+ *
+ * Expected behaviour: the screen names the failure, offers a Retry that reads
+ * the routes again, and offers no Keep while there is nothing to judge the
+ * setting against.
+ */
+describe('a read that threw', () => {
+  const THROWN = { tag: 'Database', inner: { msg: 'disk' } };
+  const moved = { minMatchPercentage: 65, endpointThreshold: 180 };
+
+  beforeEach(() => {
+    mockPreviewStatus = 'complete';
+    mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
+  });
+
+  it('names the routes read failure and hides Keep', async () => {
+    mockGetRoutesScreenData.mockImplementationOnce(() => {
+      throw THROWN;
+    });
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+
+    expect(screen.getByTestId('grouping-routes-failed')).toBeTruthy();
+    expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
+  });
+
+  it('reads the routes again on Retry and offers Keep once they arrive', async () => {
+    mockGetRoutesScreenData.mockImplementationOnce(() => {
+      throw THROWN;
+    });
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+    fireEvent.press(screen.getByText('Retry'));
+
+    expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('grouping-routes-failed')).toBeNull();
+    expect(screen.getByTestId('grouping-keep-button')).toBeTruthy();
+  });
+
+  it('names the riding areas read failure', async () => {
+    mockCentresThrow = THROWN;
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('grouping-centres-failed')).toBeTruthy();
   });
 });

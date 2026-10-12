@@ -26,12 +26,12 @@ function renderSelection(sectionPointCount: number) {
 }
 
 describe('large section selection', () => {
-  it('warns about processing time at both large sizes without claiming save will fail', () => {
-    const view = renderSelection(5000);
-    fireEvent.press(screen.getByText('1.0 km'));
+  it('warns about processing time at both large sizes without claiming save will fail', async () => {
+    const view = await renderSelection(5000);
+    await fireEvent.press(screen.getByText('1.0 km'));
     expect(screen.getByText('routes.largeSectionPerformanceWarning')).toBeTruthy();
 
-    view.rerender(
+    await view.rerender(
       <SectionCreationOverlay
         state="complete"
         startIndex={0}

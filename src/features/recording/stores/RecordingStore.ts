@@ -34,7 +34,7 @@ import type {
 import type { ReviewDraft } from '@/features/recording/types';
 
 /** Sensor values older than this are stale and recorded as 0 (FIT no-data). */
-const SENSOR_STALE_MS = 5000;
+export const SENSOR_STALE_MS = 5000;
 
 interface SensorSampleLite {
   value: number;

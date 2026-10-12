@@ -93,6 +93,8 @@ module.exports = [
       // which `npm run test:android` writes here.
       'modules/veloqrs/android/build/**',
       'src/features/maps/assets/*.generated.ts',
+      // The vendored map renderer, written by scripts/fetch-maplibre-renderer.mjs.
+      'modules/veloqrs/assets/basemap/renderer/**',
       'coverage/**',
       'dist/**',
       '.expo/**',
@@ -318,7 +320,10 @@ module.exports = [
     // Render instrumentation. `PERF_DEBUG` is `__DEV__`, and what these measure
     // IS the render, so moving the clock read out of render is the same as
     // deleting the instrument.
-    files: ['src/app/(tabs)/index.tsx', 'src/features/routes/hooks/useSectionChartDataEnriched.ts'],
+    files: [
+      'src/app/(tabs)/(feed)/index.tsx',
+      'src/features/routes/hooks/useSectionChartDataEnriched.ts',
+    ],
     rules: { 'react-hooks/purity': 'off' },
   },
   {
@@ -422,7 +427,7 @@ module.exports = [
     // what brings it back. In each case the effect exists for the arrival, not
     // for the mount.
     files: [
-      'src/app/(tabs)/insights.tsx',
+      'src/app/(tabs)/insights/index.tsx',
       'src/features/fitness/components/FormZoneChart.tsx',
       'src/shared/app/useDonation.ts',
       'src/shared/native/useSyncHealth.ts',
@@ -437,7 +442,7 @@ module.exports = [
     // is `__DEV__`.
     files: [
       'src/app/\\(tabs\\)/_layout.tsx',
-      'src/app/\\(tabs\\)/insights.tsx',
+      'src/app/\\(tabs\\)/insights/index.tsx',
       'src/app/\\(tabs\\)/map.tsx',
       'src/app/activity/\\[id\\].tsx',
       'src/app/route/\\[id\\].tsx',

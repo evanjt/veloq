@@ -81,19 +81,19 @@ const writes = () => trace.filter((c) => c === 'write').length;
 describe('the demo strength seed', () => {
   beforeEach(() => engine());
 
-  it('writes nothing at all when the session is not a demo one', () => {
+  it('writes nothing at all when the session is not a demo one', async () => {
     mockIsDemoMode = false;
-    const { rerender } = renderHook(() => useStrengthTabState());
-    act(() => {
+    const { rerender } = await renderHook(() => useStrengthTabState());
+    await act(() => {
       listener?.();
     });
-    rerender({});
+    await rerender({});
     expect(writes()).toBe(0);
   });
 
-  it('reads before it writes, lands the seed, shows the tab, and seeds once', () => {
+  it('reads before it writes, lands the seed, shows the tab, and seeds once', async () => {
     mockIsDemoMode = true;
-    const { result, rerender } = renderHook(() => useStrengthTabState());
+    const { result, rerender } = await renderHook(() => useStrengthTabState());
 
     // The whole defect: the memo asked the engine before anything wrote. With
     // the seed inside the memo the first call in the trace is the write.
@@ -102,15 +102,15 @@ describe('the demo strength seed', () => {
 
     // The seed's own announcement brings the real answer, so the tab appears.
     expect(channels).toContain('fitParsed');
-    act(() => {
+    await act(() => {
       listener?.();
     });
-    rerender({});
+    await rerender({});
     expect(result.current).toBe('ready');
 
     // And it is once per process, not once per mount.
     const before = writes();
-    renderHook(() => useStrengthTabState());
+    await renderHook(() => useStrengthTabState());
     expect(writes()).toBe(before);
   });
 });

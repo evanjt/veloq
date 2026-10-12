@@ -100,8 +100,8 @@ describe.each(SUPPORTED_LOCALES)('%s', (lng) => {
     });
   });
 
-  it('names the same quantity in the section caption', () => {
-    const { getByTestId } = render(
+  it('names the same quantity in the section caption', async () => {
+    const { getByTestId } = await render(
       <SectionEfficiencyCard trend={improvingTrend()} isDark={false} />
     );
 

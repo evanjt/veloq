@@ -117,3 +117,21 @@ export function verdictRung(verdict: TrendVerdict): VerdictRung {
   if (verdict === 'declined') return 'negative';
   return 'neutral';
 }
+
+/**
+ * The verdict and the number's direction a drawn glyph stands for, read back
+ * through the metric's polarity. The engine hands some surfaces the glyph
+ * alone, judged the way `trendGlyph` judges, so this is its inverse: up is an
+ * improvement for a judged metric and the bare direction for one with none.
+ */
+export function glyphMove(
+  metric: TrendMetric,
+  glyph: TrendGlyph
+): { verdict: TrendVerdict; direction: TrendDirection } {
+  if (glyph === '→') return { verdict: 'flat', direction: 'flat' };
+  const polarity = TREND_POLARITY[metric];
+  if (polarity === 'none') return { verdict: 'moved', direction: glyph === '↑' ? 'up' : 'down' };
+  const improved = glyph === '↑';
+  const rose = polarity === 'higher' ? improved : !improved;
+  return { verdict: improved ? 'improved' : 'declined', direction: rose ? 'up' : 'down' };
+}

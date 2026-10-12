@@ -76,7 +76,7 @@ jest.mock('@/shared/app/navigation', () => ({
 const go = tapTo as jest.MockedFunction<typeof tapTo>;
 
 /** The nav row renders its title then its subtitle, so the subtitle is the last line. */
-function subtitleOf(screen: ReturnType<typeof render>, testID: string): string {
+function subtitleOf(screen: Awaited<ReturnType<typeof render>>, testID: string): string {
   const row = screen.getByTestId(testID);
   const lines = within(row).getAllByText(/.+/);
   return String(lines[lines.length - 1].props.children);
@@ -99,33 +99,33 @@ describe('Settings hub, recording and sensors', () => {
     useRecordingPreferences.setState({ gpsAccuracyMode: 'balanced' });
   });
 
-  it('lists recording settings and opens it', () => {
-    const screen = render(<SettingsScreen />);
-    fireEvent.press(screen.getByTestId('settings-nav-recording'));
+  it('lists recording settings and opens it', async () => {
+    const screen = await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings-nav-recording'));
     expect(go).toHaveBeenCalledWith('/recording-settings');
   });
 
-  it('lists sensors and opens the pairing screen', () => {
-    const screen = render(<SettingsScreen />);
-    fireEvent.press(screen.getByTestId('settings-nav-sensors'));
+  it('lists sensors and opens the pairing screen', async () => {
+    const screen = await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings-nav-sensors'));
     expect(go).toHaveBeenCalledWith('/sensor-settings');
   });
 
-  it('previews the GPS accuracy the recorder is set to', () => {
-    const screen = render(<SettingsScreen />);
+  it('previews the GPS accuracy the recorder is set to', async () => {
+    const screen = await render(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-recording')).toBe('recording.gpsModes.balanced');
 
     useRecordingPreferences.setState({ gpsAccuracyMode: 'batterySaver' });
-    screen.rerender(<SettingsScreen />);
+    await screen.rerender(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-recording')).toBe('recording.gpsModes.batterySaver');
   });
 
-  it('says how many sensors are paired, and says so when none are', () => {
-    const screen = render(<SettingsScreen />);
+  it('says how many sensors are paired, and says so when none are', async () => {
+    const screen = await render(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-sensors')).toBe('sensors.nonePairedShort');
 
     pair(2);
-    screen.rerender(<SettingsScreen />);
+    await screen.rerender(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-sensors')).toBe('sensors.pairedCount');
   });
 });

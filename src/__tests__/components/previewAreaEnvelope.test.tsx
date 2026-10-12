@@ -47,9 +47,9 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const CENTRE = { binKey: '1055:193', lat: 47.5, lng: 8.7 };
 
-function renderMap(centre: typeof CENTRE | null) {
+async function renderMap(centre: typeof CENTRE | null) {
   capturedSources.length = 0;
-  render(
+  await render(
     <PreviewMapView
       result={null}
       currentSections={[]}
@@ -68,8 +68,8 @@ function renderMap(centre: typeof CENTRE | null) {
 }
 
 describe('the preview area envelope', () => {
-  it('draws the selected area as a closed ring', () => {
-    const source = renderMap(CENTRE);
+  it('draws the selected area as a closed ring', async () => {
+    const source = await renderMap(CENTRE);
     const features = source['preview-area'].data.features;
 
     expect(features).toHaveLength(1);
@@ -78,8 +78,8 @@ describe('the preview area envelope', () => {
     expect(ring[0]).toEqual(ring[4]);
   });
 
-  it('draws the box the camera clamps to, not one around the reported point', () => {
-    const source = renderMap(CENTRE);
+  it('draws the box the camera clamps to, not one around the reported point', async () => {
+    const source = await renderMap(CENTRE);
     const area = previewAreaBounds(CENTRE);
     if (!area) throw new Error('the selected area has no bounds');
     const ring = (source['preview-area'].data.features[0].geometry as GeoJSON.Polygon)
@@ -95,8 +95,8 @@ describe('the preview area envelope', () => {
     expect(area.sw[1]).not.toBeCloseTo(CENTRE.lat, 3);
   });
 
-  it('keeps the source mounted and empty when no area is selected', () => {
-    const source = renderMap(null);
+  it('keeps the source mounted and empty when no area is selected', async () => {
+    const source = await renderMap(null);
 
     expect(source['preview-area']).toBeDefined();
     expect(source['preview-area'].data.features).toEqual([]);

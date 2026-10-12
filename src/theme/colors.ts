@@ -200,6 +200,22 @@ export const mapLayerColors = {
   homeRadiusFill: 'rgba(13,148,136,0.18)',
 } as const;
 
+// The activity line coloured by gradient, from steep descent to steep climb. It
+// diverges around flat ground: a light neutral at 0 %, blues darkening with the
+// descent and oranges darkening with the climb, so steepness reads in lightness
+// alone and the two sides never share a hue.
+export const gradientScale = [
+  { percent: -30, color: '#08306B' },
+  { percent: -20, color: '#08519C' },
+  { percent: -10, color: '#2171B5' },
+  { percent: -5, color: '#6BAED6' },
+  { percent: 0, color: '#E5E5E5' },
+  { percent: 5, color: '#FDAE6B' },
+  { percent: 10, color: '#F16913' },
+  { percent: 20, color: '#D94801' },
+  { percent: 30, color: '#7F2704' },
+] as const;
+
 // =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
@@ -260,6 +276,9 @@ export const colors = {
   successLight: '#4ADE80',
   successDark: '#16A34A',
   successDeep: '#15803D',
+  // The green a word is set in on its own 12% tint, a status chip: successDeep
+  // falls to 4.27:1 there and this reads 5.95:1.
+  successChipText: '#166534',
   error: '#EF4444',
   errorLight: '#F87171',
   errorDark: '#DC2626',
@@ -446,10 +465,6 @@ export const colors = {
   // Workout step colors
   workoutCooldown: '#8B5CF6',
 
-  // Warning banner colors
-  warningBannerBg: '#451A03',
-  warningBannerText: '#FDE68A',
-
   // Tappable reference link inside an insight's methodology note
   // Teal-700. The lighter #009688 read 3.30:1, and a link that carries its
   // affordance in colour owes the text bar twice over.
@@ -528,6 +543,36 @@ export function chartInkColor(stream: keyof typeof chartStreamColors): string {
   return chartStreamInk[stream] === 'light' ? colors.textOnDark : colors.textOnPrimary;
 }
 
+// The ink a section's index number prints over its disc of section colour, one
+// per palette slot. The disc carries the hue the map draws the section in, and
+// the hue does not change with the theme, so neither does the ink: light
+// (white) where it clears 4.5:1, dark where white does not.
+export const sectionPaletteInk: readonly ('light' | 'dark')[] = [
+  'dark',
+  'light',
+  'dark',
+  'dark',
+  'dark',
+  'dark',
+  'dark',
+  'dark',
+];
+
+/** The ink colour a section's index number takes on its palette slot. */
+export function sectionNumberInk(slot: number): string {
+  return sectionPaletteInk[slot] === 'light' ? colors.textOnDark : colors.textOnPrimary;
+}
+
+// A list row's swipe actions: each fill with the ink its label and icon take.
+// The action sits behind the row in both themes, so the pair does not change
+// with the theme. White on the error red is 3.76:1, so the destructive action
+// takes the deep red; the amber and green keep their hue and take dark ink.
+export const swipeAction = {
+  destructive: { bg: colors.errorDeep, text: colors.textOnDark },
+  hide: { bg: colors.warning, text: colors.textOnPrimary },
+  restore: { bg: colors.success, text: colors.textOnPrimary },
+} as const;
+
 // Style-picker chip swatches (map style selection): one representative
 // background per map style. Theme-independent - each depicts the style itself.
 export const mapStyleSwatch = {
@@ -546,12 +591,15 @@ export const mapStylePreview = {
 } as const;
 
 // The two insight tones the verdict ladder has no rung for, because they are
-// categories rather than judgements. Theme-independent; `info` mirrors
-// fitnessBlue. Every polarity resolves through the ladder instead, so a tone
-// added here that `insightToneColor` does not return is unreachable.
+// categories rather than judgements. `info` mirrors fitnessBlue. A widget row's
+// dot is the only mark of its tone, so each clears the 3:1 a graphical object
+// owes on every surface of its theme. The light tones are the dark ones
+// deepened, worst light surface info 4.14:1 and opportunity 3.41:1. Every
+// polarity resolves through the ladder instead, so a tone added here that
+// `insightToneColor` does not return is unreachable.
 export const insightIcon = {
-  info: '#42A5F5',
-  opportunity: '#FF9800',
+  info: { light: '#1976D2', dark: '#42A5F5' },
+  opportunity: { light: '#E65100', dark: '#FF9800' },
 } as const;
 
 // Status badge palette (strength balance/progression chips): translucent fill
@@ -611,8 +659,9 @@ export function verdictFill(rung: VerdictRung, isDark: boolean, strong = false):
 export type InsightTone = VerdictRung | 'info' | 'opportunity';
 
 export function insightToneColor(tone: InsightTone, isDark: boolean): string {
-  if (tone === 'info') return insightIcon.info;
-  if (tone === 'opportunity') return insightIcon.opportunity;
+  if (tone === 'info' || tone === 'opportunity') {
+    return isDark ? insightIcon[tone].dark : insightIcon[tone].light;
+  }
   return verdictColor(tone, isDark);
 }
 
@@ -629,8 +678,8 @@ export const recording = {
   dark: '#DC2626',
 } as const;
 
-// Sync-warning banner palette (root layout): amber surfaces with deep amber
-// text, one set per mode.
+// Warning banner palette for the sync, startup and engine notices: amber
+// surfaces with deep amber text, one set per mode.
 export const amberBanner = {
   light: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', subtext: '#B45309' },
   dark: { bg: '#3F2A17', border: '#92400E', text: '#FDE68A', subtext: '#FCD34D' },
@@ -691,11 +740,21 @@ export const shaderWarmup = {
   shadow: '#000000',
 } as const;
 
-// Switch track when the switch is off, one per mode. Heavier than inputTrack:
-// a switch reads as a control, a progress rail does not.
+// Switch track when the switch is off, one per mode. It is the only thing that
+// shows an off switch is there, so it clears 3:1 on every surface of its mode:
+// 3.29:1 on backgroundAlt in light, 3.42:1 on surfaceCard in dark.
 export const switchTrackOff = {
-  light: '#DDDDDD',
-  dark: '#444444',
+  light: '#85858C',
+  dark: '#75757D',
+} as const;
+
+// The edge of a text field, one per mode. A field's outline is what says there
+// is somewhere to type, so it is a mark at 3:1 against every surface of its
+// theme rather than a divider: light 3.42:1 on backgroundAlt, dark 3.24:1 on
+// surfaceCard, each its theme's worst case.
+export const inputBoundary = {
+  light: '#82828B',
+  dark: '#71717A',
 } as const;
 
 // The QR scanner covers the screen with the camera feed, so its chrome is
@@ -793,6 +852,8 @@ export const darkColors = {
   // Counterpart to light successDeep: on a near-black surface the mark has to
   // be the light tone, not the dark one. 10.17:1 on #18181B.
   successDeep: '#4ADE80',
+  // Counterpart to light successChipText, the same green as successDeep.
+  successChipText: '#4ADE80',
 
   // Interactive states
   buttonSecondary: '#27272A',
@@ -938,6 +999,10 @@ export const glows = {
 // =============================================================================
 
 export const opacity = {
+  // A control that refuses the press, drawn at this opacity on top of reporting itself disabled.
+  disabled: 0.5,
+  // A chip or row that is out of play but still part of the layout, drawn fainter than disabled.
+  dimmed: 0.4,
   // Light mode overlays (black with opacity)
   overlay: {
     subtle: 'rgba(0, 0, 0, 0.03)',

@@ -4,10 +4,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { ScreenSafeAreaView, EmptyState, useTabBarClearance, screenListInsets } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  EmptyState,
+  ErrorState,
+  useTabBarClearance,
+  screenListInsets,
+} from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { IconButton } from '@/shared/ui/IconButton';
-import { assistiveActions } from '@/shared/ui/assistiveActions';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
@@ -17,49 +22,22 @@ import {
   useRecordingLibrary,
   recordingActions,
   PermissionUpgradeBanner,
+  uploadStatusTone,
 } from '@/features/recording';
-import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
+import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-
-/**
- * The status marks. A function of the theme rather than a constant: the
- * success and blocked tones have to be the deep pair on white and the light
- * pair on near-black, and no single value clears 4.5:1 on both grounds.
- */
-const statusMeta = (
-  isDark: boolean
-): Record<
-  RecordingUploadStatus,
-  {
-    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-    color: string;
-  }
-> => ({
-  localOnly: { icon: 'cellphone', color: colors.textSecondary },
-  pending: { icon: 'cloud-upload-outline', color: colors.secondary },
-  uploading: { icon: 'cloud-upload', color: colors.secondary },
-  uploaded: {
-    icon: 'cloud-check-outline',
-    color: isDark ? darkColors.successDeep : colors.successDeep,
-  },
-  failed: { icon: 'cloud-alert', color: colors.error },
-  permissionBlocked: {
-    icon: 'shield-lock-outline',
-    color: isDark ? darkColors.warningAmber : colors.warningAmber,
-  },
-});
 
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
-  const { entries, isLoading, uploadNow, uploadingId } = useRecordingLibrary();
+  const { entries, isLoading, error, refresh, uploadNow, uploadingId } = useRecordingLibrary();
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const meta = useMemo(() => statusMeta(isDark), [isDark]);
+  const meta = useMemo(() => uploadStatusTone(isDark), [isDark]);
 
   const renderEntry = useCallback(
     ({ item }: { item: RecordingLibraryEntry }) => {
@@ -91,9 +69,9 @@ function RecordingsLibraryScreenContent() {
             onPress={() => tapTo(`/recordings/${item.id}`)}
             accessibilityRole="button"
             accessibilityLabel={label}
-            {...assistiveActions(
-              offerUpload ? [{ name: 'uploadNow', label: uploadLabel, run: upload }] : []
-            )}
+            actions={
+              offerUpload ? [{ name: 'uploadNow', label: uploadLabel, run: upload }] : undefined
+            }
           >
             <MaterialCommunityIcons
               name={getActivityIcon(item.activityType)}
@@ -146,8 +124,17 @@ function RecordingsLibraryScreenContent() {
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
       {isLoading ? (
-        <View style={styles.loading}>
+        <View style={styles.centred}>
           <ActivityIndicator />
+        </View>
+      ) : error != null ? (
+        <View style={styles.centred}>
+          <ErrorState
+            error={error}
+            fallbackKey="engine.failure.database"
+            onRetry={() => void refresh()}
+            testID="recordings-read-failure"
+          />
         </View>
       ) : (
         <FlatList
@@ -182,7 +169,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loading: {
+  centred: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

@@ -5,6 +5,8 @@
 import { useCallback, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 
+import { askForegroundLocation } from '@/shared/app/permissions';
+
 /** A fix younger than this is reused rather than asking the GPS again. */
 export const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
@@ -40,8 +42,8 @@ export function useLocateUser(): UseLocateUserResult {
     try {
       setLocationLoading(true);
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      // An approximate grant is enough to centre the map on.
+      if ((await askForegroundLocation()) !== 'granted') {
         setLocationLoading(false);
         return;
       }

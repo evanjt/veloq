@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
@@ -22,6 +22,7 @@ import { CurveArea, CurveLine } from './CurvePaths';
 import type { CurveKind } from './curvePath';
 import { useChartColors } from './useChartColors';
 import { useChartGestures } from './useChartGestures';
+import { useMeasuredWidth } from './useMeasuredWidth';
 
 /** An x label pinned to a data value, for a log or otherwise uneven axis. */
 export interface PlacedLabel {
@@ -85,7 +86,7 @@ export function CurveChart<T extends { x: number; y: number }>({
 }: CurveChartProps<T>) {
   const { isDark } = useTheme();
   const chartColors = useChartColors();
-  const [width, setWidth] = useState(0);
+  const { width, onLayout } = useMeasuredWidth();
 
   const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<T>({
     data: data as T[],
@@ -93,10 +94,6 @@ export function CurveChart<T extends { x: number; y: number }>({
     onInteractionChange,
     crosshairMode,
   });
-
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    setWidth(e.nativeEvent.layout.width);
-  }, []);
 
   const x = useCallback((d: T) => d.x, []);
   const series = useMemo(() => ({ y: (d: T) => d.y }), []);

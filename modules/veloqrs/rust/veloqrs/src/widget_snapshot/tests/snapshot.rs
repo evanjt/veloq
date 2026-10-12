@@ -29,7 +29,7 @@ const LABELS: &[(&str, &str)] = &[
     ("recording.startActivity", "Start Activity"),
     ("fitnessScreen.perWeek", "/Woche"),
     ("fitnessScreen.rampRate", "Ramp"),
-    ("metrics.ftp", "FTP"),
+    ("metrics.eftp", "eFTP"),
     ("metrics.pace", "Pace"),
     ("metrics.css", "CSS"),
     ("metrics.weight", "Weight"),
@@ -436,6 +436,7 @@ fn computes_today_against_yesterday_trends_with_a_deadband() {
             delta_vs_yesterday: Some(-3.0),
             zone: Some("greyZone"),
             text: Some("-8".to_string()),
+            spoken: "Form -8".to_string(),
         }
     );
     assert_eq!(
@@ -447,6 +448,7 @@ fn computes_today_against_yesterday_trends_with_a_deadband() {
             delta_vs_yesterday: Some(1.0),
             zone: None,
             text: None,
+            spoken: "Fitness 72".to_string(),
         }
     );
     assert_eq!(s.metrics.fatigue.trend_dir, "up");
@@ -649,6 +651,7 @@ fn is_null_safe_with_no_engine_data_and_never_emits_a_non_finite_number() {
             delta_vs_yesterday: None,
             zone: Some("greyZone"),
             text: Some("-".to_string()),
+            spoken: "metrics.form".to_string(),
         }
     );
     assert_eq!(s.metrics.ramp_rate.value, 0.0);
@@ -672,6 +675,7 @@ fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
             trend_dir: "up",
             verdict: "improved",
             colour_key: "blue",
+            spoken: "Fitness 72".to_string(),
         }
     );
     // Weight is left out: the widget read has no source for it.
@@ -681,11 +685,12 @@ fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
         card.entries[1],
         SummaryEntry {
             id: "ftp".to_string(),
-            label: "FTP".to_string(),
+            label: "eFTP".to_string(),
             value: "251".to_string(),
             trend_dir: "up",
             verdict: "improved",
             colour_key: "default",
+            spoken: "eFTP 251".to_string(),
         }
     );
     assert_eq!(card.entries[2].value, "6.5h");
@@ -1649,6 +1654,7 @@ fn lists_the_insights_the_context_carries_in_order_and_an_empty_list_without() {
             icon: "map".to_string(),
             tone: "info".to_string(),
             url: format!("veloq://route/{id}"),
+            tone_label: String::new(),
         })
         .collect();
     let s = compose(&data_of(&raw), &ctx, CLOCK);
@@ -1686,7 +1692,7 @@ fn carries_an_entry_for_every_metric_a_placement_may_pick_whatever_the_card_show
     let weight = s.summary_metrics.iter().find(|e| e.id == "weight").unwrap();
     assert_eq!(weight.value, "72.4kg");
     let ftp = s.summary_metrics.iter().find(|e| e.id == "ftp").unwrap();
-    assert_eq!(ftp.label, "FTP");
+    assert_eq!(ftp.label, "eFTP");
 }
 
 #[test]

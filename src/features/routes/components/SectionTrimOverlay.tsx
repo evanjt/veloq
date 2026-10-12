@@ -13,13 +13,12 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator } from 'react-native-paper';
 import * as haptics from '@/shared/ui/haptics';
 import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { Button, IconButton, ToggleButton, pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton, ToggleButton, pressable, pressRipple, Spinner } from '@/shared/ui';
 import {
   levelRatio,
   precisionLevel,
@@ -293,6 +292,13 @@ export function SectionTrimOverlay({
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const disabledInk = isDark ? darkColors.textDisabled : colors.textDisabled;
+  const startEarlierOut = stepped('start', -1) === startIndex;
+  const startLaterOut = stepped('start', 1) === startIndex;
+  const endEarlierOut = stepped('end', -1) === endIndex;
+  const endLaterOut = stepped('end', 1) === endIndex;
+  const stepInk = (out: boolean) => (out ? disabledInk : colors.primary);
+  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
 
   return (
     <View testID="section-trim-overlay" style={styles.container}>
@@ -304,10 +310,10 @@ export function SectionTrimOverlay({
           color={isTrimmed ? colors.primary : mutedColor}
         />
         {isSaving ? (
-          <ActivityIndicator size={16} color={colors.primary} />
+          <Spinner />
         ) : (
           <>
-            <Text style={[styles.infoValue, { color: isTrimmed ? colors.primary : textColor }]}>
+            <Text style={[styles.infoValue, { color: isTrimmed ? accentText : textColor }]}>
               {formatDistance(trimmedDistance, isMetric)}
             </Text>
             {isTrimmed && (
@@ -377,10 +383,14 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimStartEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(-1)}
-            disabled={stepped('start', -1) === startIndex}
+            disabled={startEarlierOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
+            <MaterialCommunityIcons
+              name="chevron-left"
+              size={16}
+              color={stepInk(startEarlierOut)}
+            />
           </Pressable>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
@@ -388,10 +398,10 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimStartLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(1)}
-            disabled={stepped('start', 1) === startIndex}
+            disabled={startLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
+            <MaterialCommunityIcons name="chevron-right" size={16} color={stepInk(startLaterOut)} />
           </Pressable>
         </View>
         <View style={styles.stepGroup}>
@@ -401,10 +411,10 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimEndEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(-1)}
-            disabled={stepped('end', -1) === endIndex}
+            disabled={endEarlierOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
+            <MaterialCommunityIcons name="chevron-left" size={16} color={stepInk(endEarlierOut)} />
           </Pressable>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
@@ -412,10 +422,10 @@ export function SectionTrimOverlay({
             accessibilityLabel={t('sections.trimEndLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(1)}
-            disabled={stepped('end', 1) === endIndex}
+            disabled={endLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
+            <MaterialCommunityIcons name="chevron-right" size={16} color={stepInk(endLaterOut)} />
           </Pressable>
         </View>
       </View>

@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { formatSyncProgress, formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { SectionTitle } from '@/shared/ui/SectionTitle';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -32,15 +33,14 @@ export function FeedFirstSyncStandby() {
   const hasStep = status?.step !== undefined;
   useAnnounceOnAppear(hasStep ? formatSyncProgressParts(status, t).label : null);
 
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
     <View style={styles.container} testID="feed-first-sync-standby">
       <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={[styles.title, { color: textPrimary }]} testID="feed-first-sync-title">
+      <SectionTitle align="center" testID="feed-first-sync-title">
         {t('feed.firstSyncTitle')}
-      </Text>
+      </SectionTitle>
       <Text style={[styles.body, { color: textSecondary }]} testID="feed-first-sync-body">
         {t('feed.firstSyncBody')}
       </Text>
@@ -63,11 +63,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xxl,
-  },
-  title: {
-    fontSize: typography.sectionTitle.fontSize,
-    fontWeight: typography.sectionTitle.fontWeight,
-    textAlign: 'center',
   },
   body: {
     fontSize: typography.bodyCompact.fontSize,

@@ -15,7 +15,7 @@ jest.mock('@/features/routes/hooks/useEngine', () => ({
   useRepresentativeRoute: () => ({ points: [] }),
 }));
 
-it('shows every sport icon and no scalar sport pace on a mixed route', () => {
+it('shows every sport icon and no scalar sport pace on a mixed route', async () => {
   const route = {
     id: 'r_1',
     name: 'Loop',
@@ -27,7 +27,7 @@ it('shows every sport icon and no scalar sport pace on a mixed route', () => {
     bestPace: 3.5,
     distance: 1000,
   } as RouteGroup;
-  const view = render(<RouteRow route={route} navigable />);
+  const view = await render(<RouteRow route={route} navigable />);
   const iconNames = view.UNSAFE_getAllByType(MaterialCommunityIcons).map((icon) => icon.props.name);
 
   expect(iconNames).toContain('bike');
@@ -38,7 +38,7 @@ it('shows every sport icon and no scalar sport pace on a mixed route', () => {
 });
 
 describe('placeholder glyph', () => {
-  const placeholderIcons = (type: string, sportTypes: string[]) => {
+  const placeholderIcons = async (type: string, sportTypes: string[]) => {
     const route = {
       id: 'r_2',
       name: 'Trail',
@@ -49,7 +49,7 @@ describe('placeholder glyph', () => {
       sportTypes,
       distance: 1000,
     } as RouteGroup;
-    const view = render(<RouteRow route={route} navigable />);
+    const view = await render(<RouteRow route={route} navigable />);
     return view.UNSAFE_getAllByType(MaterialCommunityIcons).map((icon) => icon.props);
   };
 
@@ -57,13 +57,13 @@ describe('placeholder glyph', () => {
     ['Hike', 'hiking'],
     ['TrailRun', 'run-fast'],
     ['Rowing', 'rowing'],
-  ])('draws the shared sport glyph for %s', (type, glyph) => {
-    const icons = placeholderIcons(type, [type]);
+  ])('draws the shared sport glyph for %s', async (type, glyph) => {
+    const icons = await placeholderIcons(type, [type]);
     expect(icons.filter((icon) => icon.name === glyph)).toHaveLength(2);
   });
 
-  it('draws the sport icons at the section row size', () => {
-    const icons = placeholderIcons('Ride', ['Ride']);
+  it('draws the sport icons at the section row size', async () => {
+    const icons = await placeholderIcons('Ride', ['Ride']);
     expect(icons.filter((icon) => icon.name === 'bike').map((icon) => icon.size)).toContain(12);
   });
 });

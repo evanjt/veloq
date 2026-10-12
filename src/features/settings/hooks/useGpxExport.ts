@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { buildGpxFile } from '@/shared/native/gpxFile';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import type { LatLng } from '@/shared/geo/polyline';
+import { inform } from '@/shared/ui/dialog';
 
 interface ExportParams {
   name: string;
@@ -23,7 +23,7 @@ export function useGpxExport() {
       try {
         const file = buildGpxFile(name, sport, time, points);
         if (!file) {
-          Alert.alert(t('common.error'), t('export.gpxTrimmedAway'));
+          inform({ title: t('export.failedTitle'), message: t('export.gpxTrimmedAway') });
           return;
         }
         await shareFile({
@@ -32,7 +32,7 @@ export function useGpxExport() {
           mimeType: 'application/gpx+xml',
         });
       } catch {
-        Alert.alert(t('common.error'), t('export.error'));
+        inform({ title: t('export.failedTitle'), message: t('export.error') });
       } finally {
         setExporting(false);
       }

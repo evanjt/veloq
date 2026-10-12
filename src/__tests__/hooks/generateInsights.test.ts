@@ -629,7 +629,7 @@ describe('generateInsights', () => {
       );
 
       const stale = result.find((insight) => insight.id === 'stale_pr-group');
-      expect(stale!.subtitle).toContain('insights.stalePr.metricCyclingEftp: 250W → 270W');
+      expect(stale!.subtitle).toContain('insights.stalePr.metricCyclingEftp: 250 W → 270 W');
       expect(stale!.subtitle).toContain('insights.stalePr.metricSwimCss: 1:40/100m → 1:31/100m');
     });
 

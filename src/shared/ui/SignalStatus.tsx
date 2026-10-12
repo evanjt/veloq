@@ -9,8 +9,10 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { absentLabel } from '@/shared/format/absent';
 import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -85,6 +87,7 @@ export function SignalStatus({
   testID,
 }: SignalStatusProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const color = signalColor(level, isDark);
   const tint = signalTint(level, isDark);
   const iconSize = variant === 'line' ? 18 : variant === 'chip' ? 13 : 14;
@@ -96,6 +99,7 @@ export function SignalStatus({
         <Text
           style={[styles.label, variant === 'line' && styles.labelLine, { color }]}
           numberOfLines={variant === 'line' ? 2 : 1}
+          accessibilityLabel={absentLabel(label, t)}
         >
           {label}
         </Text>

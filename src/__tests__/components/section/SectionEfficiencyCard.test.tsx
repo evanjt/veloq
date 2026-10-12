@@ -54,18 +54,24 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
   } as EfficiencyTrend;
 }
 
-it('renders the effort count and the HR change the engine measured', () => {
-  const { getByTestId } = render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
+it('renders the effort count and the HR change the engine measured', async () => {
+  const { getByTestId } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
 
   expect(getByTestId('section-efficiency-card')).toBeTruthy();
   expect(getByTestId('section-efficiency-detail').props.children).toContain('3');
   expect(getByTestId('section-efficiency-detail').props.children).toContain('-6');
 });
 
-it('renders the chart for a section that has a series', () => {
-  const { getByTestId } = render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
+it('renders the chart for a section that has a series', async () => {
+  const { getByTestId } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
 
   expect(getByTestId('section-efficiency-chart')).toBeTruthy();
+});
+
+it('titles the card as a heading', async () => {
+  const { getByRole } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
+
+  expect(getByRole('header', { name: 'sections.aerobicEfficiency' })).toBeTruthy();
 });
 
 it('scales one vertex per point, lower ratio higher on the canvas', () => {
@@ -83,16 +89,16 @@ it('centres a flat series instead of dividing by a zero range', () => {
   expect(vertices[0].y).toBe(vertices[1].y);
 });
 
-it('rounds a rise in heart rate with its sign kept', () => {
-  const { getByTestId } = render(
+it('rounds a rise in heart rate with its sign kept', async () => {
+  const { getByTestId } = await render(
     <SectionEfficiencyCard trend={trend({ hrChangeBpm: 4.4, direction: 1 })} isDark={false} />
   );
 
   expect(getByTestId('section-efficiency-detail').props.children).toContain('+4');
 });
 
-it('renders nothing when the section has no efficiency series', () => {
-  const { queryByTestId } = render(<SectionEfficiencyCard trend={null} isDark={false} />);
+it('renders nothing when the section has no efficiency series', async () => {
+  const { queryByTestId } = await render(<SectionEfficiencyCard trend={null} isDark={false} />);
 
   expect(queryByTestId('section-efficiency-card')).toBeNull();
 });

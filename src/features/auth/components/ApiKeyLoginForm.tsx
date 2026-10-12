@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, TextInput } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
-import { Button, pressable, pressRipple } from '@/shared/ui';
+import { Button, TextField, TextLink } from '@/shared/ui';
 
 interface ApiKeyLoginFormProps {
   onLogin: (apiKey: string) => Promise<void>;
@@ -46,6 +46,12 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
     onLogin(apiKey);
   }, [onLogin, apiKey]);
 
+  // Return connects like the button does, and is inert where the button is
+  // disabled.
+  const handleReturn = useCallback(() => {
+    if (apiKey.trim()) handleSubmit();
+  }, [apiKey, handleSubmit]);
+
   return (
     <CollapsibleSection
       testID="login-apikey-section"
@@ -60,33 +66,29 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
           {t('login.apiKeyDescription')}
         </Text>
 
-        <Pressable
+        <TextLink
+          label={t('login.getApiKey')}
           onPress={onOpenDeveloperSettings}
-          accessibilityRole="link"
-          accessibilityLabel={t('login.getApiKey')}
-          style={pressable(styles.getApiKeyLink)}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.linkText, isDark && { color: darkColors.linkTeal }]}>
-            {t('login.getApiKey')}
-          </Text>
-          <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
-        </Pressable>
+          icon="open-in-new"
+          iconPosition="trailing"
+          style={styles.getApiKeyLink}
+        />
 
-        <TextInput
+        <TextField
           testID="login-apikey-input"
-          mode="outlined"
+          label={t('settings.authApiKey')}
           value={apiKey}
           onChangeText={setApiKey}
           placeholder={t('login.apiKeyPlaceholder')}
           secureTextEntry
+          textContentType="password"
+          autoComplete="password"
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="go"
+          onSubmitEditing={handleReturn}
           style={styles.apiKeyInput}
-          outlineColor={isDark ? darkColors.border : colors.border}
-          activeOutlineColor={colors.primary}
-          textColor={themeColors.text}
-          disabled={isLoading || disabled}
+          editable={!(isLoading || disabled)}
         />
 
         <Button
@@ -134,19 +136,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   getApiKeyLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
     marginBottom: spacing.md,
-  },
-  linkText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.linkTeal,
-    textDecorationLine: 'underline',
   },
   apiKeyInput: {
     marginBottom: spacing.md,
-    backgroundColor: 'transparent',
   },
   localModeNote: {
     flexDirection: 'row',

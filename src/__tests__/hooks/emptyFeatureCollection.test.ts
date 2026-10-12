@@ -28,8 +28,8 @@ const section = {
   visitCount: 4,
 } as unknown as FrequentSection;
 
-it('hands the shared empty collection to every idle section source', () => {
-  const { result } = renderHook(() => useSectionMapLayers({ section, displayPoints: [] }));
+it('hands the shared empty collection to every idle section source', async () => {
+  const { result } = await renderHook(() => useSectionMapLayers({ section, displayPoints: [] }));
 
   expect(result.current.allTracesFeatureCollection).toBe(EMPTY_FEATURE_COLLECTION);
   expect(result.current.hasAllTraces).toBe(false);
@@ -41,8 +41,8 @@ const track = [
   { latitude: -33.872, longitude: 151.202 },
 ];
 
-it('hands the shared empty collection to the section creation line while idle', () => {
-  const { result, rerender } = renderHook(
+it('hands the shared empty collection to the section creation line while idle', async () => {
+  const { result, rerender } = await renderHook(
     ({ creationMode }: { creationMode: boolean }) =>
       useSectionCreation({
         creationMode,
@@ -53,7 +53,7 @@ it('hands the shared empty collection to the section creation line while idle', 
   );
   expect(result.current.sectionGeoJSON).toBe(EMPTY_FEATURE_COLLECTION);
 
-  rerender({ creationMode: true });
+  await rerender({ creationMode: true });
   expect(result.current.sectionGeoJSON).toBe(EMPTY_FEATURE_COLLECTION);
 });
 
@@ -63,9 +63,9 @@ it('hands the shared empty collection to the fullscreen overlay when none is pas
   expect((sources.overlay as { data: unknown }).data).toBe(EMPTY_FEATURE_COLLECTION);
 });
 
-it('draws no portions when the activity has no section overlays', () => {
+it('draws no portions when the activity has no section overlays', async () => {
   for (const sectionOverlays of [null, []]) {
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useMapLayers({ validCoordinates: track, coordinates: track, sectionOverlays })
     );
     expect(result.current.consolidatedPortionsGeoJSON).toBe(EMPTY_FEATURE_COLLECTION);

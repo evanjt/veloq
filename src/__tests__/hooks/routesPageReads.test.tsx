@@ -72,8 +72,8 @@ function library(groups: number, sections: number) {
   });
 }
 
-function flushIdle() {
-  act(() => {
+async function flushIdle() {
+  await act(() => {
     while (mockIdle.length > 0) mockIdle.shift()!();
   });
 }
@@ -86,58 +86,60 @@ beforeEach(() => {
 });
 
 describe('the routes screen mount', () => {
-  it('reads the first page once', () => {
+  it('reads the first page once', async () => {
     const read = library(3, 3);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    renderHook(() => useRoutesScreenData());
-    flushIdle();
+    await renderHook(() => useRoutesScreenData());
+    await flushIdle();
 
     expect(read).toHaveBeenCalledTimes(1);
   });
 
-  it('reads again once idle when the engine was not ready at render', () => {
+  it('reads again once idle when the engine was not ready at render', async () => {
     const read = library(3, 3);
     mockedGetEngine
       .mockReturnValueOnce(null)
       .mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
     expect(result.current.data).toBeNull();
-    flushIdle();
+    await flushIdle();
 
     expect(read).toHaveBeenCalledTimes(1);
     expect(result.current.data?.groups).toHaveLength(3);
   });
 
-  it('reads again on focus after an engine event it missed', () => {
+  it('reads again on focus after an engine event it missed', async () => {
     const read = library(3, 3);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { rerender } = renderHook(() => useRoutesScreenData());
-    flushIdle();
+    const { rerender } = await renderHook(() => useRoutesScreenData());
+    await flushIdle();
     mockTrigger = 1;
-    rerender({});
-    flushIdle();
+    await rerender({});
+    await flushIdle();
     const afterEvent = read.mock.calls.length;
     expect(afterEvent).toBe(2);
 
-    act(() => mockFocus?.());
-    flushIdle();
+    await act(() => mockFocus?.());
+    await flushIdle();
 
     expect(read.mock.calls.length).toBe(afterEvent + 1);
   });
 });
 
 describe('a load-more', () => {
-  it('reads no sections while paging groups and keeps the sections it has', () => {
+  it('reads no sections while paging groups and keeps the sections it has', async () => {
     const read = library(5, 3);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = renderHook(() => useRoutesScreenData({ groupLimit: 2, sectionLimit: 5 }));
-    flushIdle();
-    act(() => result.current.loadMoreGroups());
-    flushIdle();
+    const { result } = await renderHook(() =>
+      useRoutesScreenData({ groupLimit: 2, sectionLimit: 5 })
+    );
+    await flushIdle();
+    await act(() => result.current.loadMoreGroups());
+    await flushIdle();
 
     const query = read.mock.calls.at(-1)![0];
     expect(query).toMatchObject({ groupOffset: 2, groupLimit: 2, sectionLimit: 0 });
@@ -147,14 +149,16 @@ describe('a load-more', () => {
     expect(result.current.hasMoreGroups).toBe(true);
   });
 
-  it('reads no groups while paging sections and keeps the groups it has', () => {
+  it('reads no groups while paging sections and keeps the groups it has', async () => {
     const read = library(3, 5);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = renderHook(() => useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 }));
-    flushIdle();
-    act(() => result.current.loadMoreSections());
-    flushIdle();
+    const { result } = await renderHook(() =>
+      useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 })
+    );
+    await flushIdle();
+    await act(() => result.current.loadMoreSections());
+    await flushIdle();
 
     const query = read.mock.calls.at(-1)![0];
     expect(query).toMatchObject({ sectionOffset: 2, sectionLimit: 2, groupLimit: 0 });
@@ -163,34 +167,38 @@ describe('a load-more', () => {
     expect(result.current.hasMoreGroups).toBe(false);
   });
 
-  it('stops asking for groups once a finished group list stays finished across section pages', () => {
+  it('stops asking for groups once a finished group list stays finished across section pages', async () => {
     const read = library(1, 7);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = renderHook(() => useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 }));
-    flushIdle();
-    act(() => result.current.loadMoreSections());
-    flushIdle();
+    const { result } = await renderHook(() =>
+      useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 })
+    );
+    await flushIdle();
+    await act(() => result.current.loadMoreSections());
+    await flushIdle();
     const calls = read.mock.calls.length;
-    act(() => result.current.loadMoreGroups());
-    flushIdle();
+    await act(() => result.current.loadMoreGroups());
+    await flushIdle();
 
     expect(read.mock.calls.length).toBe(calls);
   });
 });
 
 describe('a load-more of each list before the read lands', () => {
-  it('reads both pages in one read and loses neither', () => {
+  it('reads both pages in one read and loses neither', async () => {
     const read = library(5, 5);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = renderHook(() => useRoutesScreenData({ groupLimit: 2, sectionLimit: 2 }));
-    flushIdle();
-    act(() => {
+    const { result } = await renderHook(() =>
+      useRoutesScreenData({ groupLimit: 2, sectionLimit: 2 })
+    );
+    await flushIdle();
+    await act(() => {
       result.current.loadMoreGroups();
       result.current.loadMoreSections();
     });
-    flushIdle();
+    await flushIdle();
 
     expect(read.mock.calls.at(-1)![0]).toMatchObject({
       groupOffset: 2,

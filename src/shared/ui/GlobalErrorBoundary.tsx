@@ -1,9 +1,11 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { i18n } from '@/i18n';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { errorScreen, layout, typography, spacing } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
+import { StatusLine } from './StatusLine';
 
 interface Props {
   children: ReactNode;
@@ -43,15 +45,24 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 }
 
+/**
+ * The fallback renders outside every provider, so it reads the inset the
+ * device reported at launch rather than the safe-area context.
+ */
 function GlobalErrorFallback({ error }: { error: Error | null }) {
+  const topInset = initialWindowMetrics?.insets.top ?? 0;
+  const title = fallbackText('emptyState.error.title', 'Something went wrong');
+  const body = fallbackText('errorState.closeAndReopen', 'Close and reopen the app to continue.');
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {fallbackText('emptyState.error.title', 'Something went wrong')}
+    <StatusLine
+      tone="error"
+      message={[title, body]}
+      style={[styles.container, { paddingTop: topInset + spacing.xl }]}
+    >
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
       </Text>
-      <Text style={styles.body}>
-        {fallbackText('errorState.closeAndReopen', 'Close and reopen the app to continue.')}
-      </Text>
+      <Text style={styles.body}>{body}</Text>
       {__DEV__ && error?.message && <Text style={styles.devError}>{error.message}</Text>}
       {__DEV__ && (
         <Pressable
@@ -68,7 +79,7 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
           <Text style={styles.reloadText}>Reload</Text>
         </Pressable>
       )}
-    </View>
+    </StatusLine>
   );
 }
 
@@ -85,9 +96,6 @@ function fallbackText(
   }
 }
 
-const IOS_TOP_INSET = spacing.xxl + spacing.smPlus;
-const ANDROID_TOP_INSET = spacing.xl + spacing.sm;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -95,7 +103,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: Platform.OS === 'ios' ? IOS_TOP_INSET : ANDROID_TOP_INSET,
     paddingBottom: spacing.xxl,
   },
   title: {

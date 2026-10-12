@@ -164,6 +164,7 @@ object SummaryWidget {
       value = m.display(),
       trendDir = m.trendDir,
       verdict = m.verdict,
+      spoken = m.spoken,
       colorKey =
         when (id) {
           "form" -> "formZone"
@@ -173,6 +174,17 @@ object SummaryWidget {
         },
     )
   }
+
+  /**
+   * The arrow the engine's trend glyph names, the one the app draws beside the same number. Flat
+   * is drawn rather than left blank, and a direction this build does not know draws flat.
+   */
+  fun trendArrow(dir: String): String =
+    when (dir) {
+      "up" -> "↑"
+      "down" -> "↓"
+      else -> "→"
+    }
 
   /** The line under the hero's value: the form zone where the hero is form, nothing otherwise. */
   fun heroLine(snap: WidgetSnapshot, card: SummaryCard): String? =

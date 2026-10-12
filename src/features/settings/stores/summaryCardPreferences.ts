@@ -31,7 +31,7 @@ export const AVAILABLE_METRICS: MetricDefinition[] = [
   { id: 'rhr', labelKey: 'metrics.rhr' },
   { id: 'weekHours', labelKey: 'metrics.week' },
   { id: 'weekCount', labelKey: 'metrics.activityCount' },
-  { id: 'ftp', labelKey: 'metrics.ftp', sportSpecific: 'Cycling' },
+  { id: 'ftp', labelKey: 'metrics.eftp', sportSpecific: 'Cycling' },
   { id: 'thresholdPace', labelKey: 'metrics.pace', sportSpecific: 'Running' },
   { id: 'css', labelKey: 'metrics.css', sportSpecific: 'Swimming' },
   { id: 'fitness', labelKey: 'metrics.fitness' },

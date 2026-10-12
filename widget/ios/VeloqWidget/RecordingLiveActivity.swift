@@ -22,7 +22,7 @@ struct VeloqRecordingLiveActivity: Widget {
         state: context.state,
         isStale: context.isStale
       )
-      .activityBackgroundTint(Color.black.opacity(0.55))
+      .activityBackgroundTint(RecordingCardStyle.tint)
       .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
     } dynamicIsland: { context in
       DynamicIsland {
@@ -46,9 +46,11 @@ struct VeloqRecordingLiveActivity: Widget {
               } else {
                 Text(context.state.distanceLabel)
                   .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+                  .accessibilityLabel(Text("Distance"))
+                  .accessibilityValue(Text(verbatim: context.state.distanceLabel))
                 Text(context.state.speedLabel)
                   .font(.system(size: WidgetTheme.TypeScale.label))
-                  .foregroundStyle(.secondary)
+                  .foregroundStyle(RecordingCardStyle.secondaryText)
               }
             }
             // A pause sent to a process that is gone does nothing, so a stale card
@@ -66,19 +68,25 @@ struct VeloqRecordingLiveActivity: Widget {
           // part of it.
           if let trace = context.state.trace, trace.points.count >= 2 {
             RecordingTrace(trace: trace)
+              .unspoken()
               .frame(height: 40)
           }
         }
       } compactLeading: {
-        RecordingGlyph(isPaused: context.state.isPaused, isStale: context.isStale)
+        RecordingGlyph(
+          isPaused: context.state.isPaused, isStale: context.isStale,
+          stoppedLabel: context.attributes.stoppedLabel)
       } compactTrailing: {
         RecordingClock(
           state: context.state,
           isStale: context.isStale,
           size: WidgetTheme.TypeScale.label
         )
+        .frame(maxWidth: RecordingCardStyle.compactClockWidth, alignment: .trailing)
       } minimal: {
-        RecordingGlyph(isPaused: context.state.isPaused, isStale: context.isStale)
+        RecordingGlyph(
+          isPaused: context.state.isPaused, isStale: context.isStale,
+          stoppedLabel: context.attributes.stoppedLabel)
       }
       .widgetURL(URL(string: "veloq://record"))
       // The island is always drawn on black, whatever the system scheme, so it
@@ -99,7 +107,7 @@ private struct RecordingLockScreenView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text((attributes.activityLabel ?? attributes.activityType).uppercased())
           .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
-          .foregroundStyle(.secondary)
+          .foregroundStyle(RecordingCardStyle.secondaryText)
         RecordingClock(state: state, isStale: isStale, size: WidgetTheme.TypeScale.hero)
         if isStale, let stopped = attributes.stoppedLabel {
           Text(stopped)
@@ -108,7 +116,9 @@ private struct RecordingLockScreenView: View {
         } else {
           Text("\(state.distanceLabel)  ·  \(state.speedLabel)")
             .font(.system(size: WidgetTheme.TypeScale.label))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(RecordingCardStyle.secondaryText)
+            .accessibilityLabel(Text("Distance"))
+            .accessibilityValue(Text(verbatim: "\(state.distanceLabel), \(state.speedLabel)"))
         }
       }
       Spacer(minLength: 0)
@@ -116,6 +126,7 @@ private struct RecordingLockScreenView: View {
       // never have one, so the card would carry a 72x56 hole all session.
       if let trace = state.trace, trace.points.count >= 2 {
         RecordingTrace(trace: trace)
+          .unspoken()
           .frame(width: 72, height: 56)
       }
       if !isStale {
@@ -145,8 +156,18 @@ private struct RecordingClock: View {
         Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
       }
     }
-    .font(.system(size: size, weight: .semibold).monospacedDigit())
+    .font(RecordingCardStyle.clockFont(size))
     .foregroundStyle(WidgetTheme.Record.foreground)
+    // Read as what it is and then the time, so the number is not a bare clock face.
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Text("Moving time"))
+    .accessibilityValue(spokenValue)
+  }
+
+  private var spokenValue: Text {
+    state.isPaused || isStale
+      ? Text(verbatim: frozenLabel)
+      : Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
   }
 
   private var frozenLabel: String {
@@ -183,15 +204,21 @@ private struct RecordingTrace: View {
 private struct RecordingGlyph: View {
   let isPaused: Bool
   let isStale: Bool
+  /// What a stale card says, from the app. Nil on a card started by an older build.
+  let stoppedLabel: String?
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     if isStale {
       Image(systemName: "exclamationmark.circle.fill")
-        .foregroundStyle(WidgetTheme.Light.gold)
+        .foregroundStyle(RecordingCardStyle.stale)
+        .accessibilityLabel(Text(verbatim: stoppedLabel ?? ""))
+        .accessibilityHidden(stoppedLabel == nil)
     } else {
       Image(systemName: isPaused ? "pause.circle.fill" : "record.circle.fill")
-        .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.accent(colorScheme))
+        .foregroundStyle(
+          isPaused ? RecordingCardStyle.paused : WidgetTheme.Record.accent(colorScheme))
+        .accessibilityLabel(isPaused ? Text("Paused") : Text("Recording"))
     }
   }
 }
@@ -212,12 +239,43 @@ private struct RecordingControl: View {
       }
       .buttonStyle(.plain)
       .tint(WidgetTheme.Record.accent(colorScheme))
+      .accessibilityLabel(spokenLabel)
     } else {
       Link(destination: URL(string: "veloq://record")!) {
         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")
           .font(.system(size: WidgetTheme.TypeScale.value, weight: .bold))
           .frame(width: 44, height: 44)
       }
+      .accessibilityLabel(spokenLabel)
     }
+  }
+
+  /// The symbol's own name would be read otherwise, which says the glyph and not the action.
+  private var spokenLabel: Text {
+    state.isPaused ? Text("Resume recording") : Text("Pause recording")
+  }
+}
+
+/// The card's own colours and clock frame. The card is on one fixed dark tint in both system
+/// appearances, so nothing here may follow the scheme: `.secondary` turns dark grey on a dark card
+/// in light appearance.
+enum RecordingCardStyle {
+  /// Over the wallpaper, which shows through it.
+  static let tint = Color.black.opacity(0.55)
+  /// The sport label and the distance and speed line. Over a white wallpaper the tint composites
+  /// to a mid grey, against which even white holds only 4.8:1, so the line takes the foreground
+  /// at full strength to clear 4.5:1 and steps down by size and weight, not by fading. White at
+  /// 70 % would be 3.2:1.
+  static let secondaryText = WidgetTheme.Record.foreground
+  /// Gold marks a personal record and nothing else. The island the glyphs sit in is black in
+  /// both appearances, so they take the dark palette.
+  static let paused = WidgetTheme.Dark.warning
+  static let stale = WidgetTheme.Dark.textSecondary
+  /// The compact clock's widest reading, a ride past ten hours. A timer text otherwise takes
+  /// every point the island offers and pushes it wider than its digits.
+  static let compactClockWidth: CGFloat = 56
+
+  static func clockFont(_ size: CGFloat) -> Font {
+    .system(size: size, weight: .semibold).monospacedDigit()
   }
 }

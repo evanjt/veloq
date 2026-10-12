@@ -108,6 +108,10 @@ pub const STREAM_PHASE_STOPPED: &str = "stopped";
 pub const STREAM_PHASE_DEFERRED: &str = "deferred";
 /// A pass could not proceed at all.
 pub const STREAM_PHASE_FAILED: &str = "failed";
+/// intervals.icu refused, or the request budget deferred, the pass. The rows
+/// it did not reach are owed, and the engine resumes it when the refusal
+/// lifts.
+pub const STREAM_PHASE_WAITING: &str = "waiting";
 
 /// Activities owed at or below which the automatic start needs no answer. The
 /// same figure as the history slider's large-download threshold.
@@ -507,6 +511,12 @@ enum Stopped {
     Offline,
     /// The athlete stopped it.
     Cancelled,
+    /// intervals.icu refused, or the request budget deferred, the walk. It
+    /// lifts at `until`, or when the governor's cooldown ends when the
+    /// refusal carried no time.
+    Refused {
+        until: Option<chrono::DateTime<chrono::Utc>>,
+    },
 }
 
 /// What one activity's ask came back as.
@@ -534,7 +544,7 @@ enum Fetched {
 /// pass in the same place.
 fn is_connectivity(e: &NetError) -> bool {
     match e {
-        NetError::Transport(_) | NetError::RateLimited | NetError::Deferred { .. } => true,
+        NetError::Transport(_) => true,
         NetError::Http { status, .. } => *status >= 500,
         _ => false,
     }
@@ -544,7 +554,7 @@ fn is_connectivity(e: &NetError) -> bool {
 /// about, so the ask counts against it. A refused credential speaks for the
 /// whole account and is not counted.
 fn says_something_about_the_activity(e: &NetError) -> bool {
-    !is_connectivity(e) && !matches!(e, NetError::Unauthorized)
+    !is_connectivity(e) && !e.is_refusal() && !matches!(e, NetError::Unauthorized)
 }
 
 /// One activity's series, reduced to the index space its stored track is in,
@@ -757,6 +767,7 @@ fn record_run(install: u64, run: &StreamBackfillRun) {
 fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
     match phase {
         STREAM_PHASE_STOPPED => RunOutcome::Stopped,
+        STREAM_PHASE_WAITING => RunOutcome::Deferred,
         STREAM_PHASE_FAILED => RunOutcome::Failed,
         STREAM_PHASE_COMPLETE if failed == 0 => RunOutcome::Complete,
         _ => RunOutcome::Partial,
@@ -817,6 +828,14 @@ fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBack
         Some(Stopped::Cancelled) => {
             set_phase(STREAM_PHASE_STOPPED);
             log::info!("[Streams] backfill stopped by the athlete");
+        }
+        // Nothing more is sent until the refusal lifts, and the engine's own
+        // wake-up starts the next pass then.
+        Some(Stopped::Refused { until }) => {
+            set_phase(STREAM_PHASE_WAITING);
+            let at = until.unwrap_or_else(|| transport.cooldown_lifts_at(chrono::Utc::now()));
+            log::info!("[Streams] backfill stopped: refused until {at}");
+            crate::net::resume::resume_at(at);
         }
         None => set_phase(STREAM_PHASE_COMPLETE),
     }
@@ -889,6 +908,37 @@ fn drain_queue_with_auth(
             .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
         {
             return (outcome, Some(Stopped::Unauthorized));
+        }
+        // So does a refusal, and it is never counted against the pass: the
+        // rows it held are owed and asked again once it lifts.
+        let refusals: Vec<&NetError> = results
+            .iter()
+            .filter_map(|(_, f)| match f {
+                Fetched::Failed(e) if e.is_refusal() => Some(e),
+                _ => None,
+            })
+            .collect();
+        if !refusals.is_empty() {
+            let until = refusals
+                .iter()
+                .filter_map(|e| match e {
+                    NetError::Deferred { until } => Some(*until),
+                    _ => None,
+                })
+                .max();
+            let answered: Vec<(String, Fetched)> = results
+                .into_iter()
+                .filter(|(_, f)| !matches!(f, Fetched::Failed(e) if e.is_refusal()))
+                .collect();
+            outcome.failed += answered
+                .iter()
+                .filter(|(_, f)| matches!(f, Fetched::Failed(_)))
+                .count() as u32;
+            let (stored, empty) = apply(&answered);
+            outcome.stored += stored;
+            outcome.empty += empty;
+            BACKFILL.stored.fetch_add(stored, Ordering::Relaxed);
+            return (outcome, Some(Stopped::Refused { until }));
         }
 
         for (_, result) in &results {
@@ -1007,8 +1057,44 @@ mod tests {
         let deferred = NetError::Deferred {
             until: chrono::Utc::now(),
         };
-        assert!(is_connectivity(&deferred));
         assert!(!says_something_about_the_activity(&deferred));
+        assert!(!says_something_about_the_activity(&NetError::RateLimited));
+    }
+
+    /// Scenario: intervals.icu refuses the pass's first batch, or the budget
+    /// defers it.
+    ///
+    /// Expected behaviour: the walk stops at once with the time the refusal
+    /// lifts, asks no further batch, and counts nothing toward the failures
+    /// in a row or the pass's failures.
+    #[test]
+    fn a_refused_batch_stops_the_walk_and_counts_nothing() {
+        let until = chrono::Utc::now() + chrono::TimeDelta::minutes(10);
+        let mut asked = 0usize;
+        let (outcome, stopped) = drain_queue_with(
+            &gaps(3 * BATCH),
+            |batch| {
+                asked += batch.len();
+                batch
+                    .iter()
+                    .map(|g| {
+                        (
+                            g.activity_id.clone(),
+                            Fetched::Failed(NetError::Deferred { until }),
+                        )
+                    })
+                    .collect()
+            },
+            |_| (0, 0),
+            || false,
+            || false,
+        );
+        assert_eq!(asked, BATCH, "the walk asked past the refusal");
+        assert!(
+            matches!(stopped, Some(Stopped::Refused { until: Some(u) }) if u == until),
+            "the walk did not stop on the refusal"
+        );
+        assert_eq!(outcome.failed, 0);
     }
 
     fn gaps(n: usize) -> Vec<StreamGap> {

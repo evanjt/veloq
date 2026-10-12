@@ -61,10 +61,10 @@ jest.mock('expo-haptics', () => ({
 const TRACK_WIDTH = 240;
 const TOTAL_POINTS = 1001;
 
-function setup(props: { startIdx?: number; endIdx?: number; totalPoints?: number } = {}) {
+async function setup(props: { startIdx?: number; endIdx?: number; totalPoints?: number } = {}) {
   const onTrimChange = jest.fn();
   const onTrimCommit = jest.fn();
-  const view = render(
+  const view = await render(
     <TrimSlider
       totalDuration={1000}
       totalPoints={props.totalPoints ?? TOTAL_POINTS}
@@ -74,7 +74,7 @@ function setup(props: { startIdx?: number; endIdx?: number; totalPoints?: number
       onTrimCommit={onTrimCommit}
     />
   );
-  act(() => {
+  await act(() => {
     view.getByTestId('review-trim-track').props.onLayout({
       nativeEvent: { layout: { width: TRACK_WIDTH } },
     });
@@ -87,8 +87,8 @@ function setup(props: { startIdx?: number; endIdx?: number; totalPoints?: number
 beforeEach(() => mockGestures.clear());
 
 describe('TrimSlider handles', () => {
-  it('exposes each handle as an adjustable element with the elapsed time as its value', () => {
-    const { view } = setup();
+  it('exposes each handle as an adjustable element with the elapsed time as its value', async () => {
+    const { view } = await setup();
     for (const [testID, time] of [
       ['review-trim-start-handle', '1:40'],
       ['review-trim-end-handle', '15:00'],
@@ -108,52 +108,52 @@ describe('TrimSlider handles', () => {
     );
   });
 
-  it('increment on the start handle moves the start one step and commits it', () => {
-    const { onTrimChange, onTrimCommit, action } = setup();
-    action('review-trim-start-handle', 'increment');
+  it('increment on the start handle moves the start one step and commits it', async () => {
+    const { onTrimChange, onTrimCommit, action } = await setup();
+    await action('review-trim-start-handle', 'increment');
     expect(onTrimChange).toHaveBeenCalledWith(110, 900);
     expect(onTrimCommit).toHaveBeenCalledWith(110, 900);
   });
 
-  it('decrement on the end handle moves the end one step earlier and commits it', () => {
-    const { onTrimChange, onTrimCommit, action } = setup();
-    action('review-trim-end-handle', 'decrement');
+  it('decrement on the end handle moves the end one step earlier and commits it', async () => {
+    const { onTrimChange, onTrimCommit, action } = await setup();
+    await action('review-trim-end-handle', 'decrement');
     expect(onTrimChange).toHaveBeenCalledWith(100, 890);
     expect(onTrimCommit).toHaveBeenCalledWith(100, 890);
   });
 
-  it('a step that cannot move the bound reports nothing', () => {
-    const { onTrimChange, onTrimCommit, action } = setup({ startIdx: 0, endIdx: 1000 });
-    action('review-trim-start-handle', 'decrement');
-    action('review-trim-end-handle', 'increment');
+  it('a step that cannot move the bound reports nothing', async () => {
+    const { onTrimChange, onTrimCommit, action } = await setup({ startIdx: 0, endIdx: 1000 });
+    await action('review-trim-start-handle', 'decrement');
+    await action('review-trim-end-handle', 'increment');
     expect(onTrimChange).not.toHaveBeenCalled();
     expect(onTrimCommit).not.toHaveBeenCalled();
   });
 
-  it('stops a step at one handle width from the other bound', () => {
+  it('stops a step at one handle width from the other bound', async () => {
     // 28 dp of a 240 dp track over 1000 intervals is 117 points, wider than 5 per cent.
-    const { onTrimChange, action } = setup({ startIdx: 380, endIdx: 500 });
-    action('review-trim-start-handle', 'increment');
+    const { onTrimChange, action } = await setup({ startIdx: 380, endIdx: 500 });
+    await action('review-trim-start-handle', 'increment');
     expect(onTrimChange).toHaveBeenCalledWith(383, 500);
   });
 });
 
 describe('TrimSlider step buttons', () => {
-  it('moves each bound by one point and commits it', () => {
-    const { view, onTrimChange, onTrimCommit } = setup();
-    fireEvent.press(view.getByTestId('review-trim-start-earlier'));
+  it('moves each bound by one point and commits it', async () => {
+    const { view, onTrimChange, onTrimCommit } = await setup();
+    await fireEvent.press(view.getByTestId('review-trim-start-earlier'));
     expect(onTrimCommit).toHaveBeenLastCalledWith(99, 900);
-    fireEvent.press(view.getByTestId('review-trim-start-later'));
+    await fireEvent.press(view.getByTestId('review-trim-start-later'));
     expect(onTrimCommit).toHaveBeenLastCalledWith(101, 900);
-    fireEvent.press(view.getByTestId('review-trim-end-earlier'));
+    await fireEvent.press(view.getByTestId('review-trim-end-earlier'));
     expect(onTrimCommit).toHaveBeenLastCalledWith(100, 899);
-    fireEvent.press(view.getByTestId('review-trim-end-later'));
+    await fireEvent.press(view.getByTestId('review-trim-end-later'));
     expect(onTrimCommit).toHaveBeenLastCalledWith(100, 901);
     expect(onTrimChange).toHaveBeenCalledTimes(4);
   });
 
-  it('labels every button and disables the ones that cannot move', () => {
-    const { view } = setup({ startIdx: 0, endIdx: 1000 });
+  it('labels every button and disables the ones that cannot move', async () => {
+    const { view } = await setup({ startIdx: 0, endIdx: 1000 });
     for (const testID of [
       'review-trim-start-earlier',
       'review-trim-start-later',
@@ -179,10 +179,10 @@ describe('TrimSlider drag', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('holds a dragged start one handle width from the end rather than under it', () => {
-    const { onTrimChange, onTrimCommit } = setup({ startIdx: 100, endIdx: 900 });
+  it('holds a dragged start one handle width from the end rather than under it', async () => {
+    const { onTrimChange, onTrimCommit } = await setup({ startIdx: 100, endIdx: 900 });
     const drag = mockGestures.get('review-trim-start-gesture');
-    act(() => {
+    await act(() => {
       drag?.handlers?.onStart?.();
       drag?.handlers?.onUpdate?.({ translationX: TRACK_WIDTH });
       drag?.handlers?.onEnd?.();
@@ -192,26 +192,26 @@ describe('TrimSlider drag', () => {
     expect(onTrimCommit).toHaveBeenLastCalledWith(783, 900);
   });
 
-  it('puts the handle last moved above the other so it takes the shared touches', () => {
-    const { view, action } = setup();
+  it('puts the handle last moved above the other so it takes the shared touches', async () => {
+    const { view, action } = await setup();
     const zIndex = (testID: string) =>
       StyleSheet.flatten(view.getByTestId(testID).props.style).zIndex ?? 0;
     expect(zIndex('review-trim-end-handle')).toBeGreaterThan(zIndex('review-trim-start-handle'));
 
-    act(() => {
+    await act(() => {
       mockGestures.get('review-trim-start-gesture')?.handlers?.onStart?.();
       jest.runOnlyPendingTimers();
     });
     expect(zIndex('review-trim-start-handle')).toBeGreaterThan(zIndex('review-trim-end-handle'));
 
-    action('review-trim-end-handle', 'decrement');
+    await action('review-trim-end-handle', 'decrement');
     expect(zIndex('review-trim-end-handle')).toBeGreaterThan(zIndex('review-trim-start-handle'));
   });
 });
 
 describe('TrimSlider range text', () => {
-  it('draws the trimmed range in the primary text colour', () => {
-    const { view } = setup();
+  it('draws the trimmed range in the primary text colour', async () => {
+    const { view } = await setup();
     const text = view.getByTestId('review-trim-range');
     expect(StyleSheet.flatten(text.props.style).color).toBe(colors.textPrimary);
   });

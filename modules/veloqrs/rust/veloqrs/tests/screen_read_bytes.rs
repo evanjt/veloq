@@ -215,6 +215,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         section_traces => |v: &FfiActivityDetailData| v.section_traces.len(),
         pr_section_ids => |v: &FfiActivityDetailData| v.pr_section_ids.len(),
         max_hr,
+        max_hr_source,
         hr_zones => |v: &FfiActivityDetailData| v.hr_zones.len(),
         power_zones => |v: &FfiActivityDetailData| v.power_zones.len(),
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { SectionEncounter } from 'veloqrs';
 
@@ -36,9 +36,9 @@ function encounter(sectionId: string, sectionType: string): SectionEncounter {
   } as SectionEncounter;
 }
 
-function swipeActions(sectionId: string, sectionType: string, removeSection: jest.Mock) {
+async function plotProps(sectionId: string, sectionType: string, removeSection: jest.Mock) {
   mockSectionInlinePlot.mockClear();
-  render(
+  await render(
     <ActivitySectionsSection
       activityId="a1"
       sportType="Ride"
@@ -61,20 +61,58 @@ function swipeActions(sectionId: string, sectionType: string, removeSection: jes
 
   const received = mockSectionInlinePlot.mock.calls[0]?.[0];
   if (!received) throw new Error('SectionInlinePlot was not rendered');
-  const props = received as {
+  return received as {
     group: SectionEncounterGroup;
     renderRightActions: (
       group: SectionEncounterGroup,
       progress: unknown,
       dragX: { interpolate: (args: unknown) => number }
     ) => React.ReactNode;
+    actionsFor: (
+      group: SectionEncounterGroup
+    ) => { name: string; label: string; run: () => void }[];
   };
+}
+
+async function swipeActions(sectionId: string, sectionType: string, removeSection: jest.Mock) {
+  const props = await plotProps(sectionId, sectionType, removeSection);
   const actions = props.renderRightActions(props.group, null, { interpolate: () => 1 });
   if (!React.isValidElement(actions)) throw new Error('Swipe actions were not rendered');
-  return render(actions);
+  return await render(actions);
+}
+
+function relativeLuminance(hex: string): number {
+  const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** The label's ink against the fill of the action it sits on. */
+function labelContrast(swipe: ReturnType<typeof render>, label: string): number {
+  const text = swipe.getByText(label);
+  const ink = StyleSheet.flatten(text.props.style).color as string;
+  for (let node = text.parent; node; node = node.parent) {
+    const fill = StyleSheet.flatten(node.props.style)?.backgroundColor;
+    if (typeof fill === 'string') return contrastRatio(ink, fill);
+  }
+  throw new Error(`nothing is drawn behind ${label}`);
 }
 
 describe('activity section swipe actions', () => {
+  it.each([
+    ['custom', 'common.delete'],
+    ['auto', 'common.hide'],
+  ])('draws the %s section action label at 4.5:1 on its fill', async (sectionType, label) => {
+    const swipe = await swipeActions('s1', sectionType, jest.fn());
+
+    expect(labelContrast(swipe, label)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('exposes the scan action and blocks a second press while scanning', async () => {
     let finishScan: (() => void) | undefined;
     const onScan = jest.fn(
@@ -83,7 +121,7 @@ describe('activity section swipe actions', () => {
           finishScan = resolve;
         })
     );
-    const screen = render(
+    const screen = await render(
       <ActivitySectionsSection
         activityId="a1"
         sportType="Ride"
@@ -105,10 +143,10 @@ describe('activity section swipe actions', () => {
     );
 
     const scanButton = () => screen.getByRole('button', { name: 'sections.scanForMatches' });
-    fireEvent.press(scanButton());
+    await fireEvent.press(scanButton());
     await waitFor(() => expect(onScan).toHaveBeenCalledTimes(1));
     expect(scanButton().props.accessibilityState).toMatchObject({ busy: true });
-    fireEvent.press(scanButton());
+    await fireEvent.press(scanButton());
     expect(onScan).toHaveBeenCalledTimes(1);
     await act(async () => finishScan?.());
     expect(scanButton().props.accessibilityState).toMatchObject({ busy: false });
@@ -117,13 +155,14 @@ describe('activity section swipe actions', () => {
   it('deletes a custom section after confirmation even with a nonstandard id', async () => {
     const removeSection = jest.fn().mockResolvedValue(undefined);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const swipe = swipeActions('foreign-id', 'custom', removeSection);
+    const swipe = await swipeActions('foreign-id', 'custom', removeSection);
 
-    fireEvent.press(swipe.getByText('common.delete'));
+    await fireEvent.press(swipe.getByText('common.delete'));
     expect(alert).toHaveBeenCalledWith(
       'sections.deleteSection',
       expect.any(String),
-      expect.any(Array)
+      expect.any(Array),
+      expect.objectContaining({ cancelable: true })
     );
     const buttons = alert.mock.calls[0][2];
     buttons?.find((button) => button.style === 'destructive')?.onPress?.();
@@ -137,28 +176,57 @@ describe('activity section swipe actions', () => {
       .mockRejectedValueOnce(new Error('Delete failed'))
       .mockResolvedValueOnce(undefined);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const swipe = swipeActions('foreign-id', 'custom', removeSection);
+    const swipe = await swipeActions('foreign-id', 'custom', removeSection);
 
-    fireEvent.press(swipe.getByText('common.delete'));
+    await fireEvent.press(swipe.getByText('common.delete'));
     alert.mock.calls[0][2]?.find((button) => button.style === 'destructive')?.onPress?.();
     await waitFor(() =>
-      expect(alert).toHaveBeenCalledWith('common.error', 'sections.deleteFailed')
+      expect(alert).toHaveBeenCalledWith(
+        'sections.deleteFailedTitle',
+        'sections.deleteFailed',
+        undefined,
+        expect.objectContaining({ cancelable: true })
+      )
     );
 
-    fireEvent.press(swipe.getByText('common.delete'));
+    await fireEvent.press(swipe.getByText('common.delete'));
     alert.mock.calls[2][2]?.find((button) => button.style === 'destructive')?.onPress?.();
     await waitFor(() => expect(removeSection).toHaveBeenCalledTimes(2));
     alert.mockRestore();
   });
 
-  it('only offers Hide for an auto section', () => {
+  it('only offers Hide for an auto section', async () => {
     const removeSection = jest.fn();
-    const swipe = swipeActions('custom_legacy', 'auto', removeSection);
+    const swipe = await swipeActions('custom_legacy', 'auto', removeSection);
 
     expect(swipe.getByText('common.hide')).toBeTruthy();
     expect(swipe.queryByText('common.delete')).toBeNull();
-    fireEvent.press(swipe.getByText('common.hide'));
+    await fireEvent.press(swipe.getByText('common.hide'));
     expect(mockDisableSection).toHaveBeenCalledWith('custom_legacy');
     expect(removeSection).not.toHaveBeenCalled();
+  });
+
+  it('offers a screen reader the action the swipe shows, running the same handler', async () => {
+    const removeSection = jest.fn();
+    const hide = await plotProps('auto-1', 'auto', removeSection);
+    const [hideAction, ...noMore] = hide.actionsFor(hide.group);
+
+    expect(noMore).toEqual([]);
+    expect(hideAction).toMatchObject({ name: 'hide', label: 'common.hide' });
+    hideAction.run();
+    expect(mockDisableSection).toHaveBeenCalledWith('auto-1');
+
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const custom = await plotProps('custom-1', 'custom', removeSection);
+    const [deleteAction] = custom.actionsFor(custom.group);
+    expect(deleteAction).toMatchObject({ name: 'delete', label: 'common.delete' });
+    deleteAction.run();
+    expect(alert).toHaveBeenCalledWith(
+      'sections.deleteSection',
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ cancelable: true })
+    );
+    alert.mockRestore();
   });
 });

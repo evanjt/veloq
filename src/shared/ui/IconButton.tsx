@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { controlHeight, layout, slopToMinTapTarget } from '@/theme';
+import { controlHeight, layout, opacity, slopToMinTapTarget } from '@/theme';
 
 import { paint, pressedOpacity, ripple, type ButtonVariant } from './Button';
 
@@ -33,7 +33,7 @@ export interface IconButtonProps {
   disabled?: boolean;
   accessibilityState?: AccessibilityState;
   style?: StyleProp<ViewStyle>;
-  testID?: string;
+  testID?: string | undefined;
 }
 
 export function IconButton({
@@ -67,7 +67,7 @@ export function IconButton({
           backgroundColor: skin.backgroundColor,
           borderColor: skin.borderColor,
           borderWidth: skin.borderWidth,
-          opacity: disabled ? 0.5 : pressedOpacity(pressed),
+          opacity: disabled ? opacity.disabled : pressedOpacity(pressed),
         },
         style,
       ]}

@@ -33,10 +33,10 @@ function opacity(value: Animated.Value): number {
   return (value as unknown as { __getValue(): number }).__getValue();
 }
 
-function sample(value: Animated.Value, ms: number, step = 50): number[] {
+async function sample(value: Animated.Value, ms: number, step = 50): Promise<number[]> {
   const seen: number[] = [];
   for (let t = 0; t < ms; t += step) {
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(step);
     });
     seen.push(opacity(value));
@@ -54,43 +54,43 @@ describe('useStatusPulseAnimation', () => {
     jest.useRealTimers();
   });
 
-  it('pulses after recording starts and holds a steady dot within five seconds', () => {
-    const { result, rerender } = renderHook(
+  it('pulses after recording starts and holds a steady dot within five seconds', async () => {
+    const { result, rerender } = await renderHook(
       ({ status }: { status: RecordingStatus }) => useStatusPulseAnimation(status),
       { initialProps: { status: 'idle' as RecordingStatus } }
     );
-    rerender({ status: 'recording' });
+    await rerender({ status: 'recording' });
 
-    const firstSecond = sample(result.current, 1000);
+    const firstSecond = await sample(result.current, 1000);
     expect(Math.min(...firstSecond)).toBeLessThan(0.9);
 
-    sample(result.current, 4000);
-    const afterFive = sample(result.current, 4000);
+    await sample(result.current, 4000);
+    const afterFive = await sample(result.current, 4000);
     expect(afterFive.every((v) => v === 1)).toBe(true);
   });
 
-  it('pulses again from the start when recording resumes after a pause', () => {
-    const { result, rerender } = renderHook(
+  it('pulses again from the start when recording resumes after a pause', async () => {
+    const { result, rerender } = await renderHook(
       ({ status }: { status: RecordingStatus }) => useStatusPulseAnimation(status),
       { initialProps: { status: 'recording' as RecordingStatus } }
     );
-    sample(result.current, 6000);
-    rerender({ status: 'paused' });
+    await sample(result.current, 6000);
+    await rerender({ status: 'paused' });
     expect(opacity(result.current)).toBe(1);
 
-    rerender({ status: 'recording' });
-    expect(Math.min(...sample(result.current, 1000))).toBeLessThan(0.9);
-    sample(result.current, 4000);
-    expect(sample(result.current, 4000).every((v) => v === 1)).toBe(true);
+    await rerender({ status: 'recording' });
+    expect(Math.min(...(await sample(result.current, 1000)))).toBeLessThan(0.9);
+    await sample(result.current, 4000);
+    expect((await sample(result.current, 4000)).every((v) => v === 1)).toBe(true);
   });
 
-  it('holds a steady dot from the first frame with reduce motion on', () => {
+  it('holds a steady dot from the first frame with reduce motion on', async () => {
     mockReduceMotion = true;
-    const { result } = renderHook(
+    const { result } = await renderHook(
       ({ status }: { status: RecordingStatus }) => useStatusPulseAnimation(status),
       { initialProps: { status: 'recording' as RecordingStatus } }
     );
     expect(opacity(result.current)).toBe(1);
-    expect(sample(result.current, 6000).every((v) => v === 1)).toBe(true);
+    expect((await sample(result.current, 6000)).every((v) => v === 1)).toBe(true);
   });
 });

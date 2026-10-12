@@ -43,7 +43,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
           icon="map-marker-question"
           title={t('activityDetail.noRouteMatch')}
           description={t('activityDetail.noRouteMatchDescription')}
-          compact
+          variant="compact"
         />
       )}
 

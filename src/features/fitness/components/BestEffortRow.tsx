@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, typography, colorWithOpacity, ink, layout } from '@/theme';
 
 interface BestEffortRowProps {
   /** The window or distance the best is for. */
@@ -17,6 +17,11 @@ interface BestEffortRowProps {
   /** Opens the activity from the whole row, which then carries a chevron. */
   onPress?: (() => void) | undefined;
   accessibilityLabel?: string | undefined;
+  /**
+   * The activity column holds a link that speaks the whole row, so the label and
+   * value are hidden from a screen reader rather than read a second time.
+   */
+  readThroughLink?: boolean | undefined;
   testID?: string | undefined;
   /** What the activity column shows: the activity's name, a link, or nothing. */
   children?: ReactNode;
@@ -37,6 +42,7 @@ export function BestEffortRow({
   isLast,
   onPress,
   accessibilityLabel,
+  readThroughLink,
   testID,
   children,
 }: BestEffortRowProps) {
@@ -47,10 +53,19 @@ export function BestEffortRow({
     !isLast && isDark && styles.rowBorderDark,
   ];
 
+  const hidden = readThroughLink
+    ? ({
+        importantForAccessibility: 'no-hide-descendants',
+        accessibilityElementsHidden: true,
+      } as const)
+    : {};
+
   const body = (
     <>
-      <Text style={[styles.label, isDark && styles.labelDark]}>{label}</Text>
-      <View style={styles.valueColumn} testID={testID ? `${testID}-value` : undefined}>
+      <Text style={[styles.label, isDark && styles.labelDark]} {...hidden}>
+        {label}
+      </Text>
+      <View style={styles.valueColumn} testID={testID ? `${testID}-value` : undefined} {...hidden}>
         <Text style={[styles.value, { color: valueColor }]}>{value}</Text>
         {secondary ? (
           <Text style={[styles.secondary, isDark && styles.secondaryDark]}>{secondary}</Text>
@@ -90,10 +105,13 @@ export function BestEffortRow({
 }
 
 const styles = StyleSheet.create({
+  // At least a tap target tall, so a pressable row reaches the floor and an
+  // activity link's slop stays inside its own row rather than reaching the next.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
+    minHeight: layout.minTapTarget,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,

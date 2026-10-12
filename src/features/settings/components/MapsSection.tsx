@@ -9,9 +9,17 @@ import { useMapPreferences } from '../stores/MapPreferencesContext';
 import { clearTerrainPreviews, SMART_3D_MIN_RELIEF_M, type MapStyleType } from '@/features/maps';
 import { formatElevation } from '@/shared/format/format';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  slopToMinTapTarget,
+  typography,
+  opacity,
+} from '@/theme';
 import { Row } from '@/shared/ui/Row';
-import { ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
+import { composeAccessibilityLabel, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -116,6 +124,7 @@ export function MapsSection() {
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.terrain3D')}: ${terrain3DLabel}`}
           style={pressable(styles.terrain3DBadge)}
+          hitSlop={pillSlop}
           onPress={cycleTerrain3DMode}
           android_ripple={pressRipple}
         >
@@ -171,6 +180,7 @@ export function MapsSection() {
             accessibilityRole="button"
             accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}`}
             style={pressable([styles.pill, { backgroundColor: pillBg }])}
+            hitSlop={pillSlop}
             onPress={cycleGlobalMapStyle}
             android_ripple={pressRipple}
           >
@@ -201,6 +211,12 @@ export function MapsSection() {
           const terrainKey = terrain.mixed
             ? 'settings.mixed'
             : (TERRAIN_LABELS[terrain.value] ?? 'settings.terrain3DSmart');
+          const sportName = t(labelKey as 'maps.activityTypes.ride');
+          const terrainText = t('settings.terrain3DMode', {
+            mode: t(terrainKey as 'settings.terrain3DSmart', {
+              defaultValue: 'Smart',
+            }),
+          });
 
           return (
             <View key={key} style={styles.overrideRow}>
@@ -214,6 +230,7 @@ export function MapsSection() {
                 accessibilityRole="button"
                 accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: ${t(styleKey as 'settings.default')}`}
                 style={pressable([styles.pill, { backgroundColor: pillBg }])}
+                hitSlop={pillSlop}
                 testID={`map-style-pill-${key}`}
                 onPress={() => cycleActivityGroupStyle(types)}
                 android_ripple={pressRipple}
@@ -224,18 +241,15 @@ export function MapsSection() {
               </Pressable>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={composeAccessibilityLabel(sportName, terrainText)}
+                accessibilityHint={t('a11y.cycleHint')}
                 style={pressable([styles.pill, { backgroundColor: pillBg }])}
+                hitSlop={pillSlop}
                 testID={`map-terrain-pill-${key}`}
                 onPress={() => cycleTerrain3DGroup(types)}
                 android_ripple={pressRipple}
               >
-                <Text style={[styles.pillText, { color: mutedColor }]}>
-                  {t('settings.terrain3DMode', {
-                    mode: t(terrainKey as 'settings.terrain3DSmart', {
-                      defaultValue: 'Smart',
-                    }),
-                  })}
-                </Text>
+                <Text style={[styles.pillText, { color: mutedColor }]}>{terrainText}</Text>
               </Pressable>
             </View>
           );
@@ -258,6 +272,10 @@ export function MapsSection() {
   );
 }
 
+// A caption line inside the padding of the terrain badge and the style pills.
+const PILL_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
+const pillSlop = slopToMinTapTarget(PILL_HEIGHT);
+
 const styles = StyleSheet.create({
   styleHeaderRow: {
     flexDirection: 'row',
@@ -278,6 +296,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: PILL_HEIGHT,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.light,
   },
@@ -313,6 +332,7 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: PILL_HEIGHT,
     borderRadius: layout.borderRadiusSm,
   },
   pillText: {

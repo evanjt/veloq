@@ -91,30 +91,12 @@ export const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   // Manual entry styles
-  manualHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  manualBackBtn: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    textAlignVertical: 'center',
-  },
-  manualTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
-  },
   manualForm: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
   field: {
     marginTop: spacing.md,
-  },
-  notesInput: {
-    minHeight: 100,
   },
   buttonContainer: {
     marginTop: spacing.lg,

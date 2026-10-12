@@ -43,7 +43,7 @@ describe('useSectionLedger', () => {
   it('shows the bundle newest first with numbers, and follows the next bundle after a write', async () => {
     const engine = engineWith();
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ bundle }: { bundle: BundledLedger }) => useSectionLedger('sec1', bundle),
       { initialProps: { bundle: bundleWith(null) } }
     );
@@ -64,26 +64,26 @@ describe('useSectionLedger', () => {
       version: 1,
     });
     expect(result.current.pinnedVersion).toBeNull();
-    rerender({ bundle: bundleWith(1) });
+    await rerender({ bundle: bundleWith(1) });
     expect(result.current.pinnedVersion).toBe(1);
 
-    act(() => {
+    await act(() => {
       expect(result.current.unpin()).toBe(true);
     });
     expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
-    rerender({ bundle: bundleWith(null) });
+    await rerender({ bundle: bundleWith(null) });
     expect(result.current.pinnedVersion).toBeNull();
   });
 
   it('is empty without a bundle, and writes nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
-    const { result } = renderHook(() => useSectionLedger('sec1'));
+    const { result } = await renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
     expect(await result.current.revert(1)).toBe(false);
     expect(result.current.unpin()).toBe(false);
   });
 
-  it('draws no line for a stored version it cannot read', () => {
+  it('draws no line for a stored version it cannot read', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     const engine = engineWith();
     engine.getSectionGeometryVersionPolyline.mockImplementation(() => {
@@ -91,26 +91,26 @@ describe('useSectionLedger', () => {
     });
     (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
+    const { result } = await renderHook(() => useSectionLedger('sec1', bundleWith(null)));
 
     expect(result.current.history).toHaveLength(2);
     expect(result.current.versionPolyline(1)).toEqual([]);
   });
 
-  it('keeps the same rows while the bundle holds still, and empties when the id goes away', () => {
+  it('keeps the same rows while the bundle holds still, and empties when the id goes away', async () => {
     const engine = engineWith();
     (getEngine as jest.Mock).mockReturnValue(engine);
     const bundle = bundleWith(1);
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ id }: { id: string | undefined }) => useSectionLedger(id, id ? bundle : undefined),
       { initialProps: { id: 'sec1' as string | undefined } }
     );
     const rows = result.current.history;
 
-    rerender({ id: 'sec1' });
+    await rerender({ id: 'sec1' });
     expect(result.current.history).toBe(rows);
 
-    rerender({ id: undefined });
+    await rerender({ id: undefined });
     expect(result.current.history).toEqual([]);
     expect(result.current.versions).toEqual([]);
     expect(result.current.pinnedVersion).toBeNull();
@@ -118,7 +118,7 @@ describe('useSectionLedger', () => {
     expect(result.current.unpin()).toBe(false);
   });
 
-  it("hands the engine's typed details to the panel and reads an absent record as none", () => {
+  it("hands the engine's typed details to the panel and reads an absent record as none", async () => {
     const engine = engineWith();
     const linked = { id: 'parent', name: 'Col de la Croix', available: true };
     const bundle = bundleWith(null);
@@ -149,7 +149,7 @@ describe('useSectionLedger', () => {
     bundle.geometryVersions = [];
     (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = renderHook(() => useSectionLedger('child', bundle));
+    const { result } = await renderHook(() => useSectionLedger('child', bundle));
 
     expect(result.current.history[1].details?.splitFrom).toEqual(linked);
     expect(result.current.history[1].details?.around).toEqual(['a1']);
@@ -175,10 +175,10 @@ describe('reverting to a stored version', () => {
     const engine = engineWith();
     engine.runSectionBoundsEdit.mockImplementation(() => new Promise(() => {}));
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
+    const { result } = await renderHook(() => useSectionLedger('sec1', bundleWith(null)));
 
     let first: Promise<boolean> | undefined;
-    act(() => {
+    await act(() => {
       first = result.current.revert(1);
     });
     expect(first).toBeInstanceOf(Promise);
@@ -197,7 +197,7 @@ describe('reverting to a stored version', () => {
     const engine = engineWith();
     engine.runSectionBoundsEdit.mockResolvedValueOnce(null).mockResolvedValueOnce([]);
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
+    const { result } = await renderHook(() => useSectionLedger('sec1', bundleWith(null)));
 
     await act(async () => {
       expect(await result.current.revert(1)).toBe(false);

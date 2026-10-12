@@ -16,7 +16,7 @@ import {
   formatTemperature,
   formatHeartRate,
   formatPower,
-  formatTSS,
+  formatLoad,
   formatCalories,
   formatSwimPace,
   speedToSecsPerKm,
@@ -65,7 +65,7 @@ describe('format functions never leak a banned token', () => {
     ['formatTemperature', (v) => formatTemperature(v)],
     ['formatHeartRate', (v) => formatHeartRate(v)],
     ['formatPower', (v) => formatPower(v)],
-    ['formatTSS', (v) => formatTSS(v)],
+    ['formatLoad', (v) => formatLoad(v)],
     ['formatCalories', (v) => formatCalories(v)],
   ];
 

@@ -1,8 +1,9 @@
 /**
  * Gradient-based line coloring helpers for MapLibre `line-gradient`.
  *
- * Maps per-point gradient (% slope) values to colors along a polyline.
- * Colors: steep descents → blue, flats → green/yellow, steep climbs → red/purple.
+ * Maps per-point gradient (% slope) values to colors along a polyline, on the
+ * diverging `gradientScale` from the theme: a light neutral on flat ground,
+ * darkening blues on descents and darkening oranges on climbs.
  *
  * Usage:
  *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
@@ -12,6 +13,8 @@
  * `line-progress` expressions are available.
  */
 
+import { gradientScale } from '@/theme';
+
 /** Color stops mapping gradient % to an RGB hex color. */
 export interface GradientStop {
   /** Slope percent (-30 .. +30) */
@@ -20,19 +23,11 @@ export interface GradientStop {
   color: string;
 }
 
-/**
- * Reference colormap from steep descent to steep ascent.
- * Anchored at the gradient percentages called out in the feature spec.
- */
-export const GRADIENT_COLOR_STOPS: readonly GradientStop[] = [
-  { percent: -30, color: '#1E3A8A' }, // deep blue (very steep descent)
-  { percent: -10, color: '#22C55E' }, // green (gentle descent)
-  { percent: 0, color: '#A3E635' }, // yellow-green (flat)
-  { percent: 5, color: '#FACC15' }, // yellow (mild climb)
-  { percent: 10, color: '#F97316' }, // orange (moderate climb)
-  { percent: 20, color: '#DC2626' }, // red (steep climb)
-  { percent: 30, color: '#7C1D6F' }, // purple (very steep climb)
-];
+/** The scale from steep descent to steep climb, flat ground at its middle stop. */
+export const GRADIENT_COLOR_STOPS: readonly GradientStop[] = gradientScale;
+
+/** The gradients the map key labels on its ramp. */
+export const GRADIENT_KEY_TICKS: readonly number[] = [-10, 0, 10, 20];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -57,7 +52,7 @@ function rgbToHex(r: number, g: number, b: number): string {
  */
 export function gradientToColor(percent: number): string {
   const stops = GRADIENT_COLOR_STOPS;
-  if (!Number.isFinite(percent)) return stops[Math.floor(stops.length / 2)].color;
+  if (!Number.isFinite(percent)) return gradientToColor(0);
 
   const p = clamp(percent, stops[0].percent, stops[stops.length - 1].percent);
 

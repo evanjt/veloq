@@ -1,7 +1,8 @@
 /**
  * Hook to get the user's current location for proximity sorting.
  * Uses cached/last-known position first, falls back to a balanced GPS fix.
- * Does not prompt for permission - degrades silently if denied.
+ * Reads without prompting; `requestPermission` is the tap that may prompt, and
+ * says so when location is off for good rather than doing nothing.
  *
  * The fix carries the time it was taken. A fix held for the life of the process
  * sorted a travelling athlete's routes against the city they left, and only a
@@ -12,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { askForegroundLocation, readLocationGrant } from './permissions';
 
 /**
  * How long a fix stands. Proximity sorting is coarse, so a fix is worth reusing
@@ -80,8 +82,8 @@ export function useUserLocation(): {
   const refresh = useCallback(async (isCancelled: () => boolean) => {
     if (!fixIsStale(cachedFix, Date.now())) return;
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      // An approximate grant is enough to centre on and to ask the weather for.
+      if (!(await readLocationGrant()).granted) {
         if (!isCancelled()) setIsLoading(false);
         return;
       }
@@ -123,8 +125,7 @@ export function useUserLocation(): {
 
     requestInFlight = true;
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
+      if ((await askForegroundLocation()) !== 'granted') return null;
 
       const fix = await fetchFix();
       cachedFix = fix;

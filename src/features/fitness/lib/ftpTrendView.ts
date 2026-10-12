@@ -15,13 +15,15 @@ export interface FtpTrendView {
   change: number;
   /** The step as a percentage of the earlier estimate it was measured from. */
   changePercent: number;
+  /** The window in days the engine measured the step over, for the caption to name. */
+  lookbackDays: number;
 }
 
 /**
  * The engine's FTP trend as the eFTP chart draws it.
  *
- * The step is the engine's `deltaWatts`; this only dates the points by the day they were stored for and
- * states the step against the earlier estimate.
+ * The step is the engine's `deltaWatts` over the engine's `lookbackDays`; this only dates the points by
+ * the day they were stored for and states the step against the earlier estimate.
  */
 export function ftpTrendView(trend: FtpTrend): FtpTrendView {
   const change = trend.deltaWatts ?? 0;
@@ -36,5 +38,6 @@ export function ftpTrendView(trend: FtpTrend): FtpTrendView {
     previous: trend.previousFtp,
     change,
     changePercent: previous > 0 ? (change / previous) * 100 : 0,
+    lookbackDays: trend.lookbackDays,
   };
 }

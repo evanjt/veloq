@@ -1,5 +1,7 @@
 import { selectStatusMessage } from '@/features/recording/lib/statusSlot';
 
+const SPLIT = { text: 'km 5 · 5:00 /km', spoken: 'Kilometre 5, 5 minutes per kilometre' };
+
 const NOTHING = {
   backgroundTrackingWarning: null,
   gpsWarning: null,
@@ -13,16 +15,17 @@ describe('selectStatusMessage', () => {
   });
 
   it('shows a lone split toast', () => {
-    expect(selectStatusMessage({ ...NOTHING, splitBanner: 'km 5' })).toEqual({
+    expect(selectStatusMessage({ ...NOTHING, splitBanner: SPLIT })).toEqual({
       kind: 'split',
-      text: 'km 5',
+      text: 'km 5 · 5:00 /km',
+      spoken: 'Kilometre 5, 5 minutes per kilometre',
     });
   });
 
   it('sensor issue beats split toast', () => {
-    expect(
-      selectStatusMessage({ ...NOTHING, sensorIssue: 'HR lost', splitBanner: 'km 5' })
-    ).toEqual({ kind: 'sensor', text: 'HR lost' });
+    expect(selectStatusMessage({ ...NOTHING, sensorIssue: 'HR lost', splitBanner: SPLIT })).toEqual(
+      { kind: 'sensor', text: 'HR lost', spoken: 'HR lost' }
+    );
   });
 
   it('gps warning beats a sensor issue and a split', () => {
@@ -31,9 +34,9 @@ describe('selectStatusMessage', () => {
         ...NOTHING,
         gpsWarning: 'weak',
         sensorIssue: 'HR lost',
-        splitBanner: 'km 5',
+        splitBanner: SPLIT,
       })
-    ).toEqual({ kind: 'gps', text: 'weak' });
+    ).toEqual({ kind: 'gps', text: 'weak', spoken: 'weak' });
   });
 
   /**
@@ -46,9 +49,13 @@ describe('selectStatusMessage', () => {
         backgroundTrackingWarning: 'no background tracking',
         gpsWarning: 'weak',
         sensorIssue: 'HR lost',
-        splitBanner: 'km 5',
+        splitBanner: SPLIT,
       })
-    ).toEqual({ kind: 'background', text: 'no background tracking' });
+    ).toEqual({
+      kind: 'background',
+      text: 'no background tracking',
+      spoken: 'no background tracking',
+    });
   });
 
   it('treats empty strings as absent', () => {
@@ -57,8 +64,22 @@ describe('selectStatusMessage', () => {
         backgroundTrackingWarning: '',
         gpsWarning: '',
         sensorIssue: '',
-        splitBanner: '',
+        splitBanner: { text: '', spoken: '' },
       })
     ).toBeNull();
+  });
+});
+
+describe('a GPS warning the settings page can clear', () => {
+  it('carries the settings action with its text', () => {
+    expect(
+      selectStatusMessage({ ...NOTHING, gpsWarning: 'denied', gpsWarningOpensSettings: true })
+    ).toEqual({ kind: 'gps', text: 'denied', spoken: 'denied', opensSettings: true });
+  });
+
+  it('is a plain warning otherwise', () => {
+    expect(
+      selectStatusMessage({ ...NOTHING, gpsWarning: 'weak', gpsWarningOpensSettings: false })
+    ).toEqual({ kind: 'gps', text: 'weak', spoken: 'weak' });
   });
 });

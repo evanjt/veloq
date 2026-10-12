@@ -35,8 +35,8 @@ function paceInsight(unit: string, previous: string, current: string): Insight {
   } as unknown as Insight;
 }
 
-function summary(insight: Insight): string {
-  return textOf(render(<FitnessMilestoneContent insight={insight} />).toJSON()).join(' ');
+async function summary(insight: Insight): Promise<string> {
+  return textOf((await render(<FitnessMilestoneContent insight={insight} />)).toJSON()).join(' ');
 }
 
 const LOCALES: Parameters<typeof initialiseI18n>[0][] = [
@@ -66,7 +66,7 @@ describe('the pace milestone summary', () => {
 
   it.each(LOCALES)('quotes a per mile unit and no kilometre unit in %s', async (locale) => {
     await initialiseI18n(locale);
-    const text = summary(paceInsight('/mi', '8:56', '8:30'));
+    const text = await summary(paceInsight('/mi', '8:56', '8:30'));
 
     expect(text).toMatch(/8:56[^.]*\/mi[^.]*8:30[^.]*\/mi/);
     expect(text).not.toMatch(/\bkm\b|公里|キロ|1km/);
@@ -74,7 +74,7 @@ describe('the pace milestone summary', () => {
 
   it.each(LOCALES)('quotes a per 100 yard unit and no metre unit in %s', async (locale) => {
     await initialiseI18n(locale);
-    const text = summary(paceInsight('/100yd', '1:52', '1:48'));
+    const text = await summary(paceInsight('/100yd', '1:52', '1:48'));
 
     expect(text).toMatch(/1:52[^.]*\/100yd[^.]*1:48[^.]*\/100yd/);
     expect(text).not.toMatch(/100m|100米/);
@@ -83,7 +83,7 @@ describe('the pace milestone summary', () => {
   it('keeps the metric units for a metric athlete', async () => {
     await initialiseI18n('en-AU');
 
-    expect(summary(paceInsight('/km', '8:56', '8:30'))).toMatch(/8:30[^.]*\/km/);
-    expect(summary(paceInsight('/100m', '1:52', '1:48'))).toMatch(/1:48[^.]*\/100m/);
+    expect(await summary(paceInsight('/km', '8:56', '8:30'))).toMatch(/8:30[^.]*\/km/);
+    expect(await summary(paceInsight('/100m', '1:52', '1:48'))).toMatch(/1:48[^.]*\/100m/);
   });
 });

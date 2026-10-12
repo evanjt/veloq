@@ -13,6 +13,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { ManualEntryForm } from '@/features/recording/components/ManualEntryForm';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { navigateTo } from '@/shared/app/navigation';
+import { inStack } from '../__shared__/testStack';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -39,10 +40,10 @@ function liveRegionOf(node: ReactTestInstance): string | undefined {
   return undefined;
 }
 
-it('says a blank duration is refused, in a live region on the field', () => {
+it('says a blank duration is refused, in a live region on the field', async () => {
   Platform.OS = 'android';
-  const view = render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.press(view.getByTestId('manual-entry-continue'));
+  const view = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.press(view.getByTestId('manual-entry-continue'));
 
   const error = view.getByTestId('manual-entry-duration-error');
   expect(error).toHaveTextContent('recording.durationRequired');
@@ -53,27 +54,27 @@ it('says a blank duration is refused, in a live region on the field', () => {
   expect(navigateTo).not.toHaveBeenCalled();
 });
 
-it('announces a refused heart rate on iOS', () => {
+it('announces a refused heart rate on iOS', async () => {
   Platform.OS = 'ios';
-  const view = render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(view.getByTestId('manual-entry-duration'), '30');
-  fireEvent.changeText(view.getByTestId('manual-entry-hr'), '400');
-  fireEvent.press(view.getByTestId('manual-entry-continue'));
+  const view = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(view.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.changeText(view.getByTestId('manual-entry-hr'), '400');
+  await fireEvent.press(view.getByTestId('manual-entry-continue'));
 
   expect(view.getByTestId('manual-entry-hr-error')).toHaveTextContent('recording.hrInvalid');
   expect(view.queryByTestId('manual-entry-duration-error')).toBeNull();
   expect(announce).toHaveBeenCalledWith('recording.hrInvalid');
 });
 
-it('says a distance past 999 is refused and clears it once edited', () => {
-  const view = render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(view.getByTestId('manual-entry-duration'), '30');
-  fireEvent.changeText(view.getByTestId('manual-entry-distance'), '1200');
-  fireEvent.press(view.getByTestId('manual-entry-continue'));
+it('says a distance past 999 is refused and clears it once edited', async () => {
+  const view = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(view.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.changeText(view.getByTestId('manual-entry-distance'), '1200');
+  await fireEvent.press(view.getByTestId('manual-entry-continue'));
   expect(view.getByTestId('manual-entry-distance-error')).toHaveTextContent(
     'recording.distanceInvalid'
   );
 
-  fireEvent.changeText(view.getByTestId('manual-entry-distance'), '12');
+  await fireEvent.changeText(view.getByTestId('manual-entry-distance'), '12');
   expect(view.queryByTestId('manual-entry-distance-error')).toBeNull();
 });

@@ -47,7 +47,7 @@ jest.mock('@/features/fitness/hooks', () => ({
 }));
 
 it('asks the engine for a sync when the training tab is pulled', async () => {
-  render(
+  await render(
     <QueryClientProvider client={new QueryClient()}>
       <TrainingScreen />
     </QueryClientProvider>

@@ -8,15 +8,15 @@ import { useSheetRequest } from '@/shared/app/sheetRequest';
  * `expo-router` with `router.push` recorded in `push` and `useLocalSearchParams`
  * read from `params`.
  */
-export function answerSheet<R>(
+export async function answerSheet<R>(
   push: jest.Mock,
   params: { request?: string },
   value: R | null
-): void {
+): Promise<void> {
   params.request = push.mock.calls.at(-1)[0].params.request;
-  const sheet = renderHook(() => useSheetRequest<unknown, R>());
-  act(() => {
+  const sheet = await renderHook(() => useSheetRequest<unknown, R>());
+  await act(() => {
     if (value !== null) sheet.result.current.resolve(value);
   });
-  sheet.unmount();
+  await sheet.unmount();
 }

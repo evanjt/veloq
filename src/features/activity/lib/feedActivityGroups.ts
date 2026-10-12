@@ -20,6 +20,14 @@ const SPORT_GROUP: Record<FeedGroup, FeedSportGroup> = {
   Other: FeedSportGroup.Other,
 };
 
+/** Each chip's label, as a translation key. */
+export const FEED_GROUP_LABELS = {
+  Cycling: 'feed.groups.cycling',
+  Running: 'feed.groups.running',
+  Swimming: 'feed.groups.swimming',
+  Other: 'feed.groups.other',
+} as const satisfies Record<FeedGroup, string>;
+
 /** The engine's name for a chip. */
 export function feedSportGroup(group: FeedGroup): FeedSportGroup {
   return SPORT_GROUP[group];

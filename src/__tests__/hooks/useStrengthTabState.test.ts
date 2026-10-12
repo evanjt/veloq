@@ -32,32 +32,32 @@ function engineWith(hasSets: boolean, unfetched: string[]) {
 }
 
 describe('useStrengthTabState', () => {
-  it('is ready when sets are cached', () => {
+  it('is ready when sets are cached', async () => {
     engineWith(true, []);
-    expect(renderHook(() => useStrengthTabState()).result.current).toBe('ready');
+    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');
   });
 
-  it('awaits the download when nothing is cached but the queue is not empty', () => {
+  it('awaits the download when nothing is cached but the queue is not empty', async () => {
     engineWith(false, ['act-1', 'act-2']);
-    expect(renderHook(() => useStrengthTabState()).result.current).toBe('awaiting');
+    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('awaiting');
   });
 
-  it('is hidden when the athlete has no strength activities at all', () => {
+  it('is hidden when the athlete has no strength activities at all', async () => {
     engineWith(false, []);
-    expect(renderHook(() => useStrengthTabState()).result.current).toBe('hidden');
+    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('hidden');
   });
 
-  it('is hidden when the engine throws rather than propagating', () => {
+  it('is hidden when the engine throws rather than propagating', async () => {
     engineWith(false, []);
     mockEngine.hasStrengthData = () => {
       throw new Error('engine is gone');
     };
-    expect(renderHook(() => useStrengthTabState()).result.current).toBe('hidden');
+    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('hidden');
   });
 
-  it('falls back to the cached answer on a binary with no unprocessed queue', () => {
+  it('falls back to the cached answer on a binary with no unprocessed queue', async () => {
     engineWith(true, []);
     delete mockEngine.getUnprocessedStrengthIds;
-    expect(renderHook(() => useStrengthTabState()).result.current).toBe('ready');
+    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');
   });
 });

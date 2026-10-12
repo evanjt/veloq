@@ -20,8 +20,8 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('StartupErrorBanner', () => {
-  it('takes every line from the translator and names each failed area', () => {
-    const { getByText } = render(
+  it('takes every line from the translator and names each failed area', async () => {
+    const { getByText } = await render(
       <StartupErrorBanner areas={['heartRateZones', 'maps']} onDismiss={() => {}} />
     );
     expect(getByText('t:emptyState.startupError.title')).toBeTruthy();
@@ -32,15 +32,19 @@ describe('StartupErrorBanner', () => {
     ).toBeTruthy();
   });
 
-  it('renders no spinner', () => {
-    const { queryByRole } = render(<StartupErrorBanner areas={['other']} onDismiss={() => {}} />);
+  it('renders no spinner', async () => {
+    const { queryByRole } = await render(
+      <StartupErrorBanner areas={['other']} onDismiss={() => {}} />
+    );
     expect(queryByRole('progressbar')).toBeNull();
   });
 
-  it('calls onDismiss from the dismiss button', () => {
+  it('calls onDismiss from the dismiss button', async () => {
     const onDismiss = jest.fn();
-    const { getByText } = render(<StartupErrorBanner areas={['other']} onDismiss={onDismiss} />);
-    fireEvent.press(getByText('t:emptyState.startupError.dismiss'));
+    const { getByText } = await render(
+      <StartupErrorBanner areas={['other']} onDismiss={onDismiss} />
+    );
+    await fireEvent.press(getByText('t:common.close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 

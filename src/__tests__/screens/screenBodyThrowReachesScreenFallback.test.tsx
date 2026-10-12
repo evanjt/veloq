@@ -39,6 +39,7 @@ jest.mock('@/shared/native/engine', () => ({
     subscribe: () => () => {},
     getRetiredSections: () => mockGetRetiredSections(),
   }),
+  isEngineReady: () => true,
 }));
 
 let consoleError: jest.SpyInstance;
@@ -56,28 +57,28 @@ afterEach(() => {
 });
 
 describe('a throw in a screen body', () => {
-  it('reaches the screen fallback with Retry and Back', () => {
+  it('reaches the screen fallback with Retry and Back', async () => {
     mockGetRetiredSections.mockImplementation(() => {
       throw new Error('ledger read failed');
     });
 
-    const { getByText, queryByTestId } = render(<SectionRetiredScreen />);
+    const { getByText, queryByTestId } = await render(<SectionRetiredScreen />);
 
     expect(getByText('common.retry')).toBeTruthy();
     expect(getByText('common.back')).toBeTruthy();
     expect(queryByTestId('section-retired-list')).toBeNull();
   });
 
-  it('reads again and renders the screen after Retry', () => {
+  it('reads again and renders the screen after Retry', async () => {
     let failing = true;
     mockGetRetiredSections.mockImplementation(() => {
       if (failing) throw new Error('ledger read failed');
       return [];
     });
 
-    const { getByText, getByTestId } = render(<SectionRetiredScreen />);
+    const { getByText, getByTestId } = await render(<SectionRetiredScreen />);
     failing = false;
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
 
     expect(getByTestId('section-retired-list')).toBeTruthy();
   });

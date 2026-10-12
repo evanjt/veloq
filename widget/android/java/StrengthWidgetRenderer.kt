@@ -141,6 +141,8 @@ object StrengthWidgetRenderer {
           content, side, heightPx, fill.pick(dark), IntArray(ramp.size) { ramp[it].pick(dark) })
       }
     }
+    // The front is always drawn, so it says what both sides show and the back says nothing.
+    v.setContentDescription(R.id.str_front, content.bodyLabel)
     if (!narrow) {
       v.setViewVisibility(
         R.id.str_back, if (BodyOutline.Side.BACK in content.sides) View.VISIBLE else View.GONE)

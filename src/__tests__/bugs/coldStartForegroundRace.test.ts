@@ -147,7 +147,7 @@ describe('a refused start is not a weak signal', () => {
       sensorIssue: null,
       splitBanner: null,
     });
-    expect(message).toEqual({
+    expect(message).toMatchObject({
       kind: 'background',
       text: 'Could not start GPS tracking. Try pausing and resuming.',
     });

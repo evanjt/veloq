@@ -1,11 +1,12 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
-import { pressable, pressRipple } from '@/shared/ui';
+import { RetryButton } from './ErrorState';
+import { StatusLine } from './StatusLine';
 
 interface Props {
   children: ReactNode;
@@ -65,23 +66,17 @@ function ChartErrorFallback({ height, onRetry }: FallbackProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
+  const message = t('errorState.unableToDisplayChart');
+
   return (
-    <View style={[styles.container, isDark && styles.containerDark, { height }]}>
-      <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
-        {t('errorState.unableToDisplayChart')}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('errorState.tapToRetry')}
-        onPress={onRetry}
-        style={pressable(styles.retryButton)}
-        android_ripple={pressRipple}
-      >
-        <Text style={[styles.retryText, isDark && styles.retryTextDark]}>
-          {t('errorState.tapToRetry')}
-        </Text>
-      </Pressable>
-    </View>
+    <StatusLine
+      tone="error"
+      message={message}
+      style={[styles.container, isDark && styles.containerDark, { height }]}
+    >
+      <Text style={[styles.errorText, isDark && styles.errorTextDark]}>{message}</Text>
+      <RetryButton onPress={onRetry} />
+    </StatusLine>
   );
 }
 
@@ -105,17 +100,6 @@ const styles = StyleSheet.create({
   },
   errorTextDark: {
     color: darkColors.textSecondary,
-  },
-  retryButton: {
-    minHeight: layout.minTapTarget,
-    justifyContent: 'center',
-  },
-  retryText: {
-    ...typography.label,
-    color: colors.linkTeal,
-  },
-  retryTextDark: {
-    color: darkColors.linkTeal,
   },
 });
 

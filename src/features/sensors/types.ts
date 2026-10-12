@@ -6,6 +6,8 @@ export interface KnownSensor {
   id: string;
   name: string;
   kinds: SensorKind[];
+  /** The metrics the athlete chose this sensor to supply over any other paired sensor. */
+  preferredFor?: SensorKind[];
 }
 
 /** A device found during a scan, before pairing. */

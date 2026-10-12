@@ -55,72 +55,72 @@ describe('BottomTabBar', () => {
     jest.clearAllMocks();
   });
 
-  it('renders nothing on a stack screen outside the tabs group', () => {
+  it('renders nothing on a stack screen outside the tabs group', async () => {
     authState.isAuthenticated = true;
     mockSegments = ['backup-settings'];
 
-    const { queryByTestId } = render(<BottomTabBar />);
+    const { queryByTestId } = await render(<BottomTabBar />);
 
     expect(queryByTestId('bottom-tab-bar')).toBeNull();
   });
 
-  it('renders nothing on the recording screen', () => {
+  it('renders nothing on the recording screen', async () => {
     authState.isAuthenticated = true;
     mockSegments = ['record'];
 
-    const { queryByTestId } = render(<BottomTabBar />);
+    const { queryByTestId } = await render(<BottomTabBar />);
 
     expect(queryByTestId('bottom-tab-bar')).toBeNull();
   });
 
-  it('renders nothing without a session', () => {
-    const { queryByTestId } = render(<BottomTabBar />);
+  it('renders nothing without a session', async () => {
+    const { queryByTestId } = await render(<BottomTabBar />);
 
     expect(queryByTestId('bottom-tab-bar')).toBeNull();
   });
 
-  it('renders the destinations for a signed-in athlete', () => {
+  it('renders the destinations for a signed-in athlete', async () => {
     authState.isAuthenticated = true;
 
-    const { getByTestId, getByLabelText } = render(<BottomTabBar />);
+    const { getByTestId, getByLabelText } = await render(<BottomTabBar />);
 
     expect(getByTestId('bottom-tab-bar')).toBeTruthy();
     expect(getByLabelText('navigation.feed')).toBeTruthy();
   });
 
-  it('renders the destinations in demo mode', () => {
+  it('renders the destinations in demo mode', async () => {
     authState.isAuthenticated = true;
     authState.isDemoMode = true;
 
-    const { getByTestId } = render(<BottomTabBar />);
+    const { getByTestId } = await render(<BottomTabBar />);
 
     expect(getByTestId('bottom-tab-bar')).toBeTruthy();
   });
 
-  it('switching tab fires one selection haptic and no impact, and the current tab fires none', () => {
+  it('switching tab fires one selection haptic and no impact, and the current tab fires none', async () => {
     authState.isAuthenticated = true;
-    const { getByLabelText } = render(<BottomTabBar />);
+    const { getByLabelText } = await render(<BottomTabBar />);
 
-    fireEvent.press(getByLabelText('navigation.feed'));
+    await fireEvent.press(getByLabelText('navigation.feed'));
     expect(Haptics.selectionAsync).not.toHaveBeenCalled();
 
-    fireEvent.press(getByLabelText('navigation.fitness'));
+    await fireEvent.press(getByLabelText('navigation.fitness'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 
-  it('fires the selection haptic on Android too, and none for the current tab', () => {
+  it('fires the selection haptic on Android too, and none for the current tab', async () => {
     const originalOS = Platform.OS;
     Platform.OS = 'android';
     try {
       authState.isAuthenticated = true;
-      const { getByLabelText } = render(<BottomTabBar />);
+      const { getByLabelText } = await render(<BottomTabBar />);
 
-      fireEvent.press(getByLabelText('navigation.feed'));
+      await fireEvent.press(getByLabelText('navigation.feed'));
       expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
 
-      fireEvent.press(getByLabelText('navigation.fitness'));
+      await fireEvent.press(getByLabelText('navigation.fitness'));
 
       expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledTimes(1);
       expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledWith('segment-tick');

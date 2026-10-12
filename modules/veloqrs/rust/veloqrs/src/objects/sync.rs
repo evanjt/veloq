@@ -125,6 +125,10 @@ pub struct FfiSyncStatus {
     /// UTC. Read from the settings row each time, so a wipe or a restore is
     /// reflected with no copy to clear. `None` before any clean run.
     pub last_success_at: Option<String>,
+    /// When the work the last run left owed is asked for again, as epoch
+    /// milliseconds, when it ended on a refusal or a deferral from the
+    /// request budget. The engine resumes it itself at this time.
+    pub retry_at_ms: Option<f64>,
 }
 
 /// Why the last sync failed, as the kind the banner branches on.
@@ -382,6 +386,8 @@ struct SyncInner {
     step: Option<FfiSyncStep>,
     last_error: Option<String>,
     last_error_reason: Option<FfiSyncErrorReason>,
+    /// When the last run's refusal lifts, if it ended on one.
+    retry_at: Option<chrono::DateTime<chrono::Utc>>,
     /// The install the running job claimed its slot against, so a clean finish
     /// stamps the library it ran for and never one that replaced it.
     install: Option<u64>,
@@ -434,6 +440,7 @@ impl Default for SyncInner {
             step: None,
             last_error: None,
             last_error_reason: None,
+            retry_at: None,
             install: None,
             running: false,
             cancel: false,
@@ -574,6 +581,7 @@ impl SyncService {
         inner.completed = 0;
         inner.last_error = None;
         inner.last_error_reason = None;
+        inner.retry_at = None;
         Ok(())
     }
 
@@ -696,6 +704,34 @@ impl SyncService {
         }
     }
 
+    /// End the run on a refusal from intervals.icu or the request budget,
+    /// recording when it lifts and asking the engine to resume the work then.
+    fn finish_refused(&self, transport: &Transport, step: FfiSyncStep, e: &NetError) {
+        let retry_at = transport.refusal_lifts_at(e, chrono::Utc::now());
+        let failure = SyncFailure::from(e);
+        log::info!(
+            "[Sync] {:?} step refused, resuming at {:?}: {}",
+            step,
+            retry_at,
+            failure.message
+        );
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retry_at = retry_at;
+        self.finish(
+            SyncState::Idle,
+            Some(SyncFailure::new(
+                failure.reason,
+                format!("{:?}: {}", step, failure.message),
+            )),
+            false,
+        );
+        if let Some(at) = retry_at {
+            crate::net::resume::resume_at(at);
+        }
+    }
+
     /// Park the service on a credential the profile confirmed as rejected.
     ///
     /// The running slot is released, since nothing more will succeed on this
@@ -798,6 +834,7 @@ impl SyncService {
             last_error: inner.last_error.clone(),
             last_error_reason: inner.last_error_reason,
             last_success_at: read_last_success_at(),
+            retry_at_ms: inner.retry_at.map(|at| at.timestamp_millis() as f64),
         }
     }
 }
@@ -1172,10 +1209,11 @@ pub(crate) fn discarded(kind: &str, activity_id: &str) {
 /// instant it landed. Both are now the store's answer: the lease is a
 /// generation the engine mints at init, and a failure backs the key off.
 ///
-/// The refusals are four opposite answers rather than one `false`. No
-/// credential never becomes one by asking again. A key already in flight stops
-/// being held the moment that job lands. A key backing off lands on its own
-/// schedule. And a start before the engine opens is early, not refused.
+/// The refusals are five opposite answers rather than one `false`. No
+/// credential never becomes one by asking again. A device that has said it is
+/// offline gets nothing by asking until it is back. A key already in flight
+/// stops being held the moment that job lands. A key backing off lands on its
+/// own schedule. And a start before the engine opens is early, not refused.
 pub(crate) fn spawn_once<F, Fut>(key: JobKey, job: F) -> FfiStartResult
 where
     F: FnOnce(u64, Transport, String) -> Fut + Send + 'static,
@@ -1201,6 +1239,14 @@ where
     let Ok((transport, athlete_id)) = SYNC_SERVICE.build_transport() else {
         return FfiStartOutcome::NotConfigured.into();
     };
+    // After the credential, because coming back online does not start a job
+    // that has no credential, and the screen should name the fix that works.
+    // Before the claim, so a request that cannot land takes no lease and
+    // spends no backoff rung, and the reconnect that asks again finds it free.
+    if crate::net::connectivity::is_offline() {
+        log::info!("[Sync] {} deferred: offline", key.as_str());
+        return FfiStartOutcome::Offline.into();
+    }
     // Which library this job belongs to, read on the calling thread, which is
     // the one that holds the engine. The lease and every write the job makes
     // belong to it, and a restore mid-fetch installs another.
@@ -1276,9 +1322,10 @@ where
                 log::info!("[Sync] on-demand fetch had no network: {}", e);
                 Release::Deferred
             }
-            // The request budget held it back. The work is still owed and
-            // nothing failed, so the key's backoff must not grow for it.
-            Err(e) if e.is_deferred() => {
+            // The request budget held it back, or intervals.icu refused it.
+            // The work is still owed and nothing failed, so the key's backoff
+            // must not grow for it.
+            Err(e) if e.is_refusal() => {
                 log::info!("[Sync] on-demand fetch {}", e);
                 Release::Deferred
             }
@@ -1731,6 +1778,12 @@ pub(crate) async fn perform_sync(
                     }
                     return;
                 }
+                // A refusal speaks for every step after it, so the run ends
+                // here, sends nothing more and resumes when it lifts.
+                Err(e) if e.is_refusal() => {
+                    svc.finish_refused(&transport, $step, &e);
+                    return;
+                }
                 // A failed step is not a completed one, so the counter stays
                 // an honest count of what actually landed in SQLite.
                 Err(e) => {
@@ -1980,6 +2033,7 @@ pub(crate) async fn perform_window_sync(
                 );
             }
         }
+        Err(e) if e.is_refusal() => svc.finish_refused(&transport, FfiSyncStep::Activities, &e),
         Err(e) => svc.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
     }
 }
@@ -2491,6 +2545,7 @@ pub(crate) async fn ready_newest_activities(
         gap.intervals &= left.is_some();
         match ready_activity(install, transport, &gap, &upstream, SYNC_REQUEST).await {
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) if e.is_refusal() => return Err(e),
             Err(e) => last_error = Some(e),
             Ok(()) => {}
         }
@@ -3303,6 +3358,7 @@ async fn sync_curves(
                 .await?;
             }
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) if e.is_refusal() => return Err(e),
             Err(e) => last_error = Some(e),
         }
     }
@@ -3393,6 +3449,9 @@ async fn sync_interval_bodies(
             Err(e @ (NetError::Storage(_) | NetError::StorageFull(_) | NetError::EngineClosed)) => {
                 return Err(e);
             }
+            // A refusal speaks for every activity after this one. A 404, a
+            // 410, a 422 or a 5xx is about this one, and the walk goes on.
+            Err(e) if e.is_refusal() => return Err(e),
             Err(e) => last_error = Some(e),
         }
         handled += 1;
@@ -3494,6 +3553,7 @@ async fn fetch_bodies_in_bulk(
                 }
             }
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) if e.is_refusal() => return Err(e),
             Err(NetError::Transport(e)) if chunk.len() > BULK_BODIES_FLOOR => {
                 size = (chunk.len() / 2).max(BULK_BODIES_FLOOR);
                 log::info!(
@@ -3997,12 +4057,32 @@ pub struct SyncManager {
     pub(crate) _private: (),
 }
 
+/// Why the default sync must not start at `now`: a refusal's cooldown holds,
+/// and every step it would run is deferred. Held with the time it lifts, and
+/// nothing is asked of the budget, so the one probe a cooldown lets through is
+/// left for a user request.
+fn sync_hold(
+    governor: &crate::governor::Governor,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<FfiStartResult> {
+    governor
+        .cooldown_until(now)
+        .map(|until| FfiStartResult::backing_off(until.timestamp_millis()))
+}
+
 /// Start the default sync. The one dispatch both the FFI and a resume after
 /// a clear go through.
-fn start_full_sync(force: bool) -> FfiStartOutcome {
+///
+/// Inside a refusal's cooldown it answers held with the time the cooldown
+/// ends and sends nothing: every foreground asks for a sync, and each of those
+/// would otherwise start a run whose every step is deferred.
+fn start_full_sync(force: bool) -> FfiStartResult {
+    if let Some(held) = sync_hold(&crate::governor::GOVERNOR, chrono::Utc::now()) {
+        return held;
+    }
     let (transport, athlete_id) = match SYNC_SERVICE.try_start_for(SyncRequest::Full { force }) {
         Ok(pair) => pair,
-        Err(refusal) => return refusal,
+        Err(refusal) => return refusal.into(),
     };
     // Which library this run belongs to, read on this thread rather than
     // on the runtime: a restore installing another database mid-run would
@@ -4012,7 +4092,14 @@ fn start_full_sync(force: bool) -> FfiStartOutcome {
         let _guard = FinishGuard;
         perform_sync(&SYNC_SERVICE, install, transport, athlete_id, force).await;
     });
-    FfiStartOutcome::Started
+    FfiStartOutcome::Started.into()
+}
+
+/// Start the default sync once a refusal has lifted. The engine's own
+/// wake-up calls this; the profile is left to its age gate.
+#[cfg(not(test))]
+pub(crate) fn start_resumed_sync() -> FfiStartResult {
+    start_full_sync(false)
 }
 
 /// Start a sync of one date window, answering `NotOwed` for a window the
@@ -4083,11 +4170,13 @@ pub(crate) fn resume_sync_after_clear(interrupted: Option<Interrupted>) {
         return;
     };
     let request = interrupted.request.clone();
-    SYNC_SERVICE.resume_after_clear(interrupted, move || {
-        match request {
-            SyncRequest::Full { force } => start_full_sync(force),
-            SyncRequest::Window { oldest, newest } => start_window_sync(oldest, newest),
-        };
+    SYNC_SERVICE.resume_after_clear(interrupted, move || match request {
+        SyncRequest::Full { force } => {
+            start_full_sync(force);
+        }
+        SyncRequest::Window { oldest, newest } => {
+            start_window_sync(oldest, newest);
+        }
     });
 }
 
@@ -4120,7 +4209,10 @@ impl SyncManager {
     /// `force` fetches the athlete profile and its sport settings whatever
     /// their age. A foreground passes false and they come at most once in six
     /// hours; a pull to refresh and a saved recording pass true.
-    fn sync_now(&self, force: bool) -> Result<FfiStartOutcome, VeloqError> {
+    ///
+    /// Inside a refusal's cooldown it answers `Held` with the time the
+    /// cooldown ends, and the engine starts the sync itself at that time.
+    fn sync_now(&self, force: bool) -> Result<FfiStartResult, VeloqError> {
         Ok(start_full_sync(force))
     }
 
@@ -6519,6 +6611,154 @@ mod tests {
         assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
     }
 
+    /// Scenario: intervals.icu refuses the run's first request, and the
+    /// transport's own retries on it run out.
+    ///
+    /// Expected behaviour: the refusal speaks for every step after it, so the
+    /// run ends there, sends nothing further, the interval sweep included,
+    /// and its status says when the work resumes.
+    #[test]
+    fn a_refused_step_ends_the_run_and_sends_nothing_further() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_activity_metrics(vec![crate::types::ActivityMetrics {
+                    activity_id: "a1".into(),
+                    name: "a1".into(),
+                    date: 1_700_000_000,
+                    distance: 1000.0,
+                    moving_time: 600,
+                    elapsed_time: 600,
+                    elevation_gain: 0.0,
+                    avg_hr: None,
+                    avg_power: None,
+                    sport_type: "Ride".into(),
+                    training_load: None,
+                    ftp: None,
+                    power_zone_times: None,
+                    hr_zone_times: None,
+                }])
+                .expect("store metrics");
+        })
+        .expect("engine");
+        let server = MockServer::start();
+        let athlete = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(429).header("retry-after", "600");
+        });
+        let anything_else = server.mock(|when, then| {
+            when.method(GET);
+            then.status(200).json_body(json!([]));
+        });
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        let before = chrono::Utc::now();
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+            false,
+        ));
+
+        // The profile is asked on the interactive lane, whose request budget
+        // has no room to wait out the refusal, so it is sent once.
+        athlete.assert_calls(1);
+        assert_eq!(
+            anything_else.calls(),
+            0,
+            "the run went on to later steps after a refusal"
+        );
+        let s = svc.snapshot();
+        assert_eq!(s.state, SyncState::Idle);
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::RateLimited));
+        let retry_at = s
+            .retry_at_ms
+            .expect("the status says when the work resumes");
+        assert!(retry_at >= before.timestamp_millis() as f64, "{retry_at}");
+    }
+
+    /// Expected behaviour: a run whose first request the budget defers ends
+    /// there, its status carrying the deferral's own time.
+    #[test]
+    fn a_deferred_step_ends_the_run_at_the_deferral() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        let server = MockServer::start();
+        let athlete = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(429).header("retry-after", "600");
+        });
+        let anything_else = server.mock(|when, then| {
+            when.method(GET);
+            then.status(200).json_body(json!([]));
+        });
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            crate::governor::Budget::new(0),
+            None,
+            || 0.0,
+        ));
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov.clone())
+                .expect("transport");
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport,
+            "i1".into(),
+            false,
+        ));
+
+        athlete.assert_calls(1);
+        anything_else.assert_calls(0);
+        let until = gov
+            .cooldown_until(chrono::Utc::now())
+            .expect("the refusal set a cooldown");
+        let s = svc.snapshot();
+        assert_eq!(s.retry_at_ms, Some(until.timestamp_millis() as f64));
+    }
+
+    /// Scenario: the app comes to the foreground while a refusal's cooldown
+    /// holds, and every foreground asks for a sync.
+    ///
+    /// Expected behaviour: the start answers held with the time the cooldown
+    /// ends and sends nothing, so the one probe a user request may spend in
+    /// the cooldown is still there for a tapped screen.
+    #[test]
+    fn a_sync_inside_a_cooldown_is_held_and_spends_no_probe() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            crate::governor::Budget::new(0),
+            None,
+            || 0.0,
+        );
+        let now = chrono::Utc::now();
+        assert_eq!(sync_hold(&gov, now), None, "nothing holds a fresh budget");
+
+        let refused = crate::governor::RateBudget {
+            retry_after_secs: Some(600),
+            ..Default::default()
+        };
+        let crate::governor::AfterRefusal::Cooldown { until } =
+            gov.note_refusal(&refused, None, b"", false, now)
+        else {
+            panic!("a long Retry-After sets a cooldown");
+        };
+
+        let held = sync_hold(&gov, now).expect("a cooldown holds the sync");
+        assert_eq!(held.outcome, FfiStartOutcome::Held);
+        assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
+        assert_eq!(
+            gov.admit(crate::governor::Intent::User, now),
+            crate::governor::Admission::Probe,
+            "the held sync spent the cooldown's probe"
+        );
+    }
+
     /// Scenario: the sync step is refused but the credential still works.
     ///
     /// Expected behaviour: one 401 is not evidence, so the confirmation on the
@@ -8421,6 +8661,73 @@ mod body_count_tests {
         restore_service();
     }
 
+    /// Scenario: the device has said it is offline and a screen asks for a
+    /// body it has not downloaded.
+    ///
+    /// Expected behaviour: the start answers `Offline` without asking the
+    /// network or taking the key, so the screen can say what will fix it
+    /// rather than wait out a request that cannot land. The same start asked
+    /// again once the connection is back runs.
+    #[test]
+    fn an_on_demand_fetch_while_offline_answers_offline_and_asks_nothing() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let server = MockServer::start();
+        let curve = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/power-curves.json");
+            then.status(200).json_body(json!({"list": []}));
+        });
+        aim_service_at(&server);
+        crate::net::connectivity::set_online(false);
+
+        let manager = SyncManager::new();
+        let offline = manager.sync_power_curve("Ride".into(), 42.0);
+        assert_eq!(offline, FfiStartOutcome::Offline);
+        assert_eq!(
+            manager.sync_activity_detail("a1".into()),
+            FfiStartOutcome::Offline
+        );
+        assert_eq!(
+            manager.sync_pace_curve("Run".into(), 42.0, false),
+            FfiStartOutcome::Offline
+        );
+        let held = crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .job_attempt(&JobKey::new("power", &["Ride", "42"]))
+                .expect("read")
+        })
+        .expect("engine");
+        assert!(held.is_none(), "an offline refusal took the key: {held:?}");
+        curve.assert_calls(0);
+
+        crate::net::connectivity::set_online(true);
+        let before = bodies_stored();
+        assert!(manager.sync_power_curve("Ride".into(), 42.0).started());
+        assert!(
+            count_reaches(before + 1),
+            "the start made once the connection was back never landed"
+        );
+        restore_service();
+    }
+
+    /// Scenario: the device is offline and the athlete is signed out.
+    ///
+    /// Expected behaviour: the start answers `NotConfigured`. Coming back
+    /// online would not make it run, signing in would, so that is the reason
+    /// the screen is given.
+    #[test]
+    fn a_signed_out_start_while_offline_answers_not_configured() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        restore_service();
+        crate::net::connectivity::set_online(false);
+
+        assert_eq!(
+            SyncManager::new().sync_power_curve("Ride".into(), 42.0),
+            FfiStartOutcome::NotConfigured
+        );
+    }
+
     /// A restore lands while a page is in flight. The write finishes and
     /// stores a body fetched against the old library into the restored one,
     /// which is the detection apply's failing case with a sync in it.
@@ -8989,6 +9296,129 @@ mod body_count_tests {
                 single.assert_calls(2);
                 restore_service();
             }
+        }
+
+        /// Fifty activities the bulk answer leaves for the single request, so
+        /// the sweep walks them one at a time.
+        fn fifty_owed_singly(server: &MockServer) -> Vec<String> {
+            let ids: Vec<String> = (0..50).map(|i| format!("a{i:02}")).collect();
+            library_of(&ids.iter().map(String::as_str).collect::<Vec<_>>());
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path_matches(r"^/athlete/i1/activities/")
+                    .query_param("intervals", "true");
+                then.status(200).json_body(json!([]));
+            });
+            ids
+        }
+
+        /// Scenario: intervals.icu refuses the first activity the sweep asks
+        /// for, and the retries the transport spends on it run out.
+        ///
+        /// Expected behaviour: the refusal speaks for every request after it,
+        /// so the sweep stops there and reports it, and no other activity is
+        /// asked for.
+        #[test]
+        fn a_refusal_stops_the_sweep_at_the_activity_it_refused() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            let server = MockServer::start();
+            fifty_owed_singly(&server);
+            let single = server.mock(|when, then| {
+                when.method(GET).path_matches(r"^/activity/a\d+/intervals$");
+                then.status(429).header("retry-after", "600");
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome = crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+                &|_, _| {},
+            ));
+
+            assert!(
+                matches!(outcome, Err(NetError::RateLimited)),
+                "the refusal was not reported: {outcome:?}"
+            );
+            assert_eq!(
+                single.calls(),
+                1 + crate::net::transport::MAX_RETRIES as usize,
+                "the sweep went on past the activity that was refused"
+            );
+            restore_service();
+        }
+
+        /// Expected behaviour: a deferral from the budget stops the sweep the
+        /// same way, after the one request that drew the cooldown.
+        #[test]
+        fn a_cooldown_stops_the_sweep_after_one_request() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            let server = MockServer::start();
+            fifty_owed_singly(&server);
+            let single = server.mock(|when, then| {
+                when.method(GET).path_matches(r"^/activity/a\d+/intervals$");
+                then.status(429).header("retry-after", "600");
+            });
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+                crate::governor::Budget::new(0),
+                None,
+                || 0.0,
+            ));
+            let transport =
+                Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov)
+                    .expect("transport");
+
+            let outcome = crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+                &|_, _| {},
+            ));
+
+            assert!(
+                matches!(outcome, Err(NetError::Deferred { .. })),
+                "{outcome:?}"
+            );
+            assert_eq!(single.calls(), 1);
+            restore_service();
+        }
+
+        /// Expected behaviour: a 404 is upstream answering about one activity,
+        /// so with no cooldown every other activity is still asked for and one
+        /// bad activity never wedges the queue.
+        #[test]
+        fn a_404_on_the_first_activity_still_asks_for_every_other() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            let server = MockServer::start();
+            let ids = fifty_owed_singly(&server);
+            let first = server.mock(|when, then| {
+                when.method(GET)
+                    .path(format!("/activity/{}/intervals", ids[0]));
+                then.status(404);
+            });
+            let rest = server.mock(|when, then| {
+                when.method(GET).path_matches(r"^/activity/a\d+/intervals$");
+                then.status(200).json_body(json!({"icu_intervals": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+                &|_, _| {},
+            ))
+            .expect("the sweep");
+
+            first.assert_calls(1);
+            rest.assert_calls(ids.len() - 1);
+            restore_service();
         }
     }
 

@@ -22,8 +22,8 @@ describe('InfoButton', () => {
     await changeLanguage('en-GB');
   });
 
-  it('names each button after the topic it explains', () => {
-    render(
+  it('names each button after the topic it explains', async () => {
+    await render(
       <>
         <InfoButton testID="info-tides" title="Tide tables" message="When the water turns." />
         <InfoButton testID="info-knots" title="Knots" message="Which loop holds." />

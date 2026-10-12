@@ -74,9 +74,9 @@ const RESULT: PreviewResult = {
   sections: [section('kept'), section('dropped', { status: 'gone' })],
 };
 
-function renderMap(over: { showCurrent?: boolean; showRemoved?: boolean } = {}) {
+async function renderMap(over: { showCurrent?: boolean; showRemoved?: boolean } = {}) {
   capturedSources.length = 0;
-  render(
+  await render(
     <PreviewMapView
       result={RESULT}
       currentSections={[section('kept')]}
@@ -99,23 +99,23 @@ function count(sources: Record<string, { data: GeoJSON.FeatureCollection }>, id:
 }
 
 describe('the removed catalogue toggle', () => {
-  it('draws a removed line once, through its own layer', () => {
-    const sources = renderMap();
+  it('draws a removed line once, through its own layer', async () => {
+    const sources = await renderMap();
 
     expect(count(sources, 'gone-sections')).toBe(1);
     expect(count(sources, 'current-sections')).toBe(1);
     expect(count(sources, 'proposed-sections')).toBe(1);
   });
 
-  it('keeps removals drawn when the current catalogue is hidden', () => {
-    const sources = renderMap({ showCurrent: false });
+  it('keeps removals drawn when the current catalogue is hidden', async () => {
+    const sources = await renderMap({ showCurrent: false });
 
     expect(count(sources, 'gone-sections')).toBe(1);
     expect(count(sources, 'current-sections')).toBe(0);
   });
 
-  it('hides removals on their own, leaving the current catalogue drawn', () => {
-    const sources = renderMap({ showRemoved: false });
+  it('hides removals on their own, leaving the current catalogue drawn', async () => {
+    const sources = await renderMap({ showRemoved: false });
 
     expect(count(sources, 'gone-sections')).toBe(0);
     expect(count(sources, 'current-sections')).toBe(1);

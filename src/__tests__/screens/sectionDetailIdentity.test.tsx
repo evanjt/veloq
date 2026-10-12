@@ -19,12 +19,24 @@ import SectionDetailScreen from '@/app/section/[id]';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('expo-router', () => ({
-  ...jest.requireActual('expo-router'),
-  useLocalSearchParams: () => ({ id: 'sec-1' }),
-  useFocusEffect: () => {},
-  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
-}));
+// The options each `Stack.Screen` the screen renders hands its navigation item, merged in order.
+let mockScreenOptions: Record<string, unknown> = {};
+jest.mock('expo-router', () => {
+  function Stack() {
+    return null;
+  }
+  Stack.Screen = function Screen({ options }: { options?: Record<string, unknown> }) {
+    mockScreenOptions = { ...mockScreenOptions, ...options };
+    return null;
+  };
+  return {
+    ...jest.requireActual('expo-router'),
+    useLocalSearchParams: () => ({ id: 'sec-1' }),
+    useFocusEffect: () => {},
+    router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
+    Stack,
+  };
+});
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: (component: unknown) => component,
@@ -45,7 +57,7 @@ jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
 }));
 jest.mock('@/shared/ui', () => ({
   Button: () => null,
-  EngineReadFailure: () => null,
+  ErrorState: () => null,
   useHeroMapHeight: () => 300,
   useTabBarClearance: () => 0,
 }));
@@ -56,6 +68,7 @@ jest.mock('@/features/settings', () => ({
 
 const mockSection = {
   id: 'sec-1',
+  name: 'Ridge climb',
   sectionType: 'auto',
   sportTypes: ['Ride'],
   polyline: [],
@@ -145,7 +158,6 @@ jest.mock('@/features/routes', () => {
     useSectionTimeStreamSync: (...args: unknown[]) => mockUseSectionTimeStreamSync(...args),
     useSectionChartData: () => ({ chartData: [] }),
     useSectionChartDataEnriched: () => ({ calendarSummary: null, combinedChartData: [] }),
-    useSectionMapData: () => ({ isRunning: false }),
     useSectionLedger: (...args: unknown[]) => mockUseSectionLedger(...args),
     useSectionDataRefresh: (() => {
       const handleTrimRefresh = () => {};
@@ -197,6 +209,8 @@ jest.mock('@/features/routes', () => {
     SectionDebugPanel: component,
     SectionDetailLinks: component,
     useSectionMergeFlow: () => noop,
+    sectionHeroName: jest.requireActual('@/features/routes/components/section/SectionHeader')
+      .sectionHeroName,
     SectionHeader: (props: { onSaveName: (name: string) => void }) => {
       capturedSaveName = props.onSaveName;
       return null;
@@ -211,10 +225,17 @@ describe('section detail screen', () => {
     capturedActivitySelect = undefined;
     capturedEfficiencyTrend = undefined;
     mockSelectedSport = undefined;
+    mockScreenOptions = {};
+  });
+
+  it("titles its navigation item with the section's name", async () => {
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+    expect(mockScreenOptions.title).toBe('Ridge climb');
   });
 
   it('keeps what it hands its hooks stable across a rename', async () => {
-    render(<SectionDetailScreen />);
+    await render(<SectionDetailScreen />);
     await act(async () => {});
 
     const actionsBefore = mockUseSectionActions.mock.calls.at(-1)?.[0];
@@ -248,7 +269,7 @@ describe('section detail screen', () => {
   it('keeps the chart in place through a scrub and a dot tap', async () => {
     const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     try {
-      render(<SectionDetailScreen />);
+      await render(<SectionDetailScreen />);
       await act(async () => {});
       expect(capturedActivitySelect).toBeDefined();
       scrollTo.mockClear();
@@ -300,7 +321,7 @@ describe('section detail efficiency trend', () => {
       error: undefined,
     }));
 
-    render(<SectionDetailScreen />);
+    await render(<SectionDetailScreen />);
     await act(async () => {});
 
     expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[2]).toBe('Run');
@@ -349,7 +370,7 @@ describe('section detail with time streams missing', () => {
       refetch,
     }));
 
-    render(<SectionDetailScreen />);
+    await render(<SectionDetailScreen />);
     await act(async () => {});
 
     expect(capturedContentArea?.streams).toEqual({
@@ -370,7 +391,7 @@ describe('section detail with time streams missing', () => {
       refetch: () => {},
     }));
 
-    render(<SectionDetailScreen />);
+    await render(<SectionDetailScreen />);
     await act(async () => {});
 
     expect((capturedContentArea?.streams as { status: string }).status).toBe('ready');

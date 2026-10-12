@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple, SearchBar } from '@/shared/ui';
+import { composeAccessibilityLabel, pressable, pressRipple, SearchBar } from '@/shared/ui';
 import { formatShortDateWithYear } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
@@ -24,24 +24,25 @@ export function MapNameSearch({ needle, onChangeNeedle, results, onChoose }: Map
     <View>
       {results.length > 0 && (
         <View style={[styles.results, isDark && styles.surfaceDark]} testID="map-search-results">
-          {results.map((a) => (
-            <Pressable
-              key={a.id}
-              testID={`map-search-result-${a.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={a.name}
-              onPress={() => onChoose(a.id)}
-              style={pressable(styles.resultRow)}
-              android_ripple={pressRipple}
-            >
-              <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>
-                {a.name}
-              </Text>
-              <Text style={[styles.resultDate, isDark && styles.resultDateDark]}>
-                {formatShortDateWithYear(new Date(a.date))}
-              </Text>
-            </Pressable>
-          ))}
+          {results.map((a) => {
+            const date = formatShortDateWithYear(new Date(a.date));
+            return (
+              <Pressable
+                key={a.id}
+                testID={`map-search-result-${a.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={composeAccessibilityLabel(a.name, date)}
+                onPress={() => onChoose(a.id)}
+                style={pressable(styles.resultRow)}
+                android_ripple={pressRipple}
+              >
+                <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>
+                  {a.name}
+                </Text>
+                <Text style={[styles.resultDate, isDark && styles.resultDateDark]}>{date}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
       <SearchBar
@@ -72,6 +73,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.sm,
+    minHeight: layout.minTapTarget,
   },
   resultName: {
     flex: 1,

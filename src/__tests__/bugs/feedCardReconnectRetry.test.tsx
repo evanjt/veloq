@@ -76,15 +76,15 @@ const activity = {
   stream_types: ['latlng'],
 } as unknown as Activity;
 
-const spinners = (tree: ReturnType<typeof render>) =>
+const spinners = (tree: Awaited<ReturnType<typeof render>>) =>
   tree.UNSAFE_queryAllByType(ActivityIndicator).length;
 
-const noMapMarks = (tree: ReturnType<typeof render>) =>
+const noMapMarks = (tree: Awaited<ReturnType<typeof render>>) =>
   tree
     .UNSAFE_queryAllByType(MaterialCommunityIcons)
     .filter((i) => i.props.name === 'map-marker-off').length;
 
-function renderCard(index = 0) {
+async function renderCard(index = 0) {
   const requestSnapshot = jest.fn();
   const snapshotRef = {
     current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
@@ -99,7 +99,7 @@ function renderCard(index = 0) {
     />
   );
   let height = 160;
-  const tree = render(card(height));
+  const tree = await render(card(height));
   // The component is memoised, and in the app the network reaches it through
   // context, which re-renders past a memo. The mock does not, so each rerender
   // moves a prop no effect reads to make the render happen.
@@ -107,10 +107,10 @@ function renderCard(index = 0) {
   return { requestSnapshot, tree, rerender };
 }
 
-function failOffline() {
+async function failOffline() {
   mockOnline = false;
-  const card = renderCard();
-  act(() => mockSnapshotFailed?.());
+  const card = await renderCard();
+  await act(() => mockSnapshotFailed?.());
   return card;
 }
 
@@ -122,62 +122,62 @@ describe('a feed card whose preview failed offline', () => {
     setVisibleRange(null);
   });
 
-  it('asks again on reconnect and goes back to the spinner', () => {
-    const { requestSnapshot, tree, rerender } = failOffline();
+  it('asks again on reconnect and goes back to the spinner', async () => {
+    const { requestSnapshot, tree, rerender } = await failOffline();
     expect(requestSnapshot).toHaveBeenCalledTimes(1);
     expect(noMapMarks(tree)).toBe(1);
 
     mockOnline = true;
-    rerender();
+    await rerender();
 
     expect(requestSnapshot).toHaveBeenCalledTimes(2);
     expect(spinners(tree)).toBe(1);
     expect(noMapMarks(tree)).toBe(0);
   });
 
-  it('asks once per reconnect, not on every render after it', () => {
-    const { requestSnapshot, rerender } = failOffline();
+  it('asks once per reconnect, not on every render after it', async () => {
+    const { requestSnapshot, rerender } = await failOffline();
 
     mockOnline = true;
-    rerender();
-    rerender();
+    await rerender();
+    await rerender();
 
     expect(requestSnapshot).toHaveBeenCalledTimes(2);
   });
 
-  it('asks again on a second reconnect after failing again', () => {
-    const { requestSnapshot, rerender } = failOffline();
+  it('asks again on a second reconnect after failing again', async () => {
+    const { requestSnapshot, rerender } = await failOffline();
     mockOnline = true;
-    rerender();
+    await rerender();
 
     mockOnline = false;
-    rerender();
-    act(() => mockSnapshotFailed?.());
+    await rerender();
+    await act(() => mockSnapshotFailed?.());
     mockOnline = true;
-    rerender();
+    await rerender();
 
     expect(requestSnapshot).toHaveBeenCalledTimes(3);
   });
 
-  it('does not ask on reconnect for a card that did not fail', () => {
+  it('does not ask on reconnect for a card that did not fail', async () => {
     mockOnline = false;
-    const { requestSnapshot, rerender } = renderCard();
+    const { requestSnapshot, rerender } = await renderCard();
 
     mockOnline = true;
-    rerender();
+    await rerender();
 
     expect(requestSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('does not ask on reconnect for a card outside the preview range', () => {
+  it('does not ask on reconnect for a card outside the preview range', async () => {
     setVisibleRange({ first: 0, last: 1 });
     mockOnline = false;
-    const { requestSnapshot, tree, rerender } = renderCard(10);
-    act(() => mockSnapshotFailed?.());
+    const { requestSnapshot, tree, rerender } = await renderCard(10);
+    await act(() => mockSnapshotFailed?.());
     expect(requestSnapshot).not.toHaveBeenCalled();
 
     mockOnline = true;
-    rerender();
+    await rerender();
 
     expect(requestSnapshot).not.toHaveBeenCalled();
     expect(noMapMarks(tree)).toBe(1);

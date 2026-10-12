@@ -8,7 +8,7 @@ import * as haptics from '@/shared/ui/haptics';
  *
  * Use these instead of `router.push(path as never)` or `router.push(path as Href)`.
  *
- * `navigateTo`, `replaceTo` and `navigateTab` are silent: they serve navigation with no tap behind
+ * `navigateTo`, `replaceTo`, `returnTo` and `navigateTab` are silent: they serve navigation with no tap behind
  * it (a notification, the end of a recording, a redirect). A press handler that opens a screen or
  * goes back calls `tapTo` or `tapBack`, which fire one light impact first.
  *
@@ -26,6 +26,14 @@ export function replaceTo(
   path: string | { pathname: string; params?: Record<string, string | undefined> }
 ): void {
   router.replace(path as Href);
+}
+
+/**
+ * Ends a flow at `path`: pops back to it when it is in history, so nothing the flow pushed stays
+ * beneath it, and replaces the current screen with it when it is not.
+ */
+export function returnTo(path: string): void {
+  router.dismissTo(path as Href);
 }
 
 export function navigateTab(

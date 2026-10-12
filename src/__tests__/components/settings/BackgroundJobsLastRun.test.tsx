@@ -67,8 +67,8 @@ function engine() {
   } as unknown as ReturnType<typeof getEngine>;
 }
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((callback) => callback());
   });
 }
@@ -91,36 +91,48 @@ describe('background jobs last run', () => {
     jest.useRealTimers();
   });
 
-  it('rests collapsed with a finished detection run and shows its counts when expanded', () => {
+  it('rests collapsed with a finished detection run and shows its counts when expanded', async () => {
     runs = [run('detection', { handled: 77, added: 3, changed: 1 })];
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
 
     expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
     expect(tree.queryByTestId('background-job-detection')).toBeNull();
 
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     const line = tree.getByTestId('background-job-detection-last-run').props.children as string;
     expect(line).toContain('77 activities');
     expect(line).toContain('3 new, 1 changed');
     expect(tree.queryByTestId('background-job-cutover')).toBeNull();
   });
 
-  it('says no change when a complete run changed nothing', () => {
-    runs = [run('streamBackfill', { handled: 12 })];
-    const tree = render(<BackgroundJobsActivityBar />);
+  it('tells a screen reader whether the list is open', async () => {
+    runs = [run('detection', { handled: 4 })];
+    const tree = await render(<BackgroundJobsActivityBar />);
+    const toggle = () => tree.getByTestId('background-jobs-activity-toggle');
 
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
+    await fireEvent.press(toggle());
+    expect(toggle().props.accessibilityState).toMatchObject({ expanded: true });
+    await fireEvent.press(toggle());
+    expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
+  });
+
+  it('says no change when a complete run changed nothing', async () => {
+    runs = [run('streamBackfill', { handled: 12 })];
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     const line = tree.getByTestId('background-job-streamBackfill-last-run').props
       .children as string;
     expect(line).toContain('12 activities');
     expect(line).toContain('No change');
   });
 
-  it('says so when a run stopped early, and names its failures', () => {
+  it('says so when a run stopped early, and names its failures', async () => {
     runs = [run('elevationBackfill', { outcome: 'failed', handled: 9, added: 4, failed: 5 })];
-    const tree = render(<BackgroundJobsActivityBar />);
+    const tree = await render(<BackgroundJobsActivityBar />);
 
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     const line = tree.getByTestId('background-job-elevationBackfill-last-run').props
       .children as string;
     expect(line).toContain('Stopped early');
@@ -128,35 +140,35 @@ describe('background jobs last run', () => {
     expect(line).not.toContain('No change');
   });
 
-  it('renders nothing when no job has run and nothing is owed', () => {
-    const tree = render(<BackgroundJobsActivityBar />);
+  it('renders nothing when no job has run and nothing is owed', async () => {
+    const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
   });
 
-  it('reads the screen read again when detection applies, and never on the tick', () => {
-    const tree = render(<BackgroundJobsActivityBar />);
+  it('reads the screen read again when detection applies, and never on the tick', async () => {
+    const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
     const afterMount = screenReads;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(3000);
     });
     expect(screenReads).toBe(afterMount);
 
     runs = [run('detection', { handled: 5, added: 2 })];
-    emit('detectionApplied');
+    await emit('detectionApplied');
 
     expect(screenReads).toBeGreaterThan(afterMount);
-    fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-detection-last-run').props.children).toContain('2 new');
   });
 
   it.each(['activities', 'backfillPhase', 'streamBackfillPhase', 'cutoverSettled'])(
     'reads the screen read again on %s',
-    (channel) => {
-      render(<BackgroundJobsActivityBar />);
+    async (channel) => {
+      await render(<BackgroundJobsActivityBar />);
       const before = screenReads;
-      emit(channel);
+      await emit(channel);
       expect(screenReads).toBeGreaterThan(before);
     }
   );

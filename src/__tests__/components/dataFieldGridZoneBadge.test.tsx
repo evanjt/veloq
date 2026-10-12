@@ -30,7 +30,7 @@ const METRICS = {
   movingTime: 200,
 };
 
-function textNodes(tree: ReturnType<typeof render>, testID: string) {
+function textNodes(tree: Awaited<ReturnType<typeof render>>, testID: string) {
   return tree.getByTestId(testID).findAll((n) => n.type === Text);
 }
 
@@ -41,8 +41,8 @@ function content(node: { props: { children?: unknown } }): string {
     .join('');
 }
 
-it('renders the heart rate zone in its own text, apart from the label', () => {
-  const tree = render(
+it('renders the heart rate zone in its own text, apart from the label', async () => {
+  const tree = await render(
     <DataFieldGrid
       fields={['heartrate']}
       metrics={METRICS}
@@ -64,16 +64,16 @@ it('renders the heart rate zone in its own text, apart from the label', () => {
   expect(content(label!)).not.toContain('Z4');
 });
 
-it('shows no zone element when no zone is known', () => {
-  const tree = render(<DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric />);
+it('shows no zone element when no zone is known', async () => {
+  const tree = await render(<DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric />);
   const texts = textNodes(tree, 'data-field-heartrate');
   expect(texts.some((n) => /^Z\d$/.test(content(n)))).toBe(false);
 });
 
 it.each(['heartrate', 'speed', 'timer'] as const)(
   'shrinks the %s value to fit with a floor instead of ellipsising',
-  (field) => {
-    const tree = render(
+  async (field) => {
+    const tree = await render(
       <DataFieldGrid
         fields={[field]}
         metrics={METRICS}

@@ -50,13 +50,13 @@ function summary(groupId: string, distanceMeters: number) {
   };
 }
 
-function renderPicker(selectedRouteId: string | null = null) {
+async function renderPicker(selectedRouteId: string | null = null) {
   const result = openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
     activityType: 'Ride',
     selectedRouteId,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  return { screen: render(<RouteOverlaySheet />), result };
+  return { screen: await render(<RouteOverlaySheet />), result };
 }
 
 beforeEach(() => {
@@ -68,33 +68,33 @@ beforeEach(() => {
   });
 });
 
-it("shows each route's distance beside its attempt count", () => {
-  const { screen } = renderPicker();
+it("shows each route's distance beside its attempt count", async () => {
+  const { screen } = await renderPicker();
 
   expect(screen.getByText(/^4\.2 km · /)).toBeTruthy();
   expect(screen.getByText(/^12\.6 km · /)).toBeTruthy();
 });
 
-it('shows the count alone for a route whose distance is unknown', () => {
-  const { screen } = renderPicker();
+it('shows the count alone for a route whose distance is unknown', async () => {
+  const { screen } = await renderPicker();
 
   const rows = screen.getAllByText(/recording\.routeOverlay\.activities/);
   expect(rows).toHaveLength(3);
   expect(rows.filter((row) => /km|mi|m ·/.test(String(row.props.children)))).toHaveLength(2);
 });
 
-it('shows the distance in miles for an imperial athlete', () => {
+it('shows the distance in miles for an imperial athlete', async () => {
   const { useMetricSystem } = jest.requireMock('@/shared/app');
   useMetricSystem.mockReturnValue(false);
 
-  const { screen } = renderPicker();
+  const { screen } = await renderPicker();
 
   expect(screen.getByText(/^2\.6 mi · /)).toBeTruthy();
 });
 
 it('shows live percentages and orders routes by overlap after the recorded track grows', async () => {
   const streams = useRecordingStore.getState().streams;
-  act(() => {
+  await act(() => {
     useRecordingStore.setState({
       streams: {
         ...streams,
@@ -114,33 +114,77 @@ it('shows live percentages and orders routes by overlap after the recorded track
     ]),
   });
 
-  const { screen } = renderPicker();
+  const { screen } = await renderPicker();
   await waitFor(() => expect(screen.getByText(/75%/)).toBeTruthy());
   expect(
     screen.getByTestId('route-overlay-list').props.data.map((group: { id: string }) => group.id)
   ).toEqual(['long', 'short', 'unknown']);
-  act(() => useRecordingStore.setState({ streams }));
+  await act(() => useRecordingStore.setState({ streams }));
+});
+
+async function growTrack() {
+  const streams = useRecordingStore.getState().streams;
+  await act(() => {
+    useRecordingStore.setState({
+      streams: {
+        ...streams,
+        latlng: [
+          [47, 7],
+          [47.001, 7],
+        ],
+        distance: [0, 350],
+      },
+    });
+  });
+  return () => act(() => useRecordingStore.setState({ streams }));
+}
+
+it('labels a measured overlap and marks a route the measurement did not answer', async () => {
+  const restore = await growTrack();
+  (getEngine as jest.Mock).mockReturnValue({
+    liveRouteOverlaps: jest.fn().mockResolvedValue([{ groupId: 'long', percentage: 75 }]),
+  });
+
+  const { screen } = await renderPicker();
+  await waitFor(() => expect(screen.getByText(/75% sections\.overlapLabel/)).toBeTruthy());
+  expect(screen.queryByText(/ 0%/)).toBeNull();
+  expect(screen.getAllByLabelText(/common\.noData/)).toHaveLength(2);
+  restore();
+});
+
+it('prints no percentage before the first measurement or after a failed one', async () => {
+  const restore = await growTrack();
+  const measure = jest.fn().mockRejectedValue(new Error('engine down'));
+  (getEngine as jest.Mock).mockReturnValue({ liveRouteOverlaps: measure });
+
+  const { screen } = await renderPicker();
+  await waitFor(() => expect(measure).toHaveBeenCalled());
+  await act(async () => {});
+
+  expect(screen.queryByText(/\d%/)).toBeNull();
+  expect(screen.getAllByLabelText(/common\.noData/)).toHaveLength(3);
+  restore();
 });
 
 it('resolves the caller with the tapped route and dismisses', async () => {
-  const { screen, result } = renderPicker();
+  const { screen, result } = await renderPicker();
 
-  fireEvent.press(screen.getByTestId('route-overlay-option-long'));
+  await fireEvent.press(screen.getByTestId('route-overlay-option-long'));
 
   await expect(result).resolves.toEqual({ kind: 'selected', value: 'long' });
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
 it('resolves null for "No route", which clears the overlay', async () => {
-  const { screen, result } = renderPicker('short');
+  const { screen, result } = await renderPicker('short');
 
-  fireEvent.press(screen.getByTestId('route-overlay-none'));
+  await fireEvent.press(screen.getByTestId('route-overlay-none'));
 
   await expect(result).resolves.toEqual({ kind: 'selected', value: null });
 });
 
-it('marks the current route as selected', () => {
-  const { screen } = renderPicker('short');
+it('marks the current route as selected', async () => {
+  const { screen } = await renderPicker('short');
 
   expect(screen.getByTestId('route-overlay-option-short').props.accessibilityState).toMatchObject({
     selected: true,
@@ -153,13 +197,13 @@ it('marks the current route as selected', () => {
   });
 });
 
-it('keeps its scroll view where the iOS sheet sizes it', () => {
-  const { screen } = renderPicker();
+it('keeps its scroll view where the iOS sheet sizes it', async () => {
+  const { screen } = await renderPicker();
   expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
 });
 
 it('resolves cancelled when it unmounts without a tap', async () => {
-  const { screen, result } = renderPicker();
-  screen.unmount();
+  const { screen, result } = await renderPicker();
+  await screen.unmount();
   await expect(result).resolves.toEqual({ kind: 'cancelled' });
 });

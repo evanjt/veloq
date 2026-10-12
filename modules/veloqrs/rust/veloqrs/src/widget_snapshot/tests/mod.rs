@@ -4,5 +4,6 @@ mod fixtures;
 mod form_zones;
 mod native;
 mod snapshot;
+mod spoken;
 mod strength;
 mod verdict;

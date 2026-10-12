@@ -117,6 +117,7 @@ pub mod curves;
 pub(crate) mod strength;
 pub use strength::FitOutcome;
 pub mod tiles;
+pub(crate) mod track_index;
 pub mod wellness;
 
 // ============================================================================
@@ -1281,7 +1282,7 @@ pub struct PersistentEngine {
     /// by up to `k` steps. In-memory only. `None` until a detect has applied in
     /// this process: an applied EMPTY batch is a known answer, not an absence,
     /// so the two must stay distinguishable.
-    raw_sections: Option<Vec<FrequentSection>>,
+    raw_sections: Option<Arc<[FrequentSection]>>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
@@ -1293,7 +1294,7 @@ pub struct PersistentEngine {
     /// under, so a restart resumes warm; an unreadable or stale row leaves the
     /// engine cold, which is what every engine did before the row existed.
     /// Moves in lockstep with `cache_folded_ids`.
-    section_evidence_cache: SectionEvidenceCache,
+    section_evidence_cache: Arc<SectionEvidenceCache>,
     /// The boundary records of the detect being applied, held only for the
     /// duration of one apply so the event emitter can read them.
     fork_records: Vec<tracematch::BoundaryRecord>,
@@ -1304,7 +1305,7 @@ pub struct PersistentEngine {
     /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
     /// Cleared together with the cache at every invalidation point so the two can
     /// never disagree, and persisted in the same row for the same reason.
-    cache_folded_ids: HashSet<String>,
+    cache_folded_ids: Arc<HashSet<String>>,
     evidence_cache_restored: bool,
     /// Whether the stored `evidence_cache` row is the cache held in memory,
     /// so dropping the in-memory copy loses nothing a restore cannot read
@@ -1540,8 +1541,8 @@ impl PersistentEngine {
 
     /// Empty the evidence tiers after their persisted row has been deleted.
     pub(crate) fn forget_evidence_cache_in_memory(&mut self) {
-        self.section_evidence_cache = SectionEvidenceCache::new();
-        self.cache_folded_ids.clear();
+        self.section_evidence_cache = Arc::new(SectionEvidenceCache::new());
+        self.cache_folded_ids = Arc::default();
         self.evidence_cache_restored = true;
         self.evidence_row_current = false;
     }
@@ -1599,9 +1600,9 @@ impl PersistentEngine {
             identity: sections::SectionIdentity::default(),
             raw_sections: None,
             processed_activity_ids: HashSet::new(),
-            section_evidence_cache: SectionEvidenceCache::new(),
+            section_evidence_cache: Arc::new(SectionEvidenceCache::new()),
             fork_records: Vec::new(),
-            cache_folded_ids: HashSet::new(),
+            cache_folded_ids: Arc::default(),
             evidence_cache_restored: true,
             evidence_row_current: false,
             evidence_cache_decodes: 0,

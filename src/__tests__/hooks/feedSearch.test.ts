@@ -72,7 +72,7 @@ describe('useFeedSearch', () => {
       hasMore: false,
     });
 
-    const { result } = render('  ferry ', null);
+    const { result } = await render('  ferry ', null);
 
     await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['old']));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
@@ -90,7 +90,7 @@ describe('useFeedSearch', () => {
     ['Swimming', FeedSportGroup.Swimming],
     ['Other', FeedSportGroup.Other],
   ] as const)('reads the %s chip as the engine group of that name', async (chip, group) => {
-    const { result } = render('', chip);
+    const { result } = await render('', chip);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
@@ -103,7 +103,7 @@ describe('useFeedSearch', () => {
 
   it('passes two selected groups to one whole-library read', async () => {
     const selected = new Set<FeedGroup>(['Cycling', 'Other']);
-    const { result } = renderHook(() => useFeedSearch('', selected), { wrapper });
+    const { result } = await renderHook(() => useFeedSearch('', selected), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
@@ -114,14 +114,14 @@ describe('useFeedSearch', () => {
     });
   });
 
-  it('has the first page in the render that asked for it, so the list never blanks', () => {
+  it('has the first page in the render that asked for it, so the list never blanks', async () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('old')],
       matchedCount: 1,
       hasMore: false,
     });
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ text }: { text: string }) => useFeedSearch(text, new Set()),
       { wrapper, initialProps: { text: 'f' } }
     );
@@ -133,12 +133,12 @@ describe('useFeedSearch', () => {
       matchedCount: 1,
       hasMore: false,
     });
-    rerender({ text: 'fe' });
+    await rerender({ text: 'fe' });
     expect(result.current.activities.map((a) => a.id)).toEqual(['older']);
   });
 
   it('sends the range as an inclusive window of epoch seconds with the chip', async () => {
-    const { result } = render('', 'Cycling', MARCH_2024);
+    const { result } = await render('', 'Cycling', MARCH_2024);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
@@ -159,7 +159,7 @@ describe('useFeedSearch', () => {
         hasMore: true,
       })
       .mockReturnValueOnce({ bodies: [], matchedCount: 31, hasMore: false });
-    const { result } = render('ferry', null, MARCH_2024);
+    const { result } = await render('ferry', null, MARCH_2024);
 
     await waitFor(() => expect(result.current.activities).toHaveLength(30));
     await act(async () => {
@@ -175,12 +175,12 @@ describe('useFeedSearch', () => {
     );
   });
 
-  it('re-reads when the range changes rather than serving the other range', () => {
-    const { rerender } = renderHook(
+  it('re-reads when the range changes rather than serving the other range', async () => {
+    const { rerender } = await renderHook(
       ({ range }: { range: FeedRange | null }) => useFeedSearch('ferry', new Set(), range),
       { wrapper, initialProps: { range: MARCH_2024 as FeedRange | null } }
     );
-    rerender({ range: { oldest: '2023-01-01', newest: '2023-12-31' } });
+    await rerender({ range: { oldest: '2023-01-01', newest: '2023-12-31' } });
 
     expect(engine.searchActivityBodies).toHaveBeenLastCalledWith(
       expect.objectContaining({ oldestTs: dayStartEpochSeconds('2023-01-01') })
@@ -188,7 +188,7 @@ describe('useFeedSearch', () => {
   });
 
   it('sends no window when no range is set', async () => {
-    const { result } = render('ferry', null);
+    const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const query = engine.searchActivityBodies.mock.calls[0][0];
@@ -196,8 +196,27 @@ describe('useFeedSearch', () => {
     expect(query).not.toHaveProperty('newestTs');
   });
 
-  it('reads nothing while no filter is on, blank text included', () => {
-    const { result } = render('   ', null);
+  it('counts a range alone without reading a body, since the range read lists it', async () => {
+    engine.searchActivityBodies.mockReturnValue({ bodies: [], matchedCount: 212, hasMore: true });
+
+    const { result } = await render('', null, MARCH_2024);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+      needle: '',
+      sportGroups: [],
+      oldestTs: dayStartEpochSeconds('2024-03-01'),
+      newestTs: dayEndEpochSeconds('2024-03-31'),
+      offset: 0,
+      limit: 0,
+    });
+    expect(result.current.matchedCount).toBe(212);
+    expect(result.current.activities).toEqual([]);
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it('reads nothing while no filter is on, blank text included', async () => {
+    const { result } = await render('   ', null);
 
     expect(engine.searchActivityBodies).not.toHaveBeenCalled();
     expect(result.current.activities).toEqual([]);
@@ -213,7 +232,7 @@ describe('useFeedSearch', () => {
       })
       .mockReturnValueOnce({ bodies: [body('p2-0')], matchedCount: 31, hasMore: false });
 
-    const { result } = render('', 'Swimming');
+    const { result } = await render('', 'Swimming');
 
     await waitFor(() => expect(result.current.activities).toHaveLength(30));
     expect(result.current.hasNextPage).toBe(true);
@@ -241,7 +260,7 @@ describe('useFeedSearch', () => {
       hasMore: false,
     });
 
-    const { result } = render('ferry', null);
+    const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['kept']));
   });
@@ -249,7 +268,7 @@ describe('useFeedSearch', () => {
   it('is an error rather than an empty match when the engine is not open', async () => {
     engine.searchActivityBodies.mockReturnValue(undefined);
 
-    const { result } = render('ferry', null);
+    const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.activities).toEqual([]);

@@ -21,10 +21,11 @@ const EMPTY: Map<string, ActivityLabel> = new Map();
 export function useActivityLabels(ids: readonly string[]): {
   labels: Map<string, ActivityLabel>;
   error: unknown;
+  refetch: () => void;
 } {
   useEngineChannel('activities', queryKeys.activities.labels);
 
-  const { data, error } = useQuery({
+  const { data, error, refetch } = useQuery({
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.labelsFor(ids),
     queryFn: () => activityLabels(ids),
@@ -34,5 +35,5 @@ export function useActivityLabels(ids: readonly string[]): {
     enabled: ids.length > 0,
   });
 
-  return { labels: data ?? EMPTY, error };
+  return { labels: data ?? EMPTY, error, refetch: () => void refetch() };
 }

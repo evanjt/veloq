@@ -1,23 +1,21 @@
 /**
- * Scenario: the engine now announces its activity steps, so the activities
- * array changes twice during one sync, once when the head window's rows land
- * and once at the settle. The second change arrives while the head's tracks
- * are still downloading.
+ * Scenario: the engine announces its activity steps, so `activities` fires
+ * twice during one sync, once when the head window's rows land and once at the
+ * settle. The second announcement arrives while the head's tracks are still
+ * downloading.
  *
  * Expected behaviour: the run refused for the one in flight is owed a turn and
- * takes it when that run ends. Before this the effect keyed on an array
- * identity nothing brings back, so the remainder's tracks were never fetched
- * in that session.
+ * takes it when that run ends, since the announcement that asked for it is
+ * already spent.
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
-import { getNativeModule } from '@/shared/native/engine';
+import { getEngine, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
@@ -38,12 +36,22 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 
 const mockGetNativeModule = getNativeModule as jest.MockedFunction<typeof getNativeModule>;
 
-function activity(id: string): Activity {
-  return { id } as unknown as Activity;
+/** The ids the engine says still owe a track; an announcement only triggers a run. */
+let owed: string[] = [];
+
+const listeners = new Set<() => void>();
+
+function announceActivities() {
+  listeners.forEach((listener) => listener());
 }
 
-/** The ids the engine says still owe a track; the activities handed to the hook only trigger a run. */
-let owed: string[] = [];
+const channels = {
+  subscribe: (channel: string, listener: () => void) => {
+    if (channel !== 'activities') return () => {};
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+};
 
 /** A promise plus the handle that settles it, so a run can be held open. */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -61,6 +69,8 @@ describe('a run refused while another is in flight', () => {
     jest.clearAllMocks();
     resetGlobalSyncState();
     owed = ['a1'];
+    listeners.clear();
+    (getEngine as jest.Mock).mockReturnValue(channels);
     // The run has to start inside the act() that triggers it. The queue the
     // real manager keeps is not what this test is about.
     idle = stubIdleScheduler('immediate');
@@ -68,6 +78,7 @@ describe('a run refused while another is in flight', () => {
     mockGetNativeModule.mockReturnValue({
       engine: {
         getActivityCount: () => 0,
+        getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => owed.map((activityId) => ({ activityId, sportType: 'Ride' })),
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
@@ -87,17 +98,13 @@ describe('a run refused while another is in flight', () => {
     const second = deferred();
     mockFetchApiGps.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
 
-    const head = [activity('a1')];
-    const { rerender } = renderHook(
-      ({ activities }: { activities: Activity[] }) => useRouteDataSync(activities, true),
-      { initialProps: { activities: head } }
-    );
+    await renderHook(() => useRouteDataSync(true));
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
 
-    // The settle's refresh, while the head's tracks are still downloading.
+    // The settle's announcement, while the head's tracks are still downloading.
     owed = ['a1', 'a2'];
     await act(async () => {
-      rerender({ activities: [...head, activity('a2')] });
+      announceActivities();
     });
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
 
@@ -115,13 +122,9 @@ describe('a run refused while another is in flight', () => {
     const first = deferred();
     mockFetchApiGps.mockReturnValueOnce(first.promise).mockReturnValueOnce(deferred().promise);
 
-    const head = [activity('a1')];
-    const { rerender } = renderHook(
-      ({ activities }: { activities: Activity[] }) => useRouteDataSync(activities, true),
-      { initialProps: { activities: head } }
-    );
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {
-      rerender({ activities: [...head, activity('a2')] });
+      announceActivities();
     });
 
     // Clear and Sync empties SQLite and re-arms the sync itself, so the pass
@@ -139,7 +142,7 @@ describe('a run refused while another is in flight', () => {
     const only = deferred();
     mockFetchApiGps.mockReturnValueOnce(only.promise);
 
-    renderHook(() => useRouteDataSync([activity('a1')], true));
+    await renderHook(() => useRouteDataSync(true));
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -161,9 +164,9 @@ describe('a sync with no native module', () => {
   });
 
   it('ends in error and stamps no last sync', async () => {
-    const { result } = renderHook(() => useRouteDataSync([activity('a1')], true));
+    const { result } = await renderHook(() => useRouteDataSync(true));
     await act(async () => {
-      await result.current.syncActivities([activity('a1')]);
+      await result.current.syncActivities();
     });
 
     expect(useSyncDateRange.getState().gpsSyncProgress.status).toBe('error');

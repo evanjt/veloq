@@ -6,6 +6,7 @@ import { router, useSegments } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { Button } from './Button';
+import { StatusLine } from './StatusLine';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { tapBack } from '@/shared/app/navigation';
@@ -74,14 +75,22 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
   // may be the screen that threw, so Back there needs history to go back to.
   const offersBack = !isTabBarRoute(useSegments()) || router.canGoBack();
 
+  const title = t('emptyState.error.title');
+
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <StatusLine
+      tone="error"
+      message={title}
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <MaterialCommunityIcons
         name="alert-circle-outline"
         size={48}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
-      <Text style={[styles.title, { color: themeColors.text }]}>{t('emptyState.error.title')}</Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: themeColors.text }]}>
+        {title}
+      </Text>
       {__DEV__ && error?.message && (
         <Text style={[styles.devError, { color: themeColors.textSecondary }]} numberOfLines={4}>
           {error.message}
@@ -99,7 +108,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
         )}
         <Button label={t('common.retry')} size="sm" onPress={onRetry} style={styles.button} />
       </View>
-    </View>
+    </StatusLine>
   );
 }
 

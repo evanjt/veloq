@@ -42,22 +42,22 @@ beforeAll(async () => {
 beforeEach(() => mockPush.mockClear());
 
 describe('the strength pairs info sheet', () => {
-  it('is pushed as a plain route from the info control on the balance card', () => {
-    render(
+  it('is pushed as a plain route from the info control on the balance card', async () => {
+    await render(
       <StrengthBalanceView
         visibleBalancePairs={[PAIR]}
         featuredBalancePair={PAIR}
         periodLabel="4 weeks"
       />
     );
-    fireEvent.press(screen.getByLabelText(i18n.t('strength.pairsInfoTitle')));
+    await fireEvent.press(screen.getByLabelText(i18n.t('strength.pairsInfoTitle')));
     expect(mockPush).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledWith('/sheets/strength-pairs-info');
     expect(screen.queryByTestId('strength-pairs-info-sheet')).toBeNull();
   });
 
-  it('lists every pair and both threshold lines', () => {
-    render(<StrengthPairsInfoSheet />);
+  it('lists every pair and both threshold lines', async () => {
+    await render(<StrengthPairsInfoSheet />);
     const sheet = within(screen.getByTestId('strength-pairs-info-sheet'));
     expect(sheet.getByText(i18n.t('strength.pairsInfoTitle'))).toBeTruthy();
     for (const { label } of listBalancePairNames(i18n.t.bind(i18n) as never)) {

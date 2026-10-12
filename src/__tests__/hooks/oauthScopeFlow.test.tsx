@@ -111,7 +111,7 @@ describe('OAuth sign-in permission answer', () => {
       mockCallback.mockResolvedValue(
         token(scope) as Awaited<ReturnType<typeof handleOAuthCallback>>
       );
-      const { result } = renderHook(() => ({
+      const { result } = await renderHook(() => ({
         login: useOAuthLogin({ setError }),
         recording: useCanRecord(),
       }));
@@ -131,13 +131,13 @@ describe('OAuth sign-in permission answer', () => {
         token('ACTIVITY:WRITE') as Awaited<ReturnType<typeof handleOAuthCallback>>
       )
       .mockResolvedValueOnce(token('') as Awaited<ReturnType<typeof handleOAuthCallback>>);
-    const { result } = renderHook(() => ({
+    const { result } = await renderHook(() => ({
       login: useOAuthLogin({ setError }),
       recording: useCanRecord(),
     }));
     await act(() => result.current.login.handleOAuthLogin());
     expect(result.current.recording.reason).toBe('ok');
-    act(() => useUploadPermissionStore.getState().reset());
+    await act(() => useUploadPermissionStore.getState().reset());
     await act(() => result.current.login.handleOAuthLogin());
     expect(result.current.recording.reason).toBe('no_permission');
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
@@ -147,7 +147,7 @@ describe('OAuth sign-in permission answer', () => {
     if (outcome === 'cancel')
       mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
     else mockCallback.mockRejectedValue(new Error('Token exchange failed'));
-    const { result } = renderHook(() => useOAuthLogin({ setError }));
+    const { result } = await renderHook(() => useOAuthLogin({ setError }));
     await act(() => result.current.handleOAuthLogin());
     expect(useUploadPermissionStore.getState().isLoaded).toBe(false);
     expect(useUploadPermissionStore.getState().hasWritePermission).toBeNull();
@@ -161,7 +161,7 @@ describe('OAuth write scope boundary', () => {
     mockCallback.mockResolvedValue(
       token('ACTIVITY:WRITE') as Awaited<ReturnType<typeof handleOAuthCallback>>
     );
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect((await result.current.upgradePermissions()).granted).toBe(false);
     });
@@ -175,7 +175,7 @@ describe('OAuth write scope boundary', () => {
     mockCallback.mockResolvedValue(
       token('ACTIVITY:WRITE') as Awaited<ReturnType<typeof handleOAuthCallback>>
     );
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect((await result.current.upgradePermissions()).granted).toBe(true);
     });
@@ -186,7 +186,7 @@ describe('OAuth write scope boundary', () => {
   it("names an unreachable proxy in the athlete's language, not the platform error", async () => {
     useAuthStore.setState({ athleteId: '123' });
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect((await result.current.upgradePermissions()).granted).toBe(false);
     });
@@ -196,7 +196,7 @@ describe('OAuth write scope boundary', () => {
 
   it('refuses the upgrade offline without opening the flow', async () => {
     mockIsOnline = false;
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect((await result.current.upgradePermissions()).granted).toBe(false);
     });
@@ -207,7 +207,7 @@ describe('OAuth write scope boundary', () => {
 
   it('stays silent when the athlete cancels the upgrade', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect((await result.current.upgradePermissions()).granted).toBe(false);
     });
@@ -216,7 +216,7 @@ describe('OAuth write scope boundary', () => {
 
   it('stays silent when the athlete closes the upgrade tab', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.DISMISS });
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect(await result.current.upgradePermissions()).toEqual({ granted: false, error: null });
     });
@@ -225,7 +225,7 @@ describe('OAuth write scope boundary', () => {
 
   it('reports an upgrade the browser could not open', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.LOCKED });
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       expect(await result.current.upgradePermissions()).toEqual({
         granted: false,
@@ -239,7 +239,7 @@ describe('OAuth write scope boundary', () => {
     'shows no sign-in error when the browser returns %s',
     async (type) => {
       mockBrowser.mockResolvedValue({ type });
-      const { result } = renderHook(() => useOAuthLogin({ setError }));
+      const { result } = await renderHook(() => useOAuthLogin({ setError }));
       await act(() => result.current.handleOAuthLogin());
       expect(setError).toHaveBeenCalledTimes(1);
       expect(setError).toHaveBeenLastCalledWith(null);
@@ -249,7 +249,7 @@ describe('OAuth write scope boundary', () => {
 
   it('shows a sign-in error when the browser could not open', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.LOCKED });
-    const { result } = renderHook(() => useOAuthLogin({ setError }));
+    const { result } = await renderHook(() => useOAuthLogin({ setError }));
     await act(() => result.current.handleOAuthLogin());
     expect(setError).toHaveBeenLastCalledWith('login.oauthFailed');
   });
@@ -261,7 +261,7 @@ describe('OAuth write scope boundary', () => {
 
   it('opens sign-in with a read-only authorisation URL', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
-    const { result } = renderHook(() => useOAuthLogin({ setError }));
+    const { result } = await renderHook(() => useOAuthLogin({ setError }));
     await act(() => result.current.handleOAuthLogin());
     expect(mockBrowser).toHaveBeenCalledTimes(1);
     expect(requestedScopes()).not.toContain('ACTIVITY:WRITE');
@@ -270,7 +270,7 @@ describe('OAuth write scope boundary', () => {
 
   it('opens the explicit permission upgrade with activity write access', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
-    const { result } = renderHook(() => usePermissionUpgrade());
+    const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
       await result.current.upgradePermissions();
     });

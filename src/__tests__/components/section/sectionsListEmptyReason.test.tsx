@@ -77,15 +77,15 @@ describe('SectionsList empty reason', () => {
     await changeLanguage('en-GB');
   });
 
-  it('says a library of indoor sessions has no GPS', () => {
-    renderList({ tag: 'NoGpsActivities' } as unknown as FfiCatalogueEmptyReason);
+  it('says a library of indoor sessions has no GPS', async () => {
+    await renderList({ tag: 'NoGpsActivities' } as unknown as FfiCatalogueEmptyReason);
 
     expect(screen.getByText('No activities with GPS')).toBeTruthy();
     expect(screen.queryByText('No frequent sections yet')).toBeNull();
   });
 
-  it("states the detector's threshold when it found no section", () => {
-    renderList({
+  it("states the detector's threshold when it found no section", async () => {
+    await renderList({
       tag: 'NoneFound',
       inner: { minActivities: 3 },
     } as unknown as FfiCatalogueEmptyReason);
@@ -96,11 +96,10 @@ describe('SectionsList empty reason', () => {
     ).toBeTruthy();
   });
 
-  it('reads a catalogue the filters hide as no match when the engine names no reason', () => {
-    renderList(null, 4);
+  it('reads a catalogue the filters hide as no match when the engine names no reason', async () => {
+    await renderList(null, 4);
 
     expect(screen.queryByText('No frequent sections yet')).toBeNull();
-    expect(screen.queryByTestId('empty-state')).toBeNull();
-    expect(screen.getByText('No sections match filter')).toBeTruthy();
+    expect(screen.getByTestId('empty-state-title').props.children).toBe('No sections match filter');
   });
 });

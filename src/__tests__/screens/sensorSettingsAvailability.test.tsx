@@ -67,13 +67,13 @@ async function flush(): Promise<void> {
 
 async function press(testID: string): Promise<void> {
   await rtl.act(async () => {
-    rtl.fireEvent.press(rtl.screen.getByTestId(testID));
+    await rtl.fireEvent.press(rtl.screen.getByTestId(testID));
     await flush();
   });
 }
 
-function emitAdapter(state: string): void {
-  rtl.act(() => {
+async function emitAdapter(state: string): Promise<void> {
+  await rtl.act(() => {
     for (const listener of mockStateListeners) listener(state);
   });
 }
@@ -125,15 +125,15 @@ afterEach(() => {
 
 describe('the Sensors screen', () => {
   it('does not touch the radio until Scan is pressed', async () => {
-    renderScreen();
+    await renderScreen();
     expect(mockConstructed).not.toHaveBeenCalled();
 
     await press('sensor-scan-button');
     expect(mockConstructed).toHaveBeenCalledTimes(1);
   });
 
-  it('does not touch the radio when it is left without scanning', () => {
-    renderScreen();
+  it('does not touch the radio when it is left without scanning', async () => {
+    await renderScreen();
     rtl.cleanup();
 
     expect(mockConstructed).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe('the Sensors screen', () => {
     setPlatform('android', 33);
     androidAnswers('never_ask_again');
     const openSettings = jest.spyOn(rn.Linking, 'openSettings').mockResolvedValue(undefined);
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
     expect(rtl.screen.getByTestId('sensor-availability-blocked')).toBeTruthy();
@@ -156,7 +156,7 @@ describe('the Sensors screen', () => {
   it('reads a grant made in the settings on the way back', async () => {
     setPlatform('android', 33);
     androidAnswers('never_ask_again');
-    renderScreen();
+    await renderScreen();
     await press('sensor-scan-button');
     expect(rtl.screen.getByTestId('sensor-availability-blocked')).toBeTruthy();
 
@@ -171,7 +171,7 @@ describe('the Sensors screen', () => {
   it('asks again for a permission refused once', async () => {
     setPlatform('android', 33);
     androidAnswers('denied');
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
     expect(rtl.screen.getByTestId('sensor-availability-unauthorised')).toBeTruthy();
@@ -188,10 +188,10 @@ describe('the Sensors screen', () => {
     setPlatform('android', 33);
     androidAnswers('granted');
     const sendIntent = jest.spyOn(rn.Linking, 'sendIntent').mockResolvedValue(undefined);
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
-    emitAdapter('PoweredOff');
+    await emitAdapter('PoweredOff');
     expect(rtl.screen.getByTestId('sensor-availability-poweredOff')).toBeTruthy();
     expect(rtl.screen.queryByTestId('sensor-scan-button')).toBeNull();
     await press('sensor-availability-action');
@@ -200,22 +200,22 @@ describe('the Sensors screen', () => {
   });
 
   it('offers no action for Bluetooth off on iOS, which lets an app do nothing about it', async () => {
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
-    emitAdapter('PoweredOff');
+    await emitAdapter('PoweredOff');
 
     expect(rtl.screen.getByTestId('sensor-availability-poweredOff')).toBeTruthy();
     expect(rtl.screen.queryByTestId('sensor-availability-action')).toBeNull();
   });
 
   it('brings Scan back once the radio comes on', async () => {
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
-    emitAdapter('PoweredOff');
+    await emitAdapter('PoweredOff');
     expect(rtl.screen.getByTestId('sensor-availability-poweredOff')).toBeTruthy();
-    emitAdapter('PoweredOn');
+    await emitAdapter('PoweredOn');
 
     expect(rtl.screen.queryByTestId('sensor-availability-poweredOff')).toBeNull();
     expect(rtl.screen.getByTestId('sensor-scan-button')).toBeTruthy();
@@ -223,14 +223,14 @@ describe('the Sensors screen', () => {
 
   it('ends an empty scan with a notice and Scan again', async () => {
     jest.useFakeTimers();
-    renderScreen();
+    await renderScreen();
 
     await press('sensor-scan-button');
-    emitAdapter('PoweredOn');
+    await emitAdapter('PoweredOn');
     await rtl.act(flush);
     expect(mockStartDeviceScan).toHaveBeenCalledTimes(1);
     expect(rtl.screen.queryByTestId('sensor-scan-empty')).toBeNull();
-    rtl.act(() => {
+    await rtl.act(() => {
       jest.advanceTimersByTime(manager.SCAN_WINDOW_MS);
     });
 

@@ -74,14 +74,14 @@ afterEach(() => {
 
 it('asks again for a download the dead connection lost, on the reconnect edge', async () => {
   mockIsOnline = false;
-  const { result, rerender } = renderHook(() => useCardWithRetry('act1'), { wrapper });
+  const { result, rerender } = await renderHook(() => useCardWithRetry('act1'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(result.current.data).toEqual([]));
 
   mockIsOnline = true;
   await act(async () => {
-    rerender({});
+    await rerender({});
   });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(2));
@@ -90,13 +90,13 @@ it('asks again for a download the dead connection lost, on the reconnect edge', 
 it('leaves a settled activity alone across the edge', async () => {
   engine.isFitProcessed.mockReturnValue(true);
   mockIsOnline = false;
-  const { result, rerender } = renderHook(() => useCardWithRetry('act1'), { wrapper });
+  const { result, rerender } = await renderHook(() => useCardWithRetry('act1'), { wrapper });
 
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
   mockIsOnline = true;
   await act(async () => {
-    rerender({});
+    await rerender({});
   });
 
   await waitFor(() => expect(engine.getExerciseSets).toHaveBeenCalledTimes(2));
@@ -105,13 +105,13 @@ it('leaves a settled activity alone across the edge', async () => {
 });
 
 it('stays quiet while the connection never drops', async () => {
-  const { result, rerender } = renderHook(() => useCardWithRetry('act1'), { wrapper });
+  const { result, rerender } = await renderHook(() => useCardWithRetry('act1'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(result.current.data).toEqual([]));
 
   await act(async () => {
-    rerender({});
+    await rerender({});
   });
 
   expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1);

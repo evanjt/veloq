@@ -1,12 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Linking, StyleSheet, View } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
 import { getPlaceNamesEnabled, setPlaceNamesEnabled } from '@/shared/native/placeNames';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
+import { chooseAction } from '@/shared/ui/dialog';
 
 export const NOMINATIM_POLICY_URL = 'https://operations.osmfoundation.org/policies/nominatim/';
 
@@ -17,22 +18,21 @@ export const NOMINATIM_POLICY_URL = 'https://operations.osmfoundation.org/polici
  * decline.
  */
 function presentNotice(t: TFunction, onAccept: () => void): void {
-  Alert.alert(
-    t('settings.placeNames.noticeTitle'),
-    t('settings.placeNames.noticeBody'),
-    [
-      { text: t('common.cancel'), style: 'cancel' },
+  chooseAction({
+    title: t('settings.placeNames.noticeTitle'),
+    message: t('settings.placeNames.noticeBody'),
+    cancelLabel: t('common.cancel'),
+    actions: [
       {
-        text: t('settings.placeNames.readPolicy'),
+        label: t('settings.placeNames.readPolicy'),
         onPress: () => {
           Linking.openURL(NOMINATIM_POLICY_URL);
           presentNotice(t, onAccept);
         },
       },
-      { text: t('settings.placeNames.accept'), onPress: onAccept },
+      { label: t('settings.placeNames.accept'), onPress: onAccept },
     ],
-    { cancelable: true }
-  );
+  });
 }
 
 /**
@@ -65,7 +65,6 @@ export function PlaceNamesSwitch() {
     [showNotice]
   );
 
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
@@ -78,16 +77,13 @@ export function PlaceNamesSwitch() {
         },
       ]}
     >
-      <View style={styles.row}>
-        <MaterialCommunityIcons name="map-marker-outline" size={22} color={textSecondary} />
-        <Text style={[styles.label, { color: textPrimary }]}>{t('settings.placeNames.title')}</Text>
-        <Switch
-          value={enabled}
-          onValueChange={handleToggle}
-          color={colors.primary}
-          testID="settings-place-names-toggle"
-        />
-      </View>
+      <SwitchRow
+        icon="map-marker-outline"
+        title={t('settings.placeNames.title')}
+        value={enabled}
+        onValueChange={handleToggle}
+        testID="settings-place-names-toggle"
+      />
       <Text style={[styles.hint, { color: textSecondary }]}>
         {t('settings.placeNames.attribution')}
       </Text>
@@ -101,17 +97,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: spacing.lg,
     overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  label: {
-    ...typography.body,
-    flex: 1,
   },
   hint: {
     ...typography.caption,

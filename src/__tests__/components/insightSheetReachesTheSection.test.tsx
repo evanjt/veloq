@@ -72,31 +72,77 @@ describe('a section insight sheet', () => {
     jest.mocked(tapTo).mockClear();
   });
 
-  it('opens the PR section from View in detail', () => {
-    render(<InsightDetailSheet insight={prInsight} onClose={() => undefined} />);
+  it('opens the PR section from View in detail', async () => {
+    await render(<InsightDetailSheet insight={prInsight} onClose={() => undefined} />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'View in detail' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'View in detail' }));
 
     expect(tapTo).toHaveBeenCalledWith('/section/hill');
   });
 
-  it('opens the section of the trend row that was expanded', () => {
-    render(<SectionTrendContent insight={trendInsight} />);
+  it('opens the section of the trend row that was expanded', async () => {
+    await render(<SectionTrendContent insight={trendInsight} />);
     expect(screen.queryByTestId('section-trend-open-flat')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('section-trend-toggle-flat'));
-    fireEvent.press(screen.getByTestId('section-trend-open-flat'));
+    await fireEvent.press(screen.getByTestId('section-trend-toggle-flat'));
+    await fireEvent.press(screen.getByTestId('section-trend-open-flat'));
 
     expect(tapTo).toHaveBeenCalledTimes(1);
     expect(tapTo).toHaveBeenCalledWith('/section/flat');
   });
 
-  it('expands a trend row without leaving the sheet', () => {
+  it('expands a trend row without leaving the sheet', async () => {
+    await render(<SectionTrendContent insight={trendInsight} />);
+
+    await fireEvent.press(screen.getByTestId('section-trend-toggle-hill'));
+
+    expect(tapTo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('section-trend-open-hill')).toBeTruthy();
+  });
+
+  it('exposes one button per trend row, named with what the row draws', () => {
+    const insight = {
+      ...trendInsight,
+      supportingData: {
+        sections: [
+          {
+            sectionId: 'hill',
+            sectionName: 'Quarry Hill',
+            bestTime: 300,
+            sportType: 'Run',
+            trend: 1,
+            hasRecentPR: true,
+            traversalCount: 7,
+          },
+          { sectionId: 'flat', sectionName: 'River Flat', bestTime: 500, trend: -1 },
+          { sectionId: 'weir', sectionName: 'Weir Path', traversalCount: 3, trend: 0 },
+        ],
+      },
+    } as Insight;
+    render(<SectionTrendContent insight={insight} />);
+
+    const rows = screen.getAllByRole('button');
+
+    expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
+      'Quarry Hill (Run), Personal record, 5:00, 7×, improved',
+      'River Flat, 8:20, declined',
+      'Weir Path, 3×, no change',
+    ]);
+    expect(rows.map((row) => row.props.testID)).toEqual([
+      'section-trend-toggle-hill',
+      'section-trend-toggle-flat',
+      'section-trend-toggle-weir',
+    ]);
+    expect(rows.every((row) => row.props.accessibilityState?.expanded === false)).toBe(true);
+  });
+
+  it('marks the toggled row as expanded', () => {
     render(<SectionTrendContent insight={trendInsight} />);
 
     fireEvent.press(screen.getByTestId('section-trend-toggle-hill'));
 
-    expect(tapTo).not.toHaveBeenCalled();
-    expect(screen.getByTestId('section-trend-open-hill')).toBeTruthy();
+    expect(screen.getByTestId('section-trend-toggle-hill').props.accessibilityState).toEqual({
+      expanded: true,
+    });
   });
 });

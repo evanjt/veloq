@@ -42,7 +42,7 @@ describe('useTimer', () => {
   // Idle / stopped state
   // -------------------------------------------------------------------------
 
-  it('returns zeroed values for idle, stopped, and null-startTime states', () => {
+  it('returns zeroed values for idle, stopped, and null-startTime states', async () => {
     // No active recording -> all times 0 and all formatted fields "00:00".
     const states: Record<string, unknown>[] = [
       {}, // default idle
@@ -56,7 +56,7 @@ describe('useTimer', () => {
         setStoreState(state);
       }
 
-      const { result } = renderHook(() => useTimer());
+      const { result } = await renderHook(() => useTimer());
 
       expect(result.current.elapsedTime).toBe(0);
       expect(result.current.movingTime).toBe(0);
@@ -75,7 +75,7 @@ describe('useTimer', () => {
   // Elapsed time tracking
   // -------------------------------------------------------------------------
 
-  it('tracks elapsed time while recording', () => {
+  it('tracks elapsed time while recording', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -84,10 +84,10 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useTimer());
+    const { result } = await renderHook(() => useTimer());
 
     // Advance clock by 5 seconds to trigger tick updates
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(5000);
     });
 
@@ -96,7 +96,7 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBeLessThanOrEqual(6);
   });
 
-  it('updates every second via setInterval', () => {
+  it('updates every second via setInterval', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -105,17 +105,17 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useTimer());
+    const { result } = await renderHook(() => useTimer());
 
     const initial = result.current.elapsedTime;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1000);
     });
 
     const after1s = result.current.elapsedTime;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1000);
     });
 
@@ -130,7 +130,7 @@ describe('useTimer', () => {
   // Moving time (excludes paused duration)
   // -------------------------------------------------------------------------
 
-  it('subtracts paused duration from moving time', () => {
+  it('subtracts paused duration from moving time', async () => {
     const now = Date.now();
     // 10 seconds of paused time
     setStoreState({
@@ -140,7 +140,7 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useTimer());
+    const { result } = await renderHook(() => useTimer());
 
     // Elapsed ~30s, moving ~20s (30 - 10)
     expect(result.current.elapsedTime).toBeGreaterThanOrEqual(29);
@@ -148,7 +148,7 @@ describe('useTimer', () => {
     expect(result.current.movingTime).toBeLessThan(result.current.elapsedTime);
   });
 
-  it('moving time never goes negative', () => {
+  it('moving time never goes negative', async () => {
     const now = Date.now();
     // Paused duration exceeds elapsed (edge case)
     setStoreState({
@@ -158,7 +158,7 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useTimer());
+    const { result } = await renderHook(() => useTimer());
 
     expect(result.current.movingTime).toBe(0);
   });
@@ -171,7 +171,7 @@ describe('useTimer', () => {
   // Time formatting
   // -------------------------------------------------------------------------
 
-  it('formats elapsed as mm:ss under an hour and hh:mm:ss over an hour', () => {
+  it('formats elapsed as mm:ss under an hour and hh:mm:ss over an hour', async () => {
     // Zero formatting ("00:00") is covered by the idle-states test above.
     const cases: { agoMs: number; pattern: RegExp }[] = [
       { agoMs: 125000, pattern: /^02:05$/ }, // 2:05
@@ -186,7 +186,7 @@ describe('useTimer', () => {
         laps: [],
       });
 
-      const { result } = renderHook(() => useTimer());
+      const { result } = await renderHook(() => useTimer());
       expect(result.current.formattedElapsed).toMatch(pattern);
     }
   });
@@ -195,7 +195,7 @@ describe('useTimer', () => {
   // Interval lifecycle
   // -------------------------------------------------------------------------
 
-  it('starts interval when status changes to recording', () => {
+  it('starts interval when status changes to recording', async () => {
     const now = Date.now();
     setStoreState({
       status: 'idle',
@@ -204,29 +204,29 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result, rerender } = renderHook(() => useTimer());
+    const { result, rerender } = await renderHook(() => useTimer());
 
     // Initially idle - no ticking
     expect(result.current.elapsedTime).toBe(0);
 
     // Switch to recording
-    act(() => {
+    await act(() => {
       setStoreState({
         status: 'recording',
         startTime: now,
       });
     });
 
-    rerender({});
+    await rerender({});
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(3000);
     });
 
     expect(result.current.elapsedTime).toBeGreaterThanOrEqual(2);
   });
 
-  it('keeps elapsed time counting when status changes to paused', () => {
+  it('keeps elapsed time counting when status changes to paused', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -235,29 +235,29 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result, rerender } = renderHook(() => useTimer());
+    const { result, rerender } = await renderHook(() => useTimer());
 
     // Record the current elapsed
     const beforePause = result.current.elapsedTime;
 
     // Pause
-    act(() => {
+    await act(() => {
       setStoreState({
         status: 'paused',
         _pauseStart: Date.now(),
       });
     });
 
-    rerender({});
+    await rerender({});
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(5000);
     });
 
     expect(result.current.elapsedTime).toBe(beforePause + 5);
   });
 
-  it('cleans up interval on unmount', () => {
+  it('cleans up interval on unmount', async () => {
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
     const now = Date.now();
@@ -268,9 +268,9 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { unmount } = renderHook(() => useTimer());
+    const { unmount } = await renderHook(() => useTimer());
 
-    unmount();
+    await unmount();
 
     expect(clearIntervalSpy).toHaveBeenCalled();
     clearIntervalSpy.mockRestore();
@@ -280,7 +280,7 @@ describe('useTimer', () => {
   // Pause/resume cycle
   // -------------------------------------------------------------------------
 
-  it('tracks time through a complete start/pause/resume/stop cycle', () => {
+  it('tracks time through a complete start/pause/resume/stop cycle', async () => {
     const now = Date.now();
 
     // Start recording
@@ -291,10 +291,10 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result, rerender } = renderHook(() => useTimer());
+    const { result, rerender } = await renderHook(() => useTimer());
 
     // Advance 10 seconds
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10000);
     });
 
@@ -302,27 +302,27 @@ describe('useTimer', () => {
     expect(result.current.movingTime).toBeGreaterThanOrEqual(9);
 
     // Pause (simulate 5 seconds of pause)
-    act(() => {
+    await act(() => {
       setStoreState({ status: 'paused', _pauseStart: Date.now() });
     });
-    rerender({});
+    await rerender({});
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(5000);
     });
 
     // Resume (accumulate 5 seconds of pause)
-    act(() => {
+    await act(() => {
       setStoreState({
         status: 'recording',
         pausedDuration: 5000,
         _pauseStart: null,
       });
     });
-    rerender({});
+    await rerender({});
 
     // Advance another 10 seconds
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10000);
     });
 
@@ -336,7 +336,7 @@ describe('useTimer', () => {
   // Edge cases
   // -------------------------------------------------------------------------
 
-  it('handles negative elapsed (startTime in the future) gracefully', () => {
+  it('handles negative elapsed (startTime in the future) gracefully', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -345,7 +345,7 @@ describe('useTimer', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useTimer());
+    const { result } = await renderHook(() => useTimer());
 
     expect(result.current.elapsedTime).toBe(0);
     expect(result.current.movingTime).toBe(0);

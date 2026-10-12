@@ -8,10 +8,10 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('SectionDetailLinks', () => {
-  it('opens the lap and history pages for the current section', () => {
+  it('opens the lap and history pages for the current section', async () => {
     const openLaps = jest.fn();
     const openHistory = jest.fn();
-    const view = render(
+    const view = await render(
       <SectionDetailLinks
         hasLaps
         historyCount={3}
@@ -20,15 +20,15 @@ describe('SectionDetailLinks', () => {
       />
     );
 
-    fireEvent.press(view.getByTestId('section-open-laps'));
-    fireEvent.press(view.getByTestId('section-open-history'));
+    await fireEvent.press(view.getByTestId('section-open-laps'));
+    await fireEvent.press(view.getByTestId('section-open-history'));
 
     expect(openLaps).toHaveBeenCalledTimes(1);
     expect(openHistory).toHaveBeenCalledTimes(1);
   });
 
-  it('shows history alone when there are no repeated laps', () => {
-    const view = render(
+  it('shows history alone when there are no repeated laps', async () => {
+    const view = await render(
       <SectionDetailLinks
         hasLaps={false}
         historyCount={0}
@@ -40,8 +40,8 @@ describe('SectionDetailLinks', () => {
     expect(view.getByTestId('section-open-history')).toBeTruthy();
   });
 
-  it('puts the history entry count on the history link', () => {
-    const view = render(
+  it('puts the history entry count on the history link', async () => {
+    const view = await render(
       <SectionDetailLinks
         hasLaps={false}
         historyCount={12}
@@ -52,8 +52,8 @@ describe('SectionDetailLinks', () => {
     expect(view.getByText('sectionHistory.title · 12')).toBeTruthy();
   });
 
-  it('leaves the count off when the section has no history entries', () => {
-    const view = render(
+  it('leaves the count off when the section has no history entries', async () => {
+    const view = await render(
       <SectionDetailLinks
         hasLaps={false}
         historyCount={0}

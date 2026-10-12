@@ -5,12 +5,12 @@
 
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
-import { DetailHero, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
+import { DetailHero, HeroStatsRow, useHeroMapHeight, Spinner } from '@/shared/ui';
 import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
 import { PlaceNameButton } from '../PlaceNameButton';
@@ -19,7 +19,15 @@ import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { heroStats } from '@/features/routes/lib/heroStats';
-import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  layout,
+  opacity,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 import type { Period } from '@/shared/app/period';
 
@@ -59,6 +67,14 @@ export interface SectionHeaderProps {
   onSaveName: (name: string) => void;
   /** Whether the detail read lets the athlete ask for a name from the section's places. */
   canNameFromPlaces?: boolean | undefined;
+}
+
+/** The name a section's hero shows and its screen is titled with: the rename, its own, its id. */
+export function sectionHeroName(
+  section: Pick<FrequentSection, 'id' | 'name'>,
+  customName: string | null | undefined
+): string {
+  return customName ?? section.name ?? section.id;
 }
 
 export function SectionHeader({
@@ -104,7 +120,7 @@ export function SectionHeader({
       overlay={
         <>
           <SectionNameEditor
-            name={customName ?? section.name ?? section.id}
+            name={sectionHeroName(section, customName)}
             startText={customName || section.name || ''}
             iconName={iconName}
             activityColor={activityColor}
@@ -128,6 +144,7 @@ export function SectionHeader({
               onPress={onUnflagLift}
               disabled={!onUnflagLift}
               android_ripple={pressRipple}
+              hitSlop={liftBadgeSlop}
             >
               <MaterialCommunityIcons name="gondola" size={12} color={colors.textOnDark} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
@@ -162,12 +179,15 @@ export function SectionHeader({
         />
       ) : (
         <View style={[styles.mapPlaceholder, { height: mapHeight }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Spinner size="large" />
         </View>
       )}
     </DetailHero>
   );
 }
+
+const LIFT_BADGE_HEIGHT = typography.caption.lineHeight + 2 * spacing.xxs;
+const liftBadgeSlop = slopToMinTapTarget(LIFT_BADGE_HEIGHT);
 
 const styles = StyleSheet.create({
   // Its own row between the name and the stats, so a flagged section costs the
@@ -179,6 +199,7 @@ const styles = StyleSheet.create({
     gap: spacing.chart.sm,
     marginTop: spacing.chart.sm,
     paddingVertical: spacing.xxs,
+    minHeight: LIFT_BADGE_HEIGHT,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.scrim,

@@ -28,13 +28,13 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
-function open(current: SmoothingWindow) {
+async function open(current: SmoothingWindow) {
   const result = openSheet<{ window: SmoothingWindow }, SmoothingWindow>('sheets/smoothing', {
     window: current,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  render(<SmoothingSheet />);
-  return result;
+  await render(<SmoothingSheet />);
+  return { result };
 }
 
 beforeAll(async () => {
@@ -47,17 +47,17 @@ beforeEach(() => {
 
 describe('smoothing sheet', () => {
   it('lists every preset and resolves the caller with the tapped one', async () => {
-    const result = open('auto');
+    const { result } = await open('auto');
     for (const preset of SMOOTHING_PRESETS) {
       expect(screen.getByTestId(`smoothing-option-${preset.value}`)).toBeTruthy();
     }
-    fireEvent.press(screen.getByTestId('smoothing-option-21'));
+    await fireEvent.press(screen.getByTestId('smoothing-option-21'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 21 });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('marks the current window as selected', () => {
-    open('none');
+  it('marks the current window as selected', async () => {
+    await open('none');
     expect(screen.getByTestId('smoothing-option-none').props.accessibilityState).toMatchObject({
       selected: true,
     });
@@ -67,8 +67,8 @@ describe('smoothing sheet', () => {
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {
-    const result = open('auto');
-    screen.unmount();
+    const { result } = await open('auto');
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 });

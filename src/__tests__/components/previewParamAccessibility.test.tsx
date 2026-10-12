@@ -48,8 +48,8 @@ beforeEach(() => {
 });
 
 describe('the detection sliders', () => {
-  it.each(Object.keys(detection))('names the %s slider and speaks its value', (key) => {
-    const slider = detectionPanel().getByTestId(`param-slider-${key}`);
+  it.each(Object.keys(detection))('names the %s slider and speaks its value', async (key) => {
+    const slider = (await detectionPanel()).getByTestId(`param-slider-${key}`);
 
     expect(String(slider.props.accessibilityLabel ?? '').trim()).not.toBe('');
     expect(String(slider.props.accessibilityValue?.text ?? '').trim()).not.toBe('');
@@ -57,16 +57,16 @@ describe('the detection sliders', () => {
 
   it.each(DISTANCE_KEYS)(
     'speaks the %s distance in feet or miles for an imperial athlete',
-    (key) => {
-      const slider = detectionPanel().getByTestId(`param-slider-${key}`);
+    async (key) => {
+      const slider = (await detectionPanel()).getByTestId(`param-slider-${key}`);
 
       expect(slider.props.accessibilityValue.text).toBe(formatDistance(detection[key], false));
       expect(slider.props.accessibilityValue.text).toMatch(/ (ft|mi)$/);
     }
   );
 
-  it('speaks a short proximity in feet', () => {
-    const slider = detectionPanel().getByTestId('param-slider-proximityThreshold');
+  it('speaks a short proximity in feet', async () => {
+    const slider = (await detectionPanel()).getByTestId('param-slider-proximityThreshold');
 
     expect(slider.props.accessibilityValue.text).toBe(
       formatDistance(detection.proximityThreshold, false)
@@ -74,15 +74,15 @@ describe('the detection sliders', () => {
     expect(slider.props.accessibilityValue.text).toMatch(/ ft$/);
   });
 
-  it('speaks the distances in metres for a metric athlete', () => {
+  it('speaks the distances in metres for a metric athlete', async () => {
     mockMetric = true;
-    const slider = detectionPanel().getByTestId('param-slider-minSectionLength');
+    const slider = (await detectionPanel()).getByTestId('param-slider-minSectionLength');
 
     expect(slider.props.accessibilityValue.text).toBe('150 m');
   });
 
-  it('speaks the count and the ratio as the captions print them', () => {
-    const tree = detectionPanel();
+  it('speaks the count and the ratio as the captions print them', async () => {
+    const tree = await detectionPanel();
 
     expect(tree.getByTestId('param-slider-minActivities').props.accessibilityValue.text).toBe(
       String(detection.minActivities)
@@ -94,45 +94,51 @@ describe('the detection sliders', () => {
 });
 
 describe('the grouping sliders', () => {
-  it.each(Object.keys(grouping))('names the %s slider and speaks its value', (key) => {
-    const slider = groupingPanel().getByTestId(`grouping-slider-${key}`);
+  it.each(Object.keys(grouping))('names the %s slider and speaks its value', async (key) => {
+    const slider = (await groupingPanel()).getByTestId(`grouping-slider-${key}`);
 
     expect(String(slider.props.accessibilityLabel ?? '').trim()).not.toBe('');
     expect(String(slider.props.accessibilityValue?.text ?? '').trim()).not.toBe('');
   });
 
-  it('speaks the ends apart in feet for an imperial athlete', () => {
-    const slider = groupingPanel().getByTestId('grouping-slider-endpointThreshold');
+  it('speaks the ends apart in feet for an imperial athlete', async () => {
+    const slider = (await groupingPanel()).getByTestId('grouping-slider-endpointThreshold');
 
     expect(slider.props.accessibilityValue.text).toBe('656 ft');
   });
 
-  it('speaks the overlap as a percentage', () => {
-    const slider = groupingPanel().getByTestId('grouping-slider-minMatchPercentage');
+  it('speaks the overlap as a percentage', async () => {
+    const slider = (await groupingPanel()).getByTestId('grouping-slider-minMatchPercentage');
 
     expect(slider.props.accessibilityValue.text).toBe('65%');
   });
 });
 
 describe('the typed editor', () => {
-  it.each(Object.keys(detection))('tells a screen reader the %s caption takes a value', (key) => {
-    const edit = detectionPanel().getByTestId(`param-edit-${key}`);
+  it.each(Object.keys(detection))(
+    'tells a screen reader the %s caption takes a value',
+    async (key) => {
+      const edit = (await detectionPanel()).getByTestId(`param-edit-${key}`);
 
-    expect(edit.props.accessibilityRole).toBe('button');
-    expect(String(edit.props.accessibilityHint ?? '').trim()).not.toBe('');
-  });
+      expect(edit.props.accessibilityRole).toBe('button');
+      expect(String(edit.props.accessibilityHint ?? '').trim()).not.toBe('');
+    }
+  );
 
-  it.each(Object.keys(grouping))('tells a screen reader the %s caption takes a value', (key) => {
-    const edit = groupingPanel().getByTestId(`grouping-edit-${key}`);
+  it.each(Object.keys(grouping))(
+    'tells a screen reader the %s caption takes a value',
+    async (key) => {
+      const edit = (await groupingPanel()).getByTestId(`grouping-edit-${key}`);
 
-    expect(edit.props.accessibilityRole).toBe('button');
-    expect(String(edit.props.accessibilityHint ?? '').trim()).not.toBe('');
-  });
+      expect(edit.props.accessibilityRole).toBe('button');
+      expect(String(edit.props.accessibilityHint ?? '').trim()).not.toBe('');
+    }
+  );
 });
 
 describe('the presets', () => {
-  it('draws each preset as the shared selector chip, the matching one selected', () => {
-    const chips = detectionPanel().UNSAFE_getAllByType(ToggleButton);
+  it('draws each preset as the shared selector chip, the matching one selected', async () => {
+    const chips = (await detectionPanel()).UNSAFE_getAllByType(ToggleButton);
 
     expect(chips.map((chip) => [chip.props.testID, Boolean(chip.props.selected)])).toEqual([
       ['preset-default', true],
@@ -141,15 +147,15 @@ describe('the presets', () => {
     ]);
   });
 
-  it('puts the selection on the accessibility state', () => {
-    const tree = detectionPanel();
+  it('puts the selection on the accessibility state', async () => {
+    const tree = await detectionPanel();
 
     expect(tree.getByTestId('preset-default').props.accessibilityState.selected).toBe(true);
     expect(tree.getByTestId('preset-strict').props.accessibilityState.selected).toBe(false);
   });
 
-  it('selects none once a value leaves every preset', () => {
-    const tree = render(
+  it('selects none once a value leaves every preset', async () => {
+    const tree = await render(
       <PreviewParamPanel params={{ ...detection, minActivities: 9 }} onChange={jest.fn()} />
     );
 

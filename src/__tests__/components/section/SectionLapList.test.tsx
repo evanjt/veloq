@@ -5,6 +5,12 @@ import { layout } from '@/theme';
 import { SectionLapList } from '@/features/routes/components/section/SectionLapList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
+const mockTapTo = jest.fn();
+jest.mock('@/shared/app/navigation', () => ({
+  ...jest.requireActual('@/shared/app/navigation'),
+  tapTo: (...args: unknown[]) => mockTapTo(...args),
+}));
+
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
@@ -50,18 +56,30 @@ function record(
   } as SectionPerformanceRecord;
 }
 
-function openAllRender(ui: React.ReactElement) {
-  const utils = render(ui);
-  fireEvent.press(utils.getByTestId('section-lap-show-all'));
+async function openAllRender(ui: React.ReactElement) {
+  const utils = await render(ui);
+  await fireEvent.press(utils.getByTestId('section-lap-show-all'));
   return utils;
 }
 
 describe('SectionLapList', () => {
   const records = [record('a', [40, 10]), record('b', [5])];
 
-  it('lists lapped activities only, laps in track order, with an exclude each', () => {
+  it('titles the card as a heading', async () => {
+    const { getByRole } = await render(
+      <SectionLapList
+        isDark={false}
+        records={records}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByRole('header', { name: 'sections.laps' })).toBeTruthy();
+  });
+
+  it('lists lapped activities only, laps in track order, with an exclude each', async () => {
     const onExcludeLap = jest.fn();
-    const { getByTestId, queryByTestId, getByText } = openAllRender(
+    const { getByTestId, queryByTestId, getByText } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={records}
@@ -73,13 +91,13 @@ describe('SectionLapList', () => {
     expect(queryByTestId('section-lap-row-b-5')).toBeNull();
     expect(getByText('sections.lap:1 · sections.reverse')).toBeTruthy();
     expect(getByText('sections.lap:2')).toBeTruthy();
-    fireEvent.press(getByTestId('section-lap-exclude-a-40'));
+    await fireEvent.press(getByTestId('section-lap-exclude-a-40'));
     expect(onExcludeLap).toHaveBeenCalledWith('a', 40);
   });
 
-  it('shows an excluded lap as excluded with an undo', () => {
+  it('shows an excluded lap as excluded with an undo', async () => {
     const onIncludeLap = jest.fn();
-    const { getByTestId, queryByTestId } = openAllRender(
+    const { getByTestId, queryByTestId } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={[record('a', [40, 10, 70], [10]), record('b', [5])]}
@@ -89,13 +107,13 @@ describe('SectionLapList', () => {
     );
     expect(queryByTestId('section-lap-exclude-a-10')).toBeNull();
     expect(getByTestId('section-lap-exclude-a-40')).toBeTruthy();
-    fireEvent.press(getByTestId('section-lap-undo-a-10'));
+    await fireEvent.press(getByTestId('section-lap-undo-a-10'));
     expect(onIncludeLap).toHaveBeenCalledWith('a', 10);
   });
 
-  it('keeps a two-lap activity listed after one lap is excluded, so it can be undone', () => {
+  it('keeps a two-lap activity listed after one lap is excluded, so it can be undone', async () => {
     const onIncludeLap = jest.fn();
-    const { getByTestId } = openAllRender(
+    const { getByTestId } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={[record('a', [10, 40], [40])]}
@@ -104,12 +122,12 @@ describe('SectionLapList', () => {
       />
     );
     expect(getByTestId('section-lap-row-a-10')).toBeTruthy();
-    fireEvent.press(getByTestId('section-lap-undo-a-40'));
+    await fireEvent.press(getByTestId('section-lap-undo-a-40'));
     expect(onIncludeLap).toHaveBeenCalledWith('a', 40);
   });
 
-  it('draws lap rows below the tap-target height and lifts the controls with hit slop', () => {
-    const { getByTestId } = openAllRender(
+  it('draws lap rows below the tap-target height and lifts the controls with hit slop', async () => {
+    const { getByTestId } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={records}
@@ -124,7 +142,7 @@ describe('SectionLapList', () => {
     );
   });
 
-  it('marks the lap the engine names as the record, and not a quicker partial lap', () => {
+  it('marks the lap the engine names as the record, and not a quicker partial lap', async () => {
     const withFragment = {
       ...record('a', [10, 40]),
     };
@@ -132,7 +150,7 @@ describe('SectionLapList', () => {
       { ...withFragment.laps[0]!, time: 40, isRecord: false },
       { ...withFragment.laps[1]!, direction: 'same' as const, time: 95, isRecord: true },
     ];
-    const { getByTestId, queryByTestId } = openAllRender(
+    const { getByTestId, queryByTestId } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={[withFragment, record('b', [5, 20])]}
@@ -146,8 +164,8 @@ describe('SectionLapList', () => {
     expect(queryByTestId('section-lap-record-b-20')).toBeNull();
   });
 
-  it('renders nothing when no activity lapped the section', () => {
-    const { queryByTestId } = render(
+  it('renders nothing when no activity lapped the section', async () => {
+    const { queryByTestId } = await render(
       <SectionLapList
         isDark={false}
         records={[record('b', [5])]}
@@ -158,8 +176,8 @@ describe('SectionLapList', () => {
     expect(queryByTestId('section-lap-list')).toBeNull();
   });
 
-  it('opens every lap on a dedicated page', () => {
-    const { getByTestId } = render(
+  it('opens every lap on a dedicated page', async () => {
+    const { getByTestId } = await render(
       <SectionLapList
         isDark={false}
         initiallyExpanded
@@ -172,8 +190,8 @@ describe('SectionLapList', () => {
     expect(getByTestId('section-lap-row-a-40')).toBeTruthy();
   });
 
-  it("shows a lap's stored mean watts, and nothing for a lap without power", () => {
-    const { getByText, queryByText } = openAllRender(
+  it("shows a lap's stored mean watts, and nothing for a lap without power", async () => {
+    const { getByText, queryByText } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={[record('a', [10, 40, 70], [], [245.4, null, 0])]}
@@ -186,8 +204,8 @@ describe('SectionLapList', () => {
     expect(queryByText('0 W')).toBeNull();
   });
 
-  it('keeps the watts of an excluded lap', () => {
-    const { getByText } = openAllRender(
+  it('keeps the watts of an excluded lap', async () => {
+    const { getByText } = await openAllRender(
       <SectionLapList
         isDark={false}
         records={[record('a', [10, 40], [40], [200, 310])]}
@@ -207,8 +225,8 @@ describe('SectionLapList', () => {
       record('f', [10, 40]),
     ].map((r, i) => ({ ...r, activityDate: new Date(Date.UTC(2026, 0, 1 + i)) }));
 
-    it('shows one row per activity with no exclude pill, and caps the rows', () => {
-      const { getByTestId, queryByTestId, queryAllByTestId } = render(
+    it('shows one row per activity with no exclude pill, and caps the rows', async () => {
+      const { getByTestId, queryByTestId, queryAllByTestId } = await render(
         <SectionLapList
           isDark={false}
           records={many}
@@ -223,12 +241,12 @@ describe('SectionLapList', () => {
       expect(getByTestId('section-lap-show-all')).toBeTruthy();
     });
 
-    it('keeps the most recent activities and the activity holding the record lap', () => {
+    it('keeps the most recent activities and the activity holding the record lap', async () => {
       const holder = {
         ...many[0]!,
         laps: many[0]!.laps.map((l, i) => ({ ...l, isRecord: i === 0 })),
       };
-      const { queryByTestId } = render(
+      const { queryByTestId } = await render(
         <SectionLapList
           isDark={false}
           records={[holder, ...many.slice(1)]}
@@ -243,10 +261,10 @@ describe('SectionLapList', () => {
       expect(queryByTestId('section-lap-summary-b')).toBeNull();
     });
 
-    it('keeps no activity for a quicker lap the engine does not call the record', () => {
+    it('keeps no activity for a quicker lap the engine does not call the record', async () => {
       // A fragment of the section is quick and never the record.
       const fragment = { ...many[0]!, laps: many[0]!.laps.map((l) => ({ ...l, time: 30 })) };
-      const { queryByTestId } = render(
+      const { queryByTestId } = await render(
         <SectionLapList
           isDark={false}
           records={[fragment, ...many.slice(1)]}
@@ -258,8 +276,8 @@ describe('SectionLapList', () => {
       expect(queryByTestId(/^section-lap-record-/)).toBeNull();
     });
 
-    it('opens every lap with Show all and folds back', () => {
-      const { getByTestId, queryByTestId } = render(
+    it('opens every lap with Show all and folds back', async () => {
+      const { getByTestId, queryByTestId } = await render(
         <SectionLapList
           isDark={false}
           records={many}
@@ -267,14 +285,14 @@ describe('SectionLapList', () => {
           onIncludeLap={jest.fn()}
         />
       );
-      fireEvent.press(getByTestId('section-lap-show-all'));
+      await fireEvent.press(getByTestId('section-lap-show-all'));
       expect(queryByTestId('section-lap-exclude-b-10')).toBeTruthy();
-      fireEvent.press(getByTestId('section-lap-show-fewer'));
+      await fireEvent.press(getByTestId('section-lap-show-fewer'));
       expect(queryByTestId('section-lap-exclude-b-10')).toBeNull();
     });
 
-    it('still offers Show all for a single activity, since exclude lives in the full list', () => {
-      const { queryByTestId } = render(
+    it('still offers Show all for a single activity, since exclude lives in the full list', async () => {
+      const { queryByTestId } = await render(
         <SectionLapList
           isDark={false}
           records={[record('a', [10, 40])]}
@@ -284,6 +302,70 @@ describe('SectionLapList', () => {
       );
       expect(queryByTestId('section-lap-summary-a')).toBeTruthy();
       expect(queryByTestId('section-lap-show-all')).toBeTruthy();
+    });
+
+    it('speaks the best lap with its time, not the bare words', () => {
+      const { getByLabelText } = render(
+        <SectionLapList
+          isDark={false}
+          records={[record('a', [10, 40])]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(getByLabelText('sections.bestLapValue:2:00')).toBeTruthy();
+    });
+
+    it('names the record on the trophy and on the row holding it', () => {
+      const holder = {
+        ...record('a', [10, 40]),
+      };
+      holder.laps = holder.laps.map((l, i) => ({ ...l, isRecord: i === 0 }));
+      const { getByTestId } = render(
+        <SectionLapList
+          isDark={false}
+          records={[holder]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      const mark = getByTestId('section-lap-record-a');
+      expect(mark.props.accessible).toBe(true);
+      expect(mark.props.accessibilityLabel).toBe('a11y.recordLap');
+      const label = getByTestId('section-lap-summary-a').props.accessibilityLabel as string;
+      expect(label).toMatch(
+        /^Ride a, .+, a11y\.recordLap, sections\.bestLapValue:2:00, a11y\.laps:2$/
+      );
+    });
+
+    it('speaks a row without the record without the record word', () => {
+      const { getByTestId } = render(
+        <SectionLapList
+          isDark={false}
+          records={[record('a', [10, 40])]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      const label = getByTestId('section-lap-summary-a').props.accessibilityLabel as string;
+      expect(label).toMatch(/^Ride a, .+, sections\.bestLapValue:2:00, a11y\.laps:2$/);
+      expect(label).not.toMatch(/recordLap/);
+    });
+
+    it('opens the activity from its summary row', () => {
+      mockTapTo.mockClear();
+      const { getByTestId } = render(
+        <SectionLapList
+          isDark={false}
+          records={[record('a', [10, 40])]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      const row = getByTestId('section-lap-summary-a');
+      expect(row.props.accessibilityRole).toBe('button');
+      fireEvent.press(row);
+      expect(mockTapTo).toHaveBeenCalledWith('/activity/a');
     });
   });
 });

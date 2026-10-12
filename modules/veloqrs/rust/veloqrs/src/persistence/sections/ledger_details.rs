@@ -40,6 +40,7 @@ pub(crate) fn event_details(
         pr_from: number(stored.get("from_time")),
         pr_to: number(stored.get("to_time")),
         pr_sport: text(stored.get("sport")),
+        pr_direction: text(stored.get("direction")),
         siblings,
         version: number(stored.get("version")),
         reanchored_from: text(stored.get("from")),
@@ -73,26 +74,45 @@ fn strings(value: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// The era's records: a map of sport to record on a current row, a single
-/// `pr_time` on one written before records were held per sport.
+/// The era's records: a list of entries naming their sport and direction on
+/// a current row, a map of sport to record on one written before records were
+/// held per direction, a single `pr_time` on one written before they were held
+/// per sport.
 fn era_records(stored: &serde_json::Map<String, Value>) -> Vec<FfiSectionEraRecord> {
-    if let Some(Value::Object(by_sport)) = stored.get("prs") {
-        let mut records: Vec<FfiSectionEraRecord> = by_sport
+    let mut records: Vec<FfiSectionEraRecord> = match stored.get("prs") {
+        Some(Value::Array(entries)) => entries
+            .iter()
+            .filter_map(|entry| {
+                Some(FfiSectionEraRecord {
+                    sport: text(entry.get("sport")),
+                    direction: text(entry.get("direction")),
+                    time: number(entry.get("time"))?,
+                })
+            })
+            .collect(),
+        Some(Value::Object(by_sport)) => by_sport
             .iter()
             .filter_map(|(sport, record)| {
                 Some(FfiSectionEraRecord {
                     sport: Some(sport.clone()),
+                    direction: None,
                     time: number(record.get("time"))?,
                 })
             })
-            .collect();
-        records.sort_by(|a, b| a.sport.cmp(&b.sport));
-        return records;
-    }
-    number(stored.get("pr_time"))
-        .map(|time| FfiSectionEraRecord { sport: None, time })
-        .into_iter()
-        .collect()
+            .collect(),
+        _ => {
+            return number(stored.get("pr_time"))
+                .map(|time| FfiSectionEraRecord {
+                    sport: None,
+                    direction: None,
+                    time,
+                })
+                .into_iter()
+                .collect();
+        }
+    };
+    records.sort_by(|a, b| (&a.sport, &a.direction).cmp(&(&b.sport, &b.direction)));
+    records
 }
 
 /// The tag of each boundary reason: the string itself, or the `kind` of an
@@ -188,14 +208,60 @@ mod tests {
             vec![
                 FfiSectionEraRecord {
                     sport: Some("Ride".into()),
+                    direction: None,
                     time: 65.0
                 },
                 FfiSectionEraRecord {
                     sport: Some("Run".into()),
+                    direction: None,
                     time: 250.0
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_recut_reads_one_record_per_sport_and_direction_in_that_order() {
+        let details = read(
+            "recut",
+            r#"{"prs":[
+                {"sport":"Ride","direction":"same","activity_id":"up","time":580.0},
+                {"sport":"Ride","direction":"reverse","activity_id":"down","time":200.0},
+                {"sport":"Run","direction":"same","activity_id":"r1","time":"slow"},
+                {"sport":"Walk","activity_id":"w1","time":900.0}]}"#,
+        )
+        .expect("details");
+        assert_eq!(
+            details.prs,
+            vec![
+                FfiSectionEraRecord {
+                    sport: Some("Ride".into()),
+                    direction: Some("reverse".into()),
+                    time: 200.0
+                },
+                FfiSectionEraRecord {
+                    sport: Some("Ride".into()),
+                    direction: Some("same".into()),
+                    time: 580.0
+                },
+                FfiSectionEraRecord {
+                    sport: Some("Walk".into()),
+                    direction: None,
+                    time: 900.0
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_rebased_record_reads_its_direction() {
+        let details = read(
+            "pr_rebased",
+            r#"{"sport":"Ride","direction":"same","from_time":600.0,"to_time":580.0}"#,
+        )
+        .expect("details");
+        assert_eq!(details.pr_sport.as_deref(), Some("Ride"));
+        assert_eq!(details.pr_direction.as_deref(), Some("same"));
     }
 
     #[test]
@@ -205,6 +271,7 @@ mod tests {
             details.prs,
             vec![FfiSectionEraRecord {
                 sport: None,
+                direction: None,
                 time: 412.5
             }]
         );
@@ -218,6 +285,7 @@ mod tests {
         )
         .expect("details");
         assert_eq!(details.pr_sport.as_deref(), Some("Run"));
+        assert_eq!(details.pr_direction, None);
         assert_eq!(details.pr_from, Some(250.0));
         assert_eq!(details.pr_to, Some(240.0));
     }

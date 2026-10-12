@@ -4,13 +4,21 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  typography,
+  spacing,
+  layout,
+  colorWithOpacity,
+  themedStyles,
+  type Palette,
+} from '@/theme';
 import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
-import { formatDurationHuman } from '@/shared/format/format';
+import { formatDurationHuman, formatEnergy, formatPower } from '@/shared/format/format';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, ToggleButton } from '@/shared/ui';
+import { BodyNotDownloaded, CardHeader, EmptyState, ErrorState, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 
 interface PowerCurveChartProps {
@@ -57,15 +65,9 @@ const MODEL_LABELS: Record<string, string> = {
   ECP: 'ECP',
 };
 
-/** `12.8kJ` from the joules the server fits, with a whole number left whole. */
-function formatWPrime(joules: number): string {
-  const kj = joules / 1000;
-  return `${kj.toFixed(1).replace(/\.0$/, '')}kJ`;
-}
-
-/** `260w` or `3.25 W/kg`, the way the header and the axis print a value. */
+/** `260 W` or `3.25 W/kg`, the way the header, the axis and the FTP line print a value. */
 function formatValue(value: number, perKg: boolean, unit: string): string {
-  return perKg ? `${value.toFixed(2)} ${unit}` : `${Math.round(value)}w`;
+  return perKg ? `${value.toFixed(2)} ${unit}` : formatPower(value);
 }
 
 export const PowerCurveChart = React.memo(function PowerCurveChart({
@@ -78,6 +80,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const lineColor = color ?? chartColors.powerCurve;
 
@@ -88,6 +91,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     coverage,
     bodyStatus,
     retryBody,
+    refetch,
   } = usePowerCurve({ sport, days });
 
   // Per kilogram is the one comparison that survives a change of body weight.
@@ -152,30 +156,42 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
+        <CardHeader title={t('stats.powerCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
 
-  if (error || chartData.length === 0) {
+  if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
+        <CardHeader title={t('stats.powerCurve')} />
+        <ErrorState
+          variant="inline"
+          error={error}
+          onRetry={() => void refetch()}
+          testID="power-curve-failed"
+        />
+      </View>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <CardHeader title={t('stats.powerCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
               testID="power-curve-not-downloaded"
               style={styles.notDownloaded}
-              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              textStyle={styles.notDownloadedText}
               message={t('stats.rangeNotDownloaded')}
               status={bodyStatus}
               onRetry={retryBody}
             />
           ) : (
-            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-              {t('stats.noPowerData')}
-            </Text>
+            <EmptyState variant="inline" title={t('stats.noPowerData')} />
           )}
         </View>
       </View>
@@ -188,33 +204,31 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   return (
     <View style={[styles.container, { height }]} testID="power-curve-chart">
       {/* Header with values */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
-        <View style={styles.valuesRow}>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-              {t('stats.time')}
-            </Text>
-            <Text
-              testID="power-curve-duration"
-              style={[styles.valueNumber, isDark && styles.textLight]}
-            >
-              {formatDurationHuman(displayData.secs)}
-            </Text>
+      <CardHeader
+        title={t('stats.powerCurve')}
+        accessory={
+          <View style={styles.valuesRow}>
+            <View style={styles.valueItem}>
+              <Text style={styles.valueLabel}>{t('stats.time')}</Text>
+              <Text
+                testID="power-curve-duration"
+                style={[styles.valueNumber, isDark && styles.textLight]}
+              >
+                {formatDurationHuman(displayData.secs)}
+              </Text>
+            </View>
+            <View style={styles.valueItem}>
+              <Text style={styles.valueLabel}>{t('activity.power')}</Text>
+              <Text
+                testID="power-curve-watts"
+                style={[styles.valueNumber, isDark && styles.textLight]}
+              >
+                {formatValue(displayData.watts, perKg, unit)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-              {t('activity.power')}
-            </Text>
-            <Text
-              testID="power-curve-watts"
-              style={[styles.valueNumber, isDark && styles.textLight]}
-            >
-              {formatValue(displayData.watts, perKg, unit)}
-            </Text>
-          </View>
-        </View>
-      </View>
+        }
+      />
 
       {perKgAvailable && (
         <View style={styles.unitToggle}>
@@ -255,12 +269,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {models.length > 0 && (
         <View style={styles.models} testID="power-curve-models">
           {models.map((m) => (
-            <Text
-              key={m.type}
-              testID={`power-curve-model-${m.type}`}
-              style={[styles.modelText, isDark && chartStyles.textDark]}
-            >
-              {`${MODEL_LABELS[m.type] ?? m.type} ${Math.round(m.criticalPower)} ${t('units.watts')} ${formatWPrime(m.wPrime)}`}
+            <Text key={m.type} testID={`power-curve-model-${m.type}`} style={styles.modelText}>
+              {`${MODEL_LABELS[m.type] ?? m.type} ${formatPower(m.criticalPower)} ${formatEnergy(m.wPrime)}`}
             </Text>
           ))}
         </View>
@@ -270,13 +280,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text
-            testID="power-curve-ftp-legend"
-            style={[styles.legendText, isDark && chartStyles.textDark]}
-          >
+          <Text testID="power-curve-ftp-legend" style={styles.legendText}>
             {perKg
               ? `${t('statsScreen.ftpLabel', { value: formatValue(ftpValue, true, unit) })} ${t('stats.atWeight', { weight: formatWeightRounded(curve.weight ?? 0, isMetric) })}`
-              : t('statsScreen.ftpLabel', { value: ftpValue })}
+              : t('statsScreen.ftpLabel', { value: formatValue(ftpValue, false, unit) })}
           </Text>
         </View>
       )}
@@ -284,79 +291,69 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   );
 });
 
-const styles = StyleSheet.create({
-  container: {},
-  title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  textLight: { color: colors.textOnDark },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  valuesRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  valueItem: {
-    alignItems: 'flex-end',
-  },
-  valueLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  valueNumber: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notDownloaded: {
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.xs,
-    gap: spacing.xsPlus,
-  },
-  legendDash: {
-    width: spacing.md,
-    height: 2,
-    borderRadius: layout.borderRadiusFull,
-  },
-  models: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: spacing.xs,
-    columnGap: spacing.sm,
-  },
-  modelText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  legendText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  unitToggle: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    textLight: { color: colors.textOnDark },
+    valuesRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    valueItem: {
+      alignItems: 'flex-end',
+    },
+    valueLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      marginBottom: spacing.xxs,
+    },
+    valueNumber: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '700',
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    notDownloaded: {
+      alignItems: 'center',
+    },
+    notDownloadedText: {
+      fontSize: typography.bodyCompact.fontSize,
+      color: palette.textSecondary,
+    },
+    legend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      gap: spacing.xsPlus,
+    },
+    legendDash: {
+      width: spacing.md,
+      height: 2,
+      borderRadius: layout.borderRadiusFull,
+    },
+    models: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      columnGap: spacing.sm,
+    },
+    modelText: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+    },
+    legendText: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+    },
+    unitToggle: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.xs,
+      marginBottom: spacing.xs,
+    },
+  });

@@ -71,7 +71,7 @@ export function SectionEfficiencyCard({ trend, isDark, width = 280 }: SectionEff
       accessibilityRole="summary"
       style={{ gap: spacing.xs }}
     >
-      <Text style={[styles.heading, isDark && styles.headingDark]}>
+      <Text accessibilityRole="header" style={[styles.heading, isDark && styles.headingDark]}>
         {t('sections.aerobicEfficiency')}
       </Text>
       <Text testID="section-efficiency-detail" style={[styles.detail, isDark && styles.detailDark]}>

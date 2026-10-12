@@ -76,16 +76,16 @@ beforeEach(() => {
 describe('the section parameter editor', () => {
   it('shows feet, bounds in feet and saves metres for an imperial athlete', async () => {
     const onChange = jest.fn();
-    const { getByTestId, getByText } = renderWithSheet(
+    const { getByTestId, getByText } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={onChange} />
     );
 
-    fireEvent.press(getByTestId('param-edit-proximityThreshold'));
+    void fireEvent.press(getByTestId('param-edit-proximityThreshold'));
     expect(getByTestId('param-editor-input').props.value).toBe('656');
     expect(getByText('settings.sectionParamRange:328 ft,984 ft')).toBeTruthy();
 
-    fireEvent.changeText(getByTestId('param-editor-input'), '500');
-    fireEvent.press(getByTestId('param-editor-save'));
+    await fireEvent.changeText(getByTestId('param-editor-input'), '500');
+    await fireEvent.press(getByTestId('param-editor-save'));
 
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({
@@ -97,14 +97,14 @@ describe('the section parameter editor', () => {
 
   it('edits the long ceiling in miles', async () => {
     const onChange = jest.fn();
-    const { getByTestId } = renderWithSheet(
+    const { getByTestId } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={onChange} />
     );
 
-    fireEvent.press(getByTestId('param-edit-maxSectionLength'));
+    void fireEvent.press(getByTestId('param-edit-maxSectionLength'));
     expect(getByTestId('param-editor-input').props.value).toBe('124.27');
-    fireEvent.changeText(getByTestId('param-editor-input'), '10');
-    fireEvent.press(getByTestId('param-editor-save'));
+    await fireEvent.changeText(getByTestId('param-editor-input'), '10');
+    await fireEvent.press(getByTestId('param-editor-save'));
 
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({
@@ -114,37 +114,37 @@ describe('the section parameter editor', () => {
     );
   });
 
-  it('saving an editor left untouched keeps the stored metres exactly', () => {
+  it('saving an editor left untouched keeps the stored metres exactly', async () => {
     const onChange = jest.fn();
-    const { getByTestId } = renderWithSheet(
+    const { getByTestId } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={onChange} />
     );
 
-    fireEvent.press(getByTestId('param-edit-maxSectionLength'));
-    fireEvent.press(getByTestId('param-editor-save'));
+    void fireEvent.press(getByTestId('param-edit-maxSectionLength'));
+    await fireEvent.press(getByTestId('param-editor-save'));
 
     expect(onChange).not.toHaveBeenCalledWith(
       expect.objectContaining({ maxSectionLength: 199998 })
     );
   });
 
-  it('leaves metres alone for a metric athlete and the visit count unitless', () => {
+  it('leaves metres alone for a metric athlete and the visit count unitless', async () => {
     mockIsMetric = true;
-    const { getByTestId, getByText } = renderWithSheet(
+    const { getByTestId, getByText } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} />
     );
 
-    fireEvent.press(getByTestId('param-edit-proximityThreshold'));
+    void fireEvent.press(getByTestId('param-edit-proximityThreshold'));
     expect(getByTestId('param-editor-input').props.value).toBe('200');
     expect(getByText('settings.sectionParamRange:100 m,300 m')).toBeTruthy();
   });
 
-  it('keeps the visit count and divergence free of a unit', () => {
-    const { getByTestId, getByText } = renderWithSheet(
+  it('keeps the visit count and divergence free of a unit', async () => {
+    const { getByTestId, getByText } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} />
     );
 
-    fireEvent.press(getByTestId('param-edit-minActivities'));
+    void fireEvent.press(getByTestId('param-edit-minActivities'));
     expect(getByTestId('param-editor-input').props.value).toBe('2');
     expect(getByText('settings.sectionParamRange:2,10')).toBeTruthy();
   });
@@ -154,16 +154,16 @@ describe('the grouping parameter editor', () => {
   it('shows feet and saves metres for the endpoint distance', async () => {
     const onChange = jest.fn();
     const grouping = { minMatchPercentage: 55, endpointThreshold: 250 };
-    const { getByTestId, getByText } = renderWithSheet(
+    const { getByTestId, getByText } = await renderWithSheet(
       <GroupingParamPanel params={grouping} onChange={onChange} />
     );
 
-    fireEvent.press(getByTestId('grouping-edit-endpointThreshold'));
+    void fireEvent.press(getByTestId('grouping-edit-endpointThreshold'));
     expect(getByTestId('grouping-editor-input').props.value).toBe('820');
     expect(getByText('settings.sectionParamRange:591 ft,984 ft')).toBeTruthy();
 
-    fireEvent.changeText(getByTestId('grouping-editor-input'), '1000');
-    fireEvent.press(getByTestId('grouping-editor-save'));
+    await fireEvent.changeText(getByTestId('grouping-editor-input'), '1000');
+    await fireEvent.press(getByTestId('grouping-editor-save'));
 
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({
@@ -173,14 +173,14 @@ describe('the grouping parameter editor', () => {
     );
   });
 
-  it('keeps the match percentage a percentage', () => {
-    const { getByTestId } = renderWithSheet(
+  it('keeps the match percentage a percentage', async () => {
+    const { getByTestId } = await renderWithSheet(
       <GroupingParamPanel
         params={{ minMatchPercentage: 55, endpointThreshold: 250 }}
         onChange={jest.fn()}
       />
     );
-    fireEvent.press(getByTestId('grouping-edit-minMatchPercentage'));
+    void fireEvent.press(getByTestId('grouping-edit-minMatchPercentage'));
     expect(getByTestId('grouping-editor-input').props.value).toBe('55');
   });
 });

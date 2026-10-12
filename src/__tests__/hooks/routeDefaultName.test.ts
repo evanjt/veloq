@@ -34,24 +34,24 @@ const catalogue = [
   group('g3', 'Walk', ['a3']),
 ];
 
-it('leaves an unnamed group unnamed rather than guessing the engine number', () => {
-  const { result } = renderHook(() => useRouteMatch('a2', catalogue));
+it('leaves an unnamed group unnamed rather than guessing the engine number', async () => {
+  const { result } = await renderHook(() => useRouteMatch('a2', catalogue));
 
   expect(result.current.routeGroup?.name).toBe('');
 });
 
-it('keeps the name the engine minted or the athlete set', () => {
+it('keeps the name the engine minted or the athlete set', async () => {
   const named = [group('g1', 'Ride', ['a1'], 'Route 7')];
-  const { result } = renderHook(() => useRouteMatch('a1', named));
+  const { result } = await renderHook(() => useRouteMatch('a1', named));
 
   expect(result.current.routeGroup?.name).toBe('Route 7');
 });
 
 // The two lists that fill this hook are filtered differently, so a name that
 // depended on a group's position in one would not survive the other.
-it('reads the same whichever list filled it', () => {
-  const whole = renderHook(() => useRouteMatch('a3', catalogue));
-  const filtered = renderHook(() => useRouteMatch('a3', [catalogue[2]]));
+it('reads the same whichever list filled it', async () => {
+  const whole = await renderHook(() => useRouteMatch('a3', catalogue));
+  const filtered = await renderHook(() => useRouteMatch('a3', [catalogue[2]]));
 
   expect(filtered.result.current.routeGroup?.name).toBe(whole.result.current.routeGroup?.name);
 });

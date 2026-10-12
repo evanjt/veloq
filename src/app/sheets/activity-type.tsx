@@ -21,7 +21,7 @@ import {
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording';
 import type { ActivityType } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
 
 /**
@@ -29,8 +29,8 @@ import { tapBack } from '@/shared/app/navigation';
  * with the chosen `ActivityType`. `mode` switches the two kinds of caller:
  *
  * - `review` (default): a curated 20-type popular set, no per-item border,
- *   neutral selected-row highlight, and no swipe to dismiss, so only the close
- *   control leaves it. Used when reviewing a completed or manual activity.
+ *   neutral selected-row highlight, and no swipe to dismiss, so only Cancel or
+ *   system back leaves it. Used when reviewing a completed or manual activity.
  * - `recording`: every activity type from `ACTIVITY_CATEGORIES`, a hairline
  *   border per row and a teal-tinted selected row. Used to choose a sport
  *   before or during a recording.
@@ -88,7 +88,6 @@ function ActivityTypeSheetContent() {
 
   const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
 
   const selectedRowStyle = isRecording
@@ -105,19 +104,12 @@ function ActivityTypeSheetContent() {
   return (
     <View style={[styles.sheet, { backgroundColor: surface }]}>
       <Stack.Screen options={{ gestureEnabled: isRecording }} />
-      <View style={[styles.header, !isRecording && styles.headerBordered]}>
-        <Text style={[styles.title, { color: textPrimary }]}>{t(titleKey, titleFallback)}</Text>
-        <Pressable
-          onPress={() => tapBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-          style={pressable()}
-          android_ripple={pressRipple}
-        >
-          <MaterialCommunityIcons name="close" size={isRecording ? 22 : 24} color={textSecondary} />
-        </Pressable>
-      </View>
+      <SheetHeader
+        title={t(titleKey, titleFallback)}
+        onCancel={() => tapBack()}
+        cancelTestID="activity-type-cancel"
+        style={!isRecording && [styles.headerBordered, isDark && styles.headerBorderedDark]}
+      />
       <FlatList
         data={types}
         keyExtractor={(item) => item}
@@ -171,19 +163,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: spacing.xl,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
   headerBordered: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colorWithOpacity(ink.black, 0.2),
   },
-  title: {
-    ...typography.sectionTitle,
+  headerBorderedDark: {
+    borderBottomColor: darkColors.border,
   },
   list: {
     paddingHorizontal: spacing.sm,

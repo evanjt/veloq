@@ -129,8 +129,14 @@ describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, sh
 
   it.each(shows)('opens $route and writes no setting', async ({ route, index }) => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-    useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion, tourState: null });
-    render(
+    // Each case is a fresh launch, so the slot the last one took is free again.
+    useWhatsNewStore.setState({
+      isLoaded: true,
+      lastSeenVersion,
+      tourState: null,
+      launchModal: null,
+    });
+    await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
         <WhatsNewModal />
@@ -141,11 +147,11 @@ describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, sh
 
     for (let step = 0; step < index; step++) {
       await act(async () => {
-        fireEvent.press(screen.getByText('whatsNew.nextButton'));
+        await fireEvent.press(screen.getByText('whatsNew.nextButton'));
       });
     }
     await act(async () => {
-      fireEvent.press(screen.getByText('whatsNew.showMeButton'));
+      await fireEvent.press(screen.getByText('whatsNew.showMeButton'));
     });
 
     expect(mockNavigateTab).toHaveBeenCalledWith(route);
@@ -158,7 +164,7 @@ describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, sh
 
 describe('a choice tapped on the tour map slide', () => {
   async function renderSlide() {
-    render(
+    await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
         <MapPreferencesSlide />
@@ -178,7 +184,7 @@ describe('a choice tapped on the tour map slide', () => {
     expect(settingsWritten()).toEqual([]);
 
     await act(async () => {
-      fireEvent.press(screen.getByText('settings.terrain3DAlways'));
+      await fireEvent.press(screen.getByText('settings.terrain3DAlways'));
     });
 
     expect(current!.preferences.terrain3DMode).toBe('always');
@@ -190,7 +196,7 @@ describe('a choice tapped on the tour map slide', () => {
     expect(settingsWritten()).toEqual([]);
 
     await act(async () => {
-      fireEvent.press(screen.getByText('settings.satellite'));
+      await fireEvent.press(screen.getByText('settings.satellite'));
     });
 
     expect(current!.preferences.defaultStyle).toBe('satellite');

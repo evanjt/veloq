@@ -63,22 +63,24 @@ beforeEach(() => {
 });
 
 describe('useSummaryCardData', () => {
-  it('makes no engine call while it waits for the startup bundle', () => {
-    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
+  it('makes no engine call while it waits for the startup bundle', async () => {
+    const { result } = await renderHook(() =>
+      useSummaryCardData(undefined, { awaitPrecomputed: true })
+    );
 
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
     expect(result.current.supportingMetrics).toBeDefined();
   });
 
-  it('uses the startup bundle once it lands, without its own read', () => {
-    const { result } = renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
+  it('uses the startup bundle once it lands, without its own read', async () => {
+    const { result } = await renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
 
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
     expect(result.current.heroValue).toBeDefined();
   });
 
-  it('still reads the engine for a caller with no bundle to wait for', () => {
-    renderHook(() => useSummaryCardData());
+  it('still reads the engine for a caller with no bundle to wait for', async () => {
+    await renderHook(() => useSummaryCardData());
 
     expect(engine.getSummaryCardData).toHaveBeenCalled();
   });

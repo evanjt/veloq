@@ -90,7 +90,7 @@ describe('useRecordingMetrics', () => {
   // Empty / no data
   // -------------------------------------------------------------------------
 
-  it('returns all zeros when streams are empty', () => {
+  it('returns all zeros when streams are empty', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -100,7 +100,7 @@ describe('useRecordingMetrics', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.speed).toBe(0);
     expect(result.current.avgSpeed).toBe(0);
@@ -119,7 +119,7 @@ describe('useRecordingMetrics', () => {
   // Current values (last element in streams)
   // -------------------------------------------------------------------------
 
-  it('returns the last element of each stream as current value', () => {
+  it('returns the last element of each stream as current value', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -144,7 +144,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.speed).toBe(8.0);
     expect(result.current.distance).toBe(205);
@@ -158,7 +158,7 @@ describe('useRecordingMetrics', () => {
   // Single data point
   // -------------------------------------------------------------------------
 
-  it('handles a single data point', () => {
+  it('handles a single data point', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -178,7 +178,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.speed).toBe(5.0);
     expect(result.current.distance).toBe(0);
@@ -195,7 +195,7 @@ describe('useRecordingMetrics', () => {
   // Average speed
   // -------------------------------------------------------------------------
 
-  it('calculates average speed as distance / elapsed seconds, 0 when elapsed is 0', () => {
+  it('calculates average speed as distance / elapsed seconds, 0 when elapsed is 0', async () => {
     // avgSpeed = last distance / last time; guarded to 0 when elapsed is 0.
     const cases: { time: number[]; distance: number[]; expected: number }[] = [
       { time: [0, 50, 100], distance: [0, 400, 1000], expected: 10 }, // 1000m / 100s
@@ -218,13 +218,13 @@ describe('useRecordingMetrics', () => {
         }),
       });
 
-      const { result } = renderHook(() => useRecordingMetrics());
+      const { result } = await renderHook(() => useRecordingMetrics());
       expect(result.current.avgSpeed).toBe(expected);
     }
   });
 
-  it('exposes speeds only, with no pace in seconds per km', () => {
-    const { result } = renderHook(() => useRecordingMetrics());
+  it('exposes speeds only, with no pace in seconds per km', async () => {
+    const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current).not.toHaveProperty('pace');
     expect(result.current).not.toHaveProperty('avgPace');
   });
@@ -233,7 +233,7 @@ describe('useRecordingMetrics', () => {
   // Elevation gain
   // -------------------------------------------------------------------------
 
-  it('counts a rise in elevation gain only once its mean clears the margin', () => {
+  it('counts a rise in elevation gain only once its mean clears the margin', async () => {
     // Each reading is the mean of it and its neighbours, and a rise counts once
     // it is 3 m above the last level counted.
     const cases: { altitude: number[]; expected: number }[] = [
@@ -259,7 +259,7 @@ describe('useRecordingMetrics', () => {
         }),
       });
 
-      const { result } = renderHook(() => useRecordingMetrics());
+      const { result } = await renderHook(() => useRecordingMetrics());
       expect(result.current.elevationGain).toBe(expected);
     }
   });
@@ -268,7 +268,7 @@ describe('useRecordingMetrics', () => {
   // Calories
   // -------------------------------------------------------------------------
 
-  it('estimates calories per activity-type MET over elapsed hours', () => {
+  it('estimates calories per activity-type MET over elapsed hours', async () => {
     // calories = elapsed_hours * 70 kg * MET. MET resolves by substring match on
     // activityType: cycling 8, running 10, walking/hiking 4, swimming 7, default 6.
     // Aliases (VirtualRide, Treadmill, ...) hit the same MET via getMet substrings.
@@ -304,12 +304,12 @@ describe('useRecordingMetrics', () => {
         }),
       });
 
-      const { result } = renderHook(() => useRecordingMetrics());
+      const { result } = await renderHook(() => useRecordingMetrics());
       expect(result.current.calories).toBe(expected);
     }
   });
 
-  it('weighs the athlete by the profile weight intervals.icu sends', () => {
+  it('weighs the athlete by the profile weight intervals.icu sends', async () => {
     // The profile body carries the weight as `icu_weight` and leaves `weight`
     // null. One moving hour of a ride without heart rate is 8 MET times the
     // weight; with no weight on the profile the estimate keeps 70 kg.
@@ -345,7 +345,7 @@ describe('useRecordingMetrics', () => {
         }),
       });
 
-      const { result } = renderHook(() => useRecordingMetrics());
+      const { result } = await renderHook(() => useRecordingMetrics());
       expect({ profile, calories: result.current.calories }).toEqual({
         profile,
         calories: expected,
@@ -353,7 +353,7 @@ describe('useRecordingMetrics', () => {
     }
   });
 
-  it('returns 0 calories when elapsed time is 0', () => {
+  it('returns 0 calories when elapsed time is 0', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -370,7 +370,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.calories).toBe(0);
   });
@@ -379,7 +379,7 @@ describe('useRecordingMetrics', () => {
   // Lap metrics
   // -------------------------------------------------------------------------
 
-  it('calculates lap distance from last lap end position', () => {
+  it('calculates lap distance from last lap end position', async () => {
     // The hook uses lastLap.endTime as an index into streams.distance:
     // lapStartDistance = streams.distance[Math.min(Math.round(endTime), lastIdx)]
     setStoreState({
@@ -412,14 +412,14 @@ describe('useRecordingMetrics', () => {
       ],
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     // The last lap ended on the sample whose cumulative distance is 500, and the
     // current total is 1000, so the in-progress lap covers 1000 - 500 = 500.
     expect(result.current.lapDistance).toBe(500);
   });
 
-  it('returns full distance as lap distance when no laps exist', () => {
+  it('returns full distance as lap distance when no laps exist', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -439,12 +439,12 @@ describe('useRecordingMetrics', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.lapDistance).toBe(500);
   });
 
-  it('computes lap time as moving time minus last lap endTime, clamped to 0', () => {
+  it('computes lap time as moving time minus last lap endTime, clamped to 0', async () => {
     // lapTime = max(0, (elapsed - paused) - lastLap.endTime), paused counted from
     // the pauses closed before the last sample. A pause longer than the lap clamps
     // it to 0 rather than going negative.
@@ -483,12 +483,12 @@ describe('useRecordingMetrics', () => {
         laps: [makeLap({ index: 0, startTime: 0, endTime, distance: 500 })],
       });
 
-      const { result } = renderHook(() => useRecordingMetrics());
+      const { result } = await renderHook(() => useRecordingMetrics());
       expect(result.current.lapTime).toBe(expected);
     }
   });
 
-  it('leaves an open pause out of the moving time its averages and lap time use', () => {
+  it('leaves an open pause out of the moving time its averages and lap time use', async () => {
     // Scenario: stationary from 10 s, the pause opens at 10 s, the last sample is at 20 s.
     // Expected behaviour: moving time is 10 s, the same window the timer shows.
     const now = Date.now();
@@ -513,7 +513,7 @@ describe('useRecordingMetrics', () => {
       laps: [],
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current.lapTime).toBe(10);
     expect(result.current.avgSpeed).toBe(5);
   });
@@ -522,7 +522,7 @@ describe('useRecordingMetrics', () => {
   // Null/undefined handling in streams
   // -------------------------------------------------------------------------
 
-  it('treats missing stream values as 0 via nullish coalescing', () => {
+  it('treats missing stream values as 0 via nullish coalescing', async () => {
     // Simulate sparse streams where some arrays are shorter
     const streams: RecordingStreams = {
       time: [0, 30],
@@ -544,7 +544,7 @@ describe('useRecordingMetrics', () => {
       streams,
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     // Should not throw; values default to 0 for missing indices
     expect(result.current.heartrate).toBe(0);
@@ -556,7 +556,7 @@ describe('useRecordingMetrics', () => {
   // Recomputation on stream changes
   // -------------------------------------------------------------------------
 
-  it('recomputes when streams change', () => {
+  it('recomputes when streams change', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -575,7 +575,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    const { result, rerender } = renderHook(() => useRecordingMetrics());
+    const { result, rerender } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.distance).toBe(50);
 
@@ -594,7 +594,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    rerender({});
+    await rerender({});
 
     expect(result.current.distance).toBe(130);
     expect(result.current.speed).toBe(8);
@@ -606,7 +606,7 @@ describe('useRecordingMetrics', () => {
   // Integration: realistic cycling recording
   // -------------------------------------------------------------------------
 
-  it('produces coherent metrics for a realistic 10-minute ride', () => {
+  it('produces coherent metrics for a realistic 10-minute ride', async () => {
     // 10 minutes, covering 3km, climbing 50m
     const numPoints = 11; // one every 60 seconds
     const time: number[] = [];
@@ -644,7 +644,7 @@ describe('useRecordingMetrics', () => {
       }),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     // Distance: 10 * 300 = 3000m
     expect(result.current.distance).toBe(3000);
@@ -679,7 +679,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
   ///
   /// Expected behaviour: it reads the accumulator the store keeps per sample.
   /// A total that disagrees with the stream proves which one is being read.
-  it('reports the accumulated elevation gain rather than rescanning the stream', () => {
+  it('reports the accumulated elevation gain rather than rescanning the stream', async () => {
     setStoreState({
       streams: makeStreams({
         time: [0, 1, 2],
@@ -690,13 +690,13 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       totals: { ...streamTotals(EMPTY_STREAMS), elevationGain: 777 },
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current.elevationGain).toBe(777);
   });
 
   // The recorded stream starts at the first point, which outdoors waits for a
   // GPS fix, so a connected strap has a number well before the stream does.
-  it('reads the live heart rate while the stream is still empty', () => {
+  it('reads the live heart rate while the stream is still empty', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -706,12 +706,12 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       latestSensor: { heartrate: { value: 142, at: Date.now() }, power: null, cadence: null },
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.heartrate).toBe(142);
   });
 
-  it('reads the live power and cadence while the stream is still empty', () => {
+  it('reads the live power and cadence while the stream is still empty', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -721,13 +721,13 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       latestSensor: liveSensors({ power: 210, cadence: 88 }),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.power).toBe(210);
     expect(result.current.cadence).toBe(88);
   });
 
-  it('reads 0 for power and cadence that have gone stale', () => {
+  it('reads 0 for power and cadence that have gone stale', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -737,13 +737,13 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       latestSensor: liveSensors({ power: 210, cadence: 88 }, Date.now() - 6000),
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.power).toBe(0);
     expect(result.current.cadence).toBe(0);
   });
 
-  it('reads 0 for a sensor that has gone stale', () => {
+  it('reads 0 for a sensor that has gone stale', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -757,12 +757,12 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       },
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
 
     expect(result.current.heartrate).toBe(0);
   });
 
-  it('takes the calorie average from the accumulated pulse, not a filter over the stream', () => {
+  it('takes the calorie average from the accumulated pulse, not a filter over the stream', async () => {
     const heartrate = Array.from({ length: 40 }, () => 100);
     setStoreState({
       activityType: 'Ride',
@@ -776,7 +776,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
       totals: { ...streamTotals(EMPTY_STREAMS), heartrateSum: 40 * 160, heartrateCount: 40 },
     });
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     const kcalPerMin = (-55.0969 + 0.6309 * 160 + 0.1988 * 70 + 0.2017 * 35) / 4.184;
     expect(result.current.calories).toBe(Math.round(kcalPerMin * (39 / 60)));
   });
@@ -785,7 +785,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
 describe('the current altitude tile', () => {
   beforeEach(resetStore);
 
-  function withAltitude(altitude: number[]) {
+  async function withAltitude(altitude: number[]) {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',
@@ -800,18 +800,18 @@ describe('the current altitude tile', () => {
         latlng: altitude.map((_, i) => [i * 0.001, 0]),
       }),
     });
-    return renderHook(() => useRecordingMetrics()).result.current.elevation;
+    return (await renderHook(() => useRecordingMetrics())).result.current.elevation;
   }
 
-  it('holds the last valid reading when the latest fix has no altitude', () => {
-    expect(withAltitude([448, 450, NaN])).toBe(450);
+  it('holds the last valid reading when the latest fix has no altitude', async () => {
+    expect(await withAltitude([448, 450, NaN])).toBe(450);
   });
 
-  it('reads a real sea level as 0', () => {
-    expect(withAltitude([2, 0])).toBe(0);
+  it('reads a real sea level as 0', async () => {
+    expect(await withAltitude([2, 0])).toBe(0);
   });
 
-  it('has no reading when no fix has carried an altitude', () => {
-    expect(withAltitude([NaN, NaN])).toBeNull();
+  it('has no reading when no fix has carried an altitude', async () => {
+    expect(await withAltitude([NaN, NaN])).toBeNull();
   });
 });

@@ -14,7 +14,7 @@ function tagged(reason: string): Error {
 
 describe('sectionCreationMessageKey', () => {
   it('tells the athlete the track has not synced yet', () => {
-    expect(sectionCreationMessageKey(tagged('noTrack'))).toBe('routes.gpsTrackNotSynced');
+    expect(sectionCreationMessageKey(tagged('noTrack'))).toBe('routes.gpsTrackNotDownloaded');
   });
 
   it('tells the athlete the range is too short', () => {

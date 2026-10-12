@@ -43,12 +43,12 @@ const handlers = {
 
 beforeEach(() => jest.clearAllMocks());
 
-function renderTooltip(point: typeof POINT & { isExcluded?: boolean }) {
-  render(
+async function renderTooltip(point: typeof POINT & { isExcluded?: boolean }) {
+  await render(
     <PerformanceTooltip
       selectedPoint={point}
       isDark={false}
-      showPace={false}
+      basis="speed"
       activityColor="#000000"
       {...handlers}
     />
@@ -56,12 +56,12 @@ function renderTooltip(point: typeof POINT & { isExcluded?: boolean }) {
   return screen.getByLabelText(/^Harbour loop/);
 }
 
-function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
-  render(
+async function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
+  await render(
     <PerformanceTooltip
       selectedPoint={point}
       isDark={false}
-      showPace={false}
+      basis="speed"
       activityColor="#000000"
       recordsSettled={recordsSettled}
       {...handlers}
@@ -70,17 +70,17 @@ function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
   return screen.getByLabelText(/Harbour loop/);
 }
 
-function actionNames(element: ReturnType<typeof renderTooltip>): string[] {
+function actionNames(element: Awaited<ReturnType<typeof renderTooltip>>): string[] {
   return (element.props.accessibilityActions ?? []).map((a: { name: string }) => a.name);
 }
 
-function act(element: ReturnType<typeof renderTooltip>, actionName: string) {
-  fireEvent(element, 'accessibilityAction', { nativeEvent: { actionName } });
+async function act(element: Awaited<ReturnType<typeof renderTooltip>>, actionName: string) {
+  await fireEvent(element, 'accessibilityAction', { nativeEvent: { actionName } });
 }
 
 describe('the selected attempt row for a screen reader', () => {
-  it('offers set as reference and exclude on an included attempt', () => {
-    const row = renderTooltip(POINT);
+  it('offers set as reference and exclude on an included attempt', async () => {
+    const row = await renderTooltip(POINT);
 
     expect(actionNames(row)).toEqual(['setReference', 'exclude']);
     expect(row.props.accessibilityActions).toEqual([
@@ -89,38 +89,38 @@ describe('the selected attempt row for a screen reader', () => {
     ]);
   });
 
-  it('sets the attempt as the reference', () => {
-    const row = renderTooltip(POINT);
+  it('sets the attempt as the reference', async () => {
+    const row = await renderTooltip(POINT);
 
-    act(row, 'setReference');
+    await act(row, 'setReference');
 
     expect(handlers.onSetAsReference).toHaveBeenCalledWith('a1');
     expect(handlers.onExcludeActivity).not.toHaveBeenCalled();
   });
 
-  it('excludes the attempt and clears the selection, as the drawn mark does', () => {
-    const row = renderTooltip(POINT);
+  it('excludes the attempt and clears the selection, as the drawn mark does', async () => {
+    const row = await renderTooltip(POINT);
 
-    act(row, 'exclude');
+    await act(row, 'exclude');
 
     expect(handlers.onExcludeActivity).toHaveBeenCalledWith('a1');
     expect(handlers.onClearSelection).toHaveBeenCalledTimes(1);
     expect(handlers.onSetAsReference).not.toHaveBeenCalled();
   });
 
-  it('offers include, and no reference, on an excluded attempt', () => {
-    const row = renderTooltip({ ...POINT, isExcluded: true });
+  it('offers include, and no reference, on an excluded attempt', async () => {
+    const row = await renderTooltip({ ...POINT, isExcluded: true });
 
     expect(actionNames(row)).toEqual(['include']);
 
-    act(row, 'include');
+    await act(row, 'include');
 
     expect(handlers.onIncludeActivity).toHaveBeenCalledWith('a1');
     expect(handlers.onClearSelection).toHaveBeenCalledTimes(1);
   });
 
-  it('names the attempt by its date, section time and difference to the best', () => {
-    const row = renderTooltip(POINT);
+  it('names the attempt by its date, section time and difference to the best', async () => {
+    const row = await renderTooltip(POINT);
     const label: string = row.props.accessibilityLabel;
 
     expect(label).toContain('Harbour loop');
@@ -129,21 +129,21 @@ describe('the selected attempt row for a screen reader', () => {
     expect(label).toContain("'26");
   });
 
-  it('names the record only once every time stream is read, as the drawn mark does', () => {
-    const settled = renderTooltipFor({ ...POINT, isBest: true }, true);
+  it('names the record only once every time stream is read, as the drawn mark does', async () => {
+    const settled = await renderTooltipFor({ ...POINT, isBest: true }, true);
     expect(settled.props.accessibilityLabel).toMatch(/^sections\.legendPr, Harbour loop/);
-    screen.unmount();
+    await screen.unmount();
 
-    const pending = renderTooltipFor({ ...POINT, isBest: true }, false);
+    const pending = await renderTooltipFor({ ...POINT, isBest: true }, false);
     expect(pending.props.accessibilityLabel).not.toContain('sections.legendPr');
   });
 
-  it('offers no action without handlers', () => {
-    render(
+  it('offers no action without handlers', async () => {
+    await render(
       <PerformanceTooltip
         selectedPoint={POINT}
         isDark={false}
-        showPace={false}
+        basis="speed"
         activityColor="#000000"
         onClearSelection={() => {}}
       />

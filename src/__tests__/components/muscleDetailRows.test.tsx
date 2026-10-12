@@ -68,8 +68,8 @@ const counts = (sets: number, reps: number) =>
   `activity.muscle.setCount:{"count":${sets}} · activity.muscle.repsCount:{"count":${reps}}`;
 
 describe('the muscle detail rows', () => {
-  it('give each exercise its set count and its repetition total', () => {
-    render(
+  it('give each exercise its set count and its repetition total', async () => {
+    await render(
       <MuscleGroupView
         activityId="demo-test-6"
         activity={{ id: 'demo-test-6' } as unknown as ActivityDetail}

@@ -87,7 +87,7 @@ afterEach(() => {
 it('returns cached sets without asking Rust to download', async () => {
   engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
 
-  const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+  const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
   await waitFor(() => expect(result.current.data).toHaveLength(1));
   expect(engine.fetchAndParseExerciseSets).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ it('returns cached sets without asking Rust to download', async () => {
 it('does not re-download an activity that has already settled', async () => {
   engine.isFitProcessed.mockReturnValue(true);
 
-  const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+  const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
   expect(result.current.data).toEqual([]);
@@ -104,23 +104,23 @@ it('does not re-download an activity that has already settled', async () => {
 });
 
 it('asks Rust for an unsettled activity and reads back what the parse announces', async () => {
-  const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+  const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
   await waitFor(() => expect(result.current.data).toEqual([]));
 
   engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
-  act(() => announce('act1'));
+  await act(() => announce('act1'));
   await waitFor(() => expect(result.current.data).toHaveLength(1));
 });
 
 it('ignores a parse announced for another activity', async () => {
-  const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+  const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
   const reads = engine.getExerciseSets.mock.calls.length;
 
-  act(() => announce('act2'));
+  await act(() => announce('act2'));
   await waitFor(() => expect(result.current.isFetching).toBe(false));
   expect(engine.getExerciseSets).toHaveBeenCalledTimes(reads);
 });
@@ -128,12 +128,14 @@ it('ignores a parse announced for another activity', async () => {
 it('makes no engine call between the request and the announcement', async () => {
   jest.useFakeTimers();
   try {
-    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+    const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+      wrapper,
+    });
 
     await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
     const reads = engine.getExerciseSets.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(60_000);
     });
 
@@ -146,18 +148,20 @@ it('makes no engine call between the request and the announcement', async () => 
 });
 
 it('stops listening once the card unmounts', async () => {
-  const { unmount } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+  const { unmount } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
+    wrapper,
+  });
 
   await waitFor(() =>
     expect(engine.subscribe).toHaveBeenCalledWith('fitParsed', expect.any(Function))
   );
-  unmount();
+  await unmount();
 
   expect(listeners.get('fitParsed')?.size ?? 0).toBe(0);
 });
 
 it('skips the download entirely for a non-strength activity', async () => {
-  const { result } = renderHook(() => useExerciseSets('act1', 'Ride'), { wrapper });
+  const { result } = await renderHook(() => useExerciseSets('act1', 'Ride'), { wrapper });
 
   await waitFor(() => expect(result.current.fetchStatus).toBe('idle'));
   expect(engine.getExerciseSets).not.toHaveBeenCalled();

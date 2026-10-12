@@ -28,15 +28,14 @@
     android:layout_height="0dp"
     android:layout_weight="1"
     android:visibility="gone"
-    android:scaleType="fitCenter"
-    android:contentDescription="@null" />
+    android:scaleType="fitCenter" />
 
   <ImageView
     android:id="@+id/str_back"
     android:layout_width="0dp"
     android:layout_height="0dp"
     android:visibility="gone"
-    android:contentDescription="@null" />
+    android:importantForAccessibility="no" />
 
   <LinearLayout
     android:id="@+id/str_message"

@@ -32,7 +32,7 @@ function renderTooltip() {
     <PerformanceTooltip
       selectedPoint={{ ...POINT, x: 0 }}
       isDark={false}
-      showPace
+      basis="pace"
       activityColor="#000000"
       onClearSelection={() => {}}
     />
@@ -44,16 +44,16 @@ describe('section surfaces under the unit setting', () => {
     mockIsMetric = false;
   });
 
-  it('prints the tooltip pace and delta per mile when imperial', () => {
-    const { getByText, queryByText } = renderTooltip();
+  it('prints the tooltip pace and delta per mile when imperial', async () => {
+    const { getByText, queryByText } = await renderTooltip();
     expect(getByText('6:42 /mi')).toBeTruthy();
     expect(getByText(/\+1:20/)).toBeTruthy();
     expect(queryByText('4:10 /km')).toBeNull();
   });
 
-  it('prints the tooltip pace and delta per kilometre when metric', () => {
+  it('prints the tooltip pace and delta per kilometre when metric', async () => {
     mockIsMetric = true;
-    const { getByText } = renderTooltip();
+    const { getByText } = await renderTooltip();
     expect(getByText('4:10 /km')).toBeTruthy();
     expect(getByText(/\+50s/)).toBeTruthy();
   });

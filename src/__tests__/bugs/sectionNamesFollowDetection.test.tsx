@@ -29,8 +29,8 @@ const engine = {
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 /** What the engine sends when detection lands or a section is renamed. */
-function announce(channel: string): void {
-  act(() => {
+async function announce(channel: string): Promise<void> {
+  await act(() => {
     for (const listener of listeners.get(channel) ?? []) listener();
   });
 }
@@ -43,39 +43,39 @@ beforeEach(() => {
 });
 
 describe('section display names follow the engine', () => {
-  it('re-reads when detection applies', () => {
-    const { result } = renderHook(() => useSectionDisplayNames());
+  it('re-reads when detection applies', async () => {
+    const { result } = await renderHook(() => useSectionDisplayNames());
     expect(result.current.s1).toBe('Old climb');
 
     engine.getSectionSummaries.mockReturnValue({
       summaries: [{ id: 's1', name: 'Col du Pillon' }],
     });
-    announce('detectionApplied');
+    await announce('detectionApplied');
 
     expect(result.current.s1).toBe('Col du Pillon');
   });
 
-  it('re-reads when a rename announces on the sections channel', () => {
-    const { result } = renderHook(() => useSectionDisplayNames());
+  it('re-reads when a rename announces on the sections channel', async () => {
+    const { result } = await renderHook(() => useSectionDisplayNames());
 
     engine.getSectionSummaries.mockReturnValue({ summaries: [{ id: 's1', name: 'My climb' }] });
-    announce('sections');
+    await announce('sections');
 
     expect(result.current.s1).toBe('My climb');
   });
 
-  it('does not re-read on a render that nothing announced', () => {
-    const { rerender } = renderHook(() => useSectionDisplayNames());
+  it('does not re-read on a render that nothing announced', async () => {
+    const { rerender } = await renderHook(() => useSectionDisplayNames());
     const afterMount = engine.getSectionSummaries.mock.calls.length;
 
-    for (let render = 0; render < 10; render++) rerender(undefined);
+    for (let render = 0; render < 10; render++) await rerender(undefined);
 
     expect(engine.getSectionSummaries.mock.calls.length).toBe(afterMount);
   });
 
-  it('gives an empty map when the engine is not open', () => {
+  it('gives an empty map when the engine is not open', async () => {
     mockGetEngine.mockReturnValue(null as unknown as ReturnType<typeof getEngine>);
-    const { result } = renderHook(() => useSectionDisplayNames());
+    const { result } = await renderHook(() => useSectionDisplayNames());
 
     expect(result.current).toEqual({});
   });

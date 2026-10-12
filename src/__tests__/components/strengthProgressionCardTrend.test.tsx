@@ -37,8 +37,8 @@ function progression(trend: 'up' | 'down', changePct: number): StrengthProgressi
 it.each([
   ['up', 120],
   ['down', -80],
-] as const)('colours a %s change badge on the neutral rung', (trend, changePct) => {
-  render(
+] as const)('colours a %s change badge on the neutral rung', async (trend, changePct) => {
+  await render(
     <StrengthProgressionCard
       selectedVolume={volume}
       progression={progression(trend, changePct)}

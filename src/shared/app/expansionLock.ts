@@ -11,9 +11,9 @@
 import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 
 /**
- * Whether the GPS sync has stopped for good. `activityCount` is null until the
- * activities are loaded, and zero means the sync returns before running, so no
- * terminal status will ever arrive.
+ * Whether the GPS sync has stopped for good. `activityCount` is the library's,
+ * null until the engine answers, and zero means the sync returns before
+ * running, so no terminal status will ever arrive.
  */
 export function syncSettledForExpansion(
   status: GpsSyncProgress['status'],

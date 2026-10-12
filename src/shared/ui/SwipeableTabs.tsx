@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  I18nManager,
   View,
   StyleSheet,
   Pressable,
@@ -32,6 +33,9 @@ import {
 } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
+import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
+import { pageAccessibility } from './pagerAccessibility';
+import { composeAccessibilityLabel } from './accessibilityLabel';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
@@ -47,9 +51,6 @@ const TIMING_CONFIG = {
 // Horizontal padding inside each tab, either side of its content
 const TAB_PADDING = spacing.sm;
 
-// Gesture activation offset (prevents accidental swipes)
-const GESTURE_ACTIVATION_OFFSET = 10;
-
 export interface SwipeableTab {
   key: string;
   label: string;
@@ -59,6 +60,11 @@ export interface SwipeableTab {
   badgeText?: string;
   /** Visual tone for `badgeText`. Ignored when `count` is used. */
   badgeTone?: 'neutral' | 'positive' | 'negative' | 'pr';
+}
+
+/** A tab's name with the badge it draws, the badge text in place of the count as on screen. */
+function tabAccessibilityLabel(tab: SwipeableTab): string {
+  return composeAccessibilityLabel(tab.label, tab.badgeText ?? tab.count);
 }
 
 interface SwipeableTabsProps {
@@ -164,6 +170,11 @@ export function SwipeableTabs({
   const indicatorProgress = useSharedValue(initialIndex);
   // Track active tab index in shared value for worklet access
   const activeTabIndex = useSharedValue(initialIndex);
+  // Where the current touch began, in window coordinates, and whether the
+  // pager has taken it
+  const touchStartX = useSharedValue(0);
+  const panTaken = useSharedValue(false);
+  const isRTL = I18nManager.isRTL;
 
   // Width each tab needs for its icon, label and badge, reported by the
   // content row of each tab, which never shrinks below its natural size.
@@ -207,6 +218,7 @@ export function SwipeableTabs({
   if (currentIndex >= 0) {
     visitedRef.current.add(currentIndex);
   }
+  const exposedIndex = Math.max(0, currentIndex);
 
   // Sync animation with activeTab state changes (e.g., from tab press), and
   // with the window, since the page offset is a multiple of its width.
@@ -241,7 +253,34 @@ export function SwipeableTabs({
     () =>
       Gesture.Pan()
         .enabled(gestureEnabled)
-        .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
+        // Decided by hand so a swipe the pager cannot use, or one from the
+        // leading edge, fails and is left to the system back swipe.
+        .manualActivation(true)
+        .onTouchesDown((e) => {
+          'worklet';
+          // A second finger joins the touch already being decided.
+          const touch = e.allTouches[0];
+          if (!touch || e.allTouches.length > 1) return;
+          touchStartX.value = touch.absoluteX;
+          panTaken.value = false;
+        })
+        .onTouchesMove((e, mgr) => {
+          'worklet';
+          const touch = e.allTouches[0];
+          if (panTaken.value || !touch) return;
+          const decision = pagerPanDecision({
+            index: activeTabIndex.value,
+            tabCount,
+            startX: touchStartX.value,
+            translationX: touch.absoluteX - touchStartX.value,
+            screenWidth,
+            isRTL,
+          });
+          if (decision === 'activate') {
+            panTaken.value = true;
+            mgr.activate();
+          } else if (decision === 'fail') mgr.fail();
+        })
         .onUpdate((event) => {
           'worklet';
           const currentOffset = -screenWidth * activeTabIndex.value;
@@ -284,6 +323,9 @@ export function SwipeableTabs({
       translateX,
       indicatorProgress,
       activeTabIndex,
+      touchStartX,
+      panTaken,
+      isRTL,
       triggerHaptic,
       updateTab,
       tabs,
@@ -357,7 +399,7 @@ export function SwipeableTabs({
                   onPress={() => handleTabPress(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={tab.label}
+                  accessibilityLabel={tabAccessibilityLabel(tab)}
                 >
                   <TabContent
                     tab={tab}
@@ -386,7 +428,7 @@ export function SwipeableTabs({
                   onPress={() => handleTabPress(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={tab.label}
+                  accessibilityLabel={tabAccessibilityLabel(tab)}
                 >
                   <TabContent
                     tab={tab}
@@ -409,7 +451,11 @@ export function SwipeableTabs({
           style={[styles.contentContainer, { width: screenWidth * tabCount }, contentStyle]}
         >
           {React.Children.toArray(children).map((child, index) => (
-            <View key={index} style={{ width: screenWidth }}>
+            <View
+              key={index}
+              style={{ width: screenWidth }}
+              {...pageAccessibility(index, exposedIndex)}
+            >
               {lazy && !visitedRef.current.has(index) ? null : child}
             </View>
           ))}
@@ -448,6 +494,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.smPlus,
     paddingHorizontal: TAB_PADDING,
+    minHeight: layout.minTapTarget,
   },
   tabContent: {
     flexDirection: 'row',

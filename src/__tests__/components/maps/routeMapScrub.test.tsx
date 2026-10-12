@@ -132,27 +132,29 @@ afterEach(() => {
 });
 
 describe('scrubbing the route chart', () => {
-  const start = () => {
-    const view = render(map('a1'));
+  const start = async () => {
+    const view = await render(map('a1'));
     const page = mockPages.get('maplibre-map');
     if (!page) throw new Error('the map did not mount');
-    act(() => page.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await act(() =>
+      page.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } })
+    );
     mockPatches.length = 0;
     return view;
   };
 
-  const scrub = (view: ReturnType<typeof render>) => {
+  const scrub = async (view: Awaited<ReturnType<typeof render>>) => {
     for (const id of TICKS) {
-      view.rerender(map(id));
-      act(() => {
+      await view.rerender(map(id));
+      await act(() => {
         jest.advanceTimersByTime(20);
       });
     }
   };
 
-  it('never re-sends the attempts traces or the route after the map is up', () => {
-    const view = start();
-    scrub(view);
+  it('never re-sends the attempts traces or the route after the map is up', async () => {
+    const view = await start();
+    await scrub(view);
 
     const sent = mockPatches.filter((p) => p.patch !== null);
     expect(sent.length).toBeGreaterThan(0);
@@ -163,11 +165,11 @@ describe('scrubbing the route chart', () => {
     }
   });
 
-  it('filters the highlighted attempt out of the faded layer', () => {
-    const view = start();
+  it('filters the highlighted attempt out of the faded layer', async () => {
+    const view = await start();
     mockPatches.length = 0;
-    view.rerender(map('a3'));
-    act(() => {
+    await view.rerender(map('a3'));
+    await act(() => {
       jest.advanceTimersByTime(20);
     });
 

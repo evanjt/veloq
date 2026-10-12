@@ -4,6 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { EmptyState } from '@/shared/ui/EmptyState';
 import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -17,6 +18,8 @@ import {
   layout,
   colorWithOpacity,
   ink,
+  themedStyles,
+  type Palette,
 } from '@/theme';
 import {
   ChartCanvas,
@@ -36,10 +39,11 @@ import {
   type FormChartPoint,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { displayedDay } from '@/features/fitness/lib/pinnedDay';
-import { formatShortDate } from '@/shared/format/format';
+import { displayedDay, headerDay } from '@/features/fitness/lib/pinnedDay';
+import { formatLocalDate, formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { ABSENT } from '@/shared/format/absent';
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -70,6 +74,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const [selectedData, setSelectedData] = useState<FormChartPoint | null>(null);
   const onDateSelectRef = useRef(onDateSelect);
@@ -122,8 +127,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     }
   }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
-  if (chartData.length === 0) {
-    return null;
+  const newest = chartData[chartData.length - 1];
+  if (!newest) {
+    return <EmptyState variant="inline" title={t('fitness.noData')} />;
   }
 
   // Calculate domain - show at least -35 to 30
@@ -132,28 +138,33 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const maxForm = Math.max(30, ...formValues);
   const yDomain: [number, number] = [minForm, maxForm];
 
+  const header = headerDay({
+    selectedDate,
+    isActive,
+    selectedRowDate: selectedData?.date,
+    newestDate: newest.date,
+    today: formatLocalDate(new Date()),
+  });
   const displayData = displayedDay({
     selectedDate,
     isActive,
     selected: selectedData,
-    newest: chartData[chartData.length - 1],
+    newest,
   });
   // The series already carries the athlete's unit at full precision, so the thresholds apply as they are.
   const formZone = displayData && displayData.form !== null ? getFormZone(displayData.form) : null;
   const formText =
     displayData && displayData.form !== null
       ? `${signedForm(Math.round(displayData.form))}${asPercent ? '%' : ''}`
-      : '-';
+      : ABSENT;
 
   return (
     <View style={styles.container}>
       {/* Header with values - always visible */}
       <View style={styles.header}>
         <View style={styles.dateContainer}>
-          <Text style={[styles.dateText, isDark && styles.textLight]}>
-            {(isActive && selectedData) || selectedDate
-              ? formatShortDate(selectedData?.date || selectedDate || '')
-              : t('time.current')}
+          <Text testID="form-chart-day" style={[styles.dateText, isDark && styles.textLight]}>
+            {header.isToday ? t('time.today') : formatShortDate(header.date)}
           </Text>
         </View>
         <View style={styles.valuesRow}>
@@ -250,9 +261,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
         {ZONES.map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_MARK_COLORS[zone] }]} />
-            <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>
-              {formZoneLabel(zone)}
-            </Text>
+            <Text style={styles.zoneLabel}>{formZoneLabel(zone)}</Text>
           </View>
         ))}
       </View>
@@ -285,75 +294,76 @@ function ZoneBackground({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {},
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  dateContainer: {
-    flex: 1,
-  },
-  dateText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  valuesRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.sm,
-  },
-  formValue: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
-  },
-  zoneText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    left: 2,
-    justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    backgroundColor: colorWithOpacity(ink.white, 0.7),
-    paddingHorizontal: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-  },
-  axisLabelDark: {
-    color: darkColors.textPrimary,
-    backgroundColor: darkColors.surfaceOverlay,
-  },
-  zoneLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  zoneLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  zoneDot: {
-    width: 6,
-    height: 6,
-    borderRadius: layout.borderRadiusFull,
-    marginRight: spacing.xs,
-  },
-  zoneLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    dateContainer: {
+      flex: 1,
+    },
+    dateText: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    textLight: {
+      color: colors.textOnDark,
+    },
+    valuesRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: spacing.sm,
+    },
+    formValue: {
+      fontSize: typography.statsValueLarge.fontSize,
+      fontWeight: '700',
+    },
+    zoneText: {
+      fontSize: typography.caption.fontSize,
+      fontWeight: '500',
+    },
+    yAxisOverlay: {
+      position: 'absolute',
+      top: 4,
+      bottom: 4,
+      left: 2,
+      justifyContent: 'space-between',
+    },
+    axisLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      backgroundColor: colorWithOpacity(ink.white, 0.7),
+      paddingHorizontal: spacing.xxs,
+      borderRadius: layout.borderRadiusXs,
+    },
+    axisLabelDark: {
+      color: darkColors.textPrimary,
+      backgroundColor: darkColors.surfaceOverlay,
+    },
+    zoneLegend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    zoneLegendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    zoneDot: {
+      width: 6,
+      height: 6,
+      borderRadius: layout.borderRadiusFull,
+      marginRight: spacing.xs,
+    },
+    zoneLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+    },
+  });

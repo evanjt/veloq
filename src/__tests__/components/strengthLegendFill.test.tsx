@@ -53,8 +53,8 @@ jest.mock('expo-linear-gradient', () => {
   };
 });
 
-function draw() {
-  render(
+async function draw() {
+  await render(
     <StrengthBodyDiagram
       bodyData={[]}
       gender="male"
@@ -73,17 +73,17 @@ function draw() {
 }
 
 describe('the strength volume legend', () => {
-  it('starts from the dark untrained fill in the dark theme', () => {
+  it('starts from the dark untrained fill in the dark theme', async () => {
     mockIsDark = true;
-    const { untrained, legendZero } = draw();
+    const { untrained, legendZero } = await draw();
 
     expect(untrained).toBe(bodyDiagram.fillDark);
     expect(legendZero).toBe(untrained);
   });
 
-  it('starts from the light untrained fill in the light theme', () => {
+  it('starts from the light untrained fill in the light theme', async () => {
     mockIsDark = false;
-    const { untrained, legendZero } = draw();
+    const { untrained, legendZero } = await draw();
 
     expect(untrained).toBe(bodyDiagram.fillLight);
     expect(legendZero).toBe(untrained);

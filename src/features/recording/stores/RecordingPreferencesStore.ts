@@ -5,6 +5,8 @@ import { DEFAULT_AUTO_PAUSE_KMH } from '@/shared/recording/sportCategoryDetector
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
+import { DEFAULT_DATA_FIELDS, fieldsForMode, placeFieldInSlot } from '../lib/dataFields';
+
 const STORAGE_KEY = 'veloq-recording-preferences';
 
 /** GPS sampling presets: accuracy vs battery. Interval/distance mapping lives in lib/gpsConfig.ts. */
@@ -19,12 +21,6 @@ export const AUTO_PAUSE_DURATION_BOUNDS_MS = { min: 1000, max: 10_000 } as const
 export const AUTO_PAUSE_THRESHOLD_BOUNDS_KMH = { min: 0.5, max: 10 } as const;
 
 const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = DEFAULT_AUTO_PAUSE_KMH;
-
-const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
-  gps: ['speed', 'distance', 'heartrate', 'power'],
-  indoor: ['heartrate', 'power', 'cadence', 'timer'],
-  manual: ['timer', 'distance'],
-};
 
 interface RecordingPreferencesState {
   recentActivityTypes: ActivityType[];
@@ -61,6 +57,8 @@ interface RecordingPreferencesState {
   setAutoPause: (enabled: boolean) => void;
   setAutoPauseThreshold: (sport: string, kmh: number) => void;
   setDataFields: (mode: string, fields: DataFieldType[]) => void;
+  /** Shows `field` in tile `index` of a mode, swapping with the tile that already shows it. */
+  setSlotField: (mode: string, index: number, field: DataFieldType) => void;
   setAutoUpload: (enabled: boolean) => void;
   setGpsAccuracyMode: (mode: GpsAccuracyMode) => void;
   setAccuracyRejectThreshold: (metres: number) => void;
@@ -209,6 +207,17 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   setDataFields: (mode, fields) => {
     set((state) => {
       const updated = { ...state.dataFields, [mode]: fields };
+      persistPreferences({ ...state, dataFields: updated });
+      return { dataFields: updated };
+    });
+  },
+
+  setSlotField: (mode, index, field) => {
+    set((state) => {
+      const current = fieldsForMode(state.dataFields, mode);
+      const next = placeFieldInSlot(current, index, field);
+      if (next === current) return state;
+      const updated = { ...state.dataFields, [mode]: next };
       persistPreferences({ ...state, dataFields: updated });
       return { dataFields: updated };
     });

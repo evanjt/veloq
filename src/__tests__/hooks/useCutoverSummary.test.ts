@@ -121,8 +121,8 @@ function mount(fake: FakeEngine) {
 const POLL_INTERVAL_MS = 500;
 const TICKS = 20;
 
-function advance(ticks = TICKS) {
-  act(() => {
+async function advance(ticks = TICKS) {
+  await act(() => {
     jest.advanceTimersByTime(ticks * POLL_INTERVAL_MS);
   });
 }
@@ -137,9 +137,9 @@ describe('useCutoverSummary', () => {
     jest.useRealTimers();
   });
 
-  it('reports no engine as idle with no counts', () => {
+  it('reports no engine as idle with no counts', async () => {
     mockGetEngine.mockReturnValue(null);
-    const { result } = renderHook(() => useCutoverSummary());
+    const { result } = await renderHook(() => useCutoverSummary());
     expect(result.current).toEqual({
       phase: 'idle',
       isRunning: false,
@@ -149,9 +149,9 @@ describe('useCutoverSummary', () => {
     });
   });
 
-  it('reports the phase while the re-cut runs and withholds the counts', () => {
+  it('reports the phase while the re-cut runs and withholds the counts', async () => {
     const stored = counts({ current: 40, proposed: 42, changed: 3, new: 2 });
-    const { result } = mount(
+    const { result } = await mount(
       engine(
         () => ({ phase: 'detecting', running: true }),
         () => ({ counts: stored })
@@ -162,7 +162,7 @@ describe('useCutoverSummary', () => {
     expect(result.current.counts).toBeNull();
   });
 
-  it('picks up the counts when the engine announces the settle', () => {
+  it('picks up the counts when the engine announces the settle', async () => {
     let phase = 'diffing';
     let running = true;
     const stored = counts({
@@ -177,7 +177,7 @@ describe('useCutoverSummary', () => {
       () => ({ phase, running }),
       () => ({ counts: stored })
     );
-    const { result } = mount(fake);
+    const { result } = await mount(fake);
     expect(result.current.counts).toBeNull();
 
     phase = 'complete';
@@ -188,7 +188,7 @@ describe('useCutoverSummary', () => {
     expect(result.current.counts).toEqual(stored);
   });
 
-  it('replaces the first run numbers when a second run settles', () => {
+  it('replaces the first run numbers when a second run settles', async () => {
     let phase = 'detecting';
     let running = true;
     let stored = counts({ current: 10, proposed: 11, new: 1 });
@@ -196,7 +196,7 @@ describe('useCutoverSummary', () => {
       () => ({ phase, running }),
       () => ({ counts: stored })
     );
-    const { result } = mount(fake);
+    const { result } = await mount(fake);
     expect(result.current.counts).toBeNull();
 
     phase = 'complete';
@@ -209,14 +209,14 @@ describe('useCutoverSummary', () => {
     expect(result.current.counts).toEqual(stored);
   });
 
-  it('carries the settings reset with the counts and withholds it while a run is in flight', () => {
+  it('carries the settings reset with the counts and withholds it while a run is in flight', async () => {
     let phase = 'detecting';
     let running = true;
     const fake = engine(
       () => ({ phase, running }),
       () => ({ counts: counts({ current: 4, proposed: 4 }), settingsReset: RESET })
     );
-    const { result } = mount(fake);
+    const { result } = await mount(fake);
     expect(result.current.settingsReset).toBeNull();
 
     phase = 'complete';
@@ -230,8 +230,8 @@ describe('useCutoverSummary', () => {
     expect(result.current.settingsReset).toBeNull();
   });
 
-  it('reads a settled run without a reset as none', () => {
-    const { result } = mount(
+  it('reads a settled run without a reset as none', async () => {
+    const { result } = await mount(
       engine(
         () => ({ phase: 'complete', running: false }),
         () => ({ counts: counts({ current: 4, proposed: 4 }), settingsReset: null })
@@ -241,8 +241,8 @@ describe('useCutoverSummary', () => {
     expect(result.current.settingsReset).toBeNull();
   });
 
-  it('treats an unknown phase as idle', () => {
-    const { result } = mount(
+  it('treats an unknown phase as idle', async () => {
+    const { result } = await mount(
       engine(
         () => ({ phase: 'reticulating', running: false }),
         () => null
@@ -251,8 +251,8 @@ describe('useCutoverSummary', () => {
     expect(result.current.phase).toBe('idle');
   });
 
-  it('survives a diff the engine cannot give and a progress call that throws', () => {
-    const { result: noDiff } = mount(
+  it('survives a diff the engine cannot give and a progress call that throws', async () => {
+    const { result: noDiff } = await mount(
       engine(
         () => ({ phase: 'complete', running: false }),
         () => null
@@ -261,7 +261,7 @@ describe('useCutoverSummary', () => {
     expect(noDiff.current.counts).toBeNull();
     expect(noDiff.current.phase).toBe('complete');
 
-    const { result: thrown } = mount(
+    const { result: thrown } = await mount(
       engine(
         () => {
           throw new Error('worker died');
@@ -278,55 +278,55 @@ describe('useCutoverSummary', () => {
     });
   });
 
-  it('makes no engine call on a timer while nothing is running', () => {
+  it('makes no engine call on a timer while nothing is running', async () => {
     const fake = engine(
       () => ({ phase: 'idle', running: false }),
       () => ({ counts: counts({ current: 4, proposed: 6 }) })
     );
-    mount(fake);
+    await mount(fake);
     const progressAtMount = fake.getRoutesStatusData.mock.calls.length;
     const diffAtMount = fake.getCutoverDiff.mock.calls.length;
 
-    advance();
+    await advance();
 
     expect(fake.getRoutesStatusData.mock.calls.length).toBe(progressAtMount);
     expect(fake.getCutoverDiff.mock.calls.length).toBe(diffAtMount);
   });
 
-  it('follows the phase of a run in flight without reading the diff', () => {
+  it('follows the phase of a run in flight without reading the diff', async () => {
     let phase = 'draining';
     const fake = engine(
       () => ({ phase, running: true }),
       () => ({ counts: counts({ current: 4, proposed: 6 }) })
     );
-    const { result } = mount(fake);
+    const { result } = await mount(fake);
     const diffAtMount = fake.getCutoverDiff.mock.calls.length;
 
     phase = 'detecting';
-    advance(1);
+    await advance(1);
     expect(result.current.phase).toBe('detecting');
 
-    advance();
+    await advance();
     expect(fake.getCutoverDiff.mock.calls.length).toBe(diffAtMount);
   });
 
-  it('stops reading once a run gives up the slot', () => {
+  it('stops reading once a run gives up the slot', async () => {
     let running = true;
     const fake = engine(
       () => ({ phase: running ? 'detecting' : 'idle', running }),
       () => null
     );
-    mount(fake);
+    await mount(fake);
 
     running = false;
-    advance(1);
+    await advance(1);
     const afterSettle = fake.getRoutesStatusData.mock.calls.length;
 
-    advance();
+    await advance();
     expect(fake.getRoutesStatusData.mock.calls.length).toBe(afterSettle);
   });
 
-  it('counts the announced settle as a run it saw, even mounting after the start', () => {
+  it('counts the announced settle as a run it saw, even mounting after the start', async () => {
     // The event only fires for a run that reached a terminal phase, so hearing
     // it is proof of a run the mount read was too late to see.
     let phase = 'idle';
@@ -334,7 +334,7 @@ describe('useCutoverSummary', () => {
       () => ({ phase, running: false }),
       () => null
     );
-    const { result } = mount(fake);
+    const { result } = await mount(fake);
     expect(result.current.sawRun).toBe(false);
 
     phase = 'failed';
@@ -344,17 +344,17 @@ describe('useCutoverSummary', () => {
     expect(result.current.phase).toBe('failed');
   });
 
-  it('drops its subscription on unmount and reads nothing after it', () => {
+  it('drops its subscription on unmount and reads nothing after it', async () => {
     const fake = engine(
       () => ({ phase: 'detecting', running: true }),
       () => null
     );
-    const { unmount } = mount(fake);
+    const { unmount } = await mount(fake);
     const whileMounted = fake.getRoutesStatusData.mock.calls.length;
 
-    unmount();
+    await unmount();
     fake.announce('cutoverSettled');
-    advance();
+    await advance();
 
     expect(fake.liveListeners()).toBe(0);
     expect(fake.getRoutesStatusData.mock.calls.length).toBe(whileMounted);
@@ -394,41 +394,41 @@ describe('when the engine stops answering', () => {
     );
   }
 
-  it('carries the run through a read or two that failed', () => {
-    const { result } = mount(throwingAfterStart());
+  it('carries the run through a read or two that failed', async () => {
+    const { result } = await mount(throwingAfterStart());
     expect(result.current.isRunning).toBe(true);
 
-    advance(1);
+    await advance(1);
 
     expect(result.current.isRunning).toBe(true);
     expect(result.current.phase).toBe('detecting');
   });
 
-  it('settles the run once the reads stop coming back', () => {
-    const { result } = mount(throwingAfterStart());
+  it('settles the run once the reads stop coming back', async () => {
+    const { result } = await mount(throwingAfterStart());
     expect(result.current.isRunning).toBe(true);
 
-    advance();
+    await advance();
 
     expect(result.current.isRunning).toBe(false);
     expect(result.current.phase).toBe('idle');
   });
 
-  it('stops asking once it has settled', () => {
+  it('stops asking once it has settled', async () => {
     const fake = throwingAfterStart();
-    mount(fake);
+    await mount(fake);
 
-    advance();
+    await advance();
     const asked = fake.getRoutesStatusData.mock.calls.length;
-    advance();
+    await advance();
 
     expect(fake.getRoutesStatusData.mock.calls.length).toBe(asked);
   });
 
   /** An engine that answers `null` is the same as one that throws. */
-  it('settles on a read that answers nothing at all', () => {
+  it('settles on a read that answers nothing at all', async () => {
     let calls = 0;
-    const { result } = mount(
+    const { result } = await mount(
       engine(
         () => {
           calls += 1;
@@ -439,15 +439,15 @@ describe('when the engine stops answering', () => {
     );
     expect(result.current.isRunning).toBe(true);
 
-    advance();
+    await advance();
 
     expect(result.current.isRunning).toBe(false);
   });
 
   /** A failure that comes good is not a failure. */
-  it('forgets the failures once a read answers again', () => {
+  it('forgets the failures once a read answers again', async () => {
     let calls = 0;
-    const { result } = mount(
+    const { result } = await mount(
       engine(
         () => {
           calls += 1;
@@ -458,7 +458,7 @@ describe('when the engine stops answering', () => {
       )
     );
 
-    advance();
+    await advance();
 
     expect(result.current.isRunning).toBe(true);
   });

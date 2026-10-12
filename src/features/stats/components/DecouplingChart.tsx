@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { Button } from '@/shared/ui';
+import { Button, CardHeader, EmptyState } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
@@ -35,28 +35,20 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
   if (!source) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('stats.aerobicDecoupling')}
-          </Text>
-        </View>
+        <CardHeader title={t('stats.aerobicDecoupling')} />
         <View style={[styles.emptyState, { height }]}>
           {coverage === RangeCoverage.NotFetched ? (
-            <Text
+            <EmptyState
+              variant="inline"
               testID="decoupling-not-downloaded"
-              style={[styles.emptyText, isDark && styles.textDark]}
-            >
-              {t('stats.rangeNotDownloaded')}
-            </Text>
+              title={t('stats.rangeNotDownloaded')}
+            />
           ) : (
-            <>
-              <Text style={[styles.emptyText, isDark && styles.textDark]}>
-                {t('stats.noDecouplingData')}
-              </Text>
-              <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-                {t('stats.completeDecouplingHint')}
-              </Text>
-            </>
+            <EmptyState
+              variant="inline"
+              title={t('stats.noDecouplingData')}
+              description={t('stats.completeDecouplingHint')}
+            />
           )}
         </View>
       </View>
@@ -65,14 +57,14 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>
-          {t('stats.aerobicDecoupling')}
-        </Text>
-        <Text style={[styles.decouplingValue, isDark && styles.textLight]}>
-          {source.decoupling.toFixed(1)}%
-        </Text>
-      </View>
+      <CardHeader
+        title={t('stats.aerobicDecoupling')}
+        accessory={
+          <Text style={[styles.decouplingValue, isDark && styles.textLight]}>
+            {source.decoupling.toFixed(1)}%
+          </Text>
+        }
+      />
 
       <Button
         testID="decoupling-source"
@@ -95,17 +87,6 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
 
 const styles = StyleSheet.create({
   container: {},
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -135,16 +116,5 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
   },
 });

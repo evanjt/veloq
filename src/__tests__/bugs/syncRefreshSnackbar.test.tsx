@@ -19,21 +19,21 @@ function PulledScreen() {
   );
 }
 
-function pull() {
-  fireEvent.press(screen.getByTestId('pull'));
+async function pull() {
+  await fireEvent.press(screen.getByTestId('pull'));
 }
 
-function renderScreen() {
-  render(<PulledScreen />);
+async function renderScreen() {
+  await render(<PulledScreen />);
 }
 
-function advance(ms: number) {
-  act(() => jest.advanceTimersByTime(ms));
+async function advance(ms: number) {
+  await act(() => jest.advanceTimersByTime(ms));
 }
 
 // The snackbar fades out over a further animation once its time is up.
-function finishHiding() {
-  advance(300);
+async function finishHiding() {
+  await advance(300);
 }
 
 describe('pull to refresh snackbar', () => {
@@ -47,41 +47,41 @@ describe('pull to refresh snackbar', () => {
   it.each([
     [StartOutcome.Busy, 'refresh.busy'],
     [StartOutcome.Offline, 'refresh.offline'],
-  ])('shows the refusal %s in the snackbar for three seconds', (outcome, key) => {
+  ])('shows the refusal %s in the snackbar for three seconds', async (outcome, key) => {
     request.mockReturnValue(outcome);
-    renderScreen();
+    await renderScreen();
 
-    pull();
-    advance(2900);
+    await pull();
+    await advance(2900);
     expect(screen.getByTestId('sync-refresh-snackbar')).toHaveTextContent(key);
 
-    advance(100);
-    finishHiding();
+    await advance(100);
+    await finishHiding();
     expect(screen.queryByTestId('sync-refresh-snackbar')).toBeNull();
     expect(screen.queryByText(key)).toBeNull();
   });
 
-  it('restarts its time on a second pull rather than stacking', () => {
+  it('restarts its time on a second pull rather than stacking', async () => {
     request.mockReturnValue(StartOutcome.Busy);
-    renderScreen();
+    await renderScreen();
 
-    pull();
-    advance(2000);
-    pull();
-    advance(2000);
+    await pull();
+    await advance(2000);
+    await pull();
+    await advance(2000);
     expect(screen.getAllByTestId('sync-refresh-snackbar')).toHaveLength(1);
     expect(screen.getAllByText('refresh.busy')).toHaveLength(1);
 
-    advance(1000);
-    finishHiding();
+    await advance(1000);
+    await finishHiding();
     expect(screen.queryByTestId('sync-refresh-snackbar')).toBeNull();
   });
 
-  it('shows nothing when the pull starts a sync', () => {
+  it('shows nothing when the pull starts a sync', async () => {
     request.mockReturnValue(StartOutcome.Started);
-    renderScreen();
+    await renderScreen();
 
-    pull();
+    await pull();
     expect(screen.queryByTestId('sync-refresh-snackbar')).toBeNull();
   });
 });

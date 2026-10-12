@@ -8,21 +8,44 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 
-import { initialiseI18n } from '@/i18n';
+import { i18n, initialiseI18n } from '@/i18n';
 import { HeroNameRow } from '@/shared/ui/DetailHero';
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
 import { SectionsListFiltersBar } from '@/features/routes/components/SectionsListFiltersBar';
+import { SheetHeader } from '@/shared/ui/SheetHeader';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 import { GroupingParamPanel } from '@/features/routes/components/preview/GroupingParamPanel';
 import { DETECTION_PRESETS } from '@/features/routes/lib/detectionParams';
+import { FitnessChart } from '@/features/fitness/components/FitnessChart';
+import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import type { WellnessData } from '@/types';
+import { SearchBar } from '@/shared/ui/SearchBar';
+import { ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
+import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
+import { SummaryCard } from '@/features/home/components/SummaryCard';
+import { RoutesList } from '@/features/routes/components/RoutesList';
 import { layout } from '@/theme/layout';
 import { typography } from '@/theme';
+import type { GroupWithPolyline } from 'veloqrs';
 
-jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app/useTheme', () => ({
+  useTheme: () => ({ isDark: false, colors: require('@/theme').colors }),
+}));
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
+jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 30 }));
+jest.mock('@/features/routes/components/DataRangeFooter', () => ({
+  DataRangeFooter: () => null,
+}));
+jest.mock('@/features/routes/components/RouteRow', () => ({ RouteRow: () => null }));
+jest.mock('@/features/routes/lib/batchGroupToRouteGroup', () => ({
+  batchGroupToRouteGroup: (group: { groupId: string }) => ({ id: group.groupId, name: '' }),
+}));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 20, bottom: 0, left: 0, right: 0 }),
@@ -59,15 +82,15 @@ describe('tap-target floor', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('holds the rename save and cancel controls to the minimum', () => {
-    render(
+  it('holds the rename save and cancel controls to the minimum', async () => {
+    await render(
       <HeroNameRow
         name="Lake loop"
         editable={{
           isEditing: true,
           editName: 'Lake loop',
           inputRef: { current: null },
-          placeholder: 'Name',
+          label: 'Name',
           testIDPrefix: 'route',
           onStartEdit: jest.fn(),
           onSave: jest.fn(),
@@ -87,17 +110,37 @@ describe('tap-target floor', () => {
     }
   });
 
-  it('holds the track notice dismiss to the minimum height', () => {
+  it('holds the sheet title row Cancel and confirm to the minimum', async () => {
+    await render(
+      <SheetHeader
+        title="Edit distance"
+        onCancel={jest.fn()}
+        cancelTestID="sheet-cancel"
+        confirm={{ label: 'Save', onPress: jest.fn(), testID: 'sheet-confirm' }}
+      />
+    );
+
+    for (const control of [
+      screen.getByTestId('sheet-cancel'),
+      screen.getByTestId('sheet-confirm'),
+    ]) {
+      const { width, height } = reach(control);
+      expect(width).toBeGreaterThanOrEqual(layout.minTapTarget);
+      expect(height).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
+  });
+
+  it('holds the track notice dismiss to the minimum height', async () => {
     useTrackFetchNotice.setState({ failedIds: [], failedCount: 2, dismissed: false });
-    render(<TrackFetchNotice />);
+    await render(<TrackFetchNotice />);
 
     expect(reach(screen.getByTestId('track-fetch-notice-dismiss')).height).toBeGreaterThanOrEqual(
       layout.minTapTarget
     );
   });
 
-  it('holds the feed filter chips to the minimum height', () => {
-    render(
+  it('holds the feed filter chips to the minimum height', async () => {
+    await render(
       <FeedFilterChips
         selected={new Set()}
         onSelect={jest.fn()}
@@ -110,8 +153,8 @@ describe('tap-target floor', () => {
     expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('holds each sections filter chip to the minimum height', () => {
-    const { getAllByRole } = render(
+  it('holds each sections filter chip to the minimum height', async () => {
+    const { getAllByRole } = await render(
       <SectionsListFiltersBar
         regularSectionsCount={2}
         sortOption="name"
@@ -142,14 +185,14 @@ describe('tap-target floor', () => {
     }
   });
 
-  it('holds every preview parameter caption that opens the editor to the minimum height', () => {
-    const detection = render(
+  it('holds every preview parameter caption that opens the editor to the minimum height', async () => {
+    const detection = await render(
       <PreviewParamPanel params={{ ...DETECTION_PRESETS.default }} onChange={jest.fn()} />
     );
     const detectionEdits = Object.keys(DETECTION_PRESETS.default).map((key) =>
       detection.getByTestId(`param-edit-${key}`)
     );
-    const grouping = render(
+    const grouping = await render(
       <GroupingParamPanel
         params={{ minMatchPercentage: 65, endpointThreshold: 200 }}
         onChange={jest.fn()}
@@ -161,6 +204,133 @@ describe('tap-target floor', () => {
 
     for (const edit of [...detectionEdits, ...groupingEdits]) {
       expect(reach(edit).height).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
+  });
+
+  it('holds the fitness legend toggles to the minimum height', async () => {
+    const days = [
+      { id: '2026-04-01', ctl: 40, atl: 48 },
+      { id: '2026-04-02', ctl: 41, atl: 49 },
+    ] as WellnessData[];
+    await render(<FitnessChart data={days} />);
+
+    for (const label of ['fitness.fitnessCTL', 'fitness.fatigueATL'] as const) {
+      expect(reach(screen.getByLabelText(i18n.t(label))).height).toBeGreaterThanOrEqual(
+        layout.minTapTarget
+      );
+    }
+  });
+
+  it('holds the section tooltip exclude and include controls to the minimum', async () => {
+    const point = {
+      id: 'p1',
+      activityId: 'a1',
+      speed: 4,
+      date: new Date('2026-01-01T00:00:00Z'),
+      activityName: 'Harbour loop',
+      direction: 'same' as const,
+      sectionTime: 200,
+      isBest: false,
+      x: 0,
+    };
+    const tooltip = (isExcluded: boolean) => (
+      <PerformanceTooltip
+        selectedPoint={{ ...point, isExcluded }}
+        isDark={false}
+        basis="pace"
+        activityColor="#000000"
+        onClearSelection={jest.fn()}
+        onSetAsReference={jest.fn()}
+        onExcludeActivity={jest.fn()}
+        onIncludeActivity={jest.fn()}
+      />
+    );
+
+    const { rerender } = await render(tooltip(false));
+    for (const label of ['sections.excludeActivity', 'sections.setAsReference'] as const) {
+      const { width, height } = reach(screen.getByLabelText(i18n.t(label)));
+      expect(width).toBeGreaterThanOrEqual(layout.minTapTarget);
+      expect(height).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
+
+    await rerender(tooltip(true));
+    const { width, height } = reach(screen.getByLabelText(i18n.t('sections.includeActivity')));
+    expect(width).toBeGreaterThanOrEqual(layout.minTapTarget);
+    expect(height).toBeGreaterThanOrEqual(layout.minTapTarget);
+  });
+
+  it('holds the search field to the minimum height and names it', () => {
+    render(
+      <SearchBar value="" onChangeText={jest.fn()} placeholder="Search routes" testID="search" />
+    );
+
+    const input = screen.getByTestId('search');
+    expect(reach(input).height).toBeGreaterThanOrEqual(layout.minTapTarget);
+    expect(input.props.accessibilityLabel).toBe('Search routes');
+  });
+
+  it('holds every chart chip to the minimum height, with or without its value', () => {
+    const available = Object.values(CHART_CONFIGS).filter((config) =>
+      ['power', 'heartrate', 'speed'].includes(config.id)
+    );
+    for (const metricValues of [[], [{ id: 'power', value: '245', unit: 'W' }]]) {
+      const { unmount } = render(
+        <ChartTypeSelector
+          available={available}
+          selected={['power']}
+          onToggle={jest.fn()}
+          metricValues={metricValues}
+        />
+      );
+      for (const config of available) {
+        expect(reach(screen.getByTestId(`chart-type-${config.id}`)).height).toBeGreaterThanOrEqual(
+          layout.minTapTarget
+        );
+      }
+      unmount();
+    }
+  });
+
+  it('holds a summary card metric to the minimum height', async () => {
+    render(
+      <SummaryCard
+        onProfilePress={jest.fn()}
+        heroValue={42}
+        heroLabel="Fitness"
+        heroColor="#000"
+        showSparkline={false}
+        supportingMetrics={[{ label: 'Form', value: '-3', navigationTarget: '/fitness' }]}
+      />
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(reach(screen.getByTestId('summary-card-metric-0')).height).toBeGreaterThanOrEqual(
+      layout.minTapTarget
+    );
+  });
+
+  it('holds each routes sort chip to the minimum height', () => {
+    const group = (groupId: string) => ({ groupId }) as unknown as GroupWithPolyline;
+    render(
+      <RoutesList
+        batchGroups={[group('a'), group('b')]}
+        sortOption="activities"
+        onSortChange={jest.fn()}
+        searchQuery=""
+        onSearchChange={jest.fn()}
+        totalGroupCount={2}
+        shownGroupCount={2}
+      />
+    );
+
+    const chips = screen
+      .getAllByRole('button')
+      .filter((node) => node.props.accessibilityState?.selected !== undefined);
+    expect(chips.length).toBeGreaterThan(1);
+    for (const chip of chips) {
+      expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
   });
 });

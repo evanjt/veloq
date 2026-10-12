@@ -48,9 +48,9 @@ afterEach(() => {
 });
 
 describe('the screen error fallback label', () => {
-  it('is not shown, while the crash log still receives it', () => {
+  it('is not shown, while the crash log still receives it', async () => {
     canGoBack.mockReturnValue(false);
-    const { queryByText, getByText } = render(
+    const { queryByText, getByText } = await render(
       <ScreenErrorBoundary screenName="BackupSettings">
         <Broken />
       </ScreenErrorBoundary>

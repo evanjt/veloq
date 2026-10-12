@@ -18,28 +18,34 @@ describe('useDrawnMapStyle', () => {
     mockDark = false;
   });
 
-  it('draws satellite online', () => {
-    expect(renderHook(() => useDrawnMapStyle('satellite')).result.current).toBe('satellite');
+  it('draws satellite online', async () => {
+    expect(await (await renderHook(() => useDrawnMapStyle('satellite'))).result.current).toBe(
+      'satellite'
+    );
   });
 
-  it('draws the theme vector basemap offline', () => {
+  it('draws the theme vector basemap offline', async () => {
     mockOnline = false;
-    expect(renderHook(() => useDrawnMapStyle('satellite')).result.current).toBe('light');
+    expect(await (await renderHook(() => useDrawnMapStyle('satellite'))).result.current).toBe(
+      'light'
+    );
     mockDark = true;
-    expect(renderHook(() => useDrawnMapStyle('satellite')).result.current).toBe('dark');
+    expect(await (await renderHook(() => useDrawnMapStyle('satellite'))).result.current).toBe(
+      'dark'
+    );
   });
 
-  it('follows the connection coming back', () => {
+  it('follows the connection coming back', async () => {
     mockOnline = false;
-    const { result, rerender } = renderHook(() => useDrawnMapStyle('satellite'));
+    const { result, rerender } = await renderHook(() => useDrawnMapStyle('satellite'));
     expect(result.current).toBe('light');
     mockOnline = true;
-    rerender({});
+    await rerender({});
     expect(result.current).toBe('satellite');
   });
 
-  it('leaves a vector choice alone offline', () => {
+  it('leaves a vector choice alone offline', async () => {
     mockOnline = false;
-    expect(renderHook(() => useDrawnMapStyle('dark')).result.current).toBe('dark');
+    expect(await (await renderHook(() => useDrawnMapStyle('dark'))).result.current).toBe('dark');
   });
 });

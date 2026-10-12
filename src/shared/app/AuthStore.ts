@@ -118,17 +118,17 @@ export async function releasePushRegistration(
       return;
     }
     useNotificationPreferences.getState().clearPendingUnregister();
-    const { Alert } = require('react-native');
+    const { inform } = require('@/shared/ui/dialog');
     const { i18n } = require('@/i18n');
-    Alert.alert(
-      i18n.t('notifications.stillRegisteredTitle', {
+    inform({
+      title: i18n.t('notifications.stillRegisteredTitle', {
         defaultValue: 'Notifications may continue',
       }),
-      i18n.t('notifications.stillRegisteredMessage', {
+      message: i18n.t('notifications.stillRegisteredMessage', {
         defaultValue:
           'Veloq could not reach the notification server while signing out. This device may still receive notifications for your activities for up to 30 days.',
-      })
-    );
+      }),
+    });
   } catch {
     // Push token cleanup is best-effort
   }
